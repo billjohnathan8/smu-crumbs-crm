@@ -1,0 +1,73 @@
+openapi: 3.0.3
+info:
+  title: log
+  version: 1.0-SNAPSHOT
+servers:
+  - url: TODO
+    description: TODO: No HTTP server/port found for this Lambda-based service in `backend/log/src/main/java/com/cs301g2t1/log/LogHandler.java`. Confirm whether an API Gateway/ALB exposes HTTP endpoints.
+tags:
+  - name: SQS
+    description: SQS-triggered log operations (not HTTP endpoints).
+paths: {}
+components:
+  schemas:
+    LogEntry:
+      type: object
+      description: DynamoDB-backed log entry.
+      properties:
+        id:
+          type: string
+          description: Log entry ID (UUID string). Partition key.
+        operation:
+          type: string
+          description: Operation name (e.g., CREATE/UPDATE/DELETE) captured in the log entry.
+        attributeName:
+          type: string
+        beforeValue:
+          type: string
+        afterValue:
+          type: string
+        agentId:
+          type: string
+          description: Agent ID stored as string; helper methods convert to Long in Java.
+        clientId:
+          type: string
+          description: Client ID stored as string; helper methods convert to Long in Java.
+        dateTimeStr:
+          type: string
+          format: date-time
+          description: Log timestamp stored as ISO-8601 string; annotated as sort key in the DynamoDB model.
+        expireAt:
+          type: integer
+          format: int64
+          description: TTL epoch seconds; used by DynamoDB TTL and `TTLIndex` secondary index.
+    LogRequest:
+      type: object
+      description: SQS message body parsed by `LogHandler`.
+      properties:
+        operation:
+          type: string
+          enum: [GET, POST, PUT, DELETE]
+          description: Determines which CRUD action the Lambda performs.
+        logEntryId:
+          type: integer
+          format: int64
+          description: Required for GET/PUT/DELETE operations.
+        logEntry:
+          $ref: '#/components/schemas/LogEntry'
+      required:
+        - operation
+    Response:
+      type: object
+      description: Response wrapper defined in the codebase but not used by the Lambda handler.
+      properties:
+        result:
+          type: boolean
+        errorMessage:
+          type: string
+        data:
+          $ref: '#/components/schemas/LogEntry'
+    ErrorResponse:
+      type: object
+      description: TODO: No HTTP error response shape is defined for this Lambda; errors are logged and exceptions are thrown.
+      additionalProperties: true
