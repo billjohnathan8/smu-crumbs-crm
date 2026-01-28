@@ -17,7 +17,7 @@ docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=client
 
 ### 2) Run the service
 ```powershell
-cd "c:\Users\user\OneDrive\Documents\GitHub\project-2025-26-t2-project-2025-26t2-g2-t3\services\clients-service"
+cd services/clients-service
 .\gradlew.bat bootRun
 ```
 
