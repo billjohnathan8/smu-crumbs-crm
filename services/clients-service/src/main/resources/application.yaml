@@ -1,16 +1,26 @@
 spring:
   application:
     name: clients-service
+
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/clients}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
-  flyway:
-    enabled: true
+    url: jdbc:postgresql://localhost:5432/clients
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: validate   # keeps Hibernate validating tables after Flyway runs
+    show-sql: true        # optional, useful for debugging
     open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true   # REQUIRED: initializes schema history if schema is non-empty
+    locations: classpath:db/migration  # default location for migration scripts
 
 server:
-  port: ${SERVER_PORT:8080}
+  port: 8080
