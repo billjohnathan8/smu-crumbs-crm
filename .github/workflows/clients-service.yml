@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  test-logic:
+  unit-tests:
     runs-on: ubuntu-latest
     
     # Setting the base directory so gradle knows where to look
