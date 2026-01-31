@@ -101,3 +101,4 @@ Request:
   Replace this with OAuth2/JWT config later.
 - Flyway runs automatically on startup and applies `V1__create_clients.sql`.
 
+testing ci
