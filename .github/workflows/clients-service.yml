@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'services/clients-service/**'
+  workflow_dispatch:
 
 jobs:
   test-logic:
