@@ -39,5 +39,5 @@ jobs:
         with:
           context: services/clients-service
           push: true
-
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/cs301-g2-t3/clients-service:latest
+          
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/clients-service:latest
