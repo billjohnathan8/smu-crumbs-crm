@@ -24,7 +24,6 @@ class ClientsServiceApplicationTests {
 
 	@Test
 	void contextLoads() {
-		fail("Intentional test failure to test CI/CD pipeline");
 	}
 
 }
