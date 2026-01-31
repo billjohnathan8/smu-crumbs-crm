@@ -3,7 +3,7 @@ name: Client Service - Unit Test CI
 on:
   push:
     paths:
-      - 'services/client-service/**'
+      - 'services/clients-service/**'
 
 jobs:
   test-logic:
@@ -12,7 +12,7 @@ jobs:
     # Setting the base directory so gradle knows where to look
     defaults:
       run:
-        working-directory: services/client-service
+        working-directory: services/clients-service
 
     steps:
       - name: Check out code
