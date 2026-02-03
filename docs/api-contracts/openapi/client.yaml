@@ -4,10 +4,10 @@ info:
   version: 0.1.0
 servers:
   - url: http://localhost:{port}/api/v1
-    description: TODO set port from service configuration (server port not defined in repo files).
+    description: Local clients-service endpoint.
     variables:
       port:
-        default: "TODO"
+        default: "8080"
 paths:
   /health:
     get:
@@ -15,6 +15,20 @@ paths:
         - health
       summary: Health check
       description: Returns a simple JSON string indicating the service is up.
+      responses:
+        "200":
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                type: string
+              example: '{ "status": "ok" }'
+  /clients/health:
+    get:
+      tags:
+        - health
+      summary: Clients route health check
+      description: Returns a simple JSON string indicating the clients route is reachable.
       responses:
         "200":
           description: Service is healthy.
@@ -42,7 +56,7 @@ paths:
       tags:
         - clients
       summary: Create client
-      description: Creates a client and writes an audit log to SQS. The agentId is supplied in the request body and used for logging only.
+      description: Creates a client and writes an audit log to log-service via HTTP. The agentId is supplied in the request body and used for logging only.
       requestBody:
         required: true
         content:
@@ -88,7 +102,7 @@ paths:
       tags:
         - clients
       summary: Update client
-      description: Updates a client by ID and writes an audit log to SQS. The agentId is supplied in the request body and used for logging only.
+      description: Updates a client by ID and writes an audit log to log-service via HTTP. The agentId is supplied in the request body and used for logging only.
       parameters:
         - name: id
           in: path
@@ -121,7 +135,7 @@ paths:
       tags:
         - clients
       summary: Delete client
-      description: Deletes a client by ID and writes an audit log to SQS. The agentId is optionally supplied in the request body and used for logging only.
+      description: Deletes a client by ID and writes an audit log to log-service via HTTP. The agentId is optionally supplied in the request body and used for logging only.
       parameters:
         - name: id
           in: path

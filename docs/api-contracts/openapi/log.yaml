@@ -1,73 +1,99 @@
 openapi: 3.0.3
 info:
-  title: log
-  version: 1.0-SNAPSHOT
+  title: log-service
+  version: 1.0.0
 servers:
-  - url: TODO
-    description: TODO: No HTTP server/port found for this Lambda-based service in `backend/log/src/main/java/com/cs301g2t1/log/LogHandler.java`. Confirm whether an API Gateway/ALB exposes HTTP endpoints.
-tags:
-  - name: SQS
-    description: SQS-triggered log operations (not HTTP endpoints).
-paths: {}
+  - url: http://localhost
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /api/v1/logs/health:
+    get:
+      tags: [health]
+      summary: Health check under logs prefix
+      responses:
+        "200":
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /api/v1/logs:
+    post:
+      tags: [logs]
+      summary: Ingest a log event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogEventRequest"
+      responses:
+        "201":
+          description: Log event persisted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogEventResponse"
+        "500":
+          description: Failed to persist log event.
 components:
   schemas:
-    LogEntry:
+    HealthResponse:
       type: object
-      description: DynamoDB-backed log entry.
       properties:
-        id:
+        status:
           type: string
-          description: Log entry ID (UUID string). Partition key.
-        operation:
+      required: [status]
+    LogEventRequest:
+      type: object
+      properties:
+        source:
           type: string
-          description: Operation name (e.g., CREATE/UPDATE/DELETE) captured in the log entry.
-        attributeName:
+          minLength: 1
+          maxLength: 120
+        action:
           type: string
-        beforeValue:
+          minLength: 1
+          maxLength: 40
+        entityType:
           type: string
-        afterValue:
-          type: string
+          minLength: 1
+          maxLength: 60
+        entityId:
+          type: integer
+          format: int64
+          nullable: true
         agentId:
           type: string
-          description: Agent ID stored as string; helper methods convert to Long in Java.
-        clientId:
+          nullable: true
+        message:
           type: string
-          description: Client ID stored as string; helper methods convert to Long in Java.
-        dateTimeStr:
+          nullable: true
+        payload:
+          type: object
+          additionalProperties: true
+          nullable: true
+        occurredAt:
           type: string
           format: date-time
-          description: Log timestamp stored as ISO-8601 string; annotated as sort key in the DynamoDB model.
-        expireAt:
-          type: integer
-          format: int64
-          description: TTL epoch seconds; used by DynamoDB TTL and `TTLIndex` secondary index.
-    LogRequest:
-      type: object
-      description: SQS message body parsed by `LogHandler`.
-      properties:
-        operation:
-          type: string
-          enum: [GET, POST, PUT, DELETE]
-          description: Determines which CRUD action the Lambda performs.
-        logEntryId:
-          type: integer
-          format: int64
-          description: Required for GET/PUT/DELETE operations.
-        logEntry:
-          $ref: '#/components/schemas/LogEntry'
       required:
-        - operation
-    Response:
+        - source
+        - action
+        - entityType
+    LogEventResponse:
       type: object
-      description: Response wrapper defined in the codebase but not used by the Lambda handler.
       properties:
-        result:
-          type: boolean
-        errorMessage:
-          type: string
-        data:
-          $ref: '#/components/schemas/LogEntry'
-    ErrorResponse:
-      type: object
-      description: TODO: No HTTP error response shape is defined for this Lambda; errors are logged and exceptions are thrown.
-      additionalProperties: true
+        id:
+          type: integer
+          format: int64
+      required: [id]
