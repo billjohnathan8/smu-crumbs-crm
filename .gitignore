@@ -52,8 +52,15 @@ terraform.rc
 
 # Python / pytest cache
 .python-build-test-venvs
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*$py.class
 .pytest_cache/
 **/.pytest_cache/
+pytest-cache-files-*/
 
 # Private Keys - do not commit any secrets
 *.pem
