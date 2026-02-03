@@ -44,10 +44,15 @@ terraform.rc
 # Uncomment the line below if you want to ignore planout files.
 # planout
 
+# Private Keys - do not commit any secrets
+*.pem
+*.key
+id_rsa
+*.ppk
+
 # Others
 .DS_Store
 .env
-*.pem
 
 # Ignore IDE Configs
 .vscode/
