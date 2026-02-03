@@ -30,6 +30,34 @@ function Invoke-CommandChecked {
     }
 }
 
+function Get-ServiceType {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ServicePath
+    )
+
+    if (Test-Path (Join-Path $ServicePath "gradlew.bat")) {
+        return "gradle"
+    }
+
+    if ((Test-Path (Join-Path $ServicePath "requirements.txt")) -and (Test-Path (Join-Path $ServicePath "tests"))) {
+        return "python"
+    }
+
+    return $null
+}
+
+function Get-PythonCommand {
+    $candidates = @("python", "py")
+    foreach ($candidate in $candidates) {
+        if (Get-Command $candidate -ErrorAction SilentlyContinue) {
+            return $candidate
+        }
+    }
+
+    return $null
+}
+
 function Get-DockerMappedPort {
     param(
         [Parameter(Mandatory = $true)]
@@ -114,20 +142,36 @@ function Test-HttpHealthOnce {
 function Test-RequiresPostgres {
     param(
         [Parameter(Mandatory = $true)]
-        [string]$ServicePath
+        [string]$ServicePath,
+        [Parameter(Mandatory = $true)]
+        [string]$ServiceType
     )
 
     $buildGradle = Join-Path $ServicePath "build.gradle"
     $applicationYaml = Join-Path $ServicePath "src\main\resources\application.yaml"
+    $requirementsTxt = Join-Path $ServicePath "requirements.txt"
+    $configPy = Join-Path $ServicePath "app\config.py"
 
-    if (Test-Path $buildGradle) {
+    if ($ServiceType -eq "gradle" -and (Test-Path $buildGradle)) {
         if (Select-String -Path $buildGradle -Pattern "postgresql" -SimpleMatch -Quiet) {
             return $true
         }
     }
 
-    if (Test-Path $applicationYaml) {
+    if ($ServiceType -eq "gradle" -and (Test-Path $applicationYaml)) {
         if (Select-String -Path $applicationYaml -Pattern "datasource|postgresql" -Quiet) {
+            return $true
+        }
+    }
+
+    if ($ServiceType -eq "python" -and (Test-Path $requirementsTxt)) {
+        if (Select-String -Path $requirementsTxt -Pattern "psycopg|postgres" -Quiet) {
+            return $true
+        }
+    }
+
+    if ($ServiceType -eq "python" -and (Test-Path $configPy)) {
+        if (Select-String -Path $configPy -Pattern "DB_HOST|DB_PORT|DB_NAME|DB_USER|DB_PASSWORD" -Quiet) {
             return $true
         }
     }
@@ -140,7 +184,9 @@ function Test-DockerServiceHealthy {
         [Parameter(Mandatory = $true)]
         [string]$ServiceName,
         [Parameter(Mandatory = $true)]
-        [string]$ServicePath
+        [string]$ServicePath,
+        [Parameter(Mandatory = $true)]
+        [string]$ServiceType
     )
 
     $safeName = ($ServiceName.ToLower() -replace "[^a-z0-9]+", "-").Trim("-")
@@ -149,8 +195,8 @@ function Test-DockerServiceHealthy {
     $appContainer = "ci-$safeName-app-$suffix"
     $networkName = "ci-$safeName-net-$suffix"
     $dbContainer = "ci-$safeName-db-$suffix"
-    $dbName = $safeName
-    $requiresPostgres = Test-RequiresPostgres -ServicePath $ServicePath
+    $dbName = $safeName -replace "-", "_"
+    $requiresPostgres = Test-RequiresPostgres -ServicePath $ServicePath -ServiceType $ServiceType
     $port = $null
 
     try {
@@ -194,13 +240,29 @@ function Test-DockerServiceHealthy {
 
         Write-Log "[$ServiceName] Docker container run started"
         if ($requiresPostgres) {
-            $datasourceUrl = "jdbc:postgresql://${dbContainer}:5432/$dbName"
-            Invoke-CommandChecked -ErrorMessage "Docker container start failed" -Command {
-                docker run -d --name $appContainer --network $networkName -P `
-                    -e "SPRING_DATASOURCE_URL=$datasourceUrl" `
-                    -e "SPRING_DATASOURCE_USERNAME=postgres" `
-                    -e "SPRING_DATASOURCE_PASSWORD=postgres" `
-                    $imageTag | Out-Null
+            if ($ServiceType -eq "gradle") {
+                $datasourceUrl = "jdbc:postgresql://${dbContainer}:5432/$dbName"
+                Invoke-CommandChecked -ErrorMessage "Docker container start failed" -Command {
+                    docker run -d --name $appContainer --network $networkName -P `
+                        -e "SPRING_DATASOURCE_URL=$datasourceUrl" `
+                        -e "SPRING_DATASOURCE_USERNAME=postgres" `
+                        -e "SPRING_DATASOURCE_PASSWORD=postgres" `
+                        $imageTag | Out-Null
+                }
+            }
+            elseif ($ServiceType -eq "python") {
+                Invoke-CommandChecked -ErrorMessage "Docker container start failed" -Command {
+                    docker run -d --name $appContainer --network $networkName -P `
+                        -e "DB_HOST=$dbContainer" `
+                        -e "DB_PORT=5432" `
+                        -e "DB_NAME=$dbName" `
+                        -e "DB_USER=postgres" `
+                        -e "DB_PASSWORD=postgres" `
+                        $imageTag | Out-Null
+                }
+            }
+            else {
+                throw "Unsupported service type for PostgreSQL wiring: $ServiceType"
             }
         }
         else {
@@ -260,7 +322,7 @@ function Test-DockerServiceHealthy {
 }
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$repoRoot = Split-Path -Parent $scriptDir
+$repoRoot = Split-Path -Parent (Split-Path -Parent $scriptDir)
 $backendRoot = Join-Path $repoRoot "services\backend"
 $gradleUserHome = Join-Path $repoRoot ".gradle-user-home"
 
@@ -275,19 +337,44 @@ if (-not (Test-Path $backendRoot)) {
     exit 1
 }
 
-$services = Get-ChildItem -Path $backendRoot -Directory | Where-Object {
-    Test-Path (Join-Path $_.FullName "gradlew.bat")
+$services = Get-ChildItem -Path $backendRoot -Directory | ForEach-Object {
+    $serviceType = Get-ServiceType -ServicePath $_.FullName
+    if ($null -ne $serviceType) {
+        [PSCustomObject]@{
+            Name        = $_.Name
+            FullName    = $_.FullName
+            ServiceType = $serviceType
+        }
+    }
 } | Sort-Object Name
 
 if (-not $services) {
-    Write-Log "No Gradle backend services found under $backendRoot"
+    Write-Log "No supported backend services found under $backendRoot"
     exit 1
 }
 
 $results = @()
 $hasFailures = $false
 
-Write-Log "Discovered $($services.Count) Gradle backend service(s)."
+Write-Log "Discovered $($services.Count) backend service(s):"
+foreach ($discoveredService in $services) {
+    Write-Log "  - $($discoveredService.Name) [$($discoveredService.ServiceType)]"
+}
+
+$pythonCommand = $null
+$pythonServices = @($services | Where-Object { $_.ServiceType -eq "python" })
+$pythonVenvRoot = Join-Path $repoRoot ".python-build-test-venvs"
+if ($pythonServices.Count -gt 0) {
+    $pythonCommand = Get-PythonCommand
+    if (-not $pythonCommand) {
+        Write-Log "Python service(s) detected but no Python runtime found in PATH."
+        exit 1
+    }
+
+    if (-not (Test-Path $pythonVenvRoot)) {
+        New-Item -ItemType Directory -Path $pythonVenvRoot | Out-Null
+    }
+}
 
 $dockerAvailable = $false
 if (Get-Command docker -ErrorAction SilentlyContinue) {
@@ -307,21 +394,41 @@ if (-not $dockerAvailable) {
 foreach ($service in $services) {
     $servicePath = $service.FullName
     $serviceName = $service.Name
+    $serviceType = $service.ServiceType
     $buildStatus = "PASS"
     $testStatus = "PASS"
     $dockerStatus = "PASS"
 
-    Write-Log "==> Service: $serviceName"
+    Write-Log "==> Service: $serviceName [$serviceType]"
 
     Push-Location $servicePath
     try {
-        Write-Log "[$serviceName] Build started"
-        Invoke-CommandChecked -ErrorMessage "Build failed" -Command { .\gradlew.bat clean assemble --no-daemon --console=plain --gradle-user-home "$gradleUserHome" }
-        Write-Log "[$serviceName] Build passed"
+        if ($serviceType -eq "gradle") {
+            Write-Log "[$serviceName] Build started"
+            Invoke-CommandChecked -ErrorMessage "Build failed" -Command { .\gradlew.bat clean assemble --no-daemon --console=plain --gradle-user-home "$gradleUserHome" }
+            Write-Log "[$serviceName] Build passed"
 
-        Write-Log "[$serviceName] Unit tests started"
-        Invoke-CommandChecked -ErrorMessage "Unit tests failed" -Command { .\gradlew.bat test --no-daemon --console=plain --gradle-user-home "$gradleUserHome" }
-        Write-Log "[$serviceName] Unit tests passed"
+            Write-Log "[$serviceName] Unit tests started"
+            Invoke-CommandChecked -ErrorMessage "Unit tests failed" -Command { .\gradlew.bat test --no-daemon --console=plain --gradle-user-home "$gradleUserHome" }
+            Write-Log "[$serviceName] Unit tests passed"
+        }
+        elseif ($serviceType -eq "python") {
+            $serviceVenvPath = Join-Path $pythonVenvRoot $serviceName
+            $serviceVenvPython = Join-Path $serviceVenvPath "Scripts\python.exe"
+
+            Write-Log "[$serviceName] Build started (Python environment setup)"
+            Invoke-CommandChecked -ErrorMessage "Build failed" -Command { & $pythonCommand -m venv "$serviceVenvPath" }
+            Invoke-CommandChecked -ErrorMessage "Build failed" -Command { & "$serviceVenvPython" -m pip install --upgrade pip }
+            Invoke-CommandChecked -ErrorMessage "Build failed" -Command { & "$serviceVenvPython" -m pip install -r "requirements.txt" }
+            Write-Log "[$serviceName] Build passed"
+
+            Write-Log "[$serviceName] Unit tests started (pytest)"
+            Invoke-CommandChecked -ErrorMessage "Unit tests failed" -Command { & "$serviceVenvPython" -m pytest -q }
+            Write-Log "[$serviceName] Unit tests passed"
+        }
+        else {
+            throw "Build failed: unsupported service type '$serviceType'"
+        }
     }
     catch {
         $message = $_.Exception.Message
@@ -363,7 +470,7 @@ foreach ($service in $services) {
         else {
             try {
                 Write-Log "[$serviceName] Docker health check started"
-                Test-DockerServiceHealthy -ServiceName $serviceName -ServicePath $servicePath
+                Test-DockerServiceHealthy -ServiceName $serviceName -ServicePath $servicePath -ServiceType $serviceType
                 Write-Log "[$serviceName] Docker health check passed"
             }
             catch {
