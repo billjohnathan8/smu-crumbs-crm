@@ -106,7 +106,7 @@ This document defines the **end-to-end technology stack** for building the proje
 
 ### 6.4 Service Contracts
 - **OpenAPI 3.x** per service
-- Contract stored in `/contracts/<service>/openapi.yaml`
+- Contract stored in `/docs/api-contracts/openapi/<service>.yaml`
 - Used for:
   - API validation
   - Documentation
@@ -218,10 +218,10 @@ This document defines the **end-to-end technology stack** for building the proje
 
 Recommended directories:
 - `/services` — microservices + frontend source
-- `/contracts` — OpenAPI specs per service
+- `/docs/api-contracts/openapi` — OpenAPI specs per service
 - `/platform/terraform` — AWS infrastructure (IaC)
-- `/platform/k8s-infra` — cluster add-ons (ingress, monitoring, cert-manager, etc.)
-- `/platform/k8s-apps` — application manifests + Kustomize overlays
+- `/platform/k8s/infra` — cluster add-ons (ingress, monitoring, cert-manager, etc.)
+- `/platform/k8s/apps` — application manifests + Kustomize overlays
 - `/tests/e2e` — Playwright E2E tests
 - `/docs/adr` — architecture decision records
 

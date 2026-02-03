@@ -2,14 +2,14 @@
 
 This document defines **how we write code**, **how we structure changes**, and **how we ship safely** for the CS301 ITSA CRM project (Kubernetes-first, AWS-realistic, OpenAPI-first).
 
-> **Applies to:** `/services/*`, `/contracts/*`, `/platform/*`, `/tests/*`, and `/docs/*`  
+> **Applies to:** `/services/*`, `/platform/*`, `/tests/*`, and `/docs/*`  
 > **Primary goals:** maintainability, security, repeatability, and reviewability.
 
 ---
 
 ## 1) Golden Rules
 
-1. **OpenAPI-first:** API changes start in `/contracts/<service>/openapi.yaml`, then implementation follows.
+1. **OpenAPI-first:** API changes start in `/docs/api-contracts/openapi/<service>.yaml`, then implementation follows.
 2. **No secrets in Git:** never commit credentials, tokens, `.env`, kubeconfig, private keys.
 3. **Small, reviewable PRs:** prefer frequent, small merges over “big bang” PRs.
 4. **Consistency > preference:** if the formatter/linter disagrees with you, you lose.
@@ -20,17 +20,18 @@ This document defines **how we write code**, **how we structure changes**, and *
 ## 2) Repository Structure (Expected)
 
 ```
-/contracts                # OpenAPI specs per service (source of truth)
 /services                 # application code (frontend + microservices)
 /platform
   /terraform              # AWS infra as code
-  /k8s-infra              # cluster add-ons (ingress, monitoring, etc.)
-  /k8s-apps               # app manifests + env overlays (Kustomize)
+  /k8s
+    /infra                # cluster add-ons (ingress, monitoring, etc.)
+    /apps                 # app manifests + env overlays (Kustomize)
 /tests
   /e2e                    # Playwright e2e tests
 /docs
   /adr                    # architecture decision records
   /architecture           # diagrams, flows
+  /api-contracts/openapi  # OpenAPI specs per service (source of truth)
   /api                    # human-readable API docs (optional if OpenAPI sufficient)
 ```
 
@@ -110,7 +111,7 @@ A PR is mergeable only when:
 - All required CI checks pass
 - At least one reviewer approves (or team rule)
 - The PR description includes **What / Why / How to test**
-- Any impacted docs/contracts are updated
+- Any impacted docs/OpenAPI specs are updated
 
 ### 5.2 PR Template (Use This Structure)
 
@@ -126,7 +127,7 @@ Example: `feat(clients-service): add account summary endpoint`
 
 ### 5.3 PR Size Guidance
 - Prefer **≤ 400 lines** net change for normal PRs.
-- Split large work into stacked PRs (contracts → backend → frontend → infra).
+- Split large work into stacked PRs (OpenAPI specs → backend → frontend → infra).
 
 ### 5.4 Merge Strategy
 Default: **Squash and merge** to keep history readable (unless team chooses otherwise).
@@ -146,7 +147,7 @@ Reviewers look for:
 Authors should:
 - Respond to comments, push follow-up commits
 - Keep discussion in the PR (avoid DMs for decisions)
-- Update docs/contracts if behavior changed
+- Update docs/OpenAPI specs if behavior changed
 
 ---
 
@@ -224,7 +225,7 @@ Authors should:
 
 ### 7.6 OpenAPI Contracts
 **Rules**
-- OpenAPI in `/contracts/<service>/openapi.yaml` is the **source of truth**
+- OpenAPI in `/docs/api-contracts/openapi/<service>.yaml` is the **source of truth**
 - Keep schemas DRY via `$ref`
 - Document error responses (400/401/403/404/409/422/500 as applicable)
 - Include examples for requests/responses
@@ -235,15 +236,15 @@ Authors should:
 
 **Swagger UI verification (required stage)**
 
-Before implementing an API change (and before opening a PR that changes `/contracts/<service>/openapi.yaml`), you **must** render the spec in **Swagger UI** and confirm it reads correctly end-to-end.
+Before implementing an API change (and before opening a PR that changes `/docs/api-contracts/openapi/<service>.yaml`), you **must** render the spec in **Swagger UI** and confirm it reads correctly end-to-end.
 
 **Step-by-step (Docker; recommended)**
 1. From the repo root, choose the spec you edited:
-   - `contracts/<service>/openapi.yaml`
+   - `docs/api-contracts/openapi/<service>.yaml`
 2. Run Swagger UI pointing at that file:
    - macOS/Linux/WSL:
      ```bash
-     SPEC="contracts/<service>/openapi.yaml"
+     SPEC="docs/api-contracts/openapi/<service>.yaml"
      docker run --rm -p 8080:8080 \
        -e SWAGGER_JSON=/spec/openapi.yaml \
        -v "$(pwd)/$SPEC":/spec/openapi.yaml \
@@ -251,7 +252,7 @@ Before implementing an API change (and before opening a PR that changes `/contra
      ```
    - Windows (PowerShell):
      ```powershell
-     $spec = "contracts/<service>/openapi.yaml"
+     $spec = "docs/api-contracts/openapi/<service>.yaml"
      $root = $PWD.Path.Replace('\','/')
      docker run --rm -p 8080:8080 `
        -e SWAGGER_JSON=/spec/openapi.yaml `
@@ -426,4 +427,3 @@ git branch -d feature/your-branch
 - `docs(adr): add decision for database migration strategy`
 - `ci: add terraform validate job`
 - `chore: bump frontend dependencies`
-
