@@ -8,18 +8,25 @@ import com.itsa.crm.clients_service.dto.ClientUpdateRequest;
 import com.itsa.crm.clients_service.entity.ClientEntity;
 import com.itsa.crm.clients_service.exception.ClientNotFoundException;
 import com.itsa.crm.clients_service.exception.DuplicateClientException;
+import com.itsa.crm.clients_service.logging.ClientAuditLogger;
 import com.itsa.crm.clients_service.repository.ClientRepository;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ClientServiceImpl implements ClientService {
-	private final ClientRepository clientRepository;
+	private static final Logger LOGGER = LoggerFactory.getLogger(ClientServiceImpl.class);
 
-	public ClientServiceImpl(ClientRepository clientRepository) {
+	private final ClientRepository clientRepository;
+	private final ClientAuditLogger clientAuditLogger;
+
+	public ClientServiceImpl(ClientRepository clientRepository, ClientAuditLogger clientAuditLogger) {
 		this.clientRepository = clientRepository;
+		this.clientAuditLogger = clientAuditLogger;
 	}
 
 	@Override
@@ -44,6 +51,7 @@ public class ClientServiceImpl implements ClientService {
 		ClientEntity entity = new ClientEntity();
 		applyPayload(entity, payload);
 		ClientEntity saved = clientRepository.save(entity);
+		publishClientAudit("CREATE", saved.getId(), request.agentId(), payload);
 		return toDto(saved);
 	}
 
@@ -56,6 +64,7 @@ public class ClientServiceImpl implements ClientService {
 		checkUpdateConflicts(id, payload.emailAddress(), payload.phoneNumber());
 		applyPayload(entity, payload);
 		ClientEntity saved = clientRepository.save(entity);
+		publishClientAudit("UPDATE", saved.getId(), request.agentId(), payload);
 		return toDto(saved);
 	}
 
@@ -64,7 +73,10 @@ public class ClientServiceImpl implements ClientService {
 	public void deleteClient(Long id, ClientDeleteRequest request) {
 		ClientEntity entity = clientRepository.findById(id)
 			.orElseThrow(() -> new ClientNotFoundException(id));
+		ClientPayload payload = toPayload(entity);
 		clientRepository.delete(entity);
+		String agentId = request != null ? request.agentId() : null;
+		publishClientAudit("DELETE", id, agentId, payload);
 	}
 
 	private void checkCreateConflicts(String emailAddress, String phoneNumber) {
@@ -114,5 +126,30 @@ public class ClientServiceImpl implements ClientService {
 			entity.getCountry(),
 			entity.getPostalCode()
 		);
+	}
+
+	private ClientPayload toPayload(ClientEntity entity) {
+		return new ClientPayload(
+			entity.getFirstName(),
+			entity.getLastName(),
+			entity.getDateOfBirth(),
+			entity.getGender(),
+			entity.getEmailAddress(),
+			entity.getPhoneNumber(),
+			entity.getAddress(),
+			entity.getCity(),
+			entity.getState(),
+			entity.getCountry(),
+			entity.getPostalCode()
+		);
+	}
+
+	private void publishClientAudit(String action, Long clientId, String agentId, ClientPayload payload) {
+		try {
+			clientAuditLogger.logClientEvent(action, clientId, agentId, payload);
+		}
+		catch (Exception ex) {
+			LOGGER.warn("Client operation completed but audit logging failed. action={} clientId={}", action, clientId, ex);
+		}
 	}
 }

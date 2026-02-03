@@ -7,6 +7,7 @@ import com.itsa.crm.clients_service.entity.ClientEntity;
 import com.itsa.crm.clients_service.entity.Gender;
 import com.itsa.crm.clients_service.exception.ClientNotFoundException;
 import com.itsa.crm.clients_service.exception.DuplicateClientException;
+import com.itsa.crm.clients_service.logging.ClientAuditLogger;
 import com.itsa.crm.clients_service.repository.ClientRepository;
 import java.time.LocalDate;
 import java.util.List;
@@ -21,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -32,6 +34,7 @@ import static org.mockito.Mockito.when;
 class ClientServiceImplTest {
 
 	private ClientRepository clientRepository;
+	private ClientAuditLogger clientAuditLogger;
 	private ClientServiceImpl clientService;
 
 	private static ClientPayload samplePayload() {
@@ -70,7 +73,8 @@ class ClientServiceImplTest {
 	@BeforeEach
 	void setUp() {
 		clientRepository = org.mockito.Mockito.mock(ClientRepository.class);
-		clientService = new ClientServiceImpl(clientRepository);
+		clientAuditLogger = org.mockito.Mockito.mock(ClientAuditLogger.class);
+		clientService = new ClientServiceImpl(clientRepository, clientAuditLogger);
 	}
 
 	/** Verifies that listClients() returns all entities from the repository mapped to DTOs. */
@@ -139,6 +143,7 @@ class ClientServiceImplTest {
 		assertThat(captor.getValue().getFirstName()).isEqualTo("Jordan");
 		verify(clientRepository).existsByEmailAddressIgnoreCase(payload.emailAddress());
 		verify(clientRepository).existsByPhoneNumber(payload.phoneNumber());
+		verify(clientAuditLogger).logClientEvent("CREATE", 10L, "agent-123", payload);
 	}
 
 	/** Verifies that createClient() throws DuplicateClientException when the email is already in use (no save). */
@@ -189,6 +194,7 @@ class ClientServiceImplTest {
 		assertThat(result.firstName()).isEqualTo("Jordan");
 		verify(clientRepository).findById(12L);
 		verify(clientRepository).save(existing);
+		verify(clientAuditLogger).logClientEvent("UPDATE", 12L, "agent-456", payload);
 	}
 
 	/** Verifies that updateClient() throws ClientNotFoundException when the client id does not exist (no save). */
@@ -249,6 +255,7 @@ class ClientServiceImplTest {
 
 		verify(clientRepository).findById(55L);
 		verify(clientRepository).delete(entity);
+		verify(clientAuditLogger).logClientEvent("DELETE", 55L, null, samplePayload());
 	}
 
 	/** Verifies that deleteClient() throws ClientNotFoundException when the client id does not exist (no delete). */
@@ -262,5 +269,26 @@ class ClientServiceImplTest {
 
 		verify(clientRepository).findById(404L);
 		verify(clientRepository, never()).delete(any());
+	}
+
+	@Test
+	void createClient_whenLogPublishingFails_stillReturnsCreatedClient() {
+		ClientPayload payload = samplePayload();
+		ClientCreateRequest request = new ClientCreateRequest(payload, "agent-123");
+		when(clientRepository.existsByEmailAddressIgnoreCase(payload.emailAddress())).thenReturn(false);
+		when(clientRepository.existsByPhoneNumber(payload.phoneNumber())).thenReturn(false);
+		when(clientRepository.save(any())).thenAnswer(inv -> {
+			ClientEntity e = inv.getArgument(0);
+			e.setId(20L);
+			return e;
+		});
+		doThrow(new RuntimeException("log service unavailable"))
+			.when(clientAuditLogger).logClientEvent("CREATE", 20L, "agent-123", payload);
+
+		var result = clientService.createClient(request);
+
+		assertThat(result.clientId()).isEqualTo(20L);
+		verify(clientRepository).save(any());
+		verify(clientAuditLogger).logClientEvent("CREATE", 20L, "agent-123", payload);
 	}
 }

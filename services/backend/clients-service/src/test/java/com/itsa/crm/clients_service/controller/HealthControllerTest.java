@@ -24,4 +24,11 @@ class HealthControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(content().json("{\"status\":\"ok\"}"));
 	}
+
+	@Test
+	void clientsHealth_returnsOk() throws Exception {
+		mockMvc.perform(get("/api/v1/clients/health"))
+			.andExpect(status().isOk())
+			.andExpect(content().json("{\"status\":\"ok\"}"));
+	}
 }

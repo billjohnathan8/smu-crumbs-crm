@@ -11,4 +11,9 @@ public class HealthController {
 	public String health() {
 		return "{ \"status\": \"ok\" }";
 	}
+
+	@GetMapping("/clients/health")
+	public String clientsHealth() {
+		return "{ \"status\": \"ok\" }";
+	}
 }
