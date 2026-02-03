@@ -46,6 +46,7 @@ terraform.rc
 
 # Gradle
 .gradle-user-home/
+.gradle-user-home-user/
 
 # Private Keys - do not commit any secrets
 *.pem
