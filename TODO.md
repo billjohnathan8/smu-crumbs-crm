@@ -15,9 +15,19 @@
 
 
 
-local setup.
+run a docker test
 
-remove secrets
+run k8s test
+
+refactor tests - run testing frameworks instead. 
+- code coverage
+- junit
+- mockito
+- jacoco
+
+setup environment variables
+
+local setup
 
 terraform
 
