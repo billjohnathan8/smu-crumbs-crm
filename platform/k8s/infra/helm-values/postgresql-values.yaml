@@ -1,0 +1,6 @@
+auth:
+  username: cs301
+  database: cs301
+primary:
+  persistence:
+    enabled: false

@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: cs301-ingress
+  name: backend-ingress
   namespace: dev
 spec:
   ingressClassName: nginx
@@ -9,6 +9,13 @@ spec:
     - host: localhost
       http:
         paths:
+          - path: /api/v1/users
+            pathType: Prefix
+            backend:
+              service:
+                name: user-service
+                port:
+                  number: 80
           - path: /api/v1/clients
             pathType: Prefix
             backend:
@@ -17,6 +24,13 @@ spec:
                 port:
                   number: 80
           - path: /api/v1/logs
+            pathType: Prefix
+            backend:
+              service:
+                name: log-service
+                port:
+                  number: 80
+          - path: /health
             pathType: Prefix
             backend:
               service:
