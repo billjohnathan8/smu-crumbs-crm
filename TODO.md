@@ -12,3 +12,15 @@
 - Frontend
 - Infrastructure Setup
 - CI/CD Pipeline
+
+
+
+local setup.
+
+remove secrets
+
+terraform
+
+iam accounts
+
+psql password:
