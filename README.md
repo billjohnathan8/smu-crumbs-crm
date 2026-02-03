@@ -6,8 +6,8 @@ Before development work, please read through:
 2. **API Contracts** under `/docs/api-contracts` for your relevant service api.
 3. **[The Coding Standards](docs\coding-standards\coding-standards.md)** during dev work and before creating branches, pushing to remote (github), or creating PRs.
 
-notes:
-- ignore all files ending in '-wip' as they are work-in-progress.
-- please make sure all services have a health endpoint that is tested
-
-thank you very much team 🙏🙏🙏
+# **For Local Testing of Services (Local CI/CD):**
+Run from `/scripts`:
+```
+.\build-and-test-backend.ps1
+```
