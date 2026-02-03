@@ -45,8 +45,14 @@ terraform.rc
 # planout
 
 # Gradle
+.gradle/
+**/.gradle/
 .gradle-user-home/
 .gradle-user-home-user/
+
+# Python / pytest cache
+.pytest_cache/
+**/.pytest_cache/
 
 # Private Keys - do not commit any secrets
 *.pem
