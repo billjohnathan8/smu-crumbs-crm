@@ -51,6 +51,7 @@ terraform.rc
 .gradle-user-home-user/
 
 # Python / pytest cache
+.python-build-test-venvs
 .pytest_cache/
 **/.pytest_cache/
 
