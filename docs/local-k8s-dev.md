@@ -1,106 +1,192 @@
 # Local Kubernetes Backend Development (kind)
 
-This repository supports a local backend stack on a `kind` cluster without AWS and without RabbitMQ.
+This is the canonical runbook for the local backend Kubernetes flow in this repository.
+
+The local flow does not require AWS resources. AWS-oriented architecture docs still exist separately (for target-state planning).
+
+## Scope and canonical paths
+- Cluster config: `platform/k8s/infra/kind-config.yaml`
+- Infra Helm values: `platform/k8s/infra/helm-values/*.yaml`
+- App manifests: `platform/k8s/apps/base`
+- Active local overlay: `platform/k8s/apps/overlays/dev`
+- Namespace: `dev`
+- Default kind cluster name in config: `cs301-crm`
+
+Do not use `platform/k8s/apps/dev/*.yaml` (deprecated pointer files).
 
 ## Prerequisites
-- Docker Desktop (or Docker Engine)
+- Docker Desktop (or Docker Engine) running
 - kind
 - kubectl
 - Helm v3
 - GNU Make
-- curl
+- Bash and curl
+- Java 21 (recommended for Gradle wrapper builds)
 
-## One-command flow
-Run from repository root:
+Windows notes:
+- Use the PowerShell or `.cmd` wrappers in `scripts/`.
+- Install Git for Windows (Git Bash) so Makefile recipes can run under Bash.
 
-```bash
-make kind-up && make infra-up && make build-images && make kind-load && make deploy-dev && make smoke
+## Golden path (recommended)
+Run one of these from repository root:
+
+```powershell
+.\scripts\build-and-deploy\build-and-deploy-k8s-local.ps1
 ```
 
-## Successful Build/Deploy
-A successful run via the `build-and-deploy-k8s-local` scripts means the full local Kubernetes flow completed and the infrastructure smoke checks passed.
+```cmd
+.\scripts\build-and-deploy-k8s-local.cmd
+```
 
-Script entry points:
-- `scripts/build-and-deploy/build-and-deploy-k8s-local.sh` (macOS/Linux)
-- `scripts/build-and-deploy/build-and-deploy-k8s-local.ps1` (Windows PowerShell)
-- `scripts/build-and-deploy-k8s-local.cmd` (Windows Command Prompt wrapper)
-
-You can treat the run as successful when:
-- The script exits with code `0`.
-- You see all major stages complete (`infra-up`, `build-images`, `kind-load`, `deploy-dev`, `smoke`).
-- Deployment rollout status succeeds for each service in `dev`.
-- The smoke script reports `Smoke tests passed.`
-- The script prints `Local Kubernetes build/deploy and smoke checks completed successfully.`
-
-## What each target does
-1. `make kind-up`
-   - Creates kind cluster using `platform/k8s/infra/kind-config.yaml`.
-2. `make infra-up`
-   - Installs ingress-nginx, metrics-server, and PostgreSQL (Helm) for namespace `dev`.
-3. `make build-images`
-   - Builds `user-service:dev`, `client-service:dev`, and `log-service:dev` images.
-4. `make kind-load`
-   - Loads those images into kind.
-5. `make deploy-dev`
-   - Deploys the backend stack with Kustomize overlay `platform/k8s/apps/overlays/dev`.
-6. `make smoke`
-   - Runs the infrastructure smoke script `scripts/smoke-k8s-infra.sh`.
-   - Validates that ingress routing, service startup, and database-backed request flow are working for the deployed `dev` stack.
-   - Uses `http://localhost` first, then falls back to ingress port-forward if localhost routing is not stable on your machine.
-
-## Infrastructure smoke script
-- Script: `scripts/smoke-k8s-infra.sh`
-- Intent: verify the local Kubernetes infrastructure and service wiring after deploy (not a full feature E2E suite).
-- What it checks:
-  - API health endpoints via ingress
-  - End-to-end request path through the deployed services
-  - Basic write/read/update/delete flow to confirm database path and service connectivity
-
-## Adding More Services (Future)
-When you add a new backend service, update these parts so local build/deploy keeps working:
-
-1. Application + image
-   - Add the service under `services/backend/<new-service>`.
-   - Ensure it has a working Dockerfile and local build command.
-
-2. Kubernetes base manifests
-   - Add deployment and service YAMLs under `platform/k8s/apps/base`.
-   - Register them in `platform/k8s/apps/base/kustomization.yaml`.
-
-3. Dev overlay wiring
-   - Add image tag mapping in `platform/k8s/apps/overlays/dev/kustomization.yaml`.
-   - Add overlay patches (env vars, secrets, probes, etc.) if needed.
-   - If externally reachable, add ingress path rules.
-
-4. Build/load/deploy pipeline
-   - Update `Makefile`:
-     - `build-images` to build the new image.
-     - `kind-load` to load the new image into kind.
-     - `deploy-dev` rollout checks for the new deployment.
-
-5. Infrastructure smoke coverage
-   - Update `scripts/smoke-k8s-infra.sh` so it checks the new service health and main path.
-   - Keep it infrastructure-focused (wiring/readiness), not deep feature E2E.
-
-6. Validate
-   - Re-run `build-and-deploy-k8s-local` script.
-   - Confirm rollout and pod health:
-     - `kubectl get deploy,pods -n dev`
-   - Re-run smoke:
-     - `make smoke`
-
-## Manual quick checks
 ```bash
+bash ./scripts/build-and-deploy/build-and-deploy-k8s-local.sh
+```
+
+Success criteria:
+- Exit code `0`
+- Rollout checks pass for `user-service`, `client-service`, `log-service`
+- Smoke output includes `Smoke tests passed.`
+- Wrapper output ends with `Local Kubernetes build/deploy and smoke checks completed successfully.`
+
+## Step-by-step flow (manual)
+
+### 0) (Recommended) Run backend build/tests first
+```powershell
+.\scripts\build-and-test\build-and-test-backend.ps1
+```
+```cmd
+.\scripts\build-and-test-backend.cmd
+```
+```bash
+bash ./scripts/build-and-test/build-and-test-backend.sh
+```
+
+### 1) Create and verify kind cluster
+```bash
+make kind-up
+kind get clusters
+kubectl config use-context kind-cs301-crm
+kubectl cluster-info
+```
+
+If `make kind-up` fails because the cluster already exists, skip to context verification or use the wrapper script (it handles existing clusters automatically).
+
+### 2) Install ingress + infra dependencies
+```bash
+make infra-up
+kubectl get pods -n ingress-nginx
+kubectl get pods -n dev
+```
+
+`make infra-up` installs:
+- `ingress-nginx` in namespace `ingress-nginx`
+- `metrics-server` in namespace `kube-system`
+- `postgres` (Bitnami chart) in namespace `dev`
+
+### 3) Build backend images
+```bash
+make build-images
+```
+
+Builds:
+- `user-service:dev`
+- `client-service:dev`
+- `log-service:dev`
+
+### 4) Load images into kind
+```bash
+make kind-load
+```
+
+### 5) Deploy dev overlay
+```bash
+make deploy-dev
+```
+
+Equivalent raw apply:
+```bash
+kubectl apply -k platform/k8s/apps/overlays/dev
+```
+
+### 6) Verify workloads and ingress routes
+```bash
+kubectl get deploy,pods,svc,ing -n dev
 curl -i http://localhost/api/v1/users/health
 curl -i http://localhost/api/v1/clients/health
 curl -i http://localhost/api/v1/logs/health
 ```
 
-## Ingress paths
+Ingress routes:
 - `http://localhost/api/v1/users` -> `user-service`
 - `http://localhost/api/v1/clients` -> `client-service`
 - `http://localhost/api/v1/logs` -> `log-service`
 
-## Notes
-- PostgreSQL is reachable in-cluster at `postgres-postgresql.dev.svc.cluster.local:5432`.
-- Dev-only database credentials are defined in `platform/k8s/infra/helm-values/postgresql-values.yaml` and are not production credentials.
+### 7) Run infrastructure smoke tests
+```bash
+make smoke
+```
+
+Smoke script: `scripts/smoke-k8s-infra.sh`
+
+Checks:
+- Health endpoints through ingress
+- Create/read/update/delete path for clients
+- Direct log event ingestion into `log-service`
+
+The script first tries `http://localhost`, then falls back to ingress controller port-forward if needed.
+
+## Teardown and reset
+
+### Full reset (recommended when things are badly drifted)
+```bash
+kind delete cluster --name cs301-crm
+```
+
+### App-only reset (keep cluster)
+```bash
+kubectl delete -k platform/k8s/apps/overlays/dev --ignore-not-found
+helm uninstall postgres -n dev
+helm uninstall ingress-nginx -n ingress-nginx
+helm uninstall metrics-server -n kube-system
+```
+
+## Common failure modes and debug commands
+
+### `make kind-up` fails because cluster already exists
+- Verify: `kind get clusters`
+- Recreate cleanly: `kind delete cluster --name cs301-crm` then rerun deploy wrapper
+
+### Ingress endpoint on `localhost` is unreachable
+- Check ingress controller: `kubectl get pods -n ingress-nginx`
+- Check ingress object: `kubectl describe ingress backend-ingress -n dev`
+- Run smoke anyway (it includes port-forward fallback): `make smoke`
+
+### Pods stay `ImagePullBackOff` or old image keeps running
+- Confirm images loaded: rerun `make kind-load`
+- Restart and verify rollout:
+  - `kubectl rollout restart deployment/user-service -n dev`
+  - `kubectl rollout restart deployment/client-service -n dev`
+  - `kubectl rollout restart deployment/log-service -n dev`
+  - `kubectl rollout status deployment/user-service -n dev --timeout=180s`
+
+### Pods fail readiness/liveness due to startup or DB issues
+- Inspect logs:
+  - `kubectl logs deployment/user-service -n dev --tail=100`
+  - `kubectl logs deployment/client-service -n dev --tail=100`
+  - `kubectl logs deployment/log-service -n dev --tail=100`
+  - `kubectl logs statefulset/postgres-postgresql -n dev --tail=100`
+- Inspect events: `kubectl get events -n dev --sort-by=.metadata.creationTimestamp`
+
+### Windows wrapper fails because Bash or Make is missing
+- Install/verify Git Bash and Make in `PATH`
+- Re-run:
+  - `.\scripts\build-and-deploy\build-and-deploy-k8s-local.ps1`
+
+## Service onboarding checklist (for this local flow)
+When adding a new backend service:
+- Add service code and Dockerfile under `services/backend/<new-service>`
+- Add base deployment/service YAML under `platform/k8s/apps/base` and register in `platform/k8s/apps/base/kustomization.yaml`
+- Add image tag entry and patches in `platform/k8s/apps/overlays/dev/kustomization.yaml`
+- Add ingress rule if externally reachable
+- Extend `Makefile` targets: `build-images`, `kind-load`, `deploy-dev`
+- Extend `scripts/smoke-k8s-infra.sh` with infrastructure-level checks for the new service

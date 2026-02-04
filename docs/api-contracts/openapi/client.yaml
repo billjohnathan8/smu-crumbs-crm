@@ -1,20 +1,16 @@
 openapi: 3.0.3
 info:
-  title: client
+  title: client-service
   version: 0.1.0
 servers:
-  - url: http://localhost:{port}/api/v1
-    description: Local clients-service endpoint.
-    variables:
-      port:
-        default: "8080"
+  - url: http://localhost
+    description: Local ingress endpoint.
 paths:
-  /health:
+  /api/v1/health:
     get:
       tags:
         - health
-      summary: Health check
-      description: Returns a simple JSON string indicating the service is up.
+      summary: Service health check
       responses:
         "200":
           description: Service is healthy.
@@ -23,26 +19,24 @@ paths:
               schema:
                 type: string
               example: '{ "status": "ok" }'
-  /clients/health:
+  /api/v1/clients/health:
     get:
       tags:
         - health
       summary: Clients route health check
-      description: Returns a simple JSON string indicating the clients route is reachable.
       responses:
         "200":
-          description: Service is healthy.
+          description: Clients route is healthy.
           content:
             application/json:
               schema:
                 type: string
               example: '{ "status": "ok" }'
-  /clients:
+  /api/v1/clients:
     get:
       tags:
         - clients
       summary: List clients
-      description: Returns all clients from the database.
       responses:
         "200":
           description: List of clients.
@@ -56,7 +50,7 @@ paths:
       tags:
         - clients
       summary: Create client
-      description: Creates a client and writes an audit log to log-service via HTTP. The agentId is supplied in the request body and used for logging only.
+      description: Creates a client and attempts to publish an audit event to log-service over HTTP.
       requestBody:
         required: true
         content:
@@ -70,18 +64,23 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Client"
+        "400":
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "409":
           description: Email or phone number already exists.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-  /clients/{id}:
+  /api/v1/clients/{id}:
     get:
       tags:
         - clients
       summary: Get client by ID
-      description: Returns a single client by ID.
       parameters:
         - name: id
           in: path
@@ -98,11 +97,15 @@ paths:
                 $ref: "#/components/schemas/Client"
         "404":
           description: Client not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     put:
       tags:
         - clients
       summary: Update client
-      description: Updates a client by ID and writes an audit log to log-service via HTTP. The agentId is supplied in the request body and used for logging only.
+      description: Updates a client and attempts to publish an audit event to log-service over HTTP.
       parameters:
         - name: id
           in: path
@@ -123,8 +126,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Client"
+        "400":
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Client not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "409":
           description: Email or phone number already exists.
           content:
@@ -135,7 +148,7 @@ paths:
       tags:
         - clients
       summary: Delete client
-      description: Deletes a client by ID and writes an audit log to log-service via HTTP. The agentId is optionally supplied in the request body and used for logging only.
+      description: Deletes a client and optionally publishes an audit event.
       parameters:
         - name: id
           in: path
@@ -154,117 +167,10 @@ paths:
           description: Client deleted.
         "404":
           description: Client not found.
-  /clients/cache-test:
-    get:
-      tags:
-        - cache
-      summary: Redis cache smoke test
-      description: Writes and reads a test key in Redis to verify connectivity.
-      responses:
-        "200":
-          description: Redis read/write succeeded.
-          content:
-            text/plain:
-              schema:
-                type: string
-        "500":
-          description: Redis read/write failed.
-          content:
-            text/plain:
-              schema:
-                type: string
-  /clients/cache-keys:
-    get:
-      tags:
-        - cache
-      summary: List Redis keys
-      description: Returns all keys from Redis.
-      responses:
-        "200":
-          description: List of Redis keys.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: string
-  /clients/{id}/request-image-upload:
-    post:
-      tags:
-        - uploads
-      summary: Request image upload
-      description: Generates a one-time upload token and sends an email with the upload link.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-      responses:
-        "200":
-          description: Upload link sent to email.
-          content:
-            text/plain:
-              schema:
-                type: string
-        "500":
-          description: TODO document error handling for missing client or email/SQS failures.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-  /clients/validate-upload-token:
-    get:
-      tags:
-        - uploads
-      summary: Validate upload token
-      description: Validates the upload token and email; marks the token as used if valid.
-      parameters:
-        - name: token
-          in: query
-          required: true
-          schema:
-            type: string
-        - name: email
-          in: query
-          required: true
-          schema:
-            type: string
-            format: email
-      responses:
-        "200":
-          description: Whether the token is valid.
-          content:
-            application/json:
-              schema:
-                type: boolean
-  /clients/validate-client-id/{clientId}:
-    get:
-      tags:
-        - clients
-      summary: Validate client ID
-      description: Checks whether a client ID exists.
-      parameters:
-        - name: clientId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-      responses:
-        "200":
-          description: Client ID exists.
-          content:
-            application/json:
-              schema:
-                type: boolean
-        "404":
-          description: Client ID does not exist.
-          content:
-            application/json:
-              schema:
-                type: boolean
 components:
   schemas:
     Client:
@@ -335,33 +241,32 @@ components:
         - postalCode
     ClientCreateRequest:
       type: object
-      description: Wrapper payload containing client data and an agentId for audit logging.
       properties:
         client:
           $ref: "#/components/schemas/Client"
         agentId:
           type: string
-          description: Identifier of the agent performing the action (used only for logging).
+          description: Identifier of the agent performing the action (logging context).
       required:
         - client
     ClientUpdateRequest:
       type: object
-      description: Wrapper payload containing updated client data and an agentId for audit logging.
       properties:
         client:
           $ref: "#/components/schemas/Client"
         agentId:
           type: string
-          description: Identifier of the agent performing the action (used only for logging).
+          description: Identifier of the agent performing the action (logging context).
       required:
         - client
     ClientDeleteRequest:
       type: object
-      description: Optional wrapper payload containing an agentId for audit logging.
       properties:
         agentId:
           type: string
-          description: Identifier of the agent performing the action (used only for logging).
+          description: Identifier of the agent performing the action (logging context).
     ErrorResponse:
-      type: string
-      description: TODO standardize error response shape. Current controllers often return plain text error messages.
+      oneOf:
+        - type: string
+        - type: object
+          additionalProperties: true

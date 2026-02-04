@@ -2,6 +2,8 @@
 
 This document defines the **end-to-end technology stack** for building the project **from the ground up**, with a strong emphasis on **Kubernetes**, **AWS**, **DevOps**, **OpenAPI-first** service design, and **Zero Trust (OAuth2)** security.
 
+For runnable local kind workflow commands, use `docs/local-k8s-dev.md` as the canonical runbook.
+
 ---
 
 ## 1) Architecture Summary
@@ -223,7 +225,7 @@ Recommended directories:
 - `/platform/k8s/infra` — cluster add-ons (ingress, monitoring, cert-manager, etc.)
 - `/platform/k8s/apps` — application manifests + Kustomize overlays
 - `/tests/e2e` — Playwright E2E tests
-- `/docs/adr` — architecture decision records
+- `/docs/architectural-decisions-record` — architecture decision records
 
 ---
 

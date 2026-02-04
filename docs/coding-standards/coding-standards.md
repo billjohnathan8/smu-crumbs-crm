@@ -29,10 +29,9 @@ This document defines **how we write code**, **how we structure changes**, and *
 /tests
   /e2e                    # Playwright e2e tests
 /docs
-  /adr                    # architecture decision records
-  /architecture           # diagrams, flows
+  /architectural-decisions-record   # architecture decision records
+  /main-diagrams          # diagrams, flows
   /api-contracts/openapi  # OpenAPI specs per service (source of truth)
-  /api                    # human-readable API docs (optional if OpenAPI sufficient)
 ```
 
 ---
@@ -293,15 +292,15 @@ You **must** update documentation when you:
 - Make an architectural decision (add an ADR)
 
 **Doc locations**
-- `/docs/adr` — decisions and rationale
-- `/docs/architecture` — diagrams, sequences, comms
-- `/docs/api` — human-readable API docs (optional if OpenAPI is sufficient)
+- `/docs/architectural-decisions-record` — decisions and rationale
+- `/docs/main-diagrams` — diagrams, sequences, comms
+- `/docs/api-contracts/openapi` — API contracts (source of truth)
 
 **Naming**
 - Use `kebab-case` and version where appropriate:
-  - `docs/architecture/system-context-v1.md`
-  - `docs/api/clients-service-api-v1.md`
-  - `docs/adr/0003-token-validation-strategy.md`
+  - `docs/main-diagrams/system-context-v1.md`
+  - `docs/api-contracts/openapi/client.yaml`
+  - `docs/architectural-decisions-record/adr-0003-example.md`
 
 ---
 
