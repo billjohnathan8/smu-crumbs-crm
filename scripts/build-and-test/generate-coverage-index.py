@@ -326,6 +326,8 @@ def _bar_tests(t: Optional[TestCounts]) -> str:
 
 def _render_html(services: list[ServiceSummary], build_log_dir: Path) -> str:
     now = _dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    repo_root = _repo_root()
+    base_href = _rel(build_log_dir, repo_root).rstrip("/") + "/"
 
     total_tests = total_failures = total_errors = total_skipped = 0
     total_line_cov = CoverageCounts(covered=0, missed=0)
@@ -362,14 +364,25 @@ def _render_html(services: list[ServiceSummary], build_log_dir: Path) -> str:
 
     rows = []
     for s in services:
-        links_html = []
-        # Provide predictable link ordering
+        # Paths (repo-relative, so they can be copy/pasted reliably even when HTML previews block file links)
+        path_lines = []
+        # Provide predictable ordering
         for key in ("coverage", "tests", "checkstyleMain", "checkstyleTest", "serviceRoot"):
-            if key in s.links:
-                label = key
-                href = _rel(build_log_dir, s.links[key])
-                links_html.append(f'<a href="{html.escape(href)}">{html.escape(label)}</a>')
-        links_str = " | ".join(links_html) if links_html else "N/A"
+            if key not in s.links:
+                continue
+            rel_path = _rel(repo_root, s.links[key])
+            file_uri = s.links[key].resolve().as_uri()
+            path_lines.append(
+                "<div>"
+                f"<span class=\"path-key\">{html.escape(key)}:</span> "
+                f"<a href=\"{html.escape(rel_path, quote=True)}\" "
+                f"data-file-uri=\"{html.escape(file_uri, quote=True)}\" "
+                f"target=\"_blank\" rel=\"noopener\">"
+                f"<code class=\"mono\">{html.escape(rel_path)}</code>"
+                "</a>"
+                "</div>"
+            )
+        paths_html = "".join(path_lines) if path_lines else '<div class="na">N/A</div>'
 
         warn_str = "; ".join(s.warnings) if s.warnings else ""
 
@@ -380,7 +393,7 @@ def _render_html(services: list[ServiceSummary], build_log_dir: Path) -> str:
             f"<td>{_bar_tests(s.tests)}</td>"
             f"<td>{_bar_cov('Line', s.line_cov)}</td>"
             f"<td>{_bar_cov('Branch', s.branch_cov)}</td>"
-            f"<td class=\"links\">{links_str}</td>"
+            f"<td class=\"paths\">{paths_html}</td>"
             f"<td class=\"warn\">{html.escape(warn_str)}</td>"
             "</tr>"
         )
@@ -392,6 +405,7 @@ def _render_html(services: list[ServiceSummary], build_log_dir: Path) -> str:
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <base href="{html.escape(base_href, quote=True)}" />
   <title>Backend Coverage Summary</title>
   <style>
     :root {{
@@ -407,8 +421,6 @@ def _render_html(services: list[ServiceSummary], build_log_dir: Path) -> str:
       --yellow: #e0c44c;
     }}
     html, body {{ background: var(--bg); color: var(--fg); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }}
-    a {{ color: var(--link); text-decoration: none; }}
-    a:hover {{ text-decoration: underline; }}
     .wrap {{ max-width: 1100px; margin: 24px auto; padding: 0 16px; }}
     .card {{ background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }}
     h1 {{ margin: 0 0 8px 0; font-size: 22px; }}
@@ -434,8 +446,12 @@ def _render_html(services: list[ServiceSummary], build_log_dir: Path) -> str:
     .seg.missed {{ background: linear-gradient(90deg, #b83838, var(--red)); }}
     .seg.warn {{ background: linear-gradient(90deg, #b79d2a, var(--yellow)); }}
     .na {{ color: var(--muted); font-size: 13px; }}
-    .links {{ max-width: 360px; word-break: break-word; }}
-    .links a {{ white-space: normal; display: inline-block; }}
+    .paths {{ max-width: 420px; word-break: break-word; }}
+    .path-key {{ color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.02em; }}
+    .paths > div {{ margin: 0 0 6px 0; }}
+    .paths > div:last-child {{ margin-bottom: 0; }}
+    a {{ color: var(--link); text-decoration: none; }}
+    a:hover {{ text-decoration: underline; }}
     .legend {{ display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px; }}
     .chip {{ display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }}
     .dot {{ width: 10px; height: 10px; border-radius: 999px; border: 1px solid var(--border); }}
@@ -468,7 +484,7 @@ def _render_html(services: list[ServiceSummary], build_log_dir: Path) -> str:
         <span class="chip"><span class="dot yellow"></span> skipped</span>
         <span class="chip"><span class="dot red"></span> missed / failed</span>
       </div>
-      <div class="small">Tip: open the per-service <code>coverage</code> link to see what lines/branches need tests.</div>
+      <div class="small">Tip: click a per-service <code>coverage</code> path to open the HTML report.</div>
       <div class="table-wrap" role="region" aria-label="Service coverage table">
         <table>
           <thead>
@@ -478,7 +494,7 @@ def _render_html(services: list[ServiceSummary], build_log_dir: Path) -> str:
               <th>Tests (pass/fail)</th>
               <th>Line Coverage</th>
               <th>Branch Coverage</th>
-              <th>Links</th>
+              <th>Report paths</th>
               <th>Warnings</th>
             </tr>
           </thead>
@@ -489,6 +505,30 @@ def _render_html(services: list[ServiceSummary], build_log_dir: Path) -> str:
       </div>
     </div>
   </div>
+  <script>
+    (function () {{
+      const href = String(window.location.href || "");
+      const host = String(window.location.host || "");
+      const protocol = String(window.location.protocol || "");
+      const isVsCodePreview =
+        href.includes("vscode-resource") ||
+        href.includes("vscode-webview") ||
+        host.includes("vscode-cdn.net") ||
+        protocol === "vscode-webview:" ||
+        protocol === "vscode-resource:";
+
+      if (!isVsCodePreview) {{
+        return;
+      }}
+
+      for (const anchor of document.querySelectorAll("a[data-file-uri]")) {{
+        const fileUri = anchor.getAttribute("data-file-uri");
+        if (fileUri) {{
+          anchor.setAttribute("href", fileUri);
+        }}
+      }}
+    }})();
+  </script>
 </body>
 </html>
 """

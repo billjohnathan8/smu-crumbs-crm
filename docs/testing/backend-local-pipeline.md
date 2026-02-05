@@ -99,10 +99,16 @@ The report includes:
 - Links to each service's detailed reports (JaCoCo, Checkstyle, pytest/coverage)
 - Overall totals across services
 
+### How to open the aggregated report
+
+- Open `build-logs/build-and-test/index.html` directly in a normal browser window (`file:///...`).
+- Do **not** use VS Code **Open Preview** for this file.
+- From the browser page, click the report-path links (`coverage`, `tests`, `checkstyleMain`, `checkstyleTest`) to open service reports.
+
 ## Recommended Developer Workflow
 
 1. Run root backend pipeline script.
-2. Open `build-logs/build-and-test/index.html`.
+2. Open `build-logs/build-and-test/index.html` in a normal browser window (`file:///...`), not VS Code Open Preview.
 3. Open service-level detailed reports from links in that page.
 4. Add/fix tests and code until lint, tests, and coverage are satisfactory.
 5. Re-run pipeline before PR submission.

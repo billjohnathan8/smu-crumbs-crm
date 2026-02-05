@@ -465,6 +465,10 @@ From each backend service root (single service):
   - macOS/Linux: `python3 run-local-test-pipeline.py`
 
 #### Step 2: Open reports (what to check, where to find)
+For the aggregated coverage hub `build-logs/build-and-test/index.html`:
+- Open it directly in a normal browser window (`file:///...`).
+- Do **not** use VS Code **Open Preview** for this file.
+
 Java backend services (`services/backend/user-service`, `services/backend/clients-service`):
 - Checkstyle (lint):
   - `build/reports/checkstyle/main.html`
@@ -483,6 +487,9 @@ Python backend service (`services/backend/log-service`):
 - Coverage:
   - HTML: `build/reports/coverage/html/index.html`
   - XML: `build/reports/coverage/coverage.xml`
+
+Cross-service aggregated report:
+- Hub: `build-logs/build-and-test/index.html` (open in browser, then click report links)
 
 #### Step 3: What to do before PR
 - Fix all lint/style failures (Checkstyle, Black, Flake8)

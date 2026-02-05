@@ -30,6 +30,7 @@ bash ./scripts/build-and-test/build-and-test-backend.sh
 Outputs:
 - Full terminal output is captured to `build-logs/build-and-test/*.log` (newest-first naming).
 - An aggregated backend coverage summary is generated at `build-logs/build-and-test/index.html` (links to per-service JaCoCo/coverage reports).
+- Open `build-logs/build-and-test/index.html` directly in a normal browser window (`file:///...`); do not use VS Code **Open Preview** for this report.
 - Full pipeline design and report guide: `docs/testing/backend-local-pipeline.md`
 
 ### Per-service local test pipeline (run from each service root)
