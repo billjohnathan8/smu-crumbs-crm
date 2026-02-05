@@ -2,5 +2,12 @@
 setlocal
 
 set "SCRIPT_DIR=%~dp0"
-powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%build-and-test\build-and-test-backend.ps1"
+set "PS_SCRIPT=%SCRIPT_DIR%build-and-test\build-and-test-backend.ps1"
+
+where pwsh >nul 2>nul
+if %ERRORLEVEL% EQU 0 (
+  pwsh -NoProfile -ExecutionPolicy Bypass -File "%PS_SCRIPT%" %*
+) else (
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_SCRIPT%" %*
+)
 exit /b %ERRORLEVEL%
