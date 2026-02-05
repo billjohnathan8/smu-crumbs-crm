@@ -90,11 +90,67 @@ function Get-PythonCommand {
     return $null
 }
 
+function Ensure-GradleUserHome {
+    param(
+        [string]$RepoRoot,
+        [string]$GradleUserHome
+    )
+
+    if (-not (Test-Path $GradleUserHome)) {
+        New-Item -ItemType Directory -Path $GradleUserHome | Out-Null
+    }
+
+    $destDists = Join-Path $GradleUserHome "wrapper\\dists"
+    $srcDists = Join-Path (Join-Path $RepoRoot ".gradle-user-home") "wrapper\\dists"
+
+    # In sandboxed environments, Gradle Wrapper downloads may be blocked.
+    # Bootstrap a clean-ish GRADLE_USER_HOME with already-cached wrapper dists if available.
+    if (-not (Test-Path $srcDists)) {
+        return
+    }
+
+    $needsBootstrap = $false
+    if (-not (Test-Path $destDists)) {
+        $needsBootstrap = $true
+    }
+    else {
+        $partial = @(Get-ChildItem -Path $destDists -Recurse -Force -Filter "*.zip.part" -ErrorAction SilentlyContinue)
+        if ($partial.Count -gt 0) {
+            $needsBootstrap = $true
+        }
+    }
+
+    if ($needsBootstrap) {
+        Write-Log "Bootstrapping Gradle wrapper dists into $GradleUserHome"
+        New-Item -ItemType Directory -Path $destDists -Force | Out-Null
+        Copy-Item -Recurse -Force (Join-Path $srcDists "*") $destDists
+    }
+}
+
+function Test-GradleReportsPresent {
+    param([string]$ServicePath)
+
+    $expected = @(
+        (Join-Path $ServicePath "build\\reports\\jacoco\\test\\jacocoTestReport.xml"),
+        (Join-Path $ServicePath "build\\reports\\jacoco\\test\\html\\index.html"),
+        (Join-Path $ServicePath "build\\reports\\tests\\test\\index.html"),
+        (Join-Path $ServicePath "build\\reports\\checkstyle\\main.html"),
+        (Join-Path $ServicePath "build\\reports\\checkstyle\\test.html")
+    )
+
+    foreach ($path in $expected) {
+        if (-not (Test-Path $path)) {
+            return $false
+        }
+    }
+    return $true
+}
+
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent (Split-Path -Parent $scriptDir)
 $buildLogDir = Join-Path $repoRoot "build-logs\\build-and-test"
 $backendRoot = Join-Path $repoRoot "services\backend"
-$gradleUserHome = Join-Path $repoRoot ".gradle-user-home"
+$gradleUserHome = Join-Path $repoRoot ".gradle-user-home-backend-pipeline"
 
 if (-not (Test-Path $backendRoot)) {
     Write-Log "Backend services directory not found: $backendRoot"
@@ -104,6 +160,8 @@ if (-not (Test-Path $backendRoot)) {
 if (-not (Test-Path $gradleUserHome)) {
     New-Item -ItemType Directory -Path $gradleUserHome | Out-Null
 }
+
+Ensure-GradleUserHome -RepoRoot $repoRoot -GradleUserHome $gradleUserHome
 
 $env:GRADLE_USER_HOME = $gradleUserHome
 
@@ -152,6 +210,14 @@ foreach ($service in $services) {
             & .\gradlew.bat localTestPipeline --no-daemon --console=plain --gradle-user-home "$gradleUserHome"
             if ($LASTEXITCODE -ne 0) {
                 throw "localTestPipeline failed"
+            }
+
+            if (-not (Test-GradleReportsPresent -ServicePath $servicePath)) {
+                Write-Log "[$serviceName] Expected Gradle reports missing; rerunning report tasks with --rerun-tasks"
+                & .\gradlew.bat checkstyleMain checkstyleTest test jacocoTestReport --no-daemon --console=plain --gradle-user-home "$gradleUserHome" --rerun-tasks
+                if ($LASTEXITCODE -ne 0) {
+                    throw "report regeneration failed"
+                }
             }
         }
         elseif ($serviceType -eq "python") {
