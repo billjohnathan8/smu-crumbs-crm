@@ -50,6 +50,7 @@ terraform.rc
 .gradle-user-home/
 .gradle-user-home-backend-pipeline/
 .gradle-user-home-user/
+**/.gradle-test-home/
 
 # Python / pytest cache
 .python-build-test-venvs
