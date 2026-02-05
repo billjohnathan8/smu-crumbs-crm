@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Backend Coverage Summary</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --fg: #e8eef5;
+      --muted: #9fb0c3;
+      --border: #243241;
+      --warn: #ffcc66;
+      --link: #8bd5ff;
+      --card: #111825;
+      --green: #49c36b;
+      --red: #d64b4b;
+      --yellow: #e0c44c;
+    }
+    html, body { background: var(--bg); color: var(--fg); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    a { color: var(--link); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    h1 { margin: 0 0 8px 0; font-size: 22px; }
+    .meta { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 10px; border-top: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; min-width: 980px; }
+    th, td { border-top: 1px solid var(--border); padding: 10px 8px; vertical-align: top; }
+    th { text-align: left; color: var(--muted); font-weight: 600; }
+    .summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 10px; }
+    @media (max-width: 900px) { .summary { grid-template-columns: 1fr; } }
+    .pill { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: rgba(255,255,255,0.02); }
+    .warn { color: var(--warn); }
+    .small { font-size: 12px; color: var(--muted); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .metric { width: 100%; min-width: 0; }
+    .metric-top { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+    .metric-label { color: var(--muted); font-size: 12px; letter-spacing: 0.02em; text-transform: uppercase; }
+    .metric-val { font-weight: 700; }
+    .metric-sub { color: var(--muted); font-size: 12px; margin-top: 6px; }
+    .bar { height: 12px; border-radius: 999px; overflow: hidden; border: 1px solid var(--border); background: rgba(255,255,255,0.03); display: flex; }
+    .seg { height: 100%; }
+    .seg.covered { background: linear-gradient(90deg, #2ea84f, var(--green)); }
+    .seg.missed { background: linear-gradient(90deg, #b83838, var(--red)); }
+    .seg.warn { background: linear-gradient(90deg, #b79d2a, var(--yellow)); }
+    .na { color: var(--muted); font-size: 13px; }
+    .links { max-width: 360px; word-break: break-word; }
+    .links a { white-space: normal; display: inline-block; }
+    .legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+    .chip { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+    .dot { width: 10px; height: 10px; border-radius: 999px; border: 1px solid var(--border); }
+    .dot.green { background: var(--green); }
+    .dot.red { background: var(--red); }
+    .dot.yellow { background: var(--yellow); }
+    @media (max-width: 900px) {
+      .table-wrap { border-top: 0; }
+      table { min-width: 820px; }
+    }
+    @media (max-width: 640px) {
+      table { min-width: 740px; }
+      th, td { padding: 10px 6px; }
+      h1 { font-size: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Backend Local Pipeline: Coverage Summary</h1>
+      <div class="meta">Generated: 2026-02-05 17:00:40 (from reports under each service directory)</div>
+      <div class="summary">
+        <div class="pill"><div class="metric" title="tests=34, passed=34, failed=0, skipped=0">  <div class="metric-top"><span class="metric-label">Tests</span>    <span class="metric-val">34/34</span></div>  <div class="bar" aria-label="tests=34, passed=34, failed=0, skipped=0">    <div class="seg covered" style="width:100.00%"></div>    <div class="seg warn" style="width:0.00%"></div>    <div class="seg missed" style="width:0.00%"></div>  </div>  <div class="metric-sub">fail=0, err=0, skip=0</div></div></div>
+        <div class="pill"><div class="metric" title="Line coverage: covered=265, missed=62, total=327">  <div class="metric-top"><span class="metric-label">Line coverage</span>    <span class="metric-val">81.0%</span></div>  <div class="bar" aria-label="Line coverage: covered=265, missed=62, total=327">    <div class="seg covered" style="width:81.04%"></div>    <div class="seg missed" style="width:18.96%"></div>  </div>  <div class="metric-sub">265 covered / 62 missed</div></div></div>
+        <div class="pill"><div class="metric" title="Branch coverage: covered=12, missed=4, total=16">  <div class="metric-top"><span class="metric-label">Branch coverage</span>    <span class="metric-val">75.0%</span></div>  <div class="bar" aria-label="Branch coverage: covered=12, missed=4, total=16">    <div class="seg covered" style="width:75.00%"></div>    <div class="seg missed" style="width:25.00%"></div>  </div>  <div class="metric-sub">12 covered / 4 missed</div></div></div>
+      </div>
+      <div class="legend">
+        <span class="chip"><span class="dot green"></span> covered / passed</span>
+        <span class="chip"><span class="dot yellow"></span> skipped</span>
+        <span class="chip"><span class="dot red"></span> missed / failed</span>
+      </div>
+      <div class="small">Tip: open the per-service <code>coverage</code> link to see what lines/branches need tests.</div>
+      <div class="table-wrap" role="region" aria-label="Service coverage table">
+        <table>
+          <thead>
+            <tr>
+              <th>Service</th>
+              <th>Runtime</th>
+              <th>Tests (pass/fail)</th>
+              <th>Line Coverage</th>
+              <th>Branch Coverage</th>
+              <th>Links</th>
+              <th>Warnings</th>
+            </tr>
+          </thead>
+          <tbody>
+<tr><td class="mono">clients-service</td><td class="mono">gradle</td><td><div class="metric" title="tests=27, passed=27, failed=0, skipped=0">  <div class="metric-top"><span class="metric-label">Tests</span>    <span class="metric-val">27/27</span></div>  <div class="bar" aria-label="tests=27, passed=27, failed=0, skipped=0">    <div class="seg covered" style="width:100.00%"></div>    <div class="seg warn" style="width:0.00%"></div>    <div class="seg missed" style="width:0.00%"></div>  </div>  <div class="metric-sub">fail=0, err=0, skip=0</div></div></td><td><div class="metric" title="Line: covered=175, missed=22, total=197">  <div class="metric-top"><span class="metric-label">Line</span>    <span class="metric-val">88.8%</span></div>  <div class="bar" aria-label="Line: covered=175, missed=22, total=197">    <div class="seg covered" style="width:88.83%"></div>    <div class="seg missed" style="width:11.17%"></div>  </div>  <div class="metric-sub">175 covered / 22 missed</div></div></td><td><div class="metric" title="Branch: covered=12, missed=4, total=16">  <div class="metric-top"><span class="metric-label">Branch</span>    <span class="metric-val">75.0%</span></div>  <div class="bar" aria-label="Branch: covered=12, missed=4, total=16">    <div class="seg covered" style="width:75.00%"></div>    <div class="seg missed" style="width:25.00%"></div>  </div>  <div class="metric-sub">12 covered / 4 missed</div></div></td><td class="links"><a href="../../services/backend/clients-service/build/reports/jacoco/test/html/index.html">coverage</a> | <a href="../../services/backend/clients-service/build/reports/tests/test/index.html">tests</a> | <a href="../../services/backend/clients-service/build/reports/checkstyle/main.html">checkstyleMain</a> | <a href="../../services/backend/clients-service/build/reports/checkstyle/test.html">checkstyleTest</a> | <a href="../../services/backend/clients-service">serviceRoot</a></td><td class="warn"></td></tr>
+<tr><td class="mono">log-service</td><td class="mono">python</td><td><div class="metric" title="tests=3, passed=3, failed=0, skipped=0">  <div class="metric-top"><span class="metric-label">Tests</span>    <span class="metric-val">3/3</span></div>  <div class="bar" aria-label="tests=3, passed=3, failed=0, skipped=0">    <div class="seg covered" style="width:100.00%"></div>    <div class="seg warn" style="width:0.00%"></div>    <div class="seg missed" style="width:0.00%"></div>  </div>  <div class="metric-sub">fail=0, err=0, skip=0</div></div></td><td><div class="metric" title="Line: covered=80, missed=37, total=117">  <div class="metric-top"><span class="metric-label">Line</span>    <span class="metric-val">68.4%</span></div>  <div class="bar" aria-label="Line: covered=80, missed=37, total=117">    <div class="seg covered" style="width:68.38%"></div>    <div class="seg missed" style="width:31.62%"></div>  </div>  <div class="metric-sub">80 covered / 37 missed</div></div></td><td><div class="na">Branch: N/A</div></td><td class="links"><a href="../../services/backend/log-service/build/reports/coverage/html/index.html">coverage</a> | <a href="../../services/backend/log-service/build/reports/tests/junit.xml">tests</a> | <a href="../../services/backend/log-service">serviceRoot</a></td><td class="warn"></td></tr>
+<tr><td class="mono">user-service</td><td class="mono">gradle</td><td><div class="metric" title="tests=4, passed=4, failed=0, skipped=0">  <div class="metric-top"><span class="metric-label">Tests</span>    <span class="metric-val">4/4</span></div>  <div class="bar" aria-label="tests=4, passed=4, failed=0, skipped=0">    <div class="seg covered" style="width:100.00%"></div>    <div class="seg warn" style="width:0.00%"></div>    <div class="seg missed" style="width:0.00%"></div>  </div>  <div class="metric-sub">fail=0, err=0, skip=0</div></div></td><td><div class="metric" title="Line: covered=10, missed=3, total=13">  <div class="metric-top"><span class="metric-label">Line</span>    <span class="metric-val">76.9%</span></div>  <div class="bar" aria-label="Line: covered=10, missed=3, total=13">    <div class="seg covered" style="width:76.92%"></div>    <div class="seg missed" style="width:23.08%"></div>  </div>  <div class="metric-sub">10 covered / 3 missed</div></div></td><td><div class="na">Branch: N/A</div></td><td class="links"><a href="../../services/backend/user-service/build/reports/jacoco/test/html/index.html">coverage</a> | <a href="../../services/backend/user-service/build/reports/tests/test/index.html">tests</a> | <a href="../../services/backend/user-service/build/reports/checkstyle/main.html">checkstyleMain</a> | <a href="../../services/backend/user-service/build/reports/checkstyle/test.html">checkstyleTest</a> | <a href="../../services/backend/user-service">serviceRoot</a></td><td class="warn"></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

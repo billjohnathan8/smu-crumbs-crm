@@ -1,9 +1,265 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+if (-not $env:SCRIPT_RUN_LOG_CAPTURED) {
+    $scriptPath = $PSCommandPath
+    $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($scriptPath)
+    $scriptDir = Split-Path -Parent $scriptPath
+    $repoRoot = Split-Path -Parent (Split-Path -Parent $scriptDir)
+    $logDir = Join-Path $repoRoot "build-logs\\build-and-deploy"
+    $now = Get-Date
+    $timestamp = $now.ToString("yyyyMMdd-HHmmss")
+    $inverseTimestamp = "{0:D4}{1:D2}{2:D2}-{3:D2}{4:D2}{5:D2}" -f `
+        (9999 - $now.Year), `
+        (12 - $now.Month), `
+        (31 - $now.Day), `
+        (23 - $now.Hour), `
+        (59 - $now.Minute), `
+        (59 - $now.Second)
+    $logFile = Join-Path $logDir "$scriptName-$inverseTimestamp-$timestamp.log"
+
+    # IMPORTANT: This wrapper process captures output from a child PowerShell process and writes it to the console/log.
+    # On Windows PowerShell 5.1, external process output decoding is tied to the wrapper's console encodings/codepage.
+    # Set UTF-8 here (the script exits from this block and would not reach the later encoding setup).
+    $oldWrapperConsoleOutputEncoding = [Console]::OutputEncoding
+    $oldWrapperConsoleInputEncoding = [Console]::InputEncoding
+    $oldWrapperOutputEncoding = $OutputEncoding
+    $oldWrapperCodePage = $null
+    $oldWrapperConsoleOutputCP = $null
+    $oldWrapperConsoleCP = $null
+
+    try {
+        Add-Type -ErrorAction SilentlyContinue -Namespace Win32 -Name ConsoleCP -MemberDefinition @"
+using System.Runtime.InteropServices;
+public static class ConsoleCP {
+    [DllImport("kernel32.dll")] public static extern uint GetConsoleOutputCP();
+    [DllImport("kernel32.dll")] public static extern uint GetConsoleCP();
+    [DllImport("kernel32.dll")] public static extern bool SetConsoleOutputCP(uint wCodePageID);
+    [DllImport("kernel32.dll")] public static extern bool SetConsoleCP(uint wCodePageID);
+}
+"@
+        $oldWrapperConsoleOutputCP = [Win32.ConsoleCP]::GetConsoleOutputCP()
+        $oldWrapperConsoleCP = [Win32.ConsoleCP]::GetConsoleCP()
+    }
+    catch {
+        $oldWrapperConsoleOutputCP = $null
+        $oldWrapperConsoleCP = $null
+    }
+
+    try {
+        $cpLine = (& cmd /c chcp) 2>$null | Select-Object -First 1
+        if ($cpLine -match "([0-9]{3,5})") {
+            $oldWrapperCodePage = $Matches[1]
+        }
+    }
+    catch {
+        $oldWrapperCodePage = $null
+    }
+
+    try {
+        $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+        [Console]::OutputEncoding = $utf8NoBom
+        [Console]::InputEncoding = $utf8NoBom
+        $OutputEncoding = $utf8NoBom
+
+        if ($oldWrapperConsoleOutputCP -ne $null) {
+            [Win32.ConsoleCP]::SetConsoleOutputCP(65001) | Out-Null
+            [Win32.ConsoleCP]::SetConsoleCP(65001) | Out-Null
+        }
+
+        & cmd /c "chcp 65001 >nul" 2>$null
+    }
+    catch {
+        # Best-effort only.
+    }
+
+    function Repair-ConsoleMojibake {
+        param(
+            [AllowNull()]
+            [AllowEmptyString()]
+            [string]$Text
+        )
+
+        if ([string]::IsNullOrEmpty($Text)) {
+            return $Text
+        }
+
+        # Some native tools output UTF-8, but Windows PowerShell 5.1 can decode using an OEM code page (often 850),
+        # producing mojibake. Re-encode as OEM 850 bytes and decode as UTF-8 to recover the intended Unicode text.
+        try {
+            $oem850 = [System.Text.Encoding]::GetEncoding(850)
+            $bytes = $oem850.GetBytes($Text)
+            $fixed = [System.Text.Encoding]::UTF8.GetString($bytes)
+
+            # If conversion produced replacement chars, keep the original.
+            if ($fixed.IndexOf([char]0xFFFD) -ge 0) {
+                return $Text
+            }
+
+            # Only accept the fix when it reduces common mojibake markers.
+            $markerChars = @([char]0x00D4, [char]0x00C3, [char]0x0192) # D4=O-circumflex, C3=A-tilde, 0192=Latin small f
+            $origMarkers = ($Text.ToCharArray() | Where-Object { $markerChars -contains $_ }).Count
+            $fixedMarkers = ($fixed.ToCharArray() | Where-Object { $markerChars -contains $_ }).Count
+            if ($fixedMarkers -lt $origMarkers) {
+                return $fixed
+            }
+
+            return $Text
+        }
+        catch {
+            return $Text
+        }
+    }
+
+    if (-not (Test-Path $logDir)) {
+        New-Item -ItemType Directory -Path $logDir | Out-Null
+    }
+
+    $env:SCRIPT_RUN_LOG_CAPTURED = "1"
+    $env:BUILD_LOG_FILE = $logFile
+
+    try {
+        $previousErrorActionPreference = $ErrorActionPreference
+        $hasNativePreference = $false
+        $previousNativePreference = $null
+        try {
+            if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+                $hasNativePreference = $true
+                $previousNativePreference = $PSNativeCommandUseErrorActionPreference
+                $PSNativeCommandUseErrorActionPreference = $false
+            }
+            $ErrorActionPreference = "Continue"
+            & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $scriptPath @args 2>&1 |
+                ForEach-Object {
+                    if ($_ -is [System.Management.Automation.ErrorRecord]) {
+                        # Preserve the original stderr line from native tools (kind/helm/etc.) without printing ErrorRecord metadata.
+                        Repair-ConsoleMojibake -Text ($_.Exception.Message)
+                    }
+                    else {
+                        Repair-ConsoleMojibake -Text ($_.ToString())
+                    }
+                } |
+                Tee-Object -FilePath $logFile
+            $exitCode = $LASTEXITCODE
+        }
+        finally {
+            if ($hasNativePreference) {
+                $PSNativeCommandUseErrorActionPreference = $previousNativePreference
+            }
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
+    }
+    finally {
+        # Restore wrapper encoding/codepage.
+        try {
+            if ($oldWrapperConsoleOutputEncoding) { [Console]::OutputEncoding = $oldWrapperConsoleOutputEncoding }
+            if ($oldWrapperConsoleInputEncoding) { [Console]::InputEncoding = $oldWrapperConsoleInputEncoding }
+            if ($oldWrapperOutputEncoding) { $OutputEncoding = $oldWrapperOutputEncoding }
+            if ($oldWrapperConsoleOutputCP -ne $null) { [Win32.ConsoleCP]::SetConsoleOutputCP([uint32]$oldWrapperConsoleOutputCP) | Out-Null }
+            if ($oldWrapperConsoleCP -ne $null) { [Win32.ConsoleCP]::SetConsoleCP([uint32]$oldWrapperConsoleCP) | Out-Null }
+            if ($oldWrapperCodePage) { & cmd /c ("chcp {0} >nul" -f $oldWrapperCodePage) 2>$null }
+        }
+        catch {
+            # Ignore restore failures.
+        }
+
+        Remove-Item Env:SCRIPT_RUN_LOG_CAPTURED -ErrorAction SilentlyContinue
+        Remove-Item Env:BUILD_LOG_FILE -ErrorAction SilentlyContinue
+    }
+
+    exit $exitCode
+}
+
 # Ensure native commands (make/kubectl/docker) are handled via exit codes.
 if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
     $PSNativeCommandUseErrorActionPreference = $false
+}
+
+$script:OldConsoleOutputEncoding = [Console]::OutputEncoding
+$script:OldOutputEncoding = $OutputEncoding
+$script:OldConsoleInputEncoding = [Console]::InputEncoding
+$script:OldCodePage = $null
+$script:OldConsoleOutputCP = $null
+$script:OldConsoleCP = $null
+
+try {
+    Add-Type -ErrorAction SilentlyContinue -Namespace Win32 -Name ConsoleCP -MemberDefinition @"
+using System.Runtime.InteropServices;
+public static class ConsoleCP {
+    [DllImport("kernel32.dll")] public static extern uint GetConsoleOutputCP();
+    [DllImport("kernel32.dll")] public static extern uint GetConsoleCP();
+    [DllImport("kernel32.dll")] public static extern bool SetConsoleOutputCP(uint wCodePageID);
+    [DllImport("kernel32.dll")] public static extern bool SetConsoleCP(uint wCodePageID);
+}
+"@
+
+    $script:OldConsoleOutputCP = [Win32.ConsoleCP]::GetConsoleOutputCP()
+    $script:OldConsoleCP = [Win32.ConsoleCP]::GetConsoleCP()
+}
+catch {
+    $script:OldConsoleOutputCP = $null
+    $script:OldConsoleCP = $null
+}
+
+try {
+    # Capture current console code page so we can restore it.
+    $cpLine = (& cmd /c chcp) 2>$null | Select-Object -First 1
+    if ($cpLine -match "([0-9]{3,5})") {
+        $script:OldCodePage = $Matches[1]
+    }
+}
+catch {
+    $script:OldCodePage = $null
+}
+
+try {
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [Console]::OutputEncoding = $utf8NoBom
+    [Console]::InputEncoding = $utf8NoBom
+    $OutputEncoding = $utf8NoBom
+
+    # Ensure native tools emit UTF-8 cleanly (prevents mojibake in logs).
+    if ($script:OldConsoleOutputCP -ne $null) {
+        [Win32.ConsoleCP]::SetConsoleOutputCP(65001) | Out-Null
+        [Win32.ConsoleCP]::SetConsoleCP(65001) | Out-Null
+    }
+    & cmd /c "chcp 65001 >nul" 2>$null
+}
+catch {
+    # Best-effort only; some hosts may not allow changing encodings.
+}
+
+function Exit-WithCode {
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$Code
+    )
+
+    try {
+        if ($script:OldConsoleOutputEncoding) {
+            [Console]::OutputEncoding = $script:OldConsoleOutputEncoding
+        }
+        if ($script:OldConsoleInputEncoding) {
+            [Console]::InputEncoding = $script:OldConsoleInputEncoding
+        }
+        if ($script:OldOutputEncoding) {
+            $OutputEncoding = $script:OldOutputEncoding
+        }
+        if ($script:OldConsoleOutputCP -ne $null) {
+            [Win32.ConsoleCP]::SetConsoleOutputCP([uint32]$script:OldConsoleOutputCP) | Out-Null
+        }
+        if ($script:OldConsoleCP -ne $null) {
+            [Win32.ConsoleCP]::SetConsoleCP([uint32]$script:OldConsoleCP) | Out-Null
+        }
+        if ($script:OldCodePage) {
+            & cmd /c ("chcp {0} >nul" -f $script:OldCodePage) 2>$null
+        }
+    }
+    catch {
+        # Ignore restore failures.
+    }
+
+    exit $Code
 }
 
 function Write-Log {
@@ -14,6 +270,10 @@ function Write-Log {
 
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     Write-Host "[$timestamp] $Message"
+}
+
+if ($env:BUILD_LOG_FILE) {
+    Write-Log "Build log file: $($env:BUILD_LOG_FILE)"
 }
 
 function Invoke-MakeTarget {
@@ -84,14 +344,39 @@ function Get-KindClusterName {
     return (($nameLine -replace '^\s*name:\s*', '').Trim())
 }
 
+function Test-DockerAvailable {
+    $oldEap = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+            return $false
+        }
+
+        & docker info *> $null
+        return ($LASTEXITCODE -eq 0)
+    }
+    finally {
+        $ErrorActionPreference = $oldEap
+    }
+}
+
 function Test-KindClusterExists {
     param(
         [Parameter(Mandatory = $true)]
         [string]$ClusterName
     )
 
-    $clusters = & kind get clusters 2>$null
-    if ($LASTEXITCODE -ne 0) {
+    $oldEap = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $clusters = & kind get clusters 2>$null
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $oldEap
+    }
+
+    if ($exitCode -ne 0) {
         return $false
     }
 
@@ -147,9 +432,41 @@ function Initialize-KindCluster {
     Invoke-MakeTarget -Target "kind-up" -BashPath $BashPath
 }
 
+function Invoke-TeardownAfterSuccess {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ClusterName
+    )
+
+    Write-Log "Smoke passed: tearing down local k8s resources and kind cluster '$ClusterName'"
+
+    $oldEap = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        # 1) Remove app workloads (best-effort).
+        & kubectl delete -k platform/k8s/apps/overlays/dev --ignore-not-found *> $null
+
+        # 2) Remove infra components (best-effort).
+        & helm uninstall postgres -n dev *> $null
+        & helm uninstall ingress-nginx -n ingress-nginx *> $null
+        & helm uninstall metrics-server -n kube-system *> $null
+
+        # 3) Delete kind cluster (required for a complete teardown).
+        & kind delete cluster --name $ClusterName *> $null
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to delete kind cluster '$ClusterName'."
+        }
+
+        Write-Log "Teardown complete: kind cluster '$ClusterName' deleted."
+    }
+    finally {
+        $ErrorActionPreference = $oldEap
+    }
+}
+
 if (-not (Get-Command make -ErrorAction SilentlyContinue)) {
     Write-Log "Missing dependency: 'make' is not installed or not in PATH."
-    exit 1
+    Exit-WithCode -Code 1
 }
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -166,10 +483,15 @@ $targets = @(
 
 Push-Location $repoRoot
 try {
+    $completedSuccessfully = $false
     $kindClusterName = Get-KindClusterName -RepoRoot $repoRoot
     $bashPath = Get-BashPath
     if ($env:OS -eq "Windows_NT" -and -not $bashPath) {
         throw "Git Bash was not found. Install Git for Windows so make recipes run correctly on Windows."
+    }
+
+    if (-not (Test-DockerAvailable)) {
+        throw "Docker is not available or the daemon is not running. Start Docker Desktop and retry."
     }
 
     Initialize-KindCluster -ClusterName $kindClusterName -BashPath $bashPath
@@ -194,10 +516,22 @@ try {
 
         Invoke-MakeTarget -Target $target -BashPath $bashPath
     }
+
+    $completedSuccessfully = $true
 }
 finally {
+    if ($completedSuccessfully) {
+        try {
+            Invoke-TeardownAfterSuccess -ClusterName $kindClusterName
+        }
+        catch {
+            Write-Log "Teardown failed: $($_.Exception.Message)"
+            Pop-Location
+            Exit-WithCode -Code 1
+        }
+    }
     Pop-Location
 }
 
 Write-Log "Local Kubernetes build/deploy and smoke checks completed successfully."
-exit 0
+Exit-WithCode -Code 0
