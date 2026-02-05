@@ -61,6 +61,11 @@ Success criteria:
 bash ./scripts/build-and-test/build-and-test-backend.sh
 ```
 
+The backend script now runs each service-local pipeline (lint, build, tests, coverage reports):
+- `services/backend/user-service`: `gradlew localTestPipeline`
+- `services/backend/clients-service`: `gradlew localTestPipeline`
+- `services/backend/log-service`: `python run-local-test-pipeline.py`
+
 ### 1) Create and verify kind cluster
 ```bash
 make kind-up
