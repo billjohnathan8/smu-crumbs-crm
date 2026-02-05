@@ -2,4 +2,7 @@ fastapi
 uvicorn[standard]
 psycopg[binary]
 pytest
+pytest-cov
+black
+flake8
 httpx
