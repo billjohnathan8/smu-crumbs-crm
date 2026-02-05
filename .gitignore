@@ -48,6 +48,7 @@ terraform.rc
 .gradle/
 **/.gradle/
 .gradle-user-home/
+.gradle-user-home-backend-pipeline/
 .gradle-user-home-user/
 
 # Python / pytest cache
