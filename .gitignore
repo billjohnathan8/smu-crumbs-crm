@@ -83,5 +83,7 @@ id_rsa
 # Ignore IDE Configs
 .vscode/
 .VSCodeCounter/
+TODO.md
+CHANGELOG.md
 
 # Ignore Test Directories
