@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <base href="../../" />
+  <title>Frontend Test Reports</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --fg: #e8eef5;
+      --muted: #9fb0c3;
+      --border: #243241;
+      --link: #8bd5ff;
+      --card: #111825;
+      --green: #49c36b;
+      --red: #d64b4b;
+    }
+    html, body { background: var(--bg); color: var(--fg); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    .wrap { max-width: 1000px; margin: 24px auto; padding: 0 16px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    h1 { margin: 0 0 8px 0; font-size: 22px; }
+    .meta { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 10px; border-top: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; min-width: 700px; }
+    th, td { border-top: 1px solid var(--border); padding: 12px 8px; vertical-align: top; }
+    th { text-align: left; color: var(--muted); font-weight: 600; }
+    .desc { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .paths { max-width: 420px; word-break: break-word; }
+    .na { color: var(--muted); font-size: 13px; }
+    .status-ok { color: var(--green); font-weight: 600; }
+    .status-missing { color: var(--red); font-weight: 600; }
+    a { color: var(--link); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .info-box { background: rgba(73, 195, 107, 0.1); border: 1px solid rgba(73, 195, 107, 0.3); border-radius: 8px; padding: 12px; margin-top: 16px; }
+    .info-box strong { color: var(--green); }
+    .info-box p { margin: 4px 0; font-size: 13px; line-height: 1.5; }
+    @media (max-width: 640px) {
+      table { min-width: 600px; }
+      h1 { font-size: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Frontend Local Pipeline: Test Reports</h1>
+      <div class="meta">Generated: 2026-02-07 02:52:18</div>
+
+      <div class="info-box">
+        <strong>📋 Available Reports</strong>
+        <p>All frontend test reports are aggregated below. Click on the report paths to open them.</p>
+      </div>
+
+      <div class="table-wrap" role="region" aria-label="Frontend test reports">
+        <table>
+          <thead>
+            <tr>
+              <th>Report Type</th>
+              <th>Status</th>
+              <th>Location</th>
+            </tr>
+          </thead>
+          <tbody>
+<tr><td><strong>Unit Test Coverage (Vitest)</strong><div class="desc">Code coverage from unit tests</div></td><td class="status-ok">✓ Available</td><td class="paths"><a href="services/frontend/crm-ui/coverage/index.html" data-file-uri="file:///C:/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/services/frontend/crm-ui/coverage/index.html" target="_blank" rel="noopener"><code class="mono">services/frontend/crm-ui/coverage/index.html</code></a></td></tr>
+<tr><td><strong>E2E Test Report (Playwright)</strong><div class="desc">End-to-end test results</div></td><td class="status-ok">✓ Available</td><td class="paths"><a href="services/frontend/crm-ui/playwright-report/index.html" data-file-uri="file:///C:/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/services/frontend/crm-ui/playwright-report/index.html" target="_blank" rel="noopener"><code class="mono">services/frontend/crm-ui/playwright-report/index.html</code></a></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const href = String(window.location.href || "");
+      const host = String(window.location.host || "");
+      const protocol = String(window.location.protocol || "");
+      const isVsCodePreview =
+        href.includes("vscode-resource") ||
+        href.includes("vscode-webview") ||
+        host.includes("vscode-cdn.net") ||
+        protocol === "vscode-webview:" ||
+        protocol === "vscode-resource:";
+
+      if (!isVsCodePreview) {
+        return;
+      }
+
+      // In VS Code preview, use file:// URIs instead of relative paths
+      for (const anchor of document.querySelectorAll("a[data-file-uri]")) {
+        const fileUri = anchor.getAttribute("data-file-uri");
+        if (fileUri) {
+          anchor.setAttribute("href", fileUri);
+        }
+      }
+    })();
+  </script>
+</body>
+</html>
