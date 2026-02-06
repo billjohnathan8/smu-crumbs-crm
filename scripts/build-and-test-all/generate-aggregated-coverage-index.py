@@ -1,8 +1,19 @@
 #!/usr/bin/env python3
+"""
+Generates an aggregated coverage report combining both backend and frontend services.
+
+This script collects test results and code coverage data from:
+- All backend services (Gradle Java and Python)
+- Frontend service (crm-ui React/TypeScript)
+
+It produces a unified HTML report showing test results and coverage metrics
+across the entire application stack.
+"""
 from __future__ import annotations
 
 import datetime as _dt
 import html
+import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -42,6 +53,7 @@ class TestCounts:
 class ServiceSummary:
     name: str
     runtime: str
+    layer: str  # "backend" or "frontend"
     tests: Optional[TestCounts]
     line_cov: Optional[CoverageCounts]
     branch_cov: Optional[CoverageCounts]
@@ -50,18 +62,24 @@ class ServiceSummary:
 
 
 def _repo_root() -> Path:
-    # scripts/build-and-test/generate-coverage-index.py -> repo root
+    # scripts/build-and-test-all/generate-aggregated-coverage-index.py -> repo root
     return Path(__file__).resolve().parents[2]
 
 
 def _rel(from_dir: Path, to_path: Path) -> str:
+    """Return a relative path from from_dir to to_path, using forward slashes."""
     try:
         return os.path.relpath(str(to_path), start=str(from_dir)).replace("\\", "/")
     except Exception:
         return str(to_path).replace("\\", "/")
 
 
+# =======================
+# Backend Parsing Functions (Gradle, Python)
+# =======================
+
 def _parse_junit_dir(test_results_dir: Path) -> Optional[TestCounts]:
+    """Parse JUnit XML files from a directory (Gradle test results)."""
     if not test_results_dir.is_dir():
         return None
 
@@ -73,7 +91,6 @@ def _parse_junit_dir(test_results_dir: Path) -> Optional[TestCounts]:
         except Exception:
             continue
 
-        # Root is usually <testsuite> or <testsuites>
         suites = []
         if root.tag == "testsuite":
             suites = [root]
@@ -93,6 +110,7 @@ def _parse_junit_dir(test_results_dir: Path) -> Optional[TestCounts]:
 
 
 def _parse_junit_file(junit_xml: Path) -> Optional[TestCounts]:
+    """Parse a single JUnit XML file (Python test results)."""
     if not junit_xml.is_file():
         return None
 
@@ -124,6 +142,7 @@ def _parse_junit_file(junit_xml: Path) -> Optional[TestCounts]:
 
 
 def _parse_jacoco_xml(jacoco_xml: Path) -> tuple[Optional[CoverageCounts], Optional[CoverageCounts]]:
+    """Parse JaCoCo coverage XML for line and branch coverage."""
     if not jacoco_xml.is_file():
         return None, None
 
@@ -146,7 +165,7 @@ def _parse_jacoco_xml(jacoco_xml: Path) -> tuple[Optional[CoverageCounts], Optio
 
 
 def _parse_coveragepy_xml(cov_xml: Path) -> tuple[Optional[CoverageCounts], Optional[CoverageCounts]]:
-    # coverage.py can emit Cobertura XML (<coverage ... lines-valid=".." lines-covered="..">)
+    """Parse coverage.py XML (Cobertura format) for line and branch coverage."""
     if not cov_xml.is_file():
         return None, None
 
@@ -184,19 +203,91 @@ def _parse_coveragepy_xml(cov_xml: Path) -> tuple[Optional[CoverageCounts], Opti
 
 
 def _detect_runtime(service_dir: Path) -> Optional[str]:
+    """Detect the runtime/build system of a service directory."""
     if (service_dir / "gradlew").exists() or (service_dir / "gradlew.bat").exists():
         return "gradle"
     if (service_dir / "run-local-test-pipeline.py").exists():
         return "python"
+    if (service_dir / "package.json").exists():
+        return "node"
     return None
 
 
-def _summarize_service(service_dir: Path, build_log_dir: Path) -> ServiceSummary:
+# =======================
+# Frontend Parsing Functions (React/Vitest coverage)
+# =======================
+
+def _parse_vitest_coverage_summary(coverage_summary_json: Path) -> tuple[Optional[CoverageCounts], Optional[CoverageCounts]]:
+    """
+    Parse Vitest coverage-summary.json for line and branch coverage.
+    
+    Expected format (typical Vitest/Istanbul):
+    {
+      "total": {
+        "lines": {"total": 100, "covered": 85, "skipped": 0, "pct": 85},
+        "statements": {...},
+        "functions": {...},
+        "branches": {"total": 50, "covered": 40, "skipped": 0, "pct": 80}
+      }
+    }
+    """
+    if not coverage_summary_json.is_file():
+        return None, None
+
+    try:
+        with open(coverage_summary_json, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return None, None
+
+    line_cov = branch_cov = None
+
+    total_data = data.get("total", {})
+    
+    # Line coverage
+    lines_data = total_data.get("lines", {})
+    if lines_data:
+        try:
+            lines_total = int(lines_data.get("total", 0))
+            lines_covered = int(lines_data.get("covered", 0))
+            lines_missed = max(0, lines_total - lines_covered)
+            line_cov = CoverageCounts(covered=lines_covered, missed=lines_missed)
+        except Exception:
+            line_cov = None
+
+    # Branch coverage
+    branches_data = total_data.get("branches", {})
+    if branches_data:
+        try:
+            branches_total = int(branches_data.get("total", 0))
+            branches_covered = int(branches_data.get("covered", 0))
+            branches_missed = max(0, branches_total - branches_covered)
+            branch_cov = CoverageCounts(covered=branches_covered, missed=branches_missed)
+        except Exception:
+            branch_cov = None
+
+    return line_cov, branch_cov
+
+
+def _parse_vitest_junit(junit_xml: Path) -> Optional[TestCounts]:
+    """Parse Vitest JUnit XML output for test results."""
+    return _parse_junit_file(junit_xml)
+
+
+# =======================
+# Service Summarization
+# =======================
+
+def _summarize_backend_service(service_dir: Path) -> Optional[ServiceSummary]:
+    """Summarize a backend service (Gradle or Python)."""
     name = service_dir.name
-    runtime = _detect_runtime(service_dir) or "unknown"
+    runtime = _detect_runtime(service_dir)
+    
+    if runtime not in ("gradle", "python"):
+        return None
+    
     warnings: list[str] = []
     links: dict[str, Path] = {}
-
     tests: Optional[TestCounts] = None
     line_cov: Optional[CoverageCounts] = None
     branch_cov: Optional[CoverageCounts] = None
@@ -208,7 +299,7 @@ def _summarize_service(service_dir: Path, build_log_dir: Path) -> ServiceSummary
         test_results_dir = service_dir / "build" / "test-results" / "test"
         tests = _parse_junit_dir(test_results_dir)
 
-        # Links (best effort)
+        # Links
         checkstyle_main = service_dir / "build" / "reports" / "checkstyle" / "main.html"
         checkstyle_test = service_dir / "build" / "reports" / "checkstyle" / "test.html"
         tests_html = service_dir / "build" / "reports" / "tests" / "test" / "index.html"
@@ -243,15 +334,12 @@ def _summarize_service(service_dir: Path, build_log_dir: Path) -> ServiceSummary
         if line_cov is None:
             warnings.append("coverage.xml not found or unreadable")
 
-    else:
-        warnings.append("unknown runtime (no reports discovered)")
-
-    # Always include service root link for convenience
     links["serviceRoot"] = service_dir
 
     return ServiceSummary(
         name=name,
         runtime=runtime,
+        layer="backend",
         tests=tests,
         line_cov=line_cov,
         branch_cov=branch_cov,
@@ -260,16 +348,90 @@ def _summarize_service(service_dir: Path, build_log_dir: Path) -> ServiceSummary
     )
 
 
+def _summarize_frontend_service(frontend_dir: Path) -> Optional[ServiceSummary]:
+    """Summarize the frontend crm-ui service."""
+    name = frontend_dir.name
+    runtime = "node"
+    warnings: list[str] = []
+    links: dict[str, Path] = {}
+    tests: Optional[TestCounts] = None
+    line_cov: Optional[CoverageCounts] = None
+    branch_cov: Optional[CoverageCounts] = None
+
+    # Vitest/Istanbul coverage
+    coverage_summary = frontend_dir / "coverage" / "coverage-summary.json"
+    line_cov, branch_cov = _parse_vitest_coverage_summary(coverage_summary)
+
+    # Vitest JUnit results (if generated)
+    vitest_junit_xml = frontend_dir / "junit.xml"
+    vitest_tests = _parse_vitest_junit(vitest_junit_xml)
+    
+    # Playwright JUnit results (e2e tests)
+    playwright_junit_xml = frontend_dir / "test-results" / "junit.xml"
+    playwright_tests = _parse_junit_file(playwright_junit_xml)
+    
+    # Combine test results from both Vitest and Playwright
+    if vitest_tests and playwright_tests:
+        tests = TestCounts(
+            tests=vitest_tests.tests + playwright_tests.tests,
+            failures=vitest_tests.failures + playwright_tests.failures,
+            errors=vitest_tests.errors + playwright_tests.errors,
+            skipped=vitest_tests.skipped + playwright_tests.skipped,
+        )
+    elif vitest_tests:
+        tests = vitest_tests
+    elif playwright_tests:
+        tests = playwright_tests
+    else:
+        tests = None
+
+    # Links
+    coverage_html = frontend_dir / "coverage" / "index.html"
+    if coverage_html.exists():
+        links["vitestCoverage"] = coverage_html
+    
+    playwright_html = frontend_dir / "playwright-report" / "index.html"
+    if playwright_html.exists():
+        links["playwrightReport"] = playwright_html
+    
+    if vitest_junit_xml.exists():
+        links["vitestTests"] = vitest_junit_xml
+    
+    if playwright_junit_xml.exists():
+        links["playwrightTests"] = playwright_junit_xml
+    
+    # Warnings
+    if not coverage_html.exists():
+        warnings.append("Vitest coverage HTML report not found")
+    
+    if line_cov is None:
+        warnings.append("coverage-summary.json not found or unreadable")
+    
+    if not playwright_html.exists():
+        warnings.append("Playwright HTML report not found")
+
+    links["serviceRoot"] = frontend_dir
+
+    return ServiceSummary(
+        name=name,
+        runtime=runtime,
+        layer="frontend",
+        tests=tests,
+        line_cov=line_cov,
+        branch_cov=branch_cov,
+        links=links,
+        warnings=warnings,
+    )
+
+
+# =======================
+# HTML Rendering
+# =======================
+
 def _fmt_pct(cov: Optional[CoverageCounts]) -> str:
     if cov is None or cov.pct is None:
         return "N/A"
     return f"{cov.pct:.1f}%"
-
-
-def _fmt_tests(t: Optional[TestCounts]) -> str:
-    if t is None:
-        return "N/A"
-    return f"{t.passed}/{t.tests} (fail={t.failures}, err={t.errors}, skip={t.skipped})"
 
 
 def _bar_cov(label: str, cov: Optional[CoverageCounts]) -> str:
@@ -325,10 +487,12 @@ def _bar_tests(t: Optional[TestCounts]) -> str:
 
 
 def _render_html(services: list[ServiceSummary], build_log_dir: Path) -> str:
+    """Render complete HTML report with aggregated coverage."""
     now = _dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     repo_root = _repo_root()
     base_href = _rel(build_log_dir, repo_root).rstrip("/") + "/"
 
+    # Calculate aggregates
     total_tests = total_failures = total_errors = total_skipped = 0
     total_line_cov = CoverageCounts(covered=0, missed=0)
     total_branch_cov = CoverageCounts(covered=0, missed=0)
@@ -350,53 +514,43 @@ def _render_html(services: list[ServiceSummary], build_log_dir: Path) -> str:
             total_branch_cov.missed += s.branch_cov.missed
             branch_cov_counted += 1
 
-    total_passed = max(0, total_tests - total_failures - total_errors)
     total_tests_bar = _bar_tests(
         TestCounts(
             tests=total_tests,
             failures=total_failures,
             errors=total_errors,
             skipped=total_skipped,
-        )
+        ) if total_tests > 0 else None
     )
     total_line_bar = _bar_cov("Line coverage", total_line_cov) if line_cov_counted else _bar_cov("Line coverage", None)
     total_branch_bar = _bar_cov("Branch coverage", total_branch_cov) if branch_cov_counted else _bar_cov("Branch coverage", None)
 
+    # Group services by layer
+    backend_services = [s for s in services if s.layer == "backend"]
+    frontend_services = [s for s in services if s.layer == "frontend"]
+
+    # Render service rows
     rows = []
-    for s in services:
-        # Paths (repo-relative, so they can be copy/pasted reliably even when HTML previews block file links)
-        path_lines = []
-        # Provide predictable ordering
-        for key in ("coverage", "tests", "checkstyleMain", "checkstyleTest", "serviceRoot"):
-            if key not in s.links:
-                continue
-            rel_path = _rel(repo_root, s.links[key])
-            file_uri = s.links[key].resolve().as_uri()
-            path_lines.append(
-                "<div>"
-                f"<span class=\"path-key\">{html.escape(key)}:</span> "
-                f"<a href=\"{html.escape(rel_path, quote=True)}\" "
-                f"data-file-uri=\"{html.escape(file_uri, quote=True)}\" "
-                f"target=\"_blank\" rel=\"noopener\">"
-                f"<code class=\"mono\">{html.escape(rel_path)}</code>"
-                "</a>"
-                "</div>"
-            )
-        paths_html = "".join(path_lines) if path_lines else '<div class="na">N/A</div>'
-
-        warn_str = "; ".join(s.warnings) if s.warnings else ""
-
+    
+    # Backend services
+    if backend_services:
         rows.append(
-            "<tr>"
-            f"<td class=\"mono\">{html.escape(s.name)}</td>"
-            f"<td class=\"mono\">{html.escape(s.runtime)}</td>"
-            f"<td>{_bar_tests(s.tests)}</td>"
-            f"<td>{_bar_cov('Line', s.line_cov)}</td>"
-            f"<td>{_bar_cov('Branch', s.branch_cov)}</td>"
-            f"<td class=\"paths\">{paths_html}</td>"
-            f"<td class=\"warn\">{html.escape(warn_str)}</td>"
-            "</tr>"
+            '<tr class="layer-header">'
+            f'<td colspan="7" class="layer-title">Backend Services ({len(backend_services)})</td>'
+            '</tr>'
         )
+        for s in backend_services:
+            rows.append(_render_service_row(s, repo_root))
+    
+    # Frontend services
+    if frontend_services:
+        rows.append(
+            '<tr class="layer-header">'
+            f'<td colspan="7" class="layer-title">Frontend Services ({len(frontend_services)})</td>'
+            '</tr>'
+        )
+        for s in frontend_services:
+            rows.append(_render_service_row(s, repo_root))
 
     rows_html = "\n".join(rows)
 
@@ -406,7 +560,7 @@ def _render_html(services: list[ServiceSummary], build_log_dir: Path) -> str:
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <base href="{html.escape(base_href, quote=True)}" />
-  <title>Backend Coverage Summary</title>
+  <title>Full Pipeline Coverage Summary</title>
   <style>
     :root {{
       --bg: #0b0f14;
@@ -419,16 +573,19 @@ def _render_html(services: list[ServiceSummary], build_log_dir: Path) -> str:
       --green: #49c36b;
       --red: #d64b4b;
       --yellow: #e0c44c;
+      --layer-bg: #1a2332;
     }}
     html, body {{ background: var(--bg); color: var(--fg); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }}
-    .wrap {{ max-width: 1100px; margin: 24px auto; padding: 0 16px; }}
+    .wrap {{ max-width: 1200px; margin: 24px auto; padding: 0 16px; }}
     .card {{ background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }}
-    h1 {{ margin: 0 0 8px 0; font-size: 22px; }}
+    h1 {{ margin: 0 0 8px 0; font-size: 24px; }}
     .meta {{ color: var(--muted); font-size: 13px; margin-bottom: 12px; }}
     .table-wrap {{ overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 10px; border-top: 1px solid var(--border); }}
     table {{ width: 100%; border-collapse: collapse; min-width: 980px; }}
     th, td {{ border-top: 1px solid var(--border); padding: 10px 8px; vertical-align: top; }}
     th {{ text-align: left; color: var(--muted); font-weight: 600; }}
+    .layer-header {{ background: var(--layer-bg); }}
+    .layer-title {{ font-weight: 700; color: var(--fg); padding: 12px 8px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; }}
     .summary {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 10px; }}
     @media (max-width: 900px) {{ .summary {{ grid-template-columns: 1fr; }} }}
     .pill {{ border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: rgba(255,255,255,0.02); }}
@@ -458,22 +615,16 @@ def _render_html(services: list[ServiceSummary], build_log_dir: Path) -> str:
     .dot.green {{ background: var(--green); }}
     .dot.red {{ background: var(--red); }}
     .dot.yellow {{ background: var(--yellow); }}
-    @media (max-width: 900px) {{
-      .table-wrap {{ border-top: 0; }}
-      table {{ min-width: 820px; }}
-    }}
-    @media (max-width: 640px) {{
-      table {{ min-width: 740px; }}
-      th, td {{ padding: 10px 6px; }}
-      h1 {{ font-size: 20px; }}
-    }}
+    .badge {{ display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }}
+    .badge.backend {{ background: #1e3a5f; color: #6eb5ff; }}
+    .badge.frontend {{ background: #3e1e5f; color: #d89eff; }}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <h1>Backend Local Pipeline: Coverage Summary</h1>
-      <div class="meta">Generated: {html.escape(now)} (from reports under each service directory)</div>
+      <h1>Full Pipeline: Aggregated Coverage Summary</h1>
+      <div class="meta">Generated: {html.escape(now)} | Backend + Frontend services</div>
       <div class="summary">
         <div class="pill">{total_tests_bar}</div>
         <div class="pill">{total_line_bar}</div>
@@ -484,7 +635,7 @@ def _render_html(services: list[ServiceSummary], build_log_dir: Path) -> str:
         <span class="chip"><span class="dot yellow"></span> skipped</span>
         <span class="chip"><span class="dot red"></span> missed / failed</span>
       </div>
-      <div class="small">Tip: click a per-service <code>coverage</code> path to open the HTML report.</div>
+      <div class="small">Tip: click report paths to open detailed coverage and test reports (Vitest, Playwright, JaCoCo).</div>
       <div class="table-wrap" role="region" aria-label="Service coverage table">
         <table>
           <thead>
@@ -534,32 +685,92 @@ def _render_html(services: list[ServiceSummary], build_log_dir: Path) -> str:
 """
 
 
+def _render_service_row(s: ServiceSummary, repo_root: Path) -> str:
+    """Render a single service row in the HTML table."""
+    # Paths (repo-relative, with file URIs for VS Code)
+    path_lines = []
+    
+    # Order of links to display
+    link_order = [
+        "coverage",           # Backend coverage
+        "vitestCoverage",     # Frontend vitest coverage
+        "playwrightReport",   # Frontend playwright report
+        "tests",              # Backend tests
+        "vitestTests",        # Frontend vitest tests
+        "playwrightTests",    # Frontend playwright tests
+        "checkstyleMain",     # Backend checkstyle
+        "checkstyleTest",     # Backend checkstyle test
+        "serviceRoot",        # Service root directory
+    ]
+    
+    for key in link_order:
+        if key not in s.links:
+            continue
+        rel_path = _rel(repo_root, s.links[key])
+        file_uri = s.links[key].resolve().as_uri()
+        path_lines.append(
+            "<div>"
+            f"<span class=\"path-key\">{html.escape(key)}:</span> "
+            f"<a href=\"{html.escape(rel_path, quote=True)}\" "
+            f"data-file-uri=\"{html.escape(file_uri, quote=True)}\" "
+            f"target=\"_blank\" rel=\"noopener\">"
+            f"<code class=\"mono\">{html.escape(rel_path)}</code>"
+            "</a>"
+            "</div>"
+        )
+    paths_html = "".join(path_lines) if path_lines else '<div class="na">N/A</div>'
+
+    warn_str = "; ".join(s.warnings) if s.warnings else ""
+
+    badge_class = "backend" if s.layer == "backend" else "frontend"
+
+    return (
+        "<tr>"
+        f"<td class=\"mono\">{html.escape(s.name)} <span class=\"badge {badge_class}\">{html.escape(s.layer)}</span></td>"
+        f"<td class=\"mono\">{html.escape(s.runtime)}</td>"
+        f"<td>{_bar_tests(s.tests)}</td>"
+        f"<td>{_bar_cov('Line', s.line_cov)}</td>"
+        f"<td>{_bar_cov('Branch', s.branch_cov)}</td>"
+        f"<td class=\"paths\">{paths_html}</td>"
+        f"<td class=\"warn\">{html.escape(warn_str)}</td>"
+        "</tr>"
+    )
+
+
+# =======================
+# Main Function
+# =======================
+
 def main() -> int:
     repo_root = _repo_root()
     backend_root = repo_root / "services" / "backend"
-    build_log_dir_env = os.environ.get("BUILD_LOG_DIR")
-    if build_log_dir_env:
-        build_log_dir = Path(build_log_dir_env)
-        if not build_log_dir.is_absolute():
-            build_log_dir = repo_root / build_log_dir
-    else:
-        build_log_dir = repo_root / "build-logs"
+    frontend_root = repo_root / "services" / "frontend" / "crm-ui"
+    build_log_dir = repo_root / "build-logs" / "build-and-test-all"
     build_log_dir.mkdir(parents=True, exist_ok=True)
 
     services: list[ServiceSummary] = []
+
+    # Collect backend services
     if backend_root.is_dir():
         for child in sorted(backend_root.iterdir()):
             if not child.is_dir():
                 continue
-            runtime = _detect_runtime(child)
-            if runtime is None:
-                continue
-            services.append(_summarize_service(child, build_log_dir))
+            summary = _summarize_backend_service(child)
+            if summary:
+                services.append(summary)
 
+    # Collect frontend service
+    if frontend_root.is_dir():
+        summary = _summarize_frontend_service(frontend_root)
+        if summary:
+            services.append(summary)
+
+    # Generate HTML
     html_doc = _render_html(services, build_log_dir)
     out_file = build_log_dir / "index.html"
     out_file.write_text(html_doc, encoding="utf-8")
-    print(f"[coverage-index] Wrote {out_file}")
+    print(f"[aggregated-coverage] Wrote {out_file}")
+    print(f"[aggregated-coverage] Total services: {len(services)} (backend: {sum(1 for s in services if s.layer == 'backend')}, frontend: {sum(1 for s in services if s.layer == 'frontend')})")
     return 0
 
 

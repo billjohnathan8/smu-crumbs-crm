@@ -1,0 +1,759 @@
+﻿[2026-02-07 02:46:14] Build log file: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\build-and-test-all\inv79731024-211346__2026-02-07_02-46-13__build-and-test-all.log
+[2026-02-07 02:46:14] ========================================
+[2026-02-07 02:46:14] Full Pipeline: Build and Test All
+[2026-02-07 02:46:14] ========================================
+[2026-02-07 02:46:14] 
+[2026-02-07 02:46:14] This script will:
+[2026-02-07 02:46:14]   1. Run backend pipeline (all backend services)
+[2026-02-07 02:46:14]   2. Run frontend pipeline (crm-ui)
+[2026-02-07 02:46:14]   3. Generate aggregated coverage report
+[2026-02-07 02:46:14] 
+[2026-02-07 02:46:14] ========================================
+[2026-02-07 02:46:14] Step 1: Running Backend Pipeline
+[2026-02-07 02:46:14] ========================================
+[2026-02-07 02:46:14] 
+[2026-02-07 02:46:15] Build log file: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\build-and-test-all\inv79731024-211346__2026-02-07_02-46-13__build-and-test-all.log
+[2026-02-07 02:46:15] Bootstrapping Gradle wrapper dists into C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\.gradle-user-home-backend-pipeline
+[2026-02-07 02:46:16] Discovered 4 backend service(s):
+[2026-02-07 02:46:16]   - agent-service [gradle]
+[2026-02-07 02:46:16]   - client-service [gradle]
+[2026-02-07 02:46:16]   - log-service [python]
+[2026-02-07 02:46:16]   - transaction-service [gradle]
+[2026-02-07 02:46:16] ==> Service: agent-service [gradle]
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.3.0/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :compileJava UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :checkstyleMain
+> Task :compileTestJava
+> Task :processTestResources NO-SOURCE
+> Task :testClasses
+> Task :resolveMainClassName UP-TO-DATE
+> Task :bootJar UP-TO-DATE
+> Task :checkstyleTest
+> Task :jar
+> Task :assemble
+Java HotSpot(TM) 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+> Task :test
+> Task :jacocoTestReport
+> Task :localTestPipeline
+
+BUILD SUCCESSFUL in 1m 23s
+10 actionable tasks: 6 executed, 4 up-to-date
+Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.3.0/userguide/configuration_cache_enabling.html
+[2026-02-07 02:47:40] [agent-service] Local pipeline passed
+[2026-02-07 02:47:40] ==> Service: client-service [gradle]
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.2.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :compileJava UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :checkstyleMain
+> Task :compileTestJava
+> Task :processTestResources NO-SOURCE
+> Task :testClasses
+> Task :resolveMainClassName UP-TO-DATE
+> Task :checkstyleTest
+> Task :bootJar UP-TO-DATE
+> Task :jar
+> Task :assemble
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+> Task :test
+> Task :jacocoTestReport
+> Task :localTestPipeline
+
+BUILD SUCCESSFUL in 1m 21s
+10 actionable tasks: 6 executed, 4 up-to-date
+Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.2.1/userguide/configuration_cache_enabling.html
+[2026-02-07 02:49:03] [client-service] Local pipeline passed
+[2026-02-07 02:49:03] ==> Service: log-service [python]
+Requirement already satisfied: pip in .\.venv\Lib\site-packages (26.0.1)
+Requirement already satisfied: fastapi in .\.venv\Lib\site-packages (from -r requirements.txt (line 1)) (0.128.0)
+Requirement already satisfied: pytest in .\.venv\Lib\site-packages (from -r requirements.txt (line 4)) (9.0.2)
+Requirement already satisfied: pytest-cov in .\.venv\Lib\site-packages (from -r requirements.txt (line 5)) (7.0.0)
+Requirement already satisfied: black in .\.venv\Lib\site-packages (from -r requirements.txt (line 6)) (26.1.0)
+Requirement already satisfied: flake8 in .\.venv\Lib\site-packages (from -r requirements.txt (line 7)) (7.3.0)
+Requirement already satisfied: httpx in .\.venv\Lib\site-packages (from -r requirements.txt (line 8)) (0.28.1)
+Requirement already satisfied: uvicorn[standard] in .\.venv\Lib\site-packages (from -r requirements.txt (line 2)) (0.40.0)
+Requirement already satisfied: psycopg[binary] in .\.venv\Lib\site-packages (from -r requirements.txt (line 3)) (3.3.2)
+Requirement already satisfied: starlette<0.51.0,>=0.40.0 in .\.venv\Lib\site-packages (from fastapi->-r requirements.txt (line 1)) (0.50.0)
+Requirement already satisfied: pydantic>=2.7.0 in .\.venv\Lib\site-packages (from fastapi->-r requirements.txt (line 1)) (2.12.5)
+Requirement already satisfied: typing-extensions>=4.8.0 in .\.venv\Lib\site-packages (from fastapi->-r requirements.txt (line 1)) (4.15.0)
+Requirement already satisfied: annotated-doc>=0.0.2 in .\.venv\Lib\site-packages (from fastapi->-r requirements.txt (line 1)) (0.0.4)
+Requirement already satisfied: anyio<5,>=3.6.2 in .\.venv\Lib\site-packages (from starlette<0.51.0,>=0.40.0->fastapi->-r requirements.txt (line 1)) (4.12.1)
+Requirement already satisfied: idna>=2.8 in .\.venv\Lib\site-packages (from anyio<5,>=3.6.2->starlette<0.51.0,>=0.40.0->fastapi->-r requirements.txt (line 1)) (3.11)
+Requirement already satisfied: click>=7.0 in .\.venv\Lib\site-packages (from uvicorn[standard]->-r requirements.txt (line 2)) (8.3.1)
+Requirement already satisfied: h11>=0.8 in .\.venv\Lib\site-packages (from uvicorn[standard]->-r requirements.txt (line 2)) (0.16.0)
+Requirement already satisfied: colorama>=0.4 in .\.venv\Lib\site-packages (from uvicorn[standard]->-r requirements.txt (line 2)) (0.4.6)
+Requirement already satisfied: httptools>=0.6.3 in .\.venv\Lib\site-packages (from uvicorn[standard]->-r requirements.txt (line 2)) (0.7.1)
+Requirement already satisfied: python-dotenv>=0.13 in .\.venv\Lib\site-packages (from uvicorn[standard]->-r requirements.txt (line 2)) (1.2.1)
+Requirement already satisfied: pyyaml>=5.1 in .\.venv\Lib\site-packages (from uvicorn[standard]->-r requirements.txt (line 2)) (6.0.3)
+Requirement already satisfied: watchfiles>=0.13 in .\.venv\Lib\site-packages (from uvicorn[standard]->-r requirements.txt (line 2)) (1.1.1)
+Requirement already satisfied: websockets>=10.4 in .\.venv\Lib\site-packages (from uvicorn[standard]->-r requirements.txt (line 2)) (16.0)
+Requirement already satisfied: tzdata in .\.venv\Lib\site-packages (from psycopg[binary]->-r requirements.txt (line 3)) (2025.3)
+Requirement already satisfied: psycopg-binary==3.3.2 in .\.venv\Lib\site-packages (from psycopg[binary]->-r requirements.txt (line 3)) (3.3.2)
+Requirement already satisfied: iniconfig>=1.0.1 in .\.venv\Lib\site-packages (from pytest->-r requirements.txt (line 4)) (2.3.0)
+Requirement already satisfied: packaging>=22 in .\.venv\Lib\site-packages (from pytest->-r requirements.txt (line 4)) (26.0)
+Requirement already satisfied: pluggy<2,>=1.5 in .\.venv\Lib\site-packages (from pytest->-r requirements.txt (line 4)) (1.6.0)
+Requirement already satisfied: pygments>=2.7.2 in .\.venv\Lib\site-packages (from pytest->-r requirements.txt (line 4)) (2.19.2)
+Requirement already satisfied: coverage>=7.10.6 in .\.venv\Lib\site-packages (from coverage[toml]>=7.10.6->pytest-cov->-r requirements.txt (line 5)) (7.13.3)
+Requirement already satisfied: mypy-extensions>=0.4.3 in .\.venv\Lib\site-packages (from black->-r requirements.txt (line 6)) (1.1.0)
+Requirement already satisfied: pathspec>=1.0.0 in .\.venv\Lib\site-packages (from black->-r requirements.txt (line 6)) (1.0.4)
+Requirement already satisfied: platformdirs>=2 in .\.venv\Lib\site-packages (from black->-r requirements.txt (line 6)) (4.5.1)
+Requirement already satisfied: pytokens>=0.3.0 in .\.venv\Lib\site-packages (from black->-r requirements.txt (line 6)) (0.4.1)
+Requirement already satisfied: mccabe<0.8.0,>=0.7.0 in .\.venv\Lib\site-packages (from flake8->-r requirements.txt (line 7)) (0.7.0)
+Requirement already satisfied: pycodestyle<2.15.0,>=2.14.0 in .\.venv\Lib\site-packages (from flake8->-r requirements.txt (line 7)) (2.14.0)
+Requirement already satisfied: pyflakes<3.5.0,>=3.4.0 in .\.venv\Lib\site-packages (from flake8->-r requirements.txt (line 7)) (3.4.0)
+Requirement already satisfied: certifi in .\.venv\Lib\site-packages (from httpx->-r requirements.txt (line 8)) (2026.1.4)
+Requirement already satisfied: httpcore==1.* in .\.venv\Lib\site-packages (from httpx->-r requirements.txt (line 8)) (1.0.9)
+Requirement already satisfied: annotated-types>=0.6.0 in .\.venv\Lib\site-packages (from pydantic>=2.7.0->fastapi->-r requirements.txt (line 1)) (0.7.0)
+Requirement already satisfied: pydantic-core==2.41.5 in .\.venv\Lib\site-packages (from pydantic>=2.7.0->fastapi->-r requirements.txt (line 1)) (2.41.5)
+Requirement already satisfied: typing-inspection>=0.4.2 in .\.venv\Lib\site-packages (from pydantic>=2.7.0->fastapi->-r requirements.txt (line 1)) (0.4.2)
+All done! \u2728 \U0001f370 \u2728
+11 files would be left unchanged.
+============================= test session starts =============================
+platform win32 -- Python 3.14.0, pytest-9.0.2, pluggy-1.6.0
+rootdir: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log-service
+configfile: pyproject.toml
+plugins: anyio-4.12.1, cov-7.0.0
+collected 42 items
+
+tests\test_api.py .....................                                  [ 50%]
+tests\test_auth.py ......                                                [ 64%]
+tests\test_repository.py ...........                                     [ 90%]
+tests\test_service.py ....                                               [100%]
+
+============================== warnings summary ===============================
+app\main.py:74: 1 warning
+tests/test_api.py: 21 warnings
+  C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log-service\app\main.py:74: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+.venv\Lib\site-packages\fastapi\applications.py:4576: 1 warning
+tests/test_api.py: 21 warnings
+  C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log-service\.venv\Lib\site-packages\fastapi\applications.py:4576: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log-service\build\reports\tests\junit.xml -
+=============================== tests coverage ================================
+_______________ coverage: platform win32, python 3.14.0-final-0 _______________
+
+Name                Stmts   Miss Branch BrPart  Cover   Missing
+---------------------------------------------------------------
+app\__init__.py         2      0      0      0   100%
+app\auth.py            65      2     18      0    98%   31, 35
+app\config.py          13      0      0      0   100%
+app\main.py           159      9     28      5    93%   77, 109, 126, 143->145, 189, 257-258, 286-287, 387
+app\repository.py     134     12     30      3    91%   32, 131, 135-139, 266-273, 285->289
+app\schemas.py         74      1      0      0    99%   104
+app\service.py         37      4      4      2    85%   19, 24->26, 51, 60, 65->67, 74
+---------------------------------------------------------------
+TOTAL                 484     28     80     10    93%
+Coverage HTML written to dir build/reports/coverage/html
+Coverage XML written to file build/reports/coverage/coverage.xml
+======================= 42 passed, 44 warnings in 2.66s =======================
+[local-test-pipeline] C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log-service\.venv\Scripts\python.exe -m pip install --upgrade pip
+[local-test-pipeline] C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log-service\.venv\Scripts\python.exe -m pip install -r requirements.txt
+[local-test-pipeline] C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log-service\.venv\Scripts\python.exe -m black --check app tests
+[local-test-pipeline] C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log-service\.venv\Scripts\python.exe -m flake8 --jobs 1 app tests
+[local-test-pipeline] C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log-service\.venv\Scripts\python.exe -m compileall -q app tests
+[local-test-pipeline] C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log-service\.venv\Scripts\python.exe -m pytest tests --junitxml=build/reports/tests/junit.xml --cov=app --cov-branch --cov-report=term-missing --cov-report=xml:build/reports/coverage/coverage.xml --cov-report=html:build/reports/coverage/html
+[local-test-pipeline] PASS
+[2026-02-07 02:49:18] [log-service] Local pipeline passed
+[2026-02-07 02:49:18] ==> Service: transaction-service [gradle]
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.3.0/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :compileJava UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :compileTestJava
+> Task :processTestResources NO-SOURCE
+> Task :testClasses
+> Task :resolveMainClassName UP-TO-DATE
+> Task :bootJar UP-TO-DATE
+> Task :checkstyleMain
+> Task :jar
+> Task :checkstyleTest
+> Task :assemble
+Java HotSpot(TM) 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+> Task :test
+> Task :jacocoTestReport
+> Task :localTestPipeline
+
+BUILD SUCCESSFUL in 49s
+10 actionable tasks: 6 executed, 4 up-to-date
+Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.3.0/userguide/configuration_cache_enabling.html
+[2026-02-07 02:50:09] [transaction-service] Local pipeline passed
+
+[2026-02-07 02:50:09] Backend local test pipeline summary
+
+Service             Runtime Status
+-------             ------- ------
+agent-service       gradle  PASS  
+client-service      gradle  PASS  
+log-service         python  PASS  
+transaction-service gradle  PASS  
+
+
+[2026-02-07 02:50:09] Generating aggregated coverage report (build-logs/build-and-test-backend/index.html)
+[coverage-index] Wrote C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\build-and-test-backend\index.html
+[2026-02-07 02:50:09] All backend services passed lint, build, tests, and coverage report generation.
+[2026-02-07 02:50:09] Backend pipeline completed successfully
+[2026-02-07 02:50:09] 
+[2026-02-07 02:50:09] ========================================
+[2026-02-07 02:50:09] Step 2: Running Frontend Pipeline
+[2026-02-07 02:50:09] ========================================
+[2026-02-07 02:50:09] 
+[2026-02-07 02:50:09] Build log file: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\build-and-test-all\inv79731024-211346__2026-02-07_02-46-13__build-and-test-all.log
+[2026-02-07 02:50:10] Node version: v22.21.1
+npm warn Unknown env config "python". This will stop working in the next major version of npm.
+[2026-02-07 02:50:10] npm version: 11.7.0
+[2026-02-07 02:50:10] ==> Frontend: crm-ui
+[2026-02-07 02:50:10] Location: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\frontend\crm-ui
+[2026-02-07 02:50:10] [crm-ui] Installing dependencies (npm install)...
+npm warn Unknown env config "python". This will stop working in the next major version of npm.
+
+up to date, audited 385 packages in 2s
+
+90 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+[2026-02-07 02:50:12] [crm-ui] Dependencies installed successfully
+[2026-02-07 02:50:12] [crm-ui] Running type checking (npm run typecheck)...
+npm warn Unknown env config "python". This will stop working in the next major version of npm.
+
+> crm-ui@0.0.0 typecheck
+> tsc -b --noEmit
+
+[2026-02-07 02:50:15] [crm-ui] Type checking passed
+[2026-02-07 02:50:15] [crm-ui] Running linter (npm run lint)...
+npm warn Unknown env config "python". This will stop working in the next major version of npm.
+
+> crm-ui@0.0.0 lint
+> eslint .
+
+[2026-02-07 02:50:20] [crm-ui] Linting passed
+[2026-02-07 02:50:20] [crm-ui] Running format check (npm run format:check)...
+npm warn Unknown env config "python". This will stop working in the next major version of npm.
+
+> crm-ui@0.0.0 format:check
+> prettier --check "src/**/*.{ts,tsx,js,jsx,json,css,md}"
+
+Checking formatting...
+All matched files use Prettier code style!
+[2026-02-07 02:50:22] [crm-ui] Format check passed
+[2026-02-07 02:50:22] [crm-ui] Building application (npm run build)...
+npm warn Unknown env config "python". This will stop working in the next major version of npm.
+
+> crm-ui@0.0.0 build
+> tsc -b && vite build
+
+vite v7.3.1 building client environment for production...
+transforming...
+✓ 55 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.45 kB │ gzip:  0.29 kB
+dist/assets/index-DErgZNsY.css   15.19 kB │ gzip:  3.56 kB
+dist/assets/index-BLAjomkF.js   276.17 kB │ gzip: 80.73 kB
+✓ built in 2.41s
+[2026-02-07 02:50:29] [crm-ui] Build successful
+[2026-02-07 02:50:29] [crm-ui] Running tests with coverage (npm run test:coverage)...
+npm warn Unknown env config "python". This will stop working in the next major version of npm.
+
+> crm-ui@0.0.0 test:coverage
+> vitest run --coverage
+
+
+ RUN  v4.0.18 C:/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/services/frontend/crm-ui
+      Coverage enabled with v8
+
+ ✓ src/api/__tests__/auth.test.ts (10 tests) 19ms
+ ✓ src/api/__tests__/transactions.test.ts (11 tests) 22ms
+ ✓ src/api/__tests__/users.test.ts (11 tests) 17ms
+ ✓ src/api/__tests__/clients.test.ts (12 tests) 14ms
+ ✓ src/api/__tests__/logs.test.ts (10 tests) 13ms
+ ✓ src/api/__tests__/client.test.ts (25 tests) 92ms
+ ✓ src/app/__tests__/ProtectedRoute.test.tsx (6 tests) 95ms
+ ✓ src/features/auth/__tests__/AuthContext.test.tsx (7 tests) 299ms
+stderr | src/pages/__tests__/AdminManageAccounts.test.tsx > AdminManageAccounts > should show loading state
+An update to AuthProvider inside a test was not wrapped in act(...).
+System.Management.Automation.RemoteException
+When testing, code that causes React state updates should be wrapped into act(...):
+System.Management.Automation.RemoteException
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+System.Management.Automation.RemoteException
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to AuthProvider inside a test was not wrapped in act(...).
+System.Management.Automation.RemoteException
+When testing, code that causes React state updates should be wrapped into act(...):
+System.Management.Automation.RemoteException
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+System.Management.Automation.RemoteException
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+System.Management.Automation.RemoteException
+stderr | src/pages/__tests__/AgentDashboard.test.tsx > AgentDashboard > should show loading state
+An update to AuthProvider inside a test was not wrapped in act(...).
+System.Management.Automation.RemoteException
+When testing, code that causes React state updates should be wrapped into act(...):
+System.Management.Automation.RemoteException
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+System.Management.Automation.RemoteException
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to AuthProvider inside a test was not wrapped in act(...).
+System.Management.Automation.RemoteException
+When testing, code that causes React state updates should be wrapped into act(...):
+System.Management.Automation.RemoteException
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+System.Management.Automation.RemoteException
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+System.Management.Automation.RemoteException
+stderr | src/pages/__tests__/AdminDashboard.test.tsx > AdminDashboard > should show loading state
+An update to AuthProvider inside a test was not wrapped in act(...).
+System.Management.Automation.RemoteException
+When testing, code that causes React state updates should be wrapped into act(...):
+System.Management.Automation.RemoteException
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+System.Management.Automation.RemoteException
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to AuthProvider inside a test was not wrapped in act(...).
+System.Management.Automation.RemoteException
+When testing, code that causes React state updates should be wrapped into act(...):
+System.Management.Automation.RemoteException
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+System.Management.Automation.RemoteException
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+System.Management.Automation.RemoteException
+ ✓ src/pages/__tests__/AgentDashboard.test.tsx (9 tests) 562ms
+     ✓ should render dashboard header with user name  315ms
+ ✓ src/pages/__tests__/AdminDashboard.test.tsx (10 tests) 573ms
+     ✓ should render dashboard header with admin name  312ms
+ ✓ src/pages/__tests__/LoginPage.test.tsx (15 tests) 930ms
+ ✓ src/pages/__tests__/AdminManageAccounts.test.tsx (22 tests) 1917ms
+ ✓ src/pages/__tests__/AgentViewTransactions.test.tsx (21 tests) 1919ms
+     ✓ should render filter controls  310ms
+stderr | src/pages/__tests__/AgentCreateClient.test.tsx > AgentCreateClient > should disable form fields while submitting
+An update to AgentCreateClient inside a test was not wrapped in act(...).
+System.Management.Automation.RemoteException
+When testing, code that causes React state updates should be wrapped into act(...):
+System.Management.Automation.RemoteException
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+System.Management.Automation.RemoteException
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+System.Management.Automation.RemoteException
+ ✓ src/pages/__tests__/AgentCreateClient.test.tsx (17 tests) 18881ms
+     ✓ should render the create client form  333ms
+     ✓ should show validation error for client younger than 18  639ms
+     ✓ should show validation error for client older than 100  585ms
+     ✓ should accept exactly 18 years old  620ms
+     ✓ should show validation error for invalid email format  624ms
+     ✓ should show validation error for invalid phone format  482ms
+     ✓ should successfully create client and navigate to dashboard  2190ms
+     ✓ should call logout on 401 error  2110ms
+     ✓ should display API error for duplicate email (409)  2189ms
+     ✓ should display API error for validation error (422)  2116ms
+     ✓ should display generic API error for other status codes  2171ms
+     ✓ should display generic error for non-ApiError exceptions  2051ms
+     ✓ should disable form fields while submitting  2154ms
+
+ Test Files  14 passed (14)
+      Tests  186 passed (186)
+   Start at  02:50:31
+   Duration  24.41s (transform 2.98s, setup 10.41s, import 5.58s, tests 25.35s, environment 47.43s)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |   93.03 |    88.19 |   91.37 |   94.54 |                   
+ api               |   92.19 |     88.5 |    92.5 |   93.96 |                   
+  auth.ts          |     100 |      100 |     100 |     100 |                   
+  client.ts        |     100 |    92.59 |     100 |     100 | 78,123            
+  clients.ts       |      90 |      100 |      80 |   88.23 | 94-101            
+  logs.ts          |   92.59 |     90.9 |     100 |     100 | 26-27             
+  transactions.ts  |      75 |    72.72 |      80 |   73.68 | 69-76             
+  users.ts         |     100 |      100 |     100 |     100 |                   
+ app               |   88.88 |      100 |      50 |   88.88 |                   
+  ...ctedRoute.tsx |   88.88 |      100 |      50 |   88.88 | 33                
+ features/auth     |     100 |     87.5 |     100 |     100 |                   
+  AuthContext.tsx  |     100 |     87.5 |     100 |     100 | 47                
+ pages             |   92.81 |    87.78 |   91.17 |   94.36 |                   
+  ...Dashboard.tsx |   91.66 |       75 |     100 |   91.66 | 48,53             
+  ...eAccounts.tsx |   87.06 |    81.11 |   85.71 |    89.9 | ...69,318,427-441 
+  ...ateClient.tsx |   98.73 |    97.84 |   93.75 |   98.73 | 231               
+  ...Dashboard.tsx |   91.66 |    70.83 |     100 |   91.66 | 31,36             
+  ...nsactions.tsx |   92.98 |       90 |    87.5 |   96.22 | 186-196           
+  LoginPage.tsx    |   97.91 |       95 |     100 |   97.91 | 62                
+-------------------|---------|----------|---------|---------|-------------------
+[2026-02-07 02:50:55] [crm-ui] Tests passed
+[2026-02-07 02:50:55] [crm-ui] Running end-to-end tests (npm run e2e)...
+npm warn Unknown env config "python". This will stop working in the next major version of npm.
+
+> crm-ui@0.0.0 e2e
+> playwright test
+
+[WebServer] npm warn Unknown env config "python". This will stop working in the next major version of npm.
+
+
+Running 58 tests using 1 worker
+
+[1/58] [chromium] › e2e\admin\admin-manage-accounts.spec.ts:12:3 › Admin Manage Accounts (Flow 3) › should create new agent user successfully
+[2/58] [chromium] › e2e\admin\admin-manage-accounts.spec.ts:109:3 › Admin Manage Accounts (Flow 3) › should validate required fields when creating user
+[3/58] [chromium] › e2e\admin\admin-manage-accounts.spec.ts:178:3 › Admin Manage Accounts (Flow 3) › should validate email format when creating user
+[4/58] [chromium] › e2e\admin\admin-manage-accounts.spec.ts:248:3 › Admin Manage Accounts (Flow 3) › should handle 409 conflict when creating duplicate user
+[5/58] [chromium] › e2e\admin\admin-manage-accounts.spec.ts:327:3 › Admin Manage Accounts (Flow 3) › should disable user successfully
+[6/58] [chromium] › e2e\admin\admin-manage-accounts.spec.ts:441:3 › Admin Manage Accounts (Flow 3) › should delete user successfully
+[7/58] [chromium] › e2e\admin\admin-manage-accounts.spec.ts:534:3 › Admin Manage Accounts (Flow 3) › should reset user password successfully
+[8/58] [chromium] › e2e\admin\admin-manage-accounts.spec.ts:641:3 › Admin Manage Accounts (Flow 3) › should navigate pagination pages
+[9/58] [chromium] › e2e\admin\admin-manage-accounts.spec.ts:739:3 › Admin Manage Accounts (Flow 3) › should cancel user creation
+[10/58] [chromium] › e2e\admin.spec.ts:126:3 › Admin Flow › should login as admin and navigate to manage accounts page
+
+[chromium] › e2e\admin.spec.ts:126:3 › Admin Flow › should login as admin and navigate to manage accounts page
+Browser console: [vite] connecting...
+
+Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+Browser console: [vite] connected.
+
+Browser console: [vite] connecting...
+
+Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+
+[11/58] [chromium] › e2e\admin.spec.ts:161:3 › Admin Flow › should display stats on admin dashboard
+[chromium] › e2e\admin.spec.ts:161:3 › Admin Flow › should display stats on admin dashboard
+Browser console: [vite] connecting...
+
+Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+
+Browser console: [vite] connected.
+
+[12/58] [chromium] › e2e\admin.spec.ts:181:3 › Admin Flow › should navigate back to dashboard from manage accounts
+[chromium] › e2e\admin.spec.ts:181:3 › Admin Flow › should navigate back to dashboard from manage accounts
+Browser console: [vite] connecting...
+
+Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+
+Browser console: [vite] connected.
+
+
+Browser console: [vite] connecting...
+
+Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+Browser console: [vite] connecting...
+
+
+Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[13/58] [chromium] › e2e\admin.spec.ts:204:3 › Admin Flow › should logout successfully
+[chromium] › e2e\admin.spec.ts:204:3 › Admin Flow › should logout successfully
+Browser console: [vite] connecting...
+
+Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+
+
+Browser console: [vite] connected.
+[14/58] [chromium] › e2e\agent\agent-create-client-validation.spec.ts:12:3 › Agent Create Client - Validation (Flow 6) › should validate invalid email format
+[15/58] [chromium] › e2e\agent\agent-create-client-validation.spec.ts:78:3 › Agent Create Client - Validation (Flow 6) › should validate invalid phone format
+[16/58] [chromium] › e2e\agent\agent-create-client-validation.spec.ts:144:3 › Agent Create Client - Validation (Flow 6) › should validate age < 18 years
+[17/58] [chromium] › e2e\agent\agent-create-client-validation.spec.ts:210:3 › Agent Create Client - Validation (Flow 6) › should validate age > 100 years
+[18/58] [chromium] › e2e\agent\agent-create-client-validation.spec.ts:276:3 › Agent Create Client - Validation (Flow 6) › should handle 409 conflict for duplicate client
+[19/58] [chromium] › e2e\agent\agent-create-client-validation.spec.ts:353:3 › Agent Create Client - Validation (Flow 6) › should handle 422 validation error from server
+[20/58] [chromium] › e2e\agent\agent-create-client-validation.spec.ts:432:3 › Agent Create Client - Validation (Flow 6) › should handle 401 unauthorized during creation
+[21/58] [chromium] › e2e\agent\agent-create-client-validation.spec.ts:509:3 › Agent Create Client - Validation (Flow 6) › should cancel form and navigate back
+[22/58] [chromium] › e2e\agent\agent-create-client-validation.spec.ts:580:3 › Agent Create Client - Validation (Flow 6) › should successfully create client with valid data
+[23/58] [chromium] › e2e\agent\agent-logout.spec.ts:72:3 › Agent Logout Flow › should logout from agent dashboard
+[24/58] [chromium] › e2e\agent\agent-logout.spec.ts:104:3 › Agent Logout Flow › should logout from agent create client page
+[25/58] [chromium] › e2e\agent\agent-logout.spec.ts:128:3 › Agent Logout Flow › should logout from agent transactions page
+[26/58] [chromium] › e2e\agent\agent-transactions-filters.spec.ts:38:3 › Agent View Transactions - Filters & Pagination (Flow 7) › should filter transactions by status
+[27/58] [chromium] › e2e\agent\agent-transactions-filters.spec.ts:126:3 › Agent View Transactions - Filters & Pagination (Flow 7) › should filter transactions by type (Deposit/Withdrawal)
+[28/58] [chromium] › e2e\agent\agent-transactions-filters.spec.ts:209:3 › Agent View Transactions - Filters & Pagination (Flow 7) › should filter transactions by date range
+[29/58] [chromium] › e2e\agent\agent-transactions-filters.spec.ts:295:3 › Agent View Transactions - Filters & Pagination (Flow 7) › should search transactions by client ID or transaction ID
+[30/58] [chromium] › e2e\agent\agent-transactions-filters.spec.ts:365:3 › Agent View Transactions - Filters & Pagination (Flow 7) › should reset all filters
+[31/58] [chromium] › e2e\agent\agent-transactions-filters.spec.ts:454:3 › Agent View Transactions - Filters & Pagination (Flow 7) › should handle pagination
+[32/58] [chromium] › e2e\agent\agent-transactions-filters.spec.ts:561:3 › Agent View Transactions - Filters & Pagination (Flow 7) › should display empty state when no transactions found
+[33/58] [chromium] › e2e\agent\agent-transactions-filters.spec.ts:623:3 › Agent View Transactions - Filters & Pagination (Flow 7) › should display error state when API fails
+[34/58] [chromium] › e2e\agent.spec.ts:134:3 › Agent Flow › should login as agent, create client, and view transactions
+[chromium] › e2e\agent.spec.ts:134:3 › Agent Flow › should login as agent, create client, and view transactions
+Browser console: [vite] connecting...
+
+
+Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+Browser console: [vite] connected.
+
+Browser console: [vite] connecting...
+
+Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+
+Browser console: [vite] connected.
+
+
+Browser console: [vite] connecting...
+Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+
+[35/58] [chromium] › e2e\agent.spec.ts:188:3 › Agent Flow › should validate client creation form
+[chromium] › e2e\agent.spec.ts:188:3 › Agent Flow › should validate client creation form
+Browser console: [vite] connecting...
+
+Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+
+Browser console: [vite] connected.
+
+Browser console: [vite] connecting...
+
+Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+
+[36/58] [chromium] › e2e\agent.spec.ts:212:3 › Agent Flow › should display agent dashboard stats
+[chromium] › e2e\agent.spec.ts:212:3 › Agent Flow › should display agent dashboard stats
+Browser console: [vite] connecting...
+
+Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+
+Browser console: [vite] connected.
+
+[37/58] [chromium] › e2e\agent.spec.ts:230:3 › Agent Flow › should filter transactions
+[chromium] › e2e\agent.spec.ts:230:3 › Agent Flow › should filter transactions
+Browser console: [vite] connecting...
+
+Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+
+Browser console: [vite] connected.
+
+Browser console: [vite] connecting...
+
+Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+
+[38/58] [chromium] › e2e\agent.spec.ts:251:3 › Agent Flow › should navigate between pages successfully
+[chromium] › e2e\agent.spec.ts:251:3 › Agent Flow › should navigate between pages successfully
+Browser console: [vite] connecting...
+
+Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+
+Browser console: [vite] connected.
+
+
+Browser console: [vite] connecting...
+Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+
+Browser console: [vite] connecting...
+
+
+Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+Browser console: [vite] connecting...
+
+Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+
+
+Browser console: [vite] connecting...
+Browser console: [vite] connected.
+
+[39/58] [chromium] › e2e\api-errors\api-error-handling.spec.ts:10:3 › API Error Handling (Flow 10) › should handle 401 Unauthorized and redirect to login
+[40/58] [chromium] › e2e\api-errors\api-error-handling.spec.ts:62:3 › API Error Handling (Flow 10) › should display 403 Forbidden error when creating user without permission
+[41/58] [chromium] › e2e\api-errors\api-error-handling.spec.ts:157:3 › API Error Handling (Flow 10) › should handle 409 Conflict error when creating duplicate user
+[42/58] [chromium] › e2e\api-errors\api-error-handling.spec.ts:244:3 › API Error Handling (Flow 10) › should handle 422 Validation error and display field errors
+[43/58] [chromium] › e2e\api-errors\api-error-handling.spec.ts:328:3 › API Error Handling (Flow 10) › should handle 500 Server Error gracefully
+[44/58] [chromium] › e2e\api-errors\api-error-handling.spec.ts:399:3 › API Error Handling (Flow 10) › should handle network failure (offline scenario)
+[45/58] [chromium] › e2e\api-errors\api-error-handling.spec.ts:470:3 › API Error Handling (Flow 10) › should handle request timeout (5s)
+[46/58] [chromium] › e2e\auth\protected-routes.spec.ts:98:3 › Protected Route Access (Flow 9) › should redirect unauthenticated user to login when accessing /admin
+[47/58] [chromium] › e2e\auth\protected-routes.spec.ts:110:3 › Protected Route Access (Flow 9) › should redirect unauthenticated user to login when accessing /agent
+[48/58] [chromium] › e2e\auth\protected-routes.spec.ts:122:3 › Protected Route Access (Flow 9) › should redirect unauthenticated user to login when accessing /admin/accounts
+[49/58] [chromium] › e2e\auth\protected-routes.spec.ts:134:3 › Protected Route Access (Flow 9) › should redirect unauthenticated user to login when accessing /agent/clients/new
+[50/58] [chromium] › e2e\auth\protected-routes.spec.ts:146:3 › Protected Route Access (Flow 9) › should show Access Denied when admin tries to access agent routes
+[51/58] [chromium] › e2e\auth\protected-routes.spec.ts:169:3 › Protected Route Access (Flow 9) › should show Access Denied when admin tries to access /agent/clients/new
+[52/58] [chromium] › e2e\auth\protected-routes.spec.ts:187:3 › Protected Route Access (Flow 9) › should show Access Denied when agent tries to access admin routes
+[53/58] [chromium] › e2e\auth\protected-routes.spec.ts:206:3 › Protected Route Access (Flow 9) › should show Access Denied when agent tries to access /admin/accounts
+[54/58] [chromium] › e2e\auth\protected-routes.spec.ts:224:3 › Protected Route Access (Flow 9) › should allow admin to access admin routes
+[55/58] [chromium] › e2e\auth\protected-routes.spec.ts:242:3 › Protected Route Access (Flow 9) › should allow agent to access agent routes
+[56/58] [chromium] › e2e\debug.spec.ts:3:1 › debug console errors
+[chromium] › e2e\debug.spec.ts:3:1 › debug console errors
+
+[BROWSER debug]: [vite] connecting...
+[BROWSER info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+
+Page title: crm-ui
+
+
+Page URL: http://localhost:5173/login
+Waiting for email input...
+
+
+Email filled!
+Password filled!
+
+[BROWSER debug]: [vite] connected.
+
+Submit clicked!
+
+[WebServer] 2:52:14 AM [vite] http proxy error: /api/clients?limit=1
+[WebServer] AggregateError [ECONNREFUSED]: 
+[WebServer]     at internalConnectMultiple (node:net:1134:18)
+[WebServer]     at afterConnectMultiple (node:net:1715:7)
+
+
+[WebServer] 2:52:14 AM [vite] http proxy error: /api/logs?limit=10&agentId=agent-1
+[WebServer] AggregateError [ECONNREFUSED]: 
+[WebServer]     at internalConnectMultiple (node:net:1134:18)
+[WebServer]     at afterConnectMultiple (node:net:1715:7)
+[WebServer] 2:52:14 AM [vite] http proxy error: /api/clients?limit=1
+
+[WebServer] AggregateError [ECONNREFUSED]: 
+[WebServer]     at internalConnectMultiple (node:net:1134:18)
+[WebServer]     at afterConnectMultiple (node:net:1715:7)
+[WebServer] 2:52:14 AM [vite] http proxy error: /api/logs?limit=10&agentId=agent-1
+[WebServer] AggregateError [ECONNREFUSED]: 
+[WebServer]     at internalConnectMultiple (node:net:1134:18)
+[WebServer]     at afterConnectMultiple (node:net:1715:7)
+
+[BROWSER error]: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+
+
+[BROWSER error]: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+[BROWSER error]: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+
+[BROWSER error]: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+
+Final URL: http://localhost:5173/agent
+
+[57/58] [chromium] › e2e\test-inline-admin.spec.ts:3:1 › inline admin login test
+[WebServer] 2:52:16 AM [vite] http proxy error: /api/agents?limit=1
+[WebServer] AggregateError [ECONNREFUSED]: 
+[WebServer]     at internalConnectMultiple (node:net:1134:18)
+[WebServer]     at afterConnectMultiple (node:net:1715:7)
+
+[WebServer] 2:52:16 AM [vite] http proxy error: /api/clients?limit=1
+[WebServer] AggregateError [ECONNREFUSED]: 
+[WebServer]     at internalConnectMultiple (node:net:1134:18)
+[WebServer]     at afterConnectMultiple (node:net:1715:7)
+
+[WebServer] 2:52:16 AM [vite] http proxy error: /api/logs?limit=10
+[WebServer] AggregateError [ECONNREFUSED]: 
+[WebServer]     at internalConnectMultiple (node:net:1134:18)
+[WebServer]     at afterConnectMultiple (node:net:1715:7)
+
+
+[WebServer] 2:52:16 AM [vite] http proxy error: /api/agents?limit=1
+[WebServer] AggregateError [ECONNREFUSED]: 
+[WebServer]     at internalConnectMultiple (node:net:1134:18)
+[WebServer]     at afterConnectMultiple (node:net:1715:7)
+
+[WebServer] 2:52:16 AM [vite] http proxy error: /api/clients?limit=1
+[WebServer] AggregateError [ECONNREFUSED]: 
+[WebServer]     at internalConnectMultiple (node:net:1134:18)
+[WebServer]     at afterConnectMultiple (node:net:1715:7)
+[WebServer] 2:52:16 AM [vite] http proxy error: /api/logs?limit=10
+[WebServer] AggregateError [ECONNREFUSED]: 
+[WebServer]     at internalConnectMultiple (node:net:1134:18)
+[WebServer]     at afterConnectMultiple (node:net:1715:7)
+
+[58/58] [chromium] › e2e\test-simple.spec.ts:3:1 › simple admin login test
+
+[WebServer] 2:52:17 AM [vite] http proxy error: /api/agents?limit=1
+[WebServer] AggregateError [ECONNREFUSED]: 
+[WebServer]     at internalConnectMultiple (node:net:1134:18)
+[WebServer]     at afterConnectMultiple (node:net:1715:7)
+[WebServer] 2:52:17 AM [vite] http proxy error: /api/clients?limit=1
+[WebServer] AggregateError [ECONNREFUSED]: 
+[WebServer]     at internalConnectMultiple (node:net:1134:18)
+[WebServer]     at afterConnectMultiple (node:net:1715:7)
+
+
+[WebServer] 2:52:17 AM [vite] http proxy error: /api/logs?limit=10
+[WebServer] AggregateError [ECONNREFUSED]: 
+[WebServer]     at internalConnectMultiple (node:net:1134:18)
+[WebServer]     at afterConnectMultiple (node:net:1715:7)
+[WebServer] 2:52:17 AM [vite] http proxy error: /api/agents?limit=1
+[WebServer] AggregateError [ECONNREFUSED]: 
+[WebServer]     at internalConnectMultiple (node:net:1134:18)
+[WebServer]     at afterConnectMultiple (node:net:1715:7)
+[WebServer] 2:52:17 AM [vite] http proxy error: /api/clients?limit=1
+[WebServer] AggregateError [ECONNREFUSED]: 
+[WebServer]     at internalConnectMultiple (node:net:1134:18)
+[WebServer]     at afterConnectMultiple (node:net:1715:7)
+
+[WebServer] 2:52:17 AM [vite] http proxy error: /api/logs?limit=10
+
+[WebServer] AggregateError [ECONNREFUSED]: 
+[WebServer]     at internalConnectMultiple (node:net:1134:18)
+[WebServer]     at afterConnectMultiple (node:net:1715:7)
+  58 passed (1.3m)
+
+To open last HTML report run:
+
+  npx playwright show-report
+
+[2026-02-07 02:52:18] [crm-ui] E2E tests passed
+[2026-02-07 02:52:18] [crm-ui] Local pipeline passed
+
+[2026-02-07 02:52:18] Frontend local test pipeline summary
+[2026-02-07 02:52:18] Status: PASS
+[2026-02-07 02:52:18] Generating aggregated test report index...
+[frontend-index] Wrote C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\build-and-test-frontend\index.html
+
+[2026-02-07 02:52:18] All test reports aggregated at:
+[2026-02-07 02:52:18]   - HTML: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\build-and-test-frontend\index.html
+[2026-02-07 02:52:18]   - Open in browser: file:///C:/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/build-logs/build-and-test-frontend/index.html
+
+[2026-02-07 02:52:18] Individual reports:
+[2026-02-07 02:52:18]   - Vitest coverage: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\frontend\crm-ui\coverage\index.html
+[2026-02-07 02:52:18]   - Playwright e2e: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\frontend\crm-ui\playwright-report\index.html
+[2026-02-07 02:52:18] Frontend passed lint, build, tests, coverage, and e2e tests.
+[2026-02-07 02:52:18] Frontend pipeline completed successfully
+[2026-02-07 02:52:18] 
+[2026-02-07 02:52:18] ========================================
+[2026-02-07 02:52:18] Step 3: Generating Aggregated Coverage Report
+[2026-02-07 02:52:18] ========================================
+[2026-02-07 02:52:18] 
+[2026-02-07 02:52:18] Generating aggregated coverage report (build-logs/build-and-test-all/index.html)
+[aggregated-coverage] Wrote C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\build-and-test-all\index.html
+[aggregated-coverage] Total services: 5 (backend: 4, frontend: 1)
+[2026-02-07 02:52:19] Aggregated coverage report generated successfully
+[2026-02-07 02:52:19] 
+[2026-02-07 02:52:19] ========================================
+[2026-02-07 02:52:19] Full Pipeline Summary
+[2026-02-07 02:52:19] ========================================
+[2026-02-07 02:52:19] 
+
+Component Status
+--------- ------
+Backend   PASS  
+Frontend  PASS  
+
+
+[2026-02-07 02:52:19] 
+[2026-02-07 02:52:19] Coverage Reports:
+[2026-02-07 02:52:19]   - Aggregated:  C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\build-and-test-all\index.html
+[2026-02-07 02:52:19]   - Backend:     C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\build-and-test-backend\index.html
+[2026-02-07 02:52:19]   - Frontend:    C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\frontend\crm-ui\coverage\index.html
+[2026-02-07 02:52:19] 
+[2026-02-07 02:52:19] Status: PASS - All pipelines completed successfully
