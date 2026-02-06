@@ -62,7 +62,7 @@ public static class ConsoleCP {
         [Console]::InputEncoding = $utf8NoBom
         $OutputEncoding = $utf8NoBom
 
-        if ($oldWrapperConsoleOutputCP -ne $null) {
+        if ($null -ne $oldWrapperConsoleOutputCP) {
             [Win32.ConsoleCP]::SetConsoleOutputCP(65001) | Out-Null
             [Win32.ConsoleCP]::SetConsoleCP(65001) | Out-Null
         }
@@ -155,8 +155,8 @@ public static class ConsoleCP {
             if ($oldWrapperConsoleOutputEncoding) { [Console]::OutputEncoding = $oldWrapperConsoleOutputEncoding }
             if ($oldWrapperConsoleInputEncoding) { [Console]::InputEncoding = $oldWrapperConsoleInputEncoding }
             if ($oldWrapperOutputEncoding) { $OutputEncoding = $oldWrapperOutputEncoding }
-            if ($oldWrapperConsoleOutputCP -ne $null) { [Win32.ConsoleCP]::SetConsoleOutputCP([uint32]$oldWrapperConsoleOutputCP) | Out-Null }
-            if ($oldWrapperConsoleCP -ne $null) { [Win32.ConsoleCP]::SetConsoleCP([uint32]$oldWrapperConsoleCP) | Out-Null }
+            if ($null -ne $oldWrapperConsoleOutputCP) { [Win32.ConsoleCP]::SetConsoleOutputCP([uint32]$oldWrapperConsoleOutputCP) | Out-Null }
+            if ($null -ne $oldWrapperConsoleCP) { [Win32.ConsoleCP]::SetConsoleCP([uint32]$oldWrapperConsoleCP) | Out-Null }
             if ($oldWrapperCodePage) { & cmd /c ("chcp {0} >nul" -f $oldWrapperCodePage) 2>$null }
         }
         catch {
@@ -232,7 +232,7 @@ try {
     $OutputEncoding = $utf8NoBom
 
     # Ensure native tools emit UTF-8 cleanly (prevents mojibake in logs).
-    if ($script:OldConsoleOutputCP -ne $null) {
+    if ($null -ne $script:OldConsoleOutputCP) {
         [Win32.ConsoleCP]::SetConsoleOutputCP(65001) | Out-Null
         [Win32.ConsoleCP]::SetConsoleCP(65001) | Out-Null
     }
@@ -258,10 +258,10 @@ function Exit-WithCode {
         if ($script:OldOutputEncoding) {
             $OutputEncoding = $script:OldOutputEncoding
         }
-        if ($script:OldConsoleOutputCP -ne $null) {
+        if ($null -ne $script:OldConsoleOutputCP) {
             [Win32.ConsoleCP]::SetConsoleOutputCP([uint32]$script:OldConsoleOutputCP) | Out-Null
         }
-        if ($script:OldConsoleCP -ne $null) {
+        if ($null -ne $script:OldConsoleCP) {
             [Win32.ConsoleCP]::SetConsoleCP([uint32]$script:OldConsoleCP) | Out-Null
         }
         if ($script:OldCodePage) {
