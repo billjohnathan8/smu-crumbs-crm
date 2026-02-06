@@ -1,9 +1,9 @@
-name: Users Service - Unit Test CI
+name: Agent Service - Unit Test CI
 
 on:
   push:
     paths:
-      - 'services/users-service/**'
+      - 'services/backend/agent-service/**'
   workflow_dispatch:
 
 jobs:
@@ -13,7 +13,7 @@ jobs:
     # Setting the base directory so gradle knows where to look
     defaults:
       run:
-        working-directory: services/users-service
+        working-directory: services/backend/agent-service
 
     steps:
       - name: Check out code
