@@ -44,7 +44,7 @@ bash ./scripts/build-and-deploy/build-and-deploy-k8s-local.sh
 
 Success criteria:
 - Exit code `0`
-- Rollout checks pass for `user-service`, `client-service`, `log-service`
+- Rollout checks pass for `user-service`, `client-service`, `log-service`, `transactions-service`
 - Smoke output includes `Smoke tests passed.`
 - Wrapper output ends with `Local Kubernetes build/deploy and smoke checks completed successfully.`
 
@@ -97,6 +97,7 @@ Builds:
 - `user-service:dev`
 - `client-service:dev`
 - `log-service:dev`
+- `transactions-service:dev`
 
 ### 4) Load images into kind
 ```bash
@@ -116,15 +117,14 @@ kubectl apply -k platform/k8s/apps/overlays/dev
 ### 6) Verify workloads and ingress routes
 ```bash
 kubectl get deploy,pods,svc,ing -n dev
-curl -i http://localhost/api/v1/users/health
-curl -i http://localhost/api/v1/clients/health
-curl -i http://localhost/api/v1/logs/health
+curl -i http://localhost/health
 ```
 
 Ingress routes:
-- `http://localhost/api/v1/users` -> `user-service`
-- `http://localhost/api/v1/clients` -> `client-service`
-- `http://localhost/api/v1/logs` -> `log-service`
+- `http://localhost/api/users` -> `user-service`
+- `http://localhost/api/clients` -> `client-service`
+- `http://localhost/api/logs` -> `log-service`
+- `http://localhost/api/transactions` -> `transactions-service`
 
 ### 7) Run infrastructure smoke tests
 ```bash
