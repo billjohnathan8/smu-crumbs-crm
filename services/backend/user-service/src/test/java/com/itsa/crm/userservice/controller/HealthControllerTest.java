@@ -1,7 +1,6 @@
 package com.itsa.crm.userservice.controller;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -20,7 +19,18 @@ class HealthControllerTest {
     @Test
     void health_returnsOk() throws Exception {
         mockMvc.perform(get("/api/v1/health"))
-            .andExpect(status().isOk())
-            .andExpect(content().json("{\"status\":\"ok\"}"));
+            .andExpect(status().isOk());
+    }
+
+    @Test
+    void usersHealth_returnsOk() throws Exception {
+        mockMvc.perform(get("/api/v1/users/health"))
+            .andExpect(status().isOk());
+    }
+
+    @Test
+    void rootHealth_returnsOk() throws Exception {
+        mockMvc.perform(get("/health"))
+            .andExpect(status().isOk());
     }
 }

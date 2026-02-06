@@ -1,9 +1,14 @@
 package com.itsa.crm.userservice.dto;
 
+import java.time.Instant;
+
 public record UserDto(
-    String userId,
-    String firstName,
-    String lastName,
-    String email,
-    String role
+	String id,
+	String firstName,
+	String lastName,
+	String email,
+	UserRole role,
+	UserStatus status,
+	Instant createdAt,
+	Instant updatedAt
 ) {}
