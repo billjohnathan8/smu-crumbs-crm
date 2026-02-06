@@ -2,8 +2,14 @@ package com.itsa.crm.clients_service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.Base64;
+import java.util.Map;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -35,6 +41,7 @@ class ClientsServiceIT {
 	private final RestTemplate restTemplate = new RestTemplate();
 
 	@Container
+	@SuppressWarnings("resource")
 	static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine")
 		.withDatabaseName("clients")
 		.withUsername("postgres")
@@ -51,6 +58,21 @@ class ClientsServiceIT {
 		return "http://localhost:" + port;
 	}
 
+	private static String mintToken(String sub, String role) throws Exception {
+		String secret = "dev-only-insecure-secret";
+		String headerJson = new ObjectMapper().writeValueAsString(Map.of("alg", "HS256", "typ", "JWT"));
+		String header = Base64.getUrlEncoder().withoutPadding().encodeToString(headerJson.getBytes(StandardCharsets.UTF_8));
+		String payloadJson = new ObjectMapper().writeValueAsString(
+			Map.of("sub", sub, "role", role, "iat", Instant.now().getEpochSecond(), "exp", Instant.now().plusSeconds(3600).getEpochSecond())
+		);
+		String payload = Base64.getUrlEncoder().withoutPadding().encodeToString(payloadJson.getBytes(StandardCharsets.UTF_8));
+		String signingInput = header + "." + payload;
+		Mac mac = Mac.getInstance("HmacSHA256");
+		mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+		String sig = Base64.getUrlEncoder().withoutPadding().encodeToString(mac.doFinal(signingInput.getBytes(StandardCharsets.US_ASCII)));
+		return signingInput + "." + sig;
+	}
+
 	/**
 	 * Verifies the full create-then-read flow: POST a new client, then GET by the returned id.
 	 * Uses a real Postgres container, Flyway migrations, and the full Spring stack (controller, service, repository).
@@ -59,27 +81,25 @@ class ClientsServiceIT {
 	void createClient_thenGetById_returnsClient() throws Exception {
 		String createBody = """
 			{
-			  "client": {
-			    "firstName": "Jordan",
-			    "lastName": "Taylor",
-			    "dateOfBirth": "1990-01-15",
-			    "gender": "Male",
-			    "emailAddress": "jordan.taylor@example.com",
-			    "phoneNumber": "+15551234567",
-			    "address": "123 Main Street",
-			    "city": "Springfield",
-			    "state": "Illinois",
-			    "country": "United States",
-			    "postalCode": "62704"
-			  },
-			  "agentId": "agent-123"
+			  "firstName": "Jordan",
+			  "lastName": "Taylor",
+			  "dateOfBirth": "1990-01-15",
+			  "gender": "Male",
+			  "emailAddress": "jordan.taylor@example.com",
+			  "phoneNumber": "+15551234567",
+			  "address": "123 Main Street",
+			  "city": "Springfield",
+			  "state": "Illinois",
+			  "country": "United States",
+			  "postalCode": "62704"
 			}
 			""";
 
 		HttpHeaders headers = new HttpHeaders();
 		headers.setContentType(MediaType.APPLICATION_JSON);
+		headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + mintToken("usr_it_agent", "agent"));
 		ResponseEntity<String> createResponse = restTemplate.postForEntity(
-			baseUrl() + "/api/v1/clients",
+			baseUrl() + "/api/clients",
 			new HttpEntity<>(createBody, headers),
 			String.class
 		);
@@ -89,16 +109,20 @@ class ClientsServiceIT {
 		assertThat(createResponseBody).isNotNull();
 		ObjectMapper mapper = new ObjectMapper();
 		JsonNode node = mapper.readTree(createResponseBody);
-		long clientId = node.get("clientId").asLong();
-		assertThat(node.get("firstName").asText()).isEqualTo("Jordan");
+		String clientId = node.get("clientId").asString();
+		assertThat(node.get("firstName").asString()).isEqualTo("Jordan");
 
-		ResponseEntity<String> getResponse = restTemplate.getForEntity(
-			baseUrl() + "/api/v1/clients/" + clientId,
+		HttpHeaders getHeaders = new HttpHeaders();
+		getHeaders.set(HttpHeaders.AUTHORIZATION, headers.getFirst(HttpHeaders.AUTHORIZATION));
+		ResponseEntity<String> getResponse = restTemplate.exchange(
+			baseUrl() + "/api/clients/" + clientId,
+			org.springframework.http.HttpMethod.GET,
+			new HttpEntity<>(getHeaders),
 			String.class
 		);
 
 		assertThat(getResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
-		assertThat(getResponse.getBody()).contains("\"clientId\":" + clientId);
+		assertThat(getResponse.getBody()).contains("\"clientId\":\"" + clientId + "\"");
 		assertThat(getResponse.getBody()).contains("\"emailAddress\":\"jordan.taylor@example.com\"");
 	}
 }

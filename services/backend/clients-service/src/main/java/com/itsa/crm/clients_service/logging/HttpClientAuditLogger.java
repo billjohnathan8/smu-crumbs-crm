@@ -1,11 +1,9 @@
 package com.itsa.crm.clients_service.logging;
 
-import com.itsa.crm.clients_service.dto.ClientPayload;
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -20,30 +18,35 @@ public class HttpClientAuditLogger implements ClientAuditLogger {
 	}
 
 	@Override
-	public void logClientEvent(String action, Long clientId, String agentId, ClientPayload payload) {
-		Map<String, Object> eventPayload = new HashMap<>();
-		eventPayload.put("emailAddress", payload.emailAddress());
-		eventPayload.put("phoneNumber", payload.phoneNumber());
-		eventPayload.put("city", payload.city());
-		eventPayload.put("country", payload.country());
-
+	public void logAuditEvent(
+		String action,
+		String attributeName,
+		String beforeValue,
+		String afterValue,
+		String agentId,
+		String clientId,
+		String correlationId,
+		String authorizationHeader
+	) {
 		LogEventRequest request = new LogEventRequest(
-			"clients-service",
 			action,
-			"CLIENT",
-			clientId,
+			attributeName,
+			beforeValue,
+			afterValue,
 			agentId,
-			"Client " + action.toLowerCase() + " operation",
-			eventPayload,
-			Instant.now()
+			clientId,
+			Instant.now(),
+			correlationId
 		);
 
 		logServiceRestClient.post()
+			.uri("/api/logs")
+			.header(HttpHeaders.AUTHORIZATION, authorizationHeader)
 			.contentType(org.springframework.http.MediaType.APPLICATION_JSON)
 			.body(request)
 			.retrieve()
 			.toBodilessEntity();
 
-		LOGGER.debug("Published client audit event action={} clientId={}", action, clientId);
+		LOGGER.debug("Published audit log action={} clientId={}", action, clientId);
 	}
 }

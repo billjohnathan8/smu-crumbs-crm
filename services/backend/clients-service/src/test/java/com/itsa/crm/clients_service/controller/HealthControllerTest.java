@@ -17,7 +17,14 @@ class HealthControllerTest {
 		mockMvc = MockMvcBuilders.standaloneSetup(new HealthController()).build();
 	}
 
-	// GET /api/v1/health
+	@Test
+	void rootHealth_returnsOk() throws Exception {
+		mockMvc.perform(get("/health"))
+			.andExpect(status().isOk())
+			.andExpect(content().json("{\"status\":\"ok\",\"service\":\"clients-service\"}"));
+	}
+
+	// GET /api/v1/health (deprecated but supported)
 	@Test
 	void health_returnsOk() throws Exception {
 		mockMvc.perform(get("/api/v1/health"))

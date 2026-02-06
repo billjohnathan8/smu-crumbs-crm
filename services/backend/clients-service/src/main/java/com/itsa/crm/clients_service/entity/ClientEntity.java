@@ -1,5 +1,6 @@
 package com.itsa.crm.clients_service.entity;
 
+import com.itsa.crm.clients_service.dto.IdentityVerificationStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -7,8 +8,11 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.time.Instant;
 import java.time.LocalDate;
 
 @Entity
@@ -58,6 +62,34 @@ public class ClientEntity {
 
 	@Column(name = "postal_code", nullable = false, length = 10)
 	private String postalCode;
+
+	@Column(name = "assigned_agent_id", nullable = false, length = 64)
+	private String assignedAgentId;
+
+	@Enumerated(EnumType.STRING)
+	@Column(name = "identity_verification_status", nullable = false, length = 20)
+	private IdentityVerificationStatus identityVerificationStatus = IdentityVerificationStatus.unverified;
+
+	@Column(name = "created_at", nullable = false)
+	private Instant createdAt;
+
+	@Column(name = "updated_at", nullable = false)
+	private Instant updatedAt;
+
+	@PrePersist
+	void prePersist() {
+		Instant now = Instant.now();
+		createdAt = now;
+		updatedAt = now;
+		if (identityVerificationStatus == null) {
+			identityVerificationStatus = IdentityVerificationStatus.unverified;
+		}
+	}
+
+	@PreUpdate
+	void preUpdate() {
+		updatedAt = Instant.now();
+	}
 
 	public Long getId() {
 		return id;
@@ -153,5 +185,29 @@ public class ClientEntity {
 
 	public void setPostalCode(String postalCode) {
 		this.postalCode = postalCode;
+	}
+
+	public String getAssignedAgentId() {
+		return assignedAgentId;
+	}
+
+	public void setAssignedAgentId(String assignedAgentId) {
+		this.assignedAgentId = assignedAgentId;
+	}
+
+	public IdentityVerificationStatus getIdentityVerificationStatus() {
+		return identityVerificationStatus;
+	}
+
+	public void setIdentityVerificationStatus(IdentityVerificationStatus identityVerificationStatus) {
+		this.identityVerificationStatus = identityVerificationStatus;
+	}
+
+	public Instant getCreatedAt() {
+		return createdAt;
+	}
+
+	public Instant getUpdatedAt() {
+		return updatedAt;
 	}
 }

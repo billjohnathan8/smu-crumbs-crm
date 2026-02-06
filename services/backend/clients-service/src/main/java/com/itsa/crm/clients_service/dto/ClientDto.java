@@ -2,9 +2,10 @@ package com.itsa.crm.clients_service.dto;
 
 import com.itsa.crm.clients_service.entity.Gender;
 import java.time.LocalDate;
+import java.time.Instant;
 
 public record ClientDto(
-	Long clientId,
+	String clientId,
 	String firstName,
 	String lastName,
 	LocalDate dateOfBirth,
@@ -15,5 +16,9 @@ public record ClientDto(
 	String city,
 	String state,
 	String country,
-	String postalCode
+	String postalCode,
+	IdentityVerificationStatus identityVerificationStatus,
+	String assignedAgentId,
+	Instant createdAt,
+	Instant updatedAt
 ) {}

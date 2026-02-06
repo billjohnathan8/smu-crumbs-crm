@@ -1,6 +1,8 @@
 package com.itsa.crm.clients_service;
 
+import com.itsa.crm.clients_service.repository.AccountRepository;
 import com.itsa.crm.clients_service.repository.ClientRepository;
+import tools.jackson.databind.json.JsonMapper;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,6 +21,12 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 class ClientsServiceApplicationTests {
 	@MockitoBean
 	private ClientRepository clientRepository;
+
+	@MockitoBean
+	private AccountRepository accountRepository;
+
+	@MockitoBean
+	private JsonMapper objectMapper;
 
 	@Test
 	void contextLoads() {

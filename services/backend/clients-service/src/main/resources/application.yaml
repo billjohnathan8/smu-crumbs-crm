@@ -2,6 +2,10 @@ spring:
   application:
     name: clients-service
 
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/clients}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
@@ -26,4 +30,6 @@ server:
   port: 8080
 
 app:
-  log-service-url: ${LOG_SERVICE_URL:http://localhost:8081/api/v1/logs}
+  log-service-url: ${LOG_SERVICE_URL:http://localhost:8081}
+  jwt:
+    hmac-secret: ${JWT_HMAC_SECRET:dev-only-insecure-secret}
