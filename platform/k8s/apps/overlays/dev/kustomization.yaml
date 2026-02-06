@@ -12,6 +12,8 @@ images:
     newTag: dev
   - name: transaction-service
     newTag: dev
+  - name: crm-ui
+    newTag: dev
 patches:
   - path: client-service-patch.yaml
     target:

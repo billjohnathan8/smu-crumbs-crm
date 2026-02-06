@@ -11,5 +11,8 @@ resources:
   - transaction-service-mock-sftp-configmap.yaml
   - transaction-service-deployment.yaml
   - transaction-service-service.yaml
+  - frontend-configmap.yaml
+  - frontend-deployment.yaml
+  - frontend-service.yaml
   - ingress.yaml
 

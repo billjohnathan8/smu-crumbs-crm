@@ -9,6 +9,8 @@ spec:
     - host: localhost
       http:
         paths:
+          # API routes must come BEFORE frontend root path
+          # Order matters in ingress rules
           - path: /api/agents
             pathType: Prefix
             backend:
@@ -37,11 +39,33 @@ spec:
                 name: transaction-service
                 port:
                   number: 80
+          - path: /api/auth
+            pathType: Prefix
+            backend:
+              service:
+                name: agent-service
+                port:
+                  number: 80
+          - path: /api/accounts
+            pathType: Prefix
+            backend:
+              service:
+                name: client-service
+                port:
+                  number: 80
           - path: /health
             pathType: Prefix
             backend:
               service:
                 name: log-service
+                port:
+                  number: 80
+          # Frontend route - MUST be last to catch all remaining paths
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
                 port:
                   number: 80
 
