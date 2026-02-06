@@ -9,11 +9,11 @@ spec:
     - host: localhost
       http:
         paths:
-          - path: /api/users
+          - path: /api/agents
             pathType: Prefix
             backend:
               service:
-                name: user-service
+                name: agent-service
                 port:
                   number: 80
           - path: /api/clients

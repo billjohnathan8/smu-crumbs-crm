@@ -49,7 +49,7 @@ Notes:
 - Logs are captured under both `build-logs/build-and-test` and `build-logs/build-and-deploy`.
 
 ### Per-service local test pipeline (run from each service root)
-- `services/backend/user-service`: `.\gradlew.bat localTestPipeline` (Windows) or `./gradlew localTestPipeline` (macOS/Linux)
+- `services/backend/agent-service`: `.\gradlew.bat localTestPipeline` (Windows) or `./gradlew localTestPipeline` (macOS/Linux)
 - `services/backend/client-service`: `.\gradlew.bat localTestPipeline` (Windows) or `./gradlew localTestPipeline` (macOS/Linux)
 - `services/backend/transaction-service`: `.\gradlew.bat localTestPipeline` (Windows) or `./gradlew localTestPipeline` (macOS/Linux)
 - `services/backend/log-service`: `python run-local-test-pipeline.py` (Windows) or `python3 run-local-test-pipeline.py` (macOS/Linux)

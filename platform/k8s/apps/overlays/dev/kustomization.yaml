@@ -4,7 +4,7 @@ namespace: dev
 resources:
   - ../../base
 images:
-  - name: user-service
+  - name: agent-service
     newTag: dev
   - name: client-service
     newTag: dev

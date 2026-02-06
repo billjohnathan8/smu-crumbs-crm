@@ -27,7 +27,7 @@ The branch introduces:
 Use a Kubernetes-first local topology with:
 - **kind** for the local cluster.
 - **Kustomize base + `dev` overlay** under `platform/k8s/apps`.
-- **Ingress path routing** on `localhost` for `user-service`, `client-service`, and `log-service`.
+- **Ingress path routing** on `localhost` for `agent-service`, `client-service`, and `log-service`.
 
 ## Alternatives Considered
 - Keep per-environment raw manifests without overlays - rejected due to duplication and harder drift control.

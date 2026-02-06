@@ -49,7 +49,7 @@ Notes:
 
 Success criteria:
 - Exit code `0`
-- Rollout checks pass for `user-service`, `client-service`, `log-service`, `transaction-service`
+- Rollout checks pass for `agent-service`, `client-service`, `log-service`, `transaction-service`
 - Smoke output includes `Smoke tests passed.`
 - Wrapper output ends with `Local Kubernetes build/deploy and smoke checks completed successfully.`
 
@@ -86,7 +86,7 @@ bash ./scripts/build-and-test/build-and-test-backend.sh
 ```
 
 The backend script now runs each service-local pipeline (lint, build, tests, coverage reports):
-- `services/backend/user-service`: `gradlew localTestPipeline`
+- `services/backend/agent-service`: `gradlew localTestPipeline`
 - `services/backend/client-service`: `gradlew localTestPipeline`
 - `services/backend/transaction-service`: `gradlew localTestPipeline`
 - `services/backend/log-service`: `python run-local-test-pipeline.py`
@@ -119,7 +119,7 @@ make build-images
 ```
 
 Builds:
-- `user-service:dev`
+- `agent-service:dev`
 - `client-service:dev`
 - `log-service:dev`
 - `transaction-service:dev`
@@ -146,7 +146,7 @@ curl -i http://localhost/health
 ```
 
 Ingress routes:
-- `http://localhost/api/users` -> `user-service`
+- `http://localhost/api/agents` -> `agent-service`
 - `http://localhost/api/clients` -> `client-service`
 - `http://localhost/api/logs` -> `log-service`
 - `http://localhost/api/transactions` -> `transaction-service`
@@ -201,14 +201,14 @@ helm uninstall metrics-server -n kube-system
 ### Pods stay `ImagePullBackOff` or old image keeps running
 - Confirm images loaded: rerun `make kind-load`
 - Restart and verify rollout:
-  - `kubectl rollout restart deployment/user-service -n dev`
+  - `kubectl rollout restart deployment/agent-service -n dev`
   - `kubectl rollout restart deployment/client-service -n dev`
   - `kubectl rollout restart deployment/log-service -n dev`
-  - `kubectl rollout status deployment/user-service -n dev --timeout=180s`
+  - `kubectl rollout status deployment/agent-service -n dev --timeout=180s`
 
 ### Pods fail readiness/liveness due to startup or DB issues
 - Inspect logs:
-  - `kubectl logs deployment/user-service -n dev --tail=100`
+  - `kubectl logs deployment/agent-service -n dev --tail=100`
   - `kubectl logs deployment/client-service -n dev --tail=100`
   - `kubectl logs deployment/log-service -n dev --tail=100`
   - `kubectl logs statefulset/postgres-postgresql -n dev --tail=100`

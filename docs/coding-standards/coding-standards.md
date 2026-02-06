@@ -457,7 +457,7 @@ From repo root (all backend services):
 - Bash: `bash ./scripts/build-and-test/build-and-test-backend.sh`
 
 From each backend service root (single service):
-- Java services (`user-service`, `client-service`):
+- Java services (`agent-service`, `client-service`):
   - Windows: `.\gradlew.bat localTestPipeline`
   - macOS/Linux: `./gradlew localTestPipeline`
 - Python service (`log-service`):
@@ -469,7 +469,7 @@ For the aggregated coverage hub `build-logs/build-and-test/index.html`:
 - Open it directly in a normal browser window (`file:///...`).
 - Do **not** use VS Code **Open Preview** for this file.
 
-Java backend services (`services/backend/user-service`, `services/backend/client-service`):
+Java backend services (`services/backend/agent-service`, `services/backend/client-service`):
 - Checkstyle (lint):
   - `build/reports/checkstyle/main.html`
   - `build/reports/checkstyle/test.html`

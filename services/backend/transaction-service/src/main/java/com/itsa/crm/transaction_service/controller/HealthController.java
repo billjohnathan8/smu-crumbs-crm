@@ -27,7 +27,7 @@ public class HealthController {
 		return ResponseEntity.ok().build();
 	}
 
-	// /api/v1/users/health is not part of transaction-service.
+	// /api/v1/agents/health is not part of transaction-service.
 }
 
 
