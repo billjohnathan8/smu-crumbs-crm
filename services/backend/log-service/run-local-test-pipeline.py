@@ -5,12 +5,17 @@ import os
 import platform
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
-def run(command: list[str], *, cwd: Path) -> None:
+def run(command: list[str], *, cwd: Path, env: dict[str, str] | None = None) -> None:
     print(f"[local-test-pipeline] {' '.join(command)}")
-    subprocess.run(command, cwd=cwd, check=True)
+    run_env = None
+    if env is not None:
+        run_env = os.environ.copy()
+        run_env.update(env)
+    subprocess.run(command, cwd=cwd, check=True, env=run_env)
 
 
 def main() -> int:
@@ -40,12 +45,23 @@ def main() -> int:
 
     # 1) Lint
     run([str(venv_python), "-m", "black", "--check", "app", "tests"], cwd=service_root)
-    run([str(venv_python), "-m", "flake8", "app", "tests"], cwd=service_root)
+    # On Windows + newer Python versions, flake8's default "auto" job count can
+    # trigger multiprocessing permission errors. Force single-process linting.
+    run(
+        [str(venv_python), "-m", "flake8", "--jobs", "1", "app", "tests"],
+        cwd=service_root,
+    )
 
     # 2) Build (syntax compilation check for Python service code)
     run([str(venv_python), "-m", "compileall", "-q", "app", "tests"], cwd=service_root)
 
     # 3 + 4) Tests + coverage reports
+    # pytest-cov always uses `data_suffix=True`, which makes coverage.py rename the data file to include
+    # a hash suffix at the end of the run. On Windows this rename can fail in workspace directories
+    # (intermittently locked by AV/indexers). Writing the coverage data file to the OS temp directory
+    # avoids flaky `PermissionError: [WinError 5]` failures while still producing XML/HTML reports
+    # under build/reports/coverage/.
+    coverage_data_file = Path(tempfile.gettempdir()) / "log-service-coverage"
     run(
         [
             str(venv_python),
@@ -54,11 +70,13 @@ def main() -> int:
             "tests",
             "--junitxml=build/reports/tests/junit.xml",
             "--cov=app",
+            "--cov-branch",
             "--cov-report=term-missing",
             "--cov-report=xml:build/reports/coverage/coverage.xml",
             "--cov-report=html:build/reports/coverage/html",
         ],
         cwd=service_root,
+        env={"COVERAGE_FILE": str(coverage_data_file)},
     )
 
     print("[local-test-pipeline] PASS")
