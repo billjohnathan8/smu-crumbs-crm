@@ -1,3 +1,5 @@
+"""Pydantic schemas for the log-service API."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -98,4 +100,5 @@ class Communication(BaseModel):
 
 
 def now_utc() -> datetime:
+    """Return the current UTC timestamp."""
     return datetime.now(timezone.utc)

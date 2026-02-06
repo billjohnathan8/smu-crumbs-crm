@@ -1,3 +1,5 @@
+"""API endpoint tests for the log-service FastAPI app."""
+
 import base64
 import hashlib
 import hmac

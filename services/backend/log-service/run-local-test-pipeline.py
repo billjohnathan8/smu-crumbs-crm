@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Run the log-service local test pipeline with a dedicated virtualenv."""
+
 from __future__ import annotations
 
 import os
@@ -10,6 +12,7 @@ from pathlib import Path
 
 
 def run(command: list[str], *, cwd: Path, env: dict[str, str] | None = None) -> None:
+    """Execute a command and stream its output, raising on failure."""
     print(f"[local-test-pipeline] {' '.join(command)}")
     run_env = None
     if env is not None:
@@ -19,6 +22,7 @@ def run(command: list[str], *, cwd: Path, env: dict[str, str] | None = None) -> 
 
 
 def main() -> int:
+    """Build a virtualenv, lint, compile, and run tests with coverage."""
     service_root = Path(__file__).resolve().parent
     venv_dir = service_root / ".venv"
     reports_root = service_root / "build" / "reports"

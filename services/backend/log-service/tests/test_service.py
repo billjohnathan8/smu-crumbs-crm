@@ -1,3 +1,5 @@
+"""Service layer tests for audit log and communication defaults."""
+
 from __future__ import annotations
 
 from datetime import datetime

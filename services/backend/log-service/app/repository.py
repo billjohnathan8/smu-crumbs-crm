@@ -1,3 +1,5 @@
+"""Database access layer for the log service."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -9,10 +11,13 @@ from .config import Settings
 
 
 class LogRepository:
+    """Persist and query audit logs and communications in PostgreSQL."""
+
     def __init__(self, settings: Settings):
         self._settings = settings
 
     def ping(self) -> bool:
+        """Run a lightweight query to verify database connectivity."""
         with psycopg.connect(self._settings.dsn) as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT 1")
@@ -20,6 +25,7 @@ class LogRepository:
         return True
 
     def run_migrations(self) -> None:
+        """Apply SQL migrations in order, tracking applied versions."""
         migrations_dir = Path(__file__).parent / "migrations"
         migration_files = sorted(migrations_dir.glob("*.sql"))
         if not migration_files:
@@ -50,6 +56,7 @@ class LogRepository:
             conn.commit()
 
     def insert_log_event(self, event: dict) -> int:
+        """Insert a generic log event row and return the new id."""
         with psycopg.connect(self._settings.dsn) as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -87,6 +94,7 @@ class LogRepository:
         return int(row[0])
 
     def insert_audit_log(self, record: dict) -> int:
+        """Insert an audit log row and return the new id."""
         with psycopg.connect(self._settings.dsn, row_factory=dict_row) as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -123,6 +131,7 @@ class LogRepository:
         return int(row["id"])
 
     def get_audit_log(self, log_id: int) -> dict | None:
+        """Fetch a single audit log row by id."""
         with psycopg.connect(self._settings.dsn, row_factory=dict_row) as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT * FROM audit_logs WHERE id = %s", (log_id,))
@@ -130,6 +139,7 @@ class LogRepository:
         return row
 
     def delete_audit_log(self, log_id: int) -> bool:
+        """Delete a single audit log row by id."""
         with psycopg.connect(self._settings.dsn) as conn:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM audit_logs WHERE id = %s", (log_id,))
@@ -138,6 +148,7 @@ class LogRepository:
         return deleted > 0
 
     def update_audit_log(self, log_id: int, patch: dict) -> dict | None:
+        """Update a subset of audit log fields and return the new row."""
         fields = []
         params: dict[str, object] = {"id": log_id}
 
@@ -176,6 +187,7 @@ class LogRepository:
         from_dt,
         to_dt,
     ) -> tuple[list[dict], int]:
+        """List audit logs with optional filters and return rows plus total."""
         where = []
         params: dict[str, object] = {"limit": limit, "offset": offset}
         if client_id:
@@ -212,6 +224,7 @@ class LogRepository:
         return rows, total
 
     def insert_communication(self, record: dict) -> int:
+        """Insert a communication record and return the new id."""
         with psycopg.connect(self._settings.dsn, row_factory=dict_row) as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -249,6 +262,7 @@ class LogRepository:
         return int(row["id"])
 
     def get_communication(self, communication_id: int) -> dict | None:
+        """Fetch a communication record by id."""
         with psycopg.connect(self._settings.dsn, row_factory=dict_row) as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -265,6 +279,7 @@ class LogRepository:
         client_id: str,
         agent_id: str | None = None,
     ) -> tuple[list[dict], int]:
+        """List communications for a client and optional agent scope."""
         where_sql = "WHERE client_id = %s"
         params: list[object] = [client_id]
         if agent_id:

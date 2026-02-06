@@ -1,3 +1,5 @@
+"""Repository tests covering query generation and persistence behavior."""
+
 from __future__ import annotations
 
 from collections.abc import Callable

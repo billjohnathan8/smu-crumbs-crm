@@ -1,3 +1,5 @@
+"""FastAPI application for audit logs and communications."""
+
 from __future__ import annotations
 
 import logging
@@ -26,17 +28,20 @@ LOGGER = logging.getLogger("log-service")
 
 
 def _default_service() -> LogService:
+    """Build the default LogService with settings-backed repository."""
     settings = Settings()
     return LogService(LogRepository(settings))
 
 
 def create_app(log_service: LogService | None = None) -> FastAPI:
+    """Create and configure the FastAPI application instance."""
     app = FastAPI(title="log-service", version="1.0.0")
     app.state.settings = Settings()
     app.state.log_service = log_service or _default_service()
 
     @app.middleware("http")
     async def request_id_middleware(request: Request, call_next):
+        """Attach a request id to every response for traceability."""
         request_id = request.headers.get("X-Request-Id") or str(uuid.uuid4())
         request.state.request_id = request_id
         response: Response = await call_next(request)
@@ -46,6 +51,7 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
     def _error(
         request: Request, status_code: int, error: str, message: str
     ) -> JSONResponse:
+        """Build a consistent error response payload."""
         body = ErrorResponse(
             error=error,
             message=message,
@@ -67,28 +73,34 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
 
     @app.on_event("startup")
     def startup() -> None:
+        """Run database migrations on startup."""
         app.state.log_service.bootstrap()
 
     def get_log_service(request: Request) -> LogService:
+        """Provide the configured LogService from application state."""
         return request.app.state.log_service
 
     def get_settings(request: Request) -> Settings:
+        """Provide settings from application state."""
         return request.app.state.settings
 
     def get_user(
         request: Request,
         settings: Settings = Depends(get_settings),
     ):
+        """Resolve the authenticated user from the bearer token."""
         return require_bearer_user(
             request.headers.get("Authorization"), settings.jwt_hmac_secret
         )
 
     def decode_prefixed_id(prefix: str, value: str) -> int:
+        """Validate an id prefix and return the raw numeric id."""
         if not value.startswith(prefix):
             raise ValueError("invalid id")
         return int(value.removeprefix(prefix))
 
     def encode_prefixed_id(prefix: str, value: int) -> str:
+        """Attach an API prefix to a numeric id."""
         return f"{prefix}{value}"
 
     @app.get("/health", response_model=HealthResponse)

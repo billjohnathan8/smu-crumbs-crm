@@ -1,9 +1,13 @@
+"""Configuration settings loaded from environment variables."""
+
 import os
 from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
 class Settings:
+    """Log service settings with environment-based defaults."""
+
     # Use default_factory so env vars are read at instantiation time (not import
     # time). This keeps tests and local runs predictable when env vars are set
     # just before creating the app.
@@ -20,6 +24,7 @@ class Settings:
 
     @property
     def dsn(self) -> str:
+        """Build a PostgreSQL DSN string from settings."""
         return (
             f"host={self.db_host} "
             f"port={self.db_port} "

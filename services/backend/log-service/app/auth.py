@@ -1,3 +1,5 @@
+"""JWT authentication helpers and role checks for the log service."""
+
 from __future__ import annotations
 
 import base64
@@ -19,22 +21,28 @@ class ForbiddenError(Exception):
 
 @dataclass(frozen=True)
 class AuthenticatedUser:
+    """Representation of the authenticated subject and role."""
+
     user_id: str
     role: str
 
     def is_admin(self) -> bool:
+        """Return True when the user has admin privileges."""
         return self.role == "admin"
 
     def is_agent(self) -> bool:
+        """Return True when the user has agent privileges."""
         return self.role == "agent"
 
 
 def _b64url_decode(segment: str) -> bytes:
+    """Decode a base64url segment without padding."""
     padding = "=" * ((4 - (len(segment) % 4)) % 4)
     return base64.urlsafe_b64decode((segment + padding).encode("ascii"))
 
 
 def verify_hs256_jwt(token: str, secret: str) -> dict[str, Any]:
+    """Validate an HS256 JWT and return the decoded claims."""
     parts = token.split(".")
     if len(parts) != 3:
         raise UnauthorizedError("invalid_token")
@@ -70,6 +78,7 @@ def verify_hs256_jwt(token: str, secret: str) -> dict[str, Any]:
 
 
 def require_bearer_user(authorization: str | None, secret: str) -> AuthenticatedUser:
+    """Parse a bearer token and return the authenticated user."""
     if not authorization or not authorization.startswith("Bearer "):
         raise UnauthorizedError("missing_bearer")
     token = authorization.removeprefix("Bearer ").strip()
@@ -84,5 +93,6 @@ def require_bearer_user(authorization: str | None, secret: str) -> Authenticated
 
 
 def require_roles(user: AuthenticatedUser, allowed: set[str]) -> None:
+    """Ensure the user role is within the allowed set."""
     if user.role not in allowed:
         raise ForbiddenError("forbidden")

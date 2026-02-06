@@ -1,3 +1,5 @@
+"""Authentication helper tests for JWT verification and role checks."""
+
 from __future__ import annotations
 
 import base64
