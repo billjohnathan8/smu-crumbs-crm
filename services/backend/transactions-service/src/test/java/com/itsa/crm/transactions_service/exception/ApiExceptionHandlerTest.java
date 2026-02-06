@@ -16,6 +16,9 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * Validates exception-to-response mappings in ApiExceptionHandler.
+ */
 class ApiExceptionHandlerTest {
 	private MockMvc mockMvc;
 

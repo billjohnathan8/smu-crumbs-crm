@@ -5,6 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
 
+/**
+ * Verifies UserStatus wire conversions.
+ */
 class UserStatusTest {
 	@Test
 	void fromWireValue_validValuesReturnEnum() {

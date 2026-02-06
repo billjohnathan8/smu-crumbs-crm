@@ -15,6 +15,9 @@ import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Validates JWT minting and verification behavior.
+ */
 class JwtServiceTest {
 	private static final String SECRET = "test-secret";
 	private static final Clock FIXED_CLOCK = Clock.fixed(Instant.parse("2026-02-05T00:00:00Z"), ZoneOffset.UTC);

@@ -25,6 +25,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+/**
+ * Validates transaction storage behavior and CSV import logic.
+ */
 class InMemoryTransactionsStoreTest {
 	@TempDir
 	Path tempDir;

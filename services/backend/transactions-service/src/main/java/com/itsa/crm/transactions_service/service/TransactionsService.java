@@ -9,6 +9,9 @@ import com.itsa.crm.transactions_service.dto.TransactionStatus;
 import java.time.LocalDate;
 import org.springframework.stereotype.Service;
 
+/**
+ * Orchestrates transaction operations against the backing store.
+ */
 @Service
 public class TransactionsService {
 	private final InMemoryTransactionsStore store;
@@ -17,18 +20,30 @@ public class TransactionsService {
 		this.store = store;
 	}
 
+	/**
+	 * Creates a new transaction.
+	 */
 	public TransactionDto create(CreateTransactionRequest request) {
 		return store.create(request);
 	}
 
+	/**
+	 * Loads a transaction by id.
+	 */
 	public TransactionDto get(String transactionId) {
 		return store.get(transactionId);
 	}
 
+	/**
+	 * Deletes a transaction by id.
+	 */
 	public void delete(String transactionId) {
 		store.delete(transactionId);
 	}
 
+	/**
+	 * Lists transactions with filtering and pagination.
+	 */
 	public InMemoryTransactionsStore.ListResult list(
 		int limit,
 		int offset,
@@ -41,12 +56,17 @@ public class TransactionsService {
 		return store.list(limit, offset, clientId, status, kind, fromDate, toDate);
 	}
 
+	/**
+	 * Imports transactions from the mock SFTP feed.
+	 */
 	public ImportBatchDto importFromSftp(ImportTransactionsRequest request) {
 		return store.importFromMockSftp(request);
 	}
 
+	/**
+	 * Retrieves an import batch by id.
+	 */
 	public ImportBatchDto getBatch(String importBatchId) {
 		return store.getBatch(importBatchId);
 	}
 }
-

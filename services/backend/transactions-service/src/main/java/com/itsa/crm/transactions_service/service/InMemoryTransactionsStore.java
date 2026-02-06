@@ -29,6 +29,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+/**
+ * In-memory transaction store with simple filtering and mock SFTP import support.
+ */
 @Component
 public class InMemoryTransactionsStore {
 	private static final String TXN_PREFIX = "txn_";
@@ -49,6 +52,9 @@ public class InMemoryTransactionsStore {
 		this.mockSftpRoot = Path.of(mockSftpRoot);
 	}
 
+	/**
+	 * Creates a new transaction record.
+	 */
 	public TransactionDto create(CreateTransactionRequest request) {
 		long id = txnSeq.getAndIncrement();
 		TxnRecord record = new TxnRecord(
@@ -65,6 +71,9 @@ public class InMemoryTransactionsStore {
 		return toDto(record);
 	}
 
+	/**
+	 * Retrieves a transaction by external id.
+	 */
 	public TransactionDto get(String transactionId) {
 		long dbId = decodeTxnId(transactionId);
 		TxnRecord record = transactions.get(dbId);
@@ -74,6 +83,9 @@ public class InMemoryTransactionsStore {
 		return toDto(record);
 	}
 
+	/**
+	 * Deletes a transaction by external id.
+	 */
 	public void delete(String transactionId) {
 		long dbId = decodeTxnId(transactionId);
 		if (transactions.remove(dbId) == null) {
@@ -81,6 +93,9 @@ public class InMemoryTransactionsStore {
 		}
 	}
 
+	/**
+	 * Lists transactions with optional filters and pagination.
+	 */
 	public ListResult list(
 		int limit,
 		int offset,
@@ -117,6 +132,9 @@ public class InMemoryTransactionsStore {
 		return new ListResult(page, total);
 	}
 
+	/**
+	 * Imports transactions from a mock SFTP CSV file into memory.
+	 */
 	public ImportBatchDto importFromMockSftp(ImportTransactionsRequest request) {
 		String requestedClientId = request == null ? null : request.clientId();
 		String sourcePath = request == null ? null : request.sourcePath();
@@ -188,6 +206,9 @@ public class InMemoryTransactionsStore {
 		return toDto(completed);
 	}
 
+	/**
+	 * Loads a previously created import batch by id.
+	 */
 	public ImportBatchDto getBatch(String importBatchId) {
 		long dbId = decodeBatchId(importBatchId);
 		BatchRecord record = batches.get(dbId);
@@ -197,6 +218,9 @@ public class InMemoryTransactionsStore {
 		return toDto(record);
 	}
 
+	/**
+	 * Resolves a provided path against the configured mock SFTP root.
+	 */
 	private Path resolveSource(String sourcePath) {
 		if (sourcePath == null || sourcePath.isBlank()) {
 			return mockSftpRoot.resolve("transactions.csv").normalize();
@@ -208,6 +232,9 @@ public class InMemoryTransactionsStore {
 		return mockSftpRoot.resolve(p).normalize();
 	}
 
+	/**
+	 * Parses a CSV line into a transaction record, optionally filtering by client id.
+	 */
 	private TxnRecord parseCsv(String line, long batchId, String requestedClientId) {
 		String[] parts = line.split(",");
 		if (parts.length < 5) {
@@ -329,4 +356,3 @@ public class InMemoryTransactionsStore {
 		String errorMessage
 	) {}
 }
-

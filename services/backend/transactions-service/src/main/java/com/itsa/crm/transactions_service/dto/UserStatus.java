@@ -3,6 +3,9 @@ package com.itsa.crm.transactions_service.dto;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
+/**
+ * User account status values used by the API.
+ */
 public enum UserStatus {
 	active("active"),
 	disabled("disabled");

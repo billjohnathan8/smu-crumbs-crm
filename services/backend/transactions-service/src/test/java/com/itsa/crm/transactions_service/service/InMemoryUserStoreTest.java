@@ -23,6 +23,9 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Covers user CRUD and refresh token lifecycle in the in-memory store.
+ */
 class InMemoryUserStoreTest {
 	private TestClock clock;
 	private InMemoryUserStore store;

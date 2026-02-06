@@ -13,6 +13,9 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+/**
+ * Issues and validates HMAC-SHA256 JWTs for access tokens.
+ */
 @Component
 public class JwtService {
 	private static final Base64.Decoder BASE64_URL_DECODER = Base64.getUrlDecoder();
@@ -32,6 +35,9 @@ public class JwtService {
 		this.secret = hmacSecret.getBytes(StandardCharsets.UTF_8);
 	}
 
+	/**
+	 * Verifies a bearer token signature and required claims, returning the user.
+	 */
 	public AuthenticatedUser verifyAndParse(String token) {
 		String[] parts = token.split("\\.");
 		if (parts.length != 3) {
@@ -66,6 +72,9 @@ public class JwtService {
 		return new AuthenticatedUser(sub, role);
 	}
 
+	/**
+	 * Mints a signed access token with subject, role, and expiry claims.
+	 */
 	public String mintAccessToken(String userId, String role, Instant expiresAt) {
 		try {
 			String headerJson = objectMapper.writeValueAsString(Map.of("alg", "HS256", "typ", "JWT"));
@@ -88,6 +97,9 @@ public class JwtService {
 		}
 	}
 
+	/**
+	 * Validates the exp claim, if provided, against the current clock.
+	 */
 	private void validateExp(Map<String, Object> claims) {
 		Object exp = claims.get("exp");
 		if (exp == null) {

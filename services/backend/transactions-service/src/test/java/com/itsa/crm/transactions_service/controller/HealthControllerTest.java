@@ -8,6 +8,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+/**
+ * Covers health endpoint wiring and basic responses.
+ */
 class HealthControllerTest {
 	private MockMvc mockMvc;
 

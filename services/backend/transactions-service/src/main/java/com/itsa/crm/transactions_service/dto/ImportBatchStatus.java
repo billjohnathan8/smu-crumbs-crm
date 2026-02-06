@@ -3,6 +3,9 @@ package com.itsa.crm.transactions_service.dto;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
+/**
+ * Represents the lifecycle state of a transaction import batch.
+ */
 public enum ImportBatchStatus {
 	queued("queued"),
 	running("running"),
@@ -30,4 +33,3 @@ public enum ImportBatchStatus {
 		throw new IllegalArgumentException("invalid import batch status");
 	}
 }
-

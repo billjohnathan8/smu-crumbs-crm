@@ -3,6 +3,9 @@ package com.itsa.crm.transactions_service.dto;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
+/**
+ * Transaction status values used by the API.
+ */
 public enum TransactionStatus {
 	Completed("Completed"),
 	Pending("Pending"),
@@ -29,4 +32,3 @@ public enum TransactionStatus {
 		throw new IllegalArgumentException("invalid transaction status");
 	}
 }
-

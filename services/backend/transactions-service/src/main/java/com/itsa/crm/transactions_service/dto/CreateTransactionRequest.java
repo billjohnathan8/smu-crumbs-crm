@@ -6,6 +6,9 @@ import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+/**
+ * Request payload for creating a transaction.
+ */
 public record CreateTransactionRequest(
 	@NotBlank
 	String clientId,

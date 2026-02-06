@@ -5,6 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
+/**
+ * Ensures password hashing and verification behave as expected.
+ */
 class PasswordHasherTest {
 	@Test
 	void hashAndVerify_successAndFailureCases() {

@@ -9,11 +9,17 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+/**
+ * Ensures every request has a request id propagated via header and attribute.
+ */
 @Component
 public class RequestIdFilter extends OncePerRequestFilter {
 	public static final String REQUEST_ID_ATTRIBUTE = "requestId";
 	private static final String REQUEST_ID_HEADER = "X-Request-Id";
 
+	/**
+	 * Adds a request id to both the request attribute and response header.
+	 */
 	@Override
 	protected void doFilterInternal(
 		HttpServletRequest request,

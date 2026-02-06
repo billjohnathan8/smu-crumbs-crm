@@ -21,6 +21,9 @@ import java.time.ZoneOffset;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Covers login and refresh flows in AuthService.
+ */
 class AuthServiceTest {
 	private InMemoryUserStore store;
 	private JwtService jwtService;

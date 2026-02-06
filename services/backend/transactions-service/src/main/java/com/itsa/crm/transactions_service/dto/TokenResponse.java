@@ -1,5 +1,8 @@
 package com.itsa.crm.transactions_service.dto;
 
+/**
+ * Response payload containing access/refresh tokens and expiry metadata.
+ */
 public record TokenResponse(
 	String accessToken,
 	String refreshToken,

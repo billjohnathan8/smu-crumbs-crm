@@ -8,6 +8,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
+/**
+ * Validates that an authenticated user can access a given client.
+ */
 @Component
 public class ClientAccessValidator {
 	private final RestClient clientsServiceRestClient;
@@ -16,6 +19,9 @@ public class ClientAccessValidator {
 		this.clientsServiceRestClient = clientsServiceRestClient;
 	}
 
+	/**
+	 * Ensures the user can access the client by delegating to clients-service.
+	 */
 	public void requireClientAccessible(
 		AuthenticatedUser user,
 		String authorizationHeader,

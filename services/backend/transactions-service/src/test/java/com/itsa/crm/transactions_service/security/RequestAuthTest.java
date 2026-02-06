@@ -10,6 +10,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 
+/**
+ * Ensures RequestAuth enforces bearer token presence and parsing.
+ */
 class RequestAuthTest {
 	private JwtService jwtService;
 	private RequestAuth requestAuth;

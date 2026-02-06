@@ -9,6 +9,10 @@ import com.itsa.crm.transactions_service.security.UnauthorizedException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+
+/**
+ * Handles credential validation and access/refresh token issuance.
+ */
 public class AuthService {
 	private static final Duration ACCESS_TTL = Duration.ofHours(1);
 
@@ -22,6 +26,9 @@ public class AuthService {
 		this.clock = clock;
 	}
 
+	/**
+	 * Validates credentials and returns a new access/refresh token pair.
+	 */
 	public TokenResponse login(LoginRequest request) {
 		InMemoryUserStore.UserRecord record = store.findByEmail(request.email());
 		if (record == null) {
@@ -42,6 +49,9 @@ public class AuthService {
 		return new TokenResponse(access, refresh, ACCESS_TTL.toSeconds(), "Bearer");
 	}
 
+	/**
+	 * Rotates a refresh token and issues a new access token.
+	 */
 	public TokenResponse refresh(RefreshRequest request) {
 		String old = request.refreshToken();
 		if (!store.isRefreshTokenValid(old)) {

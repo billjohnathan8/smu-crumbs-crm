@@ -6,6 +6,10 @@ import java.security.SecureRandom;
 import java.util.Base64;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
+
+/**
+ * Password hashing helper using PBKDF2 with per-password salt.
+ */
 public class PasswordHasher {
 	private static final String ALGO = "PBKDF2WithHmacSHA256";
 	private static final int SALT_BYTES = 16;
@@ -14,6 +18,9 @@ public class PasswordHasher {
 
 	private final SecureRandom secureRandom = new SecureRandom();
 
+	/**
+	 * Hashes a password and encodes the algorithm, iterations, salt, and hash.
+	 */
 	public String hash(String password) {
 		byte[] salt = new byte[SALT_BYTES];
 		secureRandom.nextBytes(salt);
@@ -21,6 +28,9 @@ public class PasswordHasher {
 		return "pbkdf2_sha256$" + ITERATIONS + "$" + b64(salt) + "$" + b64(hash);
 	}
 
+	/**
+	 * Verifies a password against the stored PBKDF2 hash payload.
+	 */
 	public boolean verify(String password, String stored) {
 		String[] parts = stored.split("\\$");
 		if (parts.length != 4) {

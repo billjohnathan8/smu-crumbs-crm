@@ -3,6 +3,9 @@ package com.itsa.crm.transactions_service.dto;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
+/**
+ * Roles supported by the transactions-service authorization layer.
+ */
 public enum UserRole {
 	admin("admin"),
 	agent("agent");

@@ -32,6 +32,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * REST endpoints for transaction CRUD and import operations.
+ */
 @RestController
 @RequestMapping("/api")
 public class TransactionsController {
@@ -50,6 +53,10 @@ public class TransactionsController {
 	}
 
 	@GetMapping("/transactions")
+	/**
+	 * Lists transactions with optional filters. Agents must supply a clientId and
+	 * have access to that client; otherwise an empty page is returned.
+	 */
 	public TransactionsListResponse listTransactions(
 		HttpServletRequest request,
 		@RequestParam(defaultValue = "50") int limit,
@@ -94,6 +101,9 @@ public class TransactionsController {
 
 	@PostMapping("/transactions")
 	@ResponseStatus(HttpStatus.CREATED)
+	/**
+	 * Creates a new transaction. Admin-only.
+	 */
 	public TransactionDto createTransaction(
 		HttpServletRequest request,
 		@Valid @RequestBody CreateTransactionRequest body
@@ -104,6 +114,9 @@ public class TransactionsController {
 	}
 
 	@GetMapping("/transactions/{transactionId}")
+	/**
+	 * Fetches a transaction by id. Agents receive a 404 when access is forbidden.
+	 */
 	public TransactionDto getTransaction(HttpServletRequest request, @PathVariable String transactionId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		requireAnyRole(user, "admin", "agent");
@@ -123,6 +136,9 @@ public class TransactionsController {
 
 	@DeleteMapping("/transactions/{transactionId}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
+	/**
+	 * Deletes a transaction by id. Admin-only.
+	 */
 	public void deleteTransaction(HttpServletRequest request, @PathVariable String transactionId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		requireAnyRole(user, "admin");
@@ -130,6 +146,9 @@ public class TransactionsController {
 	}
 
 	@GetMapping("/clients/{clientId}/transactions")
+	/**
+	 * Lists transactions scoped to a single client id after access validation.
+	 */
 	public TransactionsListResponse listTransactionsForClient(
 		HttpServletRequest request,
 		@PathVariable String clientId,
@@ -157,6 +176,9 @@ public class TransactionsController {
 	}
 
 	@PostMapping("/transactions/import")
+	/**
+	 * Starts an async-style import from the configured mock SFTP source. Admin-only.
+	 */
 	public ResponseEntity<ImportBatchDto> importTransactions(
 		HttpServletRequest request,
 		@RequestBody(required = false) ImportTransactionsRequest body
@@ -167,6 +189,9 @@ public class TransactionsController {
 	}
 
 	@GetMapping("/transactions/imports/{importBatchId}")
+	/**
+	 * Retrieves import batch status by id. Admin-only.
+	 */
 	public ImportBatchDto getImportBatch(HttpServletRequest request, @PathVariable String importBatchId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		requireAnyRole(user, "admin");
@@ -190,4 +215,3 @@ public class TransactionsController {
 		throw new ForbiddenException("forbidden");
 	}
 }
-

@@ -3,6 +3,9 @@ package com.itsa.crm.transactions_service.dto;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
+/**
+ * Transaction types, serialized using short wire values.
+ */
 public enum TransactionKind {
 	D("D"),
 	W("W");
@@ -28,4 +31,3 @@ public enum TransactionKind {
 		throw new IllegalArgumentException("invalid transaction kind");
 	}
 }
-
