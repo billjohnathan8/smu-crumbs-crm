@@ -2,7 +2,7 @@
 setlocal
 
 set "SCRIPT_DIR=%~dp0"
-set "PS_SCRIPT=%SCRIPT_DIR%build-and-test\build-and-test-backend.ps1"
+set "PS_SCRIPT=%SCRIPT_DIR%build-and-test-backend\build-and-test-backend.ps1"
 
 where pwsh >nul 2>nul
 if %ERRORLEVEL% EQU 0 (

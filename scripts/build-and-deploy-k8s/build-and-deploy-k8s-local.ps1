@@ -6,7 +6,7 @@ if (-not $env:SCRIPT_RUN_LOG_CAPTURED) {
     $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($scriptPath)
     $scriptDir = Split-Path -Parent $scriptPath
     $repoRoot = Split-Path -Parent (Split-Path -Parent $scriptDir)
-    $logDir = Join-Path $repoRoot "build-logs\\build-and-deploy"
+    $logDir = Join-Path $repoRoot "build-logs\\build-and-deploy-k8s"
     $now = Get-Date
     $timestampReadable = $now.ToString("yyyy-MM-dd_HH-mm-ss")
     $inverseTimestamp = "{0:D4}{1:D2}{2:D2}-{3:D2}{4:D2}{5:D2}" -f `
@@ -111,6 +111,13 @@ public static class ConsoleCP {
         }
     }
 
+    function Remove-AnsiEscapeCodes {
+        param([string]$Text)
+        # Remove ANSI escape sequences (colors, cursor movement, formatting, etc.)
+        # Pattern matches: ESC [ ... m (colors/formatting) and ESC [ ... (cursor control)
+        $Text -replace '\x1b\[[0-9;]*[a-zA-Z]', '' -replace '\x1b\([B0]', ''
+    }
+
     if (-not (Test-Path $logDir)) {
         New-Item -ItemType Directory -Path $logDir | Out-Null
     }
@@ -131,15 +138,17 @@ public static class ConsoleCP {
             $ErrorActionPreference = "Continue"
             & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $scriptPath @args 2>&1 |
                 ForEach-Object {
-                    if ($_ -is [System.Management.Automation.ErrorRecord]) {
+                    $line = if ($_ -is [System.Management.Automation.ErrorRecord]) {
                         # Preserve the original stderr line from native tools (kind/helm/etc.) without printing ErrorRecord metadata.
                         Repair-ConsoleMojibake -Text ($_.Exception.Message)
                     }
                     else {
                         Repair-ConsoleMojibake -Text ($_.ToString())
                     }
+                    Write-Host $line
+                    Remove-AnsiEscapeCodes -Text $line
                 } |
-                Tee-Object -FilePath $logFile
+                Out-File -FilePath $logFile -Encoding utf8
             $exitCode = $LASTEXITCODE
         }
         finally {

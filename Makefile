@@ -5,12 +5,12 @@ HELM ?= helm
 KIND ?= kind
 NULL_DEVICE ?= /dev/null
 GRADLEW ?= ./gradlew
-SMOKE_CMD ?= bash ./scripts/smoke-k8s-infra.sh
+SMOKE_CMD ?= bash ./scripts/smoke-k8s-infra/smoke-k8s-infra.sh
 
 ifeq ($(OS),Windows_NT)
 NULL_DEVICE := NUL
 GRADLEW := gradlew.bat
-SMOKE_CMD := powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-infra.ps1
+SMOKE_CMD := powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-infra/smoke-k8s-infra.ps1
 endif
 
 .PHONY: kind-up infra-up build-images kind-load deploy-dev smoke
@@ -36,12 +36,14 @@ build-images:
 	docker build -t client-service:dev services/backend/client-service
 	docker build -t log-service:dev services/backend/log-service
 	docker build -t transaction-service:dev services/backend/transaction-service
+	docker build -t crm-ui:dev services/frontend/crm-ui
 
 kind-load:
 	$(KIND) load docker-image agent-service:dev --name $(KIND_CLUSTER_NAME)
 	$(KIND) load docker-image client-service:dev --name $(KIND_CLUSTER_NAME)
 	$(KIND) load docker-image log-service:dev --name $(KIND_CLUSTER_NAME)
 	$(KIND) load docker-image transaction-service:dev --name $(KIND_CLUSTER_NAME)
+	$(KIND) load docker-image crm-ui:dev --name $(KIND_CLUSTER_NAME)
 
 deploy-dev:
 	$(KUBECTL) apply -k platform/k8s/apps/overlays/dev
@@ -49,10 +51,12 @@ deploy-dev:
 	$(KUBECTL) rollout restart deployment/client-service -n dev
 	$(KUBECTL) rollout restart deployment/log-service -n dev
 	$(KUBECTL) rollout restart deployment/transaction-service -n dev
+	$(KUBECTL) rollout restart deployment/frontend -n dev
 	$(KUBECTL) rollout status deployment/agent-service -n dev --timeout=180s
 	$(KUBECTL) rollout status deployment/client-service -n dev --timeout=180s
 	$(KUBECTL) rollout status deployment/log-service -n dev --timeout=180s
 	$(KUBECTL) rollout status deployment/transaction-service -n dev --timeout=180s
+	$(KUBECTL) rollout status deployment/frontend -n dev --timeout=180s
 
 smoke:
 	$(SMOKE_CMD)

@@ -8,7 +8,7 @@ if ([string]::IsNullOrWhiteSpace($baseUrl)) {
 }
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$repoRoot = Resolve-Path (Join-Path $scriptDir '..')
+$repoRoot = Resolve-Path (Join-Path $scriptDir '../..')
 $manifestsDir = Join-Path $repoRoot 'platform/k8s/apps/base'
 $ingressYaml = Join-Path $manifestsDir 'ingress.yaml'
 $kustomizationYaml = Join-Path $manifestsDir 'kustomization.yaml'
