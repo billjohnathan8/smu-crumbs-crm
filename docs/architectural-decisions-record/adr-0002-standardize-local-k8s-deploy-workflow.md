@@ -3,7 +3,7 @@
 - **Date:** 2026-02-04
 - **Status:** Accepted
 - **Deciders:** Team
-- **Related:** `Makefile`, `scripts/build-and-deploy/build-and-deploy-k8s-local.sh`, `scripts/smoke-k8s-infra.sh`, `docs/local-k8s-dev.md`
+- **Related:** `Makefile`, `scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh`, `scripts/smoke-k8s-infra/smoke-k8s-infra.sh`, `docs/local-k8s-dev.md`
 
 ## Context
 From BASE (`bd5f10dd9036bc8899f8d6bb4dfb48f32f930a2f`) to HEAD, local cluster deployment moved from ad-hoc/manual expectations to a scripted, repeatable workflow.
@@ -20,9 +20,9 @@ The branch adds:
   - `README.md` - no local Kubernetes build/deploy runbook was documented.
 - **After (HEAD):**
   - `Makefile` - defines `kind-up`, `infra-up`, `build-images`, `kind-load`, `deploy-dev`, and `smoke`.
-  - `scripts/build-and-deploy/build-and-deploy-k8s-local.sh` - orchestrates make targets with kind context handling.
-  - `scripts/build-and-deploy/build-and-deploy-k8s-local.ps1` - Windows PowerShell equivalent orchestration.
-  - `scripts/smoke-k8s-infra.sh` - verifies health endpoints and core CRUD + log ingestion path through ingress.
+  - `scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh` - orchestrates make targets with kind context handling.
+  - `scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.ps1` - Windows PowerShell equivalent orchestration.
+  - `scripts/smoke-k8s-infra/smoke-k8s-infra.sh` - verifies health endpoints and core CRUD + log ingestion path through ingress.
   - `docs/local-k8s-dev.md` - documents one-command flow and success criteria.
 
 ## Decision

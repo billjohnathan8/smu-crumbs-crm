@@ -3,7 +3,7 @@
 - **Date:** 2026-02-04
 - **Status:** Accepted
 - **Deciders:** Team
-- **Related:** `scripts/build-and-test/build-and-test-backend.sh`, `scripts/build-and-test/build-and-test-backend.ps1`, `services/backend`
+- **Related:** `scripts/build-and-test-backend/build-and-test-backend.sh`, `scripts/build-and-test-backend/build-and-test-backend.ps1`, `services/backend`
 
 ## Context
 From BASE (`bd5f10dd9036bc8899f8d6bb4dfb48f32f930a2f`) to HEAD, backend services were introduced under a shared `services/backend` root and include both Java/Gradle and Python stacks.
@@ -13,10 +13,10 @@ The branch also adds local CI scripts that discover backend services by runtime 
 ### Evidence (Before vs After)
 - **Before (BASE):**
   - `services/backend` - absent at BASE, proving no committed backend service root in this compare range.
-  - `scripts/build-and-test/build-and-test-backend.sh` - absent at BASE, proving no unified local backend CI runner.
+  - `scripts/build-and-test-backend/build-and-test-backend.sh` - absent at BASE, proving no unified local backend CI runner.
 - **After (HEAD):**
-  - `scripts/build-and-test/build-and-test-backend.sh` - discovers services and selects `gradle` vs `python` workflows.
-  - `scripts/build-and-test/build-and-test-backend.ps1` - implements equivalent runtime-aware workflow on Windows.
+  - `scripts/build-and-test-backend/build-and-test-backend.sh` - discovers services and selects `gradle` vs `python` workflows.
+  - `scripts/build-and-test-backend/build-and-test-backend.ps1` - implements equivalent runtime-aware workflow on Windows.
   - `services/backend/client-service/gradlew` - proves Gradle-based backend runtime.
   - `services/backend/log-service/requirements.txt` - proves Python-based backend runtime.
   - `README.md` - documents local CI entry points for this unified script model.
