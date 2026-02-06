@@ -10,7 +10,7 @@ day="$(date '+%d')"
 hour="$(date '+%H')"
 minute="$(date '+%M')"
 second="$(date '+%S')"
-timestamp="${year}${month}${day}-${hour}${minute}${second}"
+timestamp_readable="$(date '+%Y-%m-%d_%H-%M-%S')"
 inverse_timestamp="$(printf '%04d%02d%02d-%02d%02d%02d' \
   "$((9999 - 10#${year}))" \
   "$((12 - 10#${month}))" \
@@ -19,9 +19,21 @@ inverse_timestamp="$(printf '%04d%02d%02d-%02d%02d%02d' \
   "$((59 - 10#${minute}))" \
   "$((59 - 10#${second}))")"
 script_name="$(basename "${BASH_SOURCE[0]%.*}")"
-log_file="${log_dir}/${script_name}-${inverse_timestamp}-${timestamp}.log"
+log_file="${log_dir}/inv${inverse_timestamp}__${timestamp_readable}__${script_name}.log"
 
 mkdir -p "${log_dir}"
+
+rotate_logs() {
+  local files
+  files="$(ls -1t "${log_dir}"/*.log 2>/dev/null | tail -n +4 2>/dev/null || true)"
+  if [[ -n "${files}" ]]; then
+    while IFS= read -r file; do
+      [[ -n "${file}" ]] && rm -f -- "${file}" || true
+    done <<< "${files}"
+  fi
+}
+trap rotate_logs EXIT
+
 exec > >(tee -a "${log_file}") 2>&1
 
 log() {

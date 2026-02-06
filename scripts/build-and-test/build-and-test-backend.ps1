@@ -8,7 +8,7 @@ if (-not $env:SCRIPT_RUN_LOG_CAPTURED) {
     $repoRoot = Split-Path -Parent (Split-Path -Parent $scriptDir)
     $logDir = Join-Path $repoRoot "build-logs\\build-and-test"
     $now = Get-Date
-    $timestamp = $now.ToString("yyyyMMdd-HHmmss")
+    $timestampReadable = $now.ToString("yyyy-MM-dd_HH-mm-ss")
     $inverseTimestamp = "{0:D4}{1:D2}{2:D2}-{3:D2}{4:D2}{5:D2}" -f `
         (9999 - $now.Year), `
         (12 - $now.Month), `
@@ -16,7 +16,7 @@ if (-not $env:SCRIPT_RUN_LOG_CAPTURED) {
         (23 - $now.Hour), `
         (59 - $now.Minute), `
         (59 - $now.Second)
-    $logFile = Join-Path $logDir "$scriptName-$inverseTimestamp-$timestamp.log"
+    $logFile = Join-Path $logDir ("inv{0}__{1}__{2}.log" -f $inverseTimestamp, $timestampReadable, $scriptName)
 
     if (-not (Test-Path $logDir)) {
         New-Item -ItemType Directory -Path $logDir | Out-Null
@@ -51,6 +51,19 @@ if (-not $env:SCRIPT_RUN_LOG_CAPTURED) {
     finally {
         Remove-Item Env:SCRIPT_RUN_LOG_CAPTURED -ErrorAction SilentlyContinue
         Remove-Item Env:BUILD_LOG_FILE -ErrorAction SilentlyContinue
+    }
+
+    try {
+        $logFiles = @(
+            Get-ChildItem -Path $logDir -File -Filter "*.log" -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime -Descending
+        )
+        if ($logFiles.Count -gt 3) {
+            $logFiles | Select-Object -Skip 3 | Remove-Item -Force -ErrorAction SilentlyContinue
+        }
+    }
+    catch {
+        # Best-effort only.
     }
 
     exit $exitCode
