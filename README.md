@@ -51,7 +51,7 @@ Notes:
 ### Per-service local test pipeline (run from each service root)
 - `services/backend/user-service`: `.\gradlew.bat localTestPipeline` (Windows) or `./gradlew localTestPipeline` (macOS/Linux)
 - `services/backend/client-service`: `.\gradlew.bat localTestPipeline` (Windows) or `./gradlew localTestPipeline` (macOS/Linux)
-- `services/backend/transactions-service`: `.\gradlew.bat localTestPipeline` (Windows) or `./gradlew localTestPipeline` (macOS/Linux)
+- `services/backend/transaction-service`: `.\gradlew.bat localTestPipeline` (Windows) or `./gradlew localTestPipeline` (macOS/Linux)
 - `services/backend/log-service`: `python run-local-test-pipeline.py` (Windows) or `python3 run-local-test-pipeline.py` (macOS/Linux)
 
 ### Backend local Kubernetes deploy (kind)
@@ -70,3 +70,4 @@ Outputs:
 - On success, the script tears down the dev workloads and deletes the kind cluster (use the manual steps in `docs/local-k8s-dev.md` if you want to keep the cluster running).
 
 For full setup, verification, troubleshooting, and teardown, use `docs/local-k8s-dev.md`.
+

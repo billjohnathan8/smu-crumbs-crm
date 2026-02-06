@@ -34,7 +34,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: transactions-service
+                name: transaction-service
                 port:
                   number: 80
           - path: /health
@@ -44,3 +44,4 @@ spec:
                 name: log-service
                 port:
                   number: 80
+

@@ -122,7 +122,7 @@ paths:
       summary: Create log entry
       description: |
         Creates an audit log entry for a client action.
-        Typically called internally by other services (client-service, users-service, transactions-service).
+        Typically called internally by other services (client-service, users-service, transaction-service).
       security: [{ BearerAuth: [] }]
       x-required-roles: [admin, agent]
       requestBody:
@@ -627,3 +627,4 @@ components:
           $ref: "#/components/schemas/CommunicationChannel"
       required: [clientId, agentId, toEmail, subject, body]
       additionalProperties: false
+

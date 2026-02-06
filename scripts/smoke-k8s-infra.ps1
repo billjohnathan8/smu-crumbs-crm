@@ -542,15 +542,15 @@ try {
         if (-not $healthy) { throw "Unhealthy: $svc ($probePath)" }
     }
 
-    if ($probePathByService.ContainsKey('transactions-service')) {
+    if ($probePathByService.ContainsKey('transaction-service')) {
         Write-Host "Listing transactions..."
         $token = Mint-Jwt
         $authHeader = "Authorization: Bearer $token"
         $transactionsBase = $script:curlBaseUrl
         $transactionsHeaders = $script:curlHostHeaders
-        if (-not $ingressPathByService.ContainsKey('transactions-service')) {
-            $probePath = $probePathByService['transactions-service']
-            $pf = Ensure-ServicePortForward -Service 'transactions-service' -ProbePath $probePath
+        if (-not $ingressPathByService.ContainsKey('transaction-service')) {
+            $probePath = $probePathByService['transaction-service']
+            $pf = Ensure-ServicePortForward -Service 'transaction-service' -ProbePath $probePath
             $transactionsBase = "http://localhost:$($pf.Port)"
             $transactionsHeaders = @()
         }
@@ -655,3 +655,4 @@ finally {
         Stop-ProcessSafe $entry.Process
     }
 }
+

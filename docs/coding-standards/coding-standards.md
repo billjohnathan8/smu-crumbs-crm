@@ -392,7 +392,7 @@ These are the default CI/local pipeline thresholds **per service**:
 #### B) Tiered expectations (depending on what the service is)
 
 **Tier 1 — Core business microservices**  
-(e.g., `users-service`, `client-service`, `transactions-service`, anything implementing core CRM rules)
+(e.g., `users-service`, `client-service`, `transaction-service`, anything implementing core CRM rules)
 - **Overall:** Lines/Instructions ≥ **85%**, Branches ≥ **75%**
 - **Business-logic packages** (e.g., `service/`, `domain/`, validators): Lines/Instructions ≥ **90%**, Branches ≥ **80%**
 - Must include unit tests for decision logic + happy/edge cases (401/403/404/409/422/500 where relevant)
@@ -603,7 +603,8 @@ git branch -d feature/your-branch
 ## Appendix B — Example Conventional Commits
 
 - `feat(users-service): add admin create-agent endpoint`
-- `fix(transactions-service): handle empty SFTP file gracefully`
+- `fix(transaction-service): handle empty SFTP file gracefully`
 - `docs(adr): add decision for database migration strategy`
 - `ci: add terraform validate job`
 - `chore: bump frontend dependencies`
+

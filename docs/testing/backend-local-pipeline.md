@@ -27,7 +27,7 @@ The local pipeline enforces this sequence:
 
 ## Runtime-Specific Behavior
 
-### Java services (`user-service`, `client-service`, `transactions-service`)
+### Java services (`user-service`, `client-service`, `transaction-service`)
 
 Command used from service root:
 - Windows: `.\gradlew.bat localTestPipeline`
@@ -113,3 +113,4 @@ The report includes:
 3. Open service-level detailed reports from links in that page.
 4. Add/fix tests and code until lint, tests, and coverage are satisfactory.
 5. Re-run pipeline before PR submission.
+

@@ -479,16 +479,16 @@ for svc in "${!probe_path_by_service[@]}"; do
   fi
 done
 
-if [[ -n "${probe_path_by_service[transactions-service]:-}" ]]; then
+if [[ -n "${probe_path_by_service[transaction-service]:-}" ]]; then
   echo "Listing transactions..."
   token="$(mint_jwt)"
   auth_header="Authorization: Bearer ${token}"
-  if [[ -n "${ingress_path_by_service[transactions-service]:-}" ]]; then
+  if [[ -n "${ingress_path_by_service[transaction-service]:-}" ]]; then
     curl_request "${curl_host_args[@]}" -H "${auth_header}" \
       "${curl_base_url}/api/transactions?limit=1"
     assert_http_success "Failed to list transactions." || exit 1
   else
-    port="$(start_service_port_forward "transactions-service" "${probe_path_by_service[transactions-service]}")"
+    port="$(start_service_port_forward "transaction-service" "${probe_path_by_service[transaction-service]}")"
     curl_request -H "${auth_header}" \
       "http://localhost:${port}/api/transactions?limit=1"
     assert_http_success "Failed to list transactions." || exit 1
@@ -565,3 +565,4 @@ echo "Posting a direct log event..."
 post_log_event "${client_id}"
 
 echo "Smoke tests passed."
+

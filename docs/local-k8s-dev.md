@@ -49,7 +49,7 @@ Notes:
 
 Success criteria:
 - Exit code `0`
-- Rollout checks pass for `user-service`, `client-service`, `log-service`, `transactions-service`
+- Rollout checks pass for `user-service`, `client-service`, `log-service`, `transaction-service`
 - Smoke output includes `Smoke tests passed.`
 - Wrapper output ends with `Local Kubernetes build/deploy and smoke checks completed successfully.`
 
@@ -88,7 +88,7 @@ bash ./scripts/build-and-test/build-and-test-backend.sh
 The backend script now runs each service-local pipeline (lint, build, tests, coverage reports):
 - `services/backend/user-service`: `gradlew localTestPipeline`
 - `services/backend/client-service`: `gradlew localTestPipeline`
-- `services/backend/transactions-service`: `gradlew localTestPipeline`
+- `services/backend/transaction-service`: `gradlew localTestPipeline`
 - `services/backend/log-service`: `python run-local-test-pipeline.py`
 
 ### 1) Create and verify kind cluster
@@ -122,7 +122,7 @@ Builds:
 - `user-service:dev`
 - `client-service:dev`
 - `log-service:dev`
-- `transactions-service:dev`
+- `transaction-service:dev`
 
 ### 4) Load images into kind
 ```bash
@@ -149,7 +149,7 @@ Ingress routes:
 - `http://localhost/api/users` -> `user-service`
 - `http://localhost/api/clients` -> `client-service`
 - `http://localhost/api/logs` -> `log-service`
-- `http://localhost/api/transactions` -> `transactions-service`
+- `http://localhost/api/transactions` -> `transaction-service`
 
 ### 7) Run infrastructure smoke tests
 ```bash
@@ -168,7 +168,7 @@ Checks:
 - Health endpoints through ingress
 - Create/read/update/delete path for clients
 - Direct log event ingestion into `log-service`
-- Transactions list endpoint (if `transactions-service` is deployed)
+- Transactions list endpoint (if `transaction-service` is deployed)
 
 The script first tries `http://localhost`, then falls back to ingress controller port-forward if needed.
 
@@ -227,3 +227,4 @@ When adding a new backend service:
 - Add ingress rule if externally reachable
 - Extend `Makefile` targets: `build-images`, `kind-load`, `deploy-dev`
 - Extend `scripts/smoke-k8s-infra.sh` with infrastructure-level checks for the new service
+

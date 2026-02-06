@@ -31,28 +31,29 @@ infra-up:
 build-images:
 	cd services/backend/user-service && $(GRADLEW) clean bootJar
 	cd services/backend/client-service && $(GRADLEW) clean bootJar
-	cd services/backend/transactions-service && $(GRADLEW) clean bootJar
+	cd services/backend/transaction-service && $(GRADLEW) clean bootJar
 	docker build -t user-service:dev services/backend/user-service
 	docker build -t client-service:dev services/backend/client-service
 	docker build -t log-service:dev services/backend/log-service
-	docker build -t transactions-service:dev services/backend/transactions-service
+	docker build -t transaction-service:dev services/backend/transaction-service
 
 kind-load:
 	$(KIND) load docker-image user-service:dev --name $(KIND_CLUSTER_NAME)
 	$(KIND) load docker-image client-service:dev --name $(KIND_CLUSTER_NAME)
 	$(KIND) load docker-image log-service:dev --name $(KIND_CLUSTER_NAME)
-	$(KIND) load docker-image transactions-service:dev --name $(KIND_CLUSTER_NAME)
+	$(KIND) load docker-image transaction-service:dev --name $(KIND_CLUSTER_NAME)
 
 deploy-dev:
 	$(KUBECTL) apply -k platform/k8s/apps/overlays/dev
 	$(KUBECTL) rollout restart deployment/user-service -n dev
 	$(KUBECTL) rollout restart deployment/client-service -n dev
 	$(KUBECTL) rollout restart deployment/log-service -n dev
-	$(KUBECTL) rollout restart deployment/transactions-service -n dev
+	$(KUBECTL) rollout restart deployment/transaction-service -n dev
 	$(KUBECTL) rollout status deployment/user-service -n dev --timeout=180s
 	$(KUBECTL) rollout status deployment/client-service -n dev --timeout=180s
 	$(KUBECTL) rollout status deployment/log-service -n dev --timeout=180s
-	$(KUBECTL) rollout status deployment/transactions-service -n dev --timeout=180s
+	$(KUBECTL) rollout status deployment/transaction-service -n dev --timeout=180s
 
 smoke:
 	$(SMOKE_CMD)
+
