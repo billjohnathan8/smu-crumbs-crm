@@ -6,6 +6,9 @@ import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+/**
+ * Request payload for creating a new account for a client.
+ */
 public record AccountCreateRequest(
 	@NotBlank
 	String clientId,
@@ -29,4 +32,3 @@ public record AccountCreateRequest(
 	@NotBlank
 	String branchId
 ) {}
-

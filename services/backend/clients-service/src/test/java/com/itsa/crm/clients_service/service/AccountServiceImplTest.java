@@ -30,6 +30,9 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Unit tests for {@link AccountServiceImpl} business logic.
+ */
 class AccountServiceImplTest {
 	private AccountRepository accountRepository;
 	private ClientRepository clientRepository;

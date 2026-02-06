@@ -4,6 +4,9 @@ import com.itsa.crm.clients_service.entity.Gender;
 import java.time.Instant;
 import java.time.LocalDate;
 
+/**
+ * Legacy no-auth response payload for client details.
+ */
 public record ClientNoAuthResponse(
 	long clientId,
 	String firstName,

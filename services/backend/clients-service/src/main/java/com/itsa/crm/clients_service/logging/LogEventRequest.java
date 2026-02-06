@@ -3,6 +3,9 @@ package com.itsa.crm.clients_service.logging;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.Instant;
 
+/**
+ * Request payload for posting audit events to the log service.
+ */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record LogEventRequest(
 	String action,

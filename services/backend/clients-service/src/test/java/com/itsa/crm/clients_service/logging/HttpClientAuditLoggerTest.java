@@ -11,6 +11,9 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+/**
+ * Unit tests for {@link HttpClientAuditLogger}.
+ */
 class HttpClientAuditLoggerTest {
 	@Test
 	void logAuditEvent_postsToLogService() {

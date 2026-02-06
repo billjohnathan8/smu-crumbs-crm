@@ -8,6 +8,9 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 
+/**
+ * Shared client fields used by legacy upsert flows.
+ */
 public record ClientPayload(
 	@NotBlank
 	@Size(min = 2, max = 50)

@@ -11,6 +11,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * Unit tests for {@link RequestAuth} bearer token extraction.
+ */
 class RequestAuthTest {
 	@Test
 	void requireUser_missingAuthorizationHeader_throwsUnauthorized() {
@@ -50,4 +53,3 @@ class RequestAuthTest {
 		verify(jwtService).verifyAndParse("token-123");
 	}
 }
-

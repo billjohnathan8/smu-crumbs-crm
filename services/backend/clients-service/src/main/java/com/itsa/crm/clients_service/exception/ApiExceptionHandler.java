@@ -15,6 +15,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+/**
+ * Maps domain and validation exceptions to API error responses.
+ */
 @RestControllerAdvice
 public class ApiExceptionHandler {
 	private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
@@ -67,6 +70,14 @@ public class ApiExceptionHandler {
 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error(request, "internal_error", "Internal error"));
 	}
 
+	/**
+	 * Builds a standard error response and attaches the request id when available.
+	 *
+	 * @param request HTTP request
+	 * @param error short error code
+	 * @param message human-readable message
+	 * @return error response payload
+	 */
 	private static ErrorResponse error(HttpServletRequest request, String error, String message) {
 		Object requestId = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
 		return new ErrorResponse(error, message, requestId == null ? null : requestId.toString());

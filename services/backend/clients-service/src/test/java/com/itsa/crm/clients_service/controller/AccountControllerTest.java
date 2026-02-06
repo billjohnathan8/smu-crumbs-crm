@@ -30,6 +30,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+/**
+ * Web MVC tests for {@link AccountController}.
+ */
 class AccountControllerTest {
 	private static final String AUTH_HEADER = "Bearer test";
 

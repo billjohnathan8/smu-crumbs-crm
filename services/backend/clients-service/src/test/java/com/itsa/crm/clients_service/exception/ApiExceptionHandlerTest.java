@@ -13,6 +13,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * Unit tests for {@link ApiExceptionHandler} error mapping.
+ */
 class ApiExceptionHandlerTest {
 	static class DummyController {
 		void create(String body) {}

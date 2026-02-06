@@ -12,6 +12,9 @@ import org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfigur
 import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+/**
+ * Spring context smoke tests for the clients service.
+ */
 @SpringBootTest
 @ImportAutoConfiguration(exclude = {
 	DataSourceAutoConfiguration.class,

@@ -5,6 +5,9 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Unit tests for {@link ClientEntity} lifecycle hooks.
+ */
 class ClientEntityTest {
 	@Test
 	void prePersist_setsCreatedAndUpdatedAndDefaultsStatusWhenNull() {
@@ -40,4 +43,3 @@ class ClientEntityTest {
 		assertThat(entity.getUpdatedAt()).isAfterOrEqualTo(before);
 	}
 }
-

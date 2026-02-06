@@ -17,6 +17,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Default account service implementation with ownership checks and audit logging.
+ */
 @Service
 public class AccountServiceImpl implements AccountService {
 	private static final Logger LOGGER = LoggerFactory.getLogger(AccountServiceImpl.class);
@@ -37,6 +40,15 @@ public class AccountServiceImpl implements AccountService {
 		this.auditLogger = auditLogger;
 	}
 
+	/**
+	 * Creates a new account for a client owned by the authenticated user.
+	 *
+	 * @param user authenticated user
+	 * @param request account creation payload
+	 * @param authorizationHeader bearer token for downstream audit logging
+	 * @param requestId request correlation id
+	 * @return created account DTO
+	 */
 	@Override
 	@Transactional
 	public AccountDto createAccount(
@@ -73,12 +85,27 @@ public class AccountServiceImpl implements AccountService {
 		return toDto(saved);
 	}
 
+	/**
+	 * Retrieves a single account visible to the authenticated user.
+	 *
+	 * @param user authenticated user
+	 * @param accountId public account identifier
+	 * @return account DTO
+	 */
 	@Override
 	public AccountDto getAccount(AuthenticatedUser user, String accountId) {
 		AccountEntity entity = loadOwnedAccount(user, accountId);
 		return toDto(entity);
 	}
 
+	/**
+	 * Deletes an account visible to the authenticated user.
+	 *
+	 * @param user authenticated user
+	 * @param accountId public account identifier
+	 * @param authorizationHeader bearer token for downstream audit logging
+	 * @param requestId request correlation id
+	 */
 	@Override
 	@Transactional
 	public void deleteAccount(
@@ -103,12 +130,25 @@ public class AccountServiceImpl implements AccountService {
 		);
 	}
 
+	/**
+	 * Lists accounts for a client visible to the authenticated user.
+	 *
+	 * @param user authenticated user
+	 * @param clientId public client identifier
+	 * @return list of account DTOs
+	 */
 	@Override
 	public List<AccountDto> listAccounts(AuthenticatedUser user, String clientId) {
 		ClientEntity client = loadOwnedClient(user, clientId);
 		return accountRepository.findByClientId(client.getId()).stream().map(this::toDto).toList();
 	}
 
+	/**
+	 * Maps an account entity to its API DTO.
+	 *
+	 * @param entity account entity
+	 * @return account DTO
+	 */
 	private AccountDto toDto(AccountEntity entity) {
 		return new AccountDto(
 			accountId(entity.getId()),
@@ -123,6 +163,14 @@ public class AccountServiceImpl implements AccountService {
 		);
 	}
 
+	/**
+	 * Loads a client and verifies ownership for the authenticated user.
+	 *
+	 * @param user authenticated user
+	 * @param clientId public client identifier
+	 * @return owned client entity
+	 * @throws ClientNotFoundException when the client does not exist or is not owned
+	 */
 	private ClientEntity loadOwnedClient(AuthenticatedUser user, String clientId) {
 		long dbClientId = decodeClientId(clientId);
 		ClientEntity client = clientRepository.findById(dbClientId)
@@ -133,6 +181,14 @@ public class AccountServiceImpl implements AccountService {
 		return client;
 	}
 
+	/**
+	 * Loads an account and verifies ownership for the authenticated user.
+	 *
+	 * @param user authenticated user
+	 * @param accountId public account identifier
+	 * @return owned account entity
+	 * @throws AccountNotFoundException when the account does not exist or is not owned
+	 */
 	private AccountEntity loadOwnedAccount(AuthenticatedUser user, String accountId) {
 		long dbAccountId = decodeAccountId(accountId);
 		AccountEntity entity = accountRepository.findById(dbAccountId)
@@ -144,22 +200,58 @@ public class AccountServiceImpl implements AccountService {
 		return entity;
 	}
 
+	/**
+	 * Decodes an API client id to a database id.
+	 *
+	 * @param clientId public client identifier
+	 * @return database id
+	 */
 	private long decodeClientId(String clientId) {
 		return IdCodec.decode(CLIENT_ID_PREFIX, clientId);
 	}
 
+	/**
+	 * Decodes an API account id to a database id.
+	 *
+	 * @param accountId public account identifier
+	 * @return database id
+	 */
 	private long decodeAccountId(String accountId) {
 		return IdCodec.decode(ACCOUNT_ID_PREFIX, accountId);
 	}
 
+	/**
+	 * Encodes a database client id into the public API format.
+	 *
+	 * @param dbId database id
+	 * @return public client identifier
+	 */
 	private String clientId(long dbId) {
 		return IdCodec.encode(CLIENT_ID_PREFIX, dbId);
 	}
 
+	/**
+	 * Encodes a database account id into the public API format.
+	 *
+	 * @param dbId database id
+	 * @return public account identifier
+	 */
 	private String accountId(long dbId) {
 		return IdCodec.encode(ACCOUNT_ID_PREFIX, dbId);
 	}
 
+	/**
+	 * Emits audit events when an authorization header is provided.
+	 *
+	 * @param action audit action
+	 * @param attributeName attribute being changed or observed
+	 * @param beforeValue previous value (nullable)
+	 * @param afterValue new value (nullable)
+	 * @param agentId authenticated agent id
+	 * @param clientId associated client id
+	 * @param correlationId request correlation id
+	 * @param authorizationHeader bearer token for downstream auth
+	 */
 	private void publishAuditSafe(
 		String action,
 		String attributeName,
@@ -190,4 +282,3 @@ public class AccountServiceImpl implements AccountService {
 		}
 	}
 }
-

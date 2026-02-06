@@ -5,6 +5,9 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Unit tests for {@link Gender} JSON value mapping.
+ */
 class GenderTest {
 	@Test
 	void fromApiValue_validValue_returnsEnum() {
@@ -19,4 +22,3 @@ class GenderTest {
 			.hasMessageContaining("Unsupported gender");
 	}
 }
-

@@ -8,6 +8,9 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 
+/**
+ * Request payload for creating a client.
+ */
 public record ClientCreateRequest(
 	@NotBlank
 	@Size(min = 2, max = 50)

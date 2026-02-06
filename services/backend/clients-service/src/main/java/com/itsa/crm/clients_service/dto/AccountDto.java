@@ -4,6 +4,9 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 
+/**
+ * API representation of an account.
+ */
 public record AccountDto(
 	String accountId,
 	String clientId,
@@ -15,4 +18,3 @@ public record AccountDto(
 	String branchId,
 	Instant createdAt
 ) {}
-

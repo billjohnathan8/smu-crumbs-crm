@@ -15,6 +15,9 @@ import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 import java.time.LocalDate;
 
+/**
+ * JPA entity representing a client profile and verification state.
+ */
 @Entity
 @Table(
 	name = "clients",
@@ -76,6 +79,9 @@ public class ClientEntity {
 	@Column(name = "updated_at", nullable = false)
 	private Instant updatedAt;
 
+	/**
+	 * Initializes timestamps and default verification status before persistence.
+	 */
 	@PrePersist
 	void prePersist() {
 		Instant now = Instant.now();
@@ -86,6 +92,9 @@ public class ClientEntity {
 		}
 	}
 
+	/**
+	 * Updates the modification timestamp before update.
+	 */
 	@PreUpdate
 	void preUpdate() {
 		updatedAt = Instant.now();

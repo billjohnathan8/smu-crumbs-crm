@@ -17,6 +17,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * REST endpoints for account lifecycle operations.
+ */
 @RestController
 public class AccountController {
 	private final AccountService accountService;
@@ -27,6 +30,13 @@ public class AccountController {
 		this.requestAuth = requestAuth;
 	}
 
+	/**
+	 * Creates an account for a client owned by the authenticated user.
+	 *
+	 * @param httpRequest HTTP request used for auth and correlation id extraction
+	 * @param request account creation payload
+	 * @return created account DTO
+	 */
 	@PostMapping("/api/accounts")
 	@ResponseStatus(HttpStatus.CREATED)
 	public AccountDto createAccount(
@@ -38,12 +48,25 @@ public class AccountController {
 		return accountService.createAccount(user, request, authorizationHeader, requestId(httpRequest));
 	}
 
+	/**
+	 * Returns a single account visible to the authenticated user.
+	 *
+	 * @param httpRequest HTTP request used for auth
+	 * @param accountId public account identifier
+	 * @return account DTO
+	 */
 	@GetMapping("/api/accounts/{accountId}")
 	public AccountDto getAccount(HttpServletRequest httpRequest, @PathVariable String accountId) {
 		AuthenticatedUser user = requestAuth.requireUser(httpRequest);
 		return accountService.getAccount(user, accountId);
 	}
 
+	/**
+	 * Deletes an account and emits an audit entry when possible.
+	 *
+	 * @param httpRequest HTTP request used for auth and correlation id extraction
+	 * @param accountId public account identifier
+	 */
 	@DeleteMapping("/api/accounts/{accountId}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteAccount(
@@ -55,12 +78,25 @@ public class AccountController {
 		accountService.deleteAccount(user, accountId, authorizationHeader, requestId(httpRequest));
 	}
 
+	/**
+	 * Lists all accounts for a client visible to the authenticated user.
+	 *
+	 * @param httpRequest HTTP request used for auth
+	 * @param clientId public client identifier
+	 * @return list of account DTOs
+	 */
 	@GetMapping("/api/clients/{clientId}/accounts")
 	public List<AccountDto> listAccounts(HttpServletRequest httpRequest, @PathVariable String clientId) {
 		AuthenticatedUser user = requestAuth.requireUser(httpRequest);
 		return accountService.listAccounts(user, clientId);
 	}
 
+	/**
+	 * Pulls the request id from attributes to correlate downstream audit logs.
+	 *
+	 * @param request HTTP request
+	 * @return request id or null when missing
+	 */
 	private static String requestId(HttpServletRequest request) {
 		Object value = request.getAttribute("requestId");
 		return value == null ? null : value.toString();

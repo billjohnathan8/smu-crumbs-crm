@@ -4,6 +4,9 @@ import com.itsa.crm.clients_service.entity.Gender;
 import java.time.LocalDate;
 import java.time.Instant;
 
+/**
+ * API representation of a client record.
+ */
 public record ClientDto(
 	String clientId,
 	String firstName,

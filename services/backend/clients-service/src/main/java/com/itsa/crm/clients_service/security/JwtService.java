@@ -13,6 +13,9 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+/**
+ * Validates HMAC-signed JWTs and extracts authenticated user context.
+ */
 @Component
 public class JwtService {
 	private static final Base64.Decoder BASE64_URL_DECODER = Base64.getUrlDecoder();
@@ -32,6 +35,13 @@ public class JwtService {
 		this.secret = hmacSecret.getBytes(StandardCharsets.UTF_8);
 	}
 
+	/**
+	 * Verifies token signature and required claims, returning the authenticated user.
+	 *
+	 * @param bearerToken raw JWT (without the "Bearer " prefix)
+	 * @return authenticated user extracted from claims
+	 * @throws JwtValidationException when validation fails
+	 */
 	public AuthenticatedUser verifyAndParse(String bearerToken) {
 		String[] parts = bearerToken.split("\\.");
 		if (parts.length != 3) {
@@ -66,6 +76,14 @@ public class JwtService {
 		return new AuthenticatedUser(sub, role);
 	}
 
+	/**
+	 * Mints a JWT for tests using the configured HMAC secret.
+	 *
+	 * @param userId subject claim
+	 * @param role role claim ("admin" or "agent")
+	 * @param expiresAt expiration time
+	 * @return signed JWT string
+	 */
 	public String mintForTests(String userId, String role, Instant expiresAt) {
 		try {
 			String headerJson = objectMapper.writeValueAsString(Map.of("alg", "HS256", "typ", "JWT"));

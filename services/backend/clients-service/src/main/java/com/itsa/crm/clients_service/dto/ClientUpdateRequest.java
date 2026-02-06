@@ -6,6 +6,9 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 
+/**
+ * Request payload for updating client details (partial updates supported).
+ */
 public record ClientUpdateRequest(
 	@Size(min = 2, max = 50)
 	@Pattern(regexp = "^[A-Za-z ]+$")

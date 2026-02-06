@@ -17,6 +17,9 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 
+/**
+ * JPA entity representing a client account.
+ */
 @Entity
 @Table(name = "accounts")
 public class AccountEntity {
@@ -52,6 +55,9 @@ public class AccountEntity {
 	@Column(name = "created_at", nullable = false)
 	private Instant createdAt;
 
+	/**
+	 * Initializes creation timestamp before persistence.
+	 */
 	@PrePersist
 	void prePersist() {
 		createdAt = Instant.now();
@@ -121,4 +127,3 @@ public class AccountEntity {
 		return createdAt;
 	}
 }
-
