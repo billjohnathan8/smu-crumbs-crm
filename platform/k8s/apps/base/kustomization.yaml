@@ -8,4 +8,7 @@ resources:
   - client-service-service.yaml
   - log-service-deployment.yaml
   - log-service-service.yaml
+  - transactions-service-mock-sftp-configmap.yaml
+  - transactions-service-deployment.yaml
+  - transactions-service-service.yaml
   - ingress.yaml

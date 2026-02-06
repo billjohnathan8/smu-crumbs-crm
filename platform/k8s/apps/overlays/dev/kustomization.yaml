@@ -10,6 +10,8 @@ images:
     newTag: dev
   - name: log-service
     newTag: dev
+  - name: transactions-service
+    newTag: dev
 patches:
   - path: client-service-patch.yaml
     target:
@@ -19,6 +21,10 @@ patches:
     target:
       kind: Deployment
       name: log-service
+  - path: transactions-service-patch.yaml
+    target:
+      kind: Deployment
+      name: transactions-service
 labels:
   - pairs:
       app.kubernetes.io/part-of: crm-backend

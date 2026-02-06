@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transactions-service
+  namespace: dev
+spec:
+  template:
+    spec:
+      containers:
+        - name: transactions-service
+          env:
+            - name: CLIENTS_SERVICE_URL
+              value: http://client-service.dev.svc.cluster.local
