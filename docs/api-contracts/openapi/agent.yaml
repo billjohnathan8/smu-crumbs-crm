@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: agent-service
+  title: agent
   version: 0.2.0
   description: 'Feature 1: CRM User Management.
 
@@ -34,7 +34,7 @@ paths:
                     example: ok
                   service:
                     type: string
-                    example: agent-service
+                    example: agent
                 required:
                 - status
   /api/v1/health:

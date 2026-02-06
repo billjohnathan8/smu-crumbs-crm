@@ -49,7 +49,7 @@ Notes:
 
 Success criteria:
 - Exit code `0`
-- Rollout checks pass for `agent-service`, `client-service`, `log-service`, `transaction-service`
+- Rollout checks pass for `agent`, `client`, `log`, `transaction`
 - Smoke output includes `Smoke tests passed.`
 - Wrapper output ends with `Local Kubernetes build/deploy and smoke checks completed successfully.`
 
@@ -87,10 +87,10 @@ bash ./scripts/build-and-test-backend/build-and-test-backend.sh
 ```
 
 The backend script now runs each service-local pipeline (lint, build, tests, coverage reports):
-- `services/backend/agent-service`: `gradlew localTestPipeline`
-- `services/backend/client-service`: `gradlew localTestPipeline`
-- `services/backend/transaction-service`: `gradlew localTestPipeline`
-- `services/backend/log-service`: `python run-local-test-pipeline.py`
+- `services/backend/agent`: `gradlew localTestPipeline`
+- `services/backend/client`: `gradlew localTestPipeline`
+- `services/backend/transaction`: `gradlew localTestPipeline`
+- `services/backend/log`: `python run-local-test-pipeline.py`
 
 ### 1) Create and verify kind cluster
 ```bash
@@ -120,10 +120,10 @@ make build-images
 ```
 
 Builds:
-- `agent-service:dev`
-- `client-service:dev`
-- `log-service:dev`
-- `transaction-service:dev`
+- `agent:dev`
+- `client:dev`
+- `log:dev`
+- `transaction:dev`
 
 ### 4) Load images into kind
 ```bash

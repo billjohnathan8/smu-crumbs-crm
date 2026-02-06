@@ -27,7 +27,7 @@ The local pipeline enforces this sequence:
 
 ## Runtime-Specific Behavior
 
-### Java services (`agent-service`, `client-service`, `transaction-service`)
+### Java services (`agent`, `client`, `transaction`)
 
 Command used from service root:
 - Windows: `.\gradlew.bat localTestPipeline`
@@ -49,7 +49,7 @@ Reports:
   - HTML: `build/reports/jacoco/test/html/index.html`
   - XML: `build/reports/jacoco/test/jacocoTestReport.xml`
 
-### Python service (`log-service`)
+### Python service (`log`)
 
 Command used from service root:
 - Windows: `python run-local-test-pipeline.py`

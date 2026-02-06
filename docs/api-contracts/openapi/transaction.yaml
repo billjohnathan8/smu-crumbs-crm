@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: transaction-service
+  title: transaction
   version: 0.2.1
   description: |
     Feature 4: Bank Account Transactions Management.
@@ -42,7 +42,7 @@ paths:
                     example: ok
                   service:
                     type: string
-                    example: transaction-service
+                    example: transaction
                 required: [status]
 
   /api/v1/health:

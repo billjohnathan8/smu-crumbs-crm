@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: client-service
+  title: client
   version: 0.2.0
   description: 'Feature 2: Client Profile Management and Account Management.
 
@@ -26,7 +26,7 @@ paths:
                 type: object
                 properties:
                   status: {type: string, example: ok}
-                  service: {type: string, example: client-service}
+                  service: {type: string, example: client}
                 required: [status]
   /api/v1/health:
     get:

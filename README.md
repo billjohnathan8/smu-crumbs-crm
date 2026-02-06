@@ -9,7 +9,7 @@ Before development work, please read through (open all markdown files using `'Op
 3. **[The Coding Standards](docs/coding-standards/coding-standards.md)** during dev work and before creating branches, pushing to remote (github), or creating PRs.
 
 **Notes:**
-> Local development is fully supported on kind without AWS dependencies. AWS-oriented docs can still coexist for target-state planning.
+> Local development is fully supported on `kind` without AWS dependencies. AWS-oriented docs can still coexist for target-state planning.
 
 ---
 
@@ -141,7 +141,7 @@ For manual testing of frontend UI, use the following credentials for a given age
 - Password: `password123`
 
 ### Running Individual Per-Service Pipelines for any given Backend Service (Run from each service root)
-- `services/backend/agent-service`: `.\gradlew.bat localTestPipeline` (Windows) or `./gradlew localTestPipeline` (macOS/Linux)
-- `services/backend/client-service`: `.\gradlew.bat localTestPipeline` (Windows) or `./gradlew localTestPipeline` (macOS/Linux)
-- `services/backend/transaction-service`: `.\gradlew.bat localTestPipeline` (Windows) or `./gradlew localTestPipeline` (macOS/Linux)
-- `services/backend/log-service`: `python run-local-test-pipeline.py` (Windows) or `python3 run-local-test-pipeline.py` (macOS/Linux)
+- `services/backend/agent`: `.\gradlew.bat localTestPipeline` (Windows) or `./gradlew localTestPipeline` (macOS/Linux)
+- `services/backend/client`: `.\gradlew.bat localTestPipeline` (Windows) or `./gradlew localTestPipeline` (macOS/Linux)
+- `services/backend/transaction`: `.\gradlew.bat localTestPipeline` (Windows) or `./gradlew localTestPipeline` (macOS/Linux)
+- `services/backend/log`: `python run-local-test-pipeline.py` (Windows) or `python3 run-local-test-pipeline.py` (macOS/Linux)

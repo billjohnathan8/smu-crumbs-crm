@@ -470,8 +470,8 @@ function Post-LogEvent {
     $logBodyFile = Write-TempJsonFile -Json $logBody
 
     try {
-        if ($ingressPathByService.ContainsKey('log-service')) {
-            $logPath = $ingressPathByService['log-service']
+        if ($ingressPathByService.ContainsKey('log')) {
+            $logPath = $ingressPathByService['log']
             $args = @('-fsS', '-X', 'POST', "$script:curlBaseUrl$logPath", '-H', 'Content-Type: application/json', '-H', $authHeader)
             foreach ($h in $script:curlHostHeaders) { $args += @('-H', $h) }
             $args += @('--data-binary', "@$logBodyFile")
@@ -480,10 +480,10 @@ function Post-LogEvent {
         }
 
         $probePath = '/health'
-        if ($probePathByService.ContainsKey('log-service')) {
-            $probePath = $probePathByService['log-service']
+        if ($probePathByService.ContainsKey('log')) {
+            $probePath = $probePathByService['log']
         }
-        $pf = Ensure-ServicePortForward -Service 'log-service' -ProbePath $probePath
+        $pf = Ensure-ServicePortForward -Service 'log' -ProbePath $probePath
         $args = @('-X', 'POST', "http://localhost:$($pf.Port)/api/logs", '-H', 'Content-Type: application/json', '-H', $authHeader)
         $args += @('--data-binary', "@$logBodyFile")
         $result = Invoke-Curl-Response -CurlArgs $args
@@ -542,15 +542,15 @@ try {
         if (-not $healthy) { throw "Unhealthy: $svc ($probePath)" }
     }
 
-    if ($probePathByService.ContainsKey('transaction-service')) {
+    if ($probePathByService.ContainsKey('transaction')) {
         Write-Host "Listing transactions..."
         $token = Mint-Jwt
         $authHeader = "Authorization: Bearer $token"
         $transactionsBase = $script:curlBaseUrl
         $transactionsHeaders = $script:curlHostHeaders
-        if (-not $ingressPathByService.ContainsKey('transaction-service')) {
-            $probePath = $probePathByService['transaction-service']
-            $pf = Ensure-ServicePortForward -Service 'transaction-service' -ProbePath $probePath
+        if (-not $ingressPathByService.ContainsKey('transaction')) {
+            $probePath = $probePathByService['transaction']
+            $pf = Ensure-ServicePortForward -Service 'transaction' -ProbePath $probePath
             $transactionsBase = "http://localhost:$($pf.Port)"
             $transactionsHeaders = @()
         }

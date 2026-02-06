@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: log-service
+  title: log
   version: 0.2.0
   description: |
     Feature 3: Logging of Agent Interactions and Client Communications.
@@ -38,7 +38,7 @@ paths:
                 type: object
                 properties:
                   status: { type: string, example: ok }
-                  service: { type: string, example: log-service }
+                  service: { type: string, example: log }
                 required: [status]
 
   /api/v1/health:
@@ -104,11 +104,6 @@ paths:
                 required: [data]
         "401":
           description: Unauthorized
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ErrorResponse" }
-        "403":
-          description: Forbidden
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }

@@ -164,7 +164,7 @@ A PR is mergeable only when:
 ### 5.2 PR Template (Use This Structure)
 
 **Title:** concise, action-oriented  
-Example: `feat(client-service): add account summary endpoint`
+Example: `feat(client): add account summary endpoint`
 
 **Description:**
 - **Summary:** what changed
@@ -392,13 +392,13 @@ These are the default CI/local pipeline thresholds **per service**:
 #### B) Tiered expectations (depending on what the service is)
 
 **Tier 1 — Core business microservices**  
-(e.g., `users-service`, `client-service`, `transaction-service`, anything implementing core CRM rules)
+(e.g., `users`, `client`, `transaction`, anything implementing core CRM rules)
 - **Overall:** Lines/Instructions ≥ **85%**, Branches ≥ **75%**
 - **Business-logic packages** (e.g., `service/`, `domain/`, validators): Lines/Instructions ≥ **90%**, Branches ≥ **80%**
 - Must include unit tests for decision logic + happy/edge cases (401/403/404/409/422/500 where relevant)
 
 **Tier 2 — Integration/adapter microservices**  
-(e.g., `log-service`, SFTP adapters, external API connectors)
+(e.g., `log`, SFTP adapters, external API connectors)
 - **Overall:** Lines/Instructions ≥ **75–80%**, Branches ≥ **65–70%**
 - Stronger emphasis on **integration tests** (e.g., parsing, DB writes, HTTP client error handling)
 - Unit tests still required for “decision points” (retries/backoff, mapping, filtering, dedupe)
@@ -471,10 +471,10 @@ From repo root (all backend services):
 - Bash: `bash ./scripts/build-and-test-backend/build-and-test-backend.sh`
 
 From each backend service root (single service):
-- Java services (`agent-service`, `client-service`):
+- Java services (`agent`, `client`):
   - Windows: `.\gradlew.bat localTestPipeline`
   - macOS/Linux: `./gradlew localTestPipeline`
-- Python service (`log-service`):
+- Python service (`log`):
   - Windows: `python run-local-test-pipeline.py`
   - macOS/Linux: `python3 run-local-test-pipeline.py`
 
@@ -483,7 +483,7 @@ For the aggregated coverage hub `build-logs/build-and-test-backend/index.html`:
 - Open it directly in a normal browser window (`file:///...`).
 - Do **not** use VS Code **Open Preview** for this file.
 
-Java backend services (`services/backend/agent-service`, `services/backend/client-service`):
+Java backend services (`services/backend/agent`, `services/backend/client`):
 - Checkstyle (lint):
   - `build/reports/checkstyle/main.html`
   - `build/reports/checkstyle/test.html`
@@ -493,7 +493,7 @@ Java backend services (`services/backend/agent-service`, `services/backend/clien
   - HTML: `build/reports/jacoco/test/html/index.html`
   - XML: `build/reports/jacoco/test/jacocoTestReport.xml`
 
-Python backend service (`services/backend/log-service`):
+Python backend service (`services/backend/log`):
 - Black + Flake8 lint:
   - In terminal output and `build-logs/build-and-test-backend/*.log` (when run via repo-root scripts)
 - Pytest report:

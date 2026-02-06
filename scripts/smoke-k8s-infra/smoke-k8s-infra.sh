@@ -307,7 +307,7 @@ post_log_event() {
   local token
   token="$(mint_jwt)"
   local auth_header=("Authorization: Bearer ${token}")
-  local log_ingress_path="${ingress_path_by_service[log-service]:-}"
+  local log_ingress_path="${ingress_path_by_service[log]:-}"
   local log_payload
   log_payload=$(cat <<'JSON'
 {
@@ -332,9 +332,9 @@ JSON
     fi
   fi
 
-  local probe_path="${probe_path_by_service[log-service]:-/health}"
+  local probe_path="${probe_path_by_service[log]:-/health}"
   local port
-  port="$(start_service_port_forward "log-service" "${probe_path}")"
+  port="$(start_service_port_forward "log" "${probe_path}")"
   curl_request -X POST "http://localhost:${port}/api/logs" \
     -H "Content-Type: application/json" \
     -H "${auth_header[0]}" \
@@ -479,16 +479,16 @@ for svc in "${!probe_path_by_service[@]}"; do
   fi
 done
 
-if [[ -n "${probe_path_by_service[transaction-service]:-}" ]]; then
+if [[ -n "${probe_path_by_service[transaction]:-}" ]]; then
   echo "Listing transactions..."
   token="$(mint_jwt)"
   auth_header="Authorization: Bearer ${token}"
-  if [[ -n "${ingress_path_by_service[transaction-service]:-}" ]]; then
+  if [[ -n "${ingress_path_by_service[transaction]:-}" ]]; then
     curl_request "${curl_host_args[@]}" -H "${auth_header}" \
       "${curl_base_url}/api/transactions?limit=1"
     assert_http_success "Failed to list transactions." || exit 1
   else
-    port="$(start_service_port_forward "transaction-service" "${probe_path_by_service[transaction-service]}")"
+    port="$(start_service_port_forward "transaction" "${probe_path_by_service[transaction]}")"
     curl_request -H "${auth_header}" \
       "http://localhost:${port}/api/transactions?limit=1"
     assert_http_success "Failed to list transactions." || exit 1

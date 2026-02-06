@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: transaction
+
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+
+app:
+  jwt:
+    hmac-secret: ${JWT_HMAC_SECRET:dev-only-insecure-secret}
+  client-service-url: ${CLIENT_SERVICE_URL:http://localhost:8080}
+  mock-sftp:
+    root: ${MOCK_SFTP_ROOT:./mock-sftp}
+
+

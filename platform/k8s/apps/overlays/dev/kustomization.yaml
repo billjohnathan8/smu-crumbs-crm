@@ -4,29 +4,29 @@ namespace: dev
 resources:
   - ../../base
 images:
-  - name: agent-service
+  - name: agent
     newTag: dev
-  - name: client-service
+  - name: client
     newTag: dev
-  - name: log-service
+  - name: log
     newTag: dev
-  - name: transaction-service
+  - name: transaction
     newTag: dev
   - name: crm-ui
     newTag: dev
 patches:
-  - path: client-service-patch.yaml
+  - path: client-patch.yaml
     target:
       kind: Deployment
-      name: client-service
-  - path: log-service-patch.yaml
+      name: client
+  - path: log-patch.yaml
     target:
       kind: Deployment
-      name: log-service
-  - path: transaction-service-patch.yaml
+      name: log
+  - path: transaction-patch.yaml
     target:
       kind: Deployment
-      name: transaction-service
+      name: transaction
 labels:
   - pairs:
       app.kubernetes.io/part-of: crm-backend

@@ -148,7 +148,7 @@ scripts/test-and-spinup-all.cmd
 
 ### CRUD Operations Fail
 - Verify database connectivity (if applicable)
-- Check client-service logs: `kubectl logs -n dev -l app=client-service`
+- Check client logs: `kubectl logs -n dev -l app=client`
 - Ensure database migrations have run successfully
 
 ## See Also

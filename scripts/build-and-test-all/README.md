@@ -72,12 +72,12 @@ After successful execution, coverage reports are available at:
 
 Each service generates its own detailed reports:
 
-**Gradle Services** (e.g., agent-service, client-service):
+**Gradle Services** (e.g., agent, client):
 - JaCoCo HTML: `services/backend/<service>/build/reports/jacoco/test/html/index.html`
 - Test results: `services/backend/<service>/build/reports/tests/test/index.html`
 - Checkstyle: `services/backend/<service>/build/reports/checkstyle/main.html`
 
-**Python Services** (e.g., log-service):
+**Python Services** (e.g., log):
 - Coverage HTML: `services/backend/<service>/build/reports/coverage/html/index.html`
 - JUnit XML: `services/backend/<service>/build/reports/tests/junit.xml`
 
