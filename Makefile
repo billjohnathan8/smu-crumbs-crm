@@ -5,12 +5,12 @@ HELM ?= helm
 KIND ?= kind
 NULL_DEVICE ?= /dev/null
 GRADLEW ?= ./gradlew
-BASH ?= bash
+SMOKE_CMD ?= bash ./scripts/smoke-k8s-infra.sh
 
 ifeq ($(OS),Windows_NT)
 NULL_DEVICE := NUL
 GRADLEW := gradlew.bat
-BASH := "C:/Program Files/Git/bin/bash.exe"
+SMOKE_CMD := powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-infra.ps1
 endif
 
 .PHONY: kind-up infra-up build-images kind-load deploy-dev smoke
@@ -31,23 +31,28 @@ infra-up:
 build-images:
 	cd services/backend/user-service && $(GRADLEW) clean bootJar
 	cd services/backend/clients-service && $(GRADLEW) clean bootJar
+	cd services/backend/transactions-service && $(GRADLEW) clean bootJar
 	docker build -t user-service:dev services/backend/user-service
 	docker build -t client-service:dev services/backend/clients-service
 	docker build -t log-service:dev services/backend/log-service
+	docker build -t transactions-service:dev services/backend/transactions-service
 
 kind-load:
 	$(KIND) load docker-image user-service:dev --name $(KIND_CLUSTER_NAME)
 	$(KIND) load docker-image client-service:dev --name $(KIND_CLUSTER_NAME)
 	$(KIND) load docker-image log-service:dev --name $(KIND_CLUSTER_NAME)
+	$(KIND) load docker-image transactions-service:dev --name $(KIND_CLUSTER_NAME)
 
 deploy-dev:
 	$(KUBECTL) apply -k platform/k8s/apps/overlays/dev
 	$(KUBECTL) rollout restart deployment/user-service -n dev
 	$(KUBECTL) rollout restart deployment/client-service -n dev
 	$(KUBECTL) rollout restart deployment/log-service -n dev
+	$(KUBECTL) rollout restart deployment/transactions-service -n dev
 	$(KUBECTL) rollout status deployment/user-service -n dev --timeout=180s
 	$(KUBECTL) rollout status deployment/client-service -n dev --timeout=180s
 	$(KUBECTL) rollout status deployment/log-service -n dev --timeout=180s
+	$(KUBECTL) rollout status deployment/transactions-service -n dev --timeout=180s
 
 smoke:
-	$(BASH) ./scripts/smoke-k8s-infra.sh
+	$(SMOKE_CMD)
