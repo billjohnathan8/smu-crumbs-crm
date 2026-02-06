@@ -32,7 +32,7 @@ Windows notes:
 Run one of these from repository root:
 
 ```powershell
-.\scripts\build-and-deploy\build-and-deploy-k8s-local.ps1
+.\scripts\build-and-deploy-k8s\build-and-deploy-k8s-local.ps1
 ```
 
 ```cmd
@@ -40,7 +40,7 @@ Run one of these from repository root:
 ```
 
 ```bash
-bash ./scripts/build-and-deploy/build-and-deploy-k8s-local.sh
+bash ./scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh
 ```
 
 Notes:
@@ -54,35 +54,36 @@ Success criteria:
 - Wrapper output ends with `Local Kubernetes build/deploy and smoke checks completed successfully.`
 
 ## One-command test + deploy
-Run backend tests, then deploy to local k8s only if tests pass:
+Run full test pipeline (backend + frontend), then deploy to local k8s only if tests pass:
 
 ```powershell
-.\scripts\build-and-test-and-deploy\build-and-test-and-deploy-k8s-local.ps1
+.\scripts\test-and-spinup-all\test-and-spinup-all.ps1
 ```
 
 ```cmd
-.\scripts\build-and-test-and-deploy-k8s-local.cmd
+.\scripts\test-and-spinup-all.cmd
 ```
 
 ```bash
-bash ./scripts/build-and-test-and-deploy/build-and-test-and-deploy-k8s-local.sh
+bash ./scripts/test-and-spinup-all/test-and-spinup-all.sh
 ```
 
 Notes:
-- Logs are captured under both `build-logs/build-and-test` and `build-logs/build-and-deploy`.
+- Runs the full test pipeline (backend + frontend) with coverage reports.
+- Logs are captured under `build-logs/build-and-test-all`, `build-logs/build-and-deploy-k8s`, and `build-logs/test-and-spinup-all`.
 - The deploy phase uses the same teardown behavior as the deploy-only wrapper (cluster is deleted on success).
 
 ## Step-by-step flow (manual)
 
 ### 0) (Recommended) Run backend build/tests first
 ```powershell
-.\scripts\build-and-test\build-and-test-backend.ps1
+.\scripts\build-and-test-backend\build-and-test-backend.ps1
 ```
 ```cmd
 .\scripts\build-and-test-backend.cmd
 ```
 ```bash
-bash ./scripts/build-and-test/build-and-test-backend.sh
+bash ./scripts/build-and-test-backend/build-and-test-backend.sh
 ```
 
 The backend script now runs each service-local pipeline (lint, build, tests, coverage reports):
@@ -157,8 +158,8 @@ make smoke
 ```
 
 Smoke scripts:
-- Windows: `scripts/smoke-k8s-infra.ps1` (invoked by `make smoke`)
-- macOS/Linux: `scripts/smoke-k8s-infra.sh` (invoked by `make smoke`)
+- Windows: `scripts/smoke-k8s-infra/smoke-k8s-infra.ps1` (invoked by `make smoke`)
+- macOS/Linux: `scripts/smoke-k8s-infra/smoke-k8s-infra.sh` (invoked by `make smoke`)
 
 Optional environment variables:
 - `BASE_URL` (default: `http://localhost`)
@@ -217,7 +218,7 @@ helm uninstall metrics-server -n kube-system
 ### Windows wrapper fails because Bash or Make is missing
 - Install/verify Git Bash and Make in `PATH`
 - Re-run:
-  - `.\scripts\build-and-deploy\build-and-deploy-k8s-local.ps1`
+  - `.\scripts\build-and-deploy-k8s\build-and-deploy-k8s-local.ps1`
 
 ## Service onboarding checklist (for this local flow)
 When adding a new backend service:
@@ -226,5 +227,5 @@ When adding a new backend service:
 - Add image tag entry and patches in `platform/k8s/apps/overlays/dev/kustomization.yaml`
 - Add ingress rule if externally reachable
 - Extend `Makefile` targets: `build-images`, `kind-load`, `deploy-dev`
-- Extend `scripts/smoke-k8s-infra.sh` with infrastructure-level checks for the new service
+- Extend `scripts/smoke-k8s-infra/smoke-k8s-infra.sh` with infrastructure-level checks for the new service
 

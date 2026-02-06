@@ -408,6 +408,20 @@ These are the default CI/local pipeline thresholds **per service**:
 - **Overall:** Lines/Instructions ≥ **70–75%**, Branches ≥ **60–65%**
 - Must satisfy the **diff coverage gate** and have smoke/integration tests covering the real paths
 
+**Frontend — React/TypeScript UI services**  
+(e.g., `crm-ui`, any React-based frontend)
+- **Overall:** Lines/Instructions ≥ **80–85%**, Branches ≥ **75%**
+- **Business logic** (custom hooks, utilities, form validation, API clients, state management): Lines/Instructions ≥ **90%**, Branches ≥ **80%**
+- **Presentational components** (minimal logic, pure UI): Lines/Instructions ≥ **70–75%** acceptable
+- Must include unit tests for:
+  - Custom hooks (`useSomething`) and their edge cases
+  - Form validation logic and error states
+  - API client code (success, error, loading states)
+  - State transformations and data mapping
+  - Security-critical code (auth guards, input sanitization)
+- E2E tests (Playwright) cover critical user journeys (login, CRUD operations, navigation)
+- Focus on **meaningful coverage** of decision logic, not testing trivial presentational wrappers or type definitions
+
 #### C) Diff coverage gate (best ROI; always enforce on PRs)
 To ensure we don’t add untested code:
 - **New/changed lines:** ≥ **90% line/instruction coverage**
@@ -454,7 +468,7 @@ Before opening a PR, run the local pipeline for every service you changed, then 
 From repo root (all backend services):
 - PowerShell: `.\scripts\build-and-test\build-and-test-backend.ps1`
 - CMD: `.\scripts\build-and-test-backend.cmd`
-- Bash: `bash ./scripts/build-and-test/build-and-test-backend.sh`
+- Bash: `bash ./scripts/build-and-test-backend/build-and-test-backend.sh`
 
 From each backend service root (single service):
 - Java services (`agent-service`, `client-service`):
@@ -465,7 +479,7 @@ From each backend service root (single service):
   - macOS/Linux: `python3 run-local-test-pipeline.py`
 
 #### Step 2: Open reports (what to check, where to find)
-For the aggregated coverage hub `build-logs/build-and-test/index.html`:
+For the aggregated coverage hub `build-logs/build-and-test-backend/index.html`:
 - Open it directly in a normal browser window (`file:///...`).
 - Do **not** use VS Code **Open Preview** for this file.
 
@@ -481,7 +495,7 @@ Java backend services (`services/backend/agent-service`, `services/backend/clien
 
 Python backend service (`services/backend/log-service`):
 - Black + Flake8 lint:
-  - In terminal output and `build-logs/build-and-test/*.log` (when run via repo-root scripts)
+  - In terminal output and `build-logs/build-and-test-backend/*.log` (when run via repo-root scripts)
 - Pytest report:
   - `build/reports/tests/junit.xml`
 - Coverage:
@@ -489,7 +503,7 @@ Python backend service (`services/backend/log-service`):
   - XML: `build/reports/coverage/coverage.xml`
 
 Cross-service aggregated report:
-- Hub: `build-logs/build-and-test/index.html` (open in browser, then click report links)
+- Hub: `build-logs/build-and-test-backend/index.html` (open in browser, then click report links)
 
 #### Step 3: What to do before PR
 - Fix all lint/style failures (Checkstyle, Black, Flake8)

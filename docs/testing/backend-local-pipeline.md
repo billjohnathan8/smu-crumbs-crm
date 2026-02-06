@@ -10,9 +10,9 @@ Before opening a PR, developers should run the local backend pipeline to validat
 
 - PowerShell: `.\scripts\build-and-test\build-and-test-backend.ps1`
 - CMD: `.\scripts\build-and-test-backend.cmd`
-- Bash: `bash ./scripts/build-and-test/build-and-test-backend.sh`
+- Bash: `bash ./scripts/build-and-test-backend/build-and-test-backend.sh`
 
-These scripts discover backend services under `services/backend`, run each service-local pipeline, and produce consolidated artifacts in `build-logs/build-and-test`.
+These scripts discover backend services under `services/backend`, run each service-local pipeline, and produce consolidated artifacts in `build-logs/build-and-test-backend`.
 
 ## Pipeline Design (per service)
 
@@ -22,8 +22,8 @@ The local pipeline enforces this sequence:
 2. **Build**
 3. **Run tests**
 4. **Generate test and code coverage reports**
-5. **Write full run output to `build-logs/build-and-test`**
-6. **Generate aggregated cross-service report (`build-logs/build-and-test/index.html`)**
+5. **Write full run output to `build-logs/build-and-test-backend`**
+6. **Generate aggregated cross-service report (`build-logs/build-and-test-backend/index.html`)**
 
 ## Runtime-Specific Behavior
 
@@ -72,8 +72,8 @@ Reports:
 
 After each root pipeline run:
 
-- A full terminal log file is written to `build-logs/build-and-test/*.log`
-- A cross-service aggregated report is written to `build-logs/build-and-test/index.html`
+- A full terminal log file is written to `build-logs/build-and-test-backend/*.log`
+- A cross-service aggregated report is written to `build-logs/build-and-test-backend/index.html`
 
 ### Log ordering rule (newest at top in alphabetical sort)
 
@@ -82,17 +82,17 @@ Log filenames use an inverse timestamp prefix:
 - Example: `inv79731025-082514__2026-02-06_15-34-45__build-and-test-backend.log`
 
 This naming intentionally makes **newer runs sort first** and older runs sort later when VS Code sorts alphabetically.
-The scripts keep only the newest three log files in `build-logs/build-and-test`.
+The scripts keep only the newest three log files in `build-logs/build-and-test-backend`.
 
-## Aggregated Report (`build-logs/build-and-test/index.html`)
+## Aggregated Report (`build-logs/build-and-test-backend/index.html`)
 
-`build-logs/build-and-test/index.html` is generated programmatically by:
+`build-logs/build-and-test-backend/index.html` is generated programmatically by:
 
-- `scripts/build-and-test/generate-coverage-index.py`
+- `scripts/build-and-test-backend/generate-coverage-index.py`
 
 It is invoked automatically by both:
-- `scripts/build-and-test/build-and-test-backend.ps1`
-- `scripts/build-and-test/build-and-test-backend.sh`
+- `scripts/build-and-test-backend/build-and-test-backend.ps1`
+- `scripts/build-and-test-backend/build-and-test-backend.sh`
 
 The report includes:
 - Per-service test summary (pass/fail/skip)
@@ -102,14 +102,14 @@ The report includes:
 
 ### How to open the aggregated report
 
-- Open `build-logs/build-and-test/index.html` directly in a normal browser window (`file:///...`).
+- Open `build-logs/build-and-test-backend/index.html` directly in a normal browser window (`file:///...`).
 - Do **not** use VS Code **Open Preview** for this file.
 - From the browser page, click the report-path links (`coverage`, `tests`, `checkstyleMain`, `checkstyleTest`) to open service reports.
 
 ## Recommended Developer Workflow
 
 1. Run root backend pipeline script.
-2. Open `build-logs/build-and-test/index.html` in a normal browser window (`file:///...`), not VS Code Open Preview.
+2. Open `build-logs/build-and-test-backend/index.html` in a normal browser window (`file:///...`), not VS Code Open Preview.
 3. Open service-level detailed reports from links in that page.
 4. Add/fix tests and code until lint, tests, and coverage are satisfactory.
 5. Re-run pipeline before PR submission.
