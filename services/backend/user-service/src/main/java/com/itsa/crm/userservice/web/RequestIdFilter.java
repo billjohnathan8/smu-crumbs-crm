@@ -9,11 +9,23 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+/**
+ * Adds or propagates an X-Request-Id for tracing.
+ */
 @Component
 public class RequestIdFilter extends OncePerRequestFilter {
 	public static final String REQUEST_ID_ATTRIBUTE = "requestId";
 	private static final String REQUEST_ID_HEADER = "X-Request-Id";
 
+	/**
+	 * Ensures every request has a correlation id attached.
+	 *
+	 * @param request HTTP request
+	 * @param response HTTP response
+	 * @param filterChain downstream filter chain
+	 * @throws ServletException when servlet errors occur
+	 * @throws IOException when IO errors occur
+	 */
 	@Override
 	protected void doFilterInternal(
 		HttpServletRequest request,
@@ -29,4 +41,3 @@ public class RequestIdFilter extends OncePerRequestFilter {
 		filterChain.doFilter(request, response);
 	}
 }
-

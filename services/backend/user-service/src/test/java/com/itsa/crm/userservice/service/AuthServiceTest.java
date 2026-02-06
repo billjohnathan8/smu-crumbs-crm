@@ -21,6 +21,9 @@ import java.time.ZoneOffset;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Unit tests for {@link AuthService}.
+ */
 class AuthServiceTest {
 	private InMemoryUserStore store;
 	private JwtService jwtService;

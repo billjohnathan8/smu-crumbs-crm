@@ -11,6 +11,9 @@ import java.time.Duration;
 import java.time.Instant;
 import org.springframework.stereotype.Service;
 
+/**
+ * Core authentication workflows for login and token refresh.
+ */
 @Service
 public class AuthService {
 	private static final Duration ACCESS_TTL = Duration.ofHours(1);
@@ -25,6 +28,13 @@ public class AuthService {
 		this.clock = clock;
 	}
 
+	/**
+	 * Verifies credentials, issues a new access token, and creates a refresh token.
+	 *
+	 * @param request login request
+	 * @return token response
+	 * @throws UnauthorizedException when credentials are invalid
+	 */
 	public TokenResponse login(LoginRequest request) {
 		InMemoryUserStore.UserRecord record = store.findByEmail(request.email());
 		if (record == null) {
@@ -45,6 +55,13 @@ public class AuthService {
 		return new TokenResponse(access, refresh, ACCESS_TTL.toSeconds(), "Bearer");
 	}
 
+	/**
+	 * Rotates a refresh token and returns a new access token.
+	 *
+	 * @param request refresh token request
+	 * @return token response
+	 * @throws UnauthorizedException when the refresh token is invalid
+	 */
 	public TokenResponse refresh(RefreshRequest request) {
 		String old = request.refreshToken();
 		if (!store.isRefreshTokenValid(old)) {

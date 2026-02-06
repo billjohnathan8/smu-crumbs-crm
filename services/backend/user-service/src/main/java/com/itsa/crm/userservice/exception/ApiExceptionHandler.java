@@ -14,6 +14,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+/**
+ * Maps application exceptions into consistent API error responses.
+ */
 @RestControllerAdvice
 public class ApiExceptionHandler {
 	@ExceptionHandler(UserNotFoundException.class)
@@ -62,9 +65,16 @@ public class ApiExceptionHandler {
 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error(request, "internal_error", "Internal error"));
 	}
 
+	/**
+	 * Builds a standardized error response with a request correlation id.
+	 *
+	 * @param request HTTP request
+	 * @param error error code
+	 * @param message error message
+	 * @return API error response
+	 */
 	private static ErrorResponse error(HttpServletRequest request, String error, String message) {
 		Object requestId = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
 		return new ErrorResponse(error, message, requestId == null ? null : requestId.toString());
 	}
 }
-

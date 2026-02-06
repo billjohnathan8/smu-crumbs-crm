@@ -8,6 +8,9 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 import org.springframework.stereotype.Component;
 
+/**
+ * Hashes and verifies passwords using PBKDF2-HMAC-SHA256.
+ */
 @Component
 public class PasswordHasher {
 	private static final String ALGO = "PBKDF2WithHmacSHA256";
@@ -17,6 +20,12 @@ public class PasswordHasher {
 
 	private final SecureRandom secureRandom = new SecureRandom();
 
+	/**
+	 * Hashes a plaintext password with a random salt.
+	 *
+	 * @param password plaintext password
+	 * @return encoded hash string
+	 */
 	public String hash(String password) {
 		byte[] salt = new byte[SALT_BYTES];
 		secureRandom.nextBytes(salt);
@@ -24,6 +33,13 @@ public class PasswordHasher {
 		return "pbkdf2_sha256$" + ITERATIONS + "$" + b64(salt) + "$" + b64(hash);
 	}
 
+	/**
+	 * Verifies a plaintext password against a stored hash.
+	 *
+	 * @param password plaintext password
+	 * @param stored encoded hash string
+	 * @return true when the password matches
+	 */
 	public boolean verify(String password, String stored) {
 		String[] parts = stored.split("\\$");
 		if (parts.length != 4) {
@@ -58,4 +74,3 @@ public class PasswordHasher {
 		return Base64.getUrlDecoder().decode(value.getBytes(StandardCharsets.US_ASCII));
 	}
 }
-

@@ -17,6 +17,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+/**
+ * Web-layer tests for {@link AuthController}.
+ */
 class AuthControllerTest {
 	private MockMvc mockMvc;
 	private AuthService authService;

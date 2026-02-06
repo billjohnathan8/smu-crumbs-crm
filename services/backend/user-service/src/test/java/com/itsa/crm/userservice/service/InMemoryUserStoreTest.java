@@ -24,6 +24,9 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Unit tests for {@link InMemoryUserStore}.
+ */
 class InMemoryUserStoreTest {
 	private TestClock clock;
 	private InMemoryUserStore store;

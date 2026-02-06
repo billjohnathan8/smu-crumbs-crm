@@ -8,6 +8,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+/**
+ * Web-layer tests for {@link HealthController}.
+ */
 class HealthControllerTest {
     private MockMvc mockMvc;
 

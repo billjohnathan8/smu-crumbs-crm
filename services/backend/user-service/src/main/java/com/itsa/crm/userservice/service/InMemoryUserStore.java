@@ -23,6 +23,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+/**
+ * In-memory user store used for CRUD operations and token tracking.
+ */
 @Component
 public class InMemoryUserStore {
 	private static final String USER_ID_PREFIX = "usr_";
@@ -47,6 +50,13 @@ public class InMemoryUserStore {
 		seedRootAdmin(rootEmail, rootPassword);
 	}
 
+	/**
+	 * Creates a new user and returns its DTO representation.
+	 *
+	 * @param request create user payload
+	 * @return created user DTO
+	 * @throws DuplicateUserException when the email already exists
+	 */
 	public UserDto createUser(CreateUserRequest request) {
 		String email = normalizeEmail(request.email());
 		if (emailIndex.containsKey(email)) {
@@ -76,6 +86,14 @@ public class InMemoryUserStore {
 		return toDto(record);
 	}
 
+	/**
+	 * Applies a partial update to an existing user.
+	 *
+	 * @param userId API user identifier
+	 * @param patch update payload
+	 * @return updated user DTO
+	 * @throws DuplicateUserException when the updated email already exists
+	 */
 	public UserDto updateUser(String userId, UpdateUserRequest patch) {
 		long dbId = decodeUserId(userId);
 		UserRecord existing = loadByDbId(dbId);
@@ -107,6 +125,12 @@ public class InMemoryUserStore {
 		return toDto(updated);
 	}
 
+	/**
+	 * Deletes a user and removes any associated refresh tokens.
+	 *
+	 * @param userId API user identifier
+	 * @throws ForbiddenException when attempting to delete the root admin
+	 */
 	public void deleteUser(String userId) {
 		long dbId = decodeUserId(userId);
 		if (dbId == ROOT_ADMIN_DB_ID) {
@@ -118,6 +142,12 @@ public class InMemoryUserStore {
 		refreshTokens.entrySet().removeIf(e -> e.getValue().dbUserId == dbId);
 	}
 
+	/**
+	 * Marks a user as disabled.
+	 *
+	 * @param userId API user identifier
+	 * @return updated user DTO
+	 */
 	public UserDto disableUser(String userId) {
 		long dbId = decodeUserId(userId);
 		UserRecord existing = loadByDbId(dbId);
@@ -137,6 +167,11 @@ public class InMemoryUserStore {
 		return toDto(updated);
 	}
 
+	/**
+	 * Resets a user's password and invalidates refresh tokens.
+	 *
+	 * @param userId API user identifier
+	 */
 	public void resetPassword(String userId) {
 		long dbId = decodeUserId(userId);
 		UserRecord existing = loadByDbId(dbId);
@@ -157,21 +192,47 @@ public class InMemoryUserStore {
 		refreshTokens.entrySet().removeIf(e -> e.getValue().dbUserId == dbId);
 	}
 
+	/**
+	 * Retrieves a user by identifier.
+	 *
+	 * @param userId API user identifier
+	 * @return user DTO
+	 */
 	public UserDto getUser(String userId) {
 		long dbId = decodeUserId(userId);
 		return toDto(loadByDbId(dbId));
 	}
 
+	/**
+	 * Finds a user record by email address.
+	 *
+	 * @param email email address
+	 * @return user record or null
+	 */
 	public UserRecord findByEmail(String email) {
 		Long dbId = emailIndex.get(normalizeEmail(email));
 		return dbId == null ? null : users.get(dbId);
 	}
 
+	/**
+	 * Loads a user record by API user identifier.
+	 *
+	 * @param userId API user identifier
+	 * @return user record
+	 */
 	public UserRecord loadRecord(String userId) {
 		long dbId = decodeUserId(userId);
 		return loadByDbId(dbId);
 	}
 
+	/**
+	 * Lists users with pagination and optional role filtering.
+	 *
+	 * @param limit requested page size
+	 * @param offset requested offset
+	 * @param roleFilter optional role filter
+	 * @return list of user DTOs
+	 */
 	public List<UserDto> listUsers(int limit, int offset, String roleFilter) {
 		String normalizedRole = roleFilter == null ? null : roleFilter.trim();
 		List<UserRecord> records = new ArrayList<>(users.values());
@@ -188,6 +249,12 @@ public class InMemoryUserStore {
 		return records.subList(fromIndex, toIndex).stream().map(InMemoryUserStore::toDto).toList();
 	}
 
+	/**
+	 * Counts the number of users matching the optional role filter.
+	 *
+	 * @param roleFilter optional role filter
+	 * @return count of matching users
+	 */
 	public long countUsers(String roleFilter) {
 		String normalizedRole = roleFilter == null ? null : roleFilter.trim();
 		if (normalizedRole == null || normalizedRole.isBlank()) {
@@ -197,6 +264,12 @@ public class InMemoryUserStore {
 		return users.values().stream().filter(u -> u.role == role).count();
 	}
 
+	/**
+	 * Issues a refresh token for a user.
+	 *
+	 * @param userId API user identifier
+	 * @return refresh token
+	 */
 	public String issueRefreshToken(String userId) {
 		long dbId = decodeUserId(userId);
 		loadByDbId(dbId);
@@ -205,6 +278,12 @@ public class InMemoryUserStore {
 		return token;
 	}
 
+	/**
+	 * Rotates a refresh token if it is still valid.
+	 *
+	 * @param oldToken existing refresh token
+	 * @return new refresh token, or null if invalid/expired
+	 */
 	public String rotateRefreshToken(String oldToken) {
 		RefreshTokenRecord record = refreshTokens.remove(oldToken);
 		if (record == null) {
@@ -218,11 +297,23 @@ public class InMemoryUserStore {
 		return token;
 	}
 
+	/**
+	 * Validates a refresh token without rotating it.
+	 *
+	 * @param token refresh token
+	 * @return true if valid and not expired
+	 */
 	public boolean isRefreshTokenValid(String token) {
 		RefreshTokenRecord record = refreshTokens.get(token);
 		return record != null && clock.instant().isBefore(record.expiresAt);
 	}
 
+	/**
+	 * Resolves a refresh token to an API user id.
+	 *
+	 * @param token refresh token
+	 * @return user id or null when invalid/expired
+	 */
 	public String userIdForRefreshToken(String token) {
 		RefreshTokenRecord record = refreshTokens.get(token);
 		if (record == null || clock.instant().isAfter(record.expiresAt)) {
@@ -231,6 +322,13 @@ public class InMemoryUserStore {
 		return encodeUserId(record.dbUserId);
 	}
 
+	/**
+	 * Verifies a plaintext password against the stored hash.
+	 *
+	 * @param record user record
+	 * @param password plaintext password
+	 * @return true when the password matches
+	 */
 	public boolean verifyPassword(UserRecord record, String password) {
 		return passwordHasher.verify(password, record.passwordHash());
 	}
@@ -286,6 +384,9 @@ public class InMemoryUserStore {
 		);
 	}
 
+	/**
+	 * Internal persistent user representation.
+	 */
 	public record UserRecord(
 		long id,
 		String firstName,
@@ -298,6 +399,9 @@ public class InMemoryUserStore {
 		Instant updatedAt
 	) {}
 
+	/**
+	 * Refresh token metadata for the in-memory store.
+	 */
 	private record RefreshTokenRecord(
 		long dbUserId,
 		Instant expiresAt

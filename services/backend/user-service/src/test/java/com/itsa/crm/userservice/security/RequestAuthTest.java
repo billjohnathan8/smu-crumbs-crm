@@ -10,6 +10,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 
+/**
+ * Unit tests for {@link RequestAuth}.
+ */
 class RequestAuthTest {
 	private JwtService jwtService;
 	private RequestAuth requestAuth;

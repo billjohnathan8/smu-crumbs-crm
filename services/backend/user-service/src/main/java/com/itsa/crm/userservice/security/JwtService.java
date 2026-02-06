@@ -13,6 +13,9 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+/**
+ * HMAC-SHA256 JWT minting and verification helper.
+ */
 @Component
 public class JwtService {
 	private static final Base64.Decoder BASE64_URL_DECODER = Base64.getUrlDecoder();
@@ -32,6 +35,13 @@ public class JwtService {
 		this.secret = hmacSecret.getBytes(StandardCharsets.UTF_8);
 	}
 
+	/**
+	 * Verifies a JWT signature and parses required claims.
+	 *
+	 * @param token JWT access token
+	 * @return authenticated user data
+	 * @throws JwtValidationException when the token is invalid or expired
+	 */
 	public AuthenticatedUser verifyAndParse(String token) {
 		String[] parts = token.split("\\.");
 		if (parts.length != 3) {
@@ -66,6 +76,14 @@ public class JwtService {
 		return new AuthenticatedUser(sub, role);
 	}
 
+	/**
+	 * Mints a signed JWT access token for a user.
+	 *
+	 * @param userId API user identifier
+	 * @param role role for the token subject
+	 * @param expiresAt expiration timestamp
+	 * @return signed JWT
+	 */
 	public String mintAccessToken(String userId, String role, Instant expiresAt) {
 		try {
 			String headerJson = objectMapper.writeValueAsString(Map.of("alg", "HS256", "typ", "JWT"));

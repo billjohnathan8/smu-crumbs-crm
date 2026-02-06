@@ -34,6 +34,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import static org.mockito.Mockito.doNothing;
 
+/**
+ * Web-layer tests for {@link UserController}.
+ */
 class UserControllerTest {
     private MockMvc mockMvc;
     private UserAccountService userAccountService;

@@ -24,6 +24,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
+/**
+ * REST endpoints for user administration and self-service lookups.
+ */
 @RestController
 @RequestMapping("/api/users")
 public class UserController {
@@ -35,6 +38,15 @@ public class UserController {
 		this.requestAuth = requestAuth;
 	}
 
+	/**
+	 * Lists users with optional role filtering (admin-only).
+	 *
+	 * @param request HTTP request containing the bearer token
+	 * @param limit requested page size
+	 * @param offset requested offset
+	 * @param role optional role filter
+	 * @return paginated list of users
+	 */
 	@GetMapping
 	public UsersListResponse listUsers(
 		HttpServletRequest request,
@@ -47,6 +59,13 @@ public class UserController {
 		return userAccountService.listUsers(limit, offset, role);
 	}
 
+	/**
+	 * Creates a new user (admin-only).
+	 *
+	 * @param request HTTP request containing the bearer token
+	 * @param body create user payload
+	 * @return created user
+	 */
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	public UserDto createUser(HttpServletRequest request, @Valid @RequestBody CreateUserRequest body) {
@@ -55,12 +74,25 @@ public class UserController {
 		return userAccountService.createUser(body);
 	}
 
+	/**
+	 * Returns the authenticated user's own profile.
+	 *
+	 * @param request HTTP request containing the bearer token
+	 * @return current user profile
+	 */
 	@GetMapping("/me")
 	public UserDto me(HttpServletRequest request) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		return userAccountService.getUser(user.userId());
 	}
 
+	/**
+	 * Fetches a user by ID (admin-only).
+	 *
+	 * @param request HTTP request containing the bearer token
+	 * @param userId API user identifier
+	 * @return matching user
+	 */
 	@GetMapping("/{userId}")
 	public UserDto getUser(HttpServletRequest request, @PathVariable String userId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
@@ -68,6 +100,14 @@ public class UserController {
 		return userAccountService.getUser(userId);
 	}
 
+	/**
+	 * Updates a user's profile (admin-only).
+	 *
+	 * @param request HTTP request containing the bearer token
+	 * @param userId API user identifier
+	 * @param body partial update payload
+	 * @return updated user
+	 */
 	@PutMapping("/{userId}")
 	public UserDto updateUser(
 		HttpServletRequest request,
@@ -79,6 +119,12 @@ public class UserController {
 		return userAccountService.updateUser(userId, body);
 	}
 
+	/**
+	 * Deletes a user account (admin-only).
+	 *
+	 * @param request HTTP request containing the bearer token
+	 * @param userId API user identifier
+	 */
 	@DeleteMapping("/{userId}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteUser(HttpServletRequest request, @PathVariable String userId) {
@@ -87,6 +133,13 @@ public class UserController {
 		userAccountService.deleteUser(userId);
 	}
 
+	/**
+	 * Disables a user account (admin-only).
+	 *
+	 * @param request HTTP request containing the bearer token
+	 * @param userId API user identifier
+	 * @return updated user
+	 */
 	@PostMapping("/{userId}/disable")
 	public UserDto disableUser(HttpServletRequest request, @PathVariable String userId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
@@ -94,6 +147,14 @@ public class UserController {
 		return userAccountService.disableUser(userId);
 	}
 
+	/**
+	 * Resets a user's password and invalidates existing refresh tokens (admin-only).
+	 *
+	 * @param request HTTP request containing the bearer token
+	 * @param userId API user identifier
+	 * @param body optional reset payload (currently unused)
+	 * @return accepted response
+	 */
 	@PostMapping("/{userId}/reset-password")
 	public ResponseEntity<Void> resetPassword(
 		HttpServletRequest request,
@@ -106,6 +167,11 @@ public class UserController {
 		return ResponseEntity.status(HttpStatus.ACCEPTED).build();
 	}
 
+	/**
+	 * Enforces that the authenticated user is an admin.
+	 *
+	 * @param user authenticated user
+	 */
 	private static void requireAdmin(AuthenticatedUser user) {
 		if (!user.isAdmin()) {
 			throw new ForbiddenException("forbidden");

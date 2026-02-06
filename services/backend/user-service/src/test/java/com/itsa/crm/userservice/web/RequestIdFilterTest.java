@@ -11,6 +11,9 @@ import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+/**
+ * Unit tests for {@link RequestIdFilter}.
+ */
 class RequestIdFilterTest {
 	private final RequestIdFilter filter = new RequestIdFilter();
 

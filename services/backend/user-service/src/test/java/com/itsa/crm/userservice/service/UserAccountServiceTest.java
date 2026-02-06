@@ -19,6 +19,9 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Unit tests for {@link UserAccountService}.
+ */
 class UserAccountServiceTest {
 	private InMemoryUserStore store;
 	private UserAccountService service;

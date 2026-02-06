@@ -5,6 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
 
+/**
+ * Unit tests for {@link UserRole} serialization helpers.
+ */
 class UserRoleTest {
 	@Test
 	void fromWireValue_validValuesReturnEnum() {
