@@ -12,7 +12,7 @@ The local flow does not require AWS resources. AWS-oriented architecture docs st
 - Namespace: `dev`
 - Default kind cluster name in config: `cs301-crm`
 
-Do not use `platform/k8s/apps/dev/*.yaml` (deprecated pointer files).
+Do not use `platform/k8s-apps/*` (deprecated legacy path; removed).
 
 ## Prerequisites
 - Docker Desktop (or Docker Engine) running
@@ -21,6 +21,7 @@ Do not use `platform/k8s/apps/dev/*.yaml` (deprecated pointer files).
 - Helm v3
 - GNU Make
 - Bash and curl
+- OpenSSL (for smoke tests on macOS/Linux)
 - Java 21 (recommended for Gradle wrapper builds)
 
 Windows notes:
@@ -42,11 +43,34 @@ Run one of these from repository root:
 bash ./scripts/build-and-deploy/build-and-deploy-k8s-local.sh
 ```
 
+Notes:
+- The wrapper runs the full make-driven deploy plus smoke checks.
+- On success, it tears down dev workloads and deletes the kind cluster. Use the manual steps below if you want a persistent cluster for debugging.
+
 Success criteria:
 - Exit code `0`
 - Rollout checks pass for `user-service`, `client-service`, `log-service`, `transactions-service`
 - Smoke output includes `Smoke tests passed.`
 - Wrapper output ends with `Local Kubernetes build/deploy and smoke checks completed successfully.`
+
+## One-command test + deploy
+Run backend tests, then deploy to local k8s only if tests pass:
+
+```powershell
+.\scripts\build-and-test-and-deploy\build-and-test-and-deploy-k8s-local.ps1
+```
+
+```cmd
+.\scripts\build-and-test-and-deploy-k8s-local.cmd
+```
+
+```bash
+bash ./scripts/build-and-test-and-deploy/build-and-test-and-deploy-k8s-local.sh
+```
+
+Notes:
+- Logs are captured under both `build-logs/build-and-test` and `build-logs/build-and-deploy`.
+- The deploy phase uses the same teardown behavior as the deploy-only wrapper (cluster is deleted on success).
 
 ## Step-by-step flow (manual)
 
@@ -64,6 +88,7 @@ bash ./scripts/build-and-test/build-and-test-backend.sh
 The backend script now runs each service-local pipeline (lint, build, tests, coverage reports):
 - `services/backend/user-service`: `gradlew localTestPipeline`
 - `services/backend/clients-service`: `gradlew localTestPipeline`
+- `services/backend/transactions-service`: `gradlew localTestPipeline`
 - `services/backend/log-service`: `python run-local-test-pipeline.py`
 
 ### 1) Create and verify kind cluster
@@ -131,12 +156,19 @@ Ingress routes:
 make smoke
 ```
 
-Smoke script: `scripts/smoke-k8s-infra.sh`
+Smoke scripts:
+- Windows: `scripts/smoke-k8s-infra.ps1` (invoked by `make smoke`)
+- macOS/Linux: `scripts/smoke-k8s-infra.sh` (invoked by `make smoke`)
+
+Optional environment variables:
+- `BASE_URL` (default: `http://localhost`)
+- `JWT_HMAC_SECRET` (default: `dev-only-insecure-secret`)
 
 Checks:
 - Health endpoints through ingress
 - Create/read/update/delete path for clients
 - Direct log event ingestion into `log-service`
+- Transactions list endpoint (if `transactions-service` is deployed)
 
 The script first tries `http://localhost`, then falls back to ingress controller port-forward if needed.
 

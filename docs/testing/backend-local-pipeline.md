@@ -27,7 +27,7 @@ The local pipeline enforces this sequence:
 
 ## Runtime-Specific Behavior
 
-### Java services (`user-service`, `clients-service`)
+### Java services (`user-service`, `clients-service`, `transactions-service`)
 
 Command used from service root:
 - Windows: `.\gradlew.bat localTestPipeline`
@@ -79,9 +79,10 @@ After each root pipeline run:
 
 Log filenames use an inverse timestamp prefix:
 
-- Example: `build-and-test-backend-79731027-004518-20260204-231441.log`
+- Example: `inv79731025-082514__2026-02-06_15-34-45__build-and-test-backend.log`
 
 This naming intentionally makes **newer runs sort first** and older runs sort later when VS Code sorts alphabetically.
+The scripts keep only the newest three log files in `build-logs/build-and-test`.
 
 ## Aggregated Report (`build-logs/build-and-test/index.html`)
 

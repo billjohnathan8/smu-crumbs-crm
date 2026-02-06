@@ -1,5 +1,8 @@
 # Clients Service
 
+## OpenAPI contract
+- `../../../docs/api-contracts/openapi/client.yaml`
+
 ## Local test pipeline (service root)
 
 Windows:

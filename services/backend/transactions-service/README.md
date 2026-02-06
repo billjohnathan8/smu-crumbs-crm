@@ -1,5 +1,16 @@
 # Transactions Service
 
+## Overview
+- Provides transaction import and listing APIs used by the backend.
+- Local mock SFTP data lives at `mock-sftp/transactions.csv`.
+
+## Mock SFTP (local + k8s)
+- Local k8s mounts the mock CSV from `../../../platform/k8s/apps/base/transactions-service-mock-sftp-configmap.yaml`.
+- The service reads the mounted files from `/app/mock-sftp` via the `MOCK_SFTP_ROOT` environment variable.
+
+## OpenAPI contract
+- `../../../docs/api-contracts/openapi/transaction.yaml`
+
 ## Local test pipeline (service root)
 
 Windows:
