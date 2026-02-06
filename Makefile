@@ -30,10 +30,10 @@ infra-up:
 
 build-images:
 	cd services/backend/user-service && $(GRADLEW) clean bootJar
-	cd services/backend/clients-service && $(GRADLEW) clean bootJar
+	cd services/backend/client-service && $(GRADLEW) clean bootJar
 	cd services/backend/transactions-service && $(GRADLEW) clean bootJar
 	docker build -t user-service:dev services/backend/user-service
-	docker build -t client-service:dev services/backend/clients-service
+	docker build -t client-service:dev services/backend/client-service
 	docker build -t log-service:dev services/backend/log-service
 	docker build -t transactions-service:dev services/backend/transactions-service
 

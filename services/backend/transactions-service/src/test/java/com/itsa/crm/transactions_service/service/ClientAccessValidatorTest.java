@@ -19,7 +19,7 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestClient;
 
 /**
- * Covers clients-service access validation and error mapping.
+ * Covers client-service access validation and error mapping.
  */
 class ClientAccessValidatorTest {
 	private RestClient restClient;

@@ -9,5 +9,5 @@ spec:
       containers:
         - name: transactions-service
           env:
-            - name: CLIENTS_SERVICE_URL
+            - name: CLIENT_SERVICE_URL
               value: http://client-service.dev.svc.cluster.local

@@ -26,7 +26,7 @@ paths:
                 type: object
                 properties:
                   status: {type: string, example: ok}
-                  service: {type: string, example: clients-service}
+                  service: {type: string, example: client-service}
                 required: [status]
   /api/v1/health:
     get:

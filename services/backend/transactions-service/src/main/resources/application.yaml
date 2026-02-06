@@ -9,7 +9,7 @@ spring:
 app:
   jwt:
     hmac-secret: ${JWT_HMAC_SECRET:dev-only-insecure-secret}
-  clients-service-url: ${CLIENTS_SERVICE_URL:http://localhost:8080}
+  client-service-url: ${CLIENT_SERVICE_URL:http://localhost:8080}
   mock-sftp:
     root: ${MOCK_SFTP_ROOT:./mock-sftp}
 

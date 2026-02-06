@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: client-service
+
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/clients}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate   # keeps Hibernate validating tables after Flyway runs
+    show-sql: true        # optional, useful for debugging
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true   # REQUIRED: initializes schema history if schema is non-empty
+    locations: classpath:db/migration  # default location for migration scripts
+
+server:
+  port: 8080
+
+app:
+  log-service-url: ${LOG_SERVICE_URL:http://localhost:8081}
+  jwt:
+    hmac-secret: ${JWT_HMAC_SECRET:dev-only-insecure-secret}

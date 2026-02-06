@@ -13,14 +13,14 @@ import org.springframework.web.client.RestClientResponseException;
  */
 @Component
 public class ClientAccessValidator {
-	private final RestClient clientsServiceRestClient;
+	private final RestClient clientServiceRestClient;
 
-	public ClientAccessValidator(RestClient clientsServiceRestClient) {
-		this.clientsServiceRestClient = clientsServiceRestClient;
+	public ClientAccessValidator(RestClient clientServiceRestClient) {
+		this.clientServiceRestClient = clientServiceRestClient;
 	}
 
 	/**
-	 * Ensures the user can access the client by delegating to clients-service.
+	 * Ensures the user can access the client by delegating to client-service.
 	 */
 	public void requireClientAccessible(
 		AuthenticatedUser user,
@@ -35,7 +35,7 @@ public class ClientAccessValidator {
 		}
 
 		try {
-			clientsServiceRestClient.get()
+			clientServiceRestClient.get()
 				.uri("/api/clients/{clientId}", clientId)
 				.header(HttpHeaders.AUTHORIZATION, authorizationHeader)
 				.retrieve()

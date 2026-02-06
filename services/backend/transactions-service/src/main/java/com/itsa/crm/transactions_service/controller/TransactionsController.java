@@ -73,7 +73,7 @@ public class TransactionsController {
 		String authHeader = request.getHeader("Authorization");
 		if (user.isAgent()) {
 			// We can only verify ownership for a specific clientId without enumerating
-			// all agent-owned clients from clients-service. For safety, return empty
+			// all agent-owned clients from client-service. For safety, return empty
 			// unless a clientId is provided and authorized.
 			if (clientId == null || clientId.isBlank()) {
 				return new TransactionsListResponse(

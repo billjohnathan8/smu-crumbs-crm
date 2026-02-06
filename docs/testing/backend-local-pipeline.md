@@ -27,7 +27,7 @@ The local pipeline enforces this sequence:
 
 ## Runtime-Specific Behavior
 
-### Java services (`user-service`, `clients-service`, `transactions-service`)
+### Java services (`user-service`, `client-service`, `transactions-service`)
 
 Command used from service root:
 - Windows: `.\gradlew.bat localTestPipeline`

@@ -164,7 +164,7 @@ A PR is mergeable only when:
 ### 5.2 PR Template (Use This Structure)
 
 **Title:** concise, action-oriented  
-Example: `feat(clients-service): add account summary endpoint`
+Example: `feat(client-service): add account summary endpoint`
 
 **Description:**
 - **Summary:** what changed
@@ -392,7 +392,7 @@ These are the default CI/local pipeline thresholds **per service**:
 #### B) Tiered expectations (depending on what the service is)
 
 **Tier 1 — Core business microservices**  
-(e.g., `users-service`, `clients-service`, `transactions-service`, anything implementing core CRM rules)
+(e.g., `users-service`, `client-service`, `transactions-service`, anything implementing core CRM rules)
 - **Overall:** Lines/Instructions ≥ **85%**, Branches ≥ **75%**
 - **Business-logic packages** (e.g., `service/`, `domain/`, validators): Lines/Instructions ≥ **90%**, Branches ≥ **80%**
 - Must include unit tests for decision logic + happy/edge cases (401/403/404/409/422/500 where relevant)
@@ -457,7 +457,7 @@ From repo root (all backend services):
 - Bash: `bash ./scripts/build-and-test/build-and-test-backend.sh`
 
 From each backend service root (single service):
-- Java services (`user-service`, `clients-service`):
+- Java services (`user-service`, `client-service`):
   - Windows: `.\gradlew.bat localTestPipeline`
   - macOS/Linux: `./gradlew localTestPipeline`
 - Python service (`log-service`):
@@ -469,7 +469,7 @@ For the aggregated coverage hub `build-logs/build-and-test/index.html`:
 - Open it directly in a normal browser window (`file:///...`).
 - Do **not** use VS Code **Open Preview** for this file.
 
-Java backend services (`services/backend/user-service`, `services/backend/clients-service`):
+Java backend services (`services/backend/user-service`, `services/backend/client-service`):
 - Checkstyle (lint):
   - `build/reports/checkstyle/main.html`
   - `build/reports/checkstyle/test.html`

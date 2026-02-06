@@ -17,7 +17,7 @@ The branch also adds local CI scripts that discover backend services by runtime 
 - **After (HEAD):**
   - `scripts/build-and-test/build-and-test-backend.sh` - discovers services and selects `gradle` vs `python` workflows.
   - `scripts/build-and-test/build-and-test-backend.ps1` - implements equivalent runtime-aware workflow on Windows.
-  - `services/backend/clients-service/gradlew` - proves Gradle-based backend runtime.
+  - `services/backend/client-service/gradlew` - proves Gradle-based backend runtime.
   - `services/backend/log-service/requirements.txt` - proves Python-based backend runtime.
   - `README.md` - documents local CI entry points for this unified script model.
 
