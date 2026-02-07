@@ -21,6 +21,45 @@ def run(command: list[str], *, cwd: Path, env: dict[str, str] | None = None) -> 
     subprocess.run(command, cwd=cwd, check=True, env=run_env)
 
 
+def run_pip_install_requirements(
+    venv_python: Path, requirements_file: str, *, cwd: Path
+) -> None:
+    """Install requirements.txt, reporting only if new dependencies were installed."""
+    command = [str(venv_python), "-m", "pip", "install", "-r", requirements_file]
+    print(f"[local-test-pipeline] {' '.join(command)}")
+    
+    result = subprocess.run(
+        command,
+        cwd=cwd,
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    
+    output = result.stdout + result.stderr
+    
+    # Check if new packages were installed
+    has_new_installs = (
+        "Successfully installed" in output
+        or "Installing collected packages" in output
+    )
+    
+    # Only report if new dependencies were actually installed
+    if has_new_installs:
+        print("[local-test-pipeline] New dependencies installed:")
+        for line in output.splitlines():
+            if (
+                "Successfully installed" in line
+                or "Installing collected packages" in line
+                or "Downloading" in line
+                or "Collecting" in line
+            ):
+                print(f"  {line}")
+    # If all requirements are already satisfied, don't report anything
+
+
 def main() -> int:
     """Build a virtualenv, lint, compile, and run tests with coverage."""
     service_root = Path(__file__).resolve().parent
@@ -45,7 +84,7 @@ def main() -> int:
     os.makedirs(test_dir, exist_ok=True)
 
     run([str(venv_python), "-m", "pip", "install", "--upgrade", "pip"], cwd=service_root)
-    run([str(venv_python), "-m", "pip", "install", "-r", "requirements.txt"], cwd=service_root)
+    run_pip_install_requirements(venv_python, "requirements.txt", cwd=service_root)
 
     # 1) Lint
     run([str(venv_python), "-m", "black", "--check", "app", "tests"], cwd=service_root)
