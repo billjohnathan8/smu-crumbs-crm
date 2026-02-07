@@ -1,0 +1,635 @@
+﻿[2026-02-07 14:06:31] Build log file: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\\build-and-deploy-k8s\inv79731024-095328__2026-02-07_14-06-31__build-and-deploy-k8s-local.log
+[2026-02-07 14:06:31] Base kustomization deployments: agent, client, log, transaction, frontend
+[2026-02-07 14:06:32] Running K8s manifest validation...
+[2026-02-07 14:06:32] Running: make k8s-validate
+tr -d '\r' < scripts/validate-k8s/validate.sh | REPO_ROOT="$(pwd)" bash
+[k8s-validate] Checking required tools...
+[k8s-validate] All required tools found.
+[k8s-validate] Validating kind config YAML...
+[k8s-validate] kind-config.yaml parsed successfully.
+[k8s-validate] Ensuring Helm repos are added...
+[k8s-validate] Rendering Helm chart: ingress-nginx/ingress-nginx (release=ingress-nginx, namespace=ingress-nginx)...
+[k8s-validate] Validating infra-ingress.yaml with kubeconform...
+Summary: 18 resources found in 1 file - Valid: 18, Invalid: 0, Errors: 0, Skipped: 0
+[k8s-validate] Rendering Helm chart: bitnami/metrics-server (release=metrics-server, namespace=kube-system)...
+[k8s-validate] Validating infra-metrics.yaml with kubeconform...
+Summary: 11 resources found in 1 file - Valid: 11, Invalid: 0, Errors: 0, Skipped: 0
+[k8s-validate] Rendering Helm chart: bitnami/postgresql (release=postgres, namespace=dev)...
+[k8s-validate] Validating infra-postgres.yaml with kubeconform...
+Summary: 7 resources found in 1 file - Valid: 7, Invalid: 0, Errors: 0, Skipped: 0
+[k8s-validate] Rendering Kustomize overlay: /c/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/platform/k8s/apps/overlays/dev...
+[k8s-validate] Validating apps-dev.yaml with kubeconform...
+Summary: 14 resources found in 1 file - Valid: 14, Invalid: 0, Errors: 0, Skipped: 0
+[k8s-validate] 
+[k8s-validate] === K8s Validation Passed ===
+[k8s-validate] Validated outputs:
+[k8s-validate]   - /c/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/.k8s-validate-tmp/infra-ingress.yaml
+[k8s-validate]   - /c/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/.k8s-validate-tmp/infra-metrics.yaml
+[k8s-validate]   - /c/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/.k8s-validate-tmp/infra-postgres.yaml
+[k8s-validate]   - /c/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/.k8s-validate-tmp/apps-dev.yaml
+[k8s-validate] Temp dir: /c/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/.k8s-validate-tmp
+[k8s-validate] 
+[2026-02-07 14:06:48] K8s validation passed.
+[2026-02-07 14:06:48] Running: make kind-up
+kind create cluster --name cs301-crm --config platform/k8s/infra/kind-config.yaml
+Creating cluster "cs301-crm" ...
+ • Ensuring node image (kindest/node:v1.35.0) 🖼  ...
+ ✓ Ensuring node image (kindest/node:v1.35.0) 🖼
+ • Preparing nodes 📦   ...
+ ✓ Preparing nodes 📦 
+ • Writing configuration 📜  ...
+ ✓ Writing configuration 📜
+ • Starting control-plane 🕹️  ...
+ ✓ Starting control-plane 🕹️
+ • Installing CNI 🔌  ...
+ ✓ Installing CNI 🔌
+ • Installing StorageClass 💾  ...
+ ✓ Installing StorageClass 💾
+Set kubectl context to "kind-cs301-crm"
+You can now use your cluster with:
+
+kubectl cluster-info --context kind-cs301-crm
+
+Have a question, bug, or feature request? Let us know! https://kind.sigs.k8s.io/#community 🙂
+[2026-02-07 14:07:13] Running: make infra-up
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx >/dev/null 2>&1
+helm repo add bitnami https://charts.bitnami.com/bitnami >/dev/null 2>&1
+helm repo update
+Hang tight while we grab the latest from your chart repositories...
+...Successfully got an update from the "ingress-nginx" chart repository
+...Successfully got an update from the "bitnami" chart repository
+Update Complete. ⎈Happy Helming!⎈
+helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx --namespace ingress-nginx --create-namespace
+Release "ingress-nginx" does not exist. Installing it now.
+NAME: ingress-nginx
+LAST DEPLOYED: Sat Feb  7 14:07:18 2026
+NAMESPACE: ingress-nginx
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+TEST SUITE: None
+NOTES:
+The ingress-nginx controller has been installed.
+It may take a few minutes for the load balancer IP to be available.
+You can watch the status by running 'kubectl get service --namespace ingress-nginx ingress-nginx-controller --output wide --watch'
+
+An example Ingress that makes use of the controller:
+  apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    name: example
+    namespace: foo
+  spec:
+    ingressClassName: nginx
+    rules:
+      - host: www.example.com
+        http:
+          paths:
+            - pathType: Prefix
+              backend:
+                service:
+                  name: exampleService
+                  port:
+                    number: 80
+              path: /
+    # This section is only required if TLS is to be enabled for the Ingress
+    tls:
+      - hosts:
+        - www.example.com
+        secretName: example-tls
+
+If TLS is enabled for the Ingress, a Secret containing the certificate and key must also be provided:
+
+  apiVersion: v1
+  kind: Secret
+  metadata:
+    name: example-tls
+    namespace: foo
+  data:
+    tls.crt: <base64 encoded cert>
+    tls.key: <base64 encoded key>
+  type: kubernetes.io/tls
+helm upgrade --install metrics-server bitnami/metrics-server --namespace kube-system -f platform/k8s/infra/helm-values/metrics-server-values.yaml
+Release "metrics-server" does not exist. Installing it now.
+NAME: metrics-server
+LAST DEPLOYED: Sat Feb  7 14:07:45 2026
+NAMESPACE: kube-system
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+TEST SUITE: None
+NOTES:
+CHART NAME: metrics-server
+CHART VERSION: 7.4.12
+APP VERSION: 0.8.0
+
+⚠ WARNING: Since August 28th, 2025, only a limited subset of images/charts are available for free.
+    Subscribe to Bitnami Secure Images to receive continued support and security updates.
+    More info at https://bitnami.com and https://github.com/bitnami/containers/issues/83267
+
+** Please be patient while the chart is being deployed **
+
+The metric server has been deployed.
+In a few minutes you should be able to list metrics using the following
+command:
+
+  kubectl get --raw "/apis/metrics.k8s.io/v1beta1/nodes"
+
+WARNING: There are "resources" sections in the chart not set. Using "resourcesPreset" is not recommended for production. For production installations, please set the following values according to your workload needs:
+  - resources
++info https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+
+⚠ SECURITY WARNING: Original containers have been substituted. This Helm chart was designed, tested, and validated on multiple platforms using a specific set of Bitnami and Tanzu Application Catalog containers. Substituting other containers is likely to cause degraded security and performance, broken chart features, and missing environment variables.
+
+Substituted images detected:
+  - registry.k8s.io/metrics-server/metrics-server:v0.8.0
+
+⚠ SECURITY WARNING: Verifying original container images was skipped. Please note this Helm chart was designed, tested, and validated on multiple platforms using a specific set of Bitnami and Bitnami Secure Images containers. Substituting other containers is likely to cause degraded security and performance, broken chart features, and missing environment variables.
+helm upgrade --install postgres bitnami/postgresql --namespace dev --create-namespace -f platform/k8s/infra/helm-values/postgresql-values.yaml
+Release "postgres" does not exist. Installing it now.
+NAME: postgres
+LAST DEPLOYED: Sat Feb  7 14:07:49 2026
+NAMESPACE: dev
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+TEST SUITE: None
+NOTES:
+CHART NAME: postgresql
+CHART VERSION: 18.2.4
+APP VERSION: 18.1.0
+
+⚠ WARNING: Since August 28th, 2025, only a limited subset of images/charts are available for free.
+    Subscribe to Bitnami Secure Images to receive continued support and security updates.
+    More info at https://bitnami.com and https://github.com/bitnami/containers/issues/83267
+
+** Please be patient while the chart is being deployed **
+
+PostgreSQL can be accessed via port 5432 on the following DNS names from within your cluster:
+
+    postgres-postgresql.dev.svc.cluster.local - Read/Write connection
+
+To get the password for "postgres" run:
+
+    export POSTGRES_ADMIN_PASSWORD=$(kubectl get secret --namespace dev postgres-postgresql -o jsonpath="{.data.postgres-password}" | base64 -d)
+
+To get the password for "cs301" run:
+
+    export POSTGRES_PASSWORD=$(kubectl get secret --namespace dev postgres-postgresql -o jsonpath="{.data.password}" | base64 -d)
+
+To connect to your database run the following command:
+
+    kubectl run postgres-postgresql-client --rm --tty -i --restart='Never' --namespace dev --image registry-1.docker.io/bitnami/postgresql:latest --env="PGPASSWORD=$POSTGRES_PASSWORD" \
+      --command -- psql --host postgres-postgresql -U cs301 -d cs301 -p 5432
+
+    > NOTE: If you access the container using bash, make sure that you execute "/opt/bitnami/scripts/postgresql/entrypoint.sh /bin/bash" in order to avoid the error "psql: local user with ID 1001} does not exist"
+
+To connect to your database from outside the cluster execute the following commands:
+
+    kubectl port-forward --namespace dev svc/postgres-postgresql 5432:5432 &
+    PGPASSWORD="$POSTGRES_PASSWORD" psql --host 127.0.0.1 -U cs301 -d cs301 -p 5432
+
+WARNING: The configured password will be ignored on new installation in case when previous PostgreSQL release was deleted through the helm command. In that case, old PVC will have an old password, and setting it through helm won't take effect. Deleting persistent volumes (PVs) will solve the issue.
+WARNING: Rolling tag detected (bitnami/postgresql:latest), please note that it is strongly recommended to avoid using rolling tags in a production environment.
++info https://techdocs.broadcom.com/us/en/vmware-tanzu/bitnami-secure-images/bitnami-secure-images/services/bsi-doc/apps-tutorials-understand-rolling-tags-containers-index.html
+WARNING: Rolling tag detected (bitnami/os-shell:latest), please note that it is strongly recommended to avoid using rolling tags in a production environment.
++info https://techdocs.broadcom.com/us/en/vmware-tanzu/bitnami-secure-images/bitnami-secure-images/services/bsi-doc/apps-tutorials-understand-rolling-tags-containers-index.html
+
+WARNING: There are "resources" sections in the chart not set. Using "resourcesPreset" is not recommended for production. For production installations, please set the following values according to your workload needs:
+  - primary.resources
+  - readReplicas.resources
++info https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+kubectl wait --namespace ingress-nginx --for=condition=ready pod -l app.kubernetes.io/component=controller --timeout=180s
+pod/ingress-nginx-controller-7459fc6594-29w4d condition met
+kubectl wait --namespace dev --for=condition=ready pod -l app.kubernetes.io/name=postgresql --timeout=180s
+pod/postgres-postgresql-0 condition met
+[2026-02-07 14:08:28] Running: make build-images
+cd services/backend/agent && ./gradlew bootJar
+> Task :compileJava UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :resolveMainClassName UP-TO-DATE
+> Task :bootJar UP-TO-DATE
+
+BUILD SUCCESSFUL in 1s
+4 actionable tasks: 4 up-to-date
+Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.3.0/userguide/configuration_cache_enabling.html
+cd services/backend/client && ./gradlew bootJar
+> Task :compileJava UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :resolveMainClassName UP-TO-DATE
+> Task :bootJar UP-TO-DATE
+
+BUILD SUCCESSFUL in 2s
+4 actionable tasks: 4 up-to-date
+Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.2.1/userguide/configuration_cache_enabling.html
+cd services/backend/transaction && ./gradlew bootJar
+> Task :compileJava UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :resolveMainClassName UP-TO-DATE
+> Task :bootJar UP-TO-DATE
+
+BUILD SUCCESSFUL in 1s
+4 actionable tasks: 4 up-to-date
+Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.3.0/userguide/configuration_cache_enabling.html
+docker build -t agent:dev services/backend/agent
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 190B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/eclipse-temurin:17-jre-alpine
+#2 ...
+
+#3 [auth] library/eclipse-temurin:pull token for registry-1.docker.io
+#3 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/eclipse-temurin:17-jre-alpine
+#2 DONE 2.1s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [1/3] FROM docker.io/library/eclipse-temurin:17-jre-alpine@sha256:7aa804a1824d18d06c68598fe1c2953b5b203823731be7b9298bb3e0f1920b0d
+#5 resolve docker.io/library/eclipse-temurin:17-jre-alpine@sha256:7aa804a1824d18d06c68598fe1c2953b5b203823731be7b9298bb3e0f1920b0d 0.1s done
+#5 DONE 0.1s
+
+#6 [internal] load build context
+#6 transferring context: 114B 0.3s done
+#6 DONE 0.3s
+
+#7 [2/3] WORKDIR /app
+#7 CACHED
+
+#8 [3/3] COPY build/libs/*-SNAPSHOT.jar app.jar
+#8 CACHED
+
+#9 exporting to image
+#9 exporting layers done
+#9 exporting manifest sha256:690aa7a792eccec991d6cc0ebec10d414813d310be6fd9be5d23481d4022bd02 done
+#9 exporting config sha256:370c4ede92d2d8b5d19a068bad041b01096e17abd43a834ae7d9e4e2c49a9b9a done
+#9 exporting attestation manifest sha256:fc3d00ca31dc90c2a6a279a2a479ad1af12751a9d2bf2bcdd8a4825a262e5e5f 0.1s done
+#9 exporting manifest list sha256:cf9f92f842e08d9167d2aef78357f073b03078763807cf458a58309d2da56ef1
+#9 exporting manifest list sha256:cf9f92f842e08d9167d2aef78357f073b03078763807cf458a58309d2da56ef1 0.0s done
+#9 naming to docker.io/library/agent:dev done
+#9 unpacking to docker.io/library/agent:dev 0.0s done
+#9 DONE 0.3s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/vpgkau8q6p41lilzpp4lv0lcc
+docker build -t client:dev services/backend/client
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 188B 0.0s done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/eclipse-temurin:21-jre-alpine
+#2 DONE 0.4s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [1/3] FROM docker.io/library/eclipse-temurin:21-jre-alpine@sha256:6ad8ed080d9be96b61438ec3ce99388e294af216ed57356000c06070e85c5d5d
+#4 resolve docker.io/library/eclipse-temurin:21-jre-alpine@sha256:6ad8ed080d9be96b61438ec3ce99388e294af216ed57356000c06070e85c5d5d 0.1s done
+#4 DONE 0.1s
+
+#5 [internal] load build context
+#5 transferring context: 115B 0.4s done
+#5 DONE 0.4s
+
+#6 [2/3] WORKDIR /app
+#6 CACHED
+
+#7 [3/3] COPY build/libs/*-SNAPSHOT.jar app.jar
+#7 CACHED
+
+#8 exporting to image
+#8 exporting layers done
+#8 exporting manifest sha256:f39627d8161a4017d4e3ae125bfeccb5aa3d2ba5247f802c3485b3bb9acc153f done
+#8 exporting config sha256:c1a65ede28ad6dd6a8aa274e3a844c5a6c4053b4d9191e819119def89dd0e1bc done
+#8 exporting attestation manifest sha256:74a219a61e0310eabd5fac0aeb1249983f37d9ff2dd14cdf5156c4a84f40a2a1 0.1s done
+#8 exporting manifest list sha256:dc02fadb3b789fea01d1bb6b8d8a52426093f0f3b5eb6c2385c01b4ba450f8b8
+#8 exporting manifest list sha256:dc02fadb3b789fea01d1bb6b8d8a52426093f0f3b5eb6c2385c01b4ba450f8b8 0.0s done
+#8 naming to docker.io/library/client:dev done
+#8 unpacking to docker.io/library/client:dev 0.0s done
+#8 DONE 0.3s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/n4ebput7qzw0104rld8sburcz
+docker build -t log:dev services/backend/log
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 256B 0.0s done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.13-slim
+#2 ...
+
+#3 [auth] library/python:pull token for registry-1.docker.io
+#3 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.13-slim
+#2 DONE 2.1s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [1/5] FROM docker.io/library/python:3.13-slim@sha256:49b618b8afc2742b94fa8419d8f4d3b337f111a0527d417a1db97d4683cb71a6
+#5 resolve docker.io/library/python:3.13-slim@sha256:49b618b8afc2742b94fa8419d8f4d3b337f111a0527d417a1db97d4683cb71a6
+#5 ...
+
+#6 [internal] load build context
+#6 ...
+
+#5 [1/5] FROM docker.io/library/python:3.13-slim@sha256:49b618b8afc2742b94fa8419d8f4d3b337f111a0527d417a1db97d4683cb71a6
+#5 resolve docker.io/library/python:3.13-slim@sha256:49b618b8afc2742b94fa8419d8f4d3b337f111a0527d417a1db97d4683cb71a6 0.1s done
+#5 DONE 0.1s
+
+#6 [internal] load build context
+#6 transferring context: 388.25kB 0.3s done
+#6 DONE 0.4s
+
+#7 [2/5] WORKDIR /app
+#7 CACHED
+
+#8 [3/5] COPY requirements.txt .
+#8 CACHED
+
+#9 [4/5] RUN pip install --no-cache-dir -r requirements.txt
+#9 CACHED
+
+#10 [5/5] COPY . .
+#10 CACHED
+
+#11 exporting to image
+#11 exporting layers done
+#11 exporting manifest sha256:fd300465d5b2564fb9991c2432cddbeedb6b7c913dce1e2db558cc3684ed3657 done
+#11 exporting config sha256:6c1bad23681701f7124e0b4d2c1972ae1a25fd7837cc6e2f49b4d0564b5ff319 done
+#11 exporting attestation manifest sha256:a4f9df01f5b1a1e0618740a724350d3b7b9e56290130fd75b815fdebf888efdc
+#11 exporting attestation manifest sha256:a4f9df01f5b1a1e0618740a724350d3b7b9e56290130fd75b815fdebf888efdc 0.1s done
+#11 exporting manifest list sha256:10ce296809fc64a5f443067d5a7afa218bd4ec71b0937aca235316742234428f 0.0s done
+#11 naming to docker.io/library/log:dev
+#11 naming to docker.io/library/log:dev done
+#11 unpacking to docker.io/library/log:dev 0.0s done
+#11 DONE 0.3s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/jmfdrcklabclzbjtsfth9ckbg
+docker build -t transaction:dev services/backend/transaction
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 181B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/eclipse-temurin:17-jre-alpine
+#2 DONE 0.4s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [internal] load build context
+#4 ...
+
+#5 [1/3] FROM docker.io/library/eclipse-temurin:17-jre-alpine@sha256:7aa804a1824d18d06c68598fe1c2953b5b203823731be7b9298bb3e0f1920b0d
+#5 resolve docker.io/library/eclipse-temurin:17-jre-alpine@sha256:7aa804a1824d18d06c68598fe1c2953b5b203823731be7b9298bb3e0f1920b0d 0.1s done
+#5 DONE 0.1s
+
+#4 [internal] load build context
+#4 transferring context: 120B 0.4s done
+#4 DONE 0.4s
+
+#6 [2/3] WORKDIR /app
+#6 CACHED
+
+#7 [3/3] COPY build/libs/*-SNAPSHOT.jar app.jar
+#7 CACHED
+
+#8 exporting to image
+#8 exporting layers done
+#8 exporting manifest sha256:379561f87a8b996d792aefa555a0002e13dbc95d54fb0a029e691eba6a80a333 done
+#8 exporting config sha256:2f603e818215ec50c31572d0e8e964f6b4187110b40af49696352a6455f2f96c done
+#8 exporting attestation manifest sha256:5608ca70ed13f12d27fdc153cbb7c5d6a7c22785118658ef0a2b24149c36b0fd 0.1s done
+#8 exporting manifest list sha256:283f1e16994d745ed94de5dee5492a25ed3be9d86966432d98995fd7d3a2cce7
+#8 exporting manifest list sha256:283f1e16994d745ed94de5dee5492a25ed3be9d86966432d98995fd7d3a2cce7 0.0s done
+#8 naming to docker.io/library/transaction:dev done
+#8 unpacking to docker.io/library/transaction:dev 0.0s done
+#8 DONE 0.3s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/cn7ygywut6lxkmzkfwa09yaay
+docker build -t crm-ui:dev services/frontend/crm-ui
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 780B 0.0s done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:20-alpine
+#2 ...
+
+#3 [auth] library/nginx:pull token for registry-1.docker.io
+#3 DONE 0.0s
+
+#4 [auth] library/node:pull token for registry-1.docker.io
+#4 DONE 0.0s
+
+#5 [internal] load metadata for docker.io/library/nginx:alpine
+#5 DONE 2.1s
+
+#2 [internal] load metadata for docker.io/library/node:20-alpine
+#2 DONE 2.1s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 220B done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 DONE 0.0s
+
+#8 [stage-1 1/3] FROM docker.io/library/nginx:alpine@sha256:5878d06ae4c83d73285438255f705bb3f9a736f41cd24876ed25bb33faf76c7d
+#8 resolve docker.io/library/nginx:alpine@sha256:5878d06ae4c83d73285438255f705bb3f9a736f41cd24876ed25bb33faf76c7d 0.1s done
+#8 DONE 0.1s
+
+#9 [build 1/6] FROM docker.io/library/node:20-alpine@sha256:09e2b3d9726018aecf269bd35325f46bf75046a643a66d28360ec71132750ec8
+#9 resolve docker.io/library/node:20-alpine@sha256:09e2b3d9726018aecf269bd35325f46bf75046a643a66d28360ec71132750ec8
+#9 resolve docker.io/library/node:20-alpine@sha256:09e2b3d9726018aecf269bd35325f46bf75046a643a66d28360ec71132750ec8 0.1s done
+#9 DONE 0.1s
+
+#7 [internal] load build context
+#7 transferring context: 3.15kB 0.0s done
+#7 DONE 0.0s
+
+#10 [build 2/6] WORKDIR /app
+#10 CACHED
+
+#11 [build 5/6] COPY . .
+#11 CACHED
+
+#12 [stage-1 2/3] COPY nginx.conf /etc/nginx/nginx.conf
+#12 CACHED
+
+#13 [build 3/6] COPY package*.json ./
+#13 CACHED
+
+#14 [build 4/6] RUN npm ci --silent
+#14 CACHED
+
+#15 [build 6/6] RUN npm run build
+#15 CACHED
+
+#16 [stage-1 3/3] COPY --from=build /app/dist /usr/share/nginx/html
+#16 CACHED
+
+#17 exporting to image
+#17 exporting layers done
+#17 exporting manifest sha256:f84ae42bda71ba783452896f1c43a9ece9fc6281b09bd34f9bf33efc24f5a078 done
+#17 exporting config sha256:23c8dd99c6bf9c9a33574f2282485466c2c6d2df904db9097770e482ba685286 done
+#17 exporting attestation manifest sha256:a52852b15243a37ec6567c933ac52798b3e932976a62a1a08cb433e8a7728862
+#17 exporting attestation manifest sha256:a52852b15243a37ec6567c933ac52798b3e932976a62a1a08cb433e8a7728862 0.1s done
+#17 exporting manifest list sha256:de5297044ff6a8512269b9aac576b082f7426144e353624cc910c77bf23e07c8 0.0s done
+#17 naming to docker.io/library/crm-ui:dev
+#17 naming to docker.io/library/crm-ui:dev done
+#17 unpacking to docker.io/library/crm-ui:dev 0.0s done
+#17 DONE 0.3s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/w42rlun7levvg69ufusnduron
+[2026-02-07 14:08:51] Running: make kind-load
+kind load docker-image agent:dev --name cs301-crm
+Image: "agent:dev" with ID "sha256:cf9f92f842e08d9167d2aef78357f073b03078763807cf458a58309d2da56ef1" not yet present on node "cs301-crm-control-plane", loading...
+kind load docker-image client:dev --name cs301-crm
+Image: "client:dev" with ID "sha256:dc02fadb3b789fea01d1bb6b8d8a52426093f0f3b5eb6c2385c01b4ba450f8b8" not yet present on node "cs301-crm-control-plane", loading...
+kind load docker-image log:dev --name cs301-crm
+Image: "log:dev" with ID "sha256:10ce296809fc64a5f443067d5a7afa218bd4ec71b0937aca235316742234428f" not yet present on node "cs301-crm-control-plane", loading...
+kind load docker-image transaction:dev --name cs301-crm
+Image: "transaction:dev" with ID "sha256:283f1e16994d745ed94de5dee5492a25ed3be9d86966432d98995fd7d3a2cce7" not yet present on node "cs301-crm-control-plane", loading...
+kind load docker-image crm-ui:dev --name cs301-crm
+Image: "crm-ui:dev" with ID "sha256:de5297044ff6a8512269b9aac576b082f7426144e353624cc910c77bf23e07c8" not yet present on node "cs301-crm-control-plane", loading...
+[2026-02-07 14:10:02] Running: make deploy-dev
+kubectl apply -k platform/k8s/apps/overlays/dev
+Warning: resource namespaces/dev is missing the kubectl.kubernetes.io/last-applied-configuration annotation which is required by kubectl apply. kubectl apply should only be used on resources created declaratively by either kubectl create --save-config or kubectl apply. The missing annotation will be patched automatically.
+namespace/dev configured
+configmap/frontend-config created
+configmap/transaction-mock-sftp created
+service/agent created
+service/client created
+service/frontend created
+service/log created
+service/transaction created
+deployment.apps/agent created
+deployment.apps/client created
+deployment.apps/frontend created
+deployment.apps/log created
+deployment.apps/transaction created
+ingress.networking.k8s.io/backend-ingress created
+kubectl rollout restart deployment/agent -n dev
+deployment.apps/agent restarted
+kubectl rollout restart deployment/client -n dev
+deployment.apps/client restarted
+kubectl rollout restart deployment/log -n dev
+deployment.apps/log restarted
+kubectl rollout restart deployment/transaction -n dev
+deployment.apps/transaction restarted
+kubectl rollout restart deployment/frontend -n dev
+deployment.apps/frontend restarted
+kubectl rollout status deployment/agent -n dev --timeout=180s
+Waiting for deployment "agent" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "agent" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "agent" rollout to finish: 1 old replicas are pending termination...
+deployment "agent" successfully rolled out
+kubectl rollout status deployment/client -n dev --timeout=180s
+Waiting for deployment "client" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "client" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "client" rollout to finish: 1 old replicas are pending termination...
+deployment "client" successfully rolled out
+kubectl rollout status deployment/log -n dev --timeout=180s
+deployment "log" successfully rolled out
+kubectl rollout status deployment/transaction -n dev --timeout=180s
+deployment "transaction" successfully rolled out
+kubectl rollout status deployment/frontend -n dev --timeout=180s
+Waiting for deployment "frontend" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "frontend" rollout to finish: 1 old replicas are pending termination...
+deployment "frontend" successfully rolled out
+[2026-02-07 14:10:26] Running: make smoke
+powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-infra/smoke-k8s-infra.ps1
+Initial health check against http://localhost failed; attempting kubectl port-forward fallback...
+Using kubectl port-forward fallback at http://localhost:18080
+Checking health endpoints...
+No ingress path for transaction; using direct port-forward...
+Healthy (port-forward): transaction (/api/v1/health)
+No ingress path for agent; using direct port-forward...
+Healthy (port-forward): agent (/api/v1/health)
+Healthy (ingress): frontend (/health)
+Healthy (ingress): log (/health)
+No ingress path for client; using direct port-forward...
+Healthy (port-forward): client (/api/v1/health)
+Listing transactions...
+Creating client...
+Reading client clt_1...
+Updating client clt_1...
+Deleting client clt_1...
+Posting a direct log event...
+Smoke tests passed.
+powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-infra/smoke-probes.ps1 dev
+
+==> Rollout gating (namespace: dev, timeout: 300s)
+  + deployment/agent rolled out
+  + deployment/client rolled out
+  + deployment/frontend rolled out
+  + deployment/log rolled out
+  + deployment/transaction rolled out
+  + statefulset/postgres-postgresql rolled out
+
+==> Probe presence assertions (namespace: dev)
+  + Deployment/agent container=agent: readinessProbe present
+  + Deployment/agent container=agent: livenessProbe present
+  + Deployment/agent container=agent: startupProbe present (required)
+  + Deployment/client container=client: readinessProbe present
+  + Deployment/client container=client: livenessProbe present
+  + Deployment/client container=client: startupProbe present (required)
+  + Deployment/frontend container=frontend: readinessProbe present
+  + Deployment/frontend container=frontend: livenessProbe present
+  + Deployment/frontend container=frontend: startupProbe present (optional)
+  + Deployment/log container=log: readinessProbe present
+  + Deployment/log container=log: livenessProbe present
+  + Deployment/log container=log: startupProbe present (optional)
+  + Deployment/transaction container=transaction: readinessProbe present
+  + Deployment/transaction container=transaction: livenessProbe present
+  + Deployment/transaction container=transaction: startupProbe present (required)
+  + StatefulSet/postgres-postgresql container=postgresql: readinessProbe present
+  + StatefulSet/postgres-postgresql container=postgresql: livenessProbe present
+
+==> In-cluster probe health checks (namespace: dev)
+Launching ephemeral curl pod for in-cluster probe checks...
+All commands and output from this session will be recorded in container logs, including credentials and sensitive information passed through the command prompt.
+If you don't see a command prompt, try pressing enter.
+sh: ﻿#!/bin/sh: not found
+HTTP agent.dev.svc.cluster.local:80/api/v1/health
+  PASS (HTTP 200)
+HTTP client.dev.svc.cluster.local:80/api/v1/health
+  PASS (HTTP 200)
+HTTP frontend.dev.svc.cluster.local:80/health
+  PASS (HTTP 200)
+HTTP log.dev.svc.cluster.local:80/health
+  PASS (HTTP 200)
+HTTP transaction.dev.svc.cluster.local:80/api/v1/health
+sh: exit: line 91: Illegal number: 0
+  PASS (HTTP 200)
+
+In-cluster probe checks: 5 passed, 0 failed
+pod "smoke-probe-check-36224" deleted from dev namespace
+pod dev/smoke-probe-check-36224 terminated (Error)
+  + All in-cluster probe endpoint checks passed
+
+==> Probe-aware smoke checks passed
+[2026-02-07 14:10:52] Generating probe diagnostics summary report...
+Python was not found; run without arguments to install from the Microsoft Store, or disable this shortcut from Settings > Apps > Advanced app settings > App execution aliases.
+[2026-02-07 14:10:52] Warning: Failed to generate probe summary report.
+[2026-02-07 14:10:52] Smoke passed: tearing down local k8s resources and kind cluster 'cs301-crm'
+[2026-02-07 14:11:08] Teardown complete: kind cluster 'cs301-crm' deleted.
+[2026-02-07 14:11:08] Local Kubernetes build/deploy and smoke checks completed successfully.

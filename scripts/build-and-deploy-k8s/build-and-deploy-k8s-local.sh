@@ -101,6 +101,88 @@ initialize_kind_cluster() {
   run_make_target kind-up
 }
 
+generate_k8s_deploy_summary_report() {
+  local summary_script="${repo_root}/scripts/build-and-deploy-k8s/generate-k8s-deploy-summary.py"
+  
+  if [[ -z "${log_file}" ]]; then
+    log "No log file set; skipping k8s deploy summary report generation."
+    return
+  fi
+  
+  if [[ ! -f "${summary_script}" ]]; then
+    log "K8s deploy summary generator script not found: ${summary_script}"
+    return
+  fi
+  
+  # Check if Python is available and actually works
+  local python_cmd=""
+  for cmd in python3 python; do
+    if command -v "${cmd}" >/dev/null 2>&1; then
+      # Test if Python actually works
+      if "${cmd}" --version >/dev/null 2>&1; then
+        python_cmd="${cmd}"
+        break
+      fi
+    fi
+  done
+  
+  if [[ -z "${python_cmd}" ]]; then
+    log "Python not found or not working; skipping k8s deploy summary report generation."
+    return
+  fi
+  
+  log "Generating comprehensive K8s deployment summary report..."
+  local script_output
+  local exit_code
+  
+  # Capture output and exit code
+  script_output=$("${python_cmd}" "${summary_script}" "${log_file}" "${log_dir}" 2>&1)
+  exit_code=$?
+  
+  if [[ ${exit_code} -eq 0 ]]; then
+    # Only show output if successful
+    echo "${script_output}"
+    log "K8s deployment summary report generated successfully."
+    
+    # Rotate old summary reports (keep most recent 3)
+    local summary_files
+    summary_files="$(ls -1t "${log_dir}"/summary-k8s-deploy__*.html 2>/dev/null | tail -n +4 2>/dev/null || true)"
+    if [[ -n "${summary_files}" ]]; then
+      while IFS= read -r file; do
+        [[ -n "${file}" ]] && rm -f -- "${file}" 2>/dev/null || true
+      done <<< "${summary_files}"
+      log "Rotated old k8s deploy summary reports (kept 3 most recent)."
+    fi
+    
+    # Also generate the legacy probe diagnostics summary for backward compatibility
+    local probe_summary_script="${repo_root}/scripts/smoke-k8s-infra/generate-probe-summary.py"
+    if [[ -f "${probe_summary_script}" ]]; then
+      local probe_output
+      probe_output=$("${python_cmd}" "${probe_summary_script}" "${log_file}" "${log_dir}" 2>&1)
+      if [[ $? -eq 0 ]]; then
+        log "Legacy probe diagnostics summary also generated."
+        
+        # Rotate old probe diagnostics reports (keep most recent 3)
+        local probe_files
+        probe_files="$(ls -1t "${log_dir}"/probe-diagnostics-summary*.html 2>/dev/null | tail -n +4 2>/dev/null || true)"
+        if [[ -n "${probe_files}" ]]; then
+          while IFS= read -r file; do
+            [[ -n "${file}" ]] && rm -f -- "${file}" 2>/dev/null || true
+          done <<< "${probe_files}"
+        fi
+      fi
+    fi
+  else
+    log "Warning: Failed to generate k8s deploy summary report (exit code: ${exit_code})."
+    if [[ -n "${script_output}" ]]; then
+      log "Python script error output:"
+      echo "${script_output}" | while IFS= read -r line; do
+        log "  ${line}"
+      done
+    fi
+  fi
+}
+
 if ! command -v make >/dev/null 2>&1; then
   log "Missing dependency: 'make' is not installed or not in PATH."
   exit 1
@@ -148,6 +230,9 @@ run_make_target build-images
 run_make_target kind-load
 run_make_target deploy-dev
 run_make_target smoke
+
+# Generate comprehensive k8s deploy summary report (before teardown)
+generate_k8s_deploy_summary_report || log "Warning: Failed to generate k8s deploy summary report."
 
 log "Smoke passed: tearing down local k8s resources and kind cluster '${kind_cluster_name}'"
 

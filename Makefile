@@ -5,15 +5,18 @@ HELM ?= helm
 KIND ?= kind
 NULL_DEVICE ?= /dev/null
 GRADLEW ?= ./gradlew
-SMOKE_CMD ?= bash ./scripts/smoke-k8s-infra/smoke-k8s-infra.sh
+SMOKE_INFRA_CMD ?= bash ./scripts/smoke-k8s-infra/smoke-k8s-infra.sh
+SMOKE_PROBES_CMD ?= bash ./scripts/smoke-k8s-infra/smoke-probes.sh
+NS ?= dev
 
 ifeq ($(OS),Windows_NT)
 NULL_DEVICE := NUL
 GRADLEW := gradlew.bat
-SMOKE_CMD := powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-infra/smoke-k8s-infra.ps1
+SMOKE_INFRA_CMD := powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-infra/smoke-k8s-infra.ps1
+SMOKE_PROBES_CMD := powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-infra/smoke-probes.ps1
 endif
 
-.PHONY: k8s-validate kind-up infra-up build-images kind-load deploy-dev smoke build-and-deploy-local
+.PHONY: k8s-validate kind-up infra-up build-images kind-load deploy-dev smoke-infra smoke-probes smoke build-and-deploy-local
 
 k8s-validate:
 	tr -d '\r' < scripts/validate-k8s/validate.sh | REPO_ROOT="$$(pwd)" bash
@@ -61,8 +64,13 @@ deploy-dev:
 	$(KUBECTL) rollout status deployment/transaction -n dev --timeout=180s
 	$(KUBECTL) rollout status deployment/frontend -n dev --timeout=180s
 
-smoke:
-	$(SMOKE_CMD)
+smoke-infra:
+	$(SMOKE_INFRA_CMD)
+
+smoke-probes:
+	$(SMOKE_PROBES_CMD) $(NS)
+
+smoke: smoke-infra smoke-probes
 
 build-and-deploy-local: k8s-validate kind-up infra-up build-images kind-load deploy-dev smoke
 

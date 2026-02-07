@@ -23,10 +23,12 @@ Do not use `platform/k8s-apps/*` (deprecated legacy path; removed).
 - Bash and curl
 - OpenSSL (for smoke tests on macOS/Linux)
 - Java 21 (recommended for Gradle wrapper builds)
+- **Python 3.7+** (optional, for HTML probe diagnostics reports)
 
 Windows notes:
 - Use the PowerShell or `.cmd` wrappers in `scripts/`.
 - Install Git for Windows (Git Bash) so Makefile recipes can run under Bash.
+- Python is optional but recommended for enhanced probe diagnostics. Install from [python.org](https://www.python.org/downloads/) or via `winget install Python.Python.3.12`
 
 ## Golden path (recommended)
 Run one of these from repository root:
@@ -152,14 +154,20 @@ Ingress routes:
 - `http://localhost/api/logs` -> `log-service`
 - `http://localhost/api/transactions` -> `transaction-service`
 
-### 7) Run infrastructure smoke tests
+### 7) Run smoke tests
 ```bash
 make smoke
 ```
 
-Smoke scripts:
-- Windows: `scripts/smoke-k8s-infra/smoke-k8s-infra.ps1` (invoked by `make smoke`)
-- macOS/Linux: `scripts/smoke-k8s-infra/smoke-k8s-infra.sh` (invoked by `make smoke`)
+The `smoke` target runs two test suites in sequence:
+1. **Infrastructure smoke** (`make smoke-infra`) — HTTP endpoints, CRUD operations, service integration
+2. **Probe-aware smoke** (`make smoke-probes`) — Kubernetes health probes, rollout status, pod readiness
+
+#### Infrastructure Smoke
+
+Scripts:
+- Windows: `scripts/smoke-k8s-infra/smoke-k8s-infra.ps1`
+- macOS/Linux: `scripts/smoke-k8s-infra/smoke-k8s-infra.sh`
 
 Optional environment variables:
 - `BASE_URL` (default: `http://localhost`)
@@ -172,6 +180,74 @@ Checks:
 - Transactions list endpoint (if `transaction-service` is deployed)
 
 The script first tries `http://localhost`, then falls back to ingress controller port-forward if needed.
+
+#### Probe-Aware Smoke
+
+Scripts:
+- Windows: `scripts/smoke-k8s-infra/smoke-probes.ps1`
+- macOS/Linux: `scripts/smoke-k8s-infra/smoke-probes.sh`
+
+Validates:
+1. **Rollout readiness** — Gates on `kubectl rollout status` for all Deployments and StatefulSets in the namespace (default: `dev`)
+2. **Probe presence** — Asserts every container has:
+   - `readinessProbe` (required)
+   - `livenessProbe` (required)
+   - `startupProbe` (required for workloads listed in `scripts/smoke-k8s-infra/startup-probe-required.txt`)
+3. **In-cluster health checks** — Spawns an ephemeral curl pod to validate HTTP probe endpoints from inside the cluster
+
+On failure:
+- Generates **structured failure diagnostics** categorized by:
+  - **Rollout failures**: Deployments/StatefulSets that timed out or failed to roll out
+  - **Probe presence failures**: Containers missing required probes (readiness, liveness, startup)
+  - **In-cluster health failures**: HTTP probe endpoints returning non-2xx status codes
+- Creates **`probe-failures.json`**: Structured JSON output for CI/CD consumption
+- Creates **`probe-diagnostics-summary.html`**: Visual HTML report with:
+  - Pass/fail statistics dashboard
+  - Detailed failure tables with timestamps
+  - HTTP response diagnostics (headers, body snippets)
+  - Links to full build logs
+- Prints comprehensive diagnostics:
+  - Pod status, describe output, events (last 200)
+  - Container logs (last 60 lines per deployment)
+  - HTTP response details for failed endpoints
+- Exits non-zero (aborts the deployment pipeline)
+
+**Failure Report Locations:**
+- HTML Summary: `build-logs/build-and-deploy-k8s/probe-diagnostics-summary.html`
+- JSON Data: `build-logs/build-and-deploy-k8s/probe-failures.json`
+- Full Logs: `build-logs/build-and-deploy-k8s/inv*__*__build-and-deploy-k8s-local.log`
+
+**Report Rotation:**
+The build-and-deploy pipeline automatically keeps the 3 most recent HTML summary reports and rotates older ones.
+
+Optional environment variables:
+- `ROLLOUT_TIMEOUT` (default: `300s`)
+- `CURL_IMAGE` (default: `curlimages/curl:8.5.0`)
+
+Run probe-aware smoke only:
+```bash
+make smoke-probes
+```
+
+Override namespace:
+```bash
+make smoke-probes NS=staging
+```
+
+**Viewing Diagnostics:**
+After a failed deployment, open the HTML summary report to quickly identify:
+- Which services failed rollout and why
+- Which containers are missing which probes
+- Which HTTP endpoints are failing and their response details
+
+Example workflow:
+```powershell
+# Run deployment (will auto-generate diagnostics on failure)
+.\scripts\build-and-deploy-k8s\build-and-deploy-k8s-local.ps1
+
+# Review failures in browser
+Start-Process build-logs\build-and-deploy-k8s\probe-diagnostics-summary.html
+```
 
 ## Teardown and reset
 
@@ -215,6 +291,45 @@ helm uninstall metrics-server -n kube-system
   - `kubectl logs statefulset/postgres-postgresql -n dev --tail=100`
 - Inspect events: `kubectl get events -n dev --sort-by=.metadata.creationTimestamp`
 
+### Probe-aware smoke fails with missing probes
+- Check the error output — it will specify which Deployment/container is missing which probe type
+- Review the **HTML diagnostics summary**: `build-logs/build-and-deploy-k8s/probe-diagnostics-summary.html`
+  - Look for "Probe Presence Failures" section
+  - Identifies exact resource, container, and missing probe type
+- Add missing probes to the deployment YAML in `platform/k8s/apps/base/<service>-deployment.yaml`
+- For startup probes: if the service is slow-starting (e.g., JVM/Spring Boot), add it to `scripts/smoke-k8s-infra/startup-probe-required.txt`
+- Re-apply: `kubectl apply -k platform/k8s/apps/overlays/dev`
+- Rerun smoke: `make smoke-probes`
+
+### Probe-aware smoke fails with rollout timeout
+- Check the **HTML diagnostics summary**: `build-logs/build-and-deploy-k8s/probe-diagnostics-summary.html`
+  - Look for "Rollout Failures" section
+  - Review detailed output showing why rollout failed
+- Check pod status: `kubectl get pods -n dev -o wide`
+- Check events: `kubectl get events -n dev --sort-by=.metadata.creationTimestamp | tail -50`
+- Check logs for failing pods: `kubectl logs deployment/<service> -n dev --tail=100`
+- Common causes:
+  - Image pull failures (not loaded via `make kind-load`)
+  - Probe configuration too strict (initialDelaySeconds too low, failureThreshold too low)
+  - Application startup failures (check logs in diagnostics report)
+  - Resource constraints (check pod describe output in diagnostics)
+
+### In-cluster health checks fail
+- Review the **HTML diagnostics summary**: `build-logs/build-and-deploy-k8s/probe-diagnostics-summary.html`
+  - Look for "In-Cluster Health Failures" section
+  - See exact HTTP status codes and response diagnostics
+  - Review captured response headers and body snippets
+- Common causes:
+  - Service not listening on expected port (check service spec and container ports)
+  - Probe path incorrect (verify URLs in deployment YAML)
+  - Application not fully started (increase initialDelaySeconds)
+  - DNS resolution issues (verify service name matches deployment)
+- Debug manually with ephemeral pod:
+  ```bash
+  kubectl run -it --rm debug --image=curlimages/curl --restart=Never -n dev -- \
+    curl -v http://<service-name>.dev.svc.cluster.local:<port><path>
+  ```
+
 ### Windows wrapper fails because Bash or Make is missing
 - Install/verify Git Bash and Make in `PATH`
 - Re-run:
@@ -224,8 +339,12 @@ helm uninstall metrics-server -n kube-system
 When adding a new backend service:
 - Add service code and Dockerfile under `services/backend/<new-service>`
 - Add base deployment/service YAML under `platform/k8s/apps/base` and register in `platform/k8s/apps/base/kustomization.yaml`
+  - **Include `readinessProbe` and `livenessProbe` for all containers** (probe-aware smoke enforces this)
+  - If the service has slow cold-start (e.g., JVM/Spring Boot), add `startupProbe` and list it in `scripts/smoke-k8s-infra/startup-probe-required.txt`
 - Add image tag entry and patches in `platform/k8s/apps/overlays/dev/kustomization.yaml`
+- Add probe patches if needed in `platform/k8s/apps/overlays/dev/<service>-probes-patch.yaml` (tighter probe settings for dev)
 - Add ingress rule if externally reachable
 - Extend `Makefile` targets: `build-images`, `kind-load`, `deploy-dev`
-- Extend `scripts/smoke-k8s-infra/smoke-k8s-infra.sh` with infrastructure-level checks for the new service
+- Extend `scripts/smoke-k8s-infra/smoke-k8s-infra.sh` with infrastructure-level checks for the new service (CRUD/integration tests)
+- Probe-aware smoke (`scripts/smoke-k8s-infra/smoke-probes.sh`) automatically validates the new service's probes — no manual extension needed
 

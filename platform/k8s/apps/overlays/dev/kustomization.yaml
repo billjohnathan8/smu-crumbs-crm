@@ -27,6 +27,27 @@ patches:
     target:
       kind: Deployment
       name: transaction
+  # Health probe patches (readiness + liveness + startup)
+  - path: agent-probes-patch.yaml
+    target:
+      kind: Deployment
+      name: agent
+  - path: client-probes-patch.yaml
+    target:
+      kind: Deployment
+      name: client
+  - path: log-probes-patch.yaml
+    target:
+      kind: Deployment
+      name: log
+  - path: transaction-probes-patch.yaml
+    target:
+      kind: Deployment
+      name: transaction
+  - path: frontend-probes-patch.yaml
+    target:
+      kind: Deployment
+      name: frontend
 labels:
   - pairs:
       app.kubernetes.io/part-of: crm-backend

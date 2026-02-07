@@ -176,3 +176,53 @@ go install github.com/yannh/kubeconform/cmd/kubeconform@latest
 # Windows (scoop)
 scoop install kubeconform
 ```
+
+---
+
+## Smoke Testing
+
+The local deploy pipeline runs comprehensive smoke tests automatically after deployment. Smoke tests validate both infrastructure and application health.
+
+### Running All Smoke Tests
+```bash
+make smoke
+```
+
+This runs two test suites in sequence:
+1. **Infrastructure smoke** (`smoke-infra`) — validates HTTP endpoints through ingress, CRUD operations, and service integration
+2. **Probe-aware smoke** (`smoke-probes`) — validates Kubernetes health probes and pod readiness
+
+### Running Individual Smoke Test Suites
+
+**Infrastructure smoke only** (HTTP endpoints, CRUD, integration):
+```bash
+make smoke-infra
+```
+
+**Probe-aware smoke only** (health probes, rollout status):
+```bash
+make smoke-probes
+```
+
+You can override the namespace for probe-aware smoke (defaults to `dev`):
+```bash
+make smoke-probes NS=staging
+```
+
+### What Probe-Aware Smoke Validates
+
+The probe-aware smoke test (`scripts/smoke-k8s-infra/smoke-probes.sh` / `.ps1`) ensures:
+
+1. **Rollout readiness** — All Deployments and StatefulSets in the namespace must reach ready state before HTTP checks
+2. **Probe presence** — Every container must have:
+   - `readinessProbe` (required)
+   - `livenessProbe` (required)
+   - `startupProbe` (required for workloads listed in `scripts/smoke-k8s-infra/startup-probe-required.txt`)
+3. **In-cluster health checks** — Spawns an ephemeral curl pod to validate HTTP probe endpoints from inside the cluster
+
+On failure, the script dumps diagnostic information:
+- Pod status and details
+- Recent cluster events
+- Container logs
+
+---

@@ -507,6 +507,108 @@ function Invoke-TeardownAfterSuccess {
     }
 }
 
+function Generate-K8sDeploySummaryReport {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RepoRoot
+    )
+
+    if (-not $env:BUILD_LOG_FILE) {
+        Write-Log "No BUILD_LOG_FILE environment variable set; skipping k8s deploy summary report generation."
+        return
+    }
+
+    $logFile = $env:BUILD_LOG_FILE
+    $logDir = Split-Path -Parent $logFile
+    $summaryScript = Join-Path $RepoRoot "scripts\build-and-deploy-k8s\generate-k8s-deploy-summary.py"
+
+    if (-not (Test-Path $summaryScript)) {
+        Write-Log "K8s deploy summary generator script not found: $summaryScript"
+        return
+    }
+
+    # Check if Python is available and actually works (not just the Windows stub)
+    $pythonCmd = $null
+    $oldEap = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        foreach ($cmd in @("python3", "python")) {
+            if (Get-Command $cmd -ErrorAction SilentlyContinue) {
+                # Test if Python actually works (not the Windows Store stub)
+                $testOutput = & $cmd --version 2>&1
+                if ($LASTEXITCODE -eq 0 -and $testOutput -match 'Python \d+\.\d+') {
+                    $pythonCmd = $cmd
+                    break
+                }
+            }
+        }
+    }
+    finally {
+        $ErrorActionPreference = $oldEap
+    }
+
+    if (-not $pythonCmd) {
+        Write-Log "Python not found or not working; skipping k8s deploy summary report generation."
+        return
+    }
+
+    Write-Log "Generating comprehensive K8s deployment summary report..."
+    $oldEap = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $scriptOutput = & $pythonCmd $summaryScript $logFile $logDir 2>&1
+        $exitCode = $LASTEXITCODE
+        
+        if ($exitCode -eq 0) {
+            # Only show output if successful
+            $scriptOutput | ForEach-Object { Write-Host $_ }
+            Write-Log "K8s deployment summary report generated successfully."
+            
+            # Rotate old summary reports (keep most recent 3)
+            $summaryFiles = @(
+                Get-ChildItem -Path $logDir -File -Filter "summary-k8s-deploy__*.html" -ErrorAction SilentlyContinue |
+                    Sort-Object LastWriteTime -Descending
+            )
+            if ($summaryFiles.Count -gt 3) {
+                $summaryFiles | Select-Object -Skip 3 | Remove-Item -Force -ErrorAction SilentlyContinue
+                Write-Log "Rotated old k8s deploy summary reports (kept 3 most recent)."
+            }
+            
+            # Also generate the legacy probe diagnostics summary for backward compatibility
+            $probeSummaryScript = Join-Path $RepoRoot "scripts\smoke-k8s-infra\generate-probe-summary.py"
+            if (Test-Path $probeSummaryScript) {
+                $probeOutput = & $pythonCmd $probeSummaryScript $logFile $logDir 2>&1
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Log "Legacy probe diagnostics summary also generated."
+                    
+                    # Rotate old probe diagnostics reports (keep most recent 3)
+                    $probeFiles = @(
+                        Get-ChildItem -Path $logDir -File -Filter "probe-diagnostics-summary*.html" -ErrorAction SilentlyContinue |
+                            Sort-Object LastWriteTime -Descending
+                    )
+                    if ($probeFiles.Count -gt 3) {
+                        $probeFiles | Select-Object -Skip 3 | Remove-Item -Force -ErrorAction SilentlyContinue
+                    }
+                }
+            }
+        }
+        else {
+            # Python script failed - show error details
+            Write-Log "Warning: Failed to generate k8s deploy summary report (exit code: $exitCode)."
+            if ($scriptOutput) {
+                Write-Log "Python script error output:"
+                $scriptOutput | ForEach-Object { Write-Log "  $_" }
+            }
+        }
+    }
+    catch {
+        Write-Log "Warning: Error generating k8s deploy summary report: $($_.Exception.Message)"
+    }
+    finally {
+        $ErrorActionPreference = $oldEap
+    }
+}
+
 if (-not (Get-Command make -ErrorAction SilentlyContinue)) {
     Write-Log "Missing dependency: 'make' is not installed or not in PATH."
     Exit-WithCode -Code 1
@@ -571,6 +673,14 @@ try {
     $completedSuccessfully = $true
 }
 finally {
+    # Generate comprehensive k8s deploy summary report (regardless of success/failure)
+    try {
+        Generate-K8sDeploySummaryReport -RepoRoot $repoRoot
+    }
+    catch {
+        Write-Log "Warning: Failed to generate k8s deploy summary: $($_.Exception.Message)"
+    }
+
     if ($completedSuccessfully) {
         try {
             Invoke-TeardownAfterSuccess -ClusterName $kindClusterName

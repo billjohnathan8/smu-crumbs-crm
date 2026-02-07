@@ -1,0 +1,6 @@
+# Workloads that MUST have a startupProbe defined.
+# Typically JVM/Spring Boot services with slow cold-starts.
+# One "<kind>/<name>" per line. Lines starting with '#' are comments.
+Deployment/agent
+Deployment/client
+Deployment/transaction

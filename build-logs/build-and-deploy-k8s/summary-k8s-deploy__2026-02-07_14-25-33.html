@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K8s Deployment Summary Report</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 2.8em;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+        .header .timestamp {
+            font-size: 1.1em;
+            opacity: 0.9;
+            margin-top: 10px;
+        }
+        .status-banner {
+            padding: 25px;
+            text-align: center;
+            font-size: 1.8em;
+            font-weight: bold;
+            color: white;
+            background-color: #28a745;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+        .summary-card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .summary-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+        .summary-card h3 {
+            color: #495057;
+            margin-bottom: 20px;
+            font-size: 1.2em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .stat:last-child {
+            border-bottom: none;
+        }
+        .stat-label {
+            color: #6c757d;
+            font-weight: 500;
+        }
+        .stat-value {
+            font-weight: bold;
+            font-size: 1.3em;
+        }
+        .stat-value.passed {
+            color: #28a745;
+        }
+        .stat-value.failed {
+            color: #dc3545;
+        }
+        .stat-value.total {
+            color: #667eea;
+        }
+        .section {
+            padding: 30px;
+        }
+        .section h2 {
+            color: #495057;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #667eea;
+            font-size: 1.8em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .section h3 {
+            color: #495057;
+            margin: 25px 0 15px 0;
+            font-size: 1.4em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        th, td {
+            padding: 15px;
+            text-align: left;
+        }
+        th {
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            letter-spacing: 0.5px;
+        }
+        tbody tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        tbody tr:hover {
+            background: #e9ecef;
+            transition: background 0.2s;
+        }
+        .badge {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 14px;
+            font-size: 0.85em;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .badge.passed {
+            background: #d4edda;
+            color: #155724;
+        }
+        .badge.failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .failure-details {
+            background: #fff3cd;
+            border-left: 5px solid #ffc107;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 6px;
+        }
+        .failure-details h4 {
+            color: #856404;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        .failure-details p {
+            margin: 8px 0;
+            color: #856404;
+        }
+        .failure-details pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 0.9em;
+            margin-top: 10px;
+            border: 1px solid #dee2e6;
+        }
+        .footer {
+            padding: 30px;
+            text-align: center;
+            background: #f8f9fa;
+            color: #6c757d;
+            font-size: 0.95em;
+            border-top: 2px solid #e9ecef;
+        }
+        .log-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: bold;
+            transition: color 0.2s;
+        }
+        .log-link:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+            font-style: italic;
+        }
+        .icon {
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <span class="icon">☸️</span>
+                Kubernetes Deployment Summary
+            </h1>
+            <div class="timestamp">Generated: 2026-02-07 14:29:45</div>
+        </div>
+        
+        <div class="status-banner">
+            <span>✅</span>
+            <span>Overall Status: PASSED</span>
+        </div>
+        
+        <div class="summary-grid">
+            <div class="summary-card">
+                <h3><span class="icon">🔍</span> Validation Checks</h3>
+                <div class="stat">
+                    <span class="stat-label">Passed</span>
+                    <span class="stat-value passed">2</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Failed</span>
+                    <span class="stat-value failed">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Total</span>
+                    <span class="stat-value total">2</span>
+                </div>
+            </div>
+            
+            <div class="summary-card">
+                <h3><span class="icon">📊</span> Rollout Status</h3>
+                <div class="stat">
+                    <span class="stat-label">Passed</span>
+                    <span class="stat-value passed">6</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Failed</span>
+                    <span class="stat-value failed">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Total</span>
+                    <span class="stat-value total">6</span>
+                </div>
+            </div>
+            
+            <div class="summary-card">
+                <h3><span class="icon">🔬</span> Probe Presence</h3>
+                <div class="stat">
+                    <span class="stat-label">Passed</span>
+                    <span class="stat-value passed">17</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Failed</span>
+                    <span class="stat-value failed">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Total</span>
+                    <span class="stat-value total">17</span>
+                </div>
+            </div>
+            
+            <div class="summary-card">
+                <h3><span class="icon">🌐</span> Health Checks</h3>
+                <div class="stat">
+                    <span class="stat-label">Passed</span>
+                    <span class="stat-value passed">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Failed</span>
+                    <span class="stat-value failed">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Total</span>
+                    <span class="stat-value total">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2><span class="icon">🔍</span> Validation Results</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Check Name</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+
+                    <tr>
+                        <td>Kubeconform Schema Validation</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                    <tr>
+                        <td>Kind Config YAML</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2><span class="icon">📊</span> Deployment Rollout Status</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Resource Type</th>
+                        <th>Name</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+
+                    <tr>
+                        <td>deployment</td>
+                        <td>agent</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                    <tr>
+                        <td>deployment</td>
+                        <td>client</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                    <tr>
+                        <td>deployment</td>
+                        <td>frontend</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                    <tr>
+                        <td>deployment</td>
+                        <td>log</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                    <tr>
+                        <td>deployment</td>
+                        <td>transaction</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                    <tr>
+                        <td>statefulset</td>
+                        <td>postgres-postgresql</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2><span class="icon">🔬</span> Probe Presence Checks</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Resource</th>
+                        <th>Container</th>
+                        <th>Probe Type</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+
+                    <tr>
+                        <td>Deployment/agent</td>
+                        <td>agent</td>
+                        <td>readinessProbe</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                    <tr>
+                        <td>Deployment/agent</td>
+                        <td>agent</td>
+                        <td>livenessProbe</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                    <tr>
+                        <td>Deployment/agent</td>
+                        <td>agent</td>
+                        <td>startupProbe</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                    <tr>
+                        <td>Deployment/client</td>
+                        <td>client</td>
+                        <td>readinessProbe</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                    <tr>
+                        <td>Deployment/client</td>
+                        <td>client</td>
+                        <td>livenessProbe</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                    <tr>
+                        <td>Deployment/client</td>
+                        <td>client</td>
+                        <td>startupProbe</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                    <tr>
+                        <td>Deployment/frontend</td>
+                        <td>frontend</td>
+                        <td>readinessProbe</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                    <tr>
+                        <td>Deployment/frontend</td>
+                        <td>frontend</td>
+                        <td>livenessProbe</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                    <tr>
+                        <td>Deployment/frontend</td>
+                        <td>frontend</td>
+                        <td>startupProbe</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                    <tr>
+                        <td>Deployment/log</td>
+                        <td>log</td>
+                        <td>readinessProbe</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                    <tr>
+                        <td>Deployment/log</td>
+                        <td>log</td>
+                        <td>livenessProbe</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                    <tr>
+                        <td>Deployment/log</td>
+                        <td>log</td>
+                        <td>startupProbe</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                    <tr>
+                        <td>Deployment/transaction</td>
+                        <td>transaction</td>
+                        <td>readinessProbe</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                    <tr>
+                        <td>Deployment/transaction</td>
+                        <td>transaction</td>
+                        <td>livenessProbe</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                    <tr>
+                        <td>Deployment/transaction</td>
+                        <td>transaction</td>
+                        <td>startupProbe</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                    <tr>
+                        <td>StatefulSet/postgres-postgresql</td>
+                        <td>postgresql</td>
+                        <td>readinessProbe</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                    <tr>
+                        <td>StatefulSet/postgres-postgresql</td>
+                        <td>postgresql</td>
+                        <td>livenessProbe</td>
+                        <td><span class="badge passed">PASSED</span></td>
+                    </tr>
+
+                </tbody>
+            </table>
+        </div>
+
+        <div class="footer">
+            <p>
+                <strong>Full Build Log:</strong> 
+                <a href="inv79731024-093426__2026-02-07_14-25-33__build-and-deploy-k8s-local.log" class="log-link">inv79731024-093426__2026-02-07_14-25-33__build-and-deploy-k8s-local.log</a>
+            </p>
+            <p style="margin-top: 10px;">
+                Report generated by Kubernetes deployment pipeline
+            </p>
+        </div>
+    </div>
+</body>
+</html>
