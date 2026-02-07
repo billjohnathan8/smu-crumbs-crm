@@ -1,0 +1,207 @@
+name: CI - Main Pipeline
+
+# Fast pipeline for the main branch.
+# Runs: changes → lint → tests → k8s-validate.
+# Kind deploy + smoke is SKIPPED by default (expensive).
+# Use workflow_dispatch with run_kind_deploy=true to include it.
+#
+# Job DAG:
+#
+#   changes  (5s)
+#      |
+#      v
+#    lint    (3-5 min, only scopes that changed)
+#      |
+#      +---> test-agent           \
+#      +---> test-client           |  parallel, each gated by its scope
+#      +---> test-transaction      |
+#      +---> test-log              |
+#      +---> test-frontend        /
+#      |
+#      v
+#   k8s-validate  (needs all tests, gated by k8s/scripts/ci-config scope)
+#      |
+#      v
+#   kind-smoke    (only on workflow_dispatch with run_kind_deploy=true)
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      run_kind_deploy:
+        description: 'Run kind deploy + smoke tests (expensive, ~15 min)'
+        required: false
+        type: boolean
+        default: false
+      kind_cluster_name:
+        description: 'kind cluster name (default: cs301-crm)'
+        required: false
+        default: 'cs301-crm'
+      namespace:
+        description: 'Kubernetes namespace (default: dev)'
+        required: false
+        default: 'dev'
+
+concurrency:
+  group: ci-main-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  # ==========================================================================
+  # Layer 0: Detect which components changed
+  # ==========================================================================
+  changes:
+    uses: ./.github/workflows/_reusable/changes.yml
+
+  # ==========================================================================
+  # Layer 1: Lint / Format / Typecheck  (gates everything downstream)
+  # ==========================================================================
+  lint:
+    needs: changes
+    uses: ./.github/workflows/_reusable/lint.yml
+    with:
+      run-backend-java: >-
+        ${{ needs.changes.outputs.any-backend == 'true'
+            || needs.changes.outputs.ci-config == 'true' }}
+      run-backend-python: >-
+        ${{ needs.changes.outputs.backend-log == 'true'
+            || needs.changes.outputs.ci-config == 'true' }}
+      run-frontend: >-
+        ${{ needs.changes.outputs.frontend == 'true'
+            || needs.changes.outputs.ci-config == 'true' }}
+
+  # ==========================================================================
+  # Layer 2: Component tests  (parallel, each gated by its scope)
+  # All require lint to pass first.
+  # ==========================================================================
+  test-agent:
+    needs: [changes, lint]
+    if: >-
+      needs.changes.outputs.backend-agent == 'true'
+      || needs.changes.outputs.ci-config == 'true'
+    uses: ./.github/workflows/_reusable/test-component.yml
+    with:
+      component: agent
+      runtime: java
+      working-directory: services/backend/agent
+      test-command: |
+        chmod +x gradlew
+        ./gradlew test jacocoTestReport --no-daemon --console=plain
+      timeout-minutes: 10
+      artifact-paths: services/backend/agent/build/reports/**
+
+  test-client:
+    needs: [changes, lint]
+    if: >-
+      needs.changes.outputs.backend-client == 'true'
+      || needs.changes.outputs.ci-config == 'true'
+    uses: ./.github/workflows/_reusable/test-component.yml
+    with:
+      component: client
+      runtime: java
+      working-directory: services/backend/client
+      test-command: |
+        chmod +x gradlew
+        ./gradlew test jacocoTestReport --no-daemon --console=plain
+      timeout-minutes: 12
+      artifact-paths: services/backend/client/build/reports/**
+
+  test-transaction:
+    needs: [changes, lint]
+    if: >-
+      needs.changes.outputs.backend-transaction == 'true'
+      || needs.changes.outputs.ci-config == 'true'
+    uses: ./.github/workflows/_reusable/test-component.yml
+    with:
+      component: transaction
+      runtime: java
+      working-directory: services/backend/transaction
+      test-command: |
+        chmod +x gradlew
+        ./gradlew test jacocoTestReport --no-daemon --console=plain
+      timeout-minutes: 10
+      artifact-paths: services/backend/transaction/build/reports/**
+
+  test-log:
+    needs: [changes, lint]
+    if: >-
+      needs.changes.outputs.backend-log == 'true'
+      || needs.changes.outputs.ci-config == 'true'
+    uses: ./.github/workflows/_reusable/test-component.yml
+    with:
+      component: log
+      runtime: python
+      working-directory: services/backend/log
+      test-command: |
+        python -m pytest tests \
+          --junitxml=build/reports/tests/junit.xml \
+          --cov=app \
+          --cov-branch \
+          --cov-report=term-missing \
+          --cov-report=xml:build/reports/coverage/coverage.xml \
+          --cov-report=html:build/reports/coverage/html
+      timeout-minutes: 8
+      artifact-paths: |
+        services/backend/log/build/reports/**
+        services/backend/log/build/coverage.xml
+
+  test-frontend:
+    needs: [changes, lint]
+    if: >-
+      needs.changes.outputs.frontend == 'true'
+      || needs.changes.outputs.ci-config == 'true'
+    uses: ./.github/workflows/_reusable/test-component.yml
+    with:
+      component: frontend
+      runtime: node
+      working-directory: services/frontend/crm-ui
+      test-command: npm run test:coverage
+      timeout-minutes: 10
+      artifact-paths: services/frontend/crm-ui/coverage/**
+
+  # ==========================================================================
+  # Layer 3: K8s manifest validation
+  # Runs only after ALL tests pass (or are skipped).
+  # Gated to k8s / infra / scripts / ci-config scope.
+  # ==========================================================================
+  k8s-validate:
+    needs:
+      - changes
+      - lint
+      - test-agent
+      - test-client
+      - test-transaction
+      - test-log
+      - test-frontend
+    if: >-
+      !failure() && !cancelled()
+      && (
+        needs.changes.outputs.any-k8s == 'true'
+        || needs.changes.outputs.scripts == 'true'
+        || needs.changes.outputs.ci-config == 'true'
+      )
+    uses: ./.github/workflows/_reusable/k8s-validate.yml
+
+  # ==========================================================================
+  # Layer 4: Kind deploy + smoke tests (OPTIONAL)
+  # Only runs on workflow_dispatch with run_kind_deploy=true.
+  # ==========================================================================
+  kind-smoke:
+    needs:
+      - k8s-validate
+    if: >-
+      !failure() && !cancelled()
+      && github.event_name == 'workflow_dispatch'
+      && github.event.inputs.run_kind_deploy == 'true'
+    uses: ./.github/workflows/_reusable/kind-smoke.yml
+    with:
+      kind-cluster-name: ${{ github.event.inputs.kind_cluster_name || 'cs301-crm' }}
+      namespace: ${{ github.event.inputs.namespace || 'dev' }}

@@ -1,0 +1,39 @@
+name: CI - Frontend
+
+# Component pipeline for the frontend trunk.
+# Runs ESLint + Prettier + TypeScript typecheck + Vitest coverage.
+
+on:
+  pull_request:
+    branches:
+      - frontend
+  push:
+    branches:
+      - frontend
+  workflow_dispatch:
+
+concurrency:
+  group: ci-frontend-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    uses: ./.github/workflows/_reusable/lint.yml
+    with:
+      run-backend-java: false
+      run-backend-python: false
+      run-frontend: true
+
+  test:
+    needs: lint
+    uses: ./.github/workflows/_reusable/test-component.yml
+    with:
+      component: frontend
+      runtime: node
+      working-directory: services/frontend/crm-ui
+      test-command: npm run test:coverage
+      timeout-minutes: 10
+      artifact-paths: services/frontend/crm-ui/coverage/**

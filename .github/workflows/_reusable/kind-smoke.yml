@@ -1,0 +1,127 @@
+name: Kind Deploy & Smoke Tests
+
+# Reusable workflow that creates a kind cluster, deploys all services,
+# and runs in-cluster smoke tests using the existing repo scripts.
+# Uses the k8s-debug composite action for failure diagnostics.
+
+on:
+  workflow_call:
+    inputs:
+      kind-cluster-name:
+        description: 'Name of the kind cluster'
+        required: false
+        type: string
+        default: 'cs301-crm'
+      namespace:
+        description: 'Kubernetes namespace to deploy to'
+        required: false
+        type: string
+        default: 'dev'
+      timeout-minutes:
+        description: 'Job timeout in minutes'
+        required: false
+        type: number
+        default: 45
+
+permissions:
+  contents: read
+
+env:
+  KIND_CLUSTER_NAME: ${{ inputs.kind-cluster-name }}
+  NS: ${{ inputs.namespace }}
+  GRADLE_USER_HOME: ${{ github.workspace }}/.gradle-user-home
+
+jobs:
+  deploy-and-smoke:
+    name: Deploy to kind & Smoke Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ---- Runtime setup ----
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: services/frontend/crm-ui/package-lock.json
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # ---- K8s tooling ----
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'latest'
+
+      - name: Install kubeconform
+        run: |
+          KUBECONFORM_VERSION=v0.6.7
+          curl -sSLo kubeconform.tar.gz \
+            "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          tar xzf kubeconform.tar.gz
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: Install kind
+        uses: helm/kind-action@v1
+        with:
+          install_only: true
+          version: v0.25.0
+
+      # ---- Prepare scripts ----
+      - name: Normalize line endings
+        run: |
+          sudo apt-get update && sudo apt-get install -y dos2unix
+          find scripts -type f -name "*.sh" -exec dos2unix {} \;
+          find platform -type f \( -name "*.yml" -o -name "*.yaml" \) -exec dos2unix {} \;
+
+      - name: Install frontend dependencies
+        working-directory: services/frontend/crm-ui
+        run: npm install
+
+      - name: Make scripts executable
+        run: |
+          chmod +x scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh
+          chmod +x scripts/validate-k8s/validate.sh
+          chmod +x scripts/smoke-k8s-infra/smoke-k8s-infra.sh
+          chmod +x scripts/smoke-k8s-infra/smoke-probes.sh
+          find services/backend -name gradlew -exec chmod +x {} \;
+
+      # ---- Deploy & Smoke ----
+      - name: Run local K8s deployment and smoke tests
+        id: deploy
+        run: bash scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh
+
+      # ---- Failure diagnostics (via composite action) ----
+      - name: Capture K8s diagnostics on failure
+        if: failure()
+        uses: ./.github/actions/k8s-debug
+        with:
+          namespace: ${{ inputs.namespace }}
+
+      # ---- Artifacts ----
+      - name: Upload deployment logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k8s-deploy-logs
+          path: build-logs/build-and-deploy-k8s/**
+          retention-days: 14

@@ -1,0 +1,138 @@
+name: Detect Changed Components
+
+# Reusable workflow that computes boolean outputs per scope using dorny/paths-filter.
+# Callers use outputs to conditionally skip unaffected jobs.
+
+on:
+  workflow_call:
+    outputs:
+      backend-agent:
+        description: 'true if services/backend/agent changed'
+        value: ${{ jobs.detect.outputs.backend-agent }}
+      backend-client:
+        description: 'true if services/backend/client changed'
+        value: ${{ jobs.detect.outputs.backend-client }}
+      backend-transaction:
+        description: 'true if services/backend/transaction changed'
+        value: ${{ jobs.detect.outputs.backend-transaction }}
+      backend-log:
+        description: 'true if services/backend/log changed'
+        value: ${{ jobs.detect.outputs.backend-log }}
+      frontend:
+        description: 'true if services/frontend/crm-ui changed'
+        value: ${{ jobs.detect.outputs.frontend }}
+      k8s-manifests:
+        description: 'true if platform/k8s/apps changed'
+        value: ${{ jobs.detect.outputs.k8s-manifests }}
+      k8s-infra:
+        description: 'true if platform/k8s/infra changed'
+        value: ${{ jobs.detect.outputs.k8s-infra }}
+      scripts:
+        description: 'true if scripts/ or Makefile changed'
+        value: ${{ jobs.detect.outputs.scripts }}
+      ci-config:
+        description: 'true if .github/workflows changed'
+        value: ${{ jobs.detect.outputs.ci-config }}
+      any-backend:
+        description: 'true if any backend service changed'
+        value: ${{ jobs.detect.outputs.any-backend }}
+      any-service:
+        description: 'true if any service (backend or frontend) changed'
+        value: ${{ jobs.detect.outputs.any-service }}
+      any-k8s:
+        description: 'true if any k8s config changed'
+        value: ${{ jobs.detect.outputs.any-k8s }}
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      backend-agent: ${{ steps.filter.outputs.backend-agent }}
+      backend-client: ${{ steps.filter.outputs.backend-client }}
+      backend-transaction: ${{ steps.filter.outputs.backend-transaction }}
+      backend-log: ${{ steps.filter.outputs.backend-log }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      k8s-manifests: ${{ steps.filter.outputs.k8s-manifests }}
+      k8s-infra: ${{ steps.filter.outputs.k8s-infra }}
+      scripts: ${{ steps.filter.outputs.scripts }}
+      ci-config: ${{ steps.filter.outputs.ci-config }}
+      any-backend: ${{ steps.aggregate.outputs.any-backend }}
+      any-service: ${{ steps.aggregate.outputs.any-service }}
+      any-k8s: ${{ steps.aggregate.outputs.any-k8s }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Detect changed paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend-agent:
+              - 'services/backend/agent/**'
+            backend-client:
+              - 'services/backend/client/**'
+            backend-transaction:
+              - 'services/backend/transaction/**'
+            backend-log:
+              - 'services/backend/log/**'
+            frontend:
+              - 'services/frontend/crm-ui/**'
+            k8s-manifests:
+              - 'platform/k8s/apps/**'
+            k8s-infra:
+              - 'platform/k8s/infra/**'
+            scripts:
+              - 'scripts/**'
+              - 'Makefile'
+            ci-config:
+              - '.github/workflows/**'
+              - '.github/actions/**'
+
+      - name: Compute aggregate flags
+        id: aggregate
+        run: |
+          ANY_BACKEND="false"
+          if [[ "${{ steps.filter.outputs.backend-agent }}" == "true" ]] || \
+             [[ "${{ steps.filter.outputs.backend-client }}" == "true" ]] || \
+             [[ "${{ steps.filter.outputs.backend-transaction }}" == "true" ]] || \
+             [[ "${{ steps.filter.outputs.backend-log }}" == "true" ]]; then
+            ANY_BACKEND="true"
+          fi
+
+          ANY_SERVICE="false"
+          if [[ "${ANY_BACKEND}" == "true" ]] || \
+             [[ "${{ steps.filter.outputs.frontend }}" == "true" ]]; then
+            ANY_SERVICE="true"
+          fi
+
+          ANY_K8S="false"
+          if [[ "${{ steps.filter.outputs.k8s-manifests }}" == "true" ]] || \
+             [[ "${{ steps.filter.outputs.k8s-infra }}" == "true" ]]; then
+            ANY_K8S="true"
+          fi
+
+          echo "any-backend=${ANY_BACKEND}" >> "$GITHUB_OUTPUT"
+          echo "any-service=${ANY_SERVICE}" >> "$GITHUB_OUTPUT"
+          echo "any-k8s=${ANY_K8S}" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        run: |
+          echo "### Changed Components" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Scope | Changed |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------|---------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| backend-agent | ${{ steps.filter.outputs.backend-agent }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| backend-client | ${{ steps.filter.outputs.backend-client }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| backend-transaction | ${{ steps.filter.outputs.backend-transaction }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| backend-log | ${{ steps.filter.outputs.backend-log }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| frontend | ${{ steps.filter.outputs.frontend }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| k8s-manifests | ${{ steps.filter.outputs.k8s-manifests }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| k8s-infra | ${{ steps.filter.outputs.k8s-infra }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| scripts | ${{ steps.filter.outputs.scripts }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| ci-config | ${{ steps.filter.outputs.ci-config }} |" >> "$GITHUB_STEP_SUMMARY"

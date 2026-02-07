@@ -1,0 +1,41 @@
+name: CI - Transaction Backend
+
+# Component pipeline for the transaction-backend trunk.
+# Runs Java checkstyle + unit tests with JaCoCo coverage.
+
+on:
+  pull_request:
+    branches:
+      - transaction-backend
+  push:
+    branches:
+      - transaction-backend
+  workflow_dispatch:
+
+concurrency:
+  group: ci-transaction-backend-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    uses: ./.github/workflows/_reusable/lint.yml
+    with:
+      run-backend-java: true
+      run-backend-python: false
+      run-frontend: false
+
+  test:
+    needs: lint
+    uses: ./.github/workflows/_reusable/test-component.yml
+    with:
+      component: transaction
+      runtime: java
+      working-directory: services/backend/transaction
+      test-command: |
+        chmod +x gradlew
+        ./gradlew test jacocoTestReport --no-daemon --console=plain
+      timeout-minutes: 10
+      artifact-paths: services/backend/transaction/build/reports/**

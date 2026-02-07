@@ -1,0 +1,27 @@
+name: CI - Infrastructure
+
+# Component pipeline for the infrastructure trunk.
+# Validates K8s manifests (helm template + kubeconform + kustomize) and runs
+# smoke manifest preflight.  No cluster deploy on PRs.
+
+on:
+  pull_request:
+    branches:
+      - infrastructure
+  push:
+    branches:
+      - infrastructure
+  workflow_dispatch:
+
+concurrency:
+  group: ci-infrastructure-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  k8s-validate:
+    uses: ./.github/workflows/_reusable/k8s-validate.yml
+    with:
+      run-smoke-preflight: true

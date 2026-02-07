@@ -1,0 +1,101 @@
+name: Test Component
+
+# Generic reusable workflow that runs tests for a single component.
+# Supports Java/Gradle, Python, and Node.js components via the `runtime` input.
+
+on:
+  workflow_call:
+    inputs:
+      component:
+        description: 'Component name (used in artifact names and display)'
+        required: true
+        type: string
+      runtime:
+        description: 'Runtime type: java, python, or node'
+        required: true
+        type: string
+      working-directory:
+        description: 'Working directory for the component (relative to repo root)'
+        required: true
+        type: string
+      test-command:
+        description: 'Command to run tests (executed in working-directory)'
+        required: true
+        type: string
+      timeout-minutes:
+        description: 'Job timeout in minutes'
+        required: false
+        type: number
+        default: 10
+      artifact-paths:
+        description: 'Glob paths for test reports/coverage to upload on failure (newline-separated)'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  GRADLE_USER_HOME: ${{ github.workspace }}/.gradle-user-home
+
+jobs:
+  test:
+    name: Test - ${{ inputs.component }}
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ---- Java setup ----
+      - name: Set up JDK 21
+        if: inputs.runtime == 'java'
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      # ---- Python setup ----
+      - name: Set up Python 3.13
+        if: inputs.runtime == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: ${{ inputs.working-directory }}/requirements.txt
+
+      - name: Install Python dependencies
+        if: inputs.runtime == 'python'
+        run: pip install -r requirements.txt
+
+      # ---- Node setup ----
+      - name: Set up Node.js 20
+        if: inputs.runtime == 'node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - name: Install Node dependencies
+        if: inputs.runtime == 'node'
+        run: npm ci
+
+      # ---- Run tests ----
+      - name: Run tests
+        run: ${{ inputs.test-command }}
+
+      # ---- Upload artifacts on failure only ----
+      - name: Upload test reports on failure
+        if: failure() && inputs.artifact-paths != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ inputs.component }}
+          path: ${{ inputs.artifact-paths }}
+          retention-days: 7

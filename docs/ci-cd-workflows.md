@@ -653,9 +653,29 @@ On PRs:
 
 ---
 
+## Branch Strategy & Guardrails
+
+The repo uses soft-enforced branch policies (since GitHub Classroom does not allow branch protection rules):
+
+- **Branch policy CI check**: `.github/workflows/branch-policy.yml` — fails PRs that violate merge direction rules
+- **CODEOWNERS**: `.github/CODEOWNERS` — auto-requests reviews from owning teams
+- **PR template**: `.github/pull_request_template.md` — checklist for every PR
+- **Local git hooks**: `.githooks/pre-push` — blocks direct pushes to `main`/`integration`
+
+Setup the local hooks (one-time per clone):
+```bash
+git config core.hooksPath .githooks
+```
+
+Full details: **[docs/ci/branch-strategy.md](ci/branch-strategy.md)**
+
+---
+
 ## Related Documentation
 
 - **[README.md](../README.md)** - Main repository documentation
+- **[docs/ci/branch-strategy.md](ci/branch-strategy.md)** - Branch strategy and guardrails
+- **[docs/ci/architecture.md](ci/architecture.md)** - CI architecture (reusable workflows, job DAG)
 - **[docs/testing/backend-local-pipeline.md](testing/backend-local-pipeline.md)** - Backend testing details
 - **[docs/testing/frontend-local-pipeline.md](testing/frontend-local-pipeline.md)** - Frontend testing details
 - **[docs/testing/k8s-validation.md](testing/k8s-validation.md)** - K8s validation deep-dive

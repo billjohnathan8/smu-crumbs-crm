@@ -1,0 +1,42 @@
+name: CI - XFactor Backend
+
+# Component pipeline for the xfactor-backend trunk.
+#
+# NOTE: No service directory exists yet under services/backend/.
+# This workflow will pass with a placeholder job until the xfactor service is
+# created.  When ready, replace the placeholder with lint + test-component
+# calls matching the service runtime (Java or Python).
+
+on:
+  pull_request:
+    branches:
+      - xfactor-backend
+  push:
+    branches:
+      - xfactor-backend
+  workflow_dispatch:
+
+concurrency:
+  group: ci-xfactor-backend-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  placeholder:
+    name: XFactor Backend (no service yet)
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: No-op
+        run: |
+          echo "=================================================="
+          echo "  xfactor-backend: no service directory exists yet"
+          echo "=================================================="
+          echo ""
+          echo "When the xfactor service is added under services/backend/,"
+          echo "update this workflow to run lint + tests."
+          echo ""
+          echo "See ci-agent-backend.yml for a Java service template,"
+          echo "or ci-log-backend.yml for a Python service template."

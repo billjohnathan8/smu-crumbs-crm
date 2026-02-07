@@ -1,0 +1,41 @@
+name: CI - Client Backend
+
+# Component pipeline for the client-backend trunk.
+# Runs Java checkstyle + unit tests with JaCoCo coverage.
+
+on:
+  pull_request:
+    branches:
+      - client-backend
+  push:
+    branches:
+      - client-backend
+  workflow_dispatch:
+
+concurrency:
+  group: ci-client-backend-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    uses: ./.github/workflows/_reusable/lint.yml
+    with:
+      run-backend-java: true
+      run-backend-python: false
+      run-frontend: false
+
+  test:
+    needs: lint
+    uses: ./.github/workflows/_reusable/test-component.yml
+    with:
+      component: client
+      runtime: java
+      working-directory: services/backend/client
+      test-command: |
+        chmod +x gradlew
+        ./gradlew test jacocoTestReport --no-daemon --console=plain
+      timeout-minutes: 12
+      artifact-paths: services/backend/client/build/reports/**

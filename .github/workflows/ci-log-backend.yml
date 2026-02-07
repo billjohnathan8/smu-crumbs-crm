@@ -1,0 +1,48 @@
+name: CI - Log Backend
+
+# Component pipeline for the log-backend trunk.
+# Runs Python Black + Flake8 lint + pytest with coverage.
+
+on:
+  pull_request:
+    branches:
+      - log-backend
+  push:
+    branches:
+      - log-backend
+  workflow_dispatch:
+
+concurrency:
+  group: ci-log-backend-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    uses: ./.github/workflows/_reusable/lint.yml
+    with:
+      run-backend-java: false
+      run-backend-python: true
+      run-frontend: false
+
+  test:
+    needs: lint
+    uses: ./.github/workflows/_reusable/test-component.yml
+    with:
+      component: log
+      runtime: python
+      working-directory: services/backend/log
+      test-command: |
+        python -m pytest tests \
+          --junitxml=build/reports/tests/junit.xml \
+          --cov=app \
+          --cov-branch \
+          --cov-report=term-missing \
+          --cov-report=xml:build/reports/coverage/coverage.xml \
+          --cov-report=html:build/reports/coverage/html
+      timeout-minutes: 8
+      artifact-paths: |
+        services/backend/log/build/reports/**
+        services/backend/log/build/coverage.xml

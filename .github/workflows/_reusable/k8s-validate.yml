@@ -1,0 +1,100 @@
+name: Validate Kubernetes Manifests
+
+# Reusable workflow that validates K8s manifests without requiring a running cluster.
+# Runs: helm template rendering + kubeconform validation + kustomize overlay validation.
+# Uses the existing scripts/validate-k8s/validate.sh script.
+
+on:
+  workflow_call:
+    inputs:
+      run-smoke-preflight:
+        description: 'Also run smoke manifest preflight validation (SMOKE_VALIDATE_ONLY=1)'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ---- Helm template + kubeconform validation ----
+  validate-manifests:
+    name: Validate K8s Manifests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'latest'
+
+      - name: Install kubeconform
+        run: |
+          KUBECONFORM_VERSION=v0.6.7
+          curl -sSLo kubeconform.tar.gz \
+            "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          tar xzf kubeconform.tar.gz
+          sudo mv kubeconform /usr/local/bin/
+          kubeconform -v
+
+      - name: Normalize line endings
+        run: |
+          sudo apt-get update && sudo apt-get install -y dos2unix
+          find scripts -type f -name "*.sh" -exec dos2unix {} \;
+          find platform -type f \( -name "*.yml" -o -name "*.yaml" \) -exec dos2unix {} \;
+
+      - name: Make validation script executable
+        run: chmod +x scripts/validate-k8s/validate.sh
+
+      - name: Run K8s manifest validation
+        run: make k8s-validate
+
+      - name: Upload rendered manifests on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k8s-validation-failure
+          path: .k8s-validate-tmp/**
+          retention-days: 7
+
+  # ---- Smoke manifest preflight (validate-only mode, no cluster needed) ----
+  smoke-preflight:
+    name: Smoke Manifest Preflight
+    if: inputs.run-smoke-preflight
+    needs: validate-manifests
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Normalize line endings
+        run: |
+          sudo apt-get update && sudo apt-get install -y dos2unix
+          find scripts -type f -name "*.sh" -exec dos2unix {} \;
+          find platform -type f \( -name "*.yml" -o -name "*.yaml" \) -exec dos2unix {} \;
+
+      - name: Make smoke scripts executable
+        run: |
+          chmod +x scripts/smoke-k8s-infra/smoke-k8s-infra.sh
+          chmod +x scripts/smoke-k8s-infra/smoke-probes.sh
+
+      - name: Run smoke manifest validation only
+        env:
+          SMOKE_VALIDATE_ONLY: "1"
+        run: bash scripts/smoke-k8s-infra/smoke-k8s-infra.sh

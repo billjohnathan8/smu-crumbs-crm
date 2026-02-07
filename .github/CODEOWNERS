@@ -1,0 +1,37 @@
+# CODEOWNERS - Soft ownership for PR review routing
+#
+# GitHub will automatically request reviews from the listed owners when a PR
+# touches files matching the pattern.  Since this is a Classroom org we cannot
+# enforce "required reviews from code owners", but the review request still
+# provides visibility.
+#
+# Syntax: <pattern>  <owner> [<owner> ...]
+# Docs:   https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# TODO: Replace placeholder teams/users with actual GitHub usernames or
+#       org teams once known (e.g. @cs301-itsa/frontend).
+
+# ── Frontend ────────────────────────────────────────────────────────
+services/frontend/crm-ui/**                @cs301-itsa/frontend
+
+# ── Backend services ────────────────────────────────────────────────
+services/backend/agent/**                  @cs301-itsa/agent-backend
+services/backend/client/**                 @cs301-itsa/client-backend
+services/backend/transaction/**            @cs301-itsa/transaction-backend
+services/backend/log/**                    @cs301-itsa/log-backend
+
+# ── Infrastructure / K8s ────────────────────────────────────────────
+platform/k8s/**                            @cs301-itsa/infrastructure
+platform/terraform/**                      @cs301-itsa/infrastructure
+scripts/**                                 @cs301-itsa/infrastructure
+Makefile                                   @cs301-itsa/infrastructure
+
+# ── CI/CD workflows ────────────────────────────────────────────────
+.github/workflows/**                       @cs301-itsa/infrastructure
+.github/actions/**                         @cs301-itsa/infrastructure
+
+# ── Docs ────────────────────────────────────────────────────────────
+docs/**                                    @cs301-itsa/infrastructure
+
+# ── API contracts ───────────────────────────────────────────────────
+docs/api-contracts/**                      @cs301-itsa/infrastructure @cs301-itsa/agent-backend @cs301-itsa/client-backend @cs301-itsa/transaction-backend @cs301-itsa/log-backend
