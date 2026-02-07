@@ -15,7 +15,6 @@ Before development work, please read through (open all markdown files using `'Op
 ---
 
 ## Table of Contents
-
 ### Local Pipeline Commands
 - [Running All Services for Build/Test](#running-all-services-for-buildtest) - Test backend + frontend, generate coverage reports
 - [Running Test & Spinup All for k8s](#running-test--spinup-all-for-k8s) - Test all services then deploy to Kubernetes
@@ -32,6 +31,30 @@ Before development work, please read through (open all markdown files using `'Op
 - Frontend Pipeline: ~ 2min
 - Deploy Pipeline: ~ 5min
 - Spinup-All Pipeline: ~ 12min
+
+---
+
+## Documentation
+
+### Core Guides
+- **[Local Kubernetes Development](docs/local-k8s-dev.md)** - Complete guide for local K8s setup, deployment, and troubleshooting
+- **[Tech Stack](docs/main-diagrams/tech-stack.md)** - Technologies and tools used in the project
+- **[Coding Standards](docs/coding-standards/coding-standards.md)** - Development standards and best practices
+- **[API Contracts](docs/api-contracts/openapi)** - OpenAPI specifications for all services
+
+### Testing & Validation
+- **[Smoke Testing Guide](docs/testing/smoke/README.md)** - Comprehensive guide to infrastructure and probe-aware smoke tests
+- **[K8s Manifest Validation](docs/testing/k8s-validation.md)** - Offline validation of Helm charts and Kustomize overlays
+- **[Backend Testing Pipeline](docs/testing/backend-local-pipeline.md)** - Backend test pipeline design and coverage reports
+- **[Frontend Testing Pipeline](docs/testing/frontend-local-pipeline.md)** - Frontend test pipeline design and coverage reports
+
+### Scripts & Pipelines
+- **[Build and Deploy K8s Scripts](scripts/build-and-deploy-k8s/README.md)** - Automated deployment pipeline documentation
+- **[Smoke Test Scripts](scripts/smoke-k8s-infra/README.md)** - Detailed smoke test script documentation
+
+### Architecture
+- **[Architectural Decision Records](docs/architectural-decisions-record/README.md)** - Key architectural decisions and rationale
+- **[Features Documentation](docs/features/features.md)** - Feature specifications and requirements
 
 ---
 
@@ -224,5 +247,7 @@ On failure, the script dumps diagnostic information:
 - Pod status and details
 - Recent cluster events
 - Container logs
+- **HTML diagnostics report**: `build-logs/build-and-deploy-k8s/probe-diagnostics-summary.html`
+- **JSON failure report**: `build-logs/build-and-deploy-k8s/probe-failures.json` (for CI/CD)
 
----
+For detailed smoke testing documentation, see [docs/testing/smoke/README.md](docs/testing/smoke/README.md).
