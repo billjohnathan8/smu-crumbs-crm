@@ -1,6 +1,58 @@
+# PostgreSQL Helm chart configuration for local development
+# Addresses Bitnami warnings about image tags, resources, and security
+
+# Image configuration - pin specific versions to avoid rolling tags
+image:
+  registry: docker.io
+  repository: bitnami/postgresql
+  tag: "17.2.0-debian-12-r10"  # Pin to specific version, not 'latest'
+  pullPolicy: IfNotPresent
+
+volumePermissions:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnami/os-shell
+    tag: "12-debian-12-r38"  # Pin to specific version, not 'latest'
+    pullPolicy: IfNotPresent
+
+# Authentication configuration
 auth:
   username: cs301
+  password: cs301_local_dev_pw  # Explicit password for local dev
   database: cs301
+  # For production: use existingSecret instead of plaintext password
+
+# Primary database configuration
 primary:
+  # Disable persistence for local dev (faster cleanup, less disk usage)
   persistence:
     enabled: false
+
+  # Resource limits - prevents unbounded resource consumption
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  # Health checks
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+
+# Disable metrics for local dev
+metrics:
+  enabled: false
