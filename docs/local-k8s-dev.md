@@ -1,34 +1,70 @@
 # Local Kubernetes Backend Development (kind)
 
-This is the canonical runbook for the local backend Kubernetes flow in this repository.
+This is the canonical runbook for local Kubernetes development in this repository.
 
-The local flow does not require AWS resources. AWS-oriented architecture docs still exist separately (for target-state planning).
+## Overview
 
-## Scope and canonical paths
-- Cluster config: `platform/k8s/infra/kind-config.yaml`
-- Infra Helm values: `platform/k8s/infra/helm-values/*.yaml`
-- App manifests: `platform/k8s/apps/base`
-- Active local overlay: `platform/k8s/apps/overlays/dev`
-- Namespace: `dev`
-- Default kind cluster name in config: `cs301-crm`
+This guide covers local Kubernetes deployment using **kind** (Kubernetes in Docker). The local flow is fully self-contained and does not require AWS resources. All infrastructure (ingress, metrics, database) runs locally in Docker containers.
 
-Do not use `platform/k8s-apps/*` (deprecated legacy path; removed).
+**What you'll learn:**
+- One-command deployment with automated testing and teardown
+- Step-by-step manual deployment for debugging
+- Comprehensive smoke testing (infrastructure + probe validation)
+- Troubleshooting common failure scenarios
+- Service onboarding checklist
+
+**Quick start:**
+```powershell
+# Windows
+.\scripts\build-and-deploy-k8s\build-and-deploy-k8s-local.ps1
+```
+
+```bash
+# macOS/Linux
+bash ./scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh
+```
+
+The local flow does not require AWS resources. AWS-oriented architecture docs exist separately for target-state planning.
+
+## Canonical Paths and Configuration
+
+### Repository Structure
+- **Cluster config**: `platform/k8s/infra/kind-config.yaml`
+- **Infra Helm values**: `platform/k8s/infra/helm-values/*.yaml`
+- **App base manifests**: `platform/k8s/apps/base`
+- **Dev overlay**: `platform/k8s/apps/overlays/dev` (active local overlay)
+
+### Default Settings
+- **Namespace**: `dev`
+- **Kind cluster name**: `cs301-crm` (defined in kind-config.yaml)
+- **Ingress**: `http://localhost` (via ingress-nginx controller)
+
+### Deprecated Paths
+Do not use `platform/k8s-apps/*` (legacy path, has been removed).
 
 ## Prerequisites
-- Docker Desktop (or Docker Engine) running
-- kind
-- kubectl
-- Helm v3
-- GNU Make
-- Bash and curl
-- OpenSSL (for smoke tests on macOS/Linux)
-- Java 21 (recommended for Gradle wrapper builds)
-- **Python 3.7+** (optional, for HTML probe diagnostics reports)
 
-Windows notes:
-- Use the PowerShell or `.cmd` wrappers in `scripts/`.
-- Install Git for Windows (Git Bash) so Makefile recipes can run under Bash.
-- Python is optional but recommended for enhanced probe diagnostics. Install from [python.org](https://www.python.org/downloads/) or via `winget install Python.Python.3.12`
+### Required Tools
+- **Docker Desktop** (or Docker Engine) — Must be running
+- **kind** — Kubernetes in Docker cluster tool
+- **kubectl** — Kubernetes CLI
+- **Helm v3** — Kubernetes package manager
+- **kubeconform** — K8s manifest schema validator (for `make k8s-validate`)
+- **GNU Make** — Build automation
+- **Bash** and **curl** — Shell scripting and HTTP testing
+- **Java 21** — For Gradle wrapper builds (backend services)
+
+### Optional Tools
+- **Python 3.7+** — For HTML deployment summary and probe diagnostics reports
+- **OpenSSL** — For JWT generation in smoke tests (macOS/Linux)
+
+### Windows-Specific Notes
+- Use PowerShell or `.cmd` wrappers in `scripts/`
+- Install Git for Windows (includes Git Bash) for Makefile compatibility
+- Python recommended but optional — install from [python.org](https://www.python.org/downloads/) or via `winget install Python.Python.3.12`
+- kubeconform installation: `scoop install kubeconform`
+
+For detailed tool installation instructions, see [K8s Manifest Validation Guide](testing/k8s-validation.md#installation).
 
 ## Golden path (recommended)
 Run one of these from repository root:
@@ -77,7 +113,21 @@ Notes:
 
 ## Step-by-step flow (manual)
 
-### 0) (Recommended) Run backend build/tests first
+### 0) Validate Kubernetes manifests (recommended)
+```bash
+make k8s-validate
+```
+
+Validates all K8s manifests **offline** (no cluster required):
+- **kind config** — YAML syntax validation
+- **Helm charts** — Renders and validates ingress-nginx, metrics-server, postgresql
+- **Kustomize overlay** — Renders and validates app deployments via kubeconform
+
+This step runs automatically in deployment scripts. Run it manually to catch configuration errors early.
+
+**For detailed documentation:** [K8s Manifest Validation Guide](testing/k8s-validation.md)
+
+### 1) (Recommended) Run backend build/tests first
 ```powershell
 .\scripts\build-and-test-backend\build-and-test-backend.ps1
 ```
@@ -88,13 +138,15 @@ Notes:
 bash ./scripts/build-and-test-backend/build-and-test-backend.sh
 ```
 
-The backend script now runs each service-local pipeline (lint, build, tests, coverage reports):
+Runs each service-local pipeline (lint, build, tests, coverage reports):
 - `services/backend/agent`: `gradlew localTestPipeline`
 - `services/backend/client`: `gradlew localTestPipeline`
 - `services/backend/transaction`: `gradlew localTestPipeline`
 - `services/backend/log`: `python run-local-test-pipeline.py`
 
-### 1) Create and verify kind cluster
+**For detailed documentation:** [Backend Testing Pipeline](testing/backend-local-pipeline.md)
+
+### 2) Create and verify kind cluster
 ```bash
 make kind-up
 kind get clusters
@@ -104,7 +156,7 @@ kubectl cluster-info
 
 If `make kind-up` fails because the cluster already exists, skip to context verification or use the wrapper script (it handles existing clusters automatically).
 
-### 2) Install ingress + infra dependencies
+### 3) Install ingress + infra dependencies
 ```bash
 make infra-up
 kubectl get pods -n ingress-nginx
@@ -116,7 +168,7 @@ kubectl get pods -n dev
 - `metrics-server` in namespace `kube-system`
 - `postgres` (Bitnami chart) in namespace `dev`
 
-### 3) Build backend images
+### 4) Build backend images
 ```bash
 make build-images
 ```
@@ -126,13 +178,14 @@ Builds:
 - `client:dev`
 - `log:dev`
 - `transaction:dev`
+- `crm-ui:dev`
 
-### 4) Load images into kind
+### 5) Load images into kind
 ```bash
 make kind-load
 ```
 
-### 5) Deploy dev overlay
+### 6) Deploy dev overlay
 ```bash
 make deploy-dev
 ```
@@ -142,7 +195,7 @@ Equivalent raw apply:
 kubectl apply -k platform/k8s/apps/overlays/dev
 ```
 
-### 6) Verify workloads and ingress routes
+### 7) Verify workloads and ingress routes
 ```bash
 kubectl get deploy,pods,svc,ing -n dev
 curl -i http://localhost/health
@@ -153,101 +206,40 @@ Ingress routes:
 - `http://localhost/api/clients` -> `client-service`
 - `http://localhost/api/logs` -> `log-service`
 - `http://localhost/api/transactions` -> `transaction-service`
+- `http://localhost/` -> `frontend` (React UI)
 
-### 7) Run smoke tests
+### 8) Run smoke tests
 ```bash
 make smoke
 ```
 
-The `smoke` target runs two test suites in sequence:
+Runs comprehensive validation of deployed services:
 1. **Infrastructure smoke** (`make smoke-infra`) — HTTP endpoints, CRUD operations, service integration
-2. **Probe-aware smoke** (`make smoke-probes`) — Kubernetes health probes, rollout status, pod readiness
+2. **Probe-aware smoke** (`make smoke-probes`) — K8s health probes, rollout status, in-cluster health checks
 
-#### Infrastructure Smoke
+**Quick reference:**
+- Run infrastructure smoke only: `make smoke-infra`
+- Run probe-aware smoke only: `make smoke-probes`
+- Override namespace: `make smoke-probes NS=staging`
 
-Scripts:
-- Windows: `scripts/smoke-k8s-infra/smoke-k8s-infra.ps1`
-- macOS/Linux: `scripts/smoke-k8s-infra/smoke-k8s-infra.sh`
+**What gets validated:**
+- All service health endpoints accessible via ingress
+- Client CRUD operations (create, read, update, delete)
+- Transaction listing and log ingestion
+- All Deployments/StatefulSets rolled out successfully
+- All containers have required probes (readiness, liveness, startup)
+- HTTP probe endpoints return 2xx status from inside cluster
 
-Optional environment variables:
-- `BASE_URL` (default: `http://localhost`)
-- `JWT_HMAC_SECRET` (default: `dev-only-insecure-secret`)
+**On failure:**
+Probe-aware smoke generates comprehensive diagnostics:
+- **HTML Summary**: `build-logs/build-and-deploy-k8s/probe-diagnostics-summary.html`
+- **JSON Report**: `build-logs/build-and-deploy-k8s/probe-failures.json`
+- Categorized failures: rollout, probe presence, in-cluster health
+- Pod logs, events, and HTTP response details
 
-Checks:
-- Health endpoints through ingress
-- Create/read/update/delete path for clients
-- Direct log event ingestion into `log-service`
-- Transactions list endpoint (if `transaction-service` is deployed)
-
-The script first tries `http://localhost`, then falls back to ingress controller port-forward if needed.
-
-#### Probe-Aware Smoke
-
-Scripts:
-- Windows: `scripts/smoke-k8s-infra/smoke-probes.ps1`
-- macOS/Linux: `scripts/smoke-k8s-infra/smoke-probes.sh`
-
-Validates:
-1. **Rollout readiness** — Gates on `kubectl rollout status` for all Deployments and StatefulSets in the namespace (default: `dev`)
-2. **Probe presence** — Asserts every container has:
-   - `readinessProbe` (required)
-   - `livenessProbe` (required)
-   - `startupProbe` (required for workloads listed in `scripts/smoke-k8s-infra/startup-probe-required.txt`)
-3. **In-cluster health checks** — Spawns an ephemeral curl pod to validate HTTP probe endpoints from inside the cluster
-
-On failure:
-- Generates **structured failure diagnostics** categorized by:
-  - **Rollout failures**: Deployments/StatefulSets that timed out or failed to roll out
-  - **Probe presence failures**: Containers missing required probes (readiness, liveness, startup)
-  - **In-cluster health failures**: HTTP probe endpoints returning non-2xx status codes
-- Creates **`probe-failures.json`**: Structured JSON output for CI/CD consumption
-- Creates **`probe-diagnostics-summary.html`**: Visual HTML report with:
-  - Pass/fail statistics dashboard
-  - Detailed failure tables with timestamps
-  - HTTP response diagnostics (headers, body snippets)
-  - Links to full build logs
-- Prints comprehensive diagnostics:
-  - Pod status, describe output, events (last 200)
-  - Container logs (last 60 lines per deployment)
-  - HTTP response details for failed endpoints
-- Exits non-zero (aborts the deployment pipeline)
-
-**Failure Report Locations:**
-- HTML Summary: `build-logs/build-and-deploy-k8s/probe-diagnostics-summary.html`
-- JSON Data: `build-logs/build-and-deploy-k8s/probe-failures.json`
-- Full Logs: `build-logs/build-and-deploy-k8s/inv*__*__build-and-deploy-k8s-local.log`
-
-**Report Rotation:**
-The build-and-deploy pipeline automatically keeps the 3 most recent HTML summary reports and rotates older ones.
-
-Optional environment variables:
-- `ROLLOUT_TIMEOUT` (default: `300s`)
-- `CURL_IMAGE` (default: `curlimages/curl:8.5.0`)
-
-Run probe-aware smoke only:
-```bash
-make smoke-probes
-```
-
-Override namespace:
-```bash
-make smoke-probes NS=staging
-```
-
-**Viewing Diagnostics:**
-After a failed deployment, open the HTML summary report to quickly identify:
-- Which services failed rollout and why
-- Which containers are missing which probes
-- Which HTTP endpoints are failing and their response details
-
-Example workflow:
-```powershell
-# Run deployment (will auto-generate diagnostics on failure)
-.\scripts\build-and-deploy-k8s\build-and-deploy-k8s-local.ps1
-
-# Review failures in browser
-Start-Process build-logs\build-and-deploy-k8s\probe-diagnostics-summary.html
-```
+**For detailed documentation:**
+- [Smoke Testing Guide](testing/smoke/README.md) — Complete smoke test documentation with troubleshooting
+- [Smoke Scripts README](../scripts/smoke-k8s-infra/README.md) — Script-level details and environment variables
 
 ## Teardown and reset
 
@@ -266,85 +258,251 @@ helm uninstall metrics-server -n kube-system
 
 ## Common failure modes and debug commands
 
-### `make kind-up` fails because cluster already exists
-- Verify: `kind get clusters`
-- Recreate cleanly: `kind delete cluster --name cs301-crm` then rerun deploy wrapper
+### Quick Diagnostics Checklist
+1. **Check deployment logs**: `build-logs/build-and-deploy-k8s/inv*__*__build-and-deploy-k8s-local.log`
+2. **View HTML diagnostics**: Open `build-logs/build-and-deploy-k8s/probe-diagnostics-summary.html` in browser
+3. **Check pod status**: `kubectl get pods -n dev -o wide`
+4. **Check recent events**: `kubectl get events -n dev --sort-by=.metadata.creationTimestamp | tail -50`
+5. **Check logs**: `kubectl logs deployment/<service> -n dev --tail=100`
 
-### Ingress endpoint on `localhost` is unreachable
-- Check ingress controller: `kubectl get pods -n ingress-nginx`
-- Check ingress object: `kubectl describe ingress backend-ingress -n dev`
-- Run smoke anyway (it includes port-forward fallback): `make smoke`
+For comprehensive troubleshooting, see:
+- [Smoke Testing Guide - Troubleshooting](testing/smoke/README.md#troubleshooting) — Detailed failure scenarios and solutions
+- [K8s Validation Guide - Common Issues](testing/k8s-validation.md#common-validation-issues) — Manifest validation problems
 
-### Pods stay `ImagePullBackOff` or old image keeps running
-- Confirm images loaded: rerun `make kind-load`
-- Restart and verify rollout:
-  - `kubectl rollout restart deployment/agent-service -n dev`
-  - `kubectl rollout restart deployment/client-service -n dev`
-  - `kubectl rollout restart deployment/log-service -n dev`
-  - `kubectl rollout status deployment/agent-service -n dev --timeout=180s`
+### Cluster and Infrastructure Issues
 
-### Pods fail readiness/liveness due to startup or DB issues
-- Inspect logs:
-  - `kubectl logs deployment/agent-service -n dev --tail=100`
-  - `kubectl logs deployment/client-service -n dev --tail=100`
-  - `kubectl logs deployment/log-service -n dev --tail=100`
-  - `kubectl logs statefulset/postgres-postgresql -n dev --tail=100`
-- Inspect events: `kubectl get events -n dev --sort-by=.metadata.creationTimestamp`
+#### `make kind-up` fails because cluster already exists
+**Symptom:**
+```
+ERROR: node(s) already exist for a cluster with the name "cs301-crm"
+```
 
-### Probe-aware smoke fails with missing probes
-- Check the error output — it will specify which Deployment/container is missing which probe type
-- Review the **HTML diagnostics summary**: `build-logs/build-and-deploy-k8s/probe-diagnostics-summary.html`
-  - Look for "Probe Presence Failures" section
-  - Identifies exact resource, container, and missing probe type
-- Add missing probes to the deployment YAML in `platform/k8s/apps/base/<service>-deployment.yaml`
-- For startup probes: if the service is slow-starting (e.g., JVM/Spring Boot), add it to `scripts/smoke-k8s-infra/startup-probe-required.txt`
-- Re-apply: `kubectl apply -k platform/k8s/apps/overlays/dev`
-- Rerun smoke: `make smoke-probes`
+**Solution:**
+```bash
+# Verify existing clusters
+kind get clusters
 
-### Probe-aware smoke fails with rollout timeout
-- Check the **HTML diagnostics summary**: `build-logs/build-and-deploy-k8s/probe-diagnostics-summary.html`
-  - Look for "Rollout Failures" section
-  - Review detailed output showing why rollout failed
-- Check pod status: `kubectl get pods -n dev -o wide`
-- Check events: `kubectl get events -n dev --sort-by=.metadata.creationTimestamp | tail -50`
-- Check logs for failing pods: `kubectl logs deployment/<service> -n dev --tail=100`
-- Common causes:
-  - Image pull failures (not loaded via `make kind-load`)
-  - Probe configuration too strict (initialDelaySeconds too low, failureThreshold too low)
-  - Application startup failures (check logs in diagnostics report)
-  - Resource constraints (check pod describe output in diagnostics)
+# Recreate cleanly
+kind delete cluster --name cs301-crm
 
-### In-cluster health checks fail
-- Review the **HTML diagnostics summary**: `build-logs/build-and-deploy-k8s/probe-diagnostics-summary.html`
-  - Look for "In-Cluster Health Failures" section
-  - See exact HTTP status codes and response diagnostics
-  - Review captured response headers and body snippets
-- Common causes:
-  - Service not listening on expected port (check service spec and container ports)
-  - Probe path incorrect (verify URLs in deployment YAML)
-  - Application not fully started (increase initialDelaySeconds)
-  - DNS resolution issues (verify service name matches deployment)
-- Debug manually with ephemeral pod:
-  ```bash
-  kubectl run -it --rm debug --image=curlimages/curl --restart=Never -n dev -- \
-    curl -v http://<service-name>.dev.svc.cluster.local:<port><path>
-  ```
+# Then rerun deploy wrapper
+```
 
-### Windows wrapper fails because Bash or Make is missing
-- Install/verify Git Bash and Make in `PATH`
-- Re-run:
-  - `.\scripts\build-and-deploy-k8s\build-and-deploy-k8s-local.ps1`
+#### Ingress endpoint on `localhost` is unreachable
+**Diagnosis:**
+```bash
+# Check ingress controller
+kubectl get pods -n ingress-nginx
+
+# Check ingress configuration
+kubectl describe ingress backend-ingress -n dev
+```
+
+**Solution:**
+- Ensure ingress controller is running and ready
+- Verify ingress paths match service routes
+- Run smoke tests (includes port-forward fallback): `make smoke`
+
+#### Pods stay `ImagePullBackOff` or old image keeps running
+**Diagnosis:**
+```bash
+kubectl describe pod -n dev <pod-name>
+```
+
+**Solution:**
+```bash
+# Confirm images loaded
+make kind-load
+
+# Restart deployments
+kubectl rollout restart deployment/agent -n dev
+kubectl rollout restart deployment/client -n dev
+kubectl rollout restart deployment/log -n dev
+kubectl rollout restart deployment/transaction -n dev
+
+# Verify rollout
+kubectl rollout status deployment/agent -n dev --timeout=180s
+```
+
+### Probe and Health Check Failures
+
+For detailed probe troubleshooting, see [Smoke Testing Guide - Probe Failures](testing/smoke/README.md#probe-aware-smoke-failures).
+
+#### Probe-aware smoke fails with missing probes
+**Quick fix:**
+1. Check HTML diagnostics: `build-logs/build-and-deploy-k8s/probe-diagnostics-summary.html`
+2. Identify missing probe type and affected container
+3. Add probe to `platform/k8s/apps/base/<service>-deployment.yaml`
+4. For slow-starting services, add to `scripts/smoke-k8s-infra/startup-probe-required.txt`
+5. Re-apply: `kubectl apply -k platform/k8s/apps/overlays/dev`
+6. Rerun: `make smoke-probes`
+
+**Example probe configuration:**
+```yaml
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 5
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+# For slow-starting services (JVM/Spring Boot)
+startupProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 0
+  periodSeconds: 10
+  failureThreshold: 30  # 5 minutes max
+```
+
+#### Probe-aware smoke fails with rollout timeout
+**Quick diagnosis:**
+```bash
+# Check HTML diagnostics
+Start-Process build-logs\build-and-deploy-k8s\probe-diagnostics-summary.html  # Windows
+
+# Check pod status
+kubectl get pods -n dev -o wide
+
+# Check events
+kubectl get events -n dev --sort-by=.metadata.creationTimestamp | tail -50
+
+# Check logs
+kubectl logs deployment/<service> -n dev --tail=100
+```
+
+**Common causes:**
+- Image pull failures → Run `make kind-load`
+- Probe configuration too strict → Increase `initialDelaySeconds`
+- Application startup failures → Check logs in diagnostics
+- Resource constraints → Check pod describe output
+
+#### In-cluster health checks fail
+**Quick diagnosis:**
+```bash
+# Check HTML diagnostics for HTTP status codes and response details
+# Manually test endpoint
+kubectl run -it --rm debug --image=curlimages/curl --restart=Never -n dev -- \
+  curl -v http://<service-name>.dev.svc.cluster.local:<port><path>
+```
+
+**Common causes:**
+- Wrong port → Verify `containerPort` matches application
+- Wrong path → Verify probe path in deployment YAML
+- Application not ready → Increase `initialDelaySeconds`
+- DNS issues → Verify service name and selector
+
+### Application Issues
+
+#### Pods fail readiness/liveness due to DB issues
+#### Pods fail readiness/liveness due to DB issues
+**Diagnosis:**
+```bash
+# Check PostgreSQL
+kubectl get pods -n dev -l app.kubernetes.io/name=postgresql
+kubectl logs -n dev -l app.kubernetes.io/name=postgresql --tail=50
+
+# Check service logs
+kubectl logs -n dev -l app=client --tail=100
+
+# Check environment variables
+kubectl describe pod -n dev -l app=client | grep -A10 Environment
+```
+
+**Solution:**
+- Ensure PostgreSQL is running and ready
+- Verify database connection strings in service configs
+- Check for database migration failures
+- Review service logs for SQL errors
+
+#### Windows wrapper fails because Bash or Make is missing
+**Solution:**
+- Install Git for Windows (includes Git Bash)
+- Verify `bash` and `make` are in `PATH`
+- Use PowerShell wrapper instead: `.\scripts\build-and-deploy-k8s\build-and-deploy-k8s-local.ps1`
+
+### Validation Failures
+
+For K8s manifest validation issues, see [K8s Manifest Validation Guide - Common Issues](testing/k8s-validation.md#common-validation-issues).
+
+Common validation failures:
+- **Invalid YAML syntax** → Fix syntax errors in manifests
+- **Missing required fields** → Check kubeconform output for missing fields
+- **Wrong field types** → Ensure types match (e.g., `replicas: 3` not `replicas: "3"`)
+- **Helm template errors** → Verify values files match chart requirements
 
 ## Service onboarding checklist (for this local flow)
-When adding a new backend service:
-- Add service code and Dockerfile under `services/backend/<new-service>`
-- Add base deployment/service YAML under `platform/k8s/apps/base` and register in `platform/k8s/apps/base/kustomization.yaml`
-  - **Include `readinessProbe` and `livenessProbe` for all containers** (probe-aware smoke enforces this)
-  - If the service has slow cold-start (e.g., JVM/Spring Boot), add `startupProbe` and list it in `scripts/smoke-k8s-infra/startup-probe-required.txt`
-- Add image tag entry and patches in `platform/k8s/apps/overlays/dev/kustomization.yaml`
-- Add probe patches if needed in `platform/k8s/apps/overlays/dev/<service>-probes-patch.yaml` (tighter probe settings for dev)
-- Add ingress rule if externally reachable
-- Extend `Makefile` targets: `build-images`, `kind-load`, `deploy-dev`
-- Extend `scripts/smoke-k8s-infra/smoke-k8s-infra.sh` with infrastructure-level checks for the new service (CRUD/integration tests)
-- Probe-aware smoke (`scripts/smoke-k8s-infra/smoke-probes.sh`) automatically validates the new service's probes — no manual extension needed
+
+When adding a new backend service to the local Kubernetes deployment:
+
+### 1. Service Code and Container
+- [ ] Add service code and Dockerfile under `services/backend/<new-service>`
+- [ ] Build and test locally before K8s integration
+
+### 2. Base Kubernetes Manifests
+- [ ] Create `platform/k8s/apps/base/<service>-deployment.yaml`
+  - **Required**: Include `readinessProbe` and `livenessProbe` for all containers
+  - **Conditional**: Add `startupProbe` for slow-starting services (JVM/Spring Boot)
+- [ ] Create `platform/k8s/apps/base/<service>-service.yaml`
+- [ ] Register in `platform/k8s/apps/base/kustomization.yaml`
+
+**Probe configuration guidance:**
+- Use `/health` endpoint for all probes (standardized across services)
+- Set appropriate `initialDelaySeconds` based on startup time
+- For slow-starting services:
+  - Add `startupProbe` with high `failureThreshold` (e.g., 30 × 10s = 5 minutes)
+  - List in `scripts/smoke-k8s-infra/startup-probe-required.txt`
+
+### 3. Dev Overlay Configuration
+- [ ] Add image tag in `platform/k8s/apps/overlays/dev/kustomization.yaml`
+- [ ] Create probe patches if needed: `platform/k8s/apps/overlays/dev/<service>-probes-patch.yaml`
+  - Use tighter probe settings for dev environment (faster feedback)
+- [ ] Add ingress rules if service is externally accessible
+
+### 4. Build and Deploy Integration
+- [ ] Extend `Makefile` targets:
+  - Add to `build-images` target (Docker build command)
+  - Add to `kind-load` target (load image into kind)
+  - Add to `deploy-dev` target (rollout restart)
+
+### 5. Testing Integration
+- [ ] Extend `scripts/smoke-k8s-infra/smoke-k8s-infra.sh` (.ps1 for Windows)
+  - Add health check for new service
+  - Add service-specific integration tests (CRUD, endpoints, etc.)
+- [ ] Probe-aware smoke automatically validates probes and rollout (no manual extension needed)
+
+### 6. Validation
+- [ ] Run `make k8s-validate` to check manifests offline
+- [ ] Run `make build-and-deploy-local` for full integration test
+- [ ] Verify smoke tests pass with new service
+- [ ] Review HTML diagnostics to ensure probes are correct
+
+**For detailed probe configuration examples, see:**
+- [Smoke Testing Guide - Missing Probe Fix](testing/smoke/README.md#missing-probe)
+- [Local K8s Dev - Probe Configuration](local-k8s-dev.md#probe-and-health-check-failures)
+
+## Related Documentation
+
+### Core Guides
+- [Smoke Testing Guide](testing/smoke/README.md) — Comprehensive smoke test documentation and troubleshooting
+- [K8s Manifest Validation](testing/k8s-validation.md) — Offline manifest validation with kubeconform
+- [Backend Testing Pipeline](testing/backend-local-pipeline.md) — Backend test pipeline and coverage
+- [Frontend Testing Pipeline](testing/frontend-local-pipeline.md) — Frontend test pipeline and coverage
+
+### Scripts and Pipelines
+- [Build and Deploy Scripts](../scripts/build-and-deploy-k8s/README.md) — Deployment pipeline details
+- [Smoke Test Scripts](../scripts/smoke-k8s-infra/README.md) — Script-level smoke test documentation
+
+### Architecture and Standards
+- [ADR-0002: Standardize Local K8s Deploy Workflow](architectural-decisions-record/adr-0002-standardize-local-k8s-deploy-workflow.md)
+- [Tech Stack](main-diagrams/tech-stack.md) — Technologies and tools
+- [Coding Standards](coding-standards/coding-standards.md) — Development standards
 
