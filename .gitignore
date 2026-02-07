@@ -56,6 +56,8 @@ terraform.rc
 .python-build-test-venvs
 .venv/
 **/.venv/
+venv/
+**/venv/
 __pycache__/
 **/__pycache__/
 *.pyc
@@ -85,5 +87,8 @@ id_rsa
 .VSCodeCounter/
 TODO.md
 CHANGELOG.md
+
+# Developer Setup - Portable Tools
+.devtools/
 
 # Ignore Test Directories

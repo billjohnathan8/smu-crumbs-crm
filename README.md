@@ -12,6 +12,40 @@ Before development work, please read through (open all markdown files using `'Op
 **Notes:**
 > Local development is fully supported on `kind` without AWS dependencies. AWS-oriented docs can still coexist for target-state planning.
 
+
+---
+
+## 🚀 New Developer? Start Here!
+
+**First time setting up this project?** We've got you covered with a one-command bootstrap!
+
+### Windows (PowerShell)
+```powershell
+.\scripts\dev-setup\setup.ps1
+```
+
+### macOS / Linux (Bash)
+```bash
+bash scripts/dev-setup/setup.sh
+```
+
+**What it does:**
+- ✅ Detects and installs missing tools (Docker, Java, Node, kubectl, helm, kind, etc.)
+- ✅ Configures dependencies (npm, Gradle, Python)
+- ✅ Runs full verification (k8s validation, backend tests, frontend tests)
+- ✅ Provides clear diagnostics and next steps
+
+**Want to check your environment first?**
+```powershell
+# Windows
+.\scripts\dev-setup\setup.ps1 --doctor
+
+# macOS/Linux
+bash scripts/dev-setup/setup.sh --doctor
+```
+
+**📖 Full Guide**: [docs/onboarding/new-dev-setup.md](docs/onboarding/new-dev-setup.md)
+
 ---
 
 ## Table of Contents
@@ -19,6 +53,9 @@ Before development work, please read through (open all markdown files using `'Op
 - [Running All Services for Build/Test](#running-all-services-for-buildtest) - Test backend + frontend, generate coverage reports
 - [Running Test & Spinup All for k8s](#running-test--spinup-all-for-k8s) - Test all services then deploy to Kubernetes
 - [Running Just k8s Deployment Tests (via kind)](#running-just-k8s-deployment-tests-via-kind) - Deploy only (no testing)
+
+### CI/CD
+- [GitHub Actions Workflows](#github-actions-cicd-workflows) - Automated CI/CD pipeline mirroring local test-and-spinup-all
 
 ### Partitioned Build/Tests
 - [Running Just the Backend Services](#running-just-the-backend-services) - Backend services only
@@ -36,6 +73,9 @@ Before development work, please read through (open all markdown files using `'Op
 
 ## Documentation
 
+### Getting Started
+- **[New Developer Setup](docs/onboarding/new-dev-setup.md)** - One-command environment setup for new team members
+
 ### Core Guides
 - **[Local Kubernetes Development](docs/local-k8s-dev.md)** - Complete guide for local K8s setup, deployment, and troubleshooting
 - **[Tech Stack](docs/main-diagrams/tech-stack.md)** - Technologies and tools used in the project
@@ -43,6 +83,7 @@ Before development work, please read through (open all markdown files using `'Op
 - **[API Contracts](docs/api-contracts/openapi)** - OpenAPI specifications for all services
 
 ### Testing & Validation
+- **[CI/CD Workflows](docs/ci-cd-workflows.md)** - Comprehensive GitHub Actions CI/CD pipeline documentation
 - **[Smoke Testing Guide](docs/testing/smoke/README.md)** - Comprehensive guide to infrastructure and probe-aware smoke tests
 - **[K8s Manifest Validation](docs/testing/k8s-validation.md)** - Offline validation of Helm charts and Kustomize overlays
 - **[Backend Testing Pipeline](docs/testing/backend-local-pipeline.md)** - Backend test pipeline design and coverage reports
@@ -207,6 +248,100 @@ go install github.com/yannh/kubeconform/cmd/kubeconform@latest
 # Windows (scoop)
 scoop install kubeconform
 ```
+
+---
+
+## GitHub Actions CI/CD Workflows
+
+The repository includes a comprehensive CI/CD pipeline that mirrors the local `test-and-spinup-all` workflow in GitHub Actions.
+
+### Main CI Workflow: Test and Spin-Up All
+
+**Workflow File**: [`.github/workflows/ci-test-and-spinup-all.yml`](.github/workflows/ci-test-and-spinup-all.yml)
+
+**Triggers**:
+- Pull requests to `main`
+- Pushes to `main`
+- Manual dispatch with optional parameters (cluster name, namespace)
+
+**Pipeline Stages** (runs in strict order matching local pipeline):
+
+1. **Job 1: Test All** (`test_all`)
+   - Runs the exact same script as local: `scripts/build-and-test-all/build-and-test-all.sh`
+   - Tests all backend services (Gradle + Python)
+   - Tests frontend service (React/TypeScript)
+   - Generates aggregated coverage report
+   - **Artifacts**: Coverage reports and test logs (uploaded on both success and failure)
+   - **Dependencies**: JDK 21, Node.js 20, Python 3.11
+
+2. **Job 2: K8s Validate** (`k8s_validate`)
+   - Depends on: `test_all` completion
+   - Runs: `make k8s-validate`
+   - Validates Helm charts and Kustomize manifests offline
+   - **Artifacts**: Rendered manifests (uploaded on failure for debugging)
+   - **Dependencies**: Helm, kubectl, kubeconform
+
+3. **Job 3: Deploy to kind & Smoke Tests** (`deploy_kind_smoke`)
+   - Depends on: `k8s_validate` completion
+   - Runs the exact same script as local: `scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh`
+   - Creates kind cluster, deploys infrastructure and apps
+   - Runs comprehensive smoke tests (ingress + probes)
+   - **On failure**: Captures extensive kubectl diagnostics (pods, services, ingress, events, logs)
+   - **Artifacts**: Build logs and deployment reports (always uploaded)
+   - **Dependencies**: JDK 21, Node.js 20, Python 3.11, Docker, kind, Helm, kubectl, kubeconform
+
+### Local vs CI Mapping
+
+| Local Command | CI Job | Notes |
+|---------------|--------|-------|
+| `bash scripts/build-and-test-all/build-and-test-all.sh` | `test_all` | Exact same script |
+| `make k8s-validate` | `k8s_validate` | Exact same make target |
+| `bash scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh` | `deploy_kind_smoke` | Exact same script |
+
+### Running Workflows Manually
+
+To trigger a workflow manually with custom parameters:
+
+1. Go to [Actions tab](../../actions/workflows/ci-test-and-spinup-all.yml)
+2. Click "Run workflow"
+3. Optionally override:
+   - `kind_cluster_name` (default: `cs301-crm`)
+   - `namespace` (default: `dev`)
+
+### Viewing CI Results
+
+**Test Coverage Reports**:
+- Download artifact `test-coverage-reports` from successful runs
+- Open `build-logs/build-and-test-all/index.html` in browser
+
+**Debugging Failed CI Runs**:
+
+If `test_all` fails:
+- Download artifact `test-logs-and-coverage-failure`
+- Review test logs and coverage reports
+
+If `k8s_validate` fails:
+- Download artifact `k8s-validation-failure`
+- Review rendered manifests in `.k8s-validate-tmp/`
+
+If `deploy_kind_smoke` fails:
+- Review job logs for kubectl diagnostics (automatically captured):
+  - Pod status across all namespaces
+  - Services and ingress resources
+  - Recent cluster events (last 200)
+  - Pod descriptions and container logs
+- Download artifact `k8s-deploy-logs`
+- Review `build-logs/build-and-deploy-k8s/*.log` and HTML summary reports
+
+### CI vs Local Differences
+
+The CI workflow runs on `ubuntu-latest` and uses the exact same scripts as local development. Key points:
+
+- **No mocking or duplication**: CI calls your local scripts directly
+- **Same validation rules**: Helm, kubeconform, smoke tests run identically
+- **Same dependencies**: JDK 21, Node 20, Python 3.11 match local requirements
+- **Automatic cleanup**: kind cluster is torn down after smoke tests (normal behavior)
+- **Artifacts preserved**: All logs and reports are uploaded for debugging
 
 ---
 

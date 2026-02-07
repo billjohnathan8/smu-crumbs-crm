@@ -7,6 +7,8 @@ If there are any issues and you need help, please ping the **telegram** or **dis
 > **Applies to:** `/services/*`, `/platform/*`, `/tests/*`, and `/docs/*`  
 > **Primary goals:** maintainability, security, repeatability, and reviewability.
 
+Refer to [onboarding](../onboarding/new-dev-setup.md) for setting up development environment if completely new.
+
 ## Index
 
 - [1) Golden Rules](#sec-1-golden-rules)
