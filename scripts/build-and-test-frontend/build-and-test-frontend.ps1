@@ -346,7 +346,15 @@ try {
     }
     Write-Log "[crm-ui] Tests passed"
 
-    # Step 7: Run end-to-end tests
+    # Step 7: Install Playwright browsers
+    Write-Log "[crm-ui] Installing Playwright browsers (npx playwright install --with-deps)..."
+    & npx playwright install --with-deps
+    if ($LASTEXITCODE -ne 0) {
+        throw "Playwright browser installation failed"
+    }
+    Write-Log "[crm-ui] Playwright browsers installed successfully"
+
+    # Step 8: Run end-to-end tests
     Write-Log "[crm-ui] Running end-to-end tests (npm run e2e)..."
     & $npmCommand run e2e
     if ($LASTEXITCODE -ne 0) {

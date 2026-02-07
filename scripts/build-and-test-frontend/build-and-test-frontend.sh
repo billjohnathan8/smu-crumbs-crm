@@ -150,7 +150,18 @@ if [[ "${has_failures}" -eq 0 ]]; then
 fi
 
 if [[ "${has_failures}" -eq 0 ]]; then
-  # Step 7: Run end-to-end tests
+  # Step 7: Install Playwright browsers
+  log "[crm-ui] Installing Playwright browsers (npx playwright install --with-deps)..."
+  if npx playwright install --with-deps; then
+    log "[crm-ui] Playwright browsers installed successfully"
+  else
+    log "[crm-ui] Playwright browser installation failed"
+    has_failures=1
+  fi
+fi
+
+if [[ "${has_failures}" -eq 0 ]]; then
+  # Step 8: Run end-to-end tests
   log "[crm-ui] Running end-to-end tests (npm run e2e)..."
   if "${npm_cmd}" run e2e; then
     log "[crm-ui] E2E tests passed"
