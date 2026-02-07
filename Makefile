@@ -12,7 +12,7 @@ export PATH := $(CURDIR)/.devtools/bin:$(PATH)
 endif
 SMOKE_INFRA_CMD ?= bash ./scripts/smoke-k8s-infra/smoke-k8s-infra.sh
 SMOKE_PROBES_CMD ?= bash ./scripts/smoke-k8s-infra/smoke-probes.sh
-VALIDATE_K8S_CMD ?= tr -d '\r' < scripts/validate-k8s/validate.sh | bash
+VALIDATE_K8S_CMD ?= bash scripts/validate-k8s/validate.sh
 NS ?= dev
 
 ifeq ($(OS),Windows_NT)
