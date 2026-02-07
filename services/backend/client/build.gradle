@@ -95,6 +95,14 @@ tasks.named('jacocoTestReport') {
 	mustRunAfter tasks.named('test')
 }
 
+tasks.named('bootJar') {
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+tasks.named('jar') {
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
 tasks.register('localTestPipeline') {
 	group = 'verification'
 	description = 'Runs lint, build, tests, and coverage reports for local CI.'
