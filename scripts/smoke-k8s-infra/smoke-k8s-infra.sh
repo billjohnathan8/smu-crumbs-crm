@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 # On Windows (Git Bash), add common Windows tool paths that may not be auto-mapped
@@ -69,6 +69,7 @@ parse_ingress_paths() {
   local inside_service=0
 
   while IFS= read -r line; do
+    line="${line%$'\r'}"
     if [[ "${line}" =~ ^[[:space:]]*-[[:space:]]path:[[:space:]]([^[:space:]]+) ]]; then
       current_path="${BASH_REMATCH[1]}"
       if [[ ! " ${ingress_paths[*]} " =~ " ${current_path} " ]]; then
@@ -102,15 +103,16 @@ parse_ingress_paths() {
 parse_deployments() {
   [[ -f "${kustomization_yaml}" ]] || return 0
   while IFS= read -r line; do
+    line="${line%$'\r'}"
     if [[ "${line}" =~ ^[[:space:]]*-[[:space:]](.+-deployment\.yaml)[[:space:]]*$ ]]; then
       local deployment_file="${manifests_dir}/${BASH_REMATCH[1]}"
       [[ -f "${deployment_file}" ]] || continue
 
       local svc_name
       svc_name="$(awk '
-        /^metadata:/ { in_meta=1; next }
-        in_meta && /^name:/ { print $2; exit }
-      ' "${deployment_file}")"
+        /^[[:space:]]*metadata:/ { in_meta=1; next }
+        in_meta && /^[[:space:]]*name:/ { print $2; exit }
+      ' < <(tr -d '\r' < "${deployment_file}"))"
 
       [[ -n "${svc_name}" ]] || continue
 
@@ -118,13 +120,13 @@ parse_deployments() {
       readiness_path="$(awk '
         $1 == "readinessProbe:" { in_probe=1; next }
         in_probe && $1 == "path:" { print $2; exit }
-      ' "${deployment_file}")"
+      ' < <(tr -d '\r' < "${deployment_file}"))"
 
       local liveness_path
       liveness_path="$(awk '
         $1 == "livenessProbe:" { in_probe=1; next }
         in_probe && $1 == "path:" { print $2; exit }
-      ' "${deployment_file}")"
+      ' < <(tr -d '\r' < "${deployment_file}"))"
 
       if [[ -n "${readiness_path}" ]]; then
         probe_path_by_service["${svc_name}"]="${readiness_path}"
@@ -468,6 +470,11 @@ build_health_checks
 if [[ ${#probe_path_by_service[@]} -eq 0 ]]; then
   echo "No health checks discovered from ${manifests_dir}."
   exit 1
+fi
+
+if [[ "${SMOKE_VALIDATE_ONLY:-0}" == "1" ]]; then
+  echo "Discovered ${#probe_path_by_service[@]} service health checks from manifests; skipping runtime smoke tests."
+  exit 0
 fi
 
 if [[ ${#ingress_paths[@]} -gt 0 ]]; then

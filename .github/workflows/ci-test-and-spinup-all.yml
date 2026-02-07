@@ -57,10 +57,11 @@ jobs:
           cache: 'pip'
           cache-dependency-path: services/backend/log/requirements.txt
       
-      - name: Normalize line endings in shell scripts
+      - name: Normalize line endings in scripts and manifests
         run: |
           sudo apt-get update && sudo apt-get install -y dos2unix
           find scripts -type f -name "*.sh" -exec dos2unix {} \;
+          find platform -type f \( -name "*.yml" -o -name "*.yaml" \) -exec dos2unix {} \;
       
       - name: Make scripts executable
         run: |
@@ -135,10 +136,11 @@ jobs:
           sudo mv kubeconform /usr/local/bin/
           kubeconform -v
       
-      - name: Normalize line endings in shell scripts
+      - name: Normalize line endings in scripts and manifests
         run: |
           sudo apt-get update && sudo apt-get install -y dos2unix
           find scripts -type f -name "*.sh" -exec dos2unix {} \;
+          find platform -type f \( -name "*.yml" -o -name "*.yaml" \) -exec dos2unix {} \;
       
       - name: Make validation script executable
         run: chmod +x scripts/validate-k8s/validate.sh
@@ -156,12 +158,41 @@ jobs:
           retention-days: 7
 
   # ============================================================================
-  # Job 3: Deploy to kind + Smoke Tests
+  # Job 3: Smoke Manifest Preflight (fail fast before heavy deploy)
+  # ============================================================================
+  smoke_preflight:
+    name: Smoke Manifest Preflight
+    runs-on: ubuntu-latest
+    needs: k8s_validate
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Normalize line endings in scripts and manifests
+        run: |
+          sudo apt-get update && sudo apt-get install -y dos2unix
+          find scripts -type f -name "*.sh" -exec dos2unix {} \;
+          find platform -type f \( -name "*.yml" -o -name "*.yaml" \) -exec dos2unix {} \;
+
+      - name: Make smoke scripts executable
+        run: |
+          chmod +x scripts/smoke-k8s-infra/smoke-k8s-infra.sh
+          chmod +x scripts/smoke-k8s-infra/smoke-probes.sh
+
+      - name: Run smoke manifest validation only
+        env:
+          SMOKE_VALIDATE_ONLY: "1"
+        run: bash scripts/smoke-k8s-infra/smoke-k8s-infra.sh
+
+  # ============================================================================
+  # Job 4: Deploy to kind + Smoke Tests
   # ============================================================================
   deploy_kind_smoke:
     name: Deploy to kind & Smoke Tests
     runs-on: ubuntu-latest
-    needs: k8s_validate
+    needs: smoke_preflight
     timeout-minutes: 45
     
     steps:
@@ -211,14 +242,15 @@ jobs:
           install_only: true
           version: v0.25.0
       
-      - name: Install frontend dependencies
-        working-directory: services/frontend/crm-ui
-        run: npm install
-      
-      - name: Normalize line endings in shell scripts
+      - name: Normalize line endings in scripts and manifests
         run: |
           sudo apt-get update && sudo apt-get install -y dos2unix
           find scripts -type f -name "*.sh" -exec dos2unix {} \;
+          find platform -type f \( -name "*.yml" -o -name "*.yaml" \) -exec dos2unix {} \;
+      
+      - name: Install frontend dependencies
+        working-directory: services/frontend/crm-ui
+        run: npm install
       
       - name: Make scripts executable
         run: |
