@@ -248,10 +248,22 @@ if ($env:BUILD_LOG_FILE) {
     Write-Log "Build log file: $($env:BUILD_LOG_FILE)"
 }
 
+function Get-PythonCommand {
+    foreach ($candidate in @("python", "py")) {
+        if (Get-Command $candidate -ErrorAction SilentlyContinue) {
+            return $candidate
+        }
+    }
+    return $null
+}
+
 $scriptDir = Split-Path -Parent $PSCommandPath
 $scriptsRoot = Split-Path -Parent $scriptDir
+$repoRoot = Split-Path -Parent $scriptsRoot
 $testAllScript = Join-Path $scriptsRoot "build-and-test-all\build-and-test-all.ps1"
 $deployScript = Join-Path $scriptsRoot "build-and-deploy-k8s\build-and-deploy-k8s-local.ps1"
+$aggregatedCoverageGenerator = Join-Path $scriptsRoot "build-and-test-all\generate-aggregated-coverage-index.py"
+$reportOutputDir = Join-Path $repoRoot "build-logs\test-and-spinup-all"
 
 if (-not (Test-Path $testAllScript)) {
     Write-Error "Full test script not found: $testAllScript"
@@ -269,7 +281,8 @@ Write-Log "========================================"
 Write-Log ""
 Write-Log "This will:"
 Write-Log "  1. Run full test pipeline (backend + frontend)"
-Write-Log "  2. Deploy to local Kubernetes cluster"
+Write-Log "  2. Generate aggregated coverage report"
+Write-Log "  3. Deploy to local Kubernetes cluster"
 Write-Log ""
 
 Write-Log "Step 1: Running full test pipeline (backend + frontend)..."
@@ -282,7 +295,49 @@ if ($exitCode -ne 0) {
 Write-Log "Full test pipeline completed successfully."
 Write-Log ""
 
-Write-Log "Step 2: Running local k8s deployment..."
+# ========================
+# Step 2: Generate Aggregated Coverage Report
+# ========================
+Write-Log "Step 2: Generating aggregated coverage report..."
+
+$pythonCommand = Get-PythonCommand
+
+if ($pythonCommand -and (Test-Path $aggregatedCoverageGenerator)) {
+    try {
+        if (-not (Test-Path $reportOutputDir)) {
+            New-Item -ItemType Directory -Path $reportOutputDir | Out-Null
+        }
+        Write-Log "Generating aggregated coverage report (build-logs/test-and-spinup-all/index.html)"
+        $oldNoBytecode = $env:PYTHONDONTWRITEBYTECODE
+        $env:PYTHONDONTWRITEBYTECODE = "1"
+        & $pythonCommand $aggregatedCoverageGenerator --output-dir $reportOutputDir
+        if ($LASTEXITCODE -ne 0) {
+            Write-Log "Warning: Aggregated coverage index generation failed (exitCode=$LASTEXITCODE)."
+        }
+        else {
+            Write-Log "Aggregated coverage report generated successfully"
+        }
+        $env:PYTHONDONTWRITEBYTECODE = $oldNoBytecode
+    }
+    catch {
+        Write-Log "Warning: Aggregated coverage index generation failed: $($_.Exception.Message)"
+    }
+}
+else {
+    if (-not $pythonCommand) {
+        Write-Log "Skipping aggregated coverage report generation: Python not available."
+    }
+    elseif (-not (Test-Path $aggregatedCoverageGenerator)) {
+        Write-Log "Skipping aggregated coverage report generation: Generator script not found."
+    }
+}
+
+Write-Log ""
+
+# ========================
+# Step 3: Deploy to local Kubernetes cluster
+# ========================
+Write-Log "Step 3: Running local k8s deployment..."
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $deployScript
 $exitCode = $LASTEXITCODE
 if ($exitCode -ne 0) {
@@ -297,4 +352,8 @@ Write-Log "Test and Spin-Up All: Complete"
 Write-Log "========================================"
 Write-Log ""
 Write-Log "All services tested and deployed successfully!"
+Write-Log ""
+Write-Log "Coverage Report:"
+Write-Log "  - Aggregated:  $reportOutputDir\index.html"
+Write-Log ""
 exit 0

@@ -7,6 +7,7 @@ Before development work, please read through (open all markdown files using `'Op
 1. **[The Tech Stack](docs/main-diagrams/tech-stack.md)** and configure your laptops/machines to be able to run all those technologies
 2. **[API Contracts](docs/api-contracts/openapi)** for your relevant service API.
 3. **[The Coding Standards](docs/coding-standards/coding-standards.md)** during dev work and before creating branches, pushing to remote (github), or creating PRs.
+4. Open `Docker Desktop` before running any pipelines involving k8s (since we are using `kind`(K8s IN Docker aka KIND)).
 
 **Notes:**
 > Local development is fully supported on `kind` without AWS dependencies. AWS-oriented docs can still coexist for target-state planning.
@@ -29,6 +30,7 @@ Before development work, please read through (open all markdown files using `'Op
 - Backend Pipeline: ~ 2min
 - Frontend Pipeline: ~ 2min
 - Deploy Pipeline: ~ 4min
+- Spinup-All Pipeline: ~ 12min
 
 ---
 

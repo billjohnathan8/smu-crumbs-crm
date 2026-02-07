@@ -29,9 +29,9 @@ infra-up:
 	$(KUBECTL) wait --namespace dev --for=condition=ready pod -l app.kubernetes.io/name=postgresql --timeout=180s
 
 build-images:
-	cd services/backend/agent && $(GRADLEW) clean bootJar
-	cd services/backend/client && $(GRADLEW) clean bootJar
-	cd services/backend/transaction && $(GRADLEW) clean bootJar
+	cd services/backend/agent && $(GRADLEW) bootJar
+	cd services/backend/client && $(GRADLEW) bootJar
+	cd services/backend/transaction && $(GRADLEW) bootJar
 	docker build -t agent:dev services/backend/agent
 	docker build -t client:dev services/backend/client
 	docker build -t log:dev services/backend/log

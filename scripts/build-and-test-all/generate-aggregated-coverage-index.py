@@ -11,6 +11,7 @@ across the entire application stack.
 """
 from __future__ import annotations
 
+import argparse
 import datetime as _dt
 import html
 import json
@@ -742,10 +743,22 @@ def _render_service_row(s: ServiceSummary, repo_root: Path) -> str:
 # =======================
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Generate aggregated coverage report.")
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Output directory for the report. Defaults to build-logs/build-and-test-all/.",
+    )
+    args = parser.parse_args()
+
     repo_root = _repo_root()
     backend_root = repo_root / "services" / "backend"
     frontend_root = repo_root / "services" / "frontend" / "crm-ui"
-    build_log_dir = repo_root / "build-logs" / "build-and-test-all"
+    if args.output_dir:
+        build_log_dir = Path(args.output_dir).resolve()
+    else:
+        build_log_dir = repo_root / "build-logs" / "build-and-test-all"
     build_log_dir.mkdir(parents=True, exist_ok=True)
 
     services: list[ServiceSummary] = []
