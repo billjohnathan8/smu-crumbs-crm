@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Probe Diagnostics Summary - 2026-02-07 14:30:30</title>
+    <title>Probe Diagnostics Summary - 2026-02-07 16:24:34</title>
     <style>
         * {
             margin: 0;
@@ -44,7 +44,7 @@
             font-size: 1.5em;
             font-weight: bold;
             color: white;
-            background-color: #28a745;
+            background-color: #6c757d;
         }
         .summary-grid {
             display: grid;
@@ -173,11 +173,11 @@
     <div class="container">
         <div class="header">
             <h1>🔍 Probe Diagnostics Summary</h1>
-            <div class="timestamp">Generated: 2026-02-07 14:30:30</div>
+            <div class="timestamp">Generated: 2026-02-07 16:24:34</div>
         </div>
         
         <div class="status-banner">
-            Overall Status: PASSED
+            Overall Status: UNKNOWN
         </div>
         
         <div class="summary-grid">
@@ -185,7 +185,7 @@
                 <h3>📊 Rollout Checks</h3>
                 <div class="stat">
                     <span class="stat-label">Passed</span>
-                    <span class="stat-value passed">6</span>
+                    <span class="stat-value passed">0</span>
                 </div>
                 <div class="stat">
                     <span class="stat-label">Failed</span>
@@ -193,7 +193,7 @@
                 </div>
                 <div class="stat">
                     <span class="stat-label">Total</span>
-                    <span class="stat-value">6</span>
+                    <span class="stat-value">0</span>
                 </div>
             </div>
             
@@ -201,7 +201,7 @@
                 <h3>🔬 Probe Presence</h3>
                 <div class="stat">
                     <span class="stat-label">Passed</span>
-                    <span class="stat-value passed">17</span>
+                    <span class="stat-value passed">0</span>
                 </div>
                 <div class="stat">
                     <span class="stat-label">Failed</span>
@@ -209,7 +209,7 @@
                 </div>
                 <div class="stat">
                     <span class="stat-label">Total</span>
-                    <span class="stat-value">17</span>
+                    <span class="stat-value">0</span>
                 </div>
             </div>
             
@@ -217,7 +217,7 @@
                 <h3>🌐 In-Cluster Health</h3>
                 <div class="stat">
                     <span class="stat-label">Passed</span>
-                    <span class="stat-value passed">3</span>
+                    <span class="stat-value passed">0</span>
                 </div>
                 <div class="stat">
                     <span class="stat-label">Failed</span>
@@ -225,235 +225,13 @@
                 </div>
                 <div class="stat">
                     <span class="stat-label">Total</span>
-                    <span class="stat-value">3</span>
+                    <span class="stat-value">0</span>
                 </div>
             </div>
         </div>
 
-        <div class="section">
-            <h2>📊 Rollout Checks</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Resource Type</th>
-                        <th>Name</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-
-                    <tr>
-                        <td>deployment</td>
-                        <td>agent</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                    <tr>
-                        <td>deployment</td>
-                        <td>client</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                    <tr>
-                        <td>deployment</td>
-                        <td>frontend</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                    <tr>
-                        <td>deployment</td>
-                        <td>log</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                    <tr>
-                        <td>deployment</td>
-                        <td>transaction</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                    <tr>
-                        <td>statefulset</td>
-                        <td>postgres-postgresql</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                </tbody>
-            </table>
-        </div>
-
-        <div class="section">
-            <h2>🔬 Probe Presence Checks</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Resource</th>
-                        <th>Container</th>
-                        <th>Probe Type</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-
-                    <tr>
-                        <td>Deployment/agent</td>
-                        <td>agent</td>
-                        <td>readinessProbe</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                    <tr>
-                        <td>Deployment/agent</td>
-                        <td>agent</td>
-                        <td>livenessProbe</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                    <tr>
-                        <td>Deployment/agent</td>
-                        <td>agent</td>
-                        <td>startupProbe</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                    <tr>
-                        <td>Deployment/client</td>
-                        <td>client</td>
-                        <td>readinessProbe</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                    <tr>
-                        <td>Deployment/client</td>
-                        <td>client</td>
-                        <td>livenessProbe</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                    <tr>
-                        <td>Deployment/client</td>
-                        <td>client</td>
-                        <td>startupProbe</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                    <tr>
-                        <td>Deployment/frontend</td>
-                        <td>frontend</td>
-                        <td>readinessProbe</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                    <tr>
-                        <td>Deployment/frontend</td>
-                        <td>frontend</td>
-                        <td>livenessProbe</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                    <tr>
-                        <td>Deployment/frontend</td>
-                        <td>frontend</td>
-                        <td>startupProbe</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                    <tr>
-                        <td>Deployment/log</td>
-                        <td>log</td>
-                        <td>readinessProbe</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                    <tr>
-                        <td>Deployment/log</td>
-                        <td>log</td>
-                        <td>livenessProbe</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                    <tr>
-                        <td>Deployment/log</td>
-                        <td>log</td>
-                        <td>startupProbe</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                    <tr>
-                        <td>Deployment/transaction</td>
-                        <td>transaction</td>
-                        <td>readinessProbe</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                    <tr>
-                        <td>Deployment/transaction</td>
-                        <td>transaction</td>
-                        <td>livenessProbe</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                    <tr>
-                        <td>Deployment/transaction</td>
-                        <td>transaction</td>
-                        <td>startupProbe</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                    <tr>
-                        <td>StatefulSet/postgres-postgresql</td>
-                        <td>postgresql</td>
-                        <td>readinessProbe</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                    <tr>
-                        <td>StatefulSet/postgres-postgresql</td>
-                        <td>postgresql</td>
-                        <td>livenessProbe</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                </tbody>
-            </table>
-        </div>
-
-        <div class="section">
-            <h2>🌐 In-Cluster Health Checks</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Endpoint</th>
-                        <th>HTTP Status Code</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-
-                    <tr>
-                        <td>client.dev.svc.cluster.local:80/api/v1/health</td>
-                        <td>200</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                    <tr>
-                        <td>frontend.dev.svc.cluster.local:80/health</td>
-                        <td>200</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                    <tr>
-                        <td>log.dev.svc.cluster.local:80/health</td>
-                        <td>200</td>
-                        <td><span class="badge passed">PASSED</span></td>
-                    </tr>
-
-                </tbody>
-            </table>
-        </div>
-
         <div class="footer">
-            Full build log: <a href="inv79731024-092930__2026-02-07_14-30-29__test-and-spinup-all.log" class="log-link">inv79731024-092930__2026-02-07_14-30-29__test-and-spinup-all.log</a>
+            Full build log: <a href="inv79731024-073525__2026-02-07_16-24-34__test-and-spinup-all.log" class="log-link">inv79731024-073525__2026-02-07_16-24-34__test-and-spinup-all.log</a>
             <br>
             Report generated by probe diagnostics pipeline
         </div>

@@ -1,20 +1,15 @@
 # PostgreSQL Helm chart configuration for local development
 # Addresses Bitnami warnings about image tags, resources, and security
 
-# Image configuration - pin specific versions to avoid rolling tags
+# Image configuration - use latest for local development
 image:
   registry: docker.io
   repository: bitnami/postgresql
-  tag: "17.2.0-debian-12-r10"  # Pin to specific version, not 'latest'
+  tag: "latest"  # Use latest for local dev to ensure image availability
   pullPolicy: IfNotPresent
 
 volumePermissions:
-  enabled: true
-  image:
-    registry: docker.io
-    repository: bitnami/os-shell
-    tag: "12-debian-12-r38"  # Pin to specific version, not 'latest'
-    pullPolicy: IfNotPresent
+  enabled: false  # Disabled for local dev since persistence is disabled
 
 # Authentication configuration
 auth:
