@@ -1,3 +1,14 @@
+# Keep mode: Preserve cluster on failure for debugging.
+# Kubernetes failures are state-based. When a deploy fails, the most useful evidence is inside the cluster:
+# pod states, events, first-crash logs, probe failures, and live service DNS/network behavior.
+# If the deploy script tears the cluster down immediately, it deletes the "crime scene" and forces
+# developers into slow reruns and guesswork. Keep mode preserves the cluster on failure so you can inspect
+# state with kubectl describe/logs/events, iterate using helm upgrade, and rerun smoke tests without
+# recreating the entire environment.
+param(
+    [switch]$Keep
+)
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
@@ -475,6 +486,64 @@ function Initialize-KindCluster {
     Invoke-MakeTarget -Target "kind-up" -BashPath $BashPath
 }
 
+function Show-FailureDiagnostics {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ClusterName,
+        [Parameter(Mandatory = $true)]
+        [string]$Namespace
+    )
+
+    Write-Log "=== FAILURE DIAGNOSTICS ==="
+    Write-Log "Cluster preserved for debugging. Use the commands below to investigate:"
+    Write-Log ""
+
+    $oldEap = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        Write-Log "Pod status:"
+        & kubectl get pods -n $Namespace -o wide 2>&1 | Out-String | Write-Host
+
+        Write-Log "Services and Ingress:"
+        & kubectl get svc,ingress -n $Namespace 2>&1 | Out-String | Write-Host
+
+        Write-Log "Recent events (last 200):"
+        & kubectl get events -n $Namespace --sort-by=.metadata.creationTimestamp 2>&1 | Select-Object -Last 200 | Write-Host
+
+        Write-Log "Describing failing pods:"
+        $failingPods = & kubectl get pods -n $Namespace -o json 2>$null | ConvertFrom-Json | Select-Object -ExpandProperty items | Where-Object { $_.status.phase -ne 'Running' -and $_.status.phase -ne 'Succeeded' }
+        foreach ($pod in $failingPods) {
+            $podName = $pod.metadata.name
+            Write-Log "kubectl describe pod $podName -n $Namespace"
+            & kubectl describe pod $podName -n $Namespace 2>&1 | Out-String | Write-Host
+            Write-Log "kubectl logs $podName -n $Namespace --tail=100 --all-containers=true"
+            & kubectl logs $podName -n $Namespace --tail=100 --all-containers=true 2>&1 | Out-String | Write-Host
+        }
+    }
+    finally {
+        $ErrorActionPreference = $oldEap
+    }
+
+    Write-Log ""
+    Write-Log "=== DEBUG COMMANDS ==="
+    Write-Log "kubectl get pods -n $Namespace -o wide"
+    Write-Log "kubectl get events -n $Namespace --sort-by=.metadata.creationTimestamp | Select-Object -Last 200"
+    Write-Log "kubectl describe pod <pod-name> -n $Namespace"
+    Write-Log "kubectl logs <pod-name> -n $Namespace --tail=100 --all-containers=true"
+    Write-Log "helm list -n $Namespace"
+    Write-Log "kubectl get ingress -n $Namespace"
+    Write-Log ""
+    Write-Log "To iterate on fixes:"
+    Write-Log "  1. Fix the issue in code/manifests"
+    Write-Log "  2. Rebuild: make build-images && make kind-load"
+    Write-Log "  3. Redeploy: make deploy-dev"
+    Write-Log "  4. Rerun smoke: make smoke"
+    Write-Log ""
+    Write-Log "To cleanup when done:"
+    Write-Log "  kind delete cluster --name $ClusterName"
+    Write-Log "=== END DIAGNOSTICS ==="
+}
+
 function Invoke-TeardownAfterSuccess {
     param(
         [Parameter(Mandatory = $true)]
@@ -632,6 +701,12 @@ $targets = @(
     "smoke"
 )
 
+if ($Keep) {
+    Write-Log "Keep mode enabled: cluster will be preserved on success or failure."
+}
+
+$namespace = "dev"
+
 Push-Location $repoRoot
 try {
     $completedSuccessfully = $false
@@ -678,23 +753,44 @@ try {
 
     $completedSuccessfully = $true
 }
-finally {
-    # Generate comprehensive k8s deploy summary report (regardless of success/failure)
+catch {
+    # On failure: always preserve cluster and show diagnostics
+    Write-Log "Deployment or smoke tests failed: $($_.Exception.Message)"
     try {
         Generate-K8sDeploySummaryReport -RepoRoot $repoRoot
     }
     catch {
         Write-Log "Warning: Failed to generate k8s deploy summary: $($_.Exception.Message)"
     }
-
+    Show-FailureDiagnostics -ClusterName $kindClusterName -Namespace $namespace
+    Pop-Location
+    Exit-WithCode -Code 1
+}
+finally {
+    # Generate comprehensive k8s deploy summary report (on success path)
     if ($completedSuccessfully) {
         try {
-            Invoke-TeardownAfterSuccess -ClusterName $kindClusterName
+            Generate-K8sDeploySummaryReport -RepoRoot $repoRoot
         }
         catch {
-            Write-Log "Teardown failed: $($_.Exception.Message)"
-            Pop-Location
-            Exit-WithCode -Code 1
+            Write-Log "Warning: Failed to generate k8s deploy summary: $($_.Exception.Message)"
+        }
+
+        if ($Keep) {
+            # Keep mode: preserve cluster even on success
+            Write-Log "Keep mode: cluster preserved. Teardown skipped."
+            Write-Log "To cleanup when done: kind delete cluster --name $kindClusterName"
+        }
+        else {
+            # Normal mode: teardown on success
+            try {
+                Invoke-TeardownAfterSuccess -ClusterName $kindClusterName
+            }
+            catch {
+                Write-Log "Teardown failed: $($_.Exception.Message)"
+                Pop-Location
+                Exit-WithCode -Code 1
+            }
         }
     }
     Pop-Location

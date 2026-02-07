@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# Keep mode: Preserve cluster on failure for debugging.
+# Kubernetes failures are state-based. When a deploy fails, the most useful evidence is inside the cluster:
+# pod states, events, first-crash logs, probe failures, and live service DNS/network behavior.
+# If the deploy script tears the cluster down immediately, it deletes the "crime scene" and forces
+# developers into slow reruns and guesswork. Keep mode preserves the cluster on failure so you can inspect
+# state with kubectl describe/logs/events, iterate using helm upgrade, and rerun smoke tests without
+# recreating the entire environment.
+#
+# Usage: KEEP_CLUSTER=1 bash ./scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -76,6 +85,64 @@ get_k8s_deployments() {
     }
     END { if (deployments) print deployments }
   ' "${kustomization}"
+}
+
+kind_cluster_reachable() {
+  local cluster_name="$1"
+  local context_name="kind-${cluster_name}"
+  kubectl --context "${context_name}" version --request-timeout=10s >/dev/null 2>&1
+}
+
+show_failure_diagnostics() {
+  local cluster_name="$1"
+  local namespace="$2"
+
+  log "=== FAILURE DIAGNOSTICS ==="
+  log "Cluster preserved for debugging. Use the commands below to investigate:"
+  echo ""
+
+  log "Pod status:"
+  kubectl get pods -n "${namespace}" -o wide 2>&1 || true
+
+  log "Services and Ingress:"
+  kubectl get svc,ingress -n "${namespace}" 2>&1 || true
+
+  log "Recent events (last 200):"
+  kubectl get events -n "${namespace}" --sort-by=.metadata.creationTimestamp 2>&1 | tail -200 || true
+
+  log "Describing failing pods:"
+  local failing_pods
+  failing_pods="$(kubectl get pods -n "${namespace}" -o json 2>/dev/null | \
+    jq -r '.items[] | select(.status.phase != "Running" and .status.phase != "Succeeded") | .metadata.name' || true)"
+  
+  if [[ -n "${failing_pods}" ]]; then
+    while IFS= read -r pod; do
+      [[ -z "${pod}" ]] && continue
+      log "kubectl describe pod ${pod} -n ${namespace}"
+      kubectl describe pod "${pod}" -n "${namespace}" 2>&1 || true
+      log "kubectl logs ${pod} -n ${namespace} --tail=100 --all-containers=true"
+      kubectl logs "${pod}" -n "${namespace}" --tail=100 --all-containers=true 2>&1 || true
+    done <<< "${failing_pods}"
+  fi
+
+  echo ""
+  log "=== DEBUG COMMANDS ==="
+  log "kubectl get pods -n ${namespace} -o wide"
+  log "kubectl get events -n ${namespace} --sort-by=.metadata.creationTimestamp | tail -200"
+  log "kubectl describe pod <pod-name> -n ${namespace}"
+  log "kubectl logs <pod-name> -n ${namespace} --tail=100 --all-containers=true"
+  log "helm list -n ${namespace}"
+  log "kubectl get ingress -n ${namespace}"
+  echo ""
+  log "To iterate on fixes:"
+  log "  1. Fix the issue in code/manifests"
+  log "  2. Rebuild: make build-images && make kind-load"
+  log "  3. Redeploy: make deploy-dev"
+  log "  4. Rerun smoke: make smoke"
+  echo ""
+  log "To cleanup when done:"
+  log "  kind delete cluster --name ${cluster_name}"
+  log "=== END DIAGNOSTICS ==="
 }
 
 kind_cluster_reachable() {
@@ -203,6 +270,15 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 
+if [[ "${KEEP_CLUSTER:-0}" == "1" ]] || [[ "${KEEP_CLUSTER:-}" == "true" ]]; then
+  log "Keep mode enabled: cluster will be preserved on success or failure."
+  keep_mode=true
+else
+  keep_mode=false
+fi
+
+namespace="dev"
+
 log "Running K8s manifest validation..."
 if ! make -C "${repo_root}" SHELL=bash k8s-validate; then
   log "K8s validation failed. Aborting build-and-deploy."
@@ -225,28 +301,38 @@ if ! kubectl config use-context "${context_name}" >/dev/null 2>&1; then
   exit 1
 fi
 
+# Set trap to handle failures and preserve cluster for debugging
+trap 'exit_code=$?; if [[ ${exit_code} -ne 0 ]]; then log "Deployment or smoke tests failed."; generate_k8s_deploy_summary_report || log "Warning: Failed to generate k8s deploy summary report."; show_failure_diagnostics "${kind_cluster_name}" "${namespace}"; fi; exit ${exit_code}' ERR
+
 run_make_target infra-up
 run_make_target build-images
 run_make_target kind-load
 run_make_target deploy-dev
 run_make_target smoke
 
-# Generate comprehensive k8s deploy summary report (before teardown)
+# Generate comprehensive k8s deploy summary report (after successful smoke tests)
 generate_k8s_deploy_summary_report || log "Warning: Failed to generate k8s deploy summary report."
 
-log "Smoke passed: tearing down local k8s resources and kind cluster '${kind_cluster_name}'"
+if [[ "${keep_mode}" == "true" ]]; then
+  # Keep mode: preserve cluster even on success
+  log "Keep mode: cluster preserved. Teardown skipped."
+  log "To cleanup when done: kind delete cluster --name ${kind_cluster_name}"
+else
+  # Normal mode: teardown on success
+  log "Smoke passed: tearing down local k8s resources and kind cluster '${kind_cluster_name}'"
 
-# Best-effort cleanup. The kind cluster delete is the "complete teardown" step.
-kubectl delete -k platform/k8s/apps/overlays/dev --ignore-not-found >/dev/null 2>&1 || true
-helm uninstall postgres -n dev >/dev/null 2>&1 || true
-helm uninstall ingress-nginx -n ingress-nginx >/dev/null 2>&1 || true
-helm uninstall metrics-server -n kube-system >/dev/null 2>&1 || true
+  # Best-effort cleanup. The kind cluster delete is the "complete teardown" step.
+  kubectl delete -k platform/k8s/apps/overlays/dev --ignore-not-found >/dev/null 2>&1 || true
+  helm uninstall postgres -n dev >/dev/null 2>&1 || true
+  helm uninstall ingress-nginx -n ingress-nginx >/dev/null 2>&1 || true
+  helm uninstall metrics-server -n kube-system >/dev/null 2>&1 || true
 
-if ! kind delete cluster --name "${kind_cluster_name}" >/dev/null 2>&1; then
-  log "Teardown failed: unable to delete kind cluster '${kind_cluster_name}'."
-  exit 1
+  if ! kind delete cluster --name "${kind_cluster_name}" >/dev/null 2>&1; then
+    log "Teardown failed: unable to delete kind cluster '${kind_cluster_name}'."
+    exit 1
+  fi
+
+  log "Teardown complete: kind cluster '${kind_cluster_name}' deleted."
 fi
-
-log "Teardown complete: kind cluster '${kind_cluster_name}' deleted."
 
 log "Local Kubernetes build/deploy and smoke checks completed successfully."

@@ -20,6 +20,8 @@ Complete end-to-end deployment pipeline that:
 
 ## Usage
 
+### Normal Run (Teardown on Success)
+
 **Windows:**
 ```powershell
 .\scripts\build-and-deploy-k8s\build-and-deploy-k8s-local.ps1
@@ -33,6 +35,80 @@ bash ./scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh
 **Via wrapper (from repository root):**
 ```cmd
 .\scripts\build-and-deploy-k8s-local.cmd
+```
+
+### Keep Mode (Preserve Cluster for Debugging)
+
+**Windows:**
+```powershell
+.\scripts\build-and-deploy-k8s\build-and-deploy-k8s-local.ps1 -Keep
+```
+
+**macOS/Linux:**
+```bash
+KEEP_CLUSTER=1 bash ./scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh
+```
+
+#### Why Keep Mode Exists
+
+Kubernetes failures are state-based. When a deploy fails, the most useful evidence is inside the cluster:
+pod states, events, first-crash logs, probe failures, and live service DNS/network behavior.
+If the deploy script tears the cluster down immediately, it deletes the "crime scene" and forces
+developers into slow reruns and guesswork. Keep mode preserves the cluster on failure so you can inspect
+state with `kubectl describe/logs/events`, iterate using `helm upgrade`, and rerun smoke tests without
+recreating the entire environment.
+
+**Behavior:**
+- **With `-Keep` (PowerShell) or `KEEP_CLUSTER=1` (bash):** Cluster is preserved on both success and failure
+- **Without Keep mode:** Cluster is torn down on success, but **preserved on failure** (to enable debugging)
+- **On failure:** Detailed diagnostics are printed automatically (pod status, events, logs)
+
+#### Debug Quick Reference
+
+When the cluster is preserved after a failure, use these commands to investigate:
+
+```bash
+# Check pod status
+kubectl get pods -n dev -o wide
+
+# Check recent events (most helpful for deployment issues)
+kubectl get events -n dev --sort-by=.metadata.creationTimestamp | tail -200
+
+# Describe a failing pod
+kubectl describe pod <pod-name> -n dev
+
+# View logs from a pod
+kubectl logs <pod-name> -n dev --tail=100 --all-containers=true
+
+# Check services and ingress
+kubectl get svc,ingress -n dev
+
+# List Helm releases
+helm list -n dev
+```
+
+#### Iterating on Fixes (Keep Mode Workflow)
+
+1. **Fix the issue** in code or manifests
+2. **Rebuild images:**
+   ```bash
+   make build-images && make kind-load
+   ```
+3. **Redeploy:**
+   ```bash
+   make deploy-dev
+   ```
+4. **Rerun smoke tests:**
+   ```bash
+   make smoke
+   ```
+
+#### Cleanup After Keep Mode
+
+When you're done debugging and want to remove the cluster:
+
+```bash
+kind delete cluster --name cs301-crm
 ```
 
 ## Prerequisites

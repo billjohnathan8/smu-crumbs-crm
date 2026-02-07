@@ -83,7 +83,57 @@ bash ./scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh
 
 Notes:
 - The wrapper runs the full make-driven deploy plus smoke checks.
-- On success, it tears down dev workloads and deletes the kind cluster. Use the manual steps below if you want a persistent cluster for debugging.
+- On success: tears down dev workloads and deletes the kind cluster (unless Keep mode is enabled).
+- On failure: preserves the cluster and prints diagnostics for debugging.
+
+### Keep Mode (Debugging Failed Deployments)
+
+When debugging deployment issues, use Keep mode to preserve the cluster:
+
+**Windows:**
+```powershell
+.\scripts\build-and-deploy-k8s\build-and-deploy-k8s-local.ps1 -Keep
+```
+
+**macOS/Linux:**
+```bash
+KEEP_CLUSTER=1 bash ./scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh
+```
+
+#### Why Keep Mode Exists
+
+Kubernetes failures are state-based. When a deploy fails, the most useful evidence is inside the cluster:
+pod states, events, first-crash logs, probe failures, and live service DNS/network behavior.
+If the deploy script tears the cluster down immediately, it deletes the "crime scene" and forces
+developers into slow reruns and guesswork. Keep mode preserves the cluster on failure so you can inspect
+state with `kubectl describe/logs/events`, iterate using `helm upgrade`, and rerun smoke tests without
+recreating the entire environment.
+
+**Behavior:**
+- **With Keep mode enabled:** Cluster is preserved on both success and failure
+- **Without Keep mode:** Cluster is torn down on success, but **preserved on failure** (to enable debugging)
+- **On any failure:** Detailed diagnostics are printed automatically (pod status, events, logs, helpful commands)
+
+#### Iterating on Fixes (Keep Mode Workflow)
+
+1. **Inspect the failure** using the diagnostics printed by the script
+2. **Fix the issue** in code or manifests
+3. **Rebuild images:**
+   ```bash
+   make build-images && make kind-load
+   ```
+4. **Redeploy:**
+   ```bash
+   make deploy-dev
+   ```
+5. **Rerun smoke tests:**
+   ```bash
+   make smoke
+   ```
+6. **Cleanup when done:**
+   ```bash
+   kind delete cluster --name cs301-crm
+   ```
 
 Success criteria:
 - Exit code `0`
