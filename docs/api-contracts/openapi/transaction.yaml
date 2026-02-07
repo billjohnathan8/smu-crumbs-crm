@@ -1,0 +1,553 @@
+openapi: 3.0.3
+info:
+  title: transaction
+  version: 0.2.1
+  description: |
+    Feature 4: Bank Account Transactions Management.
+
+    The CRM retrieves transaction information (dummy data) from an external SFTP server
+    and populates its own Transaction table. This API supports viewing transactions
+    and triggering imports from the mock SFTP source.
+
+    Appendix 2 (Transaction attributes) requires:
+    - ID
+    - Client ID
+    - Transaction: (D)eposit, (W)ithdrawal
+    - Amount
+    - Date
+    - Status: Completed | Pending | Failed
+servers:
+  - url: http://localhost
+    description: Local / ingress base URL.
+tags:
+  - name: health
+  - name: transactions
+  - name: imports
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: transaction
+                required: [status]
+
+  /api/v1/health:
+    get:
+      deprecated: true
+      tags: [health]
+      summary: (Deprecated) Health check
+      responses:
+        "200":
+          description: OK
+
+  /api/transactions:
+    get:
+      tags: [transactions]
+      summary: List transactions
+      description: |
+        Lists transactions. Admins may see all transactions; agents may see only transactions for their own clients.
+      security:
+        - BearerAuth: []
+      x-required-roles: [admin, agent]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: clientId
+          in: query
+          schema:
+            $ref: "#/components/schemas/ClientId"
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/TransactionStatus"
+        - name: transaction
+          in: query
+          schema:
+            $ref: "#/components/schemas/TransactionKind"
+        - name: fromDate
+          in: query
+          description: Start date inclusive (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: toDate
+          in: query
+          description: End date inclusive (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: List of transactions.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Transaction"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+                required: [data]
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      tags: [transactions]
+      summary: Create transaction
+      description: |
+        Creates a transaction record in CRM database. Normally populated by import from SFTP.
+        Provided for completeness/testing.
+      security:
+        - BearerAuth: []
+      x-required-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTransactionRequest"
+      responses:
+        "201":
+          description: Transaction created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/transactions/{transactionId}:
+    get:
+      tags: [transactions]
+      summary: Get transaction by ID
+      security:
+        - BearerAuth: []
+      x-required-roles: [admin, agent]
+      parameters:
+        - name: transactionId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/TransactionId"
+      responses:
+        "200":
+          description: Transaction found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      tags: [transactions]
+      summary: Delete transaction
+      description: Admin-only. Deletes a transaction record from CRM database.
+      security:
+        - BearerAuth: []
+      x-required-roles: [admin]
+      parameters:
+        - name: transactionId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/TransactionId"
+      responses:
+        "204":
+          description: Transaction deleted.
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/clients/{clientId}/transactions:
+    get:
+      tags: [transactions]
+      summary: List transactions for a specific client
+      security:
+        - BearerAuth: []
+      x-required-roles: [admin, agent]
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ClientId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: List of transactions for client.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Transaction"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+                required: [data]
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/transactions/import:
+    post:
+      tags: [imports]
+      summary: Trigger import from external SFTP source
+      description: |
+        Triggers a pull from the mock SFTP server and stores transactions in CRM database.
+        If clientId is provided, imports only for that client; otherwise imports all available records.
+      security:
+        - BearerAuth: []
+      x-required-roles: [admin]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportTransactionsRequest"
+      responses:
+        "202":
+          description: Import started/queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportBatch"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/transactions/imports/{importBatchId}:
+    get:
+      tags: [imports]
+      summary: Get import batch status
+      security:
+        - BearerAuth: []
+      x-required-roles: [admin]
+      parameters:
+        - name: importBatchId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ImportBatchId"
+      responses:
+        "200":
+          description: Import batch found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportBatch"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Bearer JWT access token minted via an OAuth 2.0 provider.
+        Each request must be authenticated and authorized (Zero Trust).
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: validation_error
+        message:
+          type: string
+          example: "Field 'clientId' is invalid"
+        requestId:
+          type: string
+          example: 7f1d2c3b-0c44-4ce9-a7ed-4c0c0c8edc1d
+      required: [error, message]
+
+    Pagination:
+      type: object
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+        offset:
+          type: integer
+          minimum: 0
+          default: 0
+        total:
+          type: integer
+          minimum: 0
+
+    TransactionId:
+      type: string
+      description: The transaction ID.
+      example: txn_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+
+    ClientId:
+      type: string
+      description: The client ID.
+      example: clt_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+
+    TransactionKind:
+      type: string
+      description: (D)eposit or (W)ithdrawal.
+      enum: [D, W]
+
+    TransactionStatus:
+      type: string
+      description: Transaction status.
+      enum: [Completed, Pending, Failed]
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/TransactionId"
+        clientId:
+          $ref: "#/components/schemas/ClientId"
+        transaction:
+          $ref: "#/components/schemas/TransactionKind"
+        amount:
+          type: number
+          format: float
+          minimum: 0
+          example: 1200.5
+        date:
+          type: string
+          format: date
+          description: Transaction date (YYYY-MM-DD)
+          example: "2026-02-01"
+        status:
+          $ref: "#/components/schemas/TransactionStatus"
+        importedAt:
+          type: string
+          format: date-time
+          nullable: true
+        importBatchId:
+          type: string
+          nullable: true
+      required: [id, clientId, transaction, amount, date, status]
+
+    CreateTransactionRequest:
+      type: object
+      properties:
+        clientId:
+          $ref: "#/components/schemas/ClientId"
+        transaction:
+          $ref: "#/components/schemas/TransactionKind"
+        amount:
+          type: number
+          format: float
+          minimum: 0
+        date:
+          type: string
+          format: date
+        status:
+          $ref: "#/components/schemas/TransactionStatus"
+      required: [clientId, transaction, amount, date, status]
+      additionalProperties: false
+
+    ImportBatchId:
+      type: string
+      description: System-generated import batch identifier.
+      example: imp_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+
+    ImportBatchStatus:
+      type: string
+      enum: [queued, running, completed, failed]
+      default: queued
+
+    ImportBatch:
+      type: object
+      properties:
+        importBatchId:
+          $ref: "#/components/schemas/ImportBatchId"
+        status:
+          $ref: "#/components/schemas/ImportBatchStatus"
+        requestedClientId:
+          $ref: "#/components/schemas/ClientId"
+          nullable: true
+        requestedAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        totalRecords:
+          type: integer
+          minimum: 0
+        importedRecords:
+          type: integer
+          minimum: 0
+        failedRecords:
+          type: integer
+          minimum: 0
+        errorMessage:
+          type: string
+          nullable: true
+      required:
+        - importBatchId
+        - status
+        - requestedAt
+        - totalRecords
+        - importedRecords
+        - failedRecords
+
+    ImportTransactionsRequest:
+      type: object
+      properties:
+        clientId:
+          $ref: "#/components/schemas/ClientId"
+          nullable: true
+        sourcePath:
+          type: string
+          nullable: true
+          description: Optional SFTP path override for local testing.
+      additionalProperties: false

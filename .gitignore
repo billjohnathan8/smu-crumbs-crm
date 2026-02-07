@@ -44,12 +44,57 @@ terraform.rc
 # Uncomment the line below if you want to ignore planout files.
 # planout
 
+# Gradle
+.gradle/
+**/.gradle/
+.gradle-user-home/
+.gradle-user-home-backend-pipeline/
+.gradle-user-home-user/
+**/.gradle-test-home/
+
+# Python / pytest cache
+.python-build-test-venvs
+.venv/
+**/.venv/
+venv/
+**/venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*$py.class
+.coverage
+.coverage.*
+.pytest_cache/
+**/.pytest_cache/
+pytest-cache-files-*/
+**/build/reports/tests/
+**/build/reports/coverage/
+
+# Private Keys - do not commit any secrets
+*.pem
+*.key
+id_rsa
+*.ppk
+
 # Others
 .DS_Store
 .env
-*.pem
 
 # Ignore IDE Configs
 .vscode/
+.VSCodeCounter/
+TODO.md
+CHANGELOG.md
+
+# Developer Setup - Portable Tools
+.devtools/
+
+# K8s Validation Temp Directory
+.k8s-validate-tmp/
+# Catch malformed validation output files (bug from WSL path handling)
+*k8s-validate-tmp*infra*.yaml
+*k8s-validate-tmp*apps*.yaml
 
 # Ignore Test Directories

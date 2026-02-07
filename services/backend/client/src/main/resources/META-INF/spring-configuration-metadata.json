@@ -1,0 +1,28 @@
+{
+  "groups": [
+    {
+      "name": "app",
+      "type": "com.itsa.crm.client_service.config.AppProperties",
+      "sourceType": "com.itsa.crm.client_service.config.AppProperties"
+    },
+    {
+      "name": "app.jwt",
+      "type": "com.itsa.crm.client_service.config.AppProperties$Jwt",
+      "sourceType": "com.itsa.crm.client_service.config.AppProperties"
+    }
+  ],
+  "properties": [
+    {
+      "name": "app.log-service-url",
+      "type": "java.lang.String",
+      "sourceType": "com.itsa.crm.client_service.config.AppProperties",
+      "description": "URL of the log service for audit logging"
+    },
+    {
+      "name": "app.jwt.hmac-secret",
+      "type": "java.lang.String",
+      "sourceType": "com.itsa.crm.client_service.config.AppProperties$Jwt",
+      "description": "HMAC secret for JWT token signing and validation"
+    }
+  ]
+}

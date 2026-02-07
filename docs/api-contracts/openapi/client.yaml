@@ -1,353 +1,372 @@
 openapi: 3.0.3
 info:
   title: client
-  version: 0.1.0
+  version: 0.2.0
+  description: 'Feature 2: Client Profile Management and Account Management.
+
+    Agents can only access their own clients; admins can access all clients.'
 servers:
-  - url: http://localhost:{port}/api/v1
-    description: TODO set port from service configuration (server port not defined in repo files).
-    variables:
-      port:
-        default: "TODO"
+- url: http://localhost
+  description: Local / ingress base URL.
+tags:
+- name: health
+- name: clients
+- name: accounts
 paths:
   /health:
     get:
-      tags:
-        - health
+      tags: [health]
       summary: Health check
-      description: Returns a simple JSON string indicating the service is up.
       responses:
-        "200":
+        '200':
           description: Service is healthy.
           content:
             application/json:
               schema:
-                type: string
-              example: '{ "status": "ok" }'
-  /clients:
+                type: object
+                properties:
+                  status: {type: string, example: ok}
+                  service: {type: string, example: client}
+                required: [status]
+  /api/v1/health:
     get:
-      tags:
-        - clients
+      deprecated: true
+      tags: [health]
+      summary: (Deprecated) Health check
+      responses: {'200': {description: OK}}
+  /api/v1/clients/health:
+    get:
+      deprecated: true
+      tags: [health]
+      summary: (Deprecated) Clients route health check
+      responses: {'200': {description: OK}}
+  /api/clients:
+    get:
+      tags: [clients]
       summary: List clients
-      description: Returns all clients from the database.
+      description: Admins see all clients. Agents see only clients assigned to them.
+      security: [{BearerAuth: []}]
+      x-required-roles: [admin, agent]
+      parameters:
+      - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+      - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}}
+      - {name: q, in: query, schema: {type: string, description: Optional search query (name/email/phone).}}
       responses:
-        "200":
+        '200':
           description: List of clients.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Client"
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/Client'}
+                  pagination: {$ref: '#/components/schemas/Pagination'}
+                required: [data]
+        '401':
+          description: Unauthorized
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+        '403':
+          description: Forbidden
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
     post:
-      tags:
-        - clients
-      summary: Create client
-      description: Creates a client and writes an audit log to SQS. The agentId is supplied in the request body and used for logging only.
+      tags: [clients]
+      summary: Create client profile
+      description: Creates a client profile. A log entry must be recorded (Feature 3).
+      security: [{BearerAuth: []}]
+      x-required-roles: [agent, admin]
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: "#/components/schemas/ClientCreateRequest"
+            schema: {$ref: '#/components/schemas/ClientCreateRequest'}
       responses:
-        "201":
+        '201':
           description: Client created.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Client"
-        "409":
-          description: Email or phone number already exists.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-  /clients/{id}:
+          content: {application/json: {schema: {$ref: '#/components/schemas/Client'}}}
+        '400':
+          description: Validation error.
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+        '409':
+          description: Conflict (e.g., email/phone already exists).
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+        '401':
+          description: Unauthorized
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+        '403':
+          description: Forbidden
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+  /api/clients/{clientId}:
     get:
-      tags:
-        - clients
-      summary: Get client by ID
-      description: Returns a single client by ID.
+      tags: [clients]
+      summary: Get client profile
+      description: Retrieves client information. A log entry should be recorded (Feature 3).
+      security: [{BearerAuth: []}]
+      x-required-roles: [agent, admin]
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
+      - {name: clientId, in: path, required: true, schema: {$ref: '#/components/schemas/ClientId'}}
       responses:
-        "200":
-          description: Client found.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Client"
-        "404":
-          description: Client not found.
+        '200': {description: Client found., content: {application/json: {schema: {$ref: '#/components/schemas/Client'}}}}
+        '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
     put:
-      tags:
-        - clients
-      summary: Update client
-      description: Updates a client by ID and writes an audit log to SQS. The agentId is supplied in the request body and used for logging only.
+      tags: [clients]
+      summary: Update client information
+      description: Updates client information. A log entry must be recorded (Feature 3).
+      security: [{BearerAuth: []}]
+      x-required-roles: [agent, admin]
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
+      - {name: clientId, in: path, required: true, schema: {$ref: '#/components/schemas/ClientId'}}
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: "#/components/schemas/ClientUpdateRequest"
+            schema: {$ref: '#/components/schemas/ClientUpdateRequest'}
       responses:
-        "200":
-          description: Client updated.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Client"
-        "404":
-          description: Client not found.
-        "409":
-          description: Email or phone number already exists.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+        '200': {description: Client updated., content: {application/json: {schema: {$ref: '#/components/schemas/Client'}}}}
+        '400': {description: Validation error., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '409': {description: Conflict (e.g., email/phone already exists)., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
     delete:
-      tags:
-        - clients
-      summary: Delete client
-      description: Deletes a client by ID and writes an audit log to SQS. The agentId is optionally supplied in the request body and used for logging only.
+      tags: [clients]
+      summary: Delete client profile
+      description: Deletes a client profile. A log entry must be recorded (Feature 3).
+      security: [{BearerAuth: []}]
+      x-required-roles: [agent, admin]
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
+      - {name: clientId, in: path, required: true, schema: {$ref: '#/components/schemas/ClientId'}}
+      responses:
+        '204': {description: Client deleted.}
+        '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  /api/clients/{clientId}/verify:
+    post:
+      tags: [clients]
+      summary: Verify client identity
+      description: Updates client's identity verification status based on provided NRIC/document reference.
+      security: [{BearerAuth: []}]
+      x-required-roles: [agent, admin]
+      parameters:
+      - {name: clientId, in: path, required: true, schema: {$ref: '#/components/schemas/ClientId'}}
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
-            schema:
-              $ref: "#/components/schemas/ClientDeleteRequest"
+            schema: {$ref: '#/components/schemas/VerifyClientRequest'}
       responses:
-        "204":
-          description: Client deleted.
-        "404":
-          description: Client not found.
-  /clients/cache-test:
-    get:
-      tags:
-        - cache
-      summary: Redis cache smoke test
-      description: Writes and reads a test key in Redis to verify connectivity.
-      responses:
-        "200":
-          description: Redis read/write succeeded.
-          content:
-            text/plain:
-              schema:
-                type: string
-        "500":
-          description: Redis read/write failed.
-          content:
-            text/plain:
-              schema:
-                type: string
-  /clients/cache-keys:
-    get:
-      tags:
-        - cache
-      summary: List Redis keys
-      description: Returns all keys from Redis.
-      responses:
-        "200":
-          description: List of Redis keys.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: string
-  /clients/{id}/request-image-upload:
+        '200': {description: Verification status updated., content: {application/json: {schema: {$ref: '#/components/schemas/VerifyClientResponse'}}}}
+        '400': {description: Validation error., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  /api/accounts:
     post:
-      tags:
-        - uploads
-      summary: Request image upload
-      description: Generates a one-time upload token and sends an email with the upload link.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
+      tags: [accounts]
+      summary: Create account
+      description: Creates an account for a client. A log entry must be recorded (Feature 3).
+      security: [{BearerAuth: []}]
+      x-required-roles: [agent, admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AccountCreateRequest'}
       responses:
-        "200":
-          description: Upload link sent to email.
-          content:
-            text/plain:
-              schema:
-                type: string
-        "500":
-          description: TODO document error handling for missing client or email/SQS failures.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-  /clients/validate-upload-token:
+        '201': {description: Account created., content: {application/json: {schema: {$ref: '#/components/schemas/Account'}}}}
+        '400': {description: Validation error., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '404': {description: Client not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  /api/accounts/{accountId}:
     get:
-      tags:
-        - uploads
-      summary: Validate upload token
-      description: Validates the upload token and email; marks the token as used if valid.
+      tags: [accounts]
+      summary: Get account by ID
+      security: [{BearerAuth: []}]
+      x-required-roles: [agent, admin]
       parameters:
-        - name: token
-          in: query
-          required: true
-          schema:
-            type: string
-        - name: email
-          in: query
-          required: true
-          schema:
-            type: string
-            format: email
+      - {name: accountId, in: path, required: true, schema: {$ref: '#/components/schemas/AccountId'}}
       responses:
-        "200":
-          description: Whether the token is valid.
-          content:
-            application/json:
-              schema:
-                type: boolean
-  /clients/validate-client-id/{clientId}:
+        '200': {description: Account found., content: {application/json: {schema: {$ref: '#/components/schemas/Account'}}}}
+        '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+    delete:
+      tags: [accounts]
+      summary: Delete account
+      description: Deletes an account. A log entry must be recorded (Feature 3).
+      security: [{BearerAuth: []}]
+      x-required-roles: [agent, admin]
+      parameters:
+      - {name: accountId, in: path, required: true, schema: {$ref: '#/components/schemas/AccountId'}}
+      responses:
+        '204': {description: Account deleted.}
+        '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  /api/clients/{clientId}/accounts:
     get:
-      tags:
-        - clients
-      summary: Validate client ID
-      description: Checks whether a client ID exists.
+      tags: [accounts]
+      summary: List accounts for a client
+      security: [{BearerAuth: []}]
+      x-required-roles: [agent, admin]
       parameters:
-        - name: clientId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
+      - {name: clientId, in: path, required: true, schema: {$ref: '#/components/schemas/ClientId'}}
       responses:
-        "200":
-          description: Client ID exists.
-          content:
-            application/json:
-              schema:
-                type: boolean
-        "404":
-          description: Client ID does not exist.
-          content:
-            application/json:
-              schema:
-                type: boolean
+        '200': {description: Accounts for client., content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Account'}}}}}
+        '404': {description: Client not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
 components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Bearer JWT access token minted via an OAuth 2.0 provider (e.g.,
+        Cognito). Each request must be authenticated and authorized (Zero Trust).
   schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error: {type: string, example: validation_error}
+        message: {type: string, example: Email is required}
+        requestId: {type: string, example: 7f1d2c3b-0c44-4ce9-a7ed-4c0c0c8edc1d}
+      required: [error, message]
+    Pagination:
+      type: object
+      properties:
+        limit: {type: integer, minimum: 1, maximum: 200, default: 50}
+        offset: {type: integer, minimum: 0, default: 0}
+        total: {type: integer, minimum: 0}
+    ClientId:
+      type: string
+      description: System-generated unique, non-editable client identifier.
+      example: clt_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+    AccountId:
+      type: string
+      description: System-generated account identifier.
+      example: acc_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+    Gender:
+      type: string
+      enum: [Male, Female, Non-binary, Prefer not to say]
+    IdentityVerificationStatus:
+      type: string
+      enum: [unverified, pending, verified, rejected]
+      default: unverified
+    AccountType:
+      type: string
+      enum: [Savings, Checking, Business]
+    AccountStatus:
+      type: string
+      enum: [Active, Inactive, Pending]
     Client:
       type: object
-      description: Client profile details.
       properties:
-        clientId:
-          type: integer
-          format: int64
+        clientId: {$ref: '#/components/schemas/ClientId'}
+        firstName: {type: string, minLength: 2, maxLength: 50, pattern: '^[A-Za-z ]+$'}
+        lastName: {type: string, minLength: 2, maxLength: 50, pattern: '^[A-Za-z ]+$'}
+        dateOfBirth: {type: string, format: date, description: Must be in the past; age 18-100.}
+        gender: {$ref: '#/components/schemas/Gender'}
+        emailAddress: {type: string, format: email}
+        phoneNumber: {type: string, minLength: 10, maxLength: 15, example: '+6591234567'}
+        address: {type: string, minLength: 5, maxLength: 100}
+        city: {type: string, minLength: 2, maxLength: 50}
+        state: {type: string, minLength: 2, maxLength: 50}
+        country: {type: string, minLength: 2, maxLength: 50, example: Singapore}
+        postalCode: {type: string, minLength: 4, maxLength: 10}
+        identityVerificationStatus: {$ref: '#/components/schemas/IdentityVerificationStatus'}
+        assignedAgentId:
+          type: string
+          description: Agent user id responsible for this client. Set by system from token; agents see only their own clients.
           readOnly: true
-        firstName:
-          type: string
-          minLength: 2
-          maxLength: 50
-          pattern: "^[A-Za-z ]+$"
-        lastName:
-          type: string
-          minLength: 2
-          maxLength: 50
-          pattern: "^[A-Za-z ]+$"
-        dateOfBirth:
-          type: string
-          format: date
-        gender:
-          type: string
-          enum:
-            - Male
-            - Female
-            - Non-binary
-            - Prefer not to say
-        emailAddress:
-          type: string
-          format: email
-        phoneNumber:
-          type: string
-          pattern: "^\\+?[0-9]{10,15}$"
-        address:
-          type: string
-          minLength: 5
-          maxLength: 100
-        city:
-          type: string
-          minLength: 2
-          maxLength: 50
-        state:
-          type: string
-          minLength: 2
-          maxLength: 50
-        country:
-          type: string
-          minLength: 2
-          maxLength: 50
-        postalCode:
-          type: string
-          minLength: 4
-          maxLength: 10
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
       required:
-        - firstName
-        - lastName
-        - dateOfBirth
-        - gender
-        - emailAddress
-        - phoneNumber
-        - address
-        - city
-        - state
-        - country
-        - postalCode
+      - clientId
+      - firstName
+      - lastName
+      - dateOfBirth
+      - gender
+      - emailAddress
+      - phoneNumber
+      - address
+      - city
+      - state
+      - country
+      - postalCode
+      - identityVerificationStatus
     ClientCreateRequest:
       type: object
-      description: Wrapper payload containing client data and an agentId for audit logging.
       properties:
-        client:
-          $ref: "#/components/schemas/Client"
-        agentId:
-          type: string
-          description: Identifier of the agent performing the action (used only for logging).
-      required:
-        - client
+        firstName: {type: string, minLength: 2, maxLength: 50, pattern: '^[A-Za-z ]+$'}
+        lastName: {type: string, minLength: 2, maxLength: 50, pattern: '^[A-Za-z ]+$'}
+        dateOfBirth: {type: string, format: date}
+        gender: {$ref: '#/components/schemas/Gender'}
+        emailAddress: {type: string, format: email}
+        phoneNumber: {type: string, minLength: 10, maxLength: 15}
+        address: {type: string, minLength: 5, maxLength: 100}
+        city: {type: string, minLength: 2, maxLength: 50}
+        state: {type: string, minLength: 2, maxLength: 50}
+        country: {type: string, minLength: 2, maxLength: 50, example: Singapore}
+        postalCode: {type: string, minLength: 4, maxLength: 10}
+      required: [firstName, lastName, dateOfBirth, gender, emailAddress, phoneNumber, address, city, state, country, postalCode]
+      additionalProperties: false
     ClientUpdateRequest:
       type: object
-      description: Wrapper payload containing updated client data and an agentId for audit logging.
       properties:
-        client:
-          $ref: "#/components/schemas/Client"
-        agentId:
-          type: string
-          description: Identifier of the agent performing the action (used only for logging).
-      required:
-        - client
-    ClientDeleteRequest:
+        firstName: {type: string, minLength: 2, maxLength: 50, pattern: '^[A-Za-z ]+$'}
+        lastName: {type: string, minLength: 2, maxLength: 50, pattern: '^[A-Za-z ]+$'}
+        dateOfBirth: {type: string, format: date}
+        gender: {$ref: '#/components/schemas/Gender'}
+        emailAddress: {type: string, format: email}
+        phoneNumber: {type: string, minLength: 10, maxLength: 15}
+        address: {type: string, minLength: 5, maxLength: 100}
+        city: {type: string, minLength: 2, maxLength: 50}
+        state: {type: string, minLength: 2, maxLength: 50}
+        country: {type: string, minLength: 2, maxLength: 50}
+        postalCode: {type: string, minLength: 4, maxLength: 10}
+      additionalProperties: false
+    VerifyClientRequest:
       type: object
-      description: Optional wrapper payload containing an agentId for audit logging.
       properties:
-        agentId:
-          type: string
-          description: Identifier of the agent performing the action (used only for logging).
-    ErrorResponse:
-      type: string
-      description: TODO standardize error response shape. Current controllers often return plain text error messages.
+        nric: {type: string, minLength: 6, maxLength: 20, description: Identity document reference (store securely).}
+        documentType: {type: string, enum: [NRIC], default: NRIC}
+        documentRef: {type: string, description: Reference to uploaded/secured doc (do not send raw docs via API).}
+      required: [nric]
+    VerifyClientResponse:
+      type: object
+      properties:
+        clientId: {$ref: '#/components/schemas/ClientId'}
+        identityVerificationStatus: {$ref: '#/components/schemas/IdentityVerificationStatus'}
+      required: [clientId, identityVerificationStatus]
+    Account:
+      type: object
+      properties:
+        accountId: {$ref: '#/components/schemas/AccountId'}
+        clientId: {$ref: '#/components/schemas/ClientId'}
+        accountType: {$ref: '#/components/schemas/AccountType'}
+        accountStatus: {$ref: '#/components/schemas/AccountStatus'}
+        openingDate: {type: string, format: date}
+        initialDeposit: {type: number, minimum: 0, example: 5000}
+        currency: {type: string, example: SGD}
+        branchId: {type: string, example: UBS-SG-001}
+        createdAt: {type: string, format: date-time}
+      required: [accountId, clientId, accountType, accountStatus, openingDate, initialDeposit, currency, branchId]
+    AccountCreateRequest:
+      type: object
+      properties:
+        clientId: {$ref: '#/components/schemas/ClientId'}
+        accountType: {$ref: '#/components/schemas/AccountType'}
+        accountStatus: {$ref: '#/components/schemas/AccountStatus'}
+        openingDate: {type: string, format: date}
+        initialDeposit: {type: number, minimum: 0}
+        currency: {type: string, example: SGD}
+        branchId: {type: string}
+      required: [clientId, accountType, accountStatus, openingDate, initialDeposit, currency, branchId]
+      additionalProperties: false
+  responses: {}

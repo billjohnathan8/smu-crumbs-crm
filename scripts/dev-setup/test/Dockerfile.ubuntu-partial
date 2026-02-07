@@ -1,0 +1,29 @@
+# Test environment: Ubuntu with some tools (simulates partially configured machine)
+# Tests that the script correctly detects what's already installed
+
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install some common tools (simulating a machine with partial setup)
+RUN apt-get update && apt-get install -y \
+    curl \
+    ca-certificates \
+    git \
+    make \
+    openjdk-21-jdk \
+    && rm -rf /var/lib/apt/lists/*
+
+# Node.js 18 (from NodeSource)
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create developer user
+RUN useradd -m -s /bin/bash developer && \
+    echo "developer ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+USER developer
+WORKDIR /home/developer/workspace
+
+CMD ["bash", "scripts/dev-setup/setup.sh", "--doctor"]

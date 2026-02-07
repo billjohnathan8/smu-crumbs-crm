@@ -1,0 +1,57 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: dev
+resources:
+  - ../../base
+images:
+  - name: agent
+    newTag: dev
+  - name: client
+    newTag: dev
+  - name: log
+    newTag: dev
+  - name: transaction
+    newTag: dev
+  - name: crm-ui
+    newTag: dev
+patches:
+  - path: client-patch.yaml
+    target:
+      kind: Deployment
+      name: client
+  - path: log-patch.yaml
+    target:
+      kind: Deployment
+      name: log
+  - path: transaction-patch.yaml
+    target:
+      kind: Deployment
+      name: transaction
+  # Health probe patches (readiness + liveness + startup)
+  - path: agent-probes-patch.yaml
+    target:
+      kind: Deployment
+      name: agent
+  - path: client-probes-patch.yaml
+    target:
+      kind: Deployment
+      name: client
+  - path: log-probes-patch.yaml
+    target:
+      kind: Deployment
+      name: log
+  - path: transaction-probes-patch.yaml
+    target:
+      kind: Deployment
+      name: transaction
+  - path: frontend-probes-patch.yaml
+    target:
+      kind: Deployment
+      name: frontend
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: crm-backend
+      app.kubernetes.io/environment: dev
+    includeSelectors: true
+    includeTemplates: true
+

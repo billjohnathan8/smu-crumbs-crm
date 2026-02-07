@@ -1,0 +1,104 @@
+"""Pydantic schemas for the log-service API."""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from enum import Enum
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class ErrorResponse(BaseModel):
+    error: str
+    message: str
+    requestId: str | None = None
+
+
+class HealthResponse(BaseModel):
+    status: str
+    service: str | None = None
+
+
+class Pagination(BaseModel):
+    limit: int = Field(ge=1, le=200, default=50)
+    offset: int = Field(ge=0, default=0)
+    total: int = Field(ge=0, default=0)
+
+
+class LogAction(str, Enum):
+    CREATE = "CREATE"
+    READ = "READ"
+    UPDATE = "UPDATE"
+    DELETE = "DELETE"
+    COMMUNICATION = "COMMUNICATION"
+
+
+class CreateLogRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    action: LogAction
+    attributeName: str = Field(min_length=1, max_length=100)
+    beforeValue: str | None = Field(default=None, max_length=2000)
+    afterValue: str | None = Field(default=None, max_length=2000)
+    agentId: str = Field(min_length=1, max_length=64)
+    clientId: str = Field(min_length=1, max_length=64)
+    dateTime: datetime | None = None
+    correlationId: str | None = Field(default=None, max_length=120)
+
+
+class UpdateLogRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    attributeName: str | None = Field(default=None, min_length=1, max_length=100)
+    beforeValue: str | None = Field(default=None, max_length=2000)
+    afterValue: str | None = Field(default=None, max_length=2000)
+    dateTime: datetime | None = None
+
+
+class LogEntry(BaseModel):
+    logId: str
+    action: LogAction
+    attributeName: str
+    beforeValue: str | None = None
+    afterValue: str | None = None
+    agentId: str
+    clientId: str
+    dateTime: datetime
+    correlationId: str | None = None
+
+
+class CreateCommunicationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    clientId: str = Field(min_length=1, max_length=64)
+    agentId: str = Field(min_length=1, max_length=64)
+    toEmail: str = Field(min_length=3, max_length=320)
+    subject: str = Field(min_length=1, max_length=200)
+    body: str = Field(min_length=1, max_length=20000)
+    channel: str | None = None
+
+
+class CommunicationStatus(str, Enum):
+    queued = "queued"
+    sent = "sent"
+    failed = "failed"
+
+
+class Communication(BaseModel):
+    communicationId: str
+    clientId: str
+    agentId: str
+    channel: str = "email"
+    toEmail: str
+    subject: str
+    body: str
+    status: CommunicationStatus = CommunicationStatus.queued
+    providerMessageId: str | None = None
+    errorMessage: str | None = None
+    createdAt: datetime
+    updatedAt: datetime
+
+
+def now_utc() -> datetime:
+    """Return the current UTC timestamp."""
+    return datetime.now(timezone.utc)

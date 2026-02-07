@@ -1,73 +1,625 @@
 openapi: 3.0.3
 info:
   title: log
-  version: 1.0-SNAPSHOT
+  version: 0.2.0
+  description: |
+    Feature 3: Logging of Agent Interactions and Client Communications.
+
+    Provides CRUD for audit logs of client profile actions (Create/Read/Update/Delete),
+    and APIs to create client communications (email) and query communication status.
+
+    Appendix 2 (Log attributes) requires:
+    - CRUD
+    - Attribute name
+    - Before Value
+    - After Value
+    - Agent ID
+    - Client ID
+    - DateTime (ISO 8601)
 servers:
-  - url: TODO
-    description: TODO: No HTTP server/port found for this Lambda-based service in `backend/log/src/main/java/com/cs301g2t1/log/LogHandler.java`. Confirm whether an API Gateway/ALB exposes HTTP endpoints.
+  - url: http://localhost
+    description: Local / ingress base URL.
 tags:
-  - name: SQS
-    description: SQS-triggered log operations (not HTTP endpoints).
-paths: {}
+  - name: health
+  - name: logs
+  - name: communications
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  service: { type: string, example: log }
+                required: [status]
+
+  /api/v1/health:
+    get:
+      deprecated: true
+      tags: [health]
+      summary: (Deprecated) Health check
+      responses:
+        "200": { description: OK }
+
+  /api/v1/logs/health:
+    get:
+      deprecated: true
+      tags: [health]
+      summary: (Deprecated) Logs route health check
+      responses:
+        "200": { description: OK }
+
+  /api/logs:
+    get:
+      tags: [logs]
+      summary: List logs
+      description: |
+        Lists audit logs. Admins can view all logs. Agents can view logs for their own client activities.
+      security: [{ BearerAuth: [] }]
+      x-required-roles: [admin, agent]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+        - name: clientId
+          in: query
+          schema: { $ref: "#/components/schemas/ClientId" }
+        - name: agentId
+          in: query
+          schema: { $ref: "#/components/schemas/AgentId" }
+        - name: action
+          in: query
+          schema: { $ref: "#/components/schemas/LogAction" }
+        - name: from
+          in: query
+          description: ISO 8601 start datetime (inclusive)
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          description: ISO 8601 end datetime (exclusive)
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: List of logs.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/LogEntry" }
+                  pagination: { $ref: "#/components/schemas/Pagination" }
+                required: [data]
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    post:
+      tags: [logs]
+      summary: Create log entry
+      description: |
+        Creates an audit log entry for a client action.
+        Typically called internally by other services (client-service, users-service, transaction-service).
+      security: [{ BearerAuth: [] }]
+      x-required-roles: [admin, agent]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateLogRequest" }
+      responses:
+        "201":
+          description: Log entry created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LogEntry" }
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /api/logs/{logId}:
+    get:
+      tags: [logs]
+      summary: Get log entry by ID
+      security: [{ BearerAuth: [] }]
+      x-required-roles: [admin, agent]
+      parameters:
+        - name: logId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/LogId" }
+      responses:
+        "200":
+          description: Log entry found.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LogEntry" }
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    put:
+      tags: [logs]
+      summary: Update log entry
+      description: |
+        Updates an existing log entry. In most audit systems logs are immutable; if you choose immutability,
+        implement this endpoint as restricted or no-op (but keep it for contract compliance).
+      security: [{ BearerAuth: [] }]
+      x-required-roles: [admin]
+      parameters:
+        - name: logId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/LogId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateLogRequest" }
+      responses:
+        "200":
+          description: Log entry updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LogEntry" }
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    delete:
+      tags: [logs]
+      summary: Delete log entry
+      description: |
+        Deletes a log entry. In most audit systems logs are immutable; if you choose immutability,
+        implement as restricted (admin-only) or soft-delete.
+      security: [{ BearerAuth: [] }]
+      x-required-roles: [admin]
+      parameters:
+        - name: logId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/LogId" }
+      responses:
+        "204":
+          description: Log entry deleted.
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /api/clients/{clientId}/logs:
+    get:
+      tags: [logs]
+      summary: List logs for a specific client
+      security: [{ BearerAuth: [] }]
+      x-required-roles: [admin, agent]
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/ClientId" }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        "200":
+          description: List of logs for client.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/LogEntry" }
+                  pagination: { $ref: "#/components/schemas/Pagination" }
+                required: [data]
+        "404":
+          description: Client not found (optional if you validate client existence).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /api/communications:
+    post:
+      tags: [communications]
+      summary: Create communication
+      description: |
+        Creates a client communication (email) request.
+        Used by other services when notifying clients (e.g., after profile changes).
+      security: [{ BearerAuth: [] }]
+      x-required-roles: [admin, agent]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateCommunicationRequest" }
+      responses:
+        "202":
+          description: Communication accepted for processing.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Communication" }
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /api/communications/{communicationId}:
+    get:
+      tags: [communications]
+      summary: Get communication status
+      security: [{ BearerAuth: [] }]
+      x-required-roles: [admin, agent]
+      parameters:
+        - name: communicationId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/CommunicationId" }
+      responses:
+        "200":
+          description: Communication found.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Communication" }
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /api/clients/{clientId}/communications:
+    get:
+      tags: [communications]
+      summary: List communications for a client
+      security: [{ BearerAuth: [] }]
+      x-required-roles: [admin, agent]
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/ClientId" }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        "200":
+          description: List of communications for client.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Communication" }
+                  pagination: { $ref: "#/components/schemas/Pagination" }
+                required: [data]
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
 components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Bearer JWT access token minted via an OAuth 2.0 provider. Each request must be authenticated and authorized (Zero Trust).
+
   schemas:
-    LogEntry:
-      type: object
-      description: DynamoDB-backed log entry.
-      properties:
-        id:
-          type: string
-          description: Log entry ID (UUID string). Partition key.
-        operation:
-          type: string
-          description: Operation name (e.g., CREATE/UPDATE/DELETE) captured in the log entry.
-        attributeName:
-          type: string
-        beforeValue:
-          type: string
-        afterValue:
-          type: string
-        agentId:
-          type: string
-          description: Agent ID stored as string; helper methods convert to Long in Java.
-        clientId:
-          type: string
-          description: Client ID stored as string; helper methods convert to Long in Java.
-        dateTimeStr:
-          type: string
-          format: date-time
-          description: Log timestamp stored as ISO-8601 string; annotated as sort key in the DynamoDB model.
-        expireAt:
-          type: integer
-          format: int64
-          description: TTL epoch seconds; used by DynamoDB TTL and `TTLIndex` secondary index.
-    LogRequest:
-      type: object
-      description: SQS message body parsed by `LogHandler`.
-      properties:
-        operation:
-          type: string
-          enum: [GET, POST, PUT, DELETE]
-          description: Determines which CRUD action the Lambda performs.
-        logEntryId:
-          type: integer
-          format: int64
-          description: Required for GET/PUT/DELETE operations.
-        logEntry:
-          $ref: '#/components/schemas/LogEntry'
-      required:
-        - operation
-    Response:
-      type: object
-      description: Response wrapper defined in the codebase but not used by the Lambda handler.
-      properties:
-        result:
-          type: boolean
-        errorMessage:
-          type: string
-        data:
-          $ref: '#/components/schemas/LogEntry'
     ErrorResponse:
       type: object
-      description: TODO: No HTTP error response shape is defined for this Lambda; errors are logged and exceptions are thrown.
-      additionalProperties: true
+      properties:
+        error: { type: string, example: validation_error }
+        message: { type: string, example: "Field 'clientId' is required" }
+        requestId: { type: string, example: 7f1d2c3b-0c44-4ce9-a7ed-4c0c0c8edc1d }
+      required: [error, message]
+
+    Pagination:
+      type: object
+      properties:
+        limit: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        offset: { type: integer, minimum: 0, default: 0 }
+        total: { type: integer, minimum: 0 }
+
+    LogId:
+      type: string
+      description: System-generated unique log identifier.
+      example: log_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+
+    ClientId:
+      type: string
+      description: Unique identifier for each client (auto-generated).
+      example: clt_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+
+    AgentId:
+      type: string
+      description: Unique identifier for the agent user.
+      example: usr_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+
+    LogAction:
+      type: string
+      description: CRUD action for audit purposes.
+      enum: [CREATE, READ, UPDATE, DELETE, COMMUNICATION]
+
+    LogEntry:
+      type: object
+      description: |
+        Audit log entry for client actions.
+
+        Appendix 2: Attribute name, before value, after value, agent id, client id, datetime (ISO 8601).
+      properties:
+        logId: { $ref: "#/components/schemas/LogId" }
+        action: { $ref: "#/components/schemas/LogAction" }
+        attributeName:
+          type: string
+          description: |
+            "First Name|Address" etc.
+            For Create/Read/Delete, store Client ID. For Update, store the attribute name.
+          example: First Name
+        beforeValue:
+          type: string
+          nullable: true
+          description: Example "LEE|ABC"
+          example: LEE
+        afterValue:
+          type: string
+          nullable: true
+          description: Example "TAN|XX"
+          example: TAN
+        agentId: { $ref: "#/components/schemas/AgentId" }
+        clientId: { $ref: "#/components/schemas/ClientId" }
+        dateTime:
+          type: string
+          format: date-time
+          description: ISO 8601 datetime of action
+          example: "2026-02-04T12:34:56Z"
+        correlationId:
+          type: string
+          nullable: true
+          description: Optional correlation/request id for tracing across services.
+          example: 7f1d2c3b-0c44-4ce9-a7ed-4c0c0c8edc1d
+      required: [logId, action, attributeName, agentId, clientId, dateTime]
+
+    CreateLogRequest:
+      type: object
+      properties:
+        action: { $ref: "#/components/schemas/LogAction" }
+        attributeName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        beforeValue:
+          type: string
+          nullable: true
+          maxLength: 2000
+        afterValue:
+          type: string
+          nullable: true
+          maxLength: 2000
+        agentId: { $ref: "#/components/schemas/AgentId" }
+        clientId: { $ref: "#/components/schemas/ClientId" }
+        dateTime:
+          type: string
+          format: date-time
+          description: ISO 8601 datetime. If omitted, service sets server time.
+        correlationId:
+          type: string
+          nullable: true
+      required: [action, attributeName, agentId, clientId]
+      additionalProperties: false
+
+    UpdateLogRequest:
+      type: object
+      properties:
+        attributeName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        beforeValue:
+          type: string
+          nullable: true
+          maxLength: 2000
+        afterValue:
+          type: string
+          nullable: true
+          maxLength: 2000
+        dateTime:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    CommunicationId:
+      type: string
+      description: System-generated unique communication identifier.
+      example: com_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+
+    CommunicationChannel:
+      type: string
+      enum: [email]
+      default: email
+
+    CommunicationStatus:
+      type: string
+      enum: [queued, sent, failed]
+      default: queued
+
+    Communication:
+      type: object
+      properties:
+        communicationId: { $ref: "#/components/schemas/CommunicationId" }
+        clientId: { $ref: "#/components/schemas/ClientId" }
+        agentId: { $ref: "#/components/schemas/AgentId" }
+        channel: { $ref: "#/components/schemas/CommunicationChannel" }
+        toEmail:
+          type: string
+          format: email
+          example: client@example.com
+        subject:
+          type: string
+          maxLength: 200
+        body:
+          type: string
+          maxLength: 20000
+        status: { $ref: "#/components/schemas/CommunicationStatus" }
+        providerMessageId:
+          type: string
+          nullable: true
+          description: Optional message id returned by email provider.
+        errorMessage:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [communicationId, clientId, agentId, channel, toEmail, subject, body, status]
+
+    CreateCommunicationRequest:
+      type: object
+      properties:
+        clientId: { $ref: "#/components/schemas/ClientId" }
+        agentId:
+          $ref: "#/components/schemas/AgentId"
+          description: |
+            Agent initiating the communication. In production this should be derived from the bearer token,
+            but is accepted here for service-to-service calls.
+        toEmail:
+          type: string
+          format: email
+        subject:
+          type: string
+          maxLength: 200
+        body:
+          type: string
+          maxLength: 20000
+        channel:
+          $ref: "#/components/schemas/CommunicationChannel"
+      required: [clientId, agentId, toEmail, subject, body]
+      additionalProperties: false
+
