@@ -1,0 +1,195 @@
+﻿[2026-02-07 11:51:27] Build log file: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\\build-and-test-backend\inv79731024-120833__2026-02-07_11-51-26__build-and-test-backend.log
+[2026-02-07 11:51:27] Bootstrapping Gradle wrapper dists into C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\.gradle-user-home-backend-pipeline
+[2026-02-07 11:51:28] Discovered 4 backend service(s):
+[2026-02-07 11:51:28]   - agent [gradle]
+[2026-02-07 11:51:28]   - client [gradle]
+[2026-02-07 11:51:28]   - log [python]
+[2026-02-07 11:51:28]   - transaction [gradle]
+[2026-02-07 11:51:28] ==> Service: agent [gradle]
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.3.0/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :compileJava UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :checkstyleMain UP-TO-DATE
+> Task :compileTestJava UP-TO-DATE
+> Task :processTestResources NO-SOURCE
+> Task :testClasses UP-TO-DATE
+> Task :checkstyleTest UP-TO-DATE
+> Task :resolveMainClassName UP-TO-DATE
+> Task :bootJar UP-TO-DATE
+> Task :jar UP-TO-DATE
+> Task :assemble UP-TO-DATE
+> Task :test UP-TO-DATE
+> Task :jacocoTestReport UP-TO-DATE
+> Task :localTestPipeline UP-TO-DATE
+
+BUILD SUCCESSFUL in 45s
+10 actionable tasks: 10 up-to-date
+Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.3.0/userguide/configuration_cache_enabling.html
+[2026-02-07 11:52:14] [agent] Local pipeline passed
+[2026-02-07 11:52:14] ==> Service: client [gradle]
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.2.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :compileJava UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :checkstyleMain UP-TO-DATE
+> Task :compileTestJava UP-TO-DATE
+> Task :processTestResources NO-SOURCE
+> Task :testClasses UP-TO-DATE
+> Task :checkstyleTest UP-TO-DATE
+> Task :resolveMainClassName UP-TO-DATE
+> Task :bootJar UP-TO-DATE
+> Task :jar UP-TO-DATE
+> Task :assemble UP-TO-DATE
+> Task :test UP-TO-DATE
+> Task :jacocoTestReport UP-TO-DATE
+> Task :localTestPipeline UP-TO-DATE
+
+BUILD SUCCESSFUL in 38s
+10 actionable tasks: 10 up-to-date
+Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.2.1/userguide/configuration_cache_enabling.html
+[2026-02-07 11:52:54] [client] Local pipeline passed
+[2026-02-07 11:52:54] ==> Service: log [python]
+Requirement already satisfied: pip in .\.venv\Lib\site-packages (26.0.1)
+Requirement already satisfied: fastapi in .\.venv\Lib\site-packages (from -r requirements.txt (line 1)) (0.128.0)
+Requirement already satisfied: pytest in .\.venv\Lib\site-packages (from -r requirements.txt (line 4)) (9.0.2)
+Requirement already satisfied: pytest-cov in .\.venv\Lib\site-packages (from -r requirements.txt (line 5)) (7.0.0)
+Requirement already satisfied: black in .\.venv\Lib\site-packages (from -r requirements.txt (line 6)) (26.1.0)
+Requirement already satisfied: flake8 in .\.venv\Lib\site-packages (from -r requirements.txt (line 7)) (7.3.0)
+Requirement already satisfied: httpx in .\.venv\Lib\site-packages (from -r requirements.txt (line 8)) (0.28.1)
+Requirement already satisfied: uvicorn[standard] in .\.venv\Lib\site-packages (from -r requirements.txt (line 2)) (0.40.0)
+Requirement already satisfied: psycopg[binary] in .\.venv\Lib\site-packages (from -r requirements.txt (line 3)) (3.3.2)
+Requirement already satisfied: starlette<0.51.0,>=0.40.0 in .\.venv\Lib\site-packages (from fastapi->-r requirements.txt (line 1)) (0.50.0)
+Requirement already satisfied: pydantic>=2.7.0 in .\.venv\Lib\site-packages (from fastapi->-r requirements.txt (line 1)) (2.12.5)
+Requirement already satisfied: typing-extensions>=4.8.0 in .\.venv\Lib\site-packages (from fastapi->-r requirements.txt (line 1)) (4.15.0)
+Requirement already satisfied: annotated-doc>=0.0.2 in .\.venv\Lib\site-packages (from fastapi->-r requirements.txt (line 1)) (0.0.4)
+Requirement already satisfied: anyio<5,>=3.6.2 in .\.venv\Lib\site-packages (from starlette<0.51.0,>=0.40.0->fastapi->-r requirements.txt (line 1)) (4.12.1)
+Requirement already satisfied: idna>=2.8 in .\.venv\Lib\site-packages (from anyio<5,>=3.6.2->starlette<0.51.0,>=0.40.0->fastapi->-r requirements.txt (line 1)) (3.11)
+Requirement already satisfied: click>=7.0 in .\.venv\Lib\site-packages (from uvicorn[standard]->-r requirements.txt (line 2)) (8.3.1)
+Requirement already satisfied: h11>=0.8 in .\.venv\Lib\site-packages (from uvicorn[standard]->-r requirements.txt (line 2)) (0.16.0)
+Requirement already satisfied: colorama>=0.4 in .\.venv\Lib\site-packages (from uvicorn[standard]->-r requirements.txt (line 2)) (0.4.6)
+Requirement already satisfied: httptools>=0.6.3 in .\.venv\Lib\site-packages (from uvicorn[standard]->-r requirements.txt (line 2)) (0.7.1)
+Requirement already satisfied: python-dotenv>=0.13 in .\.venv\Lib\site-packages (from uvicorn[standard]->-r requirements.txt (line 2)) (1.2.1)
+Requirement already satisfied: pyyaml>=5.1 in .\.venv\Lib\site-packages (from uvicorn[standard]->-r requirements.txt (line 2)) (6.0.3)
+Requirement already satisfied: watchfiles>=0.13 in .\.venv\Lib\site-packages (from uvicorn[standard]->-r requirements.txt (line 2)) (1.1.1)
+Requirement already satisfied: websockets>=10.4 in .\.venv\Lib\site-packages (from uvicorn[standard]->-r requirements.txt (line 2)) (16.0)
+Requirement already satisfied: tzdata in .\.venv\Lib\site-packages (from psycopg[binary]->-r requirements.txt (line 3)) (2025.3)
+Requirement already satisfied: psycopg-binary==3.3.2 in .\.venv\Lib\site-packages (from psycopg[binary]->-r requirements.txt (line 3)) (3.3.2)
+Requirement already satisfied: iniconfig>=1.0.1 in .\.venv\Lib\site-packages (from pytest->-r requirements.txt (line 4)) (2.3.0)
+Requirement already satisfied: packaging>=22 in .\.venv\Lib\site-packages (from pytest->-r requirements.txt (line 4)) (26.0)
+Requirement already satisfied: pluggy<2,>=1.5 in .\.venv\Lib\site-packages (from pytest->-r requirements.txt (line 4)) (1.6.0)
+Requirement already satisfied: pygments>=2.7.2 in .\.venv\Lib\site-packages (from pytest->-r requirements.txt (line 4)) (2.19.2)
+Requirement already satisfied: coverage>=7.10.6 in .\.venv\Lib\site-packages (from coverage[toml]>=7.10.6->pytest-cov->-r requirements.txt (line 5)) (7.13.3)
+Requirement already satisfied: mypy-extensions>=0.4.3 in .\.venv\Lib\site-packages (from black->-r requirements.txt (line 6)) (1.1.0)
+Requirement already satisfied: pathspec>=1.0.0 in .\.venv\Lib\site-packages (from black->-r requirements.txt (line 6)) (1.0.4)
+Requirement already satisfied: platformdirs>=2 in .\.venv\Lib\site-packages (from black->-r requirements.txt (line 6)) (4.5.1)
+Requirement already satisfied: pytokens>=0.3.0 in .\.venv\Lib\site-packages (from black->-r requirements.txt (line 6)) (0.4.1)
+Requirement already satisfied: mccabe<0.8.0,>=0.7.0 in .\.venv\Lib\site-packages (from flake8->-r requirements.txt (line 7)) (0.7.0)
+Requirement already satisfied: pycodestyle<2.15.0,>=2.14.0 in .\.venv\Lib\site-packages (from flake8->-r requirements.txt (line 7)) (2.14.0)
+Requirement already satisfied: pyflakes<3.5.0,>=3.4.0 in .\.venv\Lib\site-packages (from flake8->-r requirements.txt (line 7)) (3.4.0)
+Requirement already satisfied: certifi in .\.venv\Lib\site-packages (from httpx->-r requirements.txt (line 8)) (2026.1.4)
+Requirement already satisfied: httpcore==1.* in .\.venv\Lib\site-packages (from httpx->-r requirements.txt (line 8)) (1.0.9)
+Requirement already satisfied: annotated-types>=0.6.0 in .\.venv\Lib\site-packages (from pydantic>=2.7.0->fastapi->-r requirements.txt (line 1)) (0.7.0)
+Requirement already satisfied: pydantic-core==2.41.5 in .\.venv\Lib\site-packages (from pydantic>=2.7.0->fastapi->-r requirements.txt (line 1)) (2.41.5)
+Requirement already satisfied: typing-inspection>=0.4.2 in .\.venv\Lib\site-packages (from pydantic>=2.7.0->fastapi->-r requirements.txt (line 1)) (0.4.2)
+All done! \u2728 \U0001f370 \u2728
+11 files would be left unchanged.
+============================= test session starts =============================
+platform win32 -- Python 3.14.0, pytest-9.0.2, pluggy-1.6.0
+rootdir: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log
+configfile: pyproject.toml
+plugins: anyio-4.12.1, cov-7.0.0
+collected 42 items
+
+tests\test_api.py .....................                                  [ 50%]
+tests\test_auth.py ......                                                [ 64%]
+tests\test_repository.py ...........                                     [ 90%]
+tests\test_service.py ....                                               [100%]
+
+============================== warnings summary ===============================
+app\main.py:74: 1 warning
+tests/test_api.py: 21 warnings
+  C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log\app\main.py:74: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+.venv\Lib\site-packages\fastapi\applications.py:4576: 1 warning
+tests/test_api.py: 21 warnings
+  C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log\.venv\Lib\site-packages\fastapi\applications.py:4576: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log\build\reports\tests\junit.xml -
+=============================== tests coverage ================================
+_______________ coverage: platform win32, python 3.14.0-final-0 _______________
+
+Name                Stmts   Miss Branch BrPart  Cover   Missing
+---------------------------------------------------------------
+app\__init__.py         2      0      0      0   100%
+app\auth.py            65      2     18      0    98%   31, 35
+app\config.py          13      0      0      0   100%
+app\main.py           159      9     28      5    93%   77, 109, 126, 143->145, 189, 257-258, 286-287, 387
+app\repository.py     134     12     30      3    91%   32, 131, 135-139, 266-273, 285->289
+app\schemas.py         74      1      0      0    99%   104
+app\service.py         37      4      4      2    85%   19, 24->26, 51, 60, 65->67, 74
+---------------------------------------------------------------
+TOTAL                 484     28     80     10    93%
+Coverage HTML written to dir build/reports/coverage/html
+Coverage XML written to file build/reports/coverage/coverage.xml
+======================= 42 passed, 44 warnings in 2.11s =======================
+[local-test-pipeline] C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log\.venv\Scripts\python.exe -m pip install --upgrade pip
+[local-test-pipeline] C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log\.venv\Scripts\python.exe -m pip install -r requirements.txt
+[local-test-pipeline] C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log\.venv\Scripts\python.exe -m black --check app tests
+[local-test-pipeline] C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log\.venv\Scripts\python.exe -m flake8 --jobs 1 app tests
+[local-test-pipeline] C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log\.venv\Scripts\python.exe -m compileall -q app tests
+[local-test-pipeline] C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log\.venv\Scripts\python.exe -m pytest tests --junitxml=build/reports/tests/junit.xml --cov=app --cov-branch --cov-report=term-missing --cov-report=xml:build/reports/coverage/coverage.xml --cov-report=html:build/reports/coverage/html
+[local-test-pipeline] PASS
+[2026-02-07 11:53:04] [log] Local pipeline passed
+[2026-02-07 11:53:04] ==> Service: transaction [gradle]
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.3.0/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :compileJava UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :checkstyleMain UP-TO-DATE
+> Task :compileTestJava UP-TO-DATE
+> Task :processTestResources NO-SOURCE
+> Task :testClasses UP-TO-DATE
+> Task :checkstyleTest UP-TO-DATE
+> Task :resolveMainClassName UP-TO-DATE
+> Task :bootJar UP-TO-DATE
+> Task :jar UP-TO-DATE
+> Task :assemble UP-TO-DATE
+> Task :test UP-TO-DATE
+> Task :jacocoTestReport UP-TO-DATE
+> Task :localTestPipeline UP-TO-DATE
+
+BUILD SUCCESSFUL in 13s
+10 actionable tasks: 10 up-to-date
+Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.3.0/userguide/configuration_cache_enabling.html
+[2026-02-07 11:53:18] [transaction] Local pipeline passed
+
+[2026-02-07 11:53:18] Backend local test pipeline summary
+
+Service     Runtime Status
+-------     ------- ------
+agent       gradle  PASS  
+client      gradle  PASS  
+log         python  PASS  
+transaction gradle  PASS  
+
+
+[2026-02-07 11:53:18] Generating aggregated coverage report (build-logs/build-and-test-backend/index.html)
+[coverage-index] Wrote C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\build-and-test-backend\index.html
+[2026-02-07 11:53:19] All backend services passed lint, build, tests, and coverage report generation.

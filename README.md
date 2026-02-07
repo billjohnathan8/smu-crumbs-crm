@@ -25,11 +25,12 @@ Before development work, please read through (open all markdown files using `'Op
 - [Running Just the Backend Services](#running-just-the-backend-services) - Backend services only
 - [Running Just the Frontend Services](#running-just-the-frontend-services) - Frontend service only
 - [Running Individual Per-Service Pipelines](#running-individual-per-service-pipelines-for-any-given-backend-service) - Single service testing
+- [K8s Manifest Validation (Preflight)](#k8s-manifest-validation-preflight) - Validate Helm + Kustomize manifests offline
 
 ### Pipeline Timings
 - Backend Pipeline: ~ 2min
 - Frontend Pipeline: ~ 2min
-- Deploy Pipeline: ~ 4min
+- Deploy Pipeline: ~ 5min
 - Spinup-All Pipeline: ~ 12min
 
 ---
@@ -147,3 +148,31 @@ For manual testing of frontend UI, use the following credentials for a given age
 - `services/backend/client`: `.\gradlew.bat localTestPipeline` (Windows) or `./gradlew localTestPipeline` (macOS/Linux)
 - `services/backend/transaction`: `.\gradlew.bat localTestPipeline` (Windows) or `./gradlew localTestPipeline` (macOS/Linux)
 - `services/backend/log`: `python run-local-test-pipeline.py` (Windows) or `python3 run-local-test-pipeline.py` (macOS/Linux)
+
+### K8s Manifest Validation (Preflight)
+Validate all Kubernetes manifests **offline** (no cluster required) before building or deploying:
+
+```bash
+make k8s-validate
+```
+
+What this checks:
+- **kind config** — YAML syntax validation (requires python)
+- **Helm charts** — Renders `ingress-nginx`, `metrics-server`, and `postgresql` templates via `helm template`, then validates each with `kubeconform`
+- **Kustomize overlay** — Renders `platform/k8s/apps/overlays/dev` via `kubectl kustomize`, then validates with `kubeconform`
+
+This step runs automatically at the start of the k8s deploy scripts (`build-and-deploy-k8s-local.sh` / `.ps1`). If validation fails, the deploy is aborted.
+
+Required tools: `helm`, `kubectl`, `kubeconform`
+
+Installing kubeconform:
+```bash
+# macOS
+brew install kubeconform
+
+# Linux
+go install github.com/yannh/kubeconform/cmd/kubeconform@latest
+
+# Windows (scoop)
+scoop install kubeconform
+```

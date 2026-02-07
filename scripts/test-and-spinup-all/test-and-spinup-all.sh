@@ -40,7 +40,8 @@ log ""
 log "This will:"
 log "  1. Run full test pipeline (backend + frontend)"
 log "  2. Generate aggregated coverage report"
-log "  3. Deploy to local Kubernetes cluster"
+log "  3. Validate K8s manifests (preflight)"
+log "  4. Deploy to local Kubernetes cluster"
 log ""
 
 log "Step 1: Running full test pipeline (backend + frontend)..."
@@ -78,9 +79,17 @@ fi
 log ""
 
 # ========================
-# Step 3: Deploy to local Kubernetes cluster
+# Step 3: Validate K8s manifests (preflight)
 # ========================
-log "Step 3: Running local k8s deployment..."
+log "Step 3: Running K8s manifest validation..."
+make -C "${repo_root}" SHELL=bash k8s-validate
+log "K8s validation passed."
+log ""
+
+# ========================
+# Step 4: Deploy to local Kubernetes cluster
+# ========================
+log "Step 4: Running local k8s deployment..."
 bash "${deploy_script}" "$@"
 log "Local k8s deployment completed successfully."
 log ""

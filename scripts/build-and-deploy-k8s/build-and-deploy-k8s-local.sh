@@ -121,6 +121,13 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 
+log "Running K8s manifest validation..."
+if ! make -C "${repo_root}" SHELL=bash k8s-validate; then
+  log "K8s validation failed. Aborting build-and-deploy."
+  exit 1
+fi
+log "K8s validation passed."
+
 kind_cluster_name="$(get_kind_cluster_name)"
 
 cd "${repo_root}"

@@ -541,6 +541,10 @@ try {
         throw "Docker is not available or the daemon is not running. Start Docker Desktop and retry."
     }
 
+    Write-Log "Running K8s manifest validation..."
+    Invoke-MakeTarget -Target "k8s-validate" -BashPath $bashPath
+    Write-Log "K8s validation passed."
+
     Initialize-KindCluster -ClusterName $kindClusterName -BashPath $bashPath
 
     $contextName = "kind-$kindClusterName"

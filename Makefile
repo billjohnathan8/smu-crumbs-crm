@@ -13,7 +13,10 @@ GRADLEW := gradlew.bat
 SMOKE_CMD := powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-infra/smoke-k8s-infra.ps1
 endif
 
-.PHONY: kind-up infra-up build-images kind-load deploy-dev smoke
+.PHONY: k8s-validate kind-up infra-up build-images kind-load deploy-dev smoke build-and-deploy-local
+
+k8s-validate:
+	tr -d '\r' < scripts/validate-k8s/validate.sh | REPO_ROOT="$$(pwd)" bash
 
 kind-up:
 	$(KIND) create cluster --name $(KIND_CLUSTER_NAME) --config platform/k8s/infra/kind-config.yaml
@@ -60,4 +63,6 @@ deploy-dev:
 
 smoke:
 	$(SMOKE_CMD)
+
+build-and-deploy-local: k8s-validate kind-up infra-up build-images kind-load deploy-dev smoke
 

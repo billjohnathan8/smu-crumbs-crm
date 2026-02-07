@@ -282,7 +282,8 @@ Write-Log ""
 Write-Log "This will:"
 Write-Log "  1. Run full test pipeline (backend + frontend)"
 Write-Log "  2. Generate aggregated coverage report"
-Write-Log "  3. Deploy to local Kubernetes cluster"
+Write-Log "  3. Validate K8s manifests (preflight)"
+Write-Log "  4. Deploy to local Kubernetes cluster"
 Write-Log ""
 
 Write-Log "Step 1: Running full test pipeline (backend + frontend)..."
@@ -335,9 +336,43 @@ else {
 Write-Log ""
 
 # ========================
-# Step 3: Deploy to local Kubernetes cluster
+# Step 3: Validate K8s manifests (preflight)
 # ========================
-Write-Log "Step 3: Running local k8s deployment..."
+Write-Log "Step 3: Running K8s manifest validation..."
+
+$bashPath = $null
+$candidatePaths = @(
+    "C:\Program Files\Git\bin\bash.exe",
+    "C:\Program Files\Git\usr\bin\bash.exe"
+)
+foreach ($p in $candidatePaths) {
+    if (Test-Path $p) {
+        $bashPath = $p
+        break
+    }
+}
+if (-not $bashPath) {
+    $bashCmd = Get-Command bash -ErrorAction SilentlyContinue
+    if ($bashCmd) { $bashPath = $bashCmd.Source }
+}
+
+if ($bashPath) {
+    $bashForMake = $bashPath -replace "\\", "/"
+    & make -C $repoRoot "SHELL=$bashForMake" "NULL_DEVICE=/dev/null" k8s-validate
+} else {
+    & make -C $repoRoot k8s-validate
+}
+if ($LASTEXITCODE -ne 0) {
+    Write-Log "K8s validation failed. Skipping k8s deploy."
+    Exit-WithCode -Code 1
+}
+Write-Log "K8s validation passed."
+Write-Log ""
+
+# ========================
+# Step 4: Deploy to local Kubernetes cluster
+# ========================
+Write-Log "Step 4: Running local k8s deployment..."
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $deployScript
 $exitCode = $LASTEXITCODE
 if ($exitCode -ne 0) {
