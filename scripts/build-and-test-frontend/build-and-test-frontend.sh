@@ -117,13 +117,25 @@ if [[ "${has_failures}" -eq 0 ]]; then
 fi
 
 if [[ "${has_failures}" -eq 0 ]]; then
-  # Step 4: Format check
+  # Step 4: Format check and auto-fix
   log "[crm-ui] Running format check (npm run format:check)..."
   if "${npm_cmd}" run format:check; then
     log "[crm-ui] Format check passed"
   else
-    log "[crm-ui] Format check failed"
-    has_failures=1
+    log "[crm-ui] Format check failed - attempting auto-fix..."
+    log "[crm-ui] Running format fix (npm run format)..."
+    if "${npm_cmd}" run format; then
+      log "[crm-ui] Format auto-fix completed - re-running format check..."
+      if "${npm_cmd}" run format:check; then
+        log "[crm-ui] Format check passed after auto-fix"
+      else
+        log "[crm-ui] Format check failed after auto-fix"
+        has_failures=1
+      fi
+    else
+      log "[crm-ui] Format auto-fix failed"
+      has_failures=1
+    fi
   fi
 fi
 

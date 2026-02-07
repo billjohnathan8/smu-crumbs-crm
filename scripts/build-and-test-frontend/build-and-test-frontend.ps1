@@ -327,13 +327,25 @@ try {
     }
     Write-Log "[crm-ui] Linting passed"
 
-    # Step 4: Format check
+    # Step 4: Format check and auto-fix
     Write-Log "[crm-ui] Running format check (npm run format:check)..."
     & $npmCommand run format:check
     if ($LASTEXITCODE -ne 0) {
-        throw "Format check failed"
+        Write-Log "[crm-ui] Format check failed - attempting auto-fix..."
+        Write-Log "[crm-ui] Running format fix (npm run format)..."
+        & $npmCommand run format
+        if ($LASTEXITCODE -ne 0) {
+            throw "Format auto-fix failed"
+        }
+        Write-Log "[crm-ui] Format auto-fix completed - re-running format check..."
+        & $npmCommand run format:check
+        if ($LASTEXITCODE -ne 0) {
+            throw "Format check failed after auto-fix"
+        }
+        Write-Log "[crm-ui] Format check passed after auto-fix"
+    } else {
+        Write-Log "[crm-ui] Format check passed"
     }
-    Write-Log "[crm-ui] Format check passed"
 
     # Step 5: Build
     Write-Log "[crm-ui] Building application (npm run build)..."
