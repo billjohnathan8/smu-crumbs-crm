@@ -32,7 +32,7 @@ bash scripts/dev-setup/setup.sh
 ### 1. **Portable by Default**
 - Downloads CLI tools (kubectl, helm, kind, kubeconform) to `.devtools/bin`
 - Minimizes global installations
-- Only modifies current session PATH unless `--persist-path` is used
+- Only modifies current session PATH unless `-PersistPath` is used
 
 ### 2. **Idempotent**
 - Safe to re-run multiple times
@@ -59,7 +59,7 @@ Everything else can be portable (downloaded to `.devtools/bin`).
 ### Check Environment (No Changes)
 ```powershell
 # Windows
-.\scripts\dev-setup\setup.ps1 --doctor
+.\scripts\dev-setup\setup.ps1 -Doctor
 
 # macOS/Linux
 bash scripts/dev-setup/setup.sh --doctor
@@ -96,7 +96,7 @@ bash scripts/dev-setup/setup.sh
 ### System Install (Global Tools)
 ```powershell
 # Windows (uses winget or scoop)
-.\scripts\dev-setup\setup.ps1 --system
+.\scripts\dev-setup\setup.ps1 -System
 
 # macOS (uses Homebrew)
 bash scripts/dev-setup/setup.sh --system
@@ -110,18 +110,23 @@ Installs tools globally via package manager instead of `.devtools/bin`.
 ### Setup + Deploy to Kubernetes
 ```powershell
 # Windows
-.\scripts\dev-setup\setup.ps1 --deploy
+.\scripts\dev-setup\setup.ps1 -Deploy
 
 # macOS/Linux
 bash scripts/dev-setup/setup.sh --deploy
 ```
 
-Runs full setup, verification, **and** deploys to local kind cluster (`test-and-spinup-all`).
+Runs setup then **full test and deployment pipeline** via `test-and-spinup-all`:
+- Backend tests + Frontend tests
+- K8s validation
+- Deploys to local kind cluster
+
+**Note**: Without `-Deploy`, only runs k8s validation and individual test pipelines (no deployment).
 
 ### Persist PATH Changes
 ```powershell
 # Windows (adds to User environment variable)
-.\scripts\dev-setup\setup.ps1 --persist-path
+.\scripts\dev-setup\setup.ps1 -PersistPath
 
 # macOS/Linux (adds to ~/.bashrc or ~/.zshrc)
 bash scripts/dev-setup/setup.sh --persist-path
@@ -131,33 +136,35 @@ Makes `.devtools/bin` permanent in PATH (requires restart/reload).
 
 ### Skip Verification
 ```powershell
-.\scripts\dev-setup\setup.ps1 --skip-verify
+.\scripts\dev-setup\setup.ps1 -SkipVerify
 ```
 
 Only installs tools; skips test pipelines.
 
 ### Verify Only
 ```powershell
-.\scripts\dev-setup\setup.ps1 --verify-only
+.\scripts\dev-setup\setup.ps1 -VerifyOnly
 ```
 
 Assumes environment is configured; only runs verification pipelines.
 
 ## All Flags
 
-| Flag | Description |
-|------|-------------|
-| `--doctor` | Check environment without making changes (diagnostic mode) |
-| `--skip-verify` | Skip verification sequence after setup |
-| `--verify-only` | Only run verification (skip setup) |
-| `--deploy` | After verification, deploy to local kind cluster |
-| `--portable` | Install tools to `.devtools/bin` (DEFAULT) |
-| `--system` | Install tools globally via package manager |
-| `--persist-path` | Persist `.devtools/bin` in PATH permanently |
+| PowerShell Flag | Bash Flag | Description |
+|-----------------|-----------|-------------|
+| `-Doctor` | `--doctor` | Check environment without making changes (diagnostic mode) |
+| `-SkipVerify` | `--skip-verify` | Skip verification sequence after setup |
+| `-VerifyOnly` | `--verify-only` | Only run verification (skip setup) |
+| `-Deploy` | `--deploy` | Run full test and deployment pipeline (test-and-spinup-all) |
+| `-Portable` | `--portable` | Install tools to `.devtools/bin` (DEFAULT) |
+| `-System` | `--system` | Install tools globally via package manager |
+| `-PersistPath` | `--persist-path` | Persist `.devtools/bin` in PATH permanently |
+
+**Note**: PowerShell uses single dash `-` (e.g., `-Deploy`), while Bash uses double dash `--` (e.g., `--deploy`).
 
 Flags can be combined:
 ```powershell
-.\scripts\dev-setup\setup.ps1 --system --deploy --persist-path
+.\scripts\dev-setup\setup.ps1 -System -Deploy -PersistPath
 ```
 
 ## Logs
@@ -220,9 +227,13 @@ Calls `scripts/build-and-test-frontend/build-and-test-frontend.ps1` (or `.sh`):
 
 **Output**: `services/frontend/crm-ui/coverage/index.html`
 
+**Note**: Steps 1-3 are skipped if `--deploy` flag is used (test-and-spinup-all runs them instead)
+
 ### 4. Deploy (Optional, `--deploy` only)
-Calls `scripts/test-and-spinup-all/test-and-spinup-all.ps1` (or `.sh`):
-- Re-runs backend + frontend tests
+When `--deploy` is specified, skips steps 1-3 above and instead runs:
+
+`scripts/test-and-spinup-all/test-and-spinup-all.ps1` (or `.sh`):
+- Backend + frontend tests (via build-and-test-all)
 - Validates k8s manifests
 - Creates kind cluster
 - Installs infrastructure (ingress, PostgreSQL, metrics)
@@ -297,7 +308,7 @@ Current pinned versions (as of Feb 2026):
 ### Verification fails
 **Diagnosis**:
 1. Check logs in `build-logs/` (specific pipeline subdirectory)
-2. Re-run: `.\scripts\dev-setup\setup.ps1 --verify-only`
+2. Re-run: `.\scripts\dev-setup\setup.ps1 -VerifyOnly`
 3. Review error messages in log file
 
 ## Related Documentation

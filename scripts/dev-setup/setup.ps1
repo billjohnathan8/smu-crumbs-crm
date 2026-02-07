@@ -22,7 +22,13 @@
     Only run verification (skip setup). Assumes environment is already configured.
 
 .PARAMETER Deploy
-    After verification, deploy to local kind cluster (runs test-and-spinup-all).
+    Run full test and deployment pipeline (test-and-spinup-all).
+    This runs backend tests, frontend tests, k8s validation, and deploys to local kind cluster.
+    Without this flag, only k8s validation and tests are run (no deployment).
+
+.PARAMETER DeployOnly
+    Run only the k8s deployment pipeline (build-and-deploy-k8s-local) without backend/frontend tests.
+    Useful for iterating on k8s deployment issues when tests already pass.
 
 .PARAMETER Portable
     Install tools to .devtools/bin (DEFAULT). Avoids global installs where possible.
@@ -35,15 +41,23 @@
 
 .EXAMPLE
     .\scripts\dev-setup\setup.ps1
-    Default: portable install + verification (no deploy)
+    Setup environment + run k8s validation + run backend tests + run frontend tests (no deployment)
 
 .EXAMPLE
-    .\scripts\dev-setup\setup.ps1 --doctor
+    .\scripts\dev-setup\setup.ps1 -Doctor
     Check environment without making changes
 
 .EXAMPLE
-    .\scripts\dev-setup\setup.ps1 --system --deploy
-    Global install + verification + deploy to kind
+    .\scripts\dev-setup\setup.ps1 -Deploy
+    Setup environment + run full test pipeline + deploy to local kind cluster
+
+.EXAMPLE
+    .\scripts\dev-setup\setup.ps1 -DeployOnly
+    Setup environment + deploy to local kind cluster (no backend/frontend tests)
+
+.EXAMPLE
+    .\scripts\dev-setup\setup.ps1 -System -Deploy
+    Same as above but install tools globally instead of to .devtools/bin
 
 .LINK
     docs/onboarding/new-dev-setup.md
@@ -55,6 +69,7 @@ param(
     [switch]$SkipVerify,
     [switch]$VerifyOnly,
     [switch]$Deploy,
+    [switch]$DeployOnly,
     [switch]$Portable = $true,
     [switch]$System,
     [switch]$PersistPath
@@ -74,7 +89,20 @@ $script:RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $script:DevToolsDir = Join-Path $RepoRoot ".devtools"
 $script:DevToolsBin = Join-Path $DevToolsDir "bin"
 $script:LogDir = Join-Path $RepoRoot "build-logs\dev-setup"
-$script:LogFile = Join-Path $LogDir ("setup_{0}.log" -f (Get-Date -Format "yyyy-MM-dd_HH-mm-ss"))
+$now = Get-Date
+$timestampReadable = $now.ToString("yyyy-MM-dd_HH-mm-ss")
+$inverseTimestamp = "{0:D4}{1:D2}{2:D2}-{3:D2}{4:D2}{5:D2}" -f `
+    (9999 - $now.Year), `
+    (12 - $now.Month), `
+    (31 - $now.Day), `
+    (23 - $now.Hour), `
+    (59 - $now.Minute), `
+    (59 - $now.Second)
+$script:LogFile = Join-Path $LogDir ("inv{0}__{1}__setup.log" -f $inverseTimestamp, $timestampReadable)
+
+if (-not (Test-Path $LogDir)) {
+    New-Item -ItemType Directory -Path $LogDir | Out-Null
+}
 
 # Compatibility: if --system is explicitly set, override portable
 if ($System) { $Portable = $false }
@@ -92,7 +120,7 @@ function Write-Log {
     }
 }
 
-function Write-Success { Write-Log $args[0] "✓" }
+function Write-Success { Write-Log $args[0] "SUCCESS" }
 function Write-Warning { Write-Log $args[0] "WARN" }
 function Write-Error { Write-Log $args[0] "ERROR" }
 
@@ -109,7 +137,17 @@ function Write-PhaseEnd {
     if ($script:PhaseStartTime) {
         $duration = (Get-Date) - $script:PhaseStartTime
         Write-Log ("[{0}] Completed in {1:mm}m {1:ss}s" -f $PhaseName, $duration)
-        WriStarted at: $($script:SetupStartTime.ToString('yyyy-MM-dd HH:mm:ss'))"
+    }
+}
+
+# ============================================================================
+# MAIN SCRIPT EXECUTION
+# ============================================================================
+
+Write-Log "========================================"
+Write-Log "CS301 ITSA CRM Developer Setup"
+Write-Log "========================================"
+Write-Log "Started at: $($script:SetupStartTime.ToString('yyyy-MM-dd HH:mm:ss'))"
 Write-Log "Repo root: $RepoRoot"
 if ($Doctor) {
     Write-Log "Mode: DOCTOR (read-only diagnostics)"
@@ -128,24 +166,7 @@ Write-Log ""
 # DETECTED REQUIREMENTS (from repo inventory)
 # ============================================================================
 
-Write-PhaseStart "DETECTED REQUIREMENTS
-    Write-Log "Mode: VERIFY ONLY"
-} else {
-    Write-Log "Mode: SETUP + VERIFY"
-    Write-Log ("Install mode: {0}" -f $(if ($Portable) { "PORTABLE (.devtools/bin)" } else { "SYSTEM (global)" }))
-}
-if (-not $Doctor) {
-    Write-Log "Log file: $LogFile"
-}
-Write-Log ""
-
-# ============================================================================
-# DETECTED REQUIREMENTS (from repo inventory)
-# ============================================================================
-
-Write-Log "========================================"
-Write-Log "DETECTED REQUIREMENTS"
-Write-Log "========================================"
+Write-PhaseStart "DETECTED REQUIREMENTS"
 Write-Log "Based on repository analysis:"
 Write-Log ""
 Write-Log "Required System Dependencies:"
@@ -162,10 +183,10 @@ Write-Log "  - kind"
 Write-Log "  - kubeconform (for k8s validation)"
 Write-Log ""
 Write-Log "Optional but Recommended:"
-Write-Log "  - Python >= 3.7 (used for HTML report generation)"
+Write-Log "  - Python (version 3.7 or higher for HTML report generation)"
 Write-Log ""
 Write-Log "Already in Repo (no install needed):"
-Write-Log "  - Gradle Wrapper (./gradlew, ./gradlew.bat)"
+Write-Log "  - Gradle Wrapper (gradlew and gradlew.bat)"
 Write-Log "  - npm scripts (services/frontend/crm-ui)"
 Write-Log ""
 Write-Log "Backend Services:"
@@ -182,7 +203,8 @@ Write-Log "  - Namespace: dev"
 Write-Log "  - Ingress: ingress-nginx"
 Write-Log "  - Database: PostgreSQL (Helm chart)"
 Write-Log ""
-PhaseEnd "Requirements Detection
+Write-PhaseEnd "Requirements Detection"
+
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
@@ -190,6 +212,16 @@ PhaseEnd "Requirements Detection
 function Test-CommandExists {
     param([string]$Command)
     $null -ne (Get-Command $Command -ErrorAction SilentlyContinue)
+}
+
+function Add-Issue {
+    param([string]$Tool, [string]$Message, [string]$Fix = "")
+    $script:Issues += @{
+        Tool = $Tool
+        Message = $Message
+        Fix = $Fix
+    }
+    Write-Warning "$Tool : $Message"
 }
 
 function Get-ToolVersion {
@@ -236,7 +268,9 @@ function Install-PortableTool {
     Write-Log "Downloading $Name $Version..."
     
     try {
-        $tempFile = Join-Path $env:TEMP "$Name-download"
+        # Preserve the URL file extension so Expand-Archive recognises .zip files
+        $urlExtension = if ($Url -match '(\.\w+)$') { $matches[1] } else { "" }
+        $tempFile = Join-Path $env:TEMP "$Name-download$urlExtension"
         Invoke-WebRequest -Uri $Url -OutFile $tempFile -UseBasicParsing
         
         if ($ExtractPattern) {
@@ -359,8 +393,8 @@ function Update-SessionPath {
 # ENVIRONMENT CHECKS
 # ============================================================================
 
-Write-Log "========================================"
-Write-PhaseStart "CHECKING ENVIRONMENT
+Write-PhaseStart "CHECKING ENVIRONMENT"
+
 # Docker
 Write-Log "Checking Docker..."
 if (Test-CommandExists "docker") {
@@ -451,10 +485,10 @@ if (Test-CommandExists "make") {
     Write-Success "Make found: $makeVersion"
 } else {
     # Check if Git Bash is installed (includes make)
-    $gitBashMake = "C:\Program Files\Git\usr\bin\make.exe"
+    $gitBashMake = 'C:\Program Files\Git\usr\bin\make.exe'
     if (Test-Path $gitBashMake) {
         Write-Success "Make found via Git Bash: $gitBashMake"
-        $env:PATH = "C:\Program Files\Git\usr\bin;$env:PATH"
+        $env:PATH = 'C:\Program Files\Git\usr\bin;' + $env:PATH
     } else {
         Add-Issue "Make" "Not found" "Install via scoop (scoop install make) or ensure Git for Windows is installed with Unix tools"
     }
@@ -491,11 +525,29 @@ Write-PhaseEnd "Environment Checks"
 # CLI TOOLS INSTALLATION
 # ============================================================================
 
-Write-PhaseStart "CLI TOOLS INSTALLATION
+Write-PhaseStart "CLI TOOLS INSTALLATION"
+
+if ($Portable) {
     if (-not (Test-Path $DevToolsBin)) {
         Write-Log "Creating .devtools/bin directory..."
         New-Item -ItemType Directory -Path $DevToolsBin -Force | Out-Null
     }
+
+    # On Windows, remove non-.exe binaries from .devtools/bin that were left by
+    # a previous run on another platform (e.g. setup.sh on Linux/WSL).
+    # These shadow the real Windows executables and cause "not a valid Win32
+    # application" errors.
+    if ($env:OS -eq "Windows_NT" -and (Test-Path $DevToolsBin)) {
+        $knownTools = @("kubectl", "helm", "kind", "kubeconform")
+        foreach ($tool in $knownTools) {
+            $staleFile = Join-Path $DevToolsBin $tool
+            if ((Test-Path $staleFile) -and -not $staleFile.EndsWith(".exe")) {
+                Write-Warning "Removing non-Windows binary from .devtools/bin: $tool (likely from a Linux/WSL setup run)"
+                Remove-Item $staleFile -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
     Update-SessionPath $DevToolsBin
 }
 
@@ -508,6 +560,23 @@ if (Test-CommandExists "kubectl") {
     }
     $script:ToolVersions["kubectl"] = $kubectlVersion
     Write-Success "kubectl found: $kubectlVersion"
+    
+    # If portable mode, ensure kubectl is also available in .devtools/bin for bash scripts
+    if ($Portable -and $env:OS -eq "Windows_NT") {
+        $portableKubectl = Join-Path $DevToolsBin "kubectl.exe"
+        if (-not (Test-Path $portableKubectl)) {
+            # Try to find the real binary (not Chocolatey shim)
+            $globalKubectl = (Get-Command kubectl -ErrorAction SilentlyContinue).Source
+            $chocoLibKubectl = "C:\ProgramData\chocolatey\lib\kubernetes-cli\tools\kubernetes\client\bin\kubectl.exe"
+            if (Test-Path $chocoLibKubectl) {
+                Write-Log "Copying kubectl from Chocolatey lib to .devtools/bin for Git Bash compatibility..."
+                Copy-Item $chocoLibKubectl $portableKubectl -Force
+            } elseif ($globalKubectl) {
+                Write-Log "Copying kubectl to .devtools/bin for Git Bash compatibility..."
+                Copy-Item $globalKubectl $portableKubectl -Force
+            }
+        }
+    }
 } else {
     if ($Portable) {
         $kubectlUrl = "https://dl.k8s.io/release/v1.31.0/bin/windows/amd64/kubectl.exe"
@@ -523,6 +592,25 @@ if (Test-CommandExists "helm") {
     $helmVersion = Get-ToolVersion "helm" "version --short" "v(\d+\.\d+\.\d+)"
     $script:ToolVersions["helm"] = $helmVersion
     Write-Success "helm found: $helmVersion"
+    
+    # If portable mode, ensure helm is also available in .devtools/bin for bash scripts
+    if ($Portable -and $env:OS -eq "Windows_NT") {
+        $portableHelm = Join-Path $DevToolsBin "helm.exe"
+        if (-not (Test-Path $portableHelm)) {
+            # Try to find the real binary from Chocolatey lib directory (not the shim)
+            $chocoLibHelm = "C:\ProgramData\chocolatey\lib\kubernetes-helm\tools\windows-amd64\helm.exe"
+            if (Test-Path $chocoLibHelm) {
+                Write-Log "Copying helm from Chocolatey lib to .devtools/bin for Git Bash compatibility..."
+                Copy-Item $chocoLibHelm $portableHelm -Force
+            } else {
+                $globalHelm = (Get-Command helm -ErrorAction SilentlyContinue).Source
+                if ($globalHelm) {
+                    Write-Log "Copying helm to .devtools/bin for Git Bash compatibility..."
+                    Copy-Item $globalHelm $portableHelm -Force
+                }
+            }
+        }
+    }
 } else {
     if ($Portable) {
         $helmUrl = "https://get.helm.sh/helm-v3.17.0-windows-amd64.zip"
@@ -538,6 +626,25 @@ if (Test-CommandExists "kind") {
     $kindVersion = Get-ToolVersion "kind" "version" "v(\d+\.\d+\.\d+)"
     $script:ToolVersions["kind"] = $kindVersion
     Write-Success "kind found: $kindVersion"
+    
+    # If portable mode, ensure kind is also available in .devtools/bin for bash scripts
+    if ($Portable -and $env:OS -eq "Windows_NT") {
+        $portableKind = Join-Path $DevToolsBin "kind.exe"
+        if (-not (Test-Path $portableKind)) {
+            # Try to find the real binary from Chocolatey lib directory (not the shim)
+            $chocoLibKind = "C:\ProgramData\chocolatey\lib\kind\kind.exe"
+            if (Test-Path $chocoLibKind) {
+                Write-Log "Copying kind from Chocolatey lib to .devtools/bin for Git Bash compatibility..."
+                Copy-Item $chocoLibKind $portableKind -Force
+            } else {
+                $globalKind = (Get-Command kind -ErrorAction SilentlyContinue).Source
+                if ($globalKind) {
+                    Write-Log "Copying kind to .devtools/bin for Git Bash compatibility..."
+                    Copy-Item $globalKind $portableKind -Force
+                }
+            }
+        }
+    }
 } else {
     if ($Portable) {
         $kindUrl = "https://kind.sigs.k8s.io/dl/v0.26.0/kind-windows-amd64"
@@ -572,7 +679,10 @@ Write-PhaseEnd "CLI Tools Installation"
 # ============================================================================
 
 if (-not $Doctor -and -not $VerifyOnly) {
-    Write-PhaseStart "ENVIRONMENT CONFIGURATIONse -Filter ".env.example" -File
+    Write-PhaseStart "ENVIRONMENT CONFIGURATION"
+    
+    # Create .env files from .env.example templates
+    $envExamples = Get-ChildItem -Path $RepoRoot -Recurse -Filter ".env.example" -File
     foreach ($envExample in $envExamples) {
         $envFile = Join-Path $envExample.DirectoryName ".env"
         if (-not (Test-Path $envFile)) {
@@ -634,7 +744,7 @@ if (-not $Doctor -and -not $VerifyOnly) {
         if (Test-Path $requirementsTxt) {
             if ($pythonFound) {
                 Write-Log "Python log service uses requirements.txt"
-                Write-Log "  To set up venv manually: cd services\backend\log && python -m venv venv && venv\Scripts\activate && pip install -r requirements.txt"
+                Write-Log "  To set up venv manually: cd services\backend\log; python -m venv venv; venv\Scripts\activate; pip install -r requirements.txt"
                 
                 # Optionally auto-create venv if it doesn't exist
                 if (-not (Test-Path $venvDir)) {
@@ -663,10 +773,6 @@ if (-not $Doctor -and -not $VerifyOnly) {
             }
         }
     }
-}
-
-# ============================================================================
-# DOCTOR MODE SUMMARY
     
     Write-PhaseEnd "Environment Configuration"
 }
@@ -676,10 +782,14 @@ if (-not $Doctor -and -not $VerifyOnly) {
 # ============================================================================
 
 if ($Doctor) {
-    Write-PhaseStart "DOCTOR SUMMARY
+    Write-PhaseStart "DOCTOR SUMMARY"
+    
+    if ($script:Issues.Count -eq 0) {
+        Write-Success "All checks passed! Environment is ready."
+        Write-Log ""
         Write-Log "Next steps:"
         Write-Log "  1. Run this script without --doctor to ensure all dependencies are initialized"
-        Write-Log "  2. Run: .\scripts\dev-setup\setup.ps1 --verify-only"
+        Write-Log "  2. Run: .\scripts\dev-setup\setup.ps1 -VerifyOnly"
         Write-Log "  3. Start contributing!"
     } else {
         Write-Log "Found $($script:Issues.Count) issue(s):"
@@ -696,12 +806,9 @@ if ($Doctor) {
         Write-Log "To fix these issues:"
         Write-Log "  1. Address the issues above manually, OR"
         Write-Log "  2. Run: .\scripts\dev-setup\setup.ps1 (for portable install)"
-        Write-Log "  3. Run: .\scripts\dev-setup\setup.ps1 --system (for system-wide install)"
+        Write-Log "  3. Run: .\scripts\dev-setup\setup.ps1 -System (for system-wide install)"
     }
     
-    exit $(if ($script:Issues.Count -eq 0) { 0 } else { 1 })
-}
-
     Write-PhaseEnd "Doctor Mode"
     
     $totalDuration = (Get-Date) - $script:SetupStartTime
@@ -716,98 +823,140 @@ if ($Doctor) {
 # ============================================================================
 
 if (-not $SkipVerify) {
-    $stepStart = Get-Date
+    $verificationResults = @{}
     Write-PhaseStart "VERIFICATION SEQUENCE"
-    # Step 1: K8s manifest validation
-    Write-Log "Step 1: Running k8s manifest validation (make k8s-validate)..."
-    try {
-        Push-Location $RepoRoot
-        $output = & make k8s-validate 2>&1
-        $exitCode = $LASTEXITCODE
-        $output | ForEach-Object { Write-Log $_ }
-        
-        if ($exitCode -ne 0) {
-            Write-Error "k8s validation failed (exit code: $exitCode)"
-            $verificationFailed = $true
-        } el$stepDuration = (Get-Date) - $stepStart
-            Write-Success "k8s validation passed (took $($stepDuration.ToString('mm\:ss')))"
-        }
-    } catch {
-        Write-Error "k8s validation error: $_"
-        $verificationFailed = $true
-    } finally {
-        Pop-Location
-    }
     
-    # Step 2: Backend pipeline
-    if (-not $verificationFailed) {
+    if ($Deploy) {
+        # When -Deploy is specified, just run test-and-spinup-all which does:
+        # 1. Full test pipeline (backend + frontend)
+        # 2. K8s validation
+        # 3. K8s deployment
+        Write-Log "Running complete test and deployment pipeline (test-and-spinup-all)..."
+        Write-Log ""
+        $stepStart = Get-Date
+        $deployScript = Join-Path $RepoRoot "scripts\test-and-spinup-all\test-and-spinup-all.ps1"
+        if (Test-Path $deployScript) {
+            try {
+                & $deployScript
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Error "Test and deployment pipeline failed (exit code: $LASTEXITCODE)"
+                    $verificationResults["deploy"] = "FAIL"
+                } else {
+                    $stepDuration = (Get-Date) - $stepStart
+                    Write-Success "Test and deployment pipeline passed (took $($stepDuration.ToString('mm\:ss')))"
+                    $verificationResults["deploy"] = "PASS"
+                }
+            } catch {
+                Write-Error "Test and deployment pipeline error: $_"
+                $verificationResults["deploy"] = "FAIL"
+            }
+        } else {
+            Write-Warning "Deploy script not found: $deployScript"
+            $verificationResults["deploy"] = "SKIP"
+        }
+    } elseif ($DeployOnly) {
+        # When -DeployOnly is specified, run only the k8s deployment pipeline
+        # (no backend/frontend tests). Useful for iterating on k8s issues.
+        Write-Log "Running deploy-only pipeline (build-and-deploy-k8s-local)..."
+        Write-Log ""
+        $stepStart = Get-Date
+        $deployOnlyScript = Join-Path $RepoRoot "scripts\build-and-deploy-k8s\build-and-deploy-k8s-local.ps1"
+        if (Test-Path $deployOnlyScript) {
+            try {
+                & $deployOnlyScript
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Error "Deploy-only pipeline failed (exit code: $LASTEXITCODE)"
+                    $verificationResults["deploy"] = "FAIL"
+                } else {
+                    $stepDuration = (Get-Date) - $stepStart
+                    Write-Success "Deploy-only pipeline passed (took $($stepDuration.ToString('mm\:ss')))"
+                    $verificationResults["deploy"] = "PASS"
+                }
+            } catch {
+                Write-Error "Deploy-only pipeline error: $_"
+                $verificationResults["deploy"] = "FAIL"
+            }
+        } else {
+            Write-Warning "Deploy-only script not found: $deployOnlyScript"
+            $verificationResults["deploy"] = "SKIP"
+        }
+    } else {
+        # Without -Deploy, run validation and tests only (no deployment)
+        
+        # Step 1: K8s manifest validation
+        Write-Log "Step 1: Running k8s manifest validation (make k8s-validate)..."
+        $stepStart = Get-Date
+        try {
+            Push-Location $RepoRoot
+            # Ensure bash can find portable tools by explicitly setting PATH in the subprocess
+            $env:PATH = "$DevToolsBin;$env:PATH"
+            $output = & make k8s-validate 2>&1
+            $exitCode = $LASTEXITCODE
+            $output | ForEach-Object { Write-Log $_ }
+            
+            if ($exitCode -ne 0) {
+                Write-Error "k8s validation failed (exit code: $exitCode)"
+                $verificationResults["k8s-validate"] = "FAIL"
+            } else {
+                $stepDuration = (Get-Date) - $stepStart
+                Write-Success "k8s validation passed (took $($stepDuration.ToString('mm\:ss')))"
+                $verificationResults["k8s-validate"] = "PASS"
+            }
+        } catch {
+            Write-Error "k8s validation error: $_"
+            $verificationResults["k8s-validate"] = "FAIL"
+        } finally {
+            Pop-Location
+        }
+        
+        # Step 2: Backend pipeline (run even if Step 1 failed)
         Write-Log ""
         Write-Log "Step 2: Running backend test pipeline..."
         $stepStart = Get-Date
-        Write-Log "Step 2: Running backend test pipeline..."
         $backendScript = Join-Path $RepoRoot "scripts\build-and-test-backend\build-and-test-backend.ps1"
         if (Test-Path $backendScript) {
             try {
                 & $backendScript
                 if ($LASTEXITCODE -ne 0) {
                     Write-Error "Backend pipeline failed (exit code: $LASTEXITCODE)"
+                    $verificationResults["backend"] = "FAIL"
+                } else {
                     $stepDuration = (Get-Date) - $stepStart
                     Write-Success "Backend pipeline passed (took $($stepDuration.ToString('mm\:ss')))"
+                    $verificationResults["backend"] = "PASS"
                 }
             } catch {
                 Write-Error "Backend pipeline error: $_"
-                $verificationFailed = $true
+                $verificationResults["backend"] = "FAIL"
             }
         } else {
             Write-Warning "Backend pipeline script not found: $backendScript"
+            $verificationResults["backend"] = "SKIP"
         }
-    }
-    
-    # Step 3: Frontend pipeline
-    if (-not $verificationFailed) {
+        
+        # Step 3: Frontend pipeline (run even if previous steps failed)
         Write-Log ""
         Write-Log "Step 3: Running frontend test pipeline..."
         $stepStart = Get-Date
-        Write-Log ""
-        Write-Log "Step 3: Running frontend test pipeline..."
         $frontendScript = Join-Path $RepoRoot "scripts\build-and-test-frontend\build-and-test-frontend.ps1"
         if (Test-Path $frontendScript) {
             try {
                 & $frontendScript
-                if ($stepDuration = (Get-Date) - $stepStart
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Error "Frontend pipeline failed (exit code: $LASTEXITCODE)"
+                    $verificationResults["frontend"] = "FAIL"
+                } else {
+                    $stepDuration = (Get-Date) - $stepStart
                     Write-Success "Frontend pipeline passed (took $($stepDuration.ToString('mm\:ss')))"
+                    $verificationResults["frontend"] = "PASS"
                 }
             } catch {
                 Write-Error "Frontend pipeline error: $_"
-                $verificationFailed = $true
+                $verificationResults["frontend"] = "FAIL"
             }
         } else {
             Write-Warning "Frontend pipeline script not found: $frontendScript"
-        }
-    }
-    
-    # Step 4: Optional deploy
-    if ($Deploy -and -not $verificationFailed) {
-        Write-Log ""
-        Write-Log "Step 4: Deploying to local kind cluster (test-and-spinup-all)..."
-        $stepStart = Get-Date
-    # Step 4: Optional deploy
-    if ($Deploy -and -not $verificationFailed) {
-        Write-Log ""
-        Write-Log "Step 4: Deploying to local kind cluster (test-and-spinup-all)..."
-        $deployScript = Join-Path $RepoRoot "scripts\test-and-spinup-all\test-and-spinup-all.ps1"
-        if (Test-Path $deployScript) {
-            try {
-                & $deployScript
-                if ($stepDuration = (Get-Date) - $stepStart
-                    Write-Success "Deploy pipeline passed (took $($stepDuration.ToString('mm\:ss')))"
-                }
-            } catch {
-                Write-Error "Deploy pipeline error: $_"
-                $verificationFailed = $true
-            }
-        } else {
-            Write-Warning "Deploy script not found: $deployScript"
+            $verificationResults["frontend"] = "SKIP"
         }
     }
     
@@ -815,14 +964,28 @@ if (-not $SkipVerify) {
     
     # Verification summary
     Write-Log ""
-    Write-PhaseStart "VERIFICATION SUMMARY
+    Write-PhaseStart "VERIFICATION SUMMARY"
     Write-Log ""
     Write-Log "========================================"
     Write-Log "VERIFICATION SUMMARY"
     Write-Log "========================================"
+    Write-Log ""
     
-    if ($verificationFailed) {
-        Write-Error "Verification failed!"
+    # Display results table
+    $hasFailures = $false
+    foreach ($step in @("k8s-validate", "backend", "frontend", "deploy")) {
+        if ($verificationResults.ContainsKey($step)) {
+            $result = $verificationResults[$step]
+            if ($result -eq "FAIL") {
+                $hasFailures = $true
+            }
+            Write-Log ("  {0,-20} : {1}" -f $step, $result)
+        }
+    }
+    Write-Log ""
+    
+    if ($hasFailures) {
+        Write-Error "Verification completed with failures!"
         Write-Log ""
         Write-Log "Troubleshooting:"
         Write-Log "  - Check build logs in: build-logs/"
@@ -895,5 +1058,37 @@ if (-not $Doctor) {
     Write-Log "Full log: $LogFile"
 }
 
-Write-Success "Developer environment ready! 🚀"
+Write-PhaseEnd "Setup Complete"
+
+# Calculate and display total duration
+$totalDuration = (Get-Date) - $script:SetupStartTime
+Write-Log ""
+Write-Log "========================================"
+Write-Log "TIMING SUMMARY"
+Write-Log "========================================"
+Write-Log "Started:  $($script:SetupStartTime.ToString('HH:mm:ss'))"
+Write-Log "Finished: $((Get-Date).ToString('HH:mm:ss'))"
+Write-Log "Total Duration: $($totalDuration.ToString('mm')) minutes $($totalDuration.ToString('ss')) seconds"
+Write-Log "========================================"
+
+Write-Success "Developer environment ready!"
+
+# ============================================================================
+# LOG ROTATION
+# ============================================================================
+
+# Maintain only 3 most recent log files, sorted by name (inverse timestamp ensures latest first)
+try {
+    $logFiles = @(
+        Get-ChildItem -Path $script:LogDir -File -Filter "*.log" -ErrorAction SilentlyContinue |
+            Sort-Object Name
+    )
+    if ($logFiles.Count -gt 3) {
+        $logFiles | Select-Object -Skip 3 | Remove-Item -Force -ErrorAction SilentlyContinue
+    }
+}
+catch {
+    # Best-effort only.
+}
+
 exit 0

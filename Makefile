@@ -5,8 +5,14 @@ HELM ?= helm
 KIND ?= kind
 NULL_DEVICE ?= /dev/null
 GRADLEW ?= ./gradlew
+
+# Ensure portable .devtools/bin tools are on PATH for all recipes
+ifneq ($(wildcard .devtools/bin),)
+export PATH := $(CURDIR)/.devtools/bin:$(PATH)
+endif
 SMOKE_INFRA_CMD ?= bash ./scripts/smoke-k8s-infra/smoke-k8s-infra.sh
 SMOKE_PROBES_CMD ?= bash ./scripts/smoke-k8s-infra/smoke-probes.sh
+VALIDATE_K8S_CMD ?= tr -d '\r' < scripts/validate-k8s/validate.sh | bash
 NS ?= dev
 
 ifeq ($(OS),Windows_NT)
@@ -14,15 +20,24 @@ NULL_DEVICE := NUL
 GRADLEW := gradlew.bat
 SMOKE_INFRA_CMD := powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-infra/smoke-k8s-infra.ps1
 SMOKE_PROBES_CMD := powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-infra/smoke-probes.ps1
+VALIDATE_K8S_CMD := bash scripts/validate-k8s/validate.sh
 endif
 
-.PHONY: k8s-validate kind-up infra-up build-images kind-load deploy-dev smoke-infra smoke-probes smoke build-and-deploy-local
+.PHONY: k8s-validate kind-up kind-down kind-reset infra-up build-images kind-load deploy-dev smoke-infra smoke-probes smoke build-and-deploy-local
 
 k8s-validate:
-	tr -d '\r' < scripts/validate-k8s/validate.sh | REPO_ROOT="$$(pwd)" bash
+	$(VALIDATE_K8S_CMD)
 
 kind-up:
-	$(KIND) create cluster --name $(KIND_CLUSTER_NAME) --config platform/k8s/infra/kind-config.yaml
+	@$(KUBECTL) cluster-info --context kind-$(KIND_CLUSTER_NAME) >$(NULL_DEVICE) 2>&1 || $(KIND) create cluster --name $(KIND_CLUSTER_NAME) --config platform/k8s/infra/kind-config.yaml
+	@bash -c 'echo "Waiting for cluster to be ready..."'
+	@$(KUBECTL) wait --for=condition=Ready nodes --all --timeout=180s
+	@$(KUBECTL) cluster-info
+
+kind-down:
+	$(KIND) delete cluster --name $(KIND_CLUSTER_NAME)
+
+kind-reset: kind-down kind-up
 
 infra-up:
 	-$(HELM) repo add ingress-nginx https://kubernetes.github.io/ingress-nginx >$(NULL_DEVICE) 2>&1

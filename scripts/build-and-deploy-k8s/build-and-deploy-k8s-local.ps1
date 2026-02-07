@@ -617,6 +617,12 @@ if (-not (Get-Command make -ErrorAction SilentlyContinue)) {
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent (Split-Path -Parent $scriptDir)
 
+# Ensure portable .devtools/bin tools (kubectl, helm, kind, kubeconform) are on PATH
+$devToolsBin = Join-Path $repoRoot ".devtools\bin"
+if ((Test-Path $devToolsBin) -and $env:PATH -notlike "*$devToolsBin*") {
+    $env:PATH = "$devToolsBin;$env:PATH"
+}
+
 $targets = @(
     "kind-up",
     "infra-up",

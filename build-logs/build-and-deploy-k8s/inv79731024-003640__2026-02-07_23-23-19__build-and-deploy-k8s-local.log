@@ -1,9 +1,15 @@
-﻿[2026-02-07 16:40:24] Build log file: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\\build-and-deploy-k8s\inv79731024-071935__2026-02-07_16-40-24__build-and-deploy-k8s-local.log
-[2026-02-07 16:40:24] Base kustomization deployments: agent, client, log, transaction, frontend
-[2026-02-07 16:40:25] Running K8s manifest validation...
-[2026-02-07 16:40:25] Running: make k8s-validate
-tr -d '\r' < scripts/validate-k8s/validate.sh | REPO_ROOT="$(pwd)" bash
+﻿[2026-02-07 23:23:19] Build log file: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\\build-and-deploy-k8s\inv79731024-003640__2026-02-07_23-23-19__build-and-deploy-k8s-local.log
+[2026-02-07 23:23:19] Base kustomization deployments: agent, client, log, transaction, frontend
+[2026-02-07 23:23:20] Running K8s manifest validation...
+[2026-02-07 23:23:20] Running: make k8s-validate
+bash scripts/validate-k8s/validate.sh
+[k8s-validate] WSL detected - adding Windows tool paths for cross-platform compatibility
+[k8s-validate] Added to PATH: /mnt/c/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/.devtools/bin
+[k8s-validate] Added to PATH: /mnt/c/ProgramData/chocolatey/bin
 [k8s-validate] Checking required tools...
+[k8s-validate] Found: helm.exe
+[k8s-validate] Found: kubectl
+[k8s-validate] Found: kubeconform.exe
 [k8s-validate] All required tools found.
 [k8s-validate] Validating kind config YAML...
 [k8s-validate] kind-config.yaml parsed successfully.
@@ -17,21 +23,20 @@ Summary: 11 resources found in 1 file - Valid: 11, Invalid: 0, Errors: 0, Skippe
 [k8s-validate] Rendering Helm chart: bitnami/postgresql (release=postgres, namespace=dev)...
 [k8s-validate] Validating infra-postgres.yaml with kubeconform...
 Summary: 7 resources found in 1 file - Valid: 7, Invalid: 0, Errors: 0, Skipped: 0
-[k8s-validate] Rendering Kustomize overlay: /c/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/platform/k8s/apps/overlays/dev...
+[k8s-validate] Rendering Kustomize overlay: /mnt/c/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/platform/k8s/apps/overlays/dev...
 [k8s-validate] Validating apps-dev.yaml with kubeconform...
 Summary: 14 resources found in 1 file - Valid: 14, Invalid: 0, Errors: 0, Skipped: 0
 [k8s-validate] 
 [k8s-validate] === K8s Validation Passed ===
 [k8s-validate] Validated outputs:
-[k8s-validate]   - /c/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/.k8s-validate-tmp/infra-ingress.yaml
-[k8s-validate]   - /c/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/.k8s-validate-tmp/infra-metrics.yaml
-[k8s-validate]   - /c/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/.k8s-validate-tmp/infra-postgres.yaml
-[k8s-validate]   - /c/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/.k8s-validate-tmp/apps-dev.yaml
-[k8s-validate] Temp dir: /c/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/.k8s-validate-tmp
+[k8s-validate]   - /mnt/c/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/.k8s-validate-tmp/infra-ingress.yaml
+[k8s-validate]   - /mnt/c/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/.k8s-validate-tmp/infra-metrics.yaml
+[k8s-validate]   - /mnt/c/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/.k8s-validate-tmp/infra-postgres.yaml
+[k8s-validate]   - /mnt/c/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/.k8s-validate-tmp/apps-dev.yaml
+[k8s-validate] Temp dir: /mnt/c/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/.k8s-validate-tmp
 [k8s-validate] 
-[2026-02-07 16:40:41] K8s validation passed.
-[2026-02-07 16:40:41] Running: make kind-up
-kind create cluster --name cs301-crm --config platform/k8s/infra/kind-config.yaml
+[2026-02-07 23:23:37] K8s validation passed.
+[2026-02-07 23:23:37] Running: make kind-up
 Creating cluster "cs301-crm" ...
  • Ensuring node image (kindest/node:v1.35.0) 🖼  ...
  ✓ Ensuring node image (kindest/node:v1.35.0) 🖼
@@ -50,8 +55,14 @@ You can now use your cluster with:
 
 kubectl cluster-info --context kind-cs301-crm
 
-Have a nice day! 👋
-[2026-02-07 16:41:01] Running: make infra-up
+Have a question, bug, or feature request? Let us know! https://kind.sigs.k8s.io/#community 🙂
+Waiting for cluster to be ready...
+node/cs301-crm-control-plane condition met
+Kubernetes control plane is running at https://127.0.0.1:55420
+CoreDNS is running at https://127.0.0.1:55420/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+
+To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
+[2026-02-07 23:24:13] Running: make infra-up
 helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx >/dev/null 2>&1
 helm repo add bitnami https://charts.bitnami.com/bitnami >/dev/null 2>&1
 helm repo update
@@ -62,7 +73,7 @@ Update Complete. ⎈Happy Helming!⎈
 helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx --namespace ingress-nginx --create-namespace
 Release "ingress-nginx" does not exist. Installing it now.
 NAME: ingress-nginx
-LAST DEPLOYED: Sat Feb  7 16:41:08 2026
+LAST DEPLOYED: Sat Feb  7 23:24:18 2026
 NAMESPACE: ingress-nginx
 STATUS: deployed
 REVISION: 1
@@ -112,7 +123,7 @@ If TLS is enabled for the Ingress, a Secret containing the certificate and key m
 helm upgrade --install metrics-server bitnami/metrics-server --namespace kube-system -f platform/k8s/infra/helm-values/metrics-server-values.yaml
 Release "metrics-server" does not exist. Installing it now.
 NAME: metrics-server
-LAST DEPLOYED: Sat Feb  7 16:41:34 2026
+LAST DEPLOYED: Sat Feb  7 23:24:34 2026
 NAMESPACE: kube-system
 STATUS: deployed
 REVISION: 1
@@ -148,7 +159,7 @@ Substituted images detected:
 helm upgrade --install postgres bitnami/postgresql --namespace dev --create-namespace -f platform/k8s/infra/helm-values/postgresql-values.yaml
 Release "postgres" does not exist. Installing it now.
 NAME: postgres
-LAST DEPLOYED: Sat Feb  7 16:41:38 2026
+LAST DEPLOYED: Sat Feb  7 23:24:38 2026
 NAMESPACE: dev
 STATUS: deployed
 REVISION: 1
@@ -199,10 +210,10 @@ WARNING: There are "resources" sections in the chart not set. Using "resourcesPr
   - readReplicas.resources
 +info https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 kubectl wait --namespace ingress-nginx --for=condition=ready pod -l app.kubernetes.io/component=controller --timeout=180s
-pod/ingress-nginx-controller-7459fc6594-x55f8 condition met
+pod/ingress-nginx-controller-7459fc6594-nlbcs condition met
 kubectl wait --namespace dev --for=condition=ready pod -l app.kubernetes.io/name=postgresql --timeout=180s
 pod/postgres-postgresql-0 condition met
-[2026-02-07 16:42:08] Running: make build-images
+[2026-02-07 23:25:14] Running: make build-images
 cd services/backend/agent && ./gradlew bootJar
 > Task :compileJava UP-TO-DATE
 > Task :processResources UP-TO-DATE
@@ -210,7 +221,7 @@ cd services/backend/agent && ./gradlew bootJar
 > Task :resolveMainClassName UP-TO-DATE
 > Task :bootJar UP-TO-DATE
 
-BUILD SUCCESSFUL in 20s
+BUILD SUCCESSFUL in 1s
 4 actionable tasks: 4 up-to-date
 Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.3.0/userguide/configuration_cache_enabling.html
 cd services/backend/client && ./gradlew bootJar
@@ -220,7 +231,7 @@ cd services/backend/client && ./gradlew bootJar
 > Task :resolveMainClassName UP-TO-DATE
 > Task :bootJar UP-TO-DATE
 
-BUILD SUCCESSFUL in 21s
+BUILD SUCCESSFUL in 2s
 4 actionable tasks: 4 up-to-date
 Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.2.1/userguide/configuration_cache_enabling.html
 cd services/backend/transaction && ./gradlew bootJar
@@ -238,16 +249,13 @@ docker build -t agent:dev services/backend/agent
 
 #1 [internal] load build definition from Dockerfile
 #1 transferring dockerfile: 190B 0.0s done
-#1 DONE 0.1s
+#1 DONE 0.0s
 
-#2 [internal] load metadata for docker.io/library/eclipse-temurin:21-jre-alpine
-#2 ...
+#2 [auth] library/eclipse-temurin:pull token for registry-1.docker.io
+#2 DONE 0.0s
 
-#3 [auth] library/eclipse-temurin:pull token for registry-1.docker.io
-#3 DONE 0.0s
-
-#2 [internal] load metadata for docker.io/library/eclipse-temurin:21-jre-alpine
-#2 DONE 2.2s
+#3 [internal] load metadata for docker.io/library/eclipse-temurin:21-jre-alpine
+#3 DONE 2.3s
 
 #4 [internal] load .dockerignore
 #4 transferring context: 2B done
@@ -258,53 +266,48 @@ docker build -t agent:dev services/backend/agent
 #5 DONE 0.1s
 
 #6 [internal] load build context
-#6 transferring context: 21.35MB 2.7s done
-#6 DONE 2.7s
+#6 transferring context: 114B 0.3s done
+#6 DONE 0.3s
 
 #7 [2/3] WORKDIR /app
 #7 CACHED
 
 #8 [3/3] COPY build/libs/*-SNAPSHOT.jar app.jar
-#8 DONE 0.1s
+#8 CACHED
 
 #9 exporting to image
-#9 exporting layers
-#9 exporting layers 1.1s done
-#9 exporting manifest sha256:b604113e31c159717585fb6c394fe16518e1abb14b77a5da7af6edc14bdc79e0 0.0s done
-#9 exporting config sha256:02d45921b048fb9475512aee3bdc7b668dffdd44d8a4b830b924edd4701238f3 0.0s done
-#9 exporting attestation manifest sha256:f5b9c093e8368f30ea48ade3d38b1b48d4b4038c22d73df35862603ea9dccd23
-#9 exporting attestation manifest sha256:f5b9c093e8368f30ea48ade3d38b1b48d4b4038c22d73df35862603ea9dccd23 0.1s done
-#9 exporting manifest list sha256:3144979031cd433f2556f4cfc65df1f7c611fcc790a2254afee33047de75e43d 0.0s done
+#9 exporting layers done
+#9 exporting manifest sha256:b604113e31c159717585fb6c394fe16518e1abb14b77a5da7af6edc14bdc79e0 done
+#9 exporting config sha256:02d45921b048fb9475512aee3bdc7b668dffdd44d8a4b830b924edd4701238f3 done
+#9 exporting attestation manifest sha256:8d6a8188f109d7117b39473c6c21f551ae434157f7512b7d0def42aff7899d0f 0.1s done
+#9 exporting manifest list sha256:380c7889c96394e7ba7fa77d3149b937d7547891ed24015115e89fea04a8c77e
+#9 exporting manifest list sha256:380c7889c96394e7ba7fa77d3149b937d7547891ed24015115e89fea04a8c77e 0.0s done
 #9 naming to docker.io/library/agent:dev done
-#9 unpacking to docker.io/library/agent:dev
-#9 unpacking to docker.io/library/agent:dev 0.2s done
-#9 DONE 1.6s
+#9 unpacking to docker.io/library/agent:dev 0.0s done
+#9 DONE 0.2s
 
-View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/n4m3ax8wz1m0g2ort1qipqhzo
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/84i1wex7iyn2c5g9uawshhb33
 docker build -t client:dev services/backend/client
 #0 building with "desktop-linux" instance using docker driver
 
 #1 [internal] load build definition from Dockerfile
-#1 transferring dockerfile: 188B 0.0s done
+#1 transferring dockerfile: 188B done
 #1 DONE 0.0s
 
 #2 [internal] load metadata for docker.io/library/eclipse-temurin:21-jre-alpine
-#2 DONE 0.5s
+#2 DONE 0.6s
 
 #3 [internal] load .dockerignore
 #3 transferring context: 2B done
 #3 DONE 0.0s
 
-#4 [internal] load build context
-#4 ...
+#4 [1/3] FROM docker.io/library/eclipse-temurin:21-jre-alpine@sha256:6ad8ed080d9be96b61438ec3ce99388e294af216ed57356000c06070e85c5d5d
+#4 resolve docker.io/library/eclipse-temurin:21-jre-alpine@sha256:6ad8ed080d9be96b61438ec3ce99388e294af216ed57356000c06070e85c5d5d 0.0s done
+#4 DONE 0.1s
 
-#5 [1/3] FROM docker.io/library/eclipse-temurin:21-jre-alpine@sha256:6ad8ed080d9be96b61438ec3ce99388e294af216ed57356000c06070e85c5d5d
-#5 resolve docker.io/library/eclipse-temurin:21-jre-alpine@sha256:6ad8ed080d9be96b61438ec3ce99388e294af216ed57356000c06070e85c5d5d 0.1s done
-#5 DONE 0.1s
-
-#4 [internal] load build context
-#4 transferring context: 115B 0.6s done
-#4 DONE 0.6s
+#5 [internal] load build context
+#5 transferring context: 115B 0.3s done
+#5 DONE 0.4s
 
 #6 [2/3] WORKDIR /app
 #6 CACHED
@@ -316,32 +319,32 @@ docker build -t client:dev services/backend/client
 #8 exporting layers done
 #8 exporting manifest sha256:f39627d8161a4017d4e3ae125bfeccb5aa3d2ba5247f802c3485b3bb9acc153f done
 #8 exporting config sha256:c1a65ede28ad6dd6a8aa274e3a844c5a6c4053b4d9191e819119def89dd0e1bc done
-#8 exporting attestation manifest sha256:f333952af7d8023f808a617662db7545f7a73ad9c98ea52f9ef0aa914742175e 0.1s done
-#8 exporting manifest list sha256:57627ef2532af3af030dcaba16bd681d166e9c0ff24d1ce66599283b2a63b51d
-#8 exporting manifest list sha256:57627ef2532af3af030dcaba16bd681d166e9c0ff24d1ce66599283b2a63b51d 0.0s done
-#8 naming to docker.io/library/client:dev 0.0s done
+#8 exporting attestation manifest sha256:b41de28b6f955bb7b72388789c6410e9844bc92962760b8582d847861b6090a4 0.1s done
+#8 exporting manifest list sha256:631123a743f1558f0a0ac09f8c454c219d1208ed705e2dcc918cf798add801f1
+#8 exporting manifest list sha256:631123a743f1558f0a0ac09f8c454c219d1208ed705e2dcc918cf798add801f1 0.0s done
+#8 naming to docker.io/library/client:dev done
 #8 unpacking to docker.io/library/client:dev 0.0s done
-#8 DONE 0.3s
+#8 DONE 0.2s
 
-View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/bdr84dtkihjt6f3plca65n4n2
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/lubpydmrzwmrep7e5whx900kc
 docker build -t log:dev services/backend/log
 #0 building with "desktop-linux" instance using docker driver
 
 #1 [internal] load build definition from Dockerfile
+#1 DONE 0.0s
+
+#1 [internal] load build definition from Dockerfile
 #1 transferring dockerfile: 256B 0.0s done
-#1 DONE 0.1s
+#1 DONE 0.0s
 
-#2 [internal] load metadata for docker.io/library/python:3.13-slim
-#2 ...
+#2 [auth] library/python:pull token for registry-1.docker.io
+#2 DONE 0.0s
 
-#3 [auth] library/python:pull token for registry-1.docker.io
-#3 DONE 0.0s
-
-#2 [internal] load metadata for docker.io/library/python:3.13-slim
-#2 DONE 2.4s
+#3 [internal] load metadata for docker.io/library/python:3.13-slim
+#3 DONE 2.7s
 
 #4 [internal] load .dockerignore
-#4 transferring context: 2B done
+#4 transferring context: 132B done
 #4 DONE 0.0s
 
 #5 [internal] load build context
@@ -352,45 +355,42 @@ docker build -t log:dev services/backend/log
 #6 DONE 0.1s
 
 #5 [internal] load build context
-#5 transferring context: 1.04MB 0.4s done
-#5 DONE 0.5s
+#5 transferring context: 388.17kB 0.3s done
+#5 DONE 0.4s
 
-#7 [3/5] COPY requirements.txt .
+#7 [2/5] WORKDIR /app
 #7 CACHED
 
-#8 [2/5] WORKDIR /app
+#8 [3/5] COPY requirements.txt .
 #8 CACHED
 
 #9 [4/5] RUN pip install --no-cache-dir -r requirements.txt
 #9 CACHED
 
 #10 [5/5] COPY . .
-#10 DONE 1.7s
+#10 CACHED
 
 #11 exporting to image
-#11 exporting layers
-#11 exporting layers 4.2s done
-#11 exporting manifest sha256:de8b98d5fbd9507a394b4a03ab58756dee3964b71340c8e6d3312f1c638aaf31 0.0s done
-#11 exporting config sha256:14fba361435c78a1b1dbcaac71d21e526b7142d2c31b1733b6cf5907835eb5a9 0.0s done
-#11 exporting attestation manifest sha256:492e9d80568e8769be07768fd623430472ce8333adb7756a28c8e2479045d031
-#11 exporting attestation manifest sha256:492e9d80568e8769be07768fd623430472ce8333adb7756a28c8e2479045d031 0.1s done
-#11 exporting manifest list sha256:0ce98998fea5038a431516574af9bf548669eb73af83771dd99cc4032c37da37 0.0s done
-#11 naming to docker.io/library/log:dev
+#11 exporting layers done
+#11 exporting manifest sha256:e34348d79052123a17fc1bd64d27374735629643a9563ca2fe9bc0a71200258f done
+#11 exporting config sha256:ef095f389c4c7dc3495d0768bada20072258b844e87ed0430dd98d9790c8f316 done
+#11 exporting attestation manifest sha256:831f31cd543dccfe4bde6908b02888986ce2c445dd460b16430b986c337dd7c8 0.1s done
+#11 exporting manifest list sha256:774df6b72b432beffbb0cc70ab99d519c1f7a8d557974d2db631fb6c204d93b3
+#11 exporting manifest list sha256:774df6b72b432beffbb0cc70ab99d519c1f7a8d557974d2db631fb6c204d93b3 0.0s done
 #11 naming to docker.io/library/log:dev done
-#11 unpacking to docker.io/library/log:dev
-#11 unpacking to docker.io/library/log:dev 1.4s done
-#11 DONE 5.9s
+#11 unpacking to docker.io/library/log:dev 0.0s done
+#11 DONE 0.3s
 
-View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/w3rjmxnt67sw00brmmrmg8mr6
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/sbbvaylme92vcoropuhociueu
 docker build -t transaction:dev services/backend/transaction
 #0 building with "desktop-linux" instance using docker driver
 
 #1 [internal] load build definition from Dockerfile
-#1 transferring dockerfile: 181B 0.0s done
+#1 transferring dockerfile: 181B done
 #1 DONE 0.0s
 
 #2 [internal] load metadata for docker.io/library/eclipse-temurin:21-jre-alpine
-#2 DONE 0.5s
+#2 DONE 0.7s
 
 #3 [internal] load .dockerignore
 #3 transferring context: 2B done
@@ -401,54 +401,51 @@ docker build -t transaction:dev services/backend/transaction
 #4 DONE 0.1s
 
 #5 [internal] load build context
-#5 transferring context: 21.37MB 2.1s done
-#5 DONE 2.1s
+#5 transferring context: 120B 0.3s done
+#5 DONE 0.3s
 
 #6 [2/3] WORKDIR /app
 #6 CACHED
 
 #7 [3/3] COPY build/libs/*-SNAPSHOT.jar app.jar
-#7 DONE 0.2s
+#7 CACHED
 
 #8 exporting to image
-#8 exporting layers
-#8 exporting layers 1.0s done
-#8 exporting manifest sha256:f4730ac5a1f78e57df004da76fdedc9a5238e53626994742c37a93bb4a4d3d4c 0.0s done
-#8 exporting config sha256:5cc7f9fc6d5ac70c451824c7545d10f53b318b21bbd585ea932ed6cba3601a1d 0.0s done
-#8 exporting attestation manifest sha256:d11cac67e992adf039bee904998570085d04e37c03f73fe8f6a378d3eea8eaea
-#8 exporting attestation manifest sha256:d11cac67e992adf039bee904998570085d04e37c03f73fe8f6a378d3eea8eaea 0.1s done
-#8 exporting manifest list sha256:82fb8f09ab85fd5c8bad80d6bd7d7cbe8bf2fc104deabe23bec77f5b5070bc2a 0.0s done
-#8 naming to docker.io/library/transaction:dev
+#8 exporting layers done
+#8 exporting manifest sha256:f4730ac5a1f78e57df004da76fdedc9a5238e53626994742c37a93bb4a4d3d4c done
+#8 exporting config sha256:5cc7f9fc6d5ac70c451824c7545d10f53b318b21bbd585ea932ed6cba3601a1d done
+#8 exporting attestation manifest sha256:0351873daf79f0afe2606028d31232ab2f281c91d424713f6f2271fee4a386e5 0.1s done
+#8 exporting manifest list sha256:9f4c4d9ed63d460e7e9592dc3928709c049cb82bb1fde765106793094b9a113a
+#8 exporting manifest list sha256:9f4c4d9ed63d460e7e9592dc3928709c049cb82bb1fde765106793094b9a113a 0.0s done
 #8 naming to docker.io/library/transaction:dev done
-#8 unpacking to docker.io/library/transaction:dev
-#8 unpacking to docker.io/library/transaction:dev 0.2s done
-#8 DONE 1.6s
+#8 unpacking to docker.io/library/transaction:dev 0.0s done
+#8 DONE 0.2s
 
-View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/ukmnrpkyd4ddaas6u5nl4wx6v
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/u2otp2zt8k0l3em4mpumiyre1
 docker build -t crm-ui:dev services/frontend/crm-ui
 #0 building with "desktop-linux" instance using docker driver
 
 #1 [internal] load build definition from Dockerfile
-#1 transferring dockerfile: 780B 0.0s done
+#1 transferring dockerfile: 780B done
 #1 DONE 0.0s
 
-#2 [internal] load metadata for docker.io/library/node:20-alpine
-#2 ...
+#2 [auth] library/node:pull token for registry-1.docker.io
+#2 DONE 0.0s
 
 #3 [auth] library/nginx:pull token for registry-1.docker.io
 #3 DONE 0.0s
 
-#4 [auth] library/node:pull token for registry-1.docker.io
-#4 DONE 0.0s
+#4 [internal] load metadata for docker.io/library/nginx:alpine
+#4 ...
 
-#5 [internal] load metadata for docker.io/library/nginx:alpine
-#5 DONE 2.0s
+#5 [internal] load metadata for docker.io/library/node:20-alpine
+#5 DONE 1.8s
 
-#2 [internal] load metadata for docker.io/library/node:20-alpine
-#2 DONE 2.0s
+#4 [internal] load metadata for docker.io/library/nginx:alpine
+#4 DONE 2.1s
 
 #6 [internal] load .dockerignore
-#6 transferring context: 220B 0.0s done
+#6 transferring context: 220B done
 #6 DONE 0.0s
 
 #7 [internal] load build context
@@ -459,42 +456,30 @@ docker build -t crm-ui:dev services/frontend/crm-ui
 #8 DONE 0.1s
 
 #9 [stage-1 1/3] FROM docker.io/library/nginx:alpine@sha256:5878d06ae4c83d73285438255f705bb3f9a736f41cd24876ed25bb33faf76c7d
+#9 resolve docker.io/library/nginx:alpine@sha256:5878d06ae4c83d73285438255f705bb3f9a736f41cd24876ed25bb33faf76c7d
 #9 resolve docker.io/library/nginx:alpine@sha256:5878d06ae4c83d73285438255f705bb3f9a736f41cd24876ed25bb33faf76c7d 0.1s done
 #9 DONE 0.1s
 
 #7 [internal] load build context
-#7 transferring context: 269.09kB 0.0s done
+#7 transferring context: 3.15kB 0.0s done
 #7 DONE 0.0s
 
-#10 [build 2/6] WORKDIR /app
+#10 [stage-1 2/3] COPY nginx.conf /etc/nginx/nginx.conf
 #10 CACHED
 
-#11 [build 3/6] COPY package*.json ./
+#11 [build 5/6] COPY . .
 #11 CACHED
 
-#12 [build 4/6] RUN npm ci --silent
+#12 [build 3/6] COPY package*.json ./
 #12 CACHED
 
-#13 [build 5/6] COPY . .
-#13 DONE 0.1s
+#13 [build 4/6] RUN npm ci --silent
+#13 CACHED
 
-#14 [build 6/6] RUN npm run build
-#14 1.041 
-#14 1.041 > crm-ui@0.0.0 build
-#14 1.041 > tsc -b && vite build
-#14 1.041 
-#14 7.063 vite v7.3.1 building client environment for production...
-#14 7.855 transforming...
-#14 10.08 ✓ 55 modules transformed.
-#14 10.33 rendering chunks...
-#14 10.34 computing gzip size...
-#14 10.36 dist/index.html                   0.45 kB │ gzip:  0.29 kB
-#14 10.36 dist/assets/index-DErgZNsY.css   15.19 kB │ gzip:  3.56 kB
-#14 10.36 dist/assets/index-BLAjomkF.js   276.17 kB │ gzip: 80.73 kB
-#14 10.36 ✓ built in 3.25s
-#14 DONE 10.4s
+#14 [build 2/6] WORKDIR /app
+#14 CACHED
 
-#15 [stage-1 2/3] COPY nginx.conf /etc/nginx/nginx.conf
+#15 [build 6/6] RUN npm run build
 #15 CACHED
 
 #16 [stage-1 3/3] COPY --from=build /app/dist /usr/share/nginx/html
@@ -504,26 +489,27 @@ docker build -t crm-ui:dev services/frontend/crm-ui
 #17 exporting layers done
 #17 exporting manifest sha256:f84ae42bda71ba783452896f1c43a9ece9fc6281b09bd34f9bf33efc24f5a078 done
 #17 exporting config sha256:23c8dd99c6bf9c9a33574f2282485466c2c6d2df904db9097770e482ba685286 done
-#17 exporting attestation manifest sha256:99679ba0bad3b68a5a67802f152c245cbdbb464accb3a3407a23ee43afae80e3 0.1s done
-#17 exporting manifest list sha256:9e2bb0f444c3edc3df27ce9f6cf24655d2ac3017f54cf42c77336d5942c73470
-#17 exporting manifest list sha256:9e2bb0f444c3edc3df27ce9f6cf24655d2ac3017f54cf42c77336d5942c73470 0.0s done
+#17 exporting attestation manifest sha256:fb811e4792a5d8ea6fc58147123fe2dc9099d4ee1a7ce5fd52a2c2eefbf9bb01
+#17 exporting attestation manifest sha256:fb811e4792a5d8ea6fc58147123fe2dc9099d4ee1a7ce5fd52a2c2eefbf9bb01 0.1s done
+#17 exporting manifest list sha256:5d6e802d179265dd8c57ef2c99fb3d54c23c6be7b71cf9f0ce961e5eb9932a76 0.0s done
+#17 naming to docker.io/library/crm-ui:dev
 #17 naming to docker.io/library/crm-ui:dev done
 #17 unpacking to docker.io/library/crm-ui:dev 0.0s done
-#17 DONE 0.4s
+#17 DONE 0.3s
 
-View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/l1p8haqest93vi0m9d2g40len
-[2026-02-07 16:43:36] Running: make kind-load
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/hhp89vicl3xtp1ft0lt3lopos
+[2026-02-07 23:25:38] Running: make kind-load
 kind load docker-image agent:dev --name cs301-crm
-Image: "agent:dev" with ID "sha256:3144979031cd433f2556f4cfc65df1f7c611fcc790a2254afee33047de75e43d" not yet present on node "cs301-crm-control-plane", loading...
+Image: "agent:dev" with ID "sha256:380c7889c96394e7ba7fa77d3149b937d7547891ed24015115e89fea04a8c77e" not yet present on node "cs301-crm-control-plane", loading...
 kind load docker-image client:dev --name cs301-crm
-Image: "client:dev" with ID "sha256:57627ef2532af3af030dcaba16bd681d166e9c0ff24d1ce66599283b2a63b51d" not yet present on node "cs301-crm-control-plane", loading...
+Image: "client:dev" with ID "sha256:631123a743f1558f0a0ac09f8c454c219d1208ed705e2dcc918cf798add801f1" not yet present on node "cs301-crm-control-plane", loading...
 kind load docker-image log:dev --name cs301-crm
-Image: "log:dev" with ID "sha256:0ce98998fea5038a431516574af9bf548669eb73af83771dd99cc4032c37da37" not yet present on node "cs301-crm-control-plane", loading...
+Image: "log:dev" with ID "sha256:774df6b72b432beffbb0cc70ab99d519c1f7a8d557974d2db631fb6c204d93b3" not yet present on node "cs301-crm-control-plane", loading...
 kind load docker-image transaction:dev --name cs301-crm
-Image: "transaction:dev" with ID "sha256:82fb8f09ab85fd5c8bad80d6bd7d7cbe8bf2fc104deabe23bec77f5b5070bc2a" not yet present on node "cs301-crm-control-plane", loading...
+Image: "transaction:dev" with ID "sha256:9f4c4d9ed63d460e7e9592dc3928709c049cb82bb1fde765106793094b9a113a" not yet present on node "cs301-crm-control-plane", loading...
 kind load docker-image crm-ui:dev --name cs301-crm
-Image: "crm-ui:dev" with ID "sha256:9e2bb0f444c3edc3df27ce9f6cf24655d2ac3017f54cf42c77336d5942c73470" not yet present on node "cs301-crm-control-plane", loading...
-[2026-02-07 16:44:41] Running: make deploy-dev
+Image: "crm-ui:dev" with ID "sha256:5d6e802d179265dd8c57ef2c99fb3d54c23c6be7b71cf9f0ce961e5eb9932a76" not yet present on node "cs301-crm-control-plane", loading...
+[2026-02-07 23:26:38] Running: make deploy-dev
 kubectl apply -k platform/k8s/apps/overlays/dev
 Warning: resource namespaces/dev is missing the kubectl.kubernetes.io/last-applied-configuration annotation which is required by kubectl apply. kubectl apply should only be used on resources created declaratively by either kubectl create --save-config or kubectl apply. The missing annotation will be patched automatically.
 namespace/dev configured
@@ -568,7 +554,7 @@ kubectl rollout status deployment/frontend -n dev --timeout=180s
 Waiting for deployment "frontend" rollout to finish: 1 old replicas are pending termination...
 Waiting for deployment "frontend" rollout to finish: 1 old replicas are pending termination...
 deployment "frontend" successfully rolled out
-[2026-02-07 16:45:06] Running: make smoke
+[2026-02-07 23:27:03] Running: make smoke
 powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-infra/smoke-k8s-infra.ps1
 Initial health check against http://localhost failed; attempting kubectl port-forward fallback...
 Using kubectl port-forward fallback at http://localhost:18080
@@ -635,15 +621,16 @@ HTTP transaction.dev.svc.cluster.local:80/api/v1/health
 
 In-cluster probe checks: 5 passed, 0 failed
 sh: exit: line 91: Illegal number: 0
-pod "smoke-probe-check-36536" deleted from dev namespace
-pod dev/smoke-probe-check-36536 terminated (Error)
+pod "smoke-probe-check-29000" deleted from dev namespace
+pod dev/smoke-probe-check-29000 terminated (Error)
   + All in-cluster probe endpoint checks passed
 
 ==> Probe-aware smoke checks passed
-[2026-02-07 16:45:32] Generating comprehensive K8s deployment summary report...
-K8s deployment summary generated: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\build-and-deploy-k8s\summary-k8s-deploy__2026-02-07_16-40-24.html
-[2026-02-07 16:45:33] K8s deployment summary report generated successfully.
-[2026-02-07 16:45:33] Legacy probe diagnostics summary also generated.
-[2026-02-07 16:45:33] Smoke passed: tearing down local k8s resources and kind cluster 'cs301-crm'
-[2026-02-07 16:45:49] Teardown complete: kind cluster 'cs301-crm' deleted.
-[2026-02-07 16:45:49] Local Kubernetes build/deploy and smoke checks completed successfully.
+[2026-02-07 23:27:32] Generating comprehensive K8s deployment summary report...
+K8s deployment summary generated: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\build-and-deploy-k8s\summary-k8s-deploy__2026-02-07_23-23-19.html
+[2026-02-07 23:27:33] K8s deployment summary report generated successfully.
+[2026-02-07 23:27:33] Rotated old k8s deploy summary reports (kept 3 most recent).
+[2026-02-07 23:27:33] Legacy probe diagnostics summary also generated.
+[2026-02-07 23:27:33] Smoke passed: tearing down local k8s resources and kind cluster 'cs301-crm'
+[2026-02-07 23:27:49] Teardown complete: kind cluster 'cs301-crm' deleted.
+[2026-02-07 23:27:49] Local Kubernetes build/deploy and smoke checks completed successfully.

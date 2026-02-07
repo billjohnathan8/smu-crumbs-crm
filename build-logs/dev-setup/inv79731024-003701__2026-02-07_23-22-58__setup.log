@@ -1,0 +1,176 @@
+﻿[23:22:59][INFO] ========================================
+[23:22:59][INFO] CS301 ITSA CRM Developer Setup
+[23:22:59][INFO] ========================================
+[23:22:59][INFO] Started at: 2026-02-07 23:22:58
+[23:22:59][INFO] Repo root: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3
+[23:22:59][INFO] Mode: SETUP + VERIFY
+[23:22:59][INFO] Install mode: PORTABLE (.devtools/bin)
+[23:22:59][INFO] Log file: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\dev-setup\inv79731024-003701__2026-02-07_23-22-58__setup.log
+[23:22:59][INFO] 
+[23:22:59][INFO] ========================================
+[23:22:59][INFO] DETECTED REQUIREMENTS
+[23:22:59][INFO] ========================================
+[23:22:59][INFO] Based on repository analysis:
+[23:22:59][INFO] 
+[23:22:59][INFO] Required System Dependencies:
+[23:22:59][INFO]   - Docker Desktop (or Docker Engine)
+[23:22:59][INFO]   - Git
+[23:22:59][INFO]   - Java 21 (Temurin/OpenJDK)
+[23:22:59][INFO]   - Node.js >= 18
+[23:22:59][INFO]   - Make (GNU Make or Git Bash make)
+[23:22:59][INFO] 
+[23:22:59][INFO] Required CLI Tools (can be portable):
+[23:22:59][INFO]   - kubectl
+[23:22:59][INFO]   - helm (v3)
+[23:22:59][INFO]   - kind
+[23:22:59][INFO]   - kubeconform (for k8s validation)
+[23:22:59][INFO] 
+[23:22:59][INFO] Optional but Recommended:
+[23:22:59][INFO]   - Python (version 3.7 or higher for HTML report generation)
+[23:22:59][INFO] 
+[23:22:59][INFO] Already in Repo (no install needed):
+[23:22:59][INFO]   - Gradle Wrapper (gradlew and gradlew.bat)
+[23:22:59][INFO]   - npm scripts (services/frontend/crm-ui)
+[23:22:59][INFO] 
+[23:22:59][INFO] Backend Services:
+[23:22:59][INFO]   - Java: agent, client, transaction (Gradle + Java 21)
+[23:22:59][INFO]   - Python: log service (FastAPI + requirements.txt)
+[23:22:59][INFO] 
+[23:22:59][INFO] Frontend:
+[23:22:59][INFO]   - React 19 + TypeScript + Vite
+[23:22:59][INFO]   - Location: services/frontend/crm-ui
+[23:22:59][INFO] 
+[23:22:59][INFO] Local K8s Workflow:
+[23:22:59][INFO]   - Cluster: kind (K8s in Docker)
+[23:22:59][INFO]   - Namespace: dev
+[23:22:59][INFO]   - Ingress: ingress-nginx
+[23:22:59][INFO]   - Database: PostgreSQL (Helm chart)
+[23:22:59][INFO] 
+[23:22:59][INFO] [Requirements Detection] Completed in 00m 00s
+[23:22:59][INFO] ========================================
+[23:22:59][INFO] CHECKING ENVIRONMENT
+[23:22:59][INFO] ========================================
+[23:22:59][INFO] Checking Docker...
+[23:22:59][SUCCESS] Docker found: 29.2.0
+[23:22:59][SUCCESS] Docker daemon is running
+[23:22:59][INFO] Checking Git...
+[23:22:59][SUCCESS] Git found: 2.46.0
+[23:22:59][INFO] Checking Java...
+[23:22:59][SUCCESS] Java found: 22 (major: )
+[23:22:59][INFO] Checking Node.js...
+[23:22:59][SUCCESS] Node.js found: 22.21.1
+[23:23:00][SUCCESS] npm found: 
+[23:23:00][INFO] Checking Make...
+[23:23:00][SUCCESS] Make found: 4.4
+[23:23:00][INFO] Checking Python...
+[23:23:00][SUCCESS] Python found (python): 3.14.0
+[23:23:00][INFO] [Environment Checks] Completed in 00m 01s
+[23:23:00][INFO] ========================================
+[23:23:00][INFO] CLI TOOLS INSTALLATION
+[23:23:00][INFO] ========================================
+[23:23:00][INFO] Added C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\.devtools\bin to session PATH
+[23:23:00][INFO] Checking kubectl...
+[23:23:00][SUCCESS] kubectl found: 
+[23:23:00][INFO] Checking helm...
+[23:23:00][SUCCESS] helm found: 
+[23:23:00][INFO] Checking kind...
+[23:23:00][SUCCESS] kind found: 0.31.0
+[23:23:00][INFO] Checking kubeconform...
+[23:23:00][SUCCESS] kubeconform found: 0.6.7
+[23:23:00][INFO] [CLI Tools Installation] Completed in 00m 00s
+[23:23:00][INFO] ========================================
+[23:23:00][INFO] ENVIRONMENT CONFIGURATION
+[23:23:00][INFO] ========================================
+[23:23:06][INFO] 
+[23:23:06][INFO] Initializing frontend dependencies...
+[23:23:06][INFO] Running npm ci in crm-ui...
+[23:23:18][SUCCESS] Frontend dependencies installed
+[23:23:19][INFO] 
+[23:23:19][INFO] Verifying backend Gradle wrappers...
+[23:23:19][SUCCESS] agent : Gradle wrapper present
+[23:23:19][SUCCESS] client : Gradle wrapper present
+[23:23:19][SUCCESS] transaction : Gradle wrapper present
+[23:23:19][INFO] 
+[23:23:19][INFO] Checking Python log service...
+[23:23:19][INFO] Python log service uses requirements.txt
+[23:23:19][INFO]   To set up venv manually: cd services\backend\log; python -m venv venv; venv\Scripts\activate; pip install -r requirements.txt
+[23:23:19][SUCCESS] Python log service venv already exists
+[23:23:19][INFO] [Environment Configuration] Completed in 00m 18s
+[23:23:19][INFO] ========================================
+[23:23:19][INFO] VERIFICATION SEQUENCE
+[23:23:19][INFO] ========================================
+[23:23:19][INFO] Running deploy-only pipeline (build-and-deploy-k8s-local)...
+[23:23:19][INFO] 
+[23:27:49][SUCCESS] Deploy-only pipeline passed (took 04:30)
+[23:27:49][INFO] [Verification] Completed in 04m 30s
+[23:27:49][INFO] 
+[23:27:49][INFO] ========================================
+[23:27:49][INFO] VERIFICATION SUMMARY
+[23:27:49][INFO] ========================================
+[23:27:49][INFO] 
+[23:27:49][INFO] ========================================
+[23:27:49][INFO] VERIFICATION SUMMARY
+[23:27:49][INFO] ========================================
+[23:27:49][INFO] 
+[23:27:49][INFO]   deploy               : PASS
+[23:27:49][INFO] 
+[23:27:49][SUCCESS] All verification checks passed!
+[23:27:49][INFO] [Verification Summary] Completed in 00m 00s
+[23:27:49][INFO] 
+[23:27:49][INFO] ========================================
+[23:27:49][INFO] SETUP COMPLETE========================================
+[23:27:49][INFO] ========================================
+[23:27:49][INFO] SETUP COMPLETE
+[23:27:49][INFO] ========================================
+[23:27:49][INFO] 
+[23:27:49][INFO] Detected tool versions:
+[23:27:49][INFO]   docker          : 29.2.0
+[23:27:49][INFO]   git             : 2.46.0
+[23:27:49][INFO]   helm            : 
+[23:27:49][INFO]   java            : 22
+[23:27:49][INFO]   kind            : 0.31.0
+[23:27:49][INFO]   kubeconform     : 0.6.7
+[23:27:49][INFO]   kubectl         : 
+[23:27:49][INFO]   make            : 4.4
+[23:27:49][INFO]   node            : 22.21.1
+[23:27:49][INFO]   npm             : 
+[23:27:49][INFO]   python          : 3.14.0
+[23:27:49][INFO] 
+[23:27:49][INFO] NOTE: Portable tools installed to .devtools/bin
+[23:27:49][INFO]       PATH updated for current session only
+[23:27:49][INFO]       To persist PATH changes, run with --persist-path flag
+[23:27:49][INFO] 
+[23:27:49][INFO] Available commands:
+[23:27:49][INFO]   .\scripts\build-and-test-all.cmd           - Test all services
+[23:27:49][INFO]   .\scripts\build-and-test-backend.cmd       - Test backend only
+[23:27:49][INFO]   .\scripts\build-and-test-frontend.cmd      - Test frontend only
+[23:27:49][INFO]   make k8s-validate                           - Validate K8s manifests
+[23:27:49][INFO]   .\scripts\test-and-spinup-all.cmd          - Test + deploy to kind
+[23:27:49][INFO]   .\scripts\build-and-deploy-k8s-local.cmd   - Deploy only to kind
+[23:27:49][INFO] 
+[23:27:49][INFO] Documentation:
+[23:27:49][INFO]   README.md
+[23:27:49][INFO]   docs/onboarding/new-dev-setup.md
+[23:27:49][INFO]   docs/local-k8s-dev.md
+[23:27:49][INFO] [Setup Complete] Completed in 00m 00s
+[23:27:49][INFO] 
+[23:27:49][INFO] ========================================
+[23:27:49][INFO] TIMING SUMMARY
+[23:27:49][INFO] ========================================
+[23:27:49][INFO] Started:  23:22:58
+[23:27:49][INFO] Finished: 23:27:49
+[23:27:49][INFO] Total Duration: 04 minutes 50 seconds
+[23:27:49][INFO] ========================================
+[23:27:49][INFO]   docs/coding-standards/coding-standards.md
+[23:27:49][INFO] 
+[23:27:49][INFO] Full log: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\dev-setup\inv79731024-003701__2026-02-07_23-22-58__setup.log
+[23:27:49][INFO] [Setup Complete] Completed in 00m 00s
+[23:27:49][INFO] 
+[23:27:49][INFO] ========================================
+[23:27:49][INFO] TIMING SUMMARY
+[23:27:49][INFO] ========================================
+[23:27:49][INFO] Started:  23:22:58
+[23:27:49][INFO] Finished: 23:27:49
+[23:27:49][INFO] Total Duration: 04 minutes 50 seconds
+[23:27:49][INFO] ========================================
+[23:27:49][SUCCESS] Developer environment ready!

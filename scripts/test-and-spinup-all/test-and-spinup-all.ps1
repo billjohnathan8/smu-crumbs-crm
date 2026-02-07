@@ -265,6 +265,13 @@ function Get-PythonCommand {
 $scriptDir = Split-Path -Parent $PSCommandPath
 $scriptsRoot = Split-Path -Parent $scriptDir
 $repoRoot = Split-Path -Parent $scriptsRoot
+
+# Ensure portable .devtools/bin tools (kubectl, helm, kind, kubeconform) are on PATH
+$devToolsBin = Join-Path $repoRoot ".devtools\bin"
+if ((Test-Path $devToolsBin) -and $env:PATH -notlike "*$devToolsBin*") {
+    $env:PATH = "$devToolsBin;$env:PATH"
+}
+
 $testAllScript = Join-Path $scriptsRoot "build-and-test-all\build-and-test-all.ps1"
 $deployScript = Join-Path $scriptsRoot "build-and-deploy-k8s\build-and-deploy-k8s-local.ps1"
 $aggregatedCoverageGenerator = Join-Path $scriptsRoot "build-and-test-all\generate-aggregated-coverage-index.py"

@@ -56,7 +56,7 @@ By default, these are **NOT** installed globally:
 
 The script downloads pinned versions to `.devtools/bin` and updates your `PATH` for the current session.
 
-**Want global installs instead?** Use `--system` flag (see [Advanced Usage](#advanced-usage)).
+**Want global installs instead?** Use `-System` flag (see [Advanced Usage](#advanced-usage)).
 
 ### Already in the Repo (No Install Needed)
 These are checked into the repository:
@@ -120,7 +120,7 @@ bash scripts/dev-setup/setup.sh
 ### 2. **Doctor Mode** (Check Without Changes)
 ```powershell
 # Windows
-.\scripts\dev-setup\setup.ps1 --doctor
+.\scripts\dev-setup\setup.ps1 -Doctor
 
 # macOS/Linux
 bash scripts/dev-setup/setup.sh --doctor
@@ -133,7 +133,7 @@ bash scripts/dev-setup/setup.sh --doctor
 ### 3. **Verify Only** (Skip Setup)
 ```powershell
 # Windows
-.\scripts\dev-setup\setup.ps1 --verify-only
+.\scripts\dev-setup\setup.ps1 -VerifyOnly
 
 # macOS/Linux
 bash scripts/dev-setup/setup.sh --verify-only
@@ -145,7 +145,7 @@ bash scripts/dev-setup/setup.sh --verify-only
 ### 4. **Deploy Mode** (Setup + Verify + Deploy)
 ```powershell
 # Windows
-.\scripts\dev-setup\setup.ps1 --deploy
+.\scripts\dev-setup\setup.ps1 -Deploy
 
 # macOS/Linux
 bash scripts/dev-setup/setup.sh --deploy
@@ -154,6 +154,21 @@ bash scripts/dev-setup/setup.sh --deploy
 - Runs verification
 - **Deploys to local kind cluster** via `test-and-spinup-all`
 - Takes ~10-15 minutes total
+
+### 5. **Deploy-Only Mode** (Setup + k8s Deploy, No Tests)
+```powershell
+# Windows
+.\scripts\dev-setup\setup.ps1 -DeployOnly
+
+# macOS/Linux
+bash scripts/dev-setup/setup.sh --deploy-only
+```
+- Runs full setup (tools + dependencies)
+- **Skips backend/frontend tests**
+- Deploys directly to local kind cluster via `build-and-deploy-k8s-local`
+- Useful for iterating on k8s deployment issues when tests already pass
+- Takes ~5-8 minutes total
+- Logs go to `build-logs/build-and-deploy-k8s/`
 
 ---
 
@@ -164,7 +179,7 @@ Install tools globally via package manager instead of `.devtools/bin`:
 
 ```powershell
 # Windows (uses winget or scoop)
-.\scripts\dev-setup\setup.ps1 --system
+.\scripts\dev-setup\setup.ps1 -System
 
 # macOS (uses Homebrew)
 bash scripts/dev-setup/setup.sh --system
@@ -178,7 +193,7 @@ By default, `.devtools/bin` is only added to the current session's `PATH`. To pe
 
 ```powershell
 # Windows (adds to User environment variable)
-.\scripts\dev-setup\setup.ps1 --persist-path
+.\scripts\dev-setup\setup.ps1 -PersistPath
 
 # macOS/Linux (adds to ~/.bashrc or ~/.zshrc)
 bash scripts/dev-setup/setup.sh --persist-path
@@ -190,28 +205,31 @@ bash scripts/dev-setup/setup.sh --persist-path
 If you only want to install tools without running tests:
 
 ```powershell
-.\scripts\dev-setup\setup.ps1 --skip-verify
+.\scripts\dev-setup\setup.ps1 -SkipVerify
 ```
 
 ### Combine Flags
 ```powershell
 # System install + deploy + persist PATH
-.\scripts\dev-setup\setup.ps1 --system --deploy --persist-path
+.\scripts\dev-setup\setup.ps1 -System -Deploy -PersistPath
 ```
 
 ---
 
 ## All Available Flags
 
-| Flag             | Description                                                      |
-|------------------|------------------------------------------------------------------|
-| `--doctor`       | Check environment without making changes (diagnostic mode)      |
-| `--skip-verify`  | Skip verification sequence after setup                           |
-| `--verify-only`  | Only run verification (skip setup)                               |
-| `--deploy`       | After verification, deploy to local kind cluster                 |
-| `--portable`     | Install tools to `.devtools/bin` (DEFAULT)                       |
-| `--system`       | Install tools globally via package manager                       |
-| `--persist-path` | Persist `.devtools/bin` in PATH permanently                      |
+| PowerShell Flag | Bash Flag | Description |
+|-----------------|-----------|-------------|
+| `-Doctor` | `--doctor` | Check environment without making changes (diagnostic mode) |
+| `-SkipVerify` | `--skip-verify` | Skip verification sequence after setup |
+| `-VerifyOnly` | `--verify-only` | Only run verification (skip setup) |
+| `-Deploy` | `--deploy` | After verification, deploy to local kind cluster |
+| `-DeployOnly` | `--deploy-only` | Deploy only (no backend/frontend tests) - fast k8s iteration |
+| `-Portable` | `--portable` | Install tools to `.devtools/bin` (DEFAULT) |
+| `-System` | `--system` | Install tools globally via package manager |
+| `-PersistPath` | `--persist-path` | Persist `.devtools/bin` in PATH permanently |
+
+**Note**: PowerShell uses single dash `-` (e.g., `-Deploy`), while Bash uses double dash `--` (e.g., `--deploy`).
 
 ---
 
@@ -253,18 +271,22 @@ Runs React tests for `crm-ui`:
 
 **Reference**: [docs/testing/frontend-local-pipeline.md](../testing/frontend-local-pipeline.md)
 
-### Step 4: Deploy (Optional, `--deploy` flag only)
-Runs full test + deploy workflow:
+### Step 4: Deploy (Optional)
+
+**`-Deploy` / `--deploy`** — Full test + deploy workflow:
 - Re-runs backend + frontend tests
 - Validates k8s manifests
 - Creates kind cluster (`cs301-crm`)
 - Installs infrastructure (ingress, PostgreSQL, metrics-server)
-- Builds Docker images
-- Loads images into kind
-- Deploys all services
+- Builds Docker images, loads into kind, deploys all services
 - Runs smoke tests
+- **Output**: `build-logs/test-and-spinup-all/`
 
-**Output**: `build-logs/test-and-spinup-all/`
+**`-DeployOnly` / `--deploy-only`** — Deploy-only (no tests):
+- Skips backend/frontend tests entirely
+- Validates k8s manifests, builds images, deploys to kind, runs smoke tests
+- Best for iterating on k8s issues when tests already pass
+- **Output**: `build-logs/build-and-deploy-k8s/`
 
 **Reference**: [docs/local-k8s-dev.md](../local-k8s-dev.md)
 
@@ -362,7 +384,7 @@ Or install manually:
 kind delete cluster --name cs301-crm
 ```
 
-Then re-run setup with `--deploy`.
+Then re-run setup with `-Deploy` (PowerShell) or `--deploy` (Bash).
 
 ---
 
@@ -370,7 +392,7 @@ Then re-run setup with `--deploy`.
 
 ```
 project-2025-26-t2-project-2025-26t2-g2-t3/
-├── .devtools/                    # Portable tools (if using --portable)
+├── .devtools/                    # Portable tools (if using -Portable / --portable)
 │   └── bin/
 │       ├── kubectl.exe
 │       ├── helm.exe
@@ -475,7 +497,7 @@ The setup script is **safe to re-run**:
 
 ```powershell
 # Quick re-check
-.\scripts\dev-setup\setup.ps1 --doctor
+.\scripts\dev-setup\setup.ps1 -Doctor
 
 # Full re-run (safe, idempotent)
 .\scripts\dev-setup\setup.ps1
@@ -486,7 +508,7 @@ The setup script is **safe to re-run**:
 ## FAQ
 
 ### Q: Do I need admin rights?
-**A**: Only for installing system dependencies (Docker, Java, Node). The default `--portable` mode does NOT require admin for CLI tools.
+**A**: Only for installing system dependencies (Docker, Java, Node). The default `-Portable` mode does NOT require admin for CLI tools.
 
 ### Q: Can I use WSL2 on Windows?
 **A**: Yes! Docker Desktop for Windows supports WSL2 backend. You can run the setup in WSL2 using the Linux script:
@@ -504,7 +526,7 @@ Remove-Item -Recurse -Force .devtools
 ```
 
 ### Q: How do I switch from portable to system install?
-**A**: Run the setup script with `--system` flag. It will use your existing tools if found, or install them globally.
+**A**: Run the setup script with `-System` flag. It will use your existing tools if found, or install them globally.
 
 ### Q: Can I run the setup offline?
 **A**: Partially. If you already have all system dependencies (Docker, Git, Java, Node, Make) installed, you can skip the download phase. However, `npm ci` and tool downloads require internet.
@@ -517,7 +539,7 @@ Remove-Item -Recurse -Force .devtools
 ## Getting Help
 
 **Issues with setup**:
-1. Run `--doctor` mode to diagnose
+1. Run `-Doctor` mode to diagnose
 2. Check logs in `build-logs/dev-setup/`
 3. Review troubleshooting section above
 4. Ask on team Telegram/Discord

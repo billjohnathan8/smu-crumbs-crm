@@ -16,6 +16,27 @@
 
 set -euo pipefail
 
+# On Windows (Git Bash), add common Windows tool paths that may not be auto-mapped
+if [[ -n "${WINDIR:-}" ]] || [[ "$(uname -s)" =~ ^(MINGW|MSYS|CYGWIN) ]]; then
+  script_dir_temp="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  repo_root_temp="$(cd "${script_dir_temp}/../.." && pwd)"
+  
+  # Add .devtools/bin (portable tools)
+  if [[ -d "${repo_root_temp}/.devtools/bin" ]]; then
+    export PATH="${repo_root_temp}/.devtools/bin:${PATH}"
+  fi
+  
+  # Add Chocolatey bin (where kubectl may be installed)
+  if [[ -d "/c/ProgramData/chocolatey/bin" ]]; then
+    export PATH="/c/ProgramData/chocolatey/bin:${PATH}"
+  fi
+  
+  # Add Docker Desktop resources (alternative kubectl location)
+  if [[ -d "/c/Program Files/Docker/Docker/resources/bin" ]]; then
+    export PATH="/c/Program Files/Docker/Docker/resources/bin:${PATH}"
+  fi
+fi
+
 NAMESPACE="${1:-dev}"
 ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-300s}"
 CURL_IMAGE="${CURL_IMAGE:-curlimages/curl:8.5.0}"

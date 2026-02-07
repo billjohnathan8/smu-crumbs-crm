@@ -10,6 +10,7 @@
 #   --skip-verify    Skip verification sequence
 #   --verify-only    Only run verification (skip setup)
 #   --deploy         Deploy to local kind cluster after verification
+#   --deploy-only    Deploy only (no backend/frontend tests) - fast k8s iteration
 #   --portable       Install tools to .devtools/bin (DEFAULT)
 #   --system         Install tools globally via package manager
 #   --persist-path   Persist .devtools/bin in PATH (add to shell RC file)
@@ -33,6 +34,7 @@ DOCTOR=false
 SKIP_VERIFY=false
 VERIFY_ONLY=false
 DEPLOY=false
+DEPLOY_ONLY=false
 PORTABLE=true
 SYSTEM=false
 PERSIST_PATH=false
@@ -43,6 +45,7 @@ for arg in "$@"; do
         --skip-verify) SKIP_VERIFY=true ;;
         --verify-only) VERIFY_ONLY=true ;;
         --deploy) DEPLOY=true ;;
+        --deploy-only) DEPLOY_ONLY=true ;;
         --portable) PORTABLE=true ;;
         --system) SYSTEM=true; PORTABLE=false ;;
         --persist-path) PERSIST_PATH=true ;;
@@ -58,7 +61,35 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DEVTOOLS_DIR="${REPO_ROOT}/.devtools"
 DEVTOOLS_BIN="${DEVTOOLS_DIR}/bin"
 LOG_DIR="${REPO_ROOT}/build-logs/dev-setup"
-LOG_FILE="${LOG_DIR}/setup_$(date +%Y-%m-%d_%H-%M-%S).log"
+year="$(date '+%Y')"
+month="$(date '+%m')"
+day="$(date '+%d')"
+hour="$(date '+%H')"
+minute="$(date '+%M')"
+second="$(date '+%S')"
+timestamp_readable="$(date '+%Y-%m-%d_%H-%M-%S')"
+inverse_timestamp="$(printf '%04d%02d%02d-%02d%02d%02d' \
+  "$((9999 - 10#${year}))" \
+  "$((12 - 10#${month}))" \
+  "$((31 - 10#${day}))" \
+  "$((23 - 10#${hour}))" \
+  "$((59 - 10#${minute}))" \
+  "$((59 - 10#${second}))")"
+LOG_FILE="${LOG_DIR}/inv${inverse_timestamp}__${timestamp_readable}__setup.log"
+
+mkdir -p "${LOG_DIR}"
+
+# Log rotation: maintain only 3 most recent log files
+rotate_logs() {
+  local files
+  files="$(ls -1 "${LOG_DIR}"/*.log 2>/dev/null | tail -n +4 2>/dev/null || true)"
+  if [[ -n "${files}" ]]; then
+    while IFS= read -r file; do
+      [[ -n "${file}" ]] && rm -f -- "${file}" || true
+    done <<< "${files}"
+  fi
+}
+trap rotate_logs EXIT
 
 declare -a ISSUES=()
 declare -A TOOL_VERSIONS=()
@@ -684,25 +715,76 @@ fi
 if [[ "$SKIP_VERIFY" != "true" ]]; then
     phase_start "VERIFICATION SEQUENCE"
     
-    verification_failed=false
+    declare -A verification_results
     
-    # Step 1: K8s manifest validation
-    log "Step 1: Running k8s manifest validation (make k8s-validate)..."
-    step_start=$(date +%s)
-    pushd "$REPO_ROOT" >/dev/null
-    if make k8s-validate; then
-        step_duration=$(($(date +%s) - step_start))
-        step_minutes=$((step_duration / 60))
-        step_seconds=$((step_duration % 60))
-        log_success "k8s validation passed (took ${step_minutes}m ${step_seconds}s)"
+    if [[ "$DEPLOY" == "true" ]]; then
+        # When --deploy is specified, just run test-and-spinup-all which does:
+        # 1. Full test pipeline (backend + frontend)
+        # 2. K8s validation
+        # 3. K8s deployment
+        log "Running complete test and deployment pipeline (test-and-spinup-all)..."
+        log ""
+        step_start=$(date +%s)
+        deploy_script="${REPO_ROOT}/scripts/test-and-spinup-all/test-and-spinup-all.sh"
+        if [[ -f "$deploy_script" ]]; then
+            if bash "$deploy_script"; then
+                step_duration=$(($(date +%s) - step_start))
+                step_minutes=$((step_duration / 60))
+                step_seconds=$((step_duration % 60))
+                log_success "Test and deployment pipeline passed (took ${step_minutes}m ${step_seconds}s)"
+                verification_results["deploy"]="PASS"
+            else
+                log_error "Test and deployment pipeline failed"
+                verification_results["deploy"]="FAIL"
+            fi
+        else
+            log_warning "Deploy script not found: $deploy_script"
+            verification_results["deploy"]="SKIP"
+        fi
+    elif [[ "$DEPLOY_ONLY" == "true" ]]; then
+        # When --deploy-only is specified, run only the k8s deployment pipeline
+        # (no backend/frontend tests). Useful for iterating on k8s issues.
+        log "Running deploy-only pipeline (build-and-deploy-k8s-local)..."
+        log ""
+        step_start=$(date +%s)
+        deploy_only_script="${REPO_ROOT}/scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh"
+        if [[ -f "$deploy_only_script" ]]; then
+            if bash "$deploy_only_script"; then
+                step_duration=$(($(date +%s) - step_start))
+                step_minutes=$((step_duration / 60))
+                step_seconds=$((step_duration % 60))
+                log_success "Deploy-only pipeline passed (took ${step_minutes}m ${step_seconds}s)"
+                verification_results["deploy"]="PASS"
+            else
+                log_error "Deploy-only pipeline failed"
+                verification_results["deploy"]="FAIL"
+            fi
+        else
+            log_warning "Deploy-only script not found: $deploy_only_script"
+            verification_results["deploy"]="SKIP"
+        fi
     else
-        log_error "k8s validation failed"
-        verification_failed=true
-    fi
-    popd >/dev/null
-    
-    # Step 2: Backend pipeline
-    if [[ "$verification_failed" != "true" ]]; then
+        # Without --deploy, run validation and tests only (no deployment)
+        
+        # Step 1: K8s manifest validation
+        log "Step 1: Running k8s manifest validation (make k8s-validate)..."
+        step_start=$(date +%s)
+        pushd "$REPO_ROOT" >/dev/null
+        # Ensure portable tools are in PATH for the subprocess
+        export PATH="${DEVTOOLS_BIN}:${PATH}"
+        if make k8s-validate; then
+            step_duration=$(($(date +%s) - step_start))
+            step_minutes=$((step_duration / 60))
+            step_seconds=$((step_duration % 60))
+            log_success "k8s validation passed (took ${step_minutes}m ${step_seconds}s)"
+            verification_results["k8s-validate"]="PASS"
+        else
+            log_error "k8s validation failed"
+            verification_results["k8s-validate"]="FAIL"
+        fi
+        popd >/dev/null
+        
+        # Step 2: Backend pipeline (run even if Step 1 failed)
         log ""
         log "Step 2: Running backend test pipeline..."
         step_start=$(date +%s)
@@ -713,17 +795,17 @@ if [[ "$SKIP_VERIFY" != "true" ]]; then
                 step_minutes=$((step_duration / 60))
                 step_seconds=$((step_duration % 60))
                 log_success "Backend pipeline passed (took ${step_minutes}m ${step_seconds}s)"
+                verification_results["backend"]="PASS"
             else
                 log_error "Backend pipeline failed"
-                verification_failed=true
+                verification_results["backend"]="FAIL"
             fi
         else
             log_warning "Backend pipeline script not found: $backend_script"
+            verification_results["backend"]="SKIP"
         fi
-    fi
-    
-    # Step 3: Frontend pipeline
-    if [[ "$verification_failed" != "true" ]]; then
+        
+        # Step 3: Frontend pipeline (run even if previous steps failed)
         log ""
         log "Step 3: Running frontend test pipeline..."
         step_start=$(date +%s)
@@ -734,33 +816,14 @@ if [[ "$SKIP_VERIFY" != "true" ]]; then
                 step_minutes=$((step_duration / 60))
                 step_seconds=$((step_duration % 60))
                 log_success "Frontend pipeline passed (took ${step_minutes}m ${step_seconds}s)"
+                verification_results["frontend"]="PASS"
             else
                 log_error "Frontend pipeline failed"
-                verification_failed=true
+                verification_results["frontend"]="FAIL"
             fi
         else
             log_warning "Frontend pipeline script not found: $frontend_script"
-        fi
-    fi
-    
-    # Step 4: Optional deploy
-    if [[ "$DEPLOY" == "true" ]] && [[ "$verification_failed" != "true" ]]; then
-        log ""
-        log "Step 4: Deploying to local kind cluster (test-and-spinup-all)..."
-        step_start=$(date +%s)
-        deploy_script="${REPO_ROOT}/scripts/test-and-spinup-all/test-and-spinup-all.sh"
-        if [[ -f "$deploy_script" ]]; then
-            if bash "$deploy_script"; then
-                step_duration=$(($(date +%s) - step_start))
-                step_minutes=$((step_duration / 60))
-                step_seconds=$((step_duration % 60))
-                log_success "Deploy pipeline passed (took ${step_minutes}m ${step_seconds}s)"
-            else
-                log_error "Deploy pipeline failed"
-                verification_failed=true
-            fi
-        else
-            log_warning "Deploy script not found: $deploy_script"
+            verification_results["frontend"]="SKIP"
         fi
     fi
     
@@ -769,9 +832,29 @@ if [[ "$SKIP_VERIFY" != "true" ]]; then
     # Verification summary
     log ""
     phase_start "VERIFICATION SUMMARY"
+    log ""
+    log "========================================"
+    log "VERIFICATION SUMMARY"
+    log "========================================"
+    log ""
     
-    if [[ "$verification_failed" == "true" ]]; then
-        log_error "Verification failed!"
+    # Display results table
+    has_failures=false
+    for step in k8s-validate backend frontend deploy; do
+        if [[ -n "${verification_results[$step]:-}" ]]; then
+            result="${verification_results[$step]}"
+            case "$result" in
+                PASS) symbol="✓" ;;
+                FAIL) symbol="✗"; has_failures=true ;;
+                SKIP) symbol="-" ;;
+            esac
+            printf "  %-20s : %s\n" "$step" "$result" | tee -a "$LOG_FILE"
+        fi
+    done
+    log ""
+    
+    if [[ "$has_failures" == "true" ]]; then
+        log_error "Verification completed with failures!"
         log ""
         log "Troubleshooting:"
         log "  - Check build logs in: build-logs/"

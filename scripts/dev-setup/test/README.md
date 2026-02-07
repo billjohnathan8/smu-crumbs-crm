@@ -136,7 +136,91 @@ scripts/dev-setup/test/
 ├── Dockerfile.ubuntu-fresh     # Fresh Ubuntu 22.04
 ├── Dockerfile.ubuntu-partial   # Ubuntu with Java/Node/Make
 ├── test-docker.ps1             # Automated test runner (PowerShell)
+├── clean-for-testing.ps1       # Clean local env to simulate fresh machine
 └── README.md                   # This file
+```
+
+---
+
+## 🪟 Windows + WSL Testing (Recommended for Production Validation)
+
+The Docker tests above validate Linux behavior, but **do NOT test Windows+WSL-specific code paths** (including our recent fixes for Chocolatey shims, WSL PATH setup, and .exe suffix handling).
+
+### Option A: Clean Your Current Windows Machine
+
+Simulate a fresh state without needing a VM:
+
+```powershell
+# Step 1: Clean up to simulate fresh machine
+.\scripts\dev-setup\test\clean-for-testing.ps1
+
+# Step 2: Run setup as if fresh
+.\scripts\dev-setup\setup.ps1
+
+# OR: Test just the deployment pipeline
+.\scripts\dev-setup\setup.ps1 -DeployOnly
+```
+
+**What gets cleaned:**
+- `.devtools/` directory (portable tools)
+- `cs301-crm` kind cluster
+- `.k8s-validate-tmp/` directory
+- Old build logs (>7 days)
+
+**What stays intact:**
+- System-installed tools (Docker, Java, Node, etc.)
+- Chocolatey installations
+- WSL installation
+
+**For thorough cleaning** (also removes Docker images and build artifacts):
+```powershell
+.\scripts\dev-setup\test\clean-for-testing.ps1 -FullClean
+```
+
+### Option B: Fresh Windows VM (Gold Standard)
+
+For true fresh-machine testing:
+
+**Setup:**
+1. Create Windows 10/11 VM (Hyper-V, VirtualBox, or Azure)
+2. Install only base prerequisites:
+   - Docker Desktop
+   - Git
+   - WSL (automatically installed by Docker Desktop on Windows)
+
+**Test:**
+```powershell
+# Clone repo
+git clone https://github.com/cs301-itsa/project-2025-26-t2-project-2025-26t2-g2-t3.git
+cd project-2025-26-t2-project-2025-26t2-g2-t3
+
+# Run full setup
+.\scripts\dev-setup\setup.ps1
+```
+
+**Critical validations for Windows+WSL:**
+- ✅ Real kubectl/helm/kind binaries copied (not 392KB Chocolatey shims)
+- ✅ WSL bash can find tools in PATH
+- ✅ K8s validation passes with .exe suffix handling
+- ✅ Make commands work on Windows
+- ✅ Full deployment pipeline succeeds
+
+### Option C: GitHub Actions / Cloud CI
+
+For automated Windows testing in CI:
+
+```yaml
+# Example .github/workflows/test-windows-setup.yml
+name: Test Windows Setup
+on: [push, pull_request]
+
+jobs:
+  test-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run setup script
+        run: .\scripts\dev-setup\setup.ps1 -DeployOnly
 ```
 
 ---
@@ -366,18 +450,23 @@ docker run --rm -v "${PWD}:/home/developer/workspace" setup-test-python
 
 ---
 
-## 📊 Comparison: Docker vs. VM Testing
+## 📊 Comparison: Testing Approaches
 
-| Aspect | Docker | VM (Hyper-V/VirtualBox) |
-|--------|--------|-------------------------|
-| **Setup time** | 30 seconds | 15-30 minutes |
-| **Test duration** | 1-5 minutes | 10-60 minutes |
-| **Completeness** | ~60% (no Docker/kind) | 100% (full e2e) |
-| **Reproducibility** | Excellent | Good (with snapshots) |
-| **Cost** | Free | Free (local) or paid (cloud) |
-| **Best for** | Quick validation, CI/CD | Final acceptance testing |
+| Aspect | Docker (Linux) | Windows Clean | Windows VM | Cloud CI |
+|--------|----------------|---------------|------------|----------|
+| **Setup time** | 30 seconds | 2 minutes | 15-30 minutes | 5 minutes |
+| **Test duration** | 1-5 minutes | 5-10 minutes | 10-60 minutes | 10-15 minutes |
+| **Tests WSL fixes** | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes |
+| **Completeness** | ~60% | ~90% | 100% | 100% |
+| **Reproducibility** | Excellent | Good | Excellent | Excellent |
+| **Cost** | Free | Free | Free (local) / Paid (cloud) | Free (GitHub Actions) |
+| **Best for** | Quick validation | Daily testing | Final acceptance | Automated testing |
 
-**Recommendation**: Use Docker for rapid iteration and development, VM for final validation before release.
+**Recommendation**: 
+- **Development**: Use `clean-for-testing.ps1` + `setup.ps1` on your Windows machine
+- **Pre-commit**: Run Docker tests for quick validation
+- **Pre-release**: Full VM test to ensure everything works from scratch
+- **CI/CD**: GitHub Actions for automated regression testing
 
 ---
 

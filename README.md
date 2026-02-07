@@ -35,6 +35,16 @@ bash scripts/dev-setup/setup.sh
 - ✅ Runs full verification (k8s validation, backend tests, frontend tests)
 - ✅ Provides clear diagnostics and next steps
 
+### Afterwards
+Run this after setting up:
+```powershell
+.\scripts\dev-setup\setup.ps1 -Deploy
+```
+
+Notes:
+- This script is idempotent and does not affect existing installations
+- This script runs the entire setup + the test-and-spinup-all
+
 **Want to check your environment first?**
 ```powershell
 # Windows
@@ -64,6 +74,7 @@ bash scripts/dev-setup/setup.sh --doctor
 - [K8s Manifest Validation (Preflight)](#k8s-manifest-validation-preflight) - Validate Helm + Kustomize manifests offline
 
 ### Pipeline Timings
+- Setup Script: ~5min
 - Backend Pipeline: ~ 2min
 - Frontend Pipeline: ~ 2min
 - Deploy Pipeline: ~ 5min
