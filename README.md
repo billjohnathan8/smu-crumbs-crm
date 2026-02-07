@@ -30,7 +30,7 @@ Before development work, please read through (open all markdown files using `'Op
 - Backend Pipeline: ~ 2min
 - Frontend Pipeline: ~ 2min
 - Deploy Pipeline: ~ 5min
-- Spinup-All Pipeline: ~ 12min
+- Spinup-All Pipeline: ~ 10min
 
 ---
 
