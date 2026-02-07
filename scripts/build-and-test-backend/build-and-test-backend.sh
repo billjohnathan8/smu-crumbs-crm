@@ -126,7 +126,7 @@ for service_entry in "${services[@]}"; do
   log "==> Service: ${service_name} [${service_type}]"
 
   if [[ "${service_type}" == "gradle" ]]; then
-    if bash "${service_path}/gradlew" localTestPipeline --no-daemon --console=plain --gradle-user-home "${gradle_user_home}"; then
+    if (cd "${service_path}" && ./gradlew localTestPipeline --no-daemon --console=plain --gradle-user-home "${gradle_user_home}"); then
       log "[${service_name}] Local pipeline passed"
       results+=("${service_name}|${service_type}|PASS")
     else

@@ -74,7 +74,7 @@ bash scripts/dev-setup/setup.sh --doctor
 - [K8s Manifest Validation (Preflight)](#k8s-manifest-validation-preflight) - Validate Helm + Kustomize manifests offline
 
 ### Pipeline Timings
-- Setup Script: ~5min
+- Setup Script: ~5min (fresh-install: 12~15min)
 - Backend Pipeline: ~ 2min
 - Frontend Pipeline: ~ 2min
 - Deploy Pipeline: ~ 5min
