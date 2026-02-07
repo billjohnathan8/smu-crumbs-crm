@@ -1,11 +1,11 @@
-﻿[2026-02-07 10:25:04] Build log file: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\\build-and-test-backend\inv79731024-133456__2026-02-07_10-25-03__build-and-test-backend.log
-[2026-02-07 10:25:04] Bootstrapping Gradle wrapper dists into C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\.gradle-user-home-backend-pipeline
-[2026-02-07 10:25:05] Discovered 4 backend service(s):
-[2026-02-07 10:25:05]   - agent [gradle]
-[2026-02-07 10:25:05]   - client [gradle]
-[2026-02-07 10:25:05]   - log [python]
-[2026-02-07 10:25:05]   - transaction [gradle]
-[2026-02-07 10:25:05] ==> Service: agent [gradle]
+﻿[2026-02-07 15:03:25] Build log file: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\\build-and-test-backend\inv79731024-085635__2026-02-07_15-03-24__build-and-test-backend.log
+[2026-02-07 15:03:25] Bootstrapping Gradle wrapper dists into C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\.gradle-user-home-backend-pipeline
+[2026-02-07 15:03:26] Discovered 4 backend service(s):
+[2026-02-07 15:03:26]   - agent [gradle]
+[2026-02-07 15:03:26]   - client [gradle]
+[2026-02-07 15:03:26]   - log [python]
+[2026-02-07 15:03:26]   - transaction [gradle]
+[2026-02-07 15:03:26] ==> Service: agent [gradle]
 To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.3.0/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
 Daemon will be stopped at the end of the build 
 > Task :compileJava UP-TO-DATE
@@ -18,18 +18,17 @@ Daemon will be stopped at the end of the build
 > Task :checkstyleTest UP-TO-DATE
 > Task :resolveMainClassName UP-TO-DATE
 > Task :bootJar UP-TO-DATE
-> Task :jar
-> Task :assemble
-Java HotSpot(TM) 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
-> Task :test
-> Task :jacocoTestReport
-> Task :localTestPipeline
+> Task :jar UP-TO-DATE
+> Task :assemble UP-TO-DATE
+> Task :test UP-TO-DATE
+> Task :jacocoTestReport UP-TO-DATE
+> Task :localTestPipeline UP-TO-DATE
 
-BUILD SUCCESSFUL in 1m 8s
-10 actionable tasks: 3 executed, 7 up-to-date
+BUILD SUCCESSFUL in 40s
+10 actionable tasks: 10 up-to-date
 Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.3.0/userguide/configuration_cache_enabling.html
-[2026-02-07 10:26:13] [agent] Local pipeline passed
-[2026-02-07 10:26:13] ==> Service: client [gradle]
+[2026-02-07 15:04:07] [agent] Local pipeline passed
+[2026-02-07 15:04:07] ==> Service: client [gradle]
 To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.2.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
 Daemon will be stopped at the end of the build 
 > Task :compileJava UP-TO-DATE
@@ -42,18 +41,17 @@ Daemon will be stopped at the end of the build
 > Task :checkstyleTest UP-TO-DATE
 > Task :resolveMainClassName UP-TO-DATE
 > Task :bootJar UP-TO-DATE
-> Task :jar
-> Task :assemble
-OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
-> Task :test
-> Task :jacocoTestReport
-> Task :localTestPipeline
+> Task :jar UP-TO-DATE
+> Task :assemble UP-TO-DATE
+> Task :test UP-TO-DATE
+> Task :jacocoTestReport UP-TO-DATE
+> Task :localTestPipeline UP-TO-DATE
 
-BUILD SUCCESSFUL in 1m 7s
-10 actionable tasks: 3 executed, 7 up-to-date
+BUILD SUCCESSFUL in 40s
+10 actionable tasks: 10 up-to-date
 Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.2.1/userguide/configuration_cache_enabling.html
-[2026-02-07 10:27:21] [client] Local pipeline passed
-[2026-02-07 10:27:21] ==> Service: log [python]
+[2026-02-07 15:04:48] [client] Local pipeline passed
+[2026-02-07 15:04:48] ==> Service: log [python]
 Requirement already satisfied: pip in .\.venv\Lib\site-packages (26.0.1)
 Requirement already satisfied: fastapi in .\.venv\Lib\site-packages (from -r requirements.txt (line 1)) (0.128.0)
 Requirement already satisfied: pytest in .\.venv\Lib\site-packages (from -r requirements.txt (line 4)) (9.0.2)
@@ -110,28 +108,6 @@ tests\test_auth.py ......                                                [ 64%]
 tests\test_repository.py ...........                                     [ 90%]
 tests\test_service.py ....                                               [100%]
 
-============================== warnings summary ===============================
-app\main.py:74: 1 warning
-tests/test_api.py: 21 warnings
-  C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log\app\main.py:74: DeprecationWarning: 
-          on_event is deprecated, use lifespan event handlers instead.
-  
-          Read more about it in the
-          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
-          
-    @app.on_event("startup")
-
-.venv\Lib\site-packages\fastapi\applications.py:4576: 1 warning
-tests/test_api.py: 21 warnings
-  C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log\.venv\Lib\site-packages\fastapi\applications.py:4576: DeprecationWarning: 
-          on_event is deprecated, use lifespan event handlers instead.
-  
-          Read more about it in the
-          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
-          
-    return self.router.on_event(event_type)
-
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
 - generated xml file: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log\build\reports\tests\junit.xml -
 =============================== tests coverage ================================
 _______________ coverage: platform win32, python 3.14.0-final-0 _______________
@@ -141,15 +117,15 @@ Name                Stmts   Miss Branch BrPart  Cover   Missing
 app\__init__.py         2      0      0      0   100%
 app\auth.py            65      2     18      0    98%   31, 35
 app\config.py          13      0      0      0   100%
-app\main.py           159      9     28      5    93%   77, 109, 126, 143->145, 189, 257-258, 286-287, 387
+app\main.py           163     10     28      5    92%   46-47, 116, 133, 150->152, 196, 264-265, 293-294, 394
 app\repository.py     134     12     30      3    91%   32, 131, 135-139, 266-273, 285->289
 app\schemas.py         74      1      0      0    99%   104
 app\service.py         37      4      4      2    85%   19, 24->26, 51, 60, 65->67, 74
 ---------------------------------------------------------------
-TOTAL                 484     28     80     10    93%
+TOTAL                 488     29     80     10    93%
 Coverage HTML written to dir build/reports/coverage/html
 Coverage XML written to file build/reports/coverage/coverage.xml
-======================= 42 passed, 44 warnings in 2.03s =======================
+============================= 42 passed in 2.10s ==============================
 [local-test-pipeline] C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log\.venv\Scripts\python.exe -m pip install --upgrade pip
 [local-test-pipeline] C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log\.venv\Scripts\python.exe -m pip install -r requirements.txt
 [local-test-pipeline] C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log\.venv\Scripts\python.exe -m black --check app tests
@@ -157,8 +133,8 @@ Coverage XML written to file build/reports/coverage/coverage.xml
 [local-test-pipeline] C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log\.venv\Scripts\python.exe -m compileall -q app tests
 [local-test-pipeline] C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\backend\log\.venv\Scripts\python.exe -m pytest tests --junitxml=build/reports/tests/junit.xml --cov=app --cov-branch --cov-report=term-missing --cov-report=xml:build/reports/coverage/coverage.xml --cov-report=html:build/reports/coverage/html
 [local-test-pipeline] PASS
-[2026-02-07 10:27:30] [log] Local pipeline passed
-[2026-02-07 10:27:30] ==> Service: transaction [gradle]
+[2026-02-07 15:04:58] [log] Local pipeline passed
+[2026-02-07 15:04:58] ==> Service: transaction [gradle]
 To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.3.0/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
 Daemon will be stopped at the end of the build 
 > Task :compileJava UP-TO-DATE
@@ -171,19 +147,18 @@ Daemon will be stopped at the end of the build
 > Task :checkstyleTest UP-TO-DATE
 > Task :resolveMainClassName UP-TO-DATE
 > Task :bootJar UP-TO-DATE
-> Task :jar
-> Task :assemble
-Java HotSpot(TM) 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
-> Task :test
-> Task :jacocoTestReport
-> Task :localTestPipeline
+> Task :jar UP-TO-DATE
+> Task :assemble UP-TO-DATE
+> Task :test UP-TO-DATE
+> Task :jacocoTestReport UP-TO-DATE
+> Task :localTestPipeline UP-TO-DATE
 
-BUILD SUCCESSFUL in 41s
-10 actionable tasks: 3 executed, 7 up-to-date
+BUILD SUCCESSFUL in 13s
+10 actionable tasks: 10 up-to-date
 Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.3.0/userguide/configuration_cache_enabling.html
-[2026-02-07 10:28:11] [transaction] Local pipeline passed
+[2026-02-07 15:05:13] [transaction] Local pipeline passed
 
-[2026-02-07 10:28:11] Backend local test pipeline summary
+[2026-02-07 15:05:13] Backend local test pipeline summary
 
 Service     Runtime Status
 -------     ------- ------
@@ -193,6 +168,6 @@ log         python  PASS
 transaction gradle  PASS  
 
 
-[2026-02-07 10:28:12] Generating aggregated coverage report (build-logs/build-and-test-backend/index.html)
+[2026-02-07 15:05:13] Generating aggregated coverage report (build-logs/build-and-test-backend/index.html)
 [coverage-index] Wrote C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\build-and-test-backend\index.html
-[2026-02-07 10:28:12] All backend services passed lint, build, tests, and coverage report generation.
+[2026-02-07 15:05:13] All backend services passed lint, build, tests, and coverage report generation.

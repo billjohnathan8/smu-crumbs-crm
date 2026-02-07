@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
@@ -35,9 +36,20 @@ def _default_service() -> LogService:
 
 def create_app(log_service: LogService | None = None) -> FastAPI:
     """Create and configure the FastAPI application instance."""
-    app = FastAPI(title="log", version="1.0.0")
-    app.state.settings = Settings()
-    app.state.log_service = log_service or _default_service()
+    settings = Settings()
+    service = log_service or _default_service()
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        """Handle application startup and shutdown events."""
+        # Startup: Run database migrations
+        service.bootstrap()
+        yield
+        # Shutdown: Add cleanup logic here if needed in the future
+
+    app = FastAPI(title="log", version="1.0.0", lifespan=lifespan)
+    app.state.settings = settings
+    app.state.log_service = service
 
     @app.middleware("http")
     async def request_id_middleware(request: Request, call_next):
@@ -70,11 +82,6 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
     @app.exception_handler(ForbiddenError)
     async def forbidden_handler(request: Request, _exc: ForbiddenError):
         return _error(request, status.HTTP_403_FORBIDDEN, "forbidden", "Forbidden")
-
-    @app.on_event("startup")
-    def startup() -> None:
-        """Run database migrations on startup."""
-        app.state.log_service.bootstrap()
 
     def get_log_service(request: Request) -> LogService:
         """Provide the configured LogService from application state."""
