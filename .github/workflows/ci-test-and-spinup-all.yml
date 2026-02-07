@@ -57,6 +57,11 @@ jobs:
           cache: 'pip'
           cache-dependency-path: services/backend/log/requirements.txt
       
+      - name: Normalize line endings in shell scripts
+        run: |
+          sudo apt-get update && sudo apt-get install -y dos2unix
+          find scripts -type f -name "*.sh" -exec dos2unix {} \;
+      
       - name: Make scripts executable
         run: |
           chmod +x scripts/build-and-test-all/build-and-test-all.sh
@@ -129,6 +134,11 @@ jobs:
           tar xzf kubeconform.tar.gz
           sudo mv kubeconform /usr/local/bin/
           kubeconform -v
+      
+      - name: Normalize line endings in shell scripts
+        run: |
+          sudo apt-get update && sudo apt-get install -y dos2unix
+          find scripts -type f -name "*.sh" -exec dos2unix {} \;
       
       - name: Make validation script executable
         run: chmod +x scripts/validate-k8s/validate.sh
@@ -204,6 +214,11 @@ jobs:
       - name: Install frontend dependencies
         working-directory: services/frontend/crm-ui
         run: npm install
+      
+      - name: Normalize line endings in shell scripts
+        run: |
+          sudo apt-get update && sudo apt-get install -y dos2unix
+          find scripts -type f -name "*.sh" -exec dos2unix {} \;
       
       - name: Make scripts executable
         run: |
