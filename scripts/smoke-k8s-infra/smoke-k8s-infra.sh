@@ -454,33 +454,15 @@ start_port_forward_fallback() {
   return 1
 }
 
-if ! declare -p probe_path_by_service >/dev/null 2>&1; then
-  declare -A probe_path_by_service=()
-fi
-if ! declare -p ingress_path_by_service >/dev/null 2>&1; then
-  declare -A ingress_path_by_service=()
-fi
-if ! declare -p ingress_health_by_service >/dev/null 2>&1; then
-  declare -A ingress_health_by_service=()
-fi
-if ! declare -p service_port_forward_pid >/dev/null 2>&1; then
-  declare -A service_port_forward_pid=()
-fi
-if ! declare -p service_port_forward_port >/dev/null 2>&1; then
-  declare -A service_port_forward_port=()
-fi
-if ! declare -p service_port_forward_log >/dev/null 2>&1; then
-  declare -A service_port_forward_log=()
-fi
-if ! declare -p ingress_paths >/dev/null 2>&1; then
-  declare -a ingress_paths=()
-fi
-if ! declare -p ingress_health_paths >/dev/null 2>&1; then
-  declare -a ingress_health_paths=()
-fi
-if ! declare -p base_health_paths >/dev/null 2>&1; then
-  declare -a base_health_paths=()
-fi
+declare -A probe_path_by_service=()
+declare -A ingress_path_by_service=()
+declare -A ingress_health_by_service=()
+declare -A service_port_forward_pid=()
+declare -A service_port_forward_port=()
+declare -A service_port_forward_log=()
+declare -a ingress_paths=()
+declare -a ingress_health_paths=()
+declare -a base_health_paths=()
 
 build_health_checks
 if [[ ${#probe_path_by_service[@]} -eq 0 ]]; then
