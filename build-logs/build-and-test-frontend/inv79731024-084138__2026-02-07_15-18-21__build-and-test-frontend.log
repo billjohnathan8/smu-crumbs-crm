@@ -1,10 +1,10 @@
-﻿[2026-02-07 02:42:09] Build log file: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\build-and-test-frontend\inv79731024-211751__2026-02-07_02-42-08__build-and-test-frontend.log
-[2026-02-07 02:42:09] Node version: v22.21.1
+﻿[2026-02-07 15:18:22] Build log file: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\build-and-test-frontend\inv79731024-084138__2026-02-07_15-18-21__build-and-test-frontend.log
+[2026-02-07 15:18:22] Node version: v22.21.1
 npm warn Unknown env config "python". This will stop working in the next major version of npm.
-[2026-02-07 02:42:09] npm version: 11.7.0
-[2026-02-07 02:42:09] ==> Frontend: crm-ui
-[2026-02-07 02:42:09] Location: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\frontend\crm-ui
-[2026-02-07 02:42:09] [crm-ui] Installing dependencies (npm install)...
+[2026-02-07 15:18:22] npm version: 11.7.0
+[2026-02-07 15:18:22] ==> Frontend: crm-ui
+[2026-02-07 15:18:22] Location: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\frontend\crm-ui
+[2026-02-07 15:18:23] [crm-ui] Installing dependencies (npm install)...
 npm warn Unknown env config "python". This will stop working in the next major version of npm.
 
 up to date, audited 385 packages in 2s
@@ -13,22 +13,22 @@ up to date, audited 385 packages in 2s
   run `npm fund` for details
 
 found 0 vulnerabilities
-[2026-02-07 02:42:11] [crm-ui] Dependencies installed successfully
-[2026-02-07 02:42:11] [crm-ui] Running type checking (npm run typecheck)...
+[2026-02-07 15:18:24] [crm-ui] Dependencies installed successfully
+[2026-02-07 15:18:24] [crm-ui] Running type checking (npm run typecheck)...
 npm warn Unknown env config "python". This will stop working in the next major version of npm.
 
 > crm-ui@0.0.0 typecheck
 > tsc -b --noEmit
 
-[2026-02-07 02:42:15] [crm-ui] Type checking passed
-[2026-02-07 02:42:15] [crm-ui] Running linter (npm run lint)...
+[2026-02-07 15:18:28] [crm-ui] Type checking passed
+[2026-02-07 15:18:28] [crm-ui] Running linter (npm run lint)...
 npm warn Unknown env config "python". This will stop working in the next major version of npm.
 
 > crm-ui@0.0.0 lint
 > eslint .
 
-[2026-02-07 02:42:20] [crm-ui] Linting passed
-[2026-02-07 02:42:20] [crm-ui] Running format check (npm run format:check)...
+[2026-02-07 15:18:33] [crm-ui] Linting passed
+[2026-02-07 15:18:33] [crm-ui] Running format check (npm run format:check)...
 npm warn Unknown env config "python". This will stop working in the next major version of npm.
 
 > crm-ui@0.0.0 format:check
@@ -36,8 +36,8 @@ npm warn Unknown env config "python". This will stop working in the next major v
 
 Checking formatting...
 All matched files use Prettier code style!
-[2026-02-07 02:42:22] [crm-ui] Format check passed
-[2026-02-07 02:42:22] [crm-ui] Building application (npm run build)...
+[2026-02-07 15:18:35] [crm-ui] Format check passed
+[2026-02-07 15:18:35] [crm-ui] Building application (npm run build)...
 npm warn Unknown env config "python". This will stop working in the next major version of npm.
 
 > crm-ui@0.0.0 build
@@ -51,9 +51,9 @@ computing gzip size...
 dist/index.html                   0.45 kB │ gzip:  0.29 kB
 dist/assets/index-DErgZNsY.css   15.19 kB │ gzip:  3.56 kB
 dist/assets/index-BLAjomkF.js   276.17 kB │ gzip: 80.73 kB
-✓ built in 2.39s
-[2026-02-07 02:42:29] [crm-ui] Build successful
-[2026-02-07 02:42:29] [crm-ui] Running tests with coverage (npm run test:coverage)...
+✓ built in 2.42s
+[2026-02-07 15:18:41] [crm-ui] Build successful
+[2026-02-07 15:18:41] [crm-ui] Running tests with coverage (npm run test:coverage)...
 npm warn Unknown env config "python". This will stop working in the next major version of npm.
 
 > crm-ui@0.0.0 test:coverage
@@ -63,37 +63,15 @@ npm warn Unknown env config "python". This will stop working in the next major v
  RUN  v4.0.18 C:/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/services/frontend/crm-ui
       Coverage enabled with v8
 
- ✓ src/api/__tests__/users.test.ts (11 tests) 16ms
- ✓ src/api/__tests__/clients.test.ts (12 tests) 15ms
- ✓ src/api/__tests__/logs.test.ts (10 tests) 13ms
- ✓ src/api/__tests__/transactions.test.ts (11 tests) 16ms
- ✓ src/api/__tests__/auth.test.ts (10 tests) 34ms
- ✓ src/api/__tests__/client.test.ts (25 tests) 97ms
- ✓ src/app/__tests__/ProtectedRoute.test.tsx (6 tests) 96ms
- ✓ src/features/auth/__tests__/AuthContext.test.tsx (7 tests) 303ms
+ ✓ src/api/__tests__/auth.test.ts (10 tests) 27ms
+ ✓ src/api/__tests__/transactions.test.ts (11 tests) 19ms
+ ✓ src/api/__tests__/logs.test.ts (10 tests) 24ms
+ ✓ src/api/__tests__/users.test.ts (11 tests) 27ms
+ ✓ src/api/__tests__/client.test.ts (25 tests) 83ms
+ ✓ src/api/__tests__/clients.test.ts (12 tests) 25ms
+ ✓ src/app/__tests__/ProtectedRoute.test.tsx (6 tests) 137ms
+ ✓ src/features/auth/__tests__/AuthContext.test.tsx (7 tests) 327ms
 stderr | src/pages/__tests__/AdminManageAccounts.test.tsx > AdminManageAccounts > should show loading state
-An update to AuthProvider inside a test was not wrapped in act(...).
-System.Management.Automation.RemoteException
-When testing, code that causes React state updates should be wrapped into act(...):
-System.Management.Automation.RemoteException
-act(() => {
-  /* fire events that update state */
-});
-/* assert on the output */
-System.Management.Automation.RemoteException
-This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
-An update to AuthProvider inside a test was not wrapped in act(...).
-System.Management.Automation.RemoteException
-When testing, code that causes React state updates should be wrapped into act(...):
-System.Management.Automation.RemoteException
-act(() => {
-  /* fire events that update state */
-});
-/* assert on the output */
-System.Management.Automation.RemoteException
-This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
-System.Management.Automation.RemoteException
-stderr | src/pages/__tests__/AdminDashboard.test.tsx > AdminDashboard > should show loading state
 An update to AuthProvider inside a test was not wrapped in act(...).
 System.Management.Automation.RemoteException
 When testing, code that causes React state updates should be wrapped into act(...):
@@ -137,14 +115,37 @@ act(() => {
 System.Management.Automation.RemoteException
 This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
 System.Management.Automation.RemoteException
- ✓ src/pages/__tests__/AdminDashboard.test.tsx (10 tests) 514ms
- ✓ src/pages/__tests__/AgentDashboard.test.tsx (9 tests) 601ms
-     ✓ should render dashboard header with user name  337ms
- ✓ src/pages/__tests__/LoginPage.test.tsx (15 tests) 906ms
-     ✓ should render login form  308ms
- ✓ src/pages/__tests__/AdminManageAccounts.test.tsx (22 tests) 1956ms
-     ✓ should render page header  320ms
- ✓ src/pages/__tests__/AgentViewTransactions.test.tsx (21 tests) 1982ms
+stderr | src/pages/__tests__/AdminDashboard.test.tsx > AdminDashboard > should show loading state
+An update to AuthProvider inside a test was not wrapped in act(...).
+System.Management.Automation.RemoteException
+When testing, code that causes React state updates should be wrapped into act(...):
+System.Management.Automation.RemoteException
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+System.Management.Automation.RemoteException
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to AuthProvider inside a test was not wrapped in act(...).
+System.Management.Automation.RemoteException
+When testing, code that causes React state updates should be wrapped into act(...):
+System.Management.Automation.RemoteException
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+System.Management.Automation.RemoteException
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+System.Management.Automation.RemoteException
+ ✓ src/pages/__tests__/AgentDashboard.test.tsx (9 tests) 558ms
+     ✓ should render dashboard header with user name  311ms
+ ✓ src/pages/__tests__/AdminDashboard.test.tsx (10 tests) 542ms
+     ✓ should render dashboard header with admin name  323ms
+ ✓ src/pages/__tests__/LoginPage.test.tsx (15 tests) 948ms
+     ✓ should render login form  303ms
+ ✓ src/pages/__tests__/AdminManageAccounts.test.tsx (22 tests) 1949ms
+     ✓ should render page header  331ms
+ ✓ src/pages/__tests__/AgentViewTransactions.test.tsx (21 tests) 1988ms
 stderr | src/pages/__tests__/AgentCreateClient.test.tsx > AgentCreateClient > should disable form fields while submitting
 An update to AgentCreateClient inside a test was not wrapped in act(...).
 System.Management.Automation.RemoteException
@@ -157,25 +158,25 @@ act(() => {
 System.Management.Automation.RemoteException
 This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
 System.Management.Automation.RemoteException
- ✓ src/pages/__tests__/AgentCreateClient.test.tsx (17 tests) 18706ms
-     ✓ should render the create client form  388ms
-     ✓ should show validation error for client younger than 18  601ms
-     ✓ should show validation error for client older than 100  588ms
-     ✓ should accept exactly 18 years old  604ms
-     ✓ should show validation error for invalid email format  585ms
+ ✓ src/pages/__tests__/AgentCreateClient.test.tsx (17 tests) 18672ms
+     ✓ should render the create client form  353ms
+     ✓ should show validation error for client younger than 18  624ms
+     ✓ should show validation error for client older than 100  605ms
+     ✓ should accept exactly 18 years old  600ms
+     ✓ should show validation error for invalid email format  635ms
      ✓ should show validation error for invalid phone format  481ms
-     ✓ should successfully create client and navigate to dashboard  2115ms
-     ✓ should call logout on 401 error  2127ms
-     ✓ should display API error for duplicate email (409)  2085ms
-     ✓ should display API error for validation error (422)  2131ms
-     ✓ should display generic API error for other status codes  2112ms
-     ✓ should display generic error for non-ApiError exceptions  2126ms
-     ✓ should disable form fields while submitting  2141ms
+     ✓ should successfully create client and navigate to dashboard  2108ms
+     ✓ should call logout on 401 error  2114ms
+     ✓ should display API error for duplicate email (409)  2061ms
+     ✓ should display API error for validation error (422)  2134ms
+     ✓ should display generic API error for other status codes  2134ms
+     ✓ should display generic error for non-ApiError exceptions  2122ms
+     ✓ should disable form fields while submitting  2126ms
 
  Test Files  14 passed (14)
       Tests  186 passed (186)
-   Start at  02:42:31
-   Duration  24.42s (transform 2.94s, setup 10.69s, import 5.58s, tests 25.26s, environment 49.98s)
+   Start at  15:18:43
+   Duration  24.42s (transform 3.77s, setup 10.89s, import 6.11s, tests 25.33s, environment 49.26s)
 
  % Coverage report from v8
 -------------------|---------|----------|---------|---------|-------------------
@@ -201,8 +202,8 @@ All files          |   93.03 |    88.19 |   91.37 |   94.54 |
   ...nsactions.tsx |   92.98 |       90 |    87.5 |   96.22 | 186-196           
   LoginPage.tsx    |   97.91 |       95 |     100 |   97.91 | 62                
 -------------------|---------|----------|---------|---------|-------------------
-[2026-02-07 02:42:55] [crm-ui] Tests passed
-[2026-02-07 02:42:55] [crm-ui] Running end-to-end tests (npm run e2e)...
+[2026-02-07 15:19:08] [crm-ui] Tests passed
+[2026-02-07 15:19:08] [crm-ui] Running end-to-end tests (npm run e2e)...
 npm warn Unknown env config "python". This will stop working in the next major version of npm.
 
 > crm-ui@0.0.0 e2e
@@ -210,6 +211,8 @@ npm warn Unknown env config "python". This will stop working in the next major v
 
 [WebServer] npm warn Unknown env config "python". This will stop working in the next major version of npm.
 
+
+[WebServer] npm warn Unknown env config "python". This will stop working in the next major version of npm.
 
 Running 58 tests using 1 worker
 
@@ -223,49 +226,9 @@ Running 58 tests using 1 worker
 [8/58] [chromium] › e2e\admin\admin-manage-accounts.spec.ts:641:3 › Admin Manage Accounts (Flow 3) › should navigate pagination pages
 [9/58] [chromium] › e2e\admin\admin-manage-accounts.spec.ts:739:3 › Admin Manage Accounts (Flow 3) › should cancel user creation
 [10/58] [chromium] › e2e\admin.spec.ts:126:3 › Admin Flow › should login as admin and navigate to manage accounts page
-[chromium] › e2e\admin.spec.ts:126:3 › Admin Flow › should login as admin and navigate to manage accounts page
-Browser console: [vite] connecting...
-
-Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-
-Browser console: [vite] connected.
-
-Browser console: [vite] connecting...
-
-Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-
 [11/58] [chromium] › e2e\admin.spec.ts:161:3 › Admin Flow › should display stats on admin dashboard
-[chromium] › e2e\admin.spec.ts:161:3 › Admin Flow › should display stats on admin dashboard
-Browser console: [vite] connecting...
-
-Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-
-Browser console: [vite] connected.
-
 [12/58] [chromium] › e2e\admin.spec.ts:181:3 › Admin Flow › should navigate back to dashboard from manage accounts
-[chromium] › e2e\admin.spec.ts:181:3 › Admin Flow › should navigate back to dashboard from manage accounts
-Browser console: [vite] connecting...
-
-Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-
-Browser console: [vite] connected.
-
-
-Browser console: [vite] connecting...
-Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-
-Browser console: [vite] connecting...
-
-Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-
 [13/58] [chromium] › e2e\admin.spec.ts:204:3 › Admin Flow › should logout successfully
-[chromium] › e2e\admin.spec.ts:204:3 › Admin Flow › should logout successfully
-Browser console: [vite] connecting...
-
-Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-
-Browser console: [vite] connected.
-
 [14/58] [chromium] › e2e\agent\agent-create-client-validation.spec.ts:12:3 › Agent Create Client - Validation (Flow 6) › should validate invalid email format
 [15/58] [chromium] › e2e\agent\agent-create-client-validation.spec.ts:78:3 › Agent Create Client - Validation (Flow 6) › should validate invalid phone format
 [16/58] [chromium] › e2e\agent\agent-create-client-validation.spec.ts:144:3 › Agent Create Client - Validation (Flow 6) › should validate age < 18 years
@@ -287,79 +250,10 @@ Browser console: [vite] connected.
 [32/58] [chromium] › e2e\agent\agent-transactions-filters.spec.ts:561:3 › Agent View Transactions - Filters & Pagination (Flow 7) › should display empty state when no transactions found
 [33/58] [chromium] › e2e\agent\agent-transactions-filters.spec.ts:623:3 › Agent View Transactions - Filters & Pagination (Flow 7) › should display error state when API fails
 [34/58] [chromium] › e2e\agent.spec.ts:134:3 › Agent Flow › should login as agent, create client, and view transactions
-[chromium] › e2e\agent.spec.ts:134:3 › Agent Flow › should login as agent, create client, and view transactions
-Browser console: [vite] connecting...
-
-Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-
-
-Browser console: [vite] connected.
-Browser console: [vite] connecting...
-
-
-Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-Browser console: [vite] connected.
-
-Browser console: [vite] connecting...
-
-Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-
 [35/58] [chromium] › e2e\agent.spec.ts:188:3 › Agent Flow › should validate client creation form
-[chromium] › e2e\agent.spec.ts:188:3 › Agent Flow › should validate client creation form
-Browser console: [vite] connecting...
-
-Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-
-Browser console: [vite] connected.
-
-Browser console: [vite] connecting...
-
-Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-
 [36/58] [chromium] › e2e\agent.spec.ts:212:3 › Agent Flow › should display agent dashboard stats
-[chromium] › e2e\agent.spec.ts:212:3 › Agent Flow › should display agent dashboard stats
-Browser console: [vite] connecting...
-
-Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-
-
-Browser console: [vite] connected.
 [37/58] [chromium] › e2e\agent.spec.ts:230:3 › Agent Flow › should filter transactions
-[chromium] › e2e\agent.spec.ts:230:3 › Agent Flow › should filter transactions
-Browser console: [vite] connecting...
-
-Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-
-Browser console: [vite] connected.
-
-
-Browser console: [vite] connecting...
-Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-
 [38/58] [chromium] › e2e\agent.spec.ts:251:3 › Agent Flow › should navigate between pages successfully
-[chromium] › e2e\agent.spec.ts:251:3 › Agent Flow › should navigate between pages successfully
-
-Browser console: [vite] connecting...
-Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-
-Browser console: [vite] connected.
-
-Browser console: [vite] connecting...
-
-
-Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-Browser console: [vite] connecting...
-
-Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-
-Browser console: [vite] connecting...
-
-Browser console: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-
-Browser console: [vite] connecting...
-
-
-Browser console: [vite] connected.
 [39/58] [chromium] › e2e\api-errors\api-error-handling.spec.ts:10:3 › API Error Handling (Flow 10) › should handle 401 Unauthorized and redirect to login
 [40/58] [chromium] › e2e\api-errors\api-error-handling.spec.ts:62:3 › API Error Handling (Flow 10) › should display 403 Forbidden error when creating user without permission
 [41/58] [chromium] › e2e\api-errors\api-error-handling.spec.ts:157:3 › API Error Handling (Flow 10) › should handle 409 Conflict error when creating duplicate user
@@ -379,40 +273,24 @@ Browser console: [vite] connected.
 [55/58] [chromium] › e2e\auth\protected-routes.spec.ts:242:3 › Protected Route Access (Flow 9) › should allow agent to access agent routes
 [56/58] [chromium] › e2e\debug.spec.ts:3:1 › debug console errors
 [chromium] › e2e\debug.spec.ts:3:1 › debug console errors
-
-[BROWSER debug]: [vite] connecting...
-[BROWSER info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-
-
 Page title: crm-ui
 
-Page URL: http://localhost:5173/login
+Page URL: http://localhost:4173/login
+
 Waiting for email input...
 
-
 Email filled!
-Password filled!
 
-[BROWSER debug]: [vite] connected.
+Password filled!
 
 Submit clicked!
 
-[WebServer] 2:44:14 AM [vite] http proxy error: /api/logs?limit=10&agentId=agent-1
+[WebServer] 3:20:15 PM [vite] http proxy error: /api/logs?limit=10&agentId=agent-1
 [WebServer] AggregateError [ECONNREFUSED]: 
 [WebServer]     at internalConnectMultiple (node:net:1134:18)
 [WebServer]     at afterConnectMultiple (node:net:1715:7)
 
-[WebServer] 2:44:14 AM [vite] http proxy error: /api/clients?limit=1
-[WebServer] AggregateError [ECONNREFUSED]: 
-[WebServer]     at internalConnectMultiple (node:net:1134:18)
-[WebServer]     at afterConnectMultiple (node:net:1715:7)
-
-
-[WebServer] 2:44:14 AM [vite] http proxy error: /api/clients?limit=1
-[WebServer] AggregateError [ECONNREFUSED]: 
-[WebServer]     at internalConnectMultiple (node:net:1134:18)
-[WebServer]     at afterConnectMultiple (node:net:1715:7)
-[WebServer] 2:44:14 AM [vite] http proxy error: /api/logs?limit=10&agentId=agent-1
+[WebServer] 3:20:15 PM [vite] http proxy error: /api/clients?limit=1
 [WebServer] AggregateError [ECONNREFUSED]: 
 [WebServer]     at internalConnectMultiple (node:net:1134:18)
 [WebServer]     at afterConnectMultiple (node:net:1715:7)
@@ -421,129 +299,59 @@ Submit clicked!
 
 [BROWSER error]: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
 
-[BROWSER error]: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
-
-[BROWSER error]: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
-
-[BROWSER log]: [vite] server connection lost. Polling for restart...
-
-[BROWSER debug]: [vite] connecting...
-
-
-[BROWSER info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[WebServer] 2:44:15 AM [vite] http proxy error: /api/clients?limit=1
-[WebServer] AggregateError [ECONNREFUSED]: 
-[WebServer]     at internalConnectMultiple (node:net:1134:18)
-[WebServer]     at afterConnectMultiple (node:net:1715:7)
-
-[WebServer] 2:44:15 AM [vite] http proxy error: /api/logs?limit=10&agentId=agent-1
-[WebServer] AggregateError [ECONNREFUSED]: 
-[WebServer]     at internalConnectMultiple (node:net:1134:18)
-[WebServer]     at afterConnectMultiple (node:net:1715:7)
-
-[WebServer] 2:44:15 AM [vite] http proxy error: /api/clients?limit=1
-
-[WebServer] AggregateError [ECONNREFUSED]: 
-[WebServer]     at internalConnectMultiple (node:net:1134:18)
-[WebServer]     at afterConnectMultiple (node:net:1715:7)
-[WebServer] 2:44:15 AM [vite] http proxy error: /api/logs?limit=10&agentId=agent-1
-[WebServer] AggregateError [ECONNREFUSED]: 
-[WebServer]     at internalConnectMultiple (node:net:1134:18)
-[WebServer]     at afterConnectMultiple (node:net:1715:7)
-
-[BROWSER error]: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
-
-[BROWSER error]: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
-
-[BROWSER error]: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
-
-[BROWSER error]: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
-
-[BROWSER debug]: [vite] connected.
-
-Final URL: http://localhost:5173/agent
+Final URL: http://localhost:4173/agent
 
 [57/58] [chromium] › e2e\test-inline-admin.spec.ts:3:1 › inline admin login test
-[WebServer] 2:44:16 AM [vite] http proxy error: /api/agents?limit=1
+[WebServer] 3:20:17 PM [vite] http proxy error: /api/agents?limit=1
+
+[WebServer] AggregateError [ECONNREFUSED]: 
+[WebServer]     at internalConnectMultiple (node:net:1134:18)
+[WebServer]     at afterConnectMultiple (node:net:1715:7)
+[WebServer] 3:20:17 PM [vite] http proxy error: /api/clients?limit=1
+[WebServer] AggregateError [ECONNREFUSED]: 
+
+[WebServer]     at internalConnectMultiple (node:net:1134:18)
+[WebServer]     at afterConnectMultiple (node:net:1715:7)
+[WebServer] 3:20:17 PM [vite] http proxy error: /api/logs?limit=10
 [WebServer] AggregateError [ECONNREFUSED]: 
 [WebServer]     at internalConnectMultiple (node:net:1134:18)
 [WebServer]     at afterConnectMultiple (node:net:1715:7)
 
-
-[WebServer] 2:44:16 AM [vite] http proxy error: /api/clients?limit=1
-[WebServer] AggregateError [ECONNREFUSED]: 
-[WebServer]     at internalConnectMultiple (node:net:1134:18)
-[WebServer]     at afterConnectMultiple (node:net:1715:7)
-
-[WebServer] 2:44:16 AM [vite] http proxy error: /api/logs?limit=10
-[WebServer] AggregateError [ECONNREFUSED]: 
-[WebServer]     at internalConnectMultiple (node:net:1134:18)
-[WebServer]     at afterConnectMultiple (node:net:1715:7)
-
-[WebServer] 2:44:16 AM [vite] http proxy error: /api/agents?limit=1
-[WebServer] AggregateError [ECONNREFUSED]: 
-[WebServer]     at internalConnectMultiple (node:net:1134:18)
-[WebServer]     at afterConnectMultiple (node:net:1715:7)
-[WebServer] 2:44:16 AM [vite] http proxy error: /api/clients?limit=1
-[WebServer] AggregateError [ECONNREFUSED]: 
-[WebServer]     at internalConnectMultiple (node:net:1134:18)
-[WebServer]     at afterConnectMultiple (node:net:1715:7)
-
-
-[WebServer] 2:44:16 AM [vite] http proxy error: /api/logs?limit=10
-[WebServer] AggregateError [ECONNREFUSED]: 
-[WebServer]     at internalConnectMultiple (node:net:1134:18)
-[WebServer]     at afterConnectMultiple (node:net:1715:7)
 [58/58] [chromium] › e2e\test-simple.spec.ts:3:1 › simple admin login test
-[WebServer] 2:44:17 AM [vite] http proxy error: /api/agents?limit=1
-[WebServer] AggregateError [ECONNREFUSED]: 
-[WebServer]     at internalConnectMultiple (node:net:1134:18)
-[WebServer]     at afterConnectMultiple (node:net:1715:7)
-
-
-[WebServer] 2:44:17 AM [vite] http proxy error: /api/clients?limit=1
+[WebServer] 3:20:18 PM [vite] http proxy error: /api/agents?limit=1
 [WebServer] AggregateError [ECONNREFUSED]: 
 
 [WebServer]     at internalConnectMultiple (node:net:1134:18)
 [WebServer]     at afterConnectMultiple (node:net:1715:7)
-[WebServer] 2:44:17 AM [vite] http proxy error: /api/logs?limit=10
-[WebServer] AggregateError [ECONNREFUSED]: 
-[WebServer]     at internalConnectMultiple (node:net:1134:18)
-[WebServer]     at afterConnectMultiple (node:net:1715:7)
-[WebServer] 2:44:17 AM [vite] http proxy error: /api/agents?limit=1
+[WebServer] 3:20:18 PM [vite] http proxy error: /api/clients?limit=1
 [WebServer] AggregateError [ECONNREFUSED]: 
 [WebServer]     at internalConnectMultiple (node:net:1134:18)
 [WebServer]     at afterConnectMultiple (node:net:1715:7)
 
-[WebServer] 2:44:17 AM [vite] http proxy error: /api/clients?limit=1
+[WebServer] 3:20:18 PM [vite] http proxy error: /api/logs?limit=10
+
 [WebServer] AggregateError [ECONNREFUSED]: 
 [WebServer]     at internalConnectMultiple (node:net:1134:18)
 [WebServer]     at afterConnectMultiple (node:net:1715:7)
-
-
-[WebServer] 2:44:17 AM [vite] http proxy error: /api/logs?limit=10
-[WebServer] AggregateError [ECONNREFUSED]: 
-[WebServer]     at internalConnectMultiple (node:net:1134:18)
-[WebServer]     at afterConnectMultiple (node:net:1715:7)
-  58 passed (1.3m)
+  58 passed (1.1m)
 
 To open last HTML report run:
 
   npx playwright show-report
 
-[2026-02-07 02:44:18] [crm-ui] E2E tests passed
-[2026-02-07 02:44:18] [crm-ui] Local pipeline passed
+[2026-02-07 15:20:19] [crm-ui] E2E tests passed
+[2026-02-07 15:20:19] [crm-ui] Local pipeline passed
 
-[2026-02-07 02:44:18] Frontend local test pipeline summary
-[2026-02-07 02:44:18] Status: PASS
-[2026-02-07 02:44:18] Generating aggregated test report index...
+[2026-02-07 15:20:19] Frontend local test pipeline summary
+[2026-02-07 15:20:19] Status: PASS
+[2026-02-07 15:20:19] Generating aggregated test report index...
 [frontend-index] Wrote C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\build-and-test-frontend\index.html
 
-[2026-02-07 02:44:18] All test reports aggregated at:
-[2026-02-07 02:44:18]   - HTML: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\build-and-test-frontend\index.html
-[2026-02-07 02:44:18]   - Open in browser: file:///C:/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/build-logs/build-and-test-frontend/index.html
+[2026-02-07 15:20:19] All test reports aggregated at:
+[2026-02-07 15:20:19]   - HTML: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\build-and-test-frontend\index.html
+[2026-02-07 15:20:19]   - Open in browser: file:///C:/code/work/smu-cs301-project/project-2025-26-t2-project-2025-26t2-g2-t3/build-logs/build-and-test-frontend/index.html
 
-[2026-02-07 02:44:18] Individual reports:
-[2026-02-07 02:44:18]   - Vitest coverage: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\frontend\crm-ui\coverage\index.html
-[2026-02-07 02:44:18]   - Playwright e2e: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\frontend\crm-ui\playwright-report\index.html
-[2026-02-07 02:44:18] Frontend passed lint, build, tests, coverage, and e2e tests.
+[2026-02-07 15:20:19] Individual reports:
+[2026-02-07 15:20:19]   - Vitest coverage: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\frontend\crm-ui\coverage\index.html
+[2026-02-07 15:20:19]   - Playwright e2e: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\frontend\crm-ui\playwright-report\index.html
+[2026-02-07 15:20:19] Frontend passed lint, build, tests, coverage, and e2e tests.

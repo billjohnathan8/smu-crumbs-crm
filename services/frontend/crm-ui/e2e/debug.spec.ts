@@ -48,7 +48,7 @@ test('debug console errors', async ({ page }) => {
   })
 
   // Navigate to the app
-  await page.goto('http://localhost:5173/login')
+  await page.goto('http://localhost:4173/login')
 
   // Take initial screenshot
   await page.screenshot({ path: 'debug-before-fill.png', fullPage: true })

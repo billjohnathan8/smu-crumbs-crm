@@ -37,12 +37,12 @@ test('inline admin login test', async ({ page }) => {
   })
 
   // Navigate and test
-  await page.goto('http://localhost:5173/login')
+  await page.goto('http://localhost:4173/login')
 
   await page.fill('input[type="email"]', 'admin@example.com')
   await page.fill('input[type="password"]', 'password123')
   await page.click('button[type="submit"]')
 
-  await expect(page).toHaveURL('http://localhost:5173/admin')
+  await expect(page).toHaveURL('http://localhost:4173/admin')
   await expect(page.getByText('Admin Dashboard')).toBeVisible()
 })

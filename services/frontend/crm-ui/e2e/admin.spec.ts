@@ -126,7 +126,7 @@ test.describe('Admin Flow', () => {
   test('should login as admin and navigate to manage accounts page', async ({ page }) => {
     const startTime = Date.now()
 
-    await page.goto('http://localhost:5173/login')
+    await page.goto('http://localhost:4173/login')
 
     // Clear storage after navigation to ensure clean state
     await page.evaluate(() => {
@@ -141,7 +141,7 @@ test.describe('Admin Flow', () => {
     await page.fill('[data-testid="password-input"]', 'password123')
     await page.click('[data-testid="login-submit-button"]')
 
-    await expect(page).toHaveURL('http://localhost:5173/admin')
+    await expect(page).toHaveURL('http://localhost:4173/admin')
     await expect(page.getByText('Admin Dashboard')).toBeVisible()
 
     const dashboardLoadTime = Date.now() - startTime
@@ -151,7 +151,7 @@ test.describe('Admin Flow', () => {
 
     await page.click('a[href="/admin/accounts"]')
 
-    await expect(page).toHaveURL('http://localhost:5173/admin/accounts')
+    await expect(page).toHaveURL('http://localhost:4173/admin/accounts')
     await expect(page.getByText('Manage Accounts')).toBeVisible()
 
     const accountsLoadTime = Date.now() - accountsStartTime
@@ -159,7 +159,7 @@ test.describe('Admin Flow', () => {
   })
 
   test('should display stats on admin dashboard', async ({ page }) => {
-    await page.goto('http://localhost:5173/login')
+    await page.goto('http://localhost:4173/login')
     await page.evaluate(() => {
       localStorage.clear()
       sessionStorage.clear()
@@ -170,7 +170,7 @@ test.describe('Admin Flow', () => {
     await page.fill('[data-testid="password-input"]', 'password123')
     await page.click('[data-testid="login-submit-button"]')
 
-    await expect(page).toHaveURL('http://localhost:5173/admin')
+    await expect(page).toHaveURL('http://localhost:4173/admin')
 
     // Wait for stats to load
     await expect(page.getByText('Total Agents')).toBeVisible()
@@ -179,7 +179,7 @@ test.describe('Admin Flow', () => {
   })
 
   test('should navigate back to dashboard from manage accounts', async ({ page }) => {
-    await page.goto('http://localhost:5173/login')
+    await page.goto('http://localhost:4173/login')
     await page.evaluate(() => {
       localStorage.clear()
       sessionStorage.clear()
@@ -190,19 +190,19 @@ test.describe('Admin Flow', () => {
     await page.fill('[data-testid="password-input"]', 'password123')
     await page.click('[data-testid="login-submit-button"]')
 
-    await expect(page).toHaveURL('http://localhost:5173/admin')
+    await expect(page).toHaveURL('http://localhost:4173/admin')
 
     await page.click('a[href="/admin/accounts"]')
-    await expect(page).toHaveURL('http://localhost:5173/admin/accounts')
+    await expect(page).toHaveURL('http://localhost:4173/admin/accounts')
 
     // Click back to dashboard
     await page.click('a[href="/admin"]')
-    await expect(page).toHaveURL('http://localhost:5173/admin')
+    await expect(page).toHaveURL('http://localhost:4173/admin')
     await expect(page.getByText('Admin Dashboard')).toBeVisible()
   })
 
   test('should logout successfully', async ({ page }) => {
-    await page.goto('http://localhost:5173/login')
+    await page.goto('http://localhost:4173/login')
     await page.evaluate(() => {
       localStorage.clear()
       sessionStorage.clear()
@@ -213,11 +213,11 @@ test.describe('Admin Flow', () => {
     await page.fill('[data-testid="password-input"]', 'password123')
     await page.click('[data-testid="login-submit-button"]')
 
-    await expect(page).toHaveURL('http://localhost:5173/admin')
+    await expect(page).toHaveURL('http://localhost:4173/admin')
 
     // Click logout button
     await page.click('button:has-text("Logout")')
 
-    await expect(page).toHaveURL('http://localhost:5173/login')
+    await expect(page).toHaveURL('http://localhost:4173/login')
   })
 })

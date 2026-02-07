@@ -134,7 +134,7 @@ test.describe('Agent Flow', () => {
   test('should login as agent, create client, and view transactions', async ({ page }) => {
     const startTime = Date.now()
 
-    await page.goto('http://localhost:5173/login')
+    await page.goto('http://localhost:4173/login')
     await page.evaluate(() => {
       localStorage.clear()
       sessionStorage.clear()
@@ -145,7 +145,7 @@ test.describe('Agent Flow', () => {
     await page.fill('[data-testid="password-input"]', 'password123')
     await page.click('[data-testid="login-submit-button"]')
 
-    await expect(page).toHaveURL('http://localhost:5173/agent')
+    await expect(page).toHaveURL('http://localhost:4173/agent')
     await expect(page.getByText('Agent Dashboard')).toBeVisible()
 
     const dashboardLoadTime = Date.now() - startTime
@@ -154,7 +154,7 @@ test.describe('Agent Flow', () => {
     const createClientStartTime = Date.now()
 
     await page.click('a[href="/agent/clients/new"]')
-    await expect(page).toHaveURL('http://localhost:5173/agent/clients/new')
+    await expect(page).toHaveURL('http://localhost:4173/agent/clients/new')
 
     await page.fill('input[name="firstName"]', 'John')
     await page.fill('input[name="lastName"]', 'Doe')
@@ -170,7 +170,7 @@ test.describe('Agent Flow', () => {
 
     await page.click('button[type="submit"]')
 
-    await expect(page).toHaveURL('http://localhost:5173/agent')
+    await expect(page).toHaveURL('http://localhost:4173/agent')
 
     const createClientTime = Date.now() - createClientStartTime
     expect(createClientTime).toBeLessThan(5000)
@@ -178,7 +178,7 @@ test.describe('Agent Flow', () => {
     const transactionsStartTime = Date.now()
 
     await page.click('a[href="/agent/transactions"]')
-    await expect(page).toHaveURL('http://localhost:5173/agent/transactions')
+    await expect(page).toHaveURL('http://localhost:4173/agent/transactions')
     await expect(page.getByText('Transactions')).toBeVisible()
 
     const transactionsLoadTime = Date.now() - transactionsStartTime
@@ -186,7 +186,7 @@ test.describe('Agent Flow', () => {
   })
 
   test('should validate client creation form', async ({ page }) => {
-    await page.goto('http://localhost:5173/login')
+    await page.goto('http://localhost:4173/login')
     await page.evaluate(() => {
       localStorage.clear()
       sessionStorage.clear()
@@ -197,10 +197,10 @@ test.describe('Agent Flow', () => {
     await page.fill('[data-testid="password-input"]', 'password123')
     await page.click('[data-testid="login-submit-button"]')
 
-    await expect(page).toHaveURL('http://localhost:5173/agent')
+    await expect(page).toHaveURL('http://localhost:4173/agent')
 
     await page.click('a[href="/agent/clients/new"]')
-    await expect(page).toHaveURL('http://localhost:5173/agent/clients/new')
+    await expect(page).toHaveURL('http://localhost:4173/agent/clients/new')
 
     // Try to submit without filling required fields
     await page.click('button[type="submit"]')
@@ -210,7 +210,7 @@ test.describe('Agent Flow', () => {
   })
 
   test('should display agent dashboard stats', async ({ page }) => {
-    await page.goto('http://localhost:5173/login')
+    await page.goto('http://localhost:4173/login')
     await page.evaluate(() => {
       localStorage.clear()
       sessionStorage.clear()
@@ -221,14 +221,14 @@ test.describe('Agent Flow', () => {
     await page.fill('[data-testid="password-input"]', 'password123')
     await page.click('[data-testid="login-submit-button"]')
 
-    await expect(page).toHaveURL('http://localhost:5173/agent')
+    await expect(page).toHaveURL('http://localhost:4173/agent')
 
     // Wait for stats to load
     await expect(page.getByText('My Clients')).toBeVisible()
   })
 
   test('should filter transactions', async ({ page }) => {
-    await page.goto('http://localhost:5173/login')
+    await page.goto('http://localhost:4173/login')
     await page.evaluate(() => {
       localStorage.clear()
       sessionStorage.clear()
@@ -239,17 +239,17 @@ test.describe('Agent Flow', () => {
     await page.fill('[data-testid="password-input"]', 'password123')
     await page.click('[data-testid="login-submit-button"]')
 
-    await expect(page).toHaveURL('http://localhost:5173/agent')
+    await expect(page).toHaveURL('http://localhost:4173/agent')
 
     await page.click('a[href="/agent/transactions"]')
-    await expect(page).toHaveURL('http://localhost:5173/agent/transactions')
+    await expect(page).toHaveURL('http://localhost:4173/agent/transactions')
 
     // Wait for transactions table to load
     await expect(page.getByText('Transactions')).toBeVisible()
   })
 
   test('should navigate between pages successfully', async ({ page }) => {
-    await page.goto('http://localhost:5173/login')
+    await page.goto('http://localhost:4173/login')
     await page.evaluate(() => {
       localStorage.clear()
       sessionStorage.clear()
@@ -260,22 +260,22 @@ test.describe('Agent Flow', () => {
     await page.fill('[data-testid="password-input"]', 'password123')
     await page.click('[data-testid="login-submit-button"]')
 
-    await expect(page).toHaveURL('http://localhost:5173/agent')
+    await expect(page).toHaveURL('http://localhost:4173/agent')
 
     // Navigate to create client
     await page.click('a[href="/agent/clients/new"]')
-    await expect(page).toHaveURL('http://localhost:5173/agent/clients/new')
+    await expect(page).toHaveURL('http://localhost:4173/agent/clients/new')
 
     // Navigate back to dashboard
     await page.click('a[href="/agent"]')
-    await expect(page).toHaveURL('http://localhost:5173/agent')
+    await expect(page).toHaveURL('http://localhost:4173/agent')
 
     // Navigate to transactions
     await page.click('a[href="/agent/transactions"]')
-    await expect(page).toHaveURL('http://localhost:5173/agent/transactions')
+    await expect(page).toHaveURL('http://localhost:4173/agent/transactions')
 
     // Navigate back to dashboard
     await page.click('a[href="/agent"]')
-    await expect(page).toHaveURL('http://localhost:5173/agent')
+    await expect(page).toHaveURL('http://localhost:4173/agent')
   })
 })

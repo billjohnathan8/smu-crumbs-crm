@@ -166,6 +166,14 @@ For manual testing of frontend UI, use the following credentials for a given age
 - Username: `admin@example.com`
 - Password: `password123`
 
+**Recommended for Frontend Development:**
+Install [React DevTools](https://react.dev/learn/react-developer-tools) browser extension for Chrome/Firefox/Edge for a significantly better development experience. This extension provides:
+- Component tree inspection with props and state
+- Hooks debugging and performance profiling
+- Real-time component updates tracking
+
+Note: E2E tests run against production builds and don't require React DevTools.
+
 ### Running Individual Per-Service Pipelines for any given Backend Service (Run from each service root)
 - `services/backend/agent`: `.\gradlew.bat localTestPipeline` (Windows) or `./gradlew localTestPipeline` (macOS/Linux)
 - `services/backend/client`: `.\gradlew.bat localTestPipeline` (Windows) or `./gradlew localTestPipeline` (macOS/Linux)

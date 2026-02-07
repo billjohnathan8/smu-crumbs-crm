@@ -2,6 +2,16 @@
 
 This document explains the local frontend testing pipeline design, what each stage does, and where outputs are written.
 
+## Developer Tools Recommendation
+
+**For manual development:** Install [React DevTools](https://react.dev/learn/react-developer-tools) browser extension (Chrome/Firefox/Edge) for a significantly better development experience:
+- Interactive component tree inspection with props and state
+- Hooks debugging and performance profiling  
+- Real-time component updates and re-render tracking
+- Context value inspection
+
+Note: Automated E2E tests (Playwright) run against production builds and don't require React DevTools.
+
 ## Purpose
 
 Before opening a PR, developers should run the local frontend pipeline to validate code quality, type safety, and test coverage for the React/TypeScript frontend application.
