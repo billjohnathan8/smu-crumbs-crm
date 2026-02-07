@@ -1,0 +1,62 @@
+﻿[2026-02-07 15:45:02] Build log file: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\build-logs\build-and-test-frontend\inv79731024-081458__2026-02-07_15-45-01__build-and-test-frontend.log
+[2026-02-07 15:45:02] Node version: v22.21.1
+npm warn Unknown env config "python". This will stop working in the next major version of npm.
+[2026-02-07 15:45:02] npm version: 11.7.0
+[2026-02-07 15:45:02] ==> Frontend: crm-ui
+[2026-02-07 15:45:02] Location: C:\code\work\smu-cs301-project\project-2025-26-t2-project-2025-26t2-g2-t3\services\frontend\crm-ui
+[2026-02-07 15:45:02] [crm-ui] Installing dependencies (npm install)...
+npm warn Unknown env config "python". This will stop working in the next major version of npm.
+
+up to date, audited 385 packages in 2s
+
+90 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+[2026-02-07 15:45:04] [crm-ui] Dependencies installed successfully
+[2026-02-07 15:45:04] [crm-ui] Running type checking (npm run typecheck)...
+npm warn Unknown env config "python". This will stop working in the next major version of npm.
+
+> crm-ui@0.0.0 typecheck
+> tsc -b --noEmit
+
+[2026-02-07 15:45:08] [crm-ui] Type checking passed
+[2026-02-07 15:45:08] [crm-ui] Running linter (npm run lint)...
+npm warn Unknown env config "python". This will stop working in the next major version of npm.
+
+> crm-ui@0.0.0 lint
+> eslint .
+
+[2026-02-07 15:45:13] [crm-ui] Linting passed
+[2026-02-07 15:45:13] [crm-ui] Running format check (npm run format:check)...
+npm warn Unknown env config "python". This will stop working in the next major version of npm.
+
+> crm-ui@0.0.0 format:check
+> prettier --check "src/**/*.{ts,tsx,js,jsx,json,css,md}"
+
+Checking formatting...
+All matched files use Prettier code style!
+[2026-02-07 15:45:15] [crm-ui] Format check passed
+[2026-02-07 15:45:15] [crm-ui] Building application (npm run build)...
+npm warn Unknown env config "python". This will stop working in the next major version of npm.
+
+> crm-ui@0.0.0 build
+> tsc -b && vite build
+
+vite v7.3.1 building client environment for production...
+transforming...
+✓ 55 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.45 kB │ gzip:  0.29 kB
+dist/assets/index-DErgZNsY.css   15.19 kB │ gzip:  3.56 kB
+dist/assets/index-BLAjomkF.js   276.17 kB │ gzip: 80.73 kB
+✓ built in 2.42s
+[2026-02-07 15:45:21] [crm-ui] Build successful
+[2026-02-07 15:45:21] [crm-ui] Running tests with coverage (npm run test:coverage)...
+npm warn Unknown env config "python". This will stop working in the next major version of npm.
+
+> crm-ui@0.0.0 test:coverage
+> vitest run --coverage
+
+^C

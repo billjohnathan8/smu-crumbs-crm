@@ -98,7 +98,12 @@ public static class ConsoleCP {
             $ErrorActionPreference = "Continue"
             & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $scriptPath @args 2>&1 |
                 ForEach-Object { 
-                    $line = $_.ToString()
+                    $line = if ($_ -is [System.Management.Automation.ErrorRecord]) {
+                        # Extract just the message from ErrorRecord to avoid "System.Management.Automation.RemoteException" in logs
+                        $_.Exception.Message
+                    } else {
+                        $_.ToString()
+                    }
                     Write-Host $line
                     Remove-AnsiEscapeCodes -Text $line
                 } |
