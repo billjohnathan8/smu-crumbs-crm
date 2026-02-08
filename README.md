@@ -79,18 +79,32 @@ This monorepo contains a complete microservices application with local Kubernete
 
 ---
 
-## 📚 Documentation Hub
+### General Pipeline Debugging Strategy: 
+1. Run Individual Pipeline Locally (Own Service / Whole-Backend / Whole-Frontend)
+2. (For Infrastructure): Run build-and-test-all -> Run test-and-spinup-all
+3. Push to Remote (GitHub, to trigger GitHub Actions CI/CD Pipeline)
 
-**All documentation:** [docs/README.md](docs/README.md)
-
-<details>
-<summary><strong>Quick Reference: Common Commands</strong></summary>
+Notes:
+- When making any local script pipeline changes, remember to adjust for GitHub Actions CI/CD 
+- When making any changes to GitHub Actions Workflow Files on /main branch, remember to propagate changes throughout all other branches (notably: /integration and /infrastructure branch)
+- /main will run all smoke tests for k8s
+- /xfactor-backend branch has no GitHub Actions CI/CD Setup yet.
 
 ### Average Script/Pipeline Timings
 - Setup / Bootstrap Script: 502.6s
 - Backend Pipeline: 141.6s
 - Frontend Pipeline: 223.0s
 - K8s Deployment + Smoke Tests Pipeline: 490.0s
+- Refer to GitHub Actions for more accurate parallelized timings for CI//CD minutes.
+
+---
+
+## 📚 Documentation Hub
+
+**All documentation:** [docs/README.md](docs/README.md)
+
+<details>
+<summary><strong>Quick Reference: Common Commands</strong></summary>
 
 ### Testing
 ```bash
