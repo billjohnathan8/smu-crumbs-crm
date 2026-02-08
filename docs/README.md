@@ -1,6 +1,6 @@
 # Documentation Hub
 
-Welcome to the CS301 ITSA CRM documentation. This page serves as the central navigation for all project documentation.
+Welcome to the CS301-ITSA-Scroogebank-CRM documentation. This page serves as the central navigation for all project documentation.
 
 ---
 

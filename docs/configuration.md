@@ -1,6 +1,6 @@
 # Configuration Guide
 
-This guide documents all configuration options for the CS301 ITSA CRM system, including environment variables, config files, and how to customize settings for different environments.
+This guide documents all configuration options for the CS301-ITSA-Scroogebank-CRM system, including environment variables, config files, and how to customize settings for different environments.
 
 ---
 
@@ -101,7 +101,7 @@ env:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `VITE_API_BASE_URL` | `/api` | Base URL for backend API calls |
-| `VITE_APP_TITLE` | `ITSA CRM` | Application title |
+| `VITE_APP_TITLE` | `Scroogebank CRM` | Application title |
 | `VITE_ENVIRONMENT` | `development` | Environment name |
 
 **Create `.env` file in `services/frontend/crm-ui/`:**
@@ -109,7 +109,7 @@ env:
 ```bash
 # Local development
 VITE_API_BASE_URL=/api
-VITE_APP_TITLE=ITSA CRM (Local)
+VITE_APP_TITLE=Scroogebank CRM (Local)
 VITE_ENVIRONMENT=development
 ```
 
@@ -117,7 +117,7 @@ VITE_ENVIRONMENT=development
 ```bash
 # Production
 VITE_API_BASE_URL=https://api.example.com
-VITE_APP_TITLE=ITSA CRM
+VITE_APP_TITLE=Scroogebank CRM
 VITE_ENVIRONMENT=production
 ```
 
@@ -227,7 +227,7 @@ server:
 logging:
   level:
     root: INFO
-    com.itsa.crm: DEBUG
+    com.scroogebank.crm: DEBUG
 
 log-service:
   url: ${LOG_SERVICE_URL:http://localhost:8083}
@@ -247,7 +247,7 @@ spring:
 
 logging:
   level:
-    com.itsa.crm: DEBUG
+    com.scroogebank.crm: DEBUG
 ```
 
 Activate with: `SPRING_PROFILES_ACTIVE=dev`
@@ -298,7 +298,7 @@ LOG_LEVEL=DEBUG
 VITE_API_BASE_URL=/api
 
 # App metadata
-VITE_APP_TITLE=ITSA CRM
+VITE_APP_TITLE=Scroogebank CRM
 VITE_ENVIRONMENT=development
 
 # Feature flags (optional)
@@ -675,7 +675,7 @@ data:
     logging:
       level:
         root: INFO
-        com.itsa.crm: DEBUG
+        com.scroogebank.crm: DEBUG
     spring:
       jpa:
         show-sql: true

@@ -1,8 +1,8 @@
-# CS301 ITSA CRM
+# CS301-ITSA-Scroogebank-CRM
 
 [![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/ojTTbieH)
 
-> A microservices-based Insurance CRM system with polyglot backend (Java/Python), React frontend, and local Kubernetes deployment using kind.
+> A microservices-based Scroogebank CRM system with polyglot backend (Java/Python), React frontend, and local Kubernetes deployment using kind.
 
 **Tech Stack:** Java 21 · Python 3.8+ · React 19 · Spring Boot · FastAPI · PostgreSQL · Kubernetes · Docker · Helm
 
