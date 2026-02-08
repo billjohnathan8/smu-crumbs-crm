@@ -26,23 +26,28 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        timeout-minutes: 2
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
+        timeout-minutes: 2
         with:
           python-version: '3.11'
 
       - name: Install Helm
         uses: azure/setup-helm@v4
+        timeout-minutes: 2
         with:
           version: 'latest'
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
+        timeout-minutes: 2
         with:
           version: 'latest'
 
       - name: Install kubeconform
+        timeout-minutes: 2
         run: |
           KUBECONFORM_VERSION=v0.6.7
           curl -sSLo kubeconform.tar.gz \
@@ -52,6 +57,7 @@ jobs:
           kubeconform -v
 
       - name: Normalize line endings
+        timeout-minutes: 1
         run: |
           sudo apt-get update && sudo apt-get install -y dos2unix
           find scripts -type f -name "*.sh" -exec dos2unix {} \;
@@ -61,6 +67,7 @@ jobs:
         run: chmod +x scripts/validate-k8s/validate.sh
 
       - name: Run K8s manifest validation
+        timeout-minutes: 3
         run: make k8s-validate
 
       - name: Upload rendered manifests on failure
@@ -82,8 +89,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        timeout-minutes: 2
 
       - name: Normalize line endings
+        timeout-minutes: 1
         run: |
           sudo apt-get update && sudo apt-get install -y dos2unix
           find scripts -type f -name "*.sh" -exec dos2unix {} \;
@@ -95,6 +104,7 @@ jobs:
           chmod +x scripts/smoke-k8s-infra/smoke-probes.sh
 
       - name: Run smoke manifest validation only
+        timeout-minutes: 2
         env:
           SMOKE_VALIDATE_ONLY: "1"
         run: bash scripts/smoke-k8s-infra/smoke-k8s-infra.sh

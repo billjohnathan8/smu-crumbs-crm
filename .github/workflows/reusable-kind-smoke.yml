@@ -40,10 +40,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        timeout-minutes: 2
 
       # ---- Runtime setup ----
       - name: Set up JDK 21
         uses: actions/setup-java@v4
+        timeout-minutes: 3
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -51,6 +53,7 @@ jobs:
 
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
+        timeout-minutes: 3
         with:
           node-version: '20'
           cache: 'npm'
@@ -58,21 +61,25 @@ jobs:
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
+        timeout-minutes: 2
         with:
           python-version: '3.11'
 
       # ---- K8s tooling ----
       - name: Install Helm
         uses: azure/setup-helm@v4
+        timeout-minutes: 2
         with:
           version: 'latest'
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
+        timeout-minutes: 2
         with:
           version: 'latest'
 
       - name: Install kubeconform
+        timeout-minutes: 2
         run: |
           KUBECONFORM_VERSION=v0.6.7
           curl -sSLo kubeconform.tar.gz \
@@ -80,14 +87,17 @@ jobs:
           tar xzf kubeconform.tar.gz
           sudo mv kubeconform /usr/local/bin/
 
+      # ---- Install kind with retry (flaky on CI) ----
       - name: Install kind
         uses: helm/kind-action@v1
+        timeout-minutes: 3
         with:
           install_only: true
           version: v0.25.0
 
       # ---- Prepare scripts ----
       - name: Normalize line endings
+        timeout-minutes: 2
         run: |
           sudo apt-get update && sudo apt-get install -y dos2unix
           find scripts -type f -name "*.sh" -exec dos2unix {} \;
@@ -95,20 +105,21 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: services/frontend/crm-ui
+        timeout-minutes: 5
         run: npm install
 
       - name: Make scripts executable
         run: |
-          chmod +x scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh
           chmod +x scripts/validate-k8s/validate.sh
           chmod +x scripts/smoke-k8s-infra/smoke-k8s-infra.sh
           chmod +x scripts/smoke-k8s-infra/smoke-probes.sh
           find services/backend -name gradlew -exec chmod +x {} \;
 
-      # ---- Deploy & Smoke ----
+      # ---- Deploy & Smoke (using new Python pipeline) ----
       - name: Run local K8s deployment and smoke tests
         id: deploy
-        run: bash scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh
+        timeout-minutes: 35
+        run: python scripts/pipelines/deploy_k8s.py
 
       # ---- Failure diagnostics (via composite action) ----
       - name: Capture K8s diagnostics on failure
@@ -118,10 +129,22 @@ jobs:
           namespace: ${{ inputs.namespace }}
 
       # ---- Artifacts ----
-      - name: Upload deployment logs
+      # Upload full logs only on failure (can be large)
+      - name: Upload deployment logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k8s-deploy-logs-failure
+          path: build-logs/build-and-deploy-k8s/**
+          retention-days: 14
+          if-no-files-found: warn
+
+      # Always upload tiny summary report (cheap, useful for success and failure)
+      - name: Upload deployment summary
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: k8s-deploy-logs
-          path: build-logs/build-and-deploy-k8s/**
-          retention-days: 14
+          name: k8s-deploy-summary
+          path: build-logs/build-and-deploy-k8s/summary-*.html
+          retention-days: 7
+          if-no-files-found: ignore

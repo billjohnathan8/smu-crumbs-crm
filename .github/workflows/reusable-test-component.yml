@@ -51,11 +51,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        timeout-minutes: 2
 
       # ---- Java setup ----
       - name: Set up JDK 21
         if: inputs.runtime == 'java'
         uses: actions/setup-java@v4
+        timeout-minutes: 2
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -65,6 +67,7 @@ jobs:
       - name: Set up Python 3.13
         if: inputs.runtime == 'python'
         uses: actions/setup-python@v5
+        timeout-minutes: 2
         with:
           python-version: '3.13'
           cache: 'pip'
@@ -72,12 +75,14 @@ jobs:
 
       - name: Install Python dependencies
         if: inputs.runtime == 'python'
+        timeout-minutes: 2
         run: pip install -r requirements.txt
 
       # ---- Node setup ----
       - name: Set up Node.js 20
         if: inputs.runtime == 'node'
         uses: actions/setup-node@v4
+        timeout-minutes: 2
         with:
           node-version: '20'
           cache: 'npm'
@@ -85,10 +90,12 @@ jobs:
 
       - name: Install Node dependencies
         if: inputs.runtime == 'node'
+        timeout-minutes: 3
         run: npm ci
 
       # ---- Run tests ----
       - name: Run tests
+        timeout-minutes: ${{ inputs.timeout-minutes }}
         run: ${{ inputs.test-command }}
 
       # ---- Upload artifacts on failure only ----

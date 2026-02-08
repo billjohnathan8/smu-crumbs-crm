@@ -34,7 +34,19 @@ runs:
         kubectl get ingress -A -o wide || true
 
         echo ""
-        echo "=== Recent events (last 200) ==="
+        echo "=== Deployments in namespace: ${NS} ==="
+        kubectl get deployments -n "${NS}" -o wide || true
+
+        echo ""
+        echo "=== ReplicaSets in namespace: ${NS} ==="
+        kubectl get replicasets -n "${NS}" -o wide || true
+
+        echo ""
+        echo "=== StatefulSets in namespace: ${NS} ==="
+        kubectl get statefulsets -n "${NS}" -o wide || true
+
+        echo ""
+        echo "=== Recent events (last 200, sorted by timestamp) ==="
         kubectl get events -A --sort-by=.metadata.creationTimestamp | tail -200 || true
 
         echo ""
@@ -50,16 +62,24 @@ runs:
         done
 
         echo ""
-        echo "=== StatefulSets in namespace: ${NS} ==="
-        kubectl get statefulsets -n "${NS}" -o wide || true
-
-        echo ""
         echo "=== Node status ==="
         kubectl get nodes -o wide || true
 
         echo ""
+        echo "=== Node resource usage ==="
+        kubectl top nodes || echo "Metrics not available (metrics-server may not be ready)"
+
+        echo ""
+        echo "=== Pod resource usage in namespace: ${NS} ==="
+        kubectl top pods -n "${NS}" || echo "Metrics not available (metrics-server may not be ready)"
+
+        echo ""
         echo "=== Helm releases ==="
         helm list -A || true
+
+        echo ""
+        echo "=== PersistentVolumeClaims in namespace: ${NS} ==="
+        kubectl get pvc -n "${NS}" -o wide || true
 
         echo "========================================="
         echo "End of K8s Debug Diagnostics"

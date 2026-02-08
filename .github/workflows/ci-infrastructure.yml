@@ -22,6 +22,6 @@ permissions:
 
 jobs:
   k8s-validate:
-    uses: ./.github/workflows/_reusable/k8s-validate.yml
+    uses: ./.github/workflows/reusable-k8s-validate.yml
     with:
       run-smoke-preflight: true

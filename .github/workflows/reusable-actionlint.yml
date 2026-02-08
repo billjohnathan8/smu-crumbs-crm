@@ -1,0 +1,33 @@
+name: Actionlint
+
+# Reusable workflow that runs actionlint to validate GitHub Actions workflows.
+# Catches YAML syntax errors, invalid action references, and common workflow mistakes.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    name: Lint GitHub Actions Workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        timeout-minutes: 2
+
+      - name: Install actionlint
+        timeout-minutes: 2
+        run: |
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          sudo mv ./actionlint /usr/local/bin/
+          actionlint -version
+
+      - name: Run actionlint
+        timeout-minutes: 2
+        run: |
+          actionlint -color

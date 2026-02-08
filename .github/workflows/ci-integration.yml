@@ -38,14 +38,18 @@ jobs:
   # Layer 0: Detect which components changed
   # ==========================================================================
   changes:
-    uses: ./.github/workflows/_reusable/changes.yml
+    uses: ./.github/workflows/reusable-changes.yml
+
+  # Optional: Lint GitHub Actions workflows (catches YAML mistakes early)
+  actionlint:
+    uses: ./.github/workflows/reusable-actionlint.yml
 
   # ==========================================================================
   # Layer 1: Lint / Format / Typecheck
   # ==========================================================================
   lint:
     needs: changes
-    uses: ./.github/workflows/_reusable/lint.yml
+    uses: ./.github/workflows/reusable-lint.yml
     with:
       run-backend-java: >-
         ${{ needs.changes.outputs.any-backend == 'true'
@@ -65,7 +69,7 @@ jobs:
     if: >-
       needs.changes.outputs.backend-agent == 'true'
       || needs.changes.outputs.ci-config == 'true'
-    uses: ./.github/workflows/_reusable/test-component.yml
+    uses: ./.github/workflows/reusable-test-component.yml
     with:
       component: agent
       runtime: java
@@ -81,7 +85,7 @@ jobs:
     if: >-
       needs.changes.outputs.backend-client == 'true'
       || needs.changes.outputs.ci-config == 'true'
-    uses: ./.github/workflows/_reusable/test-component.yml
+    uses: ./.github/workflows/reusable-test-component.yml
     with:
       component: client
       runtime: java
@@ -97,7 +101,7 @@ jobs:
     if: >-
       needs.changes.outputs.backend-transaction == 'true'
       || needs.changes.outputs.ci-config == 'true'
-    uses: ./.github/workflows/_reusable/test-component.yml
+    uses: ./.github/workflows/reusable-test-component.yml
     with:
       component: transaction
       runtime: java
@@ -113,7 +117,7 @@ jobs:
     if: >-
       needs.changes.outputs.backend-log == 'true'
       || needs.changes.outputs.ci-config == 'true'
-    uses: ./.github/workflows/_reusable/test-component.yml
+    uses: ./.github/workflows/reusable-test-component.yml
     with:
       component: log
       runtime: python
@@ -136,7 +140,7 @@ jobs:
     if: >-
       needs.changes.outputs.frontend == 'true'
       || needs.changes.outputs.ci-config == 'true'
-    uses: ./.github/workflows/_reusable/test-component.yml
+    uses: ./.github/workflows/reusable-test-component.yml
     with:
       component: frontend
       runtime: node
@@ -159,7 +163,7 @@ jobs:
       - test-frontend
     if: >-
       !failure() && !cancelled()
-    uses: ./.github/workflows/_reusable/k8s-validate.yml
+    uses: ./.github/workflows/reusable-k8s-validate.yml
 
   # ==========================================================================
   # Layer 4: Kind deploy + smoke tests
@@ -171,7 +175,7 @@ jobs:
     if: >-
       !failure() && !cancelled()
       && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    uses: ./.github/workflows/_reusable/kind-smoke.yml
+    uses: ./.github/workflows/reusable-kind-smoke.yml
     with:
       kind-cluster-name: ${{ github.event.inputs.kind_cluster_name || 'cs301-crm' }}
       namespace: ${{ github.event.inputs.namespace || 'dev' }}

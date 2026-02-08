@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   lint:
-    uses: ./.github/workflows/_reusable/lint.yml
+    uses: ./.github/workflows/reusable-lint.yml
     with:
       run-backend-java: true
       run-backend-python: false
@@ -29,7 +29,7 @@ jobs:
 
   test:
     needs: lint
-    uses: ./.github/workflows/_reusable/test-component.yml
+    uses: ./.github/workflows/reusable-test-component.yml
     with:
       component: agent
       runtime: java
