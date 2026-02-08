@@ -1,14 +1,9 @@
 @echo off
-setlocal enabledelayedexpansion
+REM Wrapper for all tests pipeline - migrated to Python
+REM Old PowerShell script is deprecated - see docs/migration/pipeline-migration.md
+setlocal
 
 set "SCRIPT_DIR=%~dp0"
-set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
-set "PS_SCRIPT=%SCRIPT_DIR%\build-and-test-all.ps1"
-
-if not exist "%PS_SCRIPT%" (
-    echo Error: PowerShell script not found: %PS_SCRIPT%
-    exit /b 1
-)
-
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PS_SCRIPT%" %*
+cd /d "%SCRIPT_DIR%.."
+python "scripts\pipelines\test_all.py" %*
 exit /b %ERRORLEVEL%

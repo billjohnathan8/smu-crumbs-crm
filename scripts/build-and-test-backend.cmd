@@ -1,13 +1,9 @@
 @echo off
+REM Wrapper for backend test pipeline - migrated to Python
+REM Old PowerShell script is deprecated - see docs/migration/pipeline-migration.md
 setlocal
 
 set "SCRIPT_DIR=%~dp0"
-set "PS_SCRIPT=%SCRIPT_DIR%build-and-test-backend\build-and-test-backend.ps1"
-
-where pwsh >nul 2>nul
-if %ERRORLEVEL% EQU 0 (
-  pwsh -NoProfile -ExecutionPolicy Bypass -File "%PS_SCRIPT%" %*
-) else (
-  powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_SCRIPT%" %*
-)
+cd /d "%SCRIPT_DIR%.."
+python "scripts\pipelines\test_backend.py" %*
 exit /b %ERRORLEVEL%

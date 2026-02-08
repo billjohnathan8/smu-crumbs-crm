@@ -209,8 +209,17 @@ KUSTOMIZE_DIR="${REPO_ROOT}/platform/k8s/apps/overlays/dev"
 APPS_OUTFILE="${TMPDIR_BASE}/apps-dev.yaml"
 
 log "Rendering Kustomize overlay: ${KUSTOMIZE_DIR}..."
-if ! ${KUBECTL_CMD} kustomize "${KUSTOMIZE_DIR}" > "${APPS_OUTFILE}" 2>&1; then
-  fail "kubectl kustomize failed. Output:\n$(cat "${APPS_OUTFILE}")"
+# For kubectl kustomize with .exe in WSL, use relative path to avoid path translation issues
+if ${IS_WSL} && [[ "${KUBECTL_CMD}" == *".exe" ]]; then
+  # Change to directory and kustomize current dir to avoid WSL/Windows path issues
+  if ! (cd "${KUSTOMIZE_DIR}" && ${KUBECTL_CMD} kustomize .) > "${APPS_OUTFILE}" 2>&1; then
+    fail "kubectl kustomize failed. Output:\n$(cat "${APPS_OUTFILE}")"
+  fi
+else
+  # Native kubectl or non-WSL: use path directly
+  if ! ${KUBECTL_CMD} kustomize "${KUSTOMIZE_DIR}" > "${APPS_OUTFILE}" 2>&1; then
+    fail "kubectl kustomize failed. Output:\n$(cat "${APPS_OUTFILE}")"
+  fi
 fi
 
 log "Validating apps-dev.yaml with kubeconform..."

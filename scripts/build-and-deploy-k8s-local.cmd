@@ -1,14 +1,9 @@
 @echo off
+REM Wrapper for K8s deployment pipeline - migrated to Python
+REM Old PowerShell script is deprecated - see docs/migration/pipeline-migration.md
 setlocal
 
 set "SCRIPT_DIR=%~dp0"
-set "PS_SCRIPT=%SCRIPT_DIR%build-and-deploy-k8s\build-and-deploy-k8s-local.ps1"
-
-REM Forward all arguments to the PowerShell script
-where pwsh >nul 2>nul
-if %ERRORLEVEL% EQU 0 (
-  pwsh -NoProfile -ExecutionPolicy Bypass -File "%PS_SCRIPT%" %*
-) else (
-  powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_SCRIPT%" %*
-)
+cd /d "%SCRIPT_DIR%.."
+python "scripts\pipelines\deploy_k8s.py" %*
 exit /b %ERRORLEVEL%
