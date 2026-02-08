@@ -2,37 +2,37 @@
   "groups": [
     {
       "name": "app",
-      "type": "com.itsa.crm.transaction_service.config.AppProperties",
-      "sourceType": "com.itsa.crm.transaction_service.config.AppProperties"
+      "type": "com.scroogebank.crm.transaction_service.config.AppProperties",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties"
     },
     {
       "name": "app.jwt",
-      "type": "com.itsa.crm.transaction_service.config.AppProperties$Jwt",
-      "sourceType": "com.itsa.crm.transaction_service.config.AppProperties"
+      "type": "com.scroogebank.crm.transaction_service.config.AppProperties$Jwt",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties"
     },
     {
       "name": "app.mock-sftp",
-      "type": "com.itsa.crm.transaction_service.config.AppProperties$MockSftp",
-      "sourceType": "com.itsa.crm.transaction_service.config.AppProperties"
+      "type": "com.scroogebank.crm.transaction_service.config.AppProperties$MockSftp",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties"
     }
   ],
   "properties": [
     {
       "name": "app.client-service-url",
       "type": "java.lang.String",
-      "sourceType": "com.itsa.crm.transaction_service.config.AppProperties",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties",
       "description": "URL of the client service"
     },
     {
       "name": "app.jwt.hmac-secret",
       "type": "java.lang.String",
-      "sourceType": "com.itsa.crm.transaction_service.config.AppProperties$Jwt",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$Jwt",
       "description": "HMAC secret for JWT token signing and validation"
     },
     {
       "name": "app.mock-sftp.root",
       "type": "java.lang.String",
-      "sourceType": "com.itsa.crm.transaction_service.config.AppProperties$MockSftp",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$MockSftp",
       "description": "Root directory for mock SFTP server"
     }
   ]

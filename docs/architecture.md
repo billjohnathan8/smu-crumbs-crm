@@ -1,6 +1,6 @@
 # System Architecture
 
-This document provides a high-level overview of the CS301 ITSA CRM system architecture, service responsibilities, data flows, and infrastructure components.
+This document provides a high-level overview of the CS301-ITSA-Scroogebank-CRM system architecture, service responsibilities, data flows, and infrastructure components.
 
 ---
 
@@ -18,7 +18,7 @@ This document provides a high-level overview of the CS301 ITSA CRM system archit
 
 ## 🎯 System Overview
 
-**CS301 ITSA CRM** is a microservices-based Customer Relationship Management system for insurance agents. The system enables:
+**CS301-ITSA-Scroogebank-CRM** is a microservices-based Customer Relationship Management system for insurance agents. The system enables:
 
 - **Agent Management** - CRUD operations for insurance agents
 - **Client Management** - CRUD operations for clients

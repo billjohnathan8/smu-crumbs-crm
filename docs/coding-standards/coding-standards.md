@@ -1,6 +1,6 @@
-# Coding Standards & Contribution Guidelines (CS301 ITSA CRM)
+# Coding Standards & Contribution Guidelines (CS301-ITSA-Scroogebank-CRM)
 
-This document defines **how we write code**, **how we structure changes**, and **how we ship safely** for the CS301 ITSA CRM project (Kubernetes-first, AWS-realistic, OpenAPI-first).
+This document defines **how we write code**, **how we structure changes**, and **how we ship safely** for the CS301-ITSA-Scroogebank-CRM project (Kubernetes-first, AWS-realistic, OpenAPI-first).
 
 If there are any issues and you need help, please ping the **telegram** or **discord**.
 

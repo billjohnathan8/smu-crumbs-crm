@@ -15,7 +15,7 @@
 >
 > **Historical Documentation Below** (for reference only)
 
-This directory contains automated setup scripts for onboarding new developers to the CS301 ITSA CRM project.
+This directory contains automated setup scripts for onboarding new developers to the CS301-ITSA-Scroogebank-CRM project.
 
 ## Quick Start
 

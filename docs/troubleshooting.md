@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-This guide provides solutions to common issues encountered during development, testing, and deployment of the CS301 ITSA CRM system.
+This guide provides solutions to common issues encountered during development, testing, and deployment of the CS301-ITSA-Scroogebank-CRM system.
 
 ---
 

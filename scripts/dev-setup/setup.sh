@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Developer environment setup script for CS301 ITSA CRM project (macOS/Linux).
+# Developer environment setup script for CS301-ITSA-Scroogebank-CRM project (macOS/Linux).
 #
 # Usage:
 #   bash scripts/dev-setup/setup.sh [OPTIONS]
@@ -138,7 +138,7 @@ if [[ "$DOCTOR" != "true" ]] && [[ ! -d "$LOG_DIR" ]]; then
 fi
 
 log "========================================"
-log "CS301 ITSA CRM Developer Setup"
+log "CS301-ITSA-Scroogebank-CRM Developer Setup"
 log "========================================"
 log "Started at: $(date '+%Y-%m-%d %H:%M:%S')"
 log "Repo root: $REPO_ROOT"

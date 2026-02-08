@@ -4,7 +4,7 @@ Insurance agent management microservice built with Java 21 and Spring Boot 3.
 
 ## Overview
 
-The Agent Service provides CRUD operations for managing insurance agents in the ITSA CRM system. It handles agent lifecycle management, validates agent data, and emits audit events to the Log Service.
+The Agent Service provides CRUD operations for managing insurance agents in the Scroogebank CRM system. It handles agent lifecycle management, validates agent data, and emits audit events to the Log Service.
 
 **Technology Stack:**
 - Java 21

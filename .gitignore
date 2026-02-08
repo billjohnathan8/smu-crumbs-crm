@@ -98,7 +98,7 @@ build-logs/migration-validation/
 **/old-*.log
 
 # Build Logs
-build-logs/
+/build-logs/
 
 # Developer Setup - Portable Tools
 .devtools/

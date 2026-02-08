@@ -1,6 +1,6 @@
 # New Developer Setup Guide
 
-**Welcome to the CS301 ITSA CRM project!** This guide will get you from a fresh developer machine to running the full local development stack in minutes.
+**Welcome to the CS301-ITSA-Scroogebank-CRM project!** This guide will get you from a fresh developer machine to running the full local development stack in minutes.
 
 ---
 

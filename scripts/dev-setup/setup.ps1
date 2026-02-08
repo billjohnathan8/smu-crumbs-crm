@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Developer environment setup script for CS301 ITSA CRM project.
+    Developer environment setup script for CS301-ITSA-Scroogebank-CRM project.
 
 .DESCRIPTION
     One-command setup to prepare a developer machine to contribute to this repo.
@@ -172,7 +172,7 @@ function Write-PhaseEnd {
 # ============================================================================
 
 Write-Log "========================================"
-Write-Log "CS301 ITSA CRM Developer Setup"
+Write-Log "CS301-ITSA-Scroogebank-CRM Developer Setup"
 Write-Log "========================================"
 Write-Log "Started at: $($script:SetupStartTime.ToString('yyyy-MM-dd HH:mm:ss'))"
 Write-Log "Repo root: $RepoRoot"

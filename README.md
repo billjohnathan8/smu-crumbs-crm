@@ -1,10 +1,19 @@
-# CS301 ITSA CRM
 
 [![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/ojTTbieH)
 
-> A microservices-based Insurance CRM system with polyglot backend (Java/Python), React frontend, and local Kubernetes deployment using kind.
+# CS301 ITSA Scroogebank Enterprise CRM
+![AWS](https://img.shields.io/badge/AWS-Cloud%20Native-orange)
+![Microservices](https://img.shields.io/badge/Architecture-Microservices-yellow)
+![K8s](https://img.shields.io/badge/K8s-Kubernetes-blue)
+![React](https://img.shields.io/badge/Frontend-React-63e5ff)
+![Java](https://img.shields.io/badge/Backend-Springboot-green)
+![Python](https://img.shields.io/badge/Backend-FastAPI-006666)
+![Terraform](https://img.shields.io/badge/IaC-Terraform-purple)
+--- 
+> A cloud-native, microservices-based, and enterprise Customer Relationship Management (CRM) system for Scrooge Global Bank - developed as the flagship project for CS301 IT Solution Architecture (ITSA).
 
-**Tech Stack:** Java 21 · Python 3.8+ · React 19 · Spring Boot · FastAPI · PostgreSQL · Kubernetes · Docker · Helm
+# Tech Stack at a Glance:  
+Java 21 · Python 3.8+ · React 19 · Spring Boot · FastAPI · PostgreSQL · Kubernetes · Docker · Helm · K8s
 
 ---
 

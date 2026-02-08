@@ -1,4 +1,4 @@
-# Contributing to CS301 ITSA CRM
+# Contributing to CS301-ITSA-Scroogebank-CRM
 
 Thank you for contributing to the project! This guide will help you understand our development workflow, standards, and best practices.
 
@@ -158,7 +158,7 @@ chore: update dependencies to latest versions
 - **SpotBugs** - Bug detection
 
 **Conventions:**
-- Package names: lowercase, no underscores (`com.itsa.crm.agent`)
+- Package names: lowercase, no underscores (`com.scroogebank.crm.agent`)
 - Class names: PascalCase (`AgentService`, `ClientController`)
 - Method names: camelCase (`getAgentById`, `createClient`)
 - Constants: UPPER_SNAKE_CASE (`MAX_RETRY_COUNT`, `DEFAULT_TIMEOUT`)
