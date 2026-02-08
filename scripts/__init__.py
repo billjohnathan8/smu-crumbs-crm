@@ -1,5 +1,5 @@
 """
-Scripts package for CS301 ITSA CRM project.
+Scripts package for CS301-ITSA-Scroogebank-CRM project.
 
 This package contains all build, test, and deployment automation.
 """
