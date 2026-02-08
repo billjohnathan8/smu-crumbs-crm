@@ -13,6 +13,17 @@ This guide covers local Kubernetes deployment using **kind** (Kubernetes in Dock
 - Troubleshooting common failure scenarios
 - Service onboarding checklist
 
+Notes: 
+- We use primarily python for cross-platform local pipeline scripts
+- We use shellscript wrappers to run local pipelines.
+
+**Deploy Pipeline Stages:**
+1. K8s Validate
+2. `infra-up` via `kind`
+3. `make up`
+4. K8s Probe Tests
+5. K8s Smoke Tests
+
 **Quick start:**
 ```bash
 # Cross-platform (recommended)
