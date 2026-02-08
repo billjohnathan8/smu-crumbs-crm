@@ -1,9 +1,8 @@
 name: CI - Main Pipeline
 
-# Fast pipeline for the main branch.
-# Runs: changes → lint → tests → k8s-validate.
-# Kind deploy + smoke is SKIPPED by default (expensive).
-# Use workflow_dispatch with run_kind_deploy=true to include it.
+# Full pipeline for the main branch.
+# Runs: changes → lint → tests → k8s-validate → kind-smoke.
+# All smoke tests ALWAYS run after successful validation.
 #
 # Job DAG:
 #
@@ -22,7 +21,7 @@ name: CI - Main Pipeline
 #   k8s-validate  (needs all tests, gated by k8s/scripts/ci-config scope)
 #      |
 #      v
-#   kind-smoke    (only on workflow_dispatch with run_kind_deploy=true)
+#   kind-smoke    (always runs after validation passes)
 
 on:
   pull_request:
@@ -238,16 +237,14 @@ jobs:
     uses: ./.github/workflows/reusable-k8s-validate.yml
 
   # ==========================================================================
-  # Layer 4: Kind deploy + smoke tests (OPTIONAL)
-  # Only runs on workflow_dispatch with run_kind_deploy=true.
+  # Layer 4: Kind deploy + smoke tests (ALWAYS RUNS)
+  # Runs after successful k8s-validate to ensure deploy readiness.
   # ==========================================================================
   kind-smoke:
     needs:
       - k8s-validate
     if: >-
-      ${{ !failure() && !cancelled()
-          && github.event_name == 'workflow_dispatch'
-          && github.event.inputs.run_kind_deploy == true }}
+      ${{ !failure() && !cancelled() }}
     uses: ./.github/workflows/reusable-kind-smoke.yml
     with:
       kind-cluster-name: ${{ github.event.inputs.kind_cluster_name || 'cs301-crm' }}
