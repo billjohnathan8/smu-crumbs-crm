@@ -23,6 +23,9 @@
     - install: Actually attempt portable tool installation
     - full: Run full setup (may take longer)
 
+.PARAMETER ShowOutput
+    Display the actual output from the container (verbose)
+
 .EXAMPLE
     .\scripts\dev-setup\test\test-docker.ps1
     Run doctor mode on all scenarios (quick sanity check)
@@ -30,6 +33,10 @@
 .EXAMPLE
     .\scripts\dev-setup\test\test-docker.ps1 -Scenario fresh -Mode install
     Test portable tool installation on fresh Ubuntu
+
+.EXAMPLE
+    .\scripts\dev-setup\test\test-docker.ps1 -ShowOutput
+    Run tests and show actual container output
 #>
 
 [CmdletBinding()]
@@ -38,7 +45,9 @@ param(
     [string]$Scenario = "all",
     
     [ValidateSet("doctor", "install", "full")]
-    [string]$Mode = "doctor"
+    [string]$Mode = "doctor",
+    
+    [switch]$ShowOutput
 )
 
 Set-StrictMode -Version Latest
@@ -58,6 +67,11 @@ Write-Host "Repo root: $RepoRoot"
 Write-Host "Test dir: $TestDir"
 Write-Host "Scenario: $Scenario"
 Write-Host "Mode: $Mode"
+if ($ShowOutput) {
+    Write-Host "Output: VERBOSE (showing container output)" -ForegroundColor Yellow
+} else {
+    Write-Host "Output: QUIET (use -ShowOutput to verify what's being tested)" -ForegroundColor Gray
+}
 Write-Host ""
 
 # Build command based on mode
@@ -90,10 +104,17 @@ function Test-Scenario {
     # Build the test image
     Write-Host "[1/3] Building Docker image: $imageName"
     Write-Host "Dockerfile: $Dockerfile"
+    if (-not $ShowOutput) {
+        Write-Host "      (Use -ShowOutput to see build details)" -ForegroundColor Gray
+    }
     $buildStart = Get-Date
     
     try {
-        docker build -t $imageName -f $dockerfilePath $RepoRoot
+        if ($ShowOutput) {
+            docker build -t $imageName -f $dockerfilePath $RepoRoot
+        } else {
+            $null = docker build -q -t $imageName -f $dockerfilePath $RepoRoot 2>&1
+        }
         if ($LASTEXITCODE -ne 0) {
             Write-Error "Docker build failed for $Name"
             return $false
@@ -109,16 +130,24 @@ function Test-Scenario {
     Write-Host "[2/3] Running setup script in container..."
     Write-Host "Command: $setupCommand"
     $runStart = Get-Date
+    
+    if (-not $ShowOutput) {
+        Write-Host "      (Use -ShowOutput to see container output)" -ForegroundColor Gray
+    }
     Write-Host ""
     
     # Run the container with the repo mounted as volume
     try {
-        docker run --rm `
-            -v "${RepoRoot}:/home/developer/workspace" `
-            $imageName `
-            bash -c $setupCommand
-        
-        $exitCode = $LASTEXITCODE
+        if ($ShowOutput) {
+            Write-Host "======== CONTAINER OUTPUT START ========" -ForegroundColor Cyan
+            $output = & docker run --rm -v "${RepoRoot}:/home/developer/workspace" $imageName bash -c $setupCommand 2>&1
+            $exitCode = $LASTEXITCODE
+            $output | ForEach-Object { Write-Host $_ }
+            Write-Host "======== CONTAINER OUTPUT END ==========" -ForegroundColor Cyan
+        } else {
+            $null = & docker run --rm -v "${RepoRoot}:/home/developer/workspace" $imageName bash -c $setupCommand 2>&1
+            $exitCode = $LASTEXITCODE
+        }
         $runDuration = (Get-Date) - $runStart
         
         Write-Host ""
@@ -184,6 +213,13 @@ Write-Host "Finished: $((Get-Date).ToString('HH:mm:ss'))"
 Write-Host "Total Duration: $($totalDuration.ToString('mm')) minutes $($totalDuration.ToString('ss')) seconds"
 Write-Host "========================================"
 Write-Host ""
+
+if (-not $ShowOutput) {
+    Write-Host "Note: Output was suppressed for speed." -ForegroundColor Yellow
+    Write-Host "Run with -ShowOutput to verify what's actually being tested:" -ForegroundColor Yellow
+    Write-Host "  .\\scripts\\dev-setup\\test\\test-docker.ps1 -ShowOutput" -ForegroundColor Cyan
+    Write-Host ""
+}
 
 if ($allPassed) {
     Write-Host "All tests passed!" -ForegroundColor Green

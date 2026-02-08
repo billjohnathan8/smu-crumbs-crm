@@ -75,6 +75,33 @@ param(
     [switch]$PersistPath
 )
 
+# ========================================
+#  DEPRECATION WARNING
+# ========================================
+# This PowerShell script is DEPRECATED and will be removed in 2 weeks.
+#
+# Please use the new Python pipeline instead:
+#   python scripts/pipelines/setup_dev_env.py
+#
+# The new script works on Windows, macOS, and Linux.
+# See: docs/migration/pipeline-migration.md
+# ========================================
+
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Yellow
+Write-Host "  DEPRECATION WARNING" -ForegroundColor Yellow
+Write-Host "========================================" -ForegroundColor Yellow
+Write-Host "This PowerShell script is deprecated and will be removed in 2 weeks."
+Write-Host ""
+Write-Host "Please use the new Python pipeline instead:" -ForegroundColor Cyan
+Write-Host "  python scripts/pipelines/setup_dev_env.py" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "The new script works on Windows, macOS, and Linux." -ForegroundColor Green
+Write-Host "See: docs/migration/pipeline-migration.md"
+Write-Host "========================================" -ForegroundColor Yellow
+Write-Host ""
+Start-Sleep -Seconds 3
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
