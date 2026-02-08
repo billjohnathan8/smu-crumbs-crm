@@ -149,6 +149,54 @@ jobs:
       timeout-minutes: 10
       artifact-paths: services/frontend/crm-ui/coverage/**
 
+  e2e-frontend:
+    name: E2E Tests - Frontend
+    needs: [changes, test-frontend]
+    if: >-
+      ${{ !failure() && !cancelled()
+          && (needs.changes.outputs.frontend == 'true'
+              || needs.changes.outputs.ci-config == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: services/frontend/crm-ui
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        timeout-minutes: 2
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        timeout-minutes: 2
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: services/frontend/crm-ui/package-lock.json
+
+      - name: Install dependencies
+        timeout-minutes: 3
+        run: npm ci
+
+      - name: Install Playwright browsers
+        timeout-minutes: 5
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        timeout-minutes: 10
+        run: npm run e2e
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results-integration
+          path: |
+            services/frontend/crm-ui/test-results/
+            services/frontend/crm-ui/playwright-report/
+          retention-days: 7
+
   # ==========================================================================
   # Layer 3: K8s manifest validation
   # ==========================================================================
@@ -161,6 +209,7 @@ jobs:
       - test-transaction
       - test-log
       - test-frontend
+      - e2e-frontend
     if: ${{ !failure() && !cancelled() }}
     uses: ./.github/workflows/reusable-k8s-validate.yml
 
