@@ -46,14 +46,6 @@ class GitHubContext:
     artifact_dir: Optional[Path] = None
 
 
-def require_github_actions():
-    """Fail fast if not running in GitHub Actions."""
-    if not is_github_actions():
-        raise EnvironmentError(
-            "This operation requires GitHub Actions execution context"
-        )
-
-
 def get_github_context() -> GitHubContext:
     """
     Get GitHub Actions context from environment variables.
