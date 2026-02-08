@@ -198,7 +198,7 @@ jobs:
     if: >-
       ${{ !failure() && !cancelled()
           && github.event_name == 'workflow_dispatch'
-          && github.event.inputs.run_kind_deploy == 'true' }}
+          && github.event.inputs.run_kind_deploy == true }}
     uses: ./.github/workflows/reusable-kind-smoke.yml
     with:
       kind-cluster-name: ${{ github.event.inputs.kind_cluster_name || 'cs301-crm' }}
