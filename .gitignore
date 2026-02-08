@@ -86,7 +86,17 @@ id_rsa
 .vscode/
 .VSCodeCounter/
 TODO.md
-CHANGELOG.md
+
+# Pipeline Migration: Legacy script logs (archived)
+scripts/legacy/**/build-logs/
+
+# Pipeline Migration: Validation logs (temporary)
+build-logs/migration-validation/
+**/new-*.log
+**/old-*.log
+
+# Build Logs
+build-logs/
 
 # Developer Setup - Portable Tools
 .devtools/

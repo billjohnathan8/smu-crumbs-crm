@@ -1,8 +1,7 @@
+# CI Hardening: Flaky infrastructure operations (kind create, helm repo update, docker pulls)
+# are retried up to 3 times with brief delays to avoid wasting CI minutes on transient failures.
 SHELL := /usr/bin/env bash
 KIND_CLUSTER_NAME ?= cs301-crm
-KUBECTL ?= kubectl
-HELM ?= helm
-KIND ?= kind
 NULL_DEVICE ?= /dev/null
 GRADLEW ?= ./gradlew
 
@@ -10,6 +9,23 @@ GRADLEW ?= ./gradlew
 ifneq ($(wildcard .devtools/bin),)
 export PATH := $(CURDIR)/.devtools/bin:$(PATH)
 endif
+
+# Add Windows tool paths for WSL/Git Bash environments to find kubectl, helm, kind, etc.
+# Check if we're in WSL (common in Windows dev workflows)
+ifneq ($(wildcard /mnt/c/ProgramData/chocolatey/bin),)
+export PATH := /mnt/c/ProgramData/chocolatey/bin:$(PATH)
+endif
+# Check if we're in Git Bash/MINGW
+ifneq ($(wildcard /c/ProgramData/chocolatey/bin),)
+export PATH := /c/ProgramData/chocolatey/bin:$(PATH)
+endif
+
+# Tool discovery: Simplified to rely on PATH
+# Tools should be available via .devtools/bin, chocolatey, or system PATH
+KUBECTL ?= kubectl
+HELM ?= helm
+KIND ?= kind
+
 SMOKE_INFRA_CMD ?= bash ./scripts/smoke-k8s-infra/smoke-k8s-infra.sh
 SMOKE_PROBES_CMD ?= bash ./scripts/smoke-k8s-infra/smoke-probes.sh
 VALIDATE_K8S_CMD ?= bash scripts/validate-k8s/validate.sh
@@ -21,6 +37,11 @@ GRADLEW := gradlew.bat
 SMOKE_INFRA_CMD := powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-infra/smoke-k8s-infra.ps1
 SMOKE_PROBES_CMD := powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-infra/smoke-probes.ps1
 VALIDATE_K8S_CMD := bash scripts/validate-k8s/validate.sh
+KIND_UP_CMD := bash scripts/platform/kind-up.sh
+INFRA_UP_CMD := bash scripts/platform/infra-up.sh
+else
+KIND_UP_CMD := bash scripts/platform/kind-up.sh
+INFRA_UP_CMD := bash scripts/platform/infra-up.sh
 endif
 
 .PHONY: k8s-validate kind-up kind-down kind-reset infra-up build-images kind-load deploy-dev smoke-infra smoke-probes smoke build-and-deploy-local
@@ -29,10 +50,7 @@ k8s-validate:
 	$(VALIDATE_K8S_CMD)
 
 kind-up:
-	@$(KUBECTL) cluster-info --context kind-$(KIND_CLUSTER_NAME) >$(NULL_DEVICE) 2>&1 || $(KIND) create cluster --name $(KIND_CLUSTER_NAME) --config platform/k8s/infra/kind-config.yaml
-	@bash -c 'echo "Waiting for cluster to be ready..."'
-	@$(KUBECTL) wait --for=condition=Ready nodes --all --timeout=180s
-	@$(KUBECTL) cluster-info
+	$(KIND_UP_CMD)
 
 kind-down:
 	$(KIND) delete cluster --name $(KIND_CLUSTER_NAME)
@@ -40,14 +58,7 @@ kind-down:
 kind-reset: kind-down kind-up
 
 infra-up:
-	-$(HELM) repo add ingress-nginx https://kubernetes.github.io/ingress-nginx >$(NULL_DEVICE) 2>&1
-	-$(HELM) repo add bitnami https://charts.bitnami.com/bitnami >$(NULL_DEVICE) 2>&1
-	$(HELM) repo update
-	$(HELM) upgrade --install ingress-nginx ingress-nginx/ingress-nginx --namespace ingress-nginx --create-namespace
-	$(HELM) upgrade --install metrics-server bitnami/metrics-server --namespace kube-system -f platform/k8s/infra/helm-values/metrics-server-values.yaml
-	$(HELM) upgrade --install postgres bitnami/postgresql --namespace dev --create-namespace -f platform/k8s/infra/helm-values/postgresql-values.yaml
-	$(KUBECTL) wait --namespace ingress-nginx --for=condition=ready pod -l app.kubernetes.io/component=controller --timeout=180s
-	$(KUBECTL) wait --namespace dev --for=condition=ready pod -l app.kubernetes.io/name=postgresql --timeout=180s
+	$(INFRA_UP_CMD)
 
 build-images:
 	cd services/backend/agent && $(GRADLEW) bootJar
