@@ -364,6 +364,37 @@ for s in items:
   echo "${fallback}"
 }
 
+# Get the Service port for a given service name and target port (containerPort).
+# This is needed because Services expose different ports than containers.
+# e.g., Service port 80 -> containerPort 8080
+get_service_port_for_target() {
+  local svc_name="$1"
+  local target_port="$2"
+  local svc_port
+  svc_port="$(echo "${svc_json}" | python3 -c "
+import sys, json
+items = json.load(sys.stdin)['items']
+target = '${target_port}'
+svc_name = '${svc_name}'
+for s in items:
+    if s['metadata']['name'] == svc_name:
+        for p in s.get('spec', {}).get('ports', []):
+            tp = p.get('targetPort')
+            # targetPort can be int or string (named port)
+            if str(tp) == target or (p.get('name') and p.get('name') == target):
+                print(p.get('port', target))
+                sys.exit(0)
+            # Also match if targetPort is 'http' and target is 8080 (common pattern)
+            if tp == 'http' and target == '8080':
+                print(p.get('port', target))
+                sys.exit(0)
+        break
+# Fallback to target port if no mapping found
+print(target)
+" 2>/dev/null || echo "${target_port}")"
+  echo "${svc_port}"
+}
+
 # Run the ephemeral curl pod checks
 if [[ ${#unique_curl_checks[@]} -gt 0 ]]; then
   # Build a shell script to run inside the ephemeral pod
@@ -381,7 +412,9 @@ FAIL=0
     fi
 
     if [[ "${check_type}" == "TCP" ]]; then
-      port="${port_or_rest}"
+      container_port="${port_or_rest}"
+      # Map containerPort to Service port
+      port="$(get_service_port_for_target "${svc_name}" "${container_port}")"
       check_script+="
 echo \"TCP ${svc_name}:${port}\"
 if curl -sS --connect-timeout 5 --max-time 10 telnet://${svc_name}.${NAMESPACE}.svc.cluster.local:${port} </dev/null 2>/dev/null; then
@@ -399,7 +432,9 @@ fi
 "
     else
       # HTTP check with enhanced diagnostics
-      read -r port path <<< "${port_or_rest}"
+      read -r container_port path <<< "${port_or_rest}"
+      # Map containerPort to Service port
+      port="$(get_service_port_for_target "${svc_name}" "${container_port}")"
       check_script+="
 echo \"HTTP ${svc_name}:${port}${path}\"
 STATUS=\$(curl -sS --connect-timeout 5 --max-time 10 -o /dev/null -w '%{http_code}' \"http://${svc_name}.${NAMESPACE}.svc.cluster.local:${port}${path}\" 2>/dev/null || echo 000)

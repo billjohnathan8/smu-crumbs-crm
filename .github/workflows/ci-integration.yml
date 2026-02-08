@@ -67,8 +67,8 @@ jobs:
   test-agent:
     needs: [changes, lint]
     if: >-
-      needs.changes.outputs.backend-agent == 'true'
-      || needs.changes.outputs.ci-config == 'true'
+      ${{ needs.changes.outputs.backend-agent == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
     uses: ./.github/workflows/reusable-test-component.yml
     with:
       component: agent
@@ -83,8 +83,8 @@ jobs:
   test-client:
     needs: [changes, lint]
     if: >-
-      needs.changes.outputs.backend-client == 'true'
-      || needs.changes.outputs.ci-config == 'true'
+      ${{ needs.changes.outputs.backend-client == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
     uses: ./.github/workflows/reusable-test-component.yml
     with:
       component: client
@@ -99,8 +99,8 @@ jobs:
   test-transaction:
     needs: [changes, lint]
     if: >-
-      needs.changes.outputs.backend-transaction == 'true'
-      || needs.changes.outputs.ci-config == 'true'
+      ${{ needs.changes.outputs.backend-transaction == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
     uses: ./.github/workflows/reusable-test-component.yml
     with:
       component: transaction
@@ -115,8 +115,8 @@ jobs:
   test-log:
     needs: [changes, lint]
     if: >-
-      needs.changes.outputs.backend-log == 'true'
-      || needs.changes.outputs.ci-config == 'true'
+      ${{ needs.changes.outputs.backend-log == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
     uses: ./.github/workflows/reusable-test-component.yml
     with:
       component: log
@@ -138,8 +138,8 @@ jobs:
   test-frontend:
     needs: [changes, lint]
     if: >-
-      needs.changes.outputs.frontend == 'true'
-      || needs.changes.outputs.ci-config == 'true'
+      ${{ needs.changes.outputs.frontend == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
     uses: ./.github/workflows/reusable-test-component.yml
     with:
       component: frontend
@@ -161,8 +161,7 @@ jobs:
       - test-transaction
       - test-log
       - test-frontend
-    if: >-
-      !failure() && !cancelled()
+    if: ${{ !failure() && !cancelled() }}
     uses: ./.github/workflows/reusable-k8s-validate.yml
 
   # ==========================================================================
@@ -173,8 +172,8 @@ jobs:
     needs:
       - k8s-validate
     if: >-
-      !failure() && !cancelled()
-      && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+      ${{ !failure() && !cancelled()
+          && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
     uses: ./.github/workflows/reusable-kind-smoke.yml
     with:
       kind-cluster-name: ${{ github.event.inputs.kind_cluster_name || 'cs301-crm' }}
