@@ -14,6 +14,12 @@ This guide covers local Kubernetes deployment using **kind** (Kubernetes in Dock
 - Service onboarding checklist
 
 **Quick start:**
+```bash
+# Cross-platform (recommended)
+python scripts/pipelines/deploy_k8s.py
+```
+
+**Legacy wrappers (deprecated, use Python above):**
 ```powershell
 # Windows
 .\scripts\build-and-deploy-k8s\build-and-deploy-k8s-local.ps1
@@ -23,6 +29,9 @@ This guide covers local Kubernetes deployment using **kind** (Kubernetes in Dock
 # macOS/Linux
 bash ./scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh
 ```
+
+> **Note:** Legacy scripts are deprecated and will be removed August 8, 2026.
+> See [Migration Guide](migration/pipeline-migration.md) for details.
 
 The local flow does not require AWS resources. AWS-oriented architecture docs exist separately for target-state planning.
 
@@ -67,14 +76,17 @@ Do not use `platform/k8s-apps/*` (legacy path, has been removed).
 For detailed tool installation instructions, see [K8s Manifest Validation Guide](testing/k8s-validation.md#installation).
 
 ## Golden path (recommended)
+
+**Cross-platform Python pipeline (recommended):**
+```bash
+python scripts/pipelines/deploy_k8s.py
+```
+
+**Legacy wrappers (deprecated):**
 Run one of these from repository root:
 
 ```powershell
 .\scripts\build-and-deploy-k8s\build-and-deploy-k8s-local.ps1
-```
-
-```cmd
-.\scripts\build-and-deploy-k8s-local.cmd
 ```
 
 ```bash
@@ -89,6 +101,13 @@ Notes:
 ### Keep Mode (Debugging Failed Deployments)
 
 When debugging deployment issues, use Keep mode to preserve the cluster:
+
+**Cross-platform:**
+```bash
+python scripts/pipelines/deploy_k8s.py --keep-cluster
+```
+
+**Legacy (deprecated):**
 
 **Windows:**
 ```powershell
@@ -144,12 +163,14 @@ Success criteria:
 ## One-command test + deploy
 Run full test pipeline (backend + frontend), then deploy to local k8s only if tests pass:
 
-```powershell
-.\scripts\test-and-spinup-all\test-and-spinup-all.ps1
+**Cross-platform:**
+```bash
+python scripts/pipelines/test_all.py && python scripts/pipelines/deploy_k8s.py
 ```
 
-```cmd
-.\scripts\test-and-spinup-all.cmd
+**Legacy wrappers (deprecated):**
+```powershell
+.\scripts\test-and-spinup-all\test-and-spinup-all.ps1
 ```
 
 ```bash
@@ -178,11 +199,15 @@ This step runs automatically in deployment scripts. Run it manually to catch con
 **For detailed documentation:** [K8s Manifest Validation Guide](testing/k8s-validation.md)
 
 ### 1) (Recommended) Run backend build/tests first
+
+**Cross-platform:**
+```bash
+python scripts/pipelines/test_backend.py
+```
+
+**Legacy (deprecated):**
 ```powershell
 .\scripts\build-and-test-backend\build-and-test-backend.ps1
-```
-```cmd
-.\scripts\build-and-test-backend.cmd
 ```
 ```bash
 bash ./scripts/build-and-test-backend/build-and-test-backend.sh
@@ -194,7 +219,7 @@ Runs each service-local pipeline (lint, build, tests, coverage reports):
 - `services/backend/transaction`: `gradlew localTestPipeline`
 - `services/backend/log`: `python run-local-test-pipeline.py`
 
-**For detailed documentation:** [Backend Testing Pipeline](testing/backend-local-pipeline.md)
+**For detailed documentation:** [Testing Guide](../TESTING-GUIDE.md)
 
 ### 2) Create and verify kind cluster
 ```bash
@@ -544,8 +569,8 @@ When adding a new backend service to the local Kubernetes deployment:
 ### Core Guides
 - [Smoke Testing Guide](testing/smoke/README.md) — Comprehensive smoke test documentation and troubleshooting
 - [K8s Manifest Validation](testing/k8s-validation.md) — Offline manifest validation with kubeconform
-- [Backend Testing Pipeline](testing/backend-local-pipeline.md) — Backend test pipeline and coverage
-- [Frontend Testing Pipeline](testing/frontend-local-pipeline.md) — Frontend test pipeline and coverage
+- [Testing Guide](../TESTING-GUIDE.md) — Cross-platform Python pipeline testing
+- [Migration Guide](migration/pipeline-migration.md) — PowerShell/Bash → Python migration
 
 ### Scripts and Pipelines
 - [Build and Deploy Scripts](../scripts/build-and-deploy-k8s/README.md) — Deployment pipeline details

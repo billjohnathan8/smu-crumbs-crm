@@ -94,8 +94,8 @@ python --version
 
 **Automatic Generation:**
 The summary report is automatically generated when running:
-- `scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.ps1`
-- `scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh`
+- `python scripts/pipelines/deploy_k8s.py`
+- `python scripts/pipelines/deploy_k8s.py`
 
 **Output:**
 - Location: `build-logs/build-and-deploy-k8s/probe-diagnostics-summary.html`
@@ -197,7 +197,7 @@ make deploy-dev
 make smoke
 
 # Or combine both steps
-scripts/test-and-spinup-all.cmd
+python scripts/pipelines/test_all.py && python scripts/pipelines/deploy_k8s.py
 ```
 
 ## Troubleshooting

@@ -1,5 +1,20 @@
 # Build and Deploy K8s Local Scripts
 
+> **⚠️ DEPRECATED - Legacy Scripts**
+>
+> This directory contains legacy PowerShell/Bash scripts that have been superseded by
+> unified cross-platform Python pipelines.
+>
+> **Use Instead:** `python scripts/pipelines/deploy_k8s.py`
+>
+> **Migration Guide:** [docs/migration/pipeline-migration.md](../../docs/migration/pipeline-migration.md)
+>
+> **Removal Date:** August 8, 2026
+>
+> ---
+>
+> **Historical Documentation Below** (for reference only)
+
 Automated scripts for building, deploying, and validating the CRM application to a local Kubernetes cluster (kind).
 
 ## Scripts

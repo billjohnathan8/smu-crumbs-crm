@@ -49,6 +49,21 @@ Use a staged `make` pipeline as the canonical local deployment workflow, with OS
 - Maintain the smoke script fallback path (`kubectl port-forward`) for ingress instability.
 - Keep prerequisites and runbook centralized in `docs/local-k8s-dev.md`.
 
+## Update (February 2026): Migration to Python Pipelines
+
+The standardized K8s deployment workflow described in this ADR remains active,
+but implementation moved to `scripts/pipelines/deploy_k8s.py` for cross-platform
+consistency.
+
+**Key Changes:**
+- Deployment logic consolidated into Python pipeline
+- Make targets remain unchanged (called by Python pipeline)
+- Same deployment stages, new implementation
+- **Deprecated:** `scripts/build-and-deploy-k8s/*.{ps1,sh}` (see Migration Guide)
+
+See [Pipeline Migration Guide](../migration/pipeline-migration.md) and
+[Local K8s Dev Guide](../local-k8s-dev.md) for current usage.
+
 ## Implementation Notes
 - Add any new deploy stage as a Make target first, then call it from wrappers.
 - When onboarding a new service, update both deployment targets and smoke coverage.

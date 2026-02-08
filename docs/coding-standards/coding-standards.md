@@ -467,10 +467,13 @@ This is mandatory for onboarding and for all contributors.
 Before opening a PR, run the local pipeline for every service you changed, then read the generated reports and act on them.
 
 #### Step 1: Run pipelines
+
+**Prerequisites:** Ensure Python 3.8+ is installed. See [Python Requirement Guide](../prerequisites/PYTHON-REQUIREMENT.md).
+
 From repo root (all backend services):
-- PowerShell: `.\scripts\build-and-test\build-and-test-backend.ps1`
-- CMD: `.\scripts\build-and-test-backend.cmd`
-- Bash: `bash ./scripts/build-and-test-backend/build-and-test-backend.sh`
+```bash
+python scripts/pipelines/test_backend.py
+```
 
 From each backend service root (single service):
 - Java services (`agent`, `client`):

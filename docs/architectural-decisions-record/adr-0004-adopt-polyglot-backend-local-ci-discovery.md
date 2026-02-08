@@ -48,6 +48,27 @@ Treat `services/backend` as the backend service root and run local CI through ru
 - Keep Linux and Windows script logic aligned and review together.
 - Fail fast with explicit errors when service detection or prerequisites are missing.
 
+## Update (February 2026): Migration to Python Pipelines
+
+This ADR's approach was successfully implemented but has since been superseded by
+unified Python pipelines for improved maintainability and cross-platform support.
+
+The runtime-discovery concept remains architecturally valid, but implementation moved to:
+- **Current:** `scripts/pipelines/test_backend.py` - Consolidated backend testing
+- **Core:** `scripts/core/detect.py` - Platform abstraction layer
+- **Deprecated:** `scripts/build-and-test-backend/*.{ps1,sh}` (see Migration Guide)
+
+**Benefits of Migration:**
+- 42% code reduction (eliminated PowerShell/Bash duplication)
+- Single source of truth for backend testing logic
+- Cross-platform support without dual maintenance
+
+See [Pipeline Migration Guide](../migration/pipeline-migration.md) for complete details.
+
+**Historical Context:** This ADR documents the original decision to adopt runtime
+discovery for polyglot backends. The decision remains architecturally sound; only
+the implementation technology changed (PowerShell/Bash → Python).
+
 ## Implementation Notes
 - Service onboarding checklist:
   - Place service under `services/backend/<service-name>`.

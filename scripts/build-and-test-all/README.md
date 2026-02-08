@@ -1,5 +1,20 @@
 # Full Pipeline: Build and Test All Services
 
+> **⚠️ DEPRECATED - Legacy Scripts**
+>
+> This directory contains legacy PowerShell/Bash scripts that have been superseded by
+> unified cross-platform Python pipelines.
+>
+> **Use Instead:** `python scripts/pipelines/test_all.py`
+>
+> **Migration Guide:** [docs/migration/pipeline-migration.md](../../docs/migration/pipeline-migration.md)
+>
+> **Removal Date:** August 8, 2026
+>
+> ---
+>
+> **Historical Documentation Below** (for reference only)
+
 This directory contains scripts to run a complete integration of both frontend and backend test pipelines, generating comprehensive coverage reports for all services.
 
 ## Overview

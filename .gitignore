@@ -86,6 +86,7 @@ id_rsa
 .vscode/
 .VSCodeCounter/
 TODO.md
+CHANGELOG.md
 
 # Pipeline Migration: Legacy script logs (archived)
 scripts/legacy/**/build-logs/

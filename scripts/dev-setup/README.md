@@ -1,5 +1,20 @@
 # Developer Environment Setup Scripts
 
+> **⚠️ DEPRECATED - Legacy Scripts**
+>
+> This directory contains legacy PowerShell/Bash scripts that have been superseded by
+> unified cross-platform Python pipelines.
+>
+> **Use Instead:** `python scripts/pipelines/setup_dev_env.py`
+>
+> **Migration Guide:** [docs/migration/pipeline-migration.md](../../docs/migration/pipeline-migration.md)
+>
+> **Removal Date:** August 8, 2026
+>
+> ---
+>
+> **Historical Documentation Below** (for reference only)
+
 This directory contains automated setup scripts for onboarding new developers to the CS301 ITSA CRM project.
 
 ## Quick Start

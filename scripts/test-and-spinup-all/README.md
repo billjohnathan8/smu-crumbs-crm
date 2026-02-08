@@ -1,5 +1,20 @@
 # Test and Spin-Up All Services
 
+> **⚠️ DEPRECATED - Legacy Scripts**
+>
+> This directory contains legacy PowerShell/Bash scripts that have been superseded by
+> unified cross-platform Python pipelines.
+>
+> **Use Instead:** `python scripts/pipelines/test_all.py && python scripts/pipelines/deploy_k8s.py`
+>
+> **Migration Guide:** [docs/migration/pipeline-migration.md](../../docs/migration/pipeline-migration.md)
+>
+> **Removal Date:** August 8, 2026
+>
+> ---
+>
+> **Historical Documentation Below** (for reference only)
+
 This directory contains scripts to run a complete end-to-end workflow: test all services (backend + frontend), generate coverage reports, and deploy to a local Kubernetes cluster.
 
 ## Overview

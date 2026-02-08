@@ -15,18 +15,56 @@ Before development work, please read through (open all markdown files using `'Op
 
 ---
 
-## 🚀 New Developer? Start Here!
+## � Prerequisites
 
-**First time setting up this project?** We've got you covered with a one-command bootstrap!
+Before running any build scripts, ensure you have **Python 3.8+** installed:
 
-### Windows (PowerShell)
+**Windows:**
 ```powershell
-.\scripts\dev-setup\setup.ps1
+winget install Python.Python.3.12
 ```
 
-### macOS / Linux (Bash)
+**macOS:**
 ```bash
-bash scripts/dev-setup/setup.sh
+brew install python@3.12
+```
+
+**Linux:**
+```bash
+sudo apt install python3 python3-pip python3-venv  # Ubuntu/Debian
+```
+
+**Why Python?** The project uses cross-platform Python scripts (replacing 6000+ lines of duplicate PowerShell/Bash). Python is already required for the backend `log` service.
+
+**Full details**: [Python Requirement Guide](docs/prerequisites/PYTHON-REQUIREMENT.md)
+
+**Other requirements** (installed automatically by setup script):
+- Docker Desktop - Local Kubernetes cluster
+- Node.js 18+ - Frontend development  
+- Java 21 - Backend services
+- kubectl, helm, kind - Kubernetes tools
+
+---
+
+## 🚀 New Developer? Start Here!
+
+**Don't have Python?** Use the bootstrap script instead:
+
+**Windows:**
+```powershell
+.\scripts\wrappers\bootstrap-setup.cmd --doctor
+```
+
+**macOS/Linux:**
+```bash
+./scripts/wrappers/bootstrap-setup.sh --doctor
+```
+
+**Have Python?** Use the main setup:
+
+### Cross-Platform Setup (Python)
+```bash
+python scripts/pipelines/setup_dev_env.py
 ```
 
 **What it does:**
@@ -35,23 +73,9 @@ bash scripts/dev-setup/setup.sh
 - ✅ Runs full verification (k8s validation, backend tests, frontend tests)
 - ✅ Provides clear diagnostics and next steps
 
-### Afterwards
-Run this after setting up:
-```powershell
-.\scripts\dev-setup\setup.ps1 -Deploy
-```
-
-Notes:
-- This script is idempotent and does not affect existing installations
-- This script runs the entire setup + the test-and-spinup-all
-
 **Want to check your environment first?**
-```powershell
-# Windows
-.\scripts\dev-setup\setup.ps1 --doctor
-
-# macOS/Linux
-bash scripts/dev-setup/setup.sh --doctor
+```bash
+python scripts/pipelines/setup_dev_env.py --doctor
 ```
 
 **📖 Full Guide**: [docs/onboarding/new-dev-setup.md](docs/onboarding/new-dev-setup.md)
@@ -94,11 +118,11 @@ bash scripts/dev-setup/setup.sh --doctor
 - **[API Contracts](docs/api-contracts/openapi)** - OpenAPI specifications for all services
 
 ### Testing & Validation
-- **[CI/CD Workflows](docs/ci-cd-workflows.md)** - Comprehensive GitHub Actions CI/CD pipeline documentation
+- **[CI/CD Workflows](docs/testing/ci-cd-workflows.md)** - Comprehensive GitHub Actions CI/CD pipeline documentation
 - **[Smoke Testing Guide](docs/testing/smoke/README.md)** - Comprehensive guide to infrastructure and probe-aware smoke tests
 - **[K8s Manifest Validation](docs/testing/k8s-validation.md)** - Offline validation of Helm charts and Kustomize overlays
-- **[Backend Testing Pipeline](docs/testing/backend-local-pipeline.md)** - Backend test pipeline design and coverage reports
-- **[Frontend Testing Pipeline](docs/testing/frontend-local-pipeline.md)** - Frontend test pipeline design and coverage reports
+- **[Testing Guide](TESTING-GUIDE.md)** - Cross-platform testing with Python pipelines
+- **[Migration Guide](docs/migration/pipeline-migration.md)** - PowerShell/Bash → Python migration details
 
 ### Scripts & Pipelines
 - **[Build and Deploy K8s Scripts](scripts/build-and-deploy-k8s/README.md)** - Automated deployment pipeline documentation
@@ -118,14 +142,8 @@ Remember to commit each git log wherever and whenever relevant after making code
 ## Running All Services for Build/Test
 Test all services (backend + frontend) and generate comprehensive coverage reports:
 
-```powershell
-.\scripts\build-and-test-all\build-and-test-all.ps1
-```
-```cmd
-.\scripts\build-and-test-all.cmd
-```
 ```bash
-bash ./scripts/build-and-test-all/build-and-test-all.sh
+python scripts/pipelines/test_all.py
 ```
 
 What this does:
@@ -148,14 +166,8 @@ Notes:
 ## Running Test & Spinup All for k8s 
 Test all services (backend + frontend) and deploy to local Kubernetes:
 
-```powershell
-.\scripts\test-and-spinup-all\test-and-spinup-all.ps1
-```
-```cmd
-.\scripts\test-and-spinup-all.cmd
-```
 ```bash
-bash ./scripts/test-and-spinup-all/test-and-spinup-all.sh
+python scripts/pipelines/test_all.py && python scripts/pipelines/deploy_k8s.py
 ```
 
 Notes:
@@ -163,14 +175,8 @@ Notes:
 - Logs are captured under `build-logs/build-and-test-all`, `build-logs/build-and-deploy-k8s`, and `build-logs/test-and-spinup-all`.
 
 ## Running Just k8s Deployment Tests (via kind)
-```powershell
-.\scripts\build-and-deploy-k8s\build-and-deploy-k8s-local.ps1
-```
-```cmd
-.\scripts\build-and-deploy-k8s-local.cmd
-```
 ```bash
-bash ./scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh
+python scripts/pipelines/deploy_k8s.py
 ```
 
 Outputs:
@@ -181,38 +187,26 @@ For full setup, verification, troubleshooting, and teardown, use `docs/local-k8s
 
 ## Running Paritioned Build/Tests
 ### Running Just the Backend Services
-```powershell
-.\scripts\build-and-test-backend\build-and-test-backend.ps1
-```
-```cmd
-.\scripts\build-and-test-backend.cmd
-```
 ```bash
-bash ./scripts/build-and-test-backend/build-and-test-backend.sh
+python scripts/pipelines/test_backend.py
 ```
 
 Outputs:
 - Full terminal output is captured to `build-logs/build-and-test-backend/*.log` (newest-first naming).
 - An aggregated backend coverage summary is generated at `build-logs/build-and-test-backend/index.html` (links to per-service JaCoCo/coverage reports).
 - Open `build-logs/build-and-test-backend/index.html` directly in a normal browser window (`file:///...`); do not use VS Code **Open Preview** for this report.
-- Full pipeline design and report guide: `docs/testing/backend-local-pipeline.md`
+- Full pipeline design: See [Testing Guide](TESTING-GUIDE.md) for detailed documentation.
 
 ### Running Just the Frontend Services
-```powershell
-.\scripts\build-and-test-frontend\build-and-test-frontend.ps1
-```
-```cmd
-.\scripts\build-and-test-frontend.cmd
-```
 ```bash
-bash ./scripts/build-and-test-frontend/build-and-test-frontend.sh
+python scripts/pipelines/test_frontend.py
 ```
 
 Outputs:
 - Full terminal output is captured to `build-logs/build-and-test-frontend/*.log` (newest-first naming).
 - Test coverage report is generated at `services/frontend/crm-ui/coverage/index.html`.
 - Open `services/frontend/crm-ui/coverage/index.html` directly in a normal browser window (`file:///...`).
-- Full pipeline design and report guide: `docs/testing/frontend-local-pipeline.md`
+- Full pipeline design: See [Testing Guide](TESTING-GUIDE.md) for detailed documentation.
 
 For manual testing of frontend UI, use the following credentials for a given agent's account: 
 - Username: `admin@example.com`
@@ -244,7 +238,7 @@ What this checks:
 - **Helm charts** — Renders `ingress-nginx`, `metrics-server`, and `postgresql` templates via `helm template`, then validates each with `kubeconform`
 - **Kustomize overlay** — Renders `platform/k8s/apps/overlays/dev` via `kubectl kustomize`, then validates with `kubeconform`
 
-This step runs automatically at the start of the k8s deploy scripts (`build-and-deploy-k8s-local.sh` / `.ps1`). If validation fails, the deploy is aborted.
+This step runs automatically at the start of the k8s deploy scripts (`python scripts/pipelines/deploy_k8s.py`). If validation fails, the deploy is aborted.
 
 Required tools: `helm`, `kubectl`, `kubeconform`
 
@@ -278,7 +272,7 @@ The repository includes a comprehensive CI/CD pipeline that mirrors the local `t
 **Pipeline Stages** (runs in strict order matching local pipeline):
 
 1. **Job 1: Test All** (`test_all`)
-   - Runs the exact same script as local: `scripts/build-and-test-all/build-and-test-all.sh`
+   - Runs the Python pipeline: `python scripts/pipelines/test_all.py`
    - Tests all backend services (Gradle + Python)
    - Tests frontend service (React/TypeScript)
    - Generates aggregated coverage report
@@ -305,9 +299,9 @@ The repository includes a comprehensive CI/CD pipeline that mirrors the local `t
 
 | Local Command | CI Job | Notes |
 |---------------|--------|-------|
-| `bash scripts/build-and-test-all/build-and-test-all.sh` | `test_all` | Exact same script |
+| `python scripts/pipelines/test_all.py` | `test_all` | Python pipeline (cross-platform) |
 | `make k8s-validate` | `k8s_validate` | Exact same make target |
-| `bash scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh` | `deploy_kind_smoke` | Exact same script |
+| `python scripts/pipelines/deploy_k8s.py` | `deploy_kind_smoke` | Python pipeline (cross-platform) |
 
 ### Running Workflows Manually
 

@@ -1,5 +1,9 @@
 # GitHub Actions CI/CD Workflows
 
+> **Migration Note:** As of February 2026, all CI/CD workflows use unified Python pipelines
+> for cross-platform consistency. See [Pipeline Migration Guide](../migration/pipeline-migration.md)
+> for command mapping and migration details.
+
 This document provides detailed information about the GitHub Actions CI/CD workflows in this repository.
 
 ## Overview
@@ -59,7 +63,7 @@ The CI/CD pipeline mirrors the local `test-and-spinup-all` workflow, running the
 
 **Execution**:
 ```bash
-bash scripts/build-and-test-all/build-and-test-all.sh
+python scripts/pipelines/test_all.py
 ```
 
 **Dependencies**:
@@ -151,7 +155,7 @@ make k8s-validate
 
 **Execution**:
 ```bash
-bash scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh
+python scripts/pipelines/deploy_k8s.py
 ```
 
 **Dependencies**:
@@ -228,7 +232,7 @@ All diagnostics are printed directly in the job logs for immediate visibility.
 | **Environment** | Windows/macOS/Linux | ubuntu-latest |
 | **Scripts** | `test-and-spinup-all.sh` | Same script, same execution order |
 | **Validation** | `make k8s-validate` | Same make target |
-| **Deploy** | `build-and-deploy-k8s-local.sh` | Same script |
+| **Deploy** | `deploy_k8s.py` | Python pipeline (cross-platform) |
 | **Cluster Cleanup** | Automatic teardown | Automatic teardown |
 | **Dependencies** | Manual install via `setup.sh/ps1` | Installed via GitHub Actions |
 | **Logs** | `build-logs/` on local disk | Uploaded as artifacts |
@@ -337,7 +341,7 @@ make k8s-validate
 bash scripts/test-and-spinup-all/test-and-spinup-all.sh
 
 # Just deploy (skip tests)
-bash scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh
+python scripts/pipelines/deploy_k8s.py
 ```
 
 **Manual Cluster Inspection** (if you want to keep cluster running):
@@ -599,9 +603,142 @@ Add this step before Docker builds in `deploy_kind_smoke` job.
 **Solution**: Add Gradle configuration to workflow:
 ```yaml
 - name: Run tests
-  run: bash scripts/build-and-test-all/build-and-test-all.sh
+  run: python scripts/pipelines/test_all.py
   env:
     GRADLE_OPTS: '-Dorg.gradle.daemon=false -Xmx2g'
+```
+
+---
+
+## Automated Testing Scripts
+
+### Complete CI/CD Testing Workflow
+
+For comprehensive validation of the entire CI/CD pipeline, use the orchestration script that ties together all testing phases:
+
+**Script**: [`scripts/test-ci-cd-full/test-ci-cd-full.ps1`](../../scripts/test-ci-cd-full/test-ci-cd-full.ps1)
+
+**Quick Start**:
+```powershell
+# Run full validation (local + GitHub Actions, no PRs)
+.\scripts\test-ci-cd-full.cmd
+
+# Run all phases including E2E workflow with PR creation
+.\scripts\test-ci-cd-full.cmd -CreatePRs -EndToEnd
+
+# Only verify dependencies
+.\scripts\test-ci-cd-full.cmd -VerifyOnly
+
+# Only run local validation
+.\scripts\test-ci-cd-full.cmd -LocalOnly
+```
+
+**What It Does**:
+
+1. **Phase 1: Local Validation** (optional, skipped with `-GitHubOnly`)
+   - Validates GitHub workflow syntax using actionlint
+   - Runs complete local test pipeline (`test-and-spinup-all.ps1`)
+   - Catches issues before pushing to GitHub
+
+2. **Phase 2: GitHub Actions Testing** (optional, skipped with `-LocalOnly`)
+   - Creates test commits on component trunk branches
+   - Monitors workflow runs and collects results
+   - Validates branch policy rules (if `-CreatePRs` specified)
+
+3. **Phase 3: End-to-End Workflow** (optional, enabled with `-EndToEnd`)
+   - Creates feature branch and test PR
+   - Verifies branch policy enforcement
+   - Tests merge cascade workflow
+   - Cleans up test PR and branch
+
+**Output**:
+- Detailed log: `build-logs/test-ci-cd-full/inv{timestamp}__test-ci-cd-full.log`
+- HTML report: `build-logs/test-ci-cd-full/complete-test-report.html`
+
+**Exit Codes**:
+- `0`: All phases passed
+- `1-2`: Phase 1 (local validation) failed
+- `3-6`: Phase 2 (GitHub Actions) failed
+- `7`: Phase 3 (E2E workflow) failed
+- `8`: Timeout or fatal error
+- `9`: Dependency verification failed
+
+**Documentation**: [scripts/test-ci-cd-full/README.md](../../scripts/test-ci-cd-full/README.md)
+
+### Phase 1: Local Validation
+
+Test workflows locally before pushing to GitHub.
+
+**Script**: [`scripts/test-ci-cd-local/test-ci-cd-local.ps1`](../../scripts/test-ci-cd-local/test-ci-cd-local.ps1)
+
+**Quick Start**:
+```powershell
+# Run full local validation
+.\scripts\test-ci-cd-local.cmd
+
+# Only validate workflow syntax
+.\scripts\test-ci-cd-local.cmd -SkipTests
+
+# Only run local test pipeline
+.\scripts\test-ci-cd-local.cmd -SkipActionlint
+
+# Keep cluster running after tests
+.\scripts\test-ci-cd-local.cmd -Keep
+```
+
+**What It Does**:
+1. Validates GitHub workflow YAML syntax using actionlint
+2. Runs the full local test pipeline (`test-and-spinup-all.ps1`)
+3. Generates validation report
+
+**Documentation**: [scripts/test-ci-cd-local/README.md](../../scripts/test-ci-cd-local/README.md)
+
+### Phase 2: GitHub Actions Testing
+
+Test GitHub Actions workflows by pushing test commits.
+
+**Script**: [`scripts/test-ci-cd-github/test-ci-cd-github.ps1`](../../scripts/test-ci-cd-github/test-ci-cd-github.ps1)
+
+**Quick Start**:
+```powershell
+# Test workflows (dry-run, no PRs)
+.\scripts\test-ci-cd-github.cmd -WaitForWorkflows
+
+# Test with PR creation and branch policy validation
+.\scripts\test-ci-cd-github.cmd -CreatePRs -WaitForWorkflows
+
+# Only verify gh CLI is authenticated
+.\scripts\test-ci-cd-github.cmd -VerifyOnly
+```
+
+**What It Does**:
+1. Creates test commits on component trunk branches
+2. Pushes commits to trigger workflows
+3. Monitors workflow runs and collects results
+4. Optionally creates test PRs to validate branch policy
+5. Generates JSON report of workflow results
+
+**Safety**: Runs in dry-run mode by default. Use `-CreatePRs` to actually create PRs.
+
+**Documentation**: [scripts/test-ci-cd-github/README.md](../../scripts/test-ci-cd-github/README.md)
+
+### Recommended Testing Workflow
+
+```powershell
+# 1. Pre-push: Run local validation
+.\scripts\test-ci-cd-local.cmd
+# Exit code 0? Safe to push
+
+# 2. Post-push: Monitor GitHub Actions (automated via CI)
+# Workflows run automatically on push/PR
+
+# 3. Periodic: Full CI/CD health check
+.\scripts\test-ci-cd-full.cmd
+# Review HTML report in build-logs/test-ci-cd-full/
+
+# 4. Pre-release: Complete validation with PRs
+.\scripts\test-ci-cd-full.cmd -CreatePRs -EndToEnd
+# Exit code 0? Ready to release
 ```
 
 ---
@@ -616,7 +753,7 @@ Always test locally before pushing:
 bash scripts/test-and-spinup-all/test-and-spinup-all.sh
 
 # Just tests
-bash scripts/build-and-test-all/build-and-test-all.sh
+python scripts/pipelines/test_all.py
 
 # Just validation
 make k8s-validate
@@ -627,7 +764,7 @@ If it works locally, it should work in CI.
 ### Commit Often, Push After Validation
 
 1. Make changes
-2. Run local tests: `bash scripts/build-and-test-all/build-and-test-all.sh`
+2. Run local tests: `python scripts/pipelines/test_all.py`
 3. Commit changes
 4. Run local validation: `make k8s-validate`
 5. Push to remote
