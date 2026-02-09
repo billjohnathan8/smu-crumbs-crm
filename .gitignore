@@ -91,6 +91,9 @@ TODO.md
 CHANGELOG.md
 NOTES.md
 
+# Debug Screenshots
+services/frontend/crm-ui/debug-*.png
+
 # Pipeline Migration: Legacy script logs (archived)
 scripts/legacy/**/build-logs/
 
