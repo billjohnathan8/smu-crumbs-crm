@@ -434,6 +434,38 @@ if (Test-CommandExists "docker") {
         $null = docker ps 2>&1
         if ($LASTEXITCODE -eq 0) {
             Write-Success "Docker daemon is running"
+
+            # Check for conflicting kind clusters (especially Docker Desktop's default "desktop" cluster)
+            Write-Log "Checking for conflicting kind clusters..."
+            if (Test-CommandExists "kind") {
+                try {
+                    $existingClusters = & kind get clusters 2>&1 | Out-String
+                    if ($existingClusters -match "desktop") {
+                        Write-Warning "Found Docker Desktop's default 'desktop' kind cluster"
+                        Write-Warning "This cluster can conflict with cs301-crm cluster creation (port 8443 conflict)"
+
+                        if (-not $Doctor) {
+                            Write-Log "Cleaning up 'desktop' kind cluster to prevent port conflicts..."
+                            try {
+                                & kind delete cluster --name desktop 2>&1 | Out-Null
+                                if ($LASTEXITCODE -eq 0) {
+                                    Write-Success "Removed conflicting 'desktop' kind cluster"
+                                } else {
+                                    Write-Warning "Could not remove 'desktop' cluster (may need to do manually)"
+                                }
+                            } catch {
+                                Write-Warning "Could not remove 'desktop' cluster: $_"
+                            }
+                        } else {
+                            Add-Issue "kind" "Conflicting 'desktop' cluster found" "Run: kind delete cluster --name desktop"
+                        }
+                    } else {
+                        Write-Log "No conflicting kind clusters found"
+                    }
+                } catch {
+                    Write-Log "Could not check for kind clusters (kind may not be installed yet)"
+                }
+            }
         } else {
             Add-Issue "Docker" "Docker daemon not running" "Start Docker Desktop"
         }

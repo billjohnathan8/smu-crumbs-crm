@@ -380,6 +380,29 @@ if command_exists docker; then
     
     if docker ps >/dev/null 2>&1; then
         log_success "Docker daemon is running"
+
+        # Check for conflicting kind clusters (especially Docker Desktop's default "desktop" cluster)
+        log "Checking for conflicting kind clusters..."
+        if command_exists kind; then
+            existing_clusters=$(kind get clusters 2>/dev/null || echo "")
+            if echo "$existing_clusters" | grep -q "^desktop$"; then
+                log_warning "Found Docker Desktop's default 'desktop' kind cluster"
+                log_warning "This cluster can conflict with cs301-crm cluster creation (port 8443 conflict)"
+
+                if [[ "$DOCTOR" != "true" ]]; then
+                    log "Cleaning up 'desktop' kind cluster to prevent port conflicts..."
+                    if kind delete cluster --name desktop >/dev/null 2>&1; then
+                        log_success "Removed conflicting 'desktop' kind cluster"
+                    else
+                        log_warning "Could not remove 'desktop' cluster (may need to do manually)"
+                    fi
+                else
+                    add_issue "kind" "Conflicting 'desktop' cluster found" "Run: kind delete cluster --name desktop"
+                fi
+            else
+                log "No conflicting kind clusters found"
+            fi
+        fi
     else
         add_issue "Docker" "Docker daemon not running" "Start Docker Desktop or Docker service"
     fi
