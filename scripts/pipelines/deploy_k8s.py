@@ -377,9 +377,9 @@ def main():
         help="Kubernetes namespace (default: dev)"
     )
     parser.add_argument(
-        "--prepull",
+        "--no-prepull",
         action="store_true",
-        help="Pre-pull infrastructure images to speed up deployment (recommended for fresh machines)"
+        help="Skip pre-pull (not recommended for fresh machines, may cause timeouts)"
     )
     args = parser.parse_args()
     
@@ -428,11 +428,22 @@ def main():
         if result.returncode != 0:
             raise RuntimeError(f"Failed to switch kubectl context to '{context_name}'")
 
-        # Optional: Pre-pull infrastructure images (speeds up Helm deployments)
-        if args.prepull:
-            logger.info("Pre-pull enabled: pulling infrastructure images before Helm deployment")
-            with logger.timer("Pre-pull Infrastructure Images"):
-                run_make_target("prepull-infra-images", logger, platform, repo_root)
+        # Pre-pull infrastructure images by default (speeds up Helm deployments)
+        if not args.no_prepull:
+            logger.info("Pre-pulling infrastructure images (use --no-prepull to skip)")
+            logger.info("This may take 5-10 minutes on first run with fresh images")
+            try:
+                with logger.timer("Pre-pull Infrastructure Images"):
+                    run_make_target("prepull-infra-images", logger, platform, repo_root)
+            except RuntimeError as e:
+                logger.error(f"Pre-pull failed: {e}")
+                logger.error("Deployment cannot continue without cached images")
+                if not args.keep:
+                    cleanup_cluster(cluster_name, logger, platform)
+                return 1
+        else:
+            logger.warning("Skipping pre-pull (--no-prepull specified)")
+            logger.warning("Helm will pull images during deployment - may timeout on fresh machines")
 
         # Run deployment targets
         targets = ["infra-up", "build-images", "kind-load", "deploy-dev", "smoke"]

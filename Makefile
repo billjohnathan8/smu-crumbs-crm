@@ -46,9 +46,15 @@ else
 KIND_UP_CMD := $(PYTHON) scripts/platform/kind-up.py
 PREPULL_CMD := $(PYTHON) scripts/platform/prepull-infra-images.py
 INFRA_UP_CMD := $(PYTHON) scripts/platform/infra-up.py
+
+# Verbose mode support (Linux/macOS)
+ifdef VERBOSE
+PREPULL_CMD := $(PYTHON) scripts/platform/prepull-infra-images.py --verbose
+INFRA_UP_CMD := $(PYTHON) scripts/platform/infra-up.py --verbose
+endif
 endif
 
-.PHONY: k8s-validate kind-up kind-down kind-reset prepull-infra-images infra-up build-images kind-load deploy-dev smoke-infra smoke-probes smoke build-and-deploy-local build-and-deploy-local-fast
+.PHONY: k8s-validate kind-up kind-down kind-reset prepull-infra-images infra-up build-images kind-load deploy-dev smoke-infra smoke-probes smoke build-and-deploy-local build-and-deploy-local-fast build-and-deploy-local-no-prepull build-and-deploy-local-verbose
 
 k8s-validate:
 	$(VALIDATE_K8S_CMD)
@@ -105,7 +111,12 @@ smoke-probes:
 
 smoke: smoke-infra smoke-probes
 
-build-and-deploy-local: k8s-validate kind-up infra-up build-images kind-load deploy-dev smoke
+build-and-deploy-local: k8s-validate kind-up prepull-infra-images infra-up build-images kind-load deploy-dev smoke
 
 build-and-deploy-local-fast: k8s-validate kind-up prepull-infra-images infra-up build-images kind-load deploy-dev smoke
+
+build-and-deploy-local-no-prepull: k8s-validate kind-up infra-up build-images kind-load deploy-dev smoke
+
+build-and-deploy-local-verbose:
+	$(MAKE) build-and-deploy-local VERBOSE=1
 

@@ -30,12 +30,16 @@ from common.utils import (
 class InfraDeployer:
     """Deploys Kubernetes infrastructure components using Helm."""
 
-    def __init__(self):
+    def __init__(self, verbose: bool = False):
         self.logger = create_logger("infra-up")
         self.platform_info = create_platform_info()
         self.finder = create_executable_finder()
         self.runner = create_command_runner(self.logger)
         self.repo_root = get_repo_root()
+        self.verbose = verbose
+
+        if self.verbose:
+            self.logger.info("Verbose mode enabled - showing detailed Helm output")
 
         # Find required tools
         try:
@@ -128,6 +132,11 @@ class InfraDeployer:
                 "--wait"
             ]
 
+            # Add debug flag for verbose mode
+            if self.verbose:
+                cmd.append("--debug")
+                self.logger.info(f"Running Helm with --debug: {' '.join(cmd)}")
+
             # Add values file if specified
             if values_file:
                 values_path = self.repo_root / values_file
@@ -201,14 +210,15 @@ class InfraDeployer:
             return 1
 
         # Deploy ingress-nginx
-        # Note: ingress-nginx image is ~800MB-1GB; first pull can exceed 5m on slower networks
+        # Note: ingress-nginx image is ~800MB-1GB
+        # Even with pre-pull, allow generous timeout for extraction/startup/readiness
         if not self.deploy_chart(
             release_name="ingress-nginx",
             chart="ingress-nginx/ingress-nginx",
             namespace="ingress-nginx",
             values_file=None,
-            timeout="10m",  # Extended timeout for large image
-            max_attempts=2
+            timeout="15m",  # Safety margin even with pre-pull
+            max_attempts=3  # Increased retry attempts
         ):
             return 1
 
@@ -253,8 +263,22 @@ class InfraDeployer:
 
 
 def main() -> int:
-    """Main entry point."""
-    deployer = InfraDeployer()
+    """Main entry point with CLI argument parsing."""
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Deploy Kubernetes infrastructure components (ingress-nginx, metrics-server, postgresql)"
+    )
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Show detailed Helm output with --debug flag for troubleshooting"
+    )
+
+    args = parser.parse_args()
+
+    deployer = InfraDeployer(verbose=args.verbose)
     return deployer.run()
 
 

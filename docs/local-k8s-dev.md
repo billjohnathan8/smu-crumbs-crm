@@ -26,8 +26,27 @@ Notes:
 
 **Quick start:**
 ```bash
-# Cross-platform (recommended)
+# Standard deployment (with automatic pre-pull, recommended)
 python scripts/pipelines/deploy_k8s.py
+
+# Verbose mode for troubleshooting or first-time setup
+python scripts/pipelines/deploy_k8s.py --verbose
+
+# First-time setup script (comprehensive tracing)
+.\scripts\first-time-setup.ps1  # Windows
+./scripts/first-time-setup.sh   # Linux/macOS
+```
+
+**Using Makefile:**
+```bash
+# Standard deployment
+make build-and-deploy-local
+
+# With verbose tracing
+make build-and-deploy-local-verbose
+
+# Skip pre-pull (not recommended for fresh machines)
+make build-and-deploy-local-no-prepull
 ```
 
 **Legacy wrappers (deprecated, use Python above):**
@@ -43,6 +62,8 @@ bash ./scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh
 
 > **Note:** Legacy scripts are deprecated and will be removed August 8, 2026.
 > See [Migration Guide](migration/pipeline-migration.md) for details.
+
+> **🆕 Feb 2026 Update:** Infrastructure image pre-pull is now **enabled by default** to prevent timeout failures on fresh machines. This adds 3-5 minutes on first run but prevents 10+ minute Helm timeouts. See [Image Pre-Pull Guide](deployment/image-prepull.md) for details.
 
 The local flow does not require AWS resources. AWS-oriented architecture docs exist separately for target-state planning.
 
@@ -91,6 +112,140 @@ Do not use `platform/k8s-apps/*` (legacy path, has been removed).
 For detailed tool installation instructions, see [K8s Manifest Validation Guide](testing/k8s-validation.md#installation).
 
 **Troubleshooting Windows PATH issues:** See [WSL PATH inheritance fix](fixes/wsl-path-inheritance-fix.md).
+
+## 🆕 Tracing and Verbose Modes (Feb 2026)
+
+As of February 2026, comprehensive tracing capabilities are available for troubleshooting deployments, especially useful for first-time setup or debugging timeout issues.
+
+### Verbose Deployment Options
+
+#### 1. Python Pipeline with Verbose Flag
+```bash
+# Shows detailed Helm output, Docker progress, and image verification
+python scripts/pipelines/deploy_k8s.py --verbose
+```
+
+**What you'll see:**
+- Real-time Docker pull progress bars
+- Detailed Helm deployment output (`--debug` flag)
+- Image size and creation date after each pull
+- Full command traces
+- Pod status updates during deployment
+
+#### 2. Makefile Verbose Target
+```bash
+# Enables verbose mode for all deployment steps
+make build-and-deploy-local-verbose
+
+# Or use VERBOSE variable with any target
+make infra-up VERBOSE=1
+make prepull-infra-images VERBOSE=1
+```
+
+#### 3. First-Time Setup Script (Recommended for New Machines)
+```bash
+# Windows
+.\scripts\first-time-setup.ps1
+
+# Linux/macOS
+./scripts/first-time-setup.sh
+```
+
+**Features:**
+- Automatic dependency checking
+- Verbose tracing enabled by default
+- Real-time progress output
+- Timestamped logs in `build-logs/first-time-setup/`
+- Comprehensive HTML report generation
+- ~10-15 minutes on first run (3-5 minutes on subsequent runs)
+
+#### 4. Individual Script Verbose Modes
+```bash
+# Pre-pull with detailed output
+python scripts/platform/prepull-infra-images.py --verbose
+
+# Infrastructure deployment with Helm debug output
+python scripts/platform/infra-up.py --verbose
+```
+
+### Real-Time Monitoring
+
+While deployment is running, open a **second terminal** to watch events:
+
+```bash
+# Watch all pod status changes
+kubectl get pods -A --watch
+
+# Watch only error events
+kubectl get events -A --watch --field-selector type!=Normal
+
+# Monitor specific namespace
+kubectl get pods -n ingress-nginx --watch
+
+# Describe a stuck pod
+kubectl describe pod <pod-name> -n ingress-nginx
+
+# Follow container logs
+kubectl logs -f <pod-name> -n ingress-nginx
+```
+
+### Logging to File
+
+Capture complete output for later analysis:
+
+```bash
+# Full verbose deployment with timestamped log
+make build-and-deploy-local-verbose 2>&1 | tee deployment-$(date +%Y%m%d-%H%M%S).log
+
+# Python pipeline to file
+python scripts/pipelines/deploy_k8s.py --verbose 2>&1 | tee deployment.log
+
+# First-time setup (logs automatically saved)
+.\scripts\first-time-setup.ps1
+# Logs: build-logs/first-time-setup/setup-YYYYMMDD-HHMMSS.log
+```
+
+### Deployment Reports
+
+After any deployment, check the comprehensive HTML report:
+
+```bash
+# Open deployment report (Windows)
+start build-logs/build-and-deploy-k8s/deployment-report.html
+
+# Linux/macOS
+open build-logs/build-and-deploy-k8s/deployment-report.html
+xdg-open build-logs/build-and-deploy-k8s/deployment-report.html
+```
+
+**Report includes:**
+- Timeline with timestamps for each phase
+- Success/failure status for each step
+- Complete stdout/stderr capture
+- Performance metrics (time per step)
+- Color-coded status indicators
+
+### Infrastructure Image Pre-Pull (Default)
+
+As of Feb 2026, **image pre-pull is enabled by default** to prevent timeout failures:
+
+**Images pre-pulled (~1-2GB total):**
+- `ingress-nginx/controller:v1.14.3` (~800MB-1GB)
+- `ingress-nginx/kube-webhook-certgen:v20250202-stable-patch1`
+- `metrics-server/metrics-server:v0.8.0`
+- `bitnami/postgresql:17.2.0-debian-12-r10`
+
+**Time impact:**
+- Fresh machine: +3-5 minutes (prevents 10+ minute timeouts)
+- Cached images: <1 minute
+
+**Opt-out (not recommended):**
+```bash
+python scripts/pipelines/deploy_k8s.py --no-prepull
+make build-and-deploy-local-no-prepull
+```
+
+See [Image Pre-Pull Guide](deployment/image-prepull.md) for complete documentation.
 
 ## Golden path (recommended)
 

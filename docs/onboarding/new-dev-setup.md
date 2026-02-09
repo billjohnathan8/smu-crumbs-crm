@@ -6,32 +6,73 @@
 
 ## Quick Start (TL;DR)
 
-### Windows (PowerShell)
+### Option 1: First-Time Setup (Recommended for New Machines)
+
+#### Windows (PowerShell)
 ```powershell
 # Clone the repo
 git clone <repository-url>
 cd project-2025-26-t2-project-2025-26t2-g2-t3
 
-# Run one-command setup
-.\scripts\dev-setup\setup.ps1
+# Run first-time setup with comprehensive tracing
+.\scripts\first-time-setup.ps1
 ```
 
-### macOS / Linux (Bash)
+#### macOS / Linux (Bash)
 ```bash
 # Clone the repo
 git clone <repository-url>
 cd project-2025-26-t2-project-2025-26t2-g2-t3
 
-# Run one-command setup
-bash scripts/dev-setup/setup.sh
+# Run first-time setup with comprehensive tracing
+chmod +x scripts/first-time-setup.sh
+./scripts/first-time-setup.sh
 ```
 
-That's it! The script will:
+**What it does:**
+1. ✅ Checks all system dependencies (Docker, Git, Java, Node.js, etc.)
+2. ✅ Enables verbose tracing for troubleshooting
+3. ✅ Pre-pulls infrastructure images (~1-2GB) to prevent timeouts
+4. ✅ Deploys to Kubernetes with detailed logs and progress
+5. ✅ Generates comprehensive HTML report
+6. ✅ Saves timestamped logs to `build-logs/first-time-setup/`
+
+**Time:** 10-15 minutes on fresh machines with fast network
+
+### Option 2: Manual Setup (Advanced)
+
+#### Windows (PowerShell)
+```powershell
+# Clone the repo
+git clone <repository-url>
+cd project-2025-26-t2-project-2025-26t2-g2-t3
+
+# Run environment setup only
+python scripts/pipelines/setup_dev_env.py
+```
+
+#### macOS / Linux (Bash)
+```bash
+# Clone the repo
+git clone <repository-url>
+cd project-2025-26-t2-project-2025-26t2-g2-t3
+
+# Run environment setup only
+python3 scripts/pipelines/setup_dev_env.py
+```
+
+**What it does:**
 1. ✅ Check your environment and detect what's installed
 2. ✅ Install missing tools (portable by default, minimal global installs)
 3. ✅ Configure dependencies (npm, Gradle, Python venv)
-4. ✅ Run verification pipelines to ensure everything works
-5. ✅ Provide clear next steps
+4. ✅ Provide clear next steps
+
+**Then deploy manually:**
+```bash
+python scripts/pipelines/deploy_k8s.py --verbose  # With tracing (recommended)
+# OR
+python scripts/pipelines/deploy_k8s.py  # Standard mode
+```
 
 ---
 
@@ -206,6 +247,100 @@ bash scripts/dev-setup/setup.sh --deploy-only
 - Useful for iterating on k8s deployment issues when tests already pass
 - Takes ~5-8 minutes total
 - Logs go to `build-logs/build-and-deploy-k8s/`
+
+### 6. **First-Time Setup with Tracing** (Recommended for New Machines)
+```powershell
+# Windows
+.\scripts\first-time-setup.ps1
+
+# macOS/Linux
+chmod +x scripts/first-time-setup.sh
+./scripts/first-time-setup.sh
+```
+- **Optimized for fresh machines and troubleshooting**
+- Automatically enables verbose tracing mode
+- Shows real-time Docker image pull progress
+- Displays detailed Helm deployment output
+- Pre-pulls infrastructure images (~1-2GB) to prevent timeouts
+- Generates timestamped logs in `build-logs/first-time-setup/`
+- Creates comprehensive HTML report
+- Takes ~10-15 minutes on first run (3-5 minutes on subsequent runs)
+
+**What you see:**
+```
+========================================
+FIRST-TIME SETUP WITH TRACING ENABLED
+========================================
+Log file: build-logs/first-time-setup/setup-20260209-143022.log
+
+Step 1/4: Checking system dependencies...
+[OK] Docker Desktop is running
+[OK] Git version 2.43.0
+[OK] Java 21.0.1
+[OK] Node.js v20.11.0
+
+Step 2/4: Deploying to Kubernetes (VERBOSE mode)...
+Pre-pulling infrastructure images...
+[1/4] registry.k8s.io/ingress-nginx/controller:v1.14.3
+... [real-time Docker progress bars] ...
+[SUCCESS] All 4 images loaded successfully!
+
+[INFO] Running Helm with --debug: helm upgrade --install...
+... [detailed Helm output] ...
+[SUCCESS] Deployment successful!
+
+========================================
+FIRST-TIME SETUP COMPLETE!
+========================================
+```
+
+**Options:**
+```bash
+# Skip deployment, setup only
+.\scripts\first-time-setup.ps1 -SkipDeploy
+./scripts/first-time-setup.sh --skip-deploy
+```
+
+---
+
+## 🆕 Infrastructure Image Pre-Pull (Feb 2026 Update)
+
+As of February 2026, **infrastructure image pre-pull is enabled by default** in all deployment workflows to prevent timeout failures on fresh machines.
+
+**What changed:**
+- ✅ Pre-pull now runs automatically (no `--prepull` flag needed)
+- ✅ Fail-fast by default (clear errors instead of silent failures)
+- ✅ Real-time progress output (see docker pull happening)
+- ✅ Image verification after pulling
+- ✅ Increased Helm timeouts (15m for ingress-nginx, up from 10m)
+
+**Images pre-pulled (~1-2GB total):**
+- `ingress-nginx/controller:v1.14.3` (~800MB-1GB)
+- `ingress-nginx/kube-webhook-certgen:v20250202-stable-patch1`
+- `metrics-server/metrics-server:v0.8.0`
+- `bitnami/postgresql:17.2.0-debian-12-r10`
+
+**Time impact:**
+- **Fresh machine**: Adds 3-5 minutes (prevents 10+ minute timeouts)
+- **Cached images**: Completes in <1 minute
+
+**Verbose tracing:**
+```bash
+# Enable detailed output for troubleshooting
+python scripts/pipelines/deploy_k8s.py --verbose
+make build-and-deploy-local-verbose
+python scripts/platform/prepull-infra-images.py --verbose
+python scripts/platform/infra-up.py --verbose
+```
+
+**Opt-out (not recommended for fresh machines):**
+```bash
+# Skip pre-pull (may cause timeouts on first deployment)
+python scripts/pipelines/deploy_k8s.py --no-prepull
+make build-and-deploy-local-no-prepull
+```
+
+See [Image Pre-Pull Guide](../deployment/image-prepull.md) for complete documentation.
 
 ---
 

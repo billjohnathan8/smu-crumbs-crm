@@ -40,6 +40,26 @@ Before running the setup, ensure you have these installed:
 **See:** [Complete Prerequisites Guide](docs/prerequisites/other-requirements.md) for detailed installation instructions.
 
 ### Get Started
+
+#### Option 1: First-Time Setup (Recommended for New Machines)
+```bash
+# Automated setup with comprehensive tracing (Windows)
+.\scripts\first-time-setup.ps1
+
+# Or on Linux/macOS
+chmod +x scripts/first-time-setup.sh
+./scripts/first-time-setup.sh
+```
+This script automatically:
+- ✅ Checks all dependencies
+- ✅ Enables verbose tracing for troubleshooting
+- ✅ Pre-pulls infrastructure images (prevents timeouts)
+- ✅ Deploys to Kubernetes with detailed logs
+- ✅ Generates comprehensive HTML report
+
+Logs saved to: `build-logs/first-time-setup/setup-YYYYMMDD-HHMMSS.log`
+
+#### Option 2: Manual Setup
 ```bash
 # 1. Setup your development environment (installs tools, verifies dependencies)
 python scripts/pipelines/setup_dev_env.py
@@ -47,8 +67,11 @@ python scripts/pipelines/setup_dev_env.py
 # 2. Run all tests (backend + frontend)
 python scripts/pipelines/test_all.py
 
-# 3. Deploy to local Kubernetes cluster
+# 3. Deploy to local Kubernetes cluster (with automatic image pre-pull)
 python scripts/pipelines/deploy_k8s.py
+
+# 3b. Deploy with verbose tracing (for troubleshooting or first-time setup)
+python scripts/pipelines/deploy_k8s.py --verbose
 ```
 
 ✅ **Success?** Access the CRM UI at [http://localhost](http://localhost) and APIs at `/api/*` endpoints.
@@ -116,11 +139,21 @@ Notes:
 - /xfactor-backend branch has no GitHub Actions CI/CD Setup yet.
 
 ### Average Script/Pipeline Timings
+
+**Fresh Machine (First Run):**
+- First-time setup with tracing: ~10-15 minutes
+- Pre-pull infrastructure images: 3-5 minutes (with fast network)
+- K8s Deployment + Smoke Tests: 8-13 minutes total
+
+**Cached Images (Subsequent Runs):**
 - Setup / Bootstrap Script: 502.6s
 - Backend Pipeline: 141.6s
 - Frontend Pipeline: 223.0s
-- K8s Deployment + Smoke Tests Pipeline: 490.0s
-- Refer to GitHub Actions for more accurate parallelized timings for CI//CD minutes.
+- K8s Deployment + Smoke Tests Pipeline: 3-5 minutes (images cached)
+
+**Note:** As of Feb 2026, infrastructure images (~1-2GB) are pre-pulled by default before Helm deployment. This prevents timeout failures but adds 3-5 minutes on first run with fresh machines. Subsequent deployments are much faster (~3-5 minutes total) as images are cached.
+
+Refer to GitHub Actions for more accurate parallelized timings for CI/CD minutes.
 
 ---
 
@@ -152,20 +185,37 @@ python run-local-test-pipeline.py  # Python log service
 # Validate manifests (fast, no cluster needed)
 make k8s-validate
 
-# Full deploy (creates cluster, deploys apps, runs smoke tests)
+# Full deploy (creates cluster, pre-pulls images, deploys apps, runs smoke tests)
 python scripts/pipelines/deploy_k8s.py
 
+# Verbose deployment (shows detailed Helm output, Docker progress)
+python scripts/pipelines/deploy_k8s.py --verbose
+make build-and-deploy-local-verbose  # Or use Make target
+
+# Skip pre-pull (not recommended for fresh machines)
+python scripts/pipelines/deploy_k8s.py --no-prepull
+
 # Keep cluster for debugging
-python scripts/pipelines/deploy_k8s.py --keep-cluster
+python scripts/pipelines/deploy_k8s.py --keep
 
 # Manual deployment steps (advanced)
-make kind-up          # Create cluster
-make infra-up         # Deploy infrastructure (PostgreSQL, ingress, metrics)
-make build-images     # Build Docker images
-make kind-load        # Load images into kind
-make deploy-dev       # Deploy applications
-make smoke            # Run smoke tests
+make kind-up                 # Create cluster
+make prepull-infra-images    # Pre-pull infrastructure images (now default)
+make prepull-infra-images VERBOSE=1  # With detailed tracing
+make infra-up                # Deploy infrastructure (PostgreSQL, ingress, metrics)
+make infra-up VERBOSE=1      # With Helm debug output
+make build-images            # Build Docker images
+make kind-load               # Load images into kind
+make deploy-dev              # Deploy applications
+make smoke                   # Run smoke tests
+
+# Deployment variants
+make build-and-deploy-local           # Default (includes pre-pull)
+make build-and-deploy-local-verbose   # With detailed tracing
+make build-and-deploy-local-no-prepull  # Skip pre-pull (not recommended)
 ```
+
+**Note:** As of Feb 2026, infrastructure image pre-pull is **enabled by default** to prevent timeout failures on fresh machines. The ~1-2GB of images are pulled and verified before Helm deployment starts.
 
 ### Environment Check
 ```bash
@@ -285,9 +335,13 @@ This is an academic project developed for CS301 (Software Engineering Project) a
 | Issue | Solution |
 |-------|----------|
 | **Docker daemon not running** | Start Docker Desktop and verify: `docker info` |
+| **Helm timeout on first deployment** | Use first-time setup script: `.\scripts\first-time-setup.ps1` (enables pre-pull) |
+| **Image pull timeout** | Increase timeout: `python scripts/platform/prepull-infra-images.py --timeout 1800` |
+| **Pre-pull fails** | Check Docker: `docker ps`, or use verbose mode: `--verbose` |
 | **Python not found** | Install Python 3.8+: [Installation Guide](docs/prerequisites/PYTHON-REQUIREMENT.md) |
 | **Tests failing** | Check [Testing Guide](docs/testing/TESTING-GUIDE.md) troubleshooting section |
-| **K8s deployment issues** | See [Local K8s Troubleshooting](docs/local-k8s-dev.md#common-failure-modes-and-debug-commands) |
+| **K8s deployment issues** | Enable verbose: `make build-and-deploy-local-verbose` or see [Troubleshooting](docs/local-k8s-dev.md#common-failure-modes-and-debug-commands) |
 | **Environment setup issues** | Run: `python scripts/pipelines/setup_dev_env.py --doctor` |
+| **Need detailed logs** | Check: `build-logs/first-time-setup/` or `build-logs/build-and-deploy-k8s/deployment-report.html` |
 
-**Need more help?** See the [complete troubleshooting guide](docs/troubleshooting.md).
+**Need more help?** See the [complete troubleshooting guide](docs/troubleshooting.md) or [image pre-pull guide](docs/deployment/image-prepull.md).
