@@ -577,7 +577,84 @@ if (-not $pythonFound) {
 }
 
 # ============================================================================
-# CLI TOOLS INSTALLATION
+# CHECK FOR REQUIRED SYSTEM DEPENDENCIES
+# ============================================================================
+
+# Define required system dependencies (not including optional Python or portable CLI tools)
+$requiredSystemDeps = @("Docker", "Git", "Java", "Node.js", "npm", "Make")
+
+# Filter issues to only those related to required system dependencies
+$systemDepIssues = $script:Issues | Where-Object { $requiredSystemDeps -contains $_.Tool }
+
+if ($systemDepIssues.Count -gt 0) {
+    Write-Log ""
+    Write-Log "========================================"
+    Write-Error "MISSING REQUIRED SYSTEM DEPENDENCIES"
+    Write-Log "========================================"
+    Write-Log ""
+    Write-Log "The following required system dependencies are missing or have issues:"
+    Write-Log ""
+
+    foreach ($issue in $systemDepIssues) {
+        Write-Log "  ❌ $($issue.Tool)"
+        Write-Log "     Problem: $($issue.Message)"
+        if ($issue.Fix) {
+            Write-Log "     Fix: $($issue.Fix)"
+        }
+        Write-Log ""
+    }
+
+    Write-Log "========================================"
+    Write-Log "INSTALLATION INSTRUCTIONS"
+    Write-Log "========================================"
+    Write-Log ""
+    Write-Log "Please install all required system dependencies before running this setup script."
+    Write-Log ""
+    Write-Log "Quick install commands:"
+    Write-Log ""
+    Write-Log "  Docker Desktop:"
+    Write-Log "    Download from: https://www.docker.com/products/docker-desktop/"
+    Write-Log "    Or use: winget install Docker.DockerDesktop"
+    Write-Log ""
+    Write-Log "  Git:"
+    Write-Log "    Download from: https://git-scm.com/downloads"
+    Write-Log "    Or use: winget install Git.Git"
+    Write-Log ""
+    Write-Log "  Java 21 (Temurin):"
+    Write-Log "    Download from: https://adoptium.net/"
+    Write-Log "    Or use: winget install EclipseAdoptium.Temurin.21.JDK"
+    Write-Log ""
+    Write-Log "  Node.js (LTS):"
+    Write-Log "    Download from: https://nodejs.org/"
+    Write-Log "    Or use: winget install OpenJS.NodeJS.LTS"
+    Write-Log ""
+    Write-Log "  Make:"
+    Write-Log "    Option 1: scoop install make"
+    Write-Log "    Option 2: Install Git for Windows (includes make in Git Bash)"
+    Write-Log ""
+    Write-Log "After installing these dependencies, run this setup script again."
+    Write-Log ""
+    Write-Log "For detailed installation instructions, see:"
+    Write-Log "  docs/onboarding/new-dev-setup.md"
+    Write-Log ""
+
+    Write-PhaseEnd "Environment Checks"
+
+    $totalDuration = (Get-Date) - $script:SetupStartTime
+    Write-Log ""
+    Write-Log "Total time: $($totalDuration.ToString('mm\:ss'))"
+    Write-Log ""
+    Write-Error "Setup failed: Missing required system dependencies."
+    Write-Log "Please install all required dependencies and try again."
+
+    if (-not $Doctor) {
+        Write-Log ""
+        Write-Log "Full log: $LogFile"
+    }
+
+    exit 1
+}
+
 Write-PhaseEnd "Environment Checks"
 
 # ============================================================================

@@ -59,7 +59,13 @@ bash scripts/dev-setup/setup.sh
 - Provides actionable fixes for each issue
 - Clear error messages with troubleshooting hints
 
-### 4. **Minimal Global Installs**
+### 4. **Fail-Fast on Missing Dependencies**
+- **NEW**: The setup script will immediately exit if any required system dependencies are missing
+- Displays a comprehensive list of all missing dependencies with installation instructions
+- Prevents partial setup that could lead to confusing errors later
+- Use `--doctor` mode to check dependencies without attempting setup
+
+### 5. **Minimal Global Installs**
 Only these must be installed globally (no workarounds):
 - Docker Desktop/Docker Engine
 - Git
@@ -191,6 +197,38 @@ build-logs/dev-setup/setup_<timestamp>.log
 
 Each run creates a timestamped log file for debugging.
 
+## Required System Dependencies Check
+
+**NEW BEHAVIOR (February 2026)**: The setup scripts now enforce strict dependency checking. If any required system dependency is missing, the script will:
+
+1. **Immediately stop** after the environment check phase
+2. **Display a detailed report** listing all missing dependencies
+3. **Provide installation instructions** specific to your platform
+4. **Exit with code 1** to prevent partial setup
+
+### What Are Required System Dependencies?
+
+These tools **must be installed manually** before running the setup script:
+- **Docker Desktop** (or Docker Engine) — Docker daemon must be running
+- **Git** — Version control
+- **Java 21** — Backend services require Java 21+ (not Java 17 or earlier)
+- **Node.js >= 18** — Frontend build tools and runtime
+- **npm** — Usually bundled with Node.js
+- **Make** — Build automation (Git Bash includes this on Windows)
+
+### What Gets Installed Automatically?
+
+These CLI tools are **downloaded automatically** by the setup script (no manual install needed):
+- kubectl
+- helm
+- kind
+- kubeconform
+
+### Optional Dependencies
+
+These are **not required** for setup to succeed:
+- **Python 3.8+** — Recommended for HTML report generation, but not required
+
 ## What Gets Installed?
 
 ### System Dependencies (Global, Required)
@@ -199,7 +237,7 @@ Each run creates a timestamped log file for debugging.
 - **Java 21** (Temurin/OpenJDK) — Backend services (Spring Boot)
 - **Node.js >= 18** — Frontend (React 19 + Vite)
 - **Make** — Build automation
-- **Python 3.8+** — Cross-platform build scripts and log service backend
+- **Python 3.8+** (Optional) — Cross-platform build scripts and log service backend
 
 ### CLI Tools (Portable by Default)
 - **kubectl** — Kubernetes CLI
@@ -300,6 +338,22 @@ Current pinned versions (as of Feb 2026):
 **Python**: Recommends >= 3.7 (optional, for report generation)
 
 ## Troubleshooting
+
+### "MISSING REQUIRED SYSTEM DEPENDENCIES" Error
+**What it means**: The setup script detected that one or more required system dependencies are not installed or have issues.
+
+**What to do**:
+1. Read the error message carefully — it lists all missing dependencies
+2. Follow the installation instructions provided in the error output
+3. Install all missing dependencies manually
+4. Run the setup script again
+
+**Example**: If you see "Docker not found", you must install Docker Desktop before proceeding. The script will not continue without it.
+
+**Tip**: Use `--doctor` mode to check your environment without making any changes:
+```powershell
+.\scripts\dev-setup\setup.ps1 -Doctor
+```
 
 ### "Docker daemon not running"
 **Fix**: Start Docker Desktop, wait for "Running" status in system tray.

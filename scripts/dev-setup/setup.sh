@@ -498,6 +498,113 @@ if [[ "$python_found" != "true" ]]; then
     log_warning "Python not found (optional). Recommended for HTML report generation."
 fi
 
+# ============================================================================
+# CHECK FOR REQUIRED SYSTEM DEPENDENCIES
+# ============================================================================
+
+# Define required system dependencies (not including optional Python or portable CLI tools)
+required_system_deps=("Docker" "Git" "Java" "Node.js" "npm" "Make")
+
+# Filter issues to only those related to required system dependencies
+system_dep_issues=()
+for issue in "${ISSUES[@]}"; do
+    IFS='|' read -r tool message fix <<< "$issue"
+    for required_dep in "${required_system_deps[@]}"; do
+        if [[ "$tool" == "$required_dep" ]]; then
+            system_dep_issues+=("$issue")
+            break
+        fi
+    done
+done
+
+if [[ ${#system_dep_issues[@]} -gt 0 ]]; then
+    log ""
+    log "========================================"
+    log_error "MISSING REQUIRED SYSTEM DEPENDENCIES"
+    log "========================================"
+    log ""
+    log "The following required system dependencies are missing or have issues:"
+    log ""
+
+    for issue in "${system_dep_issues[@]}"; do
+        IFS='|' read -r tool message fix <<< "$issue"
+        log "  ❌ $tool"
+        log "     Problem: $message"
+        if [[ -n "$fix" ]]; then
+            log "     Fix: $fix"
+        fi
+        log ""
+    done
+
+    log "========================================"
+    log "INSTALLATION INSTRUCTIONS"
+    log "========================================"
+    log ""
+    log "Please install all required system dependencies before running this setup script."
+    log ""
+    log "Quick install commands:"
+    log ""
+
+    if [[ "$OS_TYPE" == "macos" ]]; then
+        log "  Docker Desktop:"
+        log "    Download from: https://www.docker.com/products/docker-desktop/"
+        log "    Or use: brew install --cask docker"
+        log ""
+        log "  Git:"
+        log "    brew install git"
+        log ""
+        log "  Java 21:"
+        log "    brew install openjdk@21"
+        log ""
+        log "  Node.js (LTS):"
+        log "    brew install node@18"
+        log ""
+        log "  Make:"
+        log "    brew install make"
+        log ""
+    elif [[ "$OS_TYPE" == "linux" ]]; then
+        log "  Docker:"
+        log "    See: https://docs.docker.com/engine/install/"
+        log ""
+        log "  Git:"
+        log "    sudo apt-get install git"
+        log ""
+        log "  Java 21:"
+        log "    sudo apt-get install openjdk-21-jdk"
+        log ""
+        log "  Node.js (LTS):"
+        log "    See: https://nodejs.org/ or use nvm"
+        log ""
+        log "  Make:"
+        log "    sudo apt-get install make"
+        log ""
+    fi
+
+    log "After installing these dependencies, run this setup script again."
+    log ""
+    log "For detailed installation instructions, see:"
+    log "  docs/onboarding/new-dev-setup.md"
+    log ""
+
+    phase_end "Environment Checks"
+
+    total_duration=$(($(date +%s) - SETUP_START_TIME))
+    minutes=$((total_duration / 60))
+    seconds=$((total_duration % 60))
+    log ""
+    log "Total time: ${minutes}:${seconds}"
+    log ""
+    log_error "Setup failed: Missing required system dependencies."
+    log "Please install all required dependencies and try again."
+
+    if [[ "$DOCTOR" != "true" ]]; then
+        log ""
+        log "Full log: $LOG_FILE"
+    fi
+
+    exit 1
+fi
+
 phase_end "Environment Checks"
 
 # ============================================================================
