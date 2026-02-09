@@ -87,6 +87,68 @@ Output in `dist/`
 npm run preview
 ```
 
+## Manual Testing
+
+### Starting the Application
+
+To manually test the frontend, start the development server:
+
+```bash
+cd services/frontend/crm-ui
+npm install  # if not already done
+npm run dev
+```
+
+The application will be available at **http://localhost:5173**
+
+### Test Credentials
+
+Use these credentials for manual testing:
+
+**Admin Account:**
+- Email: `admin@example.com`
+- Password: `password123`
+- Access: Admin Dashboard (`/admin`), Manage Accounts (`/admin/accounts`)
+
+**Agent Account:**
+- Email: `agent@example.com`
+- Password: `password123`
+- Access: Agent Dashboard (`/agent`), Create Client (`/agent/clients/new`), View Transactions (`/agent/transactions`)
+
+### Manual Test Scenarios
+
+**Admin Flow:**
+1. Login with admin credentials
+2. Verify redirect to `/admin` dashboard
+3. Navigate to "Manage Accounts"
+4. Test account management features
+
+**Agent Flow:**
+1. Login with agent credentials
+2. Verify redirect to `/agent` dashboard
+3. Navigate to "Create Client"
+4. Test client creation with form validation
+5. Navigate to "View Transactions"
+6. Test transaction listing and filters
+
+**Authentication Testing:**
+- Test invalid credentials (should show error)
+- Test wrong role access (admin trying to access `/agent` should see 403)
+- Test logout functionality
+
+### Backend Services Requirement
+
+The frontend requires backend services to be running. The Vite dev server proxies API calls to `http://localhost/api`.
+
+**Option 1: Deploy to local Kubernetes**
+```bash
+# From repository root
+python scripts/pipelines/deploy_k8s.py
+```
+
+**Option 2: Access via Kubernetes ingress**
+After deploying to kind cluster, access the full application at **http://localhost/** (port 80)
+
 ## Testing
 
 ### Unit Tests
