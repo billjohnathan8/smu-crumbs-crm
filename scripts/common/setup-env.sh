@@ -29,13 +29,13 @@ elif [[ -n "${WINDIR:-}" ]] || [[ "$(uname -s)" =~ ^(MINGW|MSYS|CYGWIN) ]]; then
 fi
 
 # Function to add directory to PATH if it exists and isn't already in PATH
+# Always returns 0 to avoid triggering set -e in calling scripts
 add_to_path() {
     local dir="$1"
     if [[ -d "${dir}" ]] && [[ ":${PATH}:" != *":${dir}:"* ]]; then
         export PATH="${dir}:${PATH}"
-        return 0
     fi
-    return 1
+    return 0
 }
 
 # Add .devtools/bin (portable tools installed by setup script)
