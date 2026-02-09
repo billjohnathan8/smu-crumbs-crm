@@ -137,8 +137,20 @@ kind delete cluster --name cs301-crm
 - **Bash environment (Windows)**:
   - **Git Bash** (recommended) - Included with [Git for Windows](https://git-scm.com/download/win)
   - **WSL Bash** (supported) - Scripts auto-detect and use WSL as fallback
-  - **Path handling**: Paths with spaces (like `C:\Program Files\Git`) are fully supported ✅
+  - **Path handling**: All bash scripts use [common environment detection](../common/setup-env.sh)
+  - Paths with spaces (like `C:\Program Files\Git`) are fully supported ✅
+  - Tools in `.devtools/bin` are automatically discovered across platforms
 - Java 21 (for Gradle builds)
+
+**Note on Cross-Platform PATH Handling:**
+Bash scripts automatically source `scripts/common/setup-env.sh` which handles:
+- Platform detection (Windows Git Bash, WSL, macOS, Linux)
+- PATH setup for `.devtools/bin` tools
+- `.exe` suffix handling in WSL
+- Path translation for Windows executables
+
+This ensures `kubectl`, `helm`, `kind`, and other tools are found correctly regardless of platform.
+See [docs/fixes/wsl-path-inheritance-fix.md](../../docs/fixes/wsl-path-inheritance-fix.md) for technical details.
 
 ### Optional
 - **Python 3.7+** - For comprehensive HTML deployment summary reports

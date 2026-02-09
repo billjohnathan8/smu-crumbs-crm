@@ -83,8 +83,14 @@ Do not use `platform/k8s-apps/*` (legacy path, has been removed).
 - Install Git for Windows (includes Git Bash) for Makefile compatibility
 - Python recommended but optional — install from [python.org](https://www.python.org/downloads/) or via `winget install Python.Python.3.12`
 - kubeconform installation: `scoop install kubeconform`
+- **PATH handling**: Bash scripts automatically detect Git Bash/WSL and configure PATH
+  - Tools installed to `.devtools/bin` are auto-discovered
+  - Paths with spaces (like `C:\Program Files\Git`) are fully supported
+  - See [../scripts/common/setup-env.sh](../scripts/common/setup-env.sh) for implementation
 
 For detailed tool installation instructions, see [K8s Manifest Validation Guide](testing/k8s-validation.md#installation).
+
+**Troubleshooting Windows PATH issues:** See [WSL PATH inheritance fix](fixes/wsl-path-inheritance-fix.md).
 
 ## Golden path (recommended)
 

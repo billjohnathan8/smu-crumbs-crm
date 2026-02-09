@@ -227,29 +227,52 @@ pip install -r requirements.txt
 
 ---
 
-### Issue: Deployment fails with "No such file or directory" on Windows
+### Issue: Deployment fails with "kind: command not found" on Windows/WSL
 
 **Symptoms:**
+```
+[kind-up] Attempt 1/3: Creating kind cluster cs301-crm...
+scripts/platform/kind-up.sh: line 30: kind: command not found
+make: *** [Makefile:53: kind-up] Error 1
+```
+
+Or:
 ```
 scripts/platform/kind-up.sh: line 32: /c/Program: No such file or directory
 make: *** [Makefile:53: kind-up] Error 1
 ```
 
-**Root cause:** Paths with spaces (like `C:\Program Files\Git`) were not properly handled in bash scripts and Make variables.
+**Root cause:**
+
+When bash scripts are called by Make on Windows, they don't inherit PowerShell's PATH. The setup script installs tools to `.devtools/bin`, but WSL/Git Bash needs explicit PATH setup in each bash script.
 
 **Solution:**
 
 ✅ **Already fixed!** (As of February 2026)
 
-The deployment scripts now fully support paths with spaces, including:
-- Git Bash in `C:\Program Files\Git`
-- Docker Desktop in `C:\Program Files\Docker`
-- Repository paths with spaces
+All bash scripts now source a common environment setup script that handles:
+- WSL PATH detection and `.devtools/bin` addition
+- Git Bash PATH detection and tool discovery
+- Proper handling of paths with spaces (like `C:\Program Files\Git`)
+- `.exe` suffix handling for Windows executables in WSL
 
-**What was fixed:**
-1. **PowerShell scripts**: Make SHELL variable now escapes spaces
-2. **Bash scripts**: All variable expansions properly quoted
-3. **Path detection**: Scripts auto-detect both Git Bash and WSL bash
+**How it works:**
+
+Every bash script sources [scripts/common/setup-env.sh](../scripts/common/setup-env.sh):
+```bash
+# Source common environment setup
+source "$(dirname "${BASH_SOURCE[0]}")/../common/setup-env.sh"
+
+# Use commands from common setup
+KUBECTL="${KUBECTL_CMD}"
+KIND="${KIND_CMD}"
+```
+
+The common setup script:
+1. Detects platform (WSL, Git Bash, native Linux/macOS)
+2. Adds `.devtools/bin` to PATH with proper Unix-style paths
+3. Exports command variables (KUBECTL_CMD, HELM_CMD, KIND_CMD, etc.)
+4. Provides helper functions for path translation
 
 **Verify your setup:**
 ```powershell
@@ -260,6 +283,9 @@ where.exe bash
 # - C:\Program Files\Git\bin\bash.exe (Git Bash - recommended)
 # - C:\Windows\System32\bash.exe (WSL bash - supported)
 
+# Test the PATH fix directly
+wsl bash scripts/test-wsl-path-fix.sh
+
 # Run deployment to test
 .\scripts\build-and-deploy-k8s\build-and-deploy-k8s-local.ps1
 ```
@@ -267,11 +293,15 @@ where.exe bash
 **If still encountering issues:**
 1. Ensure Git for Windows is installed: `winget install Git.Git`
 2. Restart your terminal to refresh PATH
-3. Run setup again: `.\scripts\dev-setup\setup.ps1`
+3. Run setup again: `python scripts/pipelines/setup_dev_env.py`
+4. Check that tools are in `.devtools/bin`: `ls .devtools\bin`
+
+**Technical details:** See [docs/fixes/wsl-path-inheritance-fix.md](fixes/wsl-path-inheritance-fix.md)
 
 **See also:**
-- [Windows Path Compatibility](onboarding/new-dev-setup.md#windows-path-compatibility) in setup guide
-- [WSL Support FAQ](onboarding/new-dev-setup.md#q-can-i-use-wsl-windows-subsystem-for-linux) for WSL users
+- [WSL PATH inheritance fix documentation](fixes/wsl-path-inheritance-fix.md) - Comprehensive technical explanation
+- [Common environment setup script](../scripts/common/setup-env.sh) - Source code
+- [Windows Path Compatibility](onboarding/new-dev-setup.md#windows-path-compatibility) in setup guide (if it exists)
 
 ---
 

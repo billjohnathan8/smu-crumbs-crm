@@ -4,19 +4,14 @@ set -euo pipefail
 # kind-up.sh: Initialize kind cluster with retry logic
 # This script is called from the Makefile to ensure bash compatibility on all platforms
 
+# Source common environment setup
+source "$(dirname "${BASH_SOURCE[0]}")/../common/setup-env.sh"
+
 KIND_CLUSTER_NAME="${KIND_CLUSTER_NAME:-cs301-crm}"
 
-# Detect platform for tool paths
-if [[ -f /mnt/c/ProgramData/chocolatey/bin/kubectl.exe ]]; then
-    KUBECTL=/mnt/c/ProgramData/chocolatey/bin/kubectl.exe
-    KIND=/mnt/c/ProgramData/chocolatey/bin/kind.exe
-elif [[ -f /c/ProgramData/chocolatey/bin/kubectl.exe ]]; then
-    KUBECTL=/c/ProgramData/chocolatey/bin/kubectl.exe
-    KIND=/c/ProgramData/chocolatey/bin/kind.exe
-else
-    KUBECTL=$(command -v kubectl || echo kubectl)
-    KIND=$(command -v kind || echo kind)
-fi
+# Use commands from common setup
+KUBECTL="${KUBECTL_CMD}"
+KIND="${KIND_CMD}"
 
 # Check if cluster already exists
 if "$KUBECTL" cluster-info --context "kind-${KIND_CLUSTER_NAME}" >/dev/null 2>&1; then

@@ -333,9 +333,26 @@ Current pinned versions (as of Feb 2026):
 | kind | 0.26.0 | Latest stable |
 | kubeconform | 0.6.7 | Latest stable |
 
-**Java**: Requires 21 (detected from `build.gradle` files in backend services)  
-**Node.js**: Requires >= 18 (React 19 + modern tooling)  
+**Java**: Requires 21 (detected from `build.gradle` files in backend services)
+**Node.js**: Requires >= 18 (React 19 + modern tooling)
 **Python**: Recommends >= 3.7 (optional, for report generation)
+
+## Cross-Platform PATH Handling
+
+All bash scripts in this repository source a [common environment setup script](../common/setup-env.sh) that ensures CLI tools are found correctly across:
+- **Windows Git Bash**: Detects `.devtools/bin` and common tool locations
+- **Windows WSL**: Converts paths to `/mnt/c/...` format and adds `.exe` suffix handling
+- **macOS/Linux**: Native path handling
+
+This ensures that tools installed to `.devtools/bin` by the setup script are always accessible in bash scripts, regardless of the platform or how Make invokes them.
+
+**What this fixes:**
+- "kind: command not found" errors on Windows/WSL
+- PATH not inherited from PowerShell to bash scripts
+- Tools with spaces in paths (like `C:\Program Files\Git`)
+- `.exe` suffix handling in WSL
+
+**Technical details:** See [../../docs/fixes/wsl-path-inheritance-fix.md](../../docs/fixes/wsl-path-inheritance-fix.md)
 
 ## Troubleshooting
 
@@ -371,6 +388,32 @@ Current pinned versions (as of Feb 2026):
 ### "make: command not found" (Windows)
 **Fix (Option 1)**: `scoop install make`  
 **Fix (Option 2)**: Install Git for Windows (includes make in Git Bash)
+
+### "kind: command not found" or "kubectl: command not found"
+**Symptoms:**
+```
+scripts/platform/kind-up.sh: line 30: kind: command not found
+```
+
+**Fix**: This is a PATH issue. The tools are installed to `.devtools/bin` but bash scripts can't find them.
+
+1. Verify tools are installed:
+   ```powershell
+   ls .devtools\bin  # Windows
+   ls .devtools/bin   # macOS/Linux
+   ```
+
+2. Test the PATH fix (Windows):
+   ```bash
+   bash scripts/test-wsl-path-fix.sh
+   ```
+
+3. If tools are missing, re-run setup:
+   ```bash
+   python scripts/pipelines/setup_dev_env.py
+   ```
+
+**See:** [WSL PATH inheritance fix](../../docs/fixes/wsl-path-inheritance-fix.md) for detailed explanation
 
 ### "kubeconform: command not found"
 **Fix**: Re-run setup in portable mode (downloads kubeconform automatically)

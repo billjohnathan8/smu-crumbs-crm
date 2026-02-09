@@ -4,17 +4,12 @@ set -euo pipefail
 # infra-up.sh: Deploy infrastructure components (Ingress, Metrics, PostgreSQL) with retry logic
 # This script is called from the Makefile to ensure bash compatibility on all platforms
 
-# Detect platform for tool paths
-if [[ -f /mnt/c/ProgramData/chocolatey/bin/kubectl.exe ]]; then
-    KUBECTL=/mnt/c/ProgramData/chocolatey/bin/kubectl.exe
-    HELM=/mnt/c/ProgramData/chocolatey/bin/helm.exe
-elif [[ -f /c/ProgramData/chocolatey/bin/kubectl.exe ]]; then
-    KUBECTL=/c/ProgramData/chocolatey/bin/kubectl.exe
-    HELM=/c/ProgramData/chocolatey/bin/helm.exe
-else
-    KUBECTL=$(command -v kubectl || echo kubectl)
-    HELM=$(command -v helm || echo helm)
-fi
+# Source common environment setup
+source "$(dirname "${BASH_SOURCE[0]}")/../common/setup-env.sh"
+
+# Use commands from common setup
+KUBECTL="${KUBECTL_CMD}"
+HELM="${HELM_CMD}"
 
 echo "[infra-up] Adding helm repositories..."
 # Add helm repos (ignore errors if already added)

@@ -64,6 +64,7 @@ Welcome to the CS301-ITSA-Scroogebank-CRM documentation. This page serves as the
 |-------|-------------|
 | [Architecture](architecture.md) | System architecture, service responsibilities, data flows |
 | [Configuration](configuration.md) | Environment variables, config files, secrets management |
+| [Cross-Platform Scripting](cross-platform-scripting.md) | Bash script PATH handling for Windows, macOS, Linux |
 | [Troubleshooting](troubleshooting.md) | Common issues, diagnostics, solutions |
 | [Local K8s Development](local-k8s-dev.md) | Comprehensive guide for local Kubernetes deployment |
 

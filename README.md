@@ -29,12 +29,13 @@ Before running the setup, ensure you have these installed:
   - **Windows users**: [Git for Windows](https://git-scm.com/download/win) strongly recommended (includes Git Bash + Make)
   - Paths with spaces (like `C:\Program Files\Git`) are fully supported ✅
   - WSL bash is also supported as fallback
+  - All bash scripts use [common environment detection](scripts/common/setup-env.sh) for cross-platform compatibility
 - **Java 21** (Temurin/OpenJDK) - Backend services ([Download](https://adoptium.net/))
 - **Node.js ≥ 18** - Frontend build tooling ([Download](https://nodejs.org/))
 - **Make** (GNU Make) - Build automation (included with Git for Windows on Windows)
 - **Python 3.8+** - Build scripts and log service ([Installation Guide](docs/prerequisites/PYTHON-REQUIREMENT.md))
 
-**Note:** The setup script will automatically install CLI tools (kubectl, helm, kind, kubeconform) to `.devtools/bin`. You do not need to install these manually.
+**Note:** The setup script will automatically install CLI tools (kubectl, helm, kind, kubeconform) to `.devtools/bin`. You do not need to install these manually. Deployment scripts automatically detect and configure PATH for Windows (Git Bash/WSL), macOS, and Linux.
 
 **See:** [Complete Prerequisites Guide](docs/prerequisites/other-requirements.md) for detailed installation instructions.
 
