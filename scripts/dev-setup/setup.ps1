@@ -317,7 +317,7 @@ function Install-PortableTool {
             # Find the binary
             $binary = Get-ChildItem -Path $tempExtract -Recurse -Filter $ExtractPattern | Select-Object -First 1
             if ($binary) {
-                Copy-Item $binary.FullName -Destination $targetPath -Force
+                Copy-Item -LiteralPath $binary.FullName -Destination $targetPath -Force
             } else {
                 throw "Could not find $ExtractPattern in extracted archive"
             }
@@ -545,7 +545,7 @@ if (Test-CommandExists "make") {
 } else {
     # Check if Git Bash is installed (includes make)
     $gitBashMake = 'C:\Program Files\Git\usr\bin\make.exe'
-    if (Test-Path $gitBashMake) {
+    if (Test-Path -LiteralPath $gitBashMake) {
         Write-Success "Make found via Git Bash: $gitBashMake"
         $env:PATH = 'C:\Program Files\Git\usr\bin;' + $env:PATH
     } else {
@@ -584,7 +584,8 @@ if (-not $pythonFound) {
 $requiredSystemDeps = @("Docker", "Git", "Java", "Node.js", "npm", "Make")
 
 # Filter issues to only those related to required system dependencies
-$systemDepIssues = $script:Issues | Where-Object { $requiredSystemDeps -contains $_.Tool }
+# Wrap in @() to ensure it's always an array, even if empty or single item
+$systemDepIssues = @($script:Issues | Where-Object { $requiredSystemDeps -contains $_.Tool })
 
 if ($systemDepIssues.Count -gt 0) {
     Write-Log ""
@@ -706,10 +707,10 @@ if (Test-CommandExists "kubectl") {
             $chocoLibKubectl = "C:\ProgramData\chocolatey\lib\kubernetes-cli\tools\kubernetes\client\bin\kubectl.exe"
             if (Test-Path $chocoLibKubectl) {
                 Write-Log "Copying kubectl from Chocolatey lib to .devtools/bin for Git Bash compatibility..."
-                Copy-Item $chocoLibKubectl $portableKubectl -Force
+                Copy-Item -LiteralPath $chocoLibKubectl -Destination $portableKubectl -Force
             } elseif ($globalKubectl) {
                 Write-Log "Copying kubectl to .devtools/bin for Git Bash compatibility..."
-                Copy-Item $globalKubectl $portableKubectl -Force
+                Copy-Item -LiteralPath $globalKubectl -Destination $portableKubectl -Force
             }
         }
     }
@@ -737,12 +738,12 @@ if (Test-CommandExists "helm") {
             $chocoLibHelm = "C:\ProgramData\chocolatey\lib\kubernetes-helm\tools\windows-amd64\helm.exe"
             if (Test-Path $chocoLibHelm) {
                 Write-Log "Copying helm from Chocolatey lib to .devtools/bin for Git Bash compatibility..."
-                Copy-Item $chocoLibHelm $portableHelm -Force
+                Copy-Item -LiteralPath $chocoLibHelm -Destination $portableHelm -Force
             } else {
                 $globalHelm = (Get-Command helm -ErrorAction SilentlyContinue).Source
                 if ($globalHelm) {
                     Write-Log "Copying helm to .devtools/bin for Git Bash compatibility..."
-                    Copy-Item $globalHelm $portableHelm -Force
+                    Copy-Item -LiteralPath $globalHelm -Destination $portableHelm -Force
                 }
             }
         }
@@ -771,12 +772,12 @@ if (Test-CommandExists "kind") {
             $chocoLibKind = "C:\ProgramData\chocolatey\lib\kind\kind.exe"
             if (Test-Path $chocoLibKind) {
                 Write-Log "Copying kind from Chocolatey lib to .devtools/bin for Git Bash compatibility..."
-                Copy-Item $chocoLibKind $portableKind -Force
+                Copy-Item -LiteralPath $chocoLibKind -Destination $portableKind -Force
             } else {
                 $globalKind = (Get-Command kind -ErrorAction SilentlyContinue).Source
                 if ($globalKind) {
                     Write-Log "Copying kind to .devtools/bin for Git Bash compatibility..."
-                    Copy-Item $globalKind $portableKind -Force
+                    Copy-Item -LiteralPath $globalKind -Destination $portableKind -Force
                 }
             }
         }
@@ -823,7 +824,7 @@ if (-not $Doctor -and -not $VerifyOnly) {
         $envFile = Join-Path $envExample.DirectoryName ".env"
         if (-not (Test-Path $envFile)) {
             Write-Log "Creating .env from template: $($envExample.DirectoryName)"
-            Copy-Item $envExample.FullName $envFile
+            Copy-Item -LiteralPath $envExample.FullName -Destination $envFile
             Write-Success "Created $envFile (review and update placeholders)"
         } else {
             Write-Log ".env already exists: $($envExample.DirectoryName)"
@@ -973,7 +974,7 @@ if (-not $SkipVerify) {
         $deployScript = Join-Path $RepoRoot "scripts\test-and-spinup-all\test-and-spinup-all.ps1"
         if (Test-Path $deployScript) {
             try {
-                & $deployScript
+                & "$deployScript"
                 if ($LASTEXITCODE -ne 0) {
                     Write-Error "Test and deployment pipeline failed (exit code: $LASTEXITCODE)"
                     $verificationResults["deploy"] = "FAIL"
@@ -999,7 +1000,7 @@ if (-not $SkipVerify) {
         $deployOnlyScript = Join-Path $RepoRoot "scripts\build-and-deploy-k8s\build-and-deploy-k8s-local.ps1"
         if (Test-Path $deployOnlyScript) {
             try {
-                & $deployOnlyScript
+                & "$deployOnlyScript"
                 if ($LASTEXITCODE -ne 0) {
                     Write-Error "Deploy-only pipeline failed (exit code: $LASTEXITCODE)"
                     $verificationResults["deploy"] = "FAIL"

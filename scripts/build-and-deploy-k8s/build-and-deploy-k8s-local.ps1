@@ -353,7 +353,8 @@ function Invoke-MakeTarget {
     if ($env:OS -eq "Windows_NT" -and $BashPath) {
         # Force GNU Make recipes to run under Git Bash on Windows.
         # Also pin Unix-friendly variables for this execution path.
-        $bashForMake = $BashPath -replace "\\", "/"
+        # Escape spaces in bash path for Make variable assignment
+        $bashForMake = ($BashPath -replace "\\", "/") -replace " ", "\ "
         & make "SHELL=$bashForMake" "NULL_DEVICE=/dev/null" "GRADLEW=./gradlew" $Target
     }
     else {
@@ -373,7 +374,7 @@ function Get-BashPath {
     )
 
     foreach ($path in $candidatePaths) {
-        if (Test-Path $path) {
+        if (Test-Path -LiteralPath $path) {
             return $path
         }
     }
@@ -657,7 +658,7 @@ function Generate-K8sDeploySummaryReport {
     $oldEap = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
     try {
-        $scriptOutput = & $pythonCmd $summaryScript $logFile $logDir 2>&1
+        $scriptOutput = & $pythonCmd "$summaryScript" "$logFile" "$logDir" 2>&1
         $exitCode = $LASTEXITCODE
         
         if ($exitCode -eq 0) {
@@ -678,7 +679,7 @@ function Generate-K8sDeploySummaryReport {
             # Also generate the legacy probe diagnostics summary for backward compatibility
             $probeSummaryScript = Join-Path $RepoRoot "scripts\smoke-k8s-infra\generate-probe-summary.py"
             if (Test-Path $probeSummaryScript) {
-                $probeOutput = & $pythonCmd $probeSummaryScript $logFile $logDir 2>&1
+                $probeOutput = & $pythonCmd "$probeSummaryScript" "$logFile" "$logDir" 2>&1
                 if ($LASTEXITCODE -eq 0) {
                     Write-Log "Legacy probe diagnostics summary also generated."
                     
