@@ -7,7 +7,13 @@ Replaces:
 - scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh (Unix)
 
 Usage:
-    python scripts/pipelines/deploy_k8s.py [--keep] [--cluster-name NAME] [--namespace NS]
+    python scripts/pipelines/deploy_k8s.py [--keep] [--prepull] [--cluster-name NAME] [--namespace NS]
+
+Options:
+    --keep        Preserve cluster on failure for debugging
+    --prepull     Pre-pull infrastructure images (recommended for fresh machines, speeds up deployment)
+    --cluster-name  Override kind cluster name (default: cs301-crm)
+    --namespace   Kubernetes namespace (default: dev)
 """
 
 import argparse
@@ -370,6 +376,11 @@ def main():
         default="dev",
         help="Kubernetes namespace (default: dev)"
     )
+    parser.add_argument(
+        "--prepull",
+        action="store_true",
+        help="Pre-pull infrastructure images to speed up deployment (recommended for fresh machines)"
+    )
     args = parser.parse_args()
     
     # Setup platform
@@ -416,7 +427,13 @@ def main():
         )
         if result.returncode != 0:
             raise RuntimeError(f"Failed to switch kubectl context to '{context_name}'")
-        
+
+        # Optional: Pre-pull infrastructure images (speeds up Helm deployments)
+        if args.prepull:
+            logger.info("Pre-pull enabled: pulling infrastructure images before Helm deployment")
+            with logger.timer("Pre-pull Infrastructure Images"):
+                run_make_target("prepull-infra-images", logger, platform, repo_root)
+
         # Run deployment targets
         targets = ["infra-up", "build-images", "kind-load", "deploy-dev", "smoke"]
         for target in targets:

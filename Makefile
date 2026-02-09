@@ -38,13 +38,15 @@ SMOKE_INFRA_CMD := powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-in
 SMOKE_PROBES_CMD := powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-infra/smoke-probes.ps1
 VALIDATE_K8S_CMD := bash scripts/validate-k8s/validate.sh
 KIND_UP_CMD := bash scripts/platform/kind-up.sh
+PREPULL_CMD := bash scripts/platform/prepull-infra-images.sh
 INFRA_UP_CMD := bash scripts/platform/infra-up.sh
 else
 KIND_UP_CMD := bash scripts/platform/kind-up.sh
+PREPULL_CMD := bash scripts/platform/prepull-infra-images.sh
 INFRA_UP_CMD := bash scripts/platform/infra-up.sh
 endif
 
-.PHONY: k8s-validate kind-up kind-down kind-reset infra-up build-images kind-load deploy-dev smoke-infra smoke-probes smoke build-and-deploy-local
+.PHONY: k8s-validate kind-up kind-down kind-reset prepull-infra-images infra-up build-images kind-load deploy-dev smoke-infra smoke-probes smoke build-and-deploy-local build-and-deploy-local-fast
 
 k8s-validate:
 	$(VALIDATE_K8S_CMD)
@@ -56,6 +58,9 @@ kind-down:
 	$(KIND) delete cluster --name $(KIND_CLUSTER_NAME)
 
 kind-reset: kind-down kind-up
+
+prepull-infra-images:
+	$(PREPULL_CMD)
 
 infra-up:
 	$(INFRA_UP_CMD)
@@ -99,4 +104,6 @@ smoke-probes:
 smoke: smoke-infra smoke-probes
 
 build-and-deploy-local: k8s-validate kind-up infra-up build-images kind-load deploy-dev smoke
+
+build-and-deploy-local-fast: k8s-validate kind-up prepull-infra-images infra-up build-images kind-load deploy-dev smoke
 
