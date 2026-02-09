@@ -91,13 +91,15 @@ log INFO "========================================"
 log INFO "Log file: $LOG_FILE"
 log INFO ""
 
-# Step 1: Check Dependencies
-log INFO "Step 1/4: Checking system dependencies..."
-if python3 scripts/pipelines/setup_dev_env.py --doctor 2>&1 | tee -a "$LOG_FILE"; then
-    log SUCCESS "Dependencies OK!"
+# Step 1: Setup Dependencies
+log INFO "Step 1/4: Setting up development environment..."
+log INFO "This will check dependencies and install missing CLI tools..."
+if python3 scripts/pipelines/setup_dev_env.py 2>&1 | tee -a "$LOG_FILE"; then
+    log SUCCESS "Environment setup complete!"
 else
-    log ERROR "Dependency check failed"
-    log INFO "Run: python3 scripts/pipelines/setup_dev_env.py"
+    setup_exit_code=$?
+    log ERROR "Environment setup failed with exit code $setup_exit_code"
+    log ERROR "Check log file: $LOG_FILE"
     exit 1
 fi
 

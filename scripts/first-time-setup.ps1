@@ -61,14 +61,18 @@ Write-TracedLog "========================================" "INFO"
 Write-TracedLog "Log file: $LogFile" "INFO"
 Write-TracedLog "" "INFO"
 
-# Step 1: Check Dependencies
-Write-TracedLog "Step 1/4: Checking system dependencies..." "INFO"
-try {
-    python scripts/pipelines/setup_dev_env.py --doctor 2>&1 | Tee-Object -FilePath $LogFile -Append | Write-Host
-    Write-TracedLog "Dependencies OK!" "SUCCESS"
-} catch {
-    Write-TracedLog "Dependency check failed: $_" "ERROR"
-    Write-TracedLog "Run: python scripts/pipelines/setup_dev_env.py" "INFO"
+# Step 1: Setup Dependencies
+Write-TracedLog "Step 1/4: Setting up development environment..." "INFO"
+Write-TracedLog "This will check dependencies and install missing CLI tools..." "INFO"
+$setupExitCode = 0
+python scripts/pipelines/setup_dev_env.py 2>&1 | Tee-Object -FilePath $LogFile -Append | Write-Host
+$setupExitCode = $LASTEXITCODE
+
+if ($setupExitCode -eq 0) {
+    Write-TracedLog "Environment setup complete!" "SUCCESS"
+} else {
+    Write-TracedLog "Environment setup failed with exit code $setupExitCode" "ERROR"
+    Write-TracedLog "Check log file: $LogFile" "ERROR"
     exit 1
 }
 
@@ -86,14 +90,7 @@ Write-TracedLog "This may take 10-15 minutes on first run..." "INFO"
 Write-TracedLog "" "INFO"
 
 try {
-    # Use verbose Make target
-    $MakeArgs = @{
-        SHELL = "C:/Program Files/Git/bin/bash.exe"
-        NULL_DEVICE = "/dev/null"
-        GRADLEW = "./gradlew"
-        VERBOSE = "1"
-    }
-
+    # Run verbose Make target for detailed output
     Invoke-Expression "make build-and-deploy-local VERBOSE=1 2>&1" | Tee-Object -FilePath $LogFile -Append | Write-Host
 
     Write-TracedLog "" "INFO"
