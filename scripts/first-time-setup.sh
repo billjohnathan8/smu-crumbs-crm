@@ -93,7 +93,7 @@ log INFO ""
 
 # Step 1: Check Dependencies
 log INFO "Step 1/4: Checking system dependencies..."
-if python3 scripts/pipelines/setup_dev_env.py --check-only 2>&1 | tee -a "$LOG_FILE"; then
+if python3 scripts/pipelines/setup_dev_env.py --doctor 2>&1 | tee -a "$LOG_FILE"; then
     log SUCCESS "Dependencies OK!"
 else
     log ERROR "Dependency check failed"

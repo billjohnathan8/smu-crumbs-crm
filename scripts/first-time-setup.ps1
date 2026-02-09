@@ -64,7 +64,7 @@ Write-TracedLog "" "INFO"
 # Step 1: Check Dependencies
 Write-TracedLog "Step 1/4: Checking system dependencies..." "INFO"
 try {
-    python scripts/pipelines/setup_dev_env.py --check-only 2>&1 | Tee-Object -FilePath $LogFile -Append | Write-Host
+    python scripts/pipelines/setup_dev_env.py --doctor 2>&1 | Tee-Object -FilePath $LogFile -Append | Write-Host
     Write-TracedLog "Dependencies OK!" "SUCCESS"
 } catch {
     Write-TracedLog "Dependency check failed: $_" "ERROR"
