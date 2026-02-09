@@ -316,7 +316,7 @@ As of February 2026, **infrastructure image pre-pull is enabled by default** in 
 
 **Images pre-pulled (~1-2GB total):**
 - `ingress-nginx/controller:v1.14.3` (~800MB-1GB)
-- `ingress-nginx/kube-webhook-certgen:v20250202-stable-patch1`
+- `ingress-nginx/kube-webhook-certgen:v1.6.7`
 - `metrics-server/metrics-server:v0.8.0`
 - `bitnami/postgresql:17.2.0-debian-12-r10`
 

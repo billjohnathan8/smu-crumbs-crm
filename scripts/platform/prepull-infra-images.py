@@ -59,7 +59,7 @@ class ImagePrePuller:
         self.images = [
             # ingress-nginx controller (largest image, ~800MB-1GB)
             "registry.k8s.io/ingress-nginx/controller:v1.14.3",
-            "registry.k8s.io/ingress-nginx/kube-webhook-certgen:v20250202-stable-patch1",
+            "registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.6.7",
             # metrics-server (using official k8s registry, not bitnami image)
             "registry.k8s.io/metrics-server/metrics-server:v0.8.0",
             # bitnami postgresql

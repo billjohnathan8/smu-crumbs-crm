@@ -103,7 +103,7 @@ The pre-pull script:
 ```python
 # As of Feb 2026, pre-pull pulls:
 registry.k8s.io/ingress-nginx/controller:v1.14.3
-registry.k8s.io/ingress-nginx/kube-webhook-certgen:v20250202-stable-patch1
+registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.6.7
 registry.k8s.io/metrics-server/metrics-server:v0.8.0
 docker.io/bitnami/postgresql:17.2.0-debian-12-r10
 ```

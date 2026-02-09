@@ -439,7 +439,7 @@ def main():
                 logger.error(f"Pre-pull failed: {e}")
                 logger.error("Deployment cannot continue without cached images")
                 if not args.keep:
-                    cleanup_cluster(cluster_name, logger, platform)
+                    cleanup_cluster(cluster_name, namespace, logger, platform)
                 return 1
         else:
             logger.warning("Skipping pre-pull (--no-prepull specified)")

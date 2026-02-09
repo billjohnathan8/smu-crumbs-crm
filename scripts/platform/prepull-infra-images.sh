@@ -21,7 +21,7 @@ echo "[prepull] This speeds up Helm deployments by caching large images (~1-2 GB
 IMAGES=(
     # ingress-nginx controller (largest image, ~800MB-1GB)
     "registry.k8s.io/ingress-nginx/controller:v1.14.3"
-    "registry.k8s.io/ingress-nginx/kube-webhook-certgen:v20250202-stable-patch1"
+    "registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.6.7"
 
     # bitnami metrics-server
     "docker.io/bitnami/metrics-server:0.7.2-debian-12-r7"
