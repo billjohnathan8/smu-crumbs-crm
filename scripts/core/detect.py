@@ -217,34 +217,38 @@ class Platform:
     def find_executable(self, name: str, required: bool = True) -> Optional[Path]:
         """
         Find executable in PATH. Fail fast if required and not found.
-        
+
         Args:
             name: Executable name (without .exe/.cmd on Windows)
             required: If True, raise error if not found
-            
+
         Returns:
             Path to executable or None if not found and not required
-            
+
         Raises:
             FileNotFoundError: If required=True and executable not found
         """
         # Add extensions for Windows
+        # CRITICAL: On Windows, prioritize .exe/.cmd/.bat BEFORE extensionless name
+        # because tools like npm ship with both a Unix shell script (npm) and
+        # Windows batch file (npm.cmd). The Unix script cannot be executed directly
+        # on Windows (WinError 193: %1 is not a valid Win32 application).
         if self.info.is_windows and not any(name.endswith(ext) for ext in [".exe", ".cmd", ".bat"]):
-            search_names = [name, f"{name}.exe", f"{name}.cmd", f"{name}.bat"]
+            search_names = [f"{name}.exe", f"{name}.cmd", f"{name}.bat", name]
         else:
             search_names = [name]
-        
+
         for search_name in search_names:
             exe_path = shutil.which(search_name)
             if exe_path:
                 return Path(exe_path)
-        
+
         if required:
             raise FileNotFoundError(
                 f"Required executable '{name}' not found in PATH. "
                 f"Please install {name} or add it to your PATH."
             )
-        
+
         return None
     
     def run_command(
