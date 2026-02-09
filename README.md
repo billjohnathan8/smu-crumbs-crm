@@ -20,8 +20,20 @@ Java 21 · Python 3.8+ · React 19 · Spring Boot · FastAPI · PostgreSQL · Ku
 ## 🚀 Quickstart (3 Commands)
 
 ### Prerequisites
-- **Python 3.8+** ([installation guide](docs/prerequisites/PYTHON-REQUIREMENT.md))
-- **Docker Desktop** (must be running)
+
+Before running the setup, ensure you have these installed:
+
+**Required System Dependencies:**
+- **Docker Desktop** (or Docker Engine) - Kubernetes via kind ([Installation Guide](https://docs.docker.com/get-docker/))
+- **Git** - Version control ([Download](https://git-scm.com/downloads))
+- **Java 21** (Temurin/OpenJDK) - Backend services ([Download](https://adoptium.net/))
+- **Node.js ≥ 18** - Frontend build tooling ([Download](https://nodejs.org/))
+- **Make** (GNU Make) - Build automation
+- **Python 3.8+** - Build scripts and log service ([Installation Guide](docs/prerequisites/PYTHON-REQUIREMENT.md))
+
+**Note:** The setup script will automatically install CLI tools (kubectl, helm, kind, kubeconform) to `.devtools/bin`. You do not need to install these manually.
+
+**See:** [Complete Prerequisites Guide](docs/prerequisites/other-requirements.md) for detailed installation instructions.
 
 ### Get Started
 ```bash

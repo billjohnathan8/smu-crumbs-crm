@@ -6,6 +6,18 @@ Welcome to the CS301-ITSA-Scroogebank-CRM documentation. This page serves as the
 
 ## 🚀 Getting Started
 
+**Prerequisites:** Before starting, ensure you have installed:
+- **Docker Desktop** (or Docker Engine)
+- **Git**
+- **Java 21** (Temurin/OpenJDK)
+- **Node.js ≥ 18**
+- **Make** (GNU Make)
+- **Python 3.8+**
+
+**See:** [Prerequisites Guide](prerequisites/other-requirements.md) for detailed installation instructions.
+
+---
+
 **New to the project?** Start here:
 
 1. **[New Developer Setup](onboarding/new-dev-setup.md)** - One-command environment setup

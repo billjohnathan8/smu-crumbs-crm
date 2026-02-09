@@ -46,6 +46,7 @@ These **must** be installed globally (no way around it):
 - **Java 21** (Temurin/OpenJDK) — Backend services use Spring Boot + Java 21
 - **Node.js ≥ 18** — Frontend uses React 19 + Vite
 - **Make** (GNU Make) — Build automation
+- **Python 3.8+** — Cross-platform build scripts and log service backend
 
 ### Portable CLI Tools (Downloaded to `.devtools/bin`)
 By default, these are **NOT** installed globally:

@@ -199,6 +199,7 @@ Each run creates a timestamped log file for debugging.
 - **Java 21** (Temurin/OpenJDK) — Backend services (Spring Boot)
 - **Node.js >= 18** — Frontend (React 19 + Vite)
 - **Make** — Build automation
+- **Python 3.8+** — Cross-platform build scripts and log service backend
 
 ### CLI Tools (Portable by Default)
 - **kubectl** — Kubernetes CLI

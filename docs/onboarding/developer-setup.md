@@ -27,7 +27,7 @@ scripts/wrappers/setup.sh
 The setup pipeline performs the following steps:
 
 1. **Environment Check**
-   - Verifies global dependencies (Docker, Git, Java 21+, Node.js 18+, Make)
+   - Verifies global dependencies (Docker, Git, Java 21+, Node.js 18+, Make, Python 3.8+)
    - Checks portable tools (kubectl, helm, kind, kubeconform)
    - Reports missing or outdated tools
 
@@ -87,6 +87,7 @@ python scripts/pipelines/setup_dev_env.py --verify-only
 - **Java 21+** (Temurin/OpenJDK) - backend Spring Boot
 - **Node.js ≥18** - frontend React
 - **Make** (GNU Make) - build automation
+- **Python 3.8+** - cross-platform build scripts and log service
 
 ### Portable (auto-installed to `.devtools/bin`)
 - **kubectl** - Kubernetes CLI
