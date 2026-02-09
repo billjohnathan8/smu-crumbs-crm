@@ -318,7 +318,7 @@ As of February 2026, **infrastructure image pre-pull is enabled by default** in 
 - `ingress-nginx/controller:v1.14.3` (~800MB-1GB)
 - `ingress-nginx/kube-webhook-certgen:v1.6.7`
 - `metrics-server/metrics-server:v0.8.0`
-- `bitnami/postgresql:17.2.0-debian-12-r10`
+- `bitnami/postgresql:latest`
 
 **Time impact:**
 - **Fresh machine**: Adds 3-5 minutes (prevents 10+ minute timeouts)

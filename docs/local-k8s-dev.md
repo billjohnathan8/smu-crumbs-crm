@@ -233,7 +233,7 @@ As of Feb 2026, **image pre-pull is enabled by default** to prevent timeout fail
 - `ingress-nginx/controller:v1.14.3` (~800MB-1GB)
 - `ingress-nginx/kube-webhook-certgen:v1.6.7`
 - `metrics-server/metrics-server:v0.8.0`
-- `bitnami/postgresql:17.2.0-debian-12-r10`
+- `bitnami/postgresql:latest`
 
 **Time impact:**
 - Fresh machine: +3-5 minutes (prevents 10+ minute timeouts)
@@ -506,11 +506,13 @@ helm uninstall metrics-server -n kube-system
 ## Common failure modes and debug commands
 
 ### Quick Diagnostics Checklist
-1. **Check deployment logs**: `build-logs/build-and-deploy-k8s/inv*__*__build-and-deploy-k8s-local.log`
-2. **View HTML diagnostics**: Open `build-logs/build-and-deploy-k8s/probe-diagnostics-summary.html` in browser
-3. **Check pod status**: `kubectl get pods -n dev -o wide`
-4. **Check recent events**: `kubectl get events -n dev --sort-by=.metadata.creationTimestamp | tail -50`
-5. **Check logs**: `kubectl logs deployment/<service> -n dev --tail=100`
+1. **Run environment doctor**: `python scripts/pipelines/doctor.py`
+2. **Generate support bundle**: `python scripts/pipelines/support_bundle.py` (collects everything into a zip)
+3. **Check deployment logs**: `build-logs/build-and-deploy-k8s/inv*__*__build-and-deploy-k8s-local.log`
+4. **View HTML diagnostics**: Open `build-logs/build-and-deploy-k8s/probe-diagnostics-summary.html` in browser
+5. **Check pod status**: `kubectl get pods -n dev -o wide`
+6. **Check recent events**: `kubectl get events -n dev --sort-by=.metadata.creationTimestamp | tail -50`
+7. **Check logs**: `kubectl logs deployment/<service> -n dev --tail=100`
 
 For comprehensive troubleshooting, see:
 - [Smoke Testing Guide - Troubleshooting](testing/smoke/README.md#troubleshooting) — Detailed failure scenarios and solutions

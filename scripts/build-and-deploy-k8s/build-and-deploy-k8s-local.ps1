@@ -353,8 +353,11 @@ function Invoke-MakeTarget {
     if ($env:OS -eq "Windows_NT" -and $BashPath) {
         # Force GNU Make recipes to run under Git Bash on Windows.
         # Also pin Unix-friendly variables for this execution path.
-        # Escape spaces in bash path for Make variable assignment
+        # Convert to forward slashes and escape spaces with backslash
         $bashForMake = ($BashPath -replace "\\", "/") -replace " ", "\ "
+        Write-Log "DEBUG: BashPath=$BashPath"
+        Write-Log "DEBUG: bashForMake=$bashForMake"
+        Write-Log "DEBUG: Calling make with SHELL=$bashForMake GRADLEW=./gradlew NULL_DEVICE=/dev/null"
         & make "SHELL=$bashForMake" "NULL_DEVICE=/dev/null" "GRADLEW=./gradlew" $Target
     }
     else {

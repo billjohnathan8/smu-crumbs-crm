@@ -17,8 +17,20 @@ CURL_LAST_ERR=""
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/../.." && pwd)"
 
-# Use commands from common setup
-KUBECTL="${KUBECTL_CMD}"
+# Use commands from common setup, with explicit context to avoid Docker Desktop context hijacking
+if [[ -n "${KUBECTL_CONTEXT:-}" ]]; then
+  KUBECTL="${KUBECTL_CMD} --context ${KUBECTL_CONTEXT}"
+else
+  # Auto-detect kind cluster context if KUBECTL_CONTEXT not set
+  # This handles cases where smoke script is run directly from terminal
+  kind_context=$(${KUBECTL_CMD} config get-contexts -o name 2>/dev/null | grep "^kind-" | head -1 || echo "")
+  if [[ -n "${kind_context}" ]]; then
+    echo "Auto-detected kind context: ${kind_context}"
+    KUBECTL="${KUBECTL_CMD} --context ${kind_context}"
+  else
+    KUBECTL="${KUBECTL_CMD}"
+  fi
+fi
 
 manifests_dir="${repo_root}/platform/k8s/apps/base"
 ingress_yaml="${manifests_dir}/ingress.yaml"
@@ -369,25 +381,15 @@ tcp_connect() {
   local host="$1"
   local port="$2"
   local timeout_ms="${3:-500}"
-  if command -v python3 >/dev/null 2>&1; then
-    python3 - <<PY >/dev/null 2>&1
-import socket, sys
-host="${host}"
-port=int("${port}")
-timeout=${timeout_ms}/1000.0
-try:
-    s=socket.socket()
-    s.settimeout(timeout)
-    s.connect((host, port))
-    s.close()
-    sys.exit(0)
-except Exception:
-    sys.exit(1)
-PY
-    return $?
+  # Find a working Python (python3 may be a broken Windows App Store stub)
+  local py_cmd=""
+  if command -v python3 >/dev/null 2>&1 && python3 -c "import sys" >/dev/null 2>&1; then
+    py_cmd="python3"
+  elif command -v python >/dev/null 2>&1 && python -c "import sys" >/dev/null 2>&1; then
+    py_cmd="python"
   fi
-  if command -v python >/dev/null 2>&1; then
-    python - <<PY >/dev/null 2>&1
+  if [[ -n "${py_cmd}" ]]; then
+    ${py_cmd} - <<PY >/dev/null 2>&1
 import socket, sys
 host="${host}"
 port=int("${port}")
@@ -407,7 +409,9 @@ PY
     timeout 1 bash -c "cat < /dev/null > /dev/tcp/${host}/${port}" >/dev/null 2>&1
     return $?
   fi
-  return 1
+  # Last resort: try bash /dev/tcp directly (works in Git Bash)
+  bash -c "cat < /dev/null > /dev/tcp/${host}/${port}" >/dev/null 2>&1
+  return $?
 }
 
 start_port_forward_fallback() {

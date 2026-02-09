@@ -1,7 +1,8 @@
 # CI Hardening: Flaky infrastructure operations (kind create, helm repo update, docker pulls)
 # are retried up to 3 times with brief delays to avoid wasting CI minutes on transient failures.
-SHELL := /usr/bin/env bash
+SHELL ?= /usr/bin/env bash
 KIND_CLUSTER_NAME ?= cs301-crm
+KUBECTL_CONTEXT ?= kind-$(KIND_CLUSTER_NAME)
 NULL_DEVICE ?= /dev/null
 GRADLEW ?= ./gradlew
 
@@ -22,30 +23,36 @@ endif
 
 # Tool discovery: Simplified to rely on PATH
 # Tools should be available via .devtools/bin, chocolatey, or system PATH
-KUBECTL ?= kubectl
+KUBECTL ?= kubectl --context $(KUBECTL_CONTEXT)
 HELM ?= helm
 KIND ?= kind
 
 SMOKE_INFRA_CMD ?= bash ./scripts/smoke-k8s-infra/smoke-k8s-infra.sh
 SMOKE_PROBES_CMD ?= bash ./scripts/smoke-k8s-infra/smoke-probes.sh
-# Python command: Try python3 first (Linux/macOS), fall back to python (Windows)
+# Python command: Use python (not python3) when in Git Bash on Windows to avoid WindowsApps stub
+# Git Bash sets MSYSTEM variable, which we use to detect we're in Git Bash on Windows
+ifdef MSYSTEM
+PYTHON ?= python
+else
+# Linux/macOS/WSL: Try python3 first, fall back to python
 PYTHON ?= $(shell command -v python3 2>/dev/null || command -v python 2>/dev/null || echo python)
+endif
 VALIDATE_K8S_CMD ?= $(PYTHON) scripts/validate-k8s/validate.py
 NS ?= dev
 
 ifeq ($(OS),Windows_NT)
-NULL_DEVICE := NUL
-GRADLEW := gradlew.bat
-SMOKE_INFRA_CMD := powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-infra/smoke-k8s-infra.ps1
-SMOKE_PROBES_CMD := powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-infra/smoke-probes.ps1
-VALIDATE_K8S_CMD := python scripts/validate-k8s/validate.py
-KIND_UP_CMD := python scripts/platform/kind-up.py
-PREPULL_CMD := python scripts/platform/prepull-infra-images.py
-INFRA_UP_CMD := python scripts/platform/infra-up.py
+NULL_DEVICE ?= NUL
+GRADLEW ?= gradlew.bat
+SMOKE_INFRA_CMD ?= powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-infra/smoke-k8s-infra.ps1
+SMOKE_PROBES_CMD ?= powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-infra/smoke-probes.ps1
+VALIDATE_K8S_CMD ?= python scripts/validate-k8s/validate.py
+KIND_UP_CMD ?= python scripts/platform/kind-up.py
+PREPULL_CMD ?= python scripts/platform/prepull-infra-images.py
+INFRA_UP_CMD ?= python scripts/platform/infra-up.py
 else
-KIND_UP_CMD := $(PYTHON) scripts/platform/kind-up.py
-PREPULL_CMD := $(PYTHON) scripts/platform/prepull-infra-images.py
-INFRA_UP_CMD := $(PYTHON) scripts/platform/infra-up.py
+KIND_UP_CMD ?= $(PYTHON) scripts/platform/kind-up.py
+PREPULL_CMD ?= $(PYTHON) scripts/platform/prepull-infra-images.py
+INFRA_UP_CMD ?= $(PYTHON) scripts/platform/infra-up.py
 
 # Verbose mode support (Linux/macOS)
 ifdef VERBOSE
@@ -104,10 +111,10 @@ deploy-dev:
 	$(KUBECTL) rollout status deployment/frontend -n dev --timeout=180s
 
 smoke-infra:
-	$(SMOKE_INFRA_CMD)
+	KUBECTL_CONTEXT=$(KUBECTL_CONTEXT) $(SMOKE_INFRA_CMD)
 
 smoke-probes:
-	$(SMOKE_PROBES_CMD) $(NS)
+	KUBECTL_CONTEXT=$(KUBECTL_CONTEXT) $(SMOKE_PROBES_CMD) $(NS)
 
 smoke: smoke-infra smoke-probes
 

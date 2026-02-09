@@ -219,8 +219,14 @@ make build-and-deploy-local-no-prepull  # Skip pre-pull (not recommended)
 
 ### Environment Check
 ```bash
-# Check if all tools are installed
+# Comprehensive environment health check (OS, tools, Docker, k8s cluster)
+python scripts/pipelines/doctor.py
+
+# Check if all tools are installed (lightweight)
 python scripts/pipelines/setup_dev_env.py --doctor
+
+# Generate support bundle for debugging failures
+python scripts/pipelines/support_bundle.py
 ```
 
 </details>
@@ -341,7 +347,8 @@ This is an academic project developed for CS301 (Software Engineering Project) a
 | **Python not found** | Install Python 3.8+: [Installation Guide](docs/prerequisites/PYTHON-REQUIREMENT.md) |
 | **Tests failing** | Check [Testing Guide](docs/testing/TESTING-GUIDE.md) troubleshooting section |
 | **K8s deployment issues** | Enable verbose: `make build-and-deploy-local-verbose` or see [Troubleshooting](docs/local-k8s-dev.md#common-failure-modes-and-debug-commands) |
-| **Environment setup issues** | Run: `python scripts/pipelines/setup_dev_env.py --doctor` |
+| **Environment setup issues** | Run: `python scripts/pipelines/doctor.py` |
 | **Need detailed logs** | Check: `build-logs/first-time-setup/` or `build-logs/build-and-deploy-k8s/deployment-report.html` |
+| **Need to share failure info** | Run: `python scripts/pipelines/support_bundle.py` and share the zip |
 
 **Need more help?** See the [complete troubleshooting guide](docs/troubleshooting.md) or [image pre-pull guide](docs/deployment/image-prepull.md).

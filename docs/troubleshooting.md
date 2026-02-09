@@ -60,6 +60,54 @@ python3 --version
 
 ---
 
+### Issue: Python was not found; run without arguments to install from the Microsoft Store
+
+**Symptoms:**
+```
+/c/Users/Bill/AppData/Local/Microsoft/WindowsApps/python3 scripts/validate-k8s/validate.py
+Python was not found; run without arguments to install from the Microsoft Store
+make: *** [Makefile:60: k8s-validate] Error 49
+```
+
+**Root cause:**
+
+Windows creates `python3.exe` stub executables in `%LOCALAPPDATA%\Microsoft\WindowsApps\` that redirect to the Microsoft Store Python installer page. When Git Bash runs the Makefile's Python auto-detection (`command -v python3`), it finds this broken stub instead of your actual Python installation.
+
+**Solution:**
+
+✅ **Already fixed!** (As of February 2026)
+
+The fix works at two levels:
+1. **Makefile** (lines 31-37): Detects Git Bash via `MSYSTEM` environment variable and uses `python` command (not `python3`) to avoid the Windows App Store stub
+2. **deploy_k8s.py** (lines 275-279): Passes `PYTHON=python` as a Make command-line override on native Windows
+
+**Verify the fix works:**
+```bash
+# Check Python is working
+python --version
+# Should show: Python 3.x.x
+
+# Test Make uses correct Python
+make -n k8s-validate
+# Should show: python scripts/validate-k8s/validate.py (NOT python3)
+```
+
+**Manual workaround (if needed):**
+
+Disable the Windows App Store Python stubs:
+1. Open Windows Settings
+2. Go to **Apps > Apps & features > App execution aliases**
+3. Turn OFF:
+   - `python.exe`
+   - `python3.exe`
+4. Restart your terminal
+
+**See also:**
+- [Windows App Store Python stub documentation in MEMORY.md](../.claude/memory/MEMORY.md)
+- [Python Requirement Guide](prerequisites/PYTHON-REQUIREMENT.md)
+
+---
+
 ### Issue: Docker not installed or not running
 
 **Symptoms:**
@@ -964,26 +1012,40 @@ docker exec -it cs301-crm-control-plane bash
 
 If you can't resolve the issue:
 
-1. **Check existing documentation:**
+1. **Run the environment doctor:**
+   ```bash
+   python scripts/pipelines/doctor.py
+   ```
+   This checks OS/platform detection, all tool versions, Docker status, kube context, cluster health, and disk space in one command.
+
+2. **Generate a support bundle:**
+   ```bash
+   python scripts/pipelines/support_bundle.py
+   ```
+   This collects all diagnostic data (pod status, events, logs, tool versions, Helm status, Docker info) into a zip file under `build-logs/support-bundle-<timestamp>.zip`. Share this with the team for debugging.
+
+   **Note:** First-time setup scripts (`first-time-setup.ps1`/`.sh`) and `deploy_k8s.py` automatically generate a support bundle on failure.
+
+3. **Check existing documentation:**
    - [Local K8s Development](local-k8s-dev.md)
    - [Testing Guide](testing/TESTING-GUIDE.md)
    - [CI/CD Workflows](testing/ci-cd-workflows.md)
 
-2. **Run doctor mode:**
+4. **Run setup doctor mode (lightweight):**
    ```bash
    python scripts/pipelines/setup_dev_env.py --doctor
    ```
 
-3. **Search existing issues:**
+5. **Search existing issues:**
    - [GitHub Issues](https://github.com/cs301-itsa/project-2025-26-t2-project-2025-26t2-g2-t3/issues)
 
-4. **Open a new issue:**
+6. **Open a new issue:**
    - Include error messages
-   - Include diagnostic command output
+   - Attach the support bundle zip
    - Describe steps to reproduce
 
-5. **Ask the team:**
-   - Post in team chat with error details
+7. **Ask the team:**
+   - Post in team chat with the support bundle zip
 
 ---
 

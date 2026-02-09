@@ -90,19 +90,32 @@ def get_kind_cluster_name(repo_root: Path) -> str:
 
 def is_kind_cluster_reachable(cluster_name: str, platform) -> bool:
     """
-    Check if kubectl can communicate with kind cluster.
-    
+    Check if kubectl can communicate with kind cluster and it has nodes.
+
     Returns:
-        True if cluster is reachable, False otherwise
+        True if cluster is reachable and healthy, False otherwise
     """
     context_name = f"kind-{cluster_name}"
+
+    # Check if kubectl can communicate
     result = platform.run_command(
         ["kubectl", "--context", context_name, "version", "--request-timeout=10s"],
         capture_output=True,
         check=False,
         timeout=15
     )
-    return result.returncode == 0
+    if result.returncode != 0:
+        return False
+
+    # Also verify the cluster has nodes (not in corrupted state)
+    result = platform.run_command(
+        ["kind", "get", "nodes", "--name", cluster_name],
+        capture_output=True,
+        check=False,
+        timeout=10
+    )
+    # Should have at least one node listed
+    return result.returncode == 0 and result.stdout and result.stdout.strip()
 
 
 def kind_cluster_exists(cluster_name: str, platform) -> bool:
@@ -151,40 +164,165 @@ def initialize_kind_cluster(cluster_name: str, logger, platform, repo_root: Path
     run_make_target("kind-up", logger, platform, repo_root)
 
 
-def run_make_target(target: str, logger, platform, repo_root: Path):
+def run_make_target(target: str, logger, platform, repo_root: Path, verbose: bool = False):
     """
     Run make target with proper error handling.
-    
+
     Args:
         target: Make target name (e.g., "kind-up", "deploy-dev")
         logger: Logger instance
         platform: Platform instance
         repo_root: Repository root path
+        verbose: Enable verbose mode (passes VERBOSE=1 to make)
     """
     logger.info(f"Running make target: {target}")
-    
-    # Build make command
-    cmd = ["make", "-C", str(repo_root), "SHELL=bash", target]
-    
-    # Windows: ensure bash is used for make
-    env = None
+
+    # Build make command with platform-specific variables
+    cmd = ["make", "-C", str(repo_root)]
+
+    if verbose:
+        cmd.append("VERBOSE=1")
+
+    # =========================================================================
+    # Platform-specific Make variable configuration
+    # =========================================================================
+    # On Windows (native Python on Windows, not WSL):
+    #   - MUST use Git Bash for SHELL (NOT WSL bash)
+    #   - MUST set GRADLEW=./gradlew (not gradlew.bat)
+    #   - MUST set NULL_DEVICE=/dev/null (not NUL)
+    #
+    # On Linux/macOS/WSL (running Python inside WSL):
+    #   - Let Makefile use defaults: SHELL ?= /usr/bin/env bash
+    #   - Let Makefile use defaults: GRADLEW ?= ./gradlew
+    #   - Let Makefile use defaults: NULL_DEVICE ?= /dev/null
+    # =========================================================================
     if is_windows():
-        bash = platform.find_executable("bash", required=False)
-        if bash:
-            env = {"SHELL": str(bash)}
-    
+        # Running on native Windows (PowerShell, CMD, Git Bash terminal)
+        # CRITICAL: Must use Git Bash, NOT WSL bash!
+        # - WSL bash (C:\Windows\System32\bash.exe) CANNOT execute Windows .exe/.bat
+        # - Git Bash (C:\Program Files\Git\bin\bash.exe) CAN execute Windows .exe/.bat
+        git_bash_paths = [
+            Path("C:/Program Files/Git/bin/bash.exe"),
+            Path("C:/Program Files (x86)/Git/bin/bash.exe"),
+        ]
+
+        bash = None
+        for path in git_bash_paths:
+            if path.exists():
+                bash = path
+                break
+
+        if not bash:
+            # Fallback: try PATH (might find WSL bash or other bash)
+            found_bash = platform.find_executable("bash", required=False)
+            if found_bash:
+                if "System32" in str(found_bash) or "System32" in str(found_bash).lower():
+                    # WSL bash detected - cannot use for Windows builds
+                    logger.warning(f"Found WSL bash at {found_bash}")
+                    logger.warning("WSL bash cannot execute Windows executables like ./gradlew")
+                    logger.warning("Please install Git for Windows: https://git-scm.com/download/win")
+                    logger.fail_fast("Git Bash is required for Windows builds")
+                else:
+                    # Found bash somewhere else (maybe Cygwin, msys2, etc.)
+                    logger.warning(f"Using bash from non-standard location: {found_bash}")
+                    bash = found_bash
+
+        if not bash:
+            logger.fail_fast(
+                "Git Bash not found. Please install Git for Windows.\n"
+                "Download: https://git-scm.com/download/win"
+            )
+
+        # CRITICAL ROOT CAUSE FIX:
+        # GNU Make on Windows ignores SHELL environment variable by design!
+        # We MUST pass SHELL as a command-line variable: make SHELL=path
+        # BUT spaces in path break Make's argument parsing!
+        # SOLUTION: Use Windows short path (8.3 format) which has NO spaces
+        # Example: C:\Program Files\... → C:\PROGRA~1\...
+
+        bash_for_make = None
+
+        # Method 1: Use ctypes to get short path (most reliable)
+        try:
+            import ctypes
+            buf = ctypes.create_unicode_buffer(260)
+            ret = ctypes.windll.kernel32.GetShortPathNameW(str(bash), buf, 260)
+            if ret > 0 and buf.value and Path(buf.value).exists():
+                short_path = buf.value
+                # Only use short path if it actually removed spaces
+                if " " not in short_path:
+                    bash_for_make = short_path.replace("\\", "/")
+                    logger.info(f"Using short path for bash: {bash_for_make}")
+                else:
+                    logger.warning(f"Short path still contains spaces: {short_path}")
+        except Exception as e:
+            logger.warning(f"ctypes short path failed ({e})")
+
+        # Method 2: cmd.exe for loop (fallback)
+        if not bash_for_make:
+            import subprocess as sp
+            try:
+                # Must pass the entire for command as a single string to cmd /c
+                for_cmd = f'for %I in ("{bash}") do @echo %~sI'
+                result = sp.run(
+                    ["cmd", "/c", for_cmd],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                    timeout=5
+                )
+                short_path = result.stdout.strip()
+                if short_path and Path(short_path).exists() and " " not in short_path:
+                    bash_for_make = short_path.replace("\\", "/")
+                    logger.info(f"Using short path for bash (cmd fallback): {bash_for_make}")
+            except Exception as e:
+                logger.warning(f"cmd short path conversion also failed ({e})")
+
+        # Method 3: Last resort - use original path (may fail with spaces)
+        if not bash_for_make:
+            bash_for_make = str(bash).replace("\\", "/")
+            logger.warning(f"Could not get short path, using: {bash_for_make}")
+            if " " in bash_for_make:
+                logger.warning(
+                    "SHELL path contains spaces which may cause Make recipe failures. "
+                    "Consider enabling 8.3 short name generation or installing Git "
+                    "to a path without spaces (e.g., C:\\Git\\bin\\bash.exe)."
+                )
+
+        # Pass SHELL as Make command-line variable (NOT environment variable!)
+        cmd.append(f"SHELL={bash_for_make}")
+
+        # CRITICAL: Override Makefile's Windows defaults via command-line
+        # Makefile has: ifeq ($(OS),Windows_NT) ... GRADLEW ?= gradlew.bat
+        # We need ./gradlew (Git Bash shell script) not gradlew.bat (Windows batch)
+        cmd.append("GRADLEW=./gradlew")
+        cmd.append("NULL_DEVICE=/dev/null")
+
+        # CRITICAL: Override Python command to avoid Windows App Store stub
+        # Windows App Store creates python3.exe stub that redirects to Microsoft Store
+        # Git Bash Makefile auto-detection finds this stub instead of real Python
+        # Force using 'python' command which works on Windows
+        cmd.append("PYTHON=python")
+    # else: Linux/macOS/WSL - Makefile defaults are correct, no overrides needed
+
+    # Add target
+    cmd.append(target)
+
+    # Debug: Show full make command on Windows
+    if is_windows():
+        logger.info(f"[DEBUG] Make command: {' '.join(cmd)}")
+
     result = platform.run_command(
         cmd,
         cwd=repo_root,
-        env=env,
         capture_output=False,  # Stream output to console
         check=False,
         timeout=1800  # 30 minutes max per target
     )
-    
+
     if result.returncode != 0:
         raise RuntimeError(f"Make target '{target}' failed with exit code {result.returncode}")
-    
+
     logger.success(f"Make target '{target}' completed")
 
 
@@ -381,6 +519,11 @@ def main():
         action="store_true",
         help="Skip pre-pull (not recommended for fresh machines, may cause timeouts)"
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose output (Helm debug, Docker progress, etc.)"
+    )
     args = parser.parse_args()
     
     # Setup platform
@@ -403,21 +546,25 @@ def main():
         cluster_name = args.cluster_name or get_kind_cluster_name(repo_root)
         namespace = args.namespace
         
+        verbose = args.verbose
+
         if args.keep:
             logger.info("Keep mode enabled: cluster will be preserved on success or failure")
-        
+        if verbose:
+            logger.info("Verbose mode enabled")
+
         # Fail-fast dependency checks
         with logger.group("Dependency Checks"):
             check_dependencies(platform, logger)
-        
+
         # K8s validation
         with logger.timer("K8s Validation"):
-            run_make_target("k8s-validate", logger, platform, repo_root)
-        
+            run_make_target("k8s-validate", logger, platform, repo_root, verbose=verbose)
+
         # Initialize kind cluster
         with logger.timer("Kind Cluster Initialization"):
             initialize_kind_cluster(cluster_name, logger, platform, repo_root)
-        
+
         # Switch kubectl context
         context_name = f"kind-{cluster_name}"
         result = platform.run_command(
@@ -434,7 +581,7 @@ def main():
             logger.info("This may take 5-10 minutes on first run with fresh images")
             try:
                 with logger.timer("Pre-pull Infrastructure Images"):
-                    run_make_target("prepull-infra-images", logger, platform, repo_root)
+                    run_make_target("prepull-infra-images", logger, platform, repo_root, verbose=verbose)
             except RuntimeError as e:
                 logger.error(f"Pre-pull failed: {e}")
                 logger.error("Deployment cannot continue without cached images")
@@ -449,7 +596,7 @@ def main():
         targets = ["infra-up", "build-images", "kind-load", "deploy-dev", "smoke"]
         for target in targets:
             with logger.timer(f"Make {target}"):
-                run_make_target(target, logger, platform, repo_root)
+                run_make_target(target, logger, platform, repo_root, verbose=verbose)
         
         # Success path
         generate_summary_report(repo_root, logger)
@@ -466,20 +613,32 @@ def main():
     
     except Exception as e:
         logger.error(f"Deployment failed: {e}")
-        
+
         # Generate report on failure
         try:
             generate_summary_report(repo_root, logger)
         except Exception as report_err:
             logger.warning(f"Failed to generate summary report: {report_err}")
-        
+
         # Show diagnostics
         try:
             cluster_name = args.cluster_name or get_kind_cluster_name(repo_root)
             show_failure_diagnostics(cluster_name, args.namespace, logger, platform)
         except Exception as diag_err:
             logger.warning(f"Failed to show diagnostics: {diag_err}")
-        
+
+        # Generate support bundle
+        try:
+            logger.info("Generating support bundle...")
+            from scripts.pipelines.support_bundle import generate_bundle
+            zip_path = generate_bundle(
+                cluster_name=args.cluster_name or get_kind_cluster_name(repo_root),
+                namespace=args.namespace
+            )
+            logger.info(f"Support bundle: {zip_path}")
+        except Exception as bundle_err:
+            logger.warning(f"Failed to generate support bundle: {bundle_err}")
+
         return 1
 
 

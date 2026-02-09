@@ -23,11 +23,11 @@ IMAGES=(
     "registry.k8s.io/ingress-nginx/controller:v1.14.3"
     "registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.6.7"
 
-    # bitnami metrics-server
-    "docker.io/bitnami/metrics-server:0.7.2-debian-12-r7"
+    # metrics-server (using official k8s registry, not bitnami image)
+    "registry.k8s.io/metrics-server/metrics-server:v0.8.0"
 
-    # bitnami postgresql
-    "docker.io/bitnami/postgresql:17.2.0-debian-12-r10"
+    # bitnami postgresql (using 'latest' tag to match postgresql-values.yaml)
+    "docker.io/bitnami/postgresql:latest"
 )
 
 # Track success/failure

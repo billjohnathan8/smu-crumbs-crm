@@ -198,16 +198,16 @@ class EnvironmentChecker:
     def report(self):
         """Print environment check report."""
         self.logger.section("ENVIRONMENT STATUS")
-        
+
         for dep in self.results:
             if dep.found:
-                symbol = "✓"
+                symbol = "[OK]"
                 msg = f"{dep.name}: {dep.version or 'installed'}"
                 if dep.path:
                     msg += f" ({dep.path})"
                 self.logger.success(f"{symbol} {msg}")
             else:
-                symbol = "✗" if dep.required else "⚠"
+                symbol = "[ERROR]" if dep.required else "[WARN]"
                 msg = f"{dep.name}: NOT FOUND"
                 if dep.install_cmd:
                     msg += f"\n    Install: {dep.install_cmd}"
@@ -798,25 +798,25 @@ Examples:
             if docker_status.found:
                 docker_running = checker.check_docker_daemon()
                 if not docker_running:
-                    logger.warning("⚠ Docker daemon is not running (required for kind)")
+                    logger.warning("[WARN] Docker daemon is not running (required for kind)")
                 else:
-                    logger.success("✓ Docker daemon is running")
+                    logger.success("[OK] Docker daemon is running")
             
             git_status = checker.check_tool("Git", "git", required=True)
             
             java_status = checker.check_tool("Java", "java", required=True)
             if java_status.found:
                 if checker.check_java_version(java_status):
-                    logger.success("✓ Java version ≥21")
+                    logger.success("[OK] Java version >=21")
                 else:
-                    logger.warning("⚠ Java version <21 (requires Java 21+)")
+                    logger.warning("[WARN] Java version <21 (requires Java 21+)")
             
             node_status = checker.check_tool("Node.js", "node", required=True)
             if node_status.found:
                 if checker.check_node_version(node_status):
-                    logger.success("✓ Node.js version ≥18")
+                    logger.success("[OK] Node.js version >=18")
                 else:
-                    logger.warning("⚠ Node.js version <18 (requires Node.js 18+)")
+                    logger.warning("[WARN] Node.js version <18 (requires Node.js 18+)")
             
             checker.check_tool("npm", "npm", required=True)
             checker.check_tool("Make", "make", required=True)
