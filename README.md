@@ -26,9 +26,12 @@ Before running the setup, ensure you have these installed:
 **Required System Dependencies:**
 - **Docker Desktop** (or Docker Engine) - Kubernetes via kind ([Installation Guide](https://docs.docker.com/get-docker/))
 - **Git** - Version control ([Download](https://git-scm.com/downloads))
+  - **Windows users**: [Git for Windows](https://git-scm.com/download/win) strongly recommended (includes Git Bash + Make)
+  - Paths with spaces (like `C:\Program Files\Git`) are fully supported ✅
+  - WSL bash is also supported as fallback
 - **Java 21** (Temurin/OpenJDK) - Backend services ([Download](https://adoptium.net/))
 - **Node.js ≥ 18** - Frontend build tooling ([Download](https://nodejs.org/))
-- **Make** (GNU Make) - Build automation
+- **Make** (GNU Make) - Build automation (included with Git for Windows on Windows)
 - **Python 3.8+** - Build scripts and log service ([Installation Guide](docs/prerequisites/PYTHON-REQUIREMENT.md))
 
 **Note:** The setup script will automatically install CLI tools (kubectl, helm, kind, kubeconform) to `.devtools/bin`. You do not need to install these manually.

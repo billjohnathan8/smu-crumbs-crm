@@ -134,7 +134,10 @@ kind delete cluster --name cs301-crm
 - kubectl
 - Helm v3
 - GNU Make
-- Git Bash (Windows only)
+- **Bash environment (Windows)**:
+  - **Git Bash** (recommended) - Included with [Git for Windows](https://git-scm.com/download/win)
+  - **WSL Bash** (supported) - Scripts auto-detect and use WSL as fallback
+  - **Path handling**: Paths with spaces (like `C:\Program Files\Git`) are fully supported ✅
 - Java 21 (for Gradle builds)
 
 ### Optional

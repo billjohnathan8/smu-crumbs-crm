@@ -43,10 +43,13 @@ The setup script follows a **"portable by default"** philosophy to minimize syst
 These **must** be installed globally (no way around it):
 - **Docker Desktop** (or Docker Engine) — Required for `kind` (Kubernetes in Docker)
 - **Git** — Version control
+  - **Windows**: [Git for Windows](https://git-scm.com/download/win) is **strongly recommended** (includes Git Bash + Make)
+  - WSL bash is supported as fallback, but Git Bash provides better integration
 - **Java 21** (Temurin/OpenJDK) — Backend services use Spring Boot + Java 21
 - **Node.js ≥ 18** — Frontend uses React 19 + Vite
 - **Make** (GNU Make) — Build automation
-- **Python 3.8+** — Cross-platform build scripts and log service backend
+  - **Windows**: Included with Git for Windows, or install via scoop (`scoop install make`)
+- **Python 3.8+** — Cross-platform build scripts and log service backend (optional)
 
 ### Portable CLI Tools (Downloaded to `.devtools/bin`)
 By default, these are **NOT** installed globally:
@@ -63,6 +66,39 @@ The script downloads pinned versions to `.devtools/bin` and updates your `PATH` 
 These are checked into the repository:
 - **Gradle Wrapper** (`./gradlew`, `./gradlew.bat`) — Java build tool wrapper
 - **npm scripts** — Frontend build/test scripts in `package.json`
+
+---
+
+## Windows Path Compatibility
+
+The project **fully supports paths with spaces** (like `C:\Program Files\Git`), which is critical for Windows users with standard tool installations.
+
+### Bash Environment Options
+
+On Windows, you have **two** options for running the deployment scripts:
+
+#### Option 1: Git Bash (Recommended)
+- **What**: Bash shell included with [Git for Windows](https://git-scm.com/download/win)
+- **Installation**: `winget install Git.Git` or download installer
+- **Location**: `C:\Program Files\Git\bin\bash.exe`
+- **Why Recommended**: Better Windows path integration, includes Make utility
+- **Usage**: Scripts automatically detect and use Git Bash
+
+#### Option 2: WSL Bash (Supported)
+- **What**: Windows Subsystem for Linux bash
+- **Installation**: Already installed if you have WSL enabled
+- **Location**: `C:\Windows\System32\bash.exe`
+- **Usage**: Scripts automatically detect and fall back to WSL bash if Git Bash not found
+- **Note**: Uses `/mnt/c/` paths instead of `/c/` paths
+
+### Path Detection Priority
+
+The deployment scripts automatically detect your bash environment in this order:
+1. **Git Bash** (preferred) - `C:\Program Files\Git\bin\bash.exe`
+2. **WSL Bash** (fallback) - `C:\Windows\System32\bash.exe`
+3. **System PATH** - Any bash found on your PATH
+
+**No configuration needed** - the scripts handle path spaces and environment detection automatically!
 
 ---
 
@@ -511,11 +547,31 @@ The setup script is **safe to re-run**:
 ### Q: Do I need admin rights?
 **A**: Only for installing system dependencies (Docker, Java, Node). The default `-Portable` mode does NOT require admin for CLI tools.
 
-### Q: Can I use WSL2 on Windows?
-**A**: Yes! Docker Desktop for Windows supports WSL2 backend. You can run the setup in WSL2 using the Linux script:
+### Q: Can I use WSL (Windows Subsystem for Linux)?
+**A**: Yes! You have two options:
+
+**Option 1: Run PowerShell script with WSL bash** (Recommended for Windows)
+```powershell
+# The PowerShell setup script automatically detects and uses WSL bash
+.\scripts\dev-setup\setup.ps1
+```
+The script will:
+- Detect WSL bash at `C:\Windows\System32\bash.exe`
+- Use `/mnt/c/` paths for Windows tools
+- Find kubectl, helm, kind installed via Chocolatey or system PATH
+
+**Option 2: Run Linux script inside WSL**
 ```bash
+# Inside WSL terminal
 bash scripts/dev-setup/setup.sh
 ```
+This treats your environment as pure Linux and uses native Linux paths.
+
+**Which should I use?**
+- Use **Option 1** if you have Docker Desktop on Windows
+- Use **Option 2** if you have Docker installed inside WSL itself
+
+**Note**: Git Bash is still recommended for the best Windows experience, but WSL bash is fully supported!
 
 ### Q: What if I already have kubectl/helm/kind installed?
 **A**: The script detects existing installations and skips them. It won't overwrite your system-installed tools.

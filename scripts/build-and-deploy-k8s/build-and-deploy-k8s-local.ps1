@@ -366,11 +366,13 @@ function Invoke-MakeTarget {
 }
 
 function Get-BashPath {
+    # Prefer Git Bash, but fallback to WSL bash if Git Bash not available
     $candidatePaths = @(
         "C:\Program Files\Git\bin\bash.exe",
         "C:\Program Files\Git\usr\bin\bash.exe",
         "C:\Program Files\Git\bin\sh.exe",
-        "C:\Program Files\Git\usr\bin\sh.exe"
+        "C:\Program Files\Git\usr\bin\sh.exe",
+        "C:\Windows\System32\bash.exe"  # WSL bash (fallback)
     )
 
     foreach ($path in $candidatePaths) {
@@ -379,13 +381,10 @@ function Get-BashPath {
         }
     }
 
+    # If not found in standard locations, check PATH
     $bashCommand = Get-Command bash -ErrorAction SilentlyContinue
     if ($bashCommand) {
-        $source = $bashCommand.Source
-        if ($env:OS -eq "Windows_NT" -and $source -match "\\Windows\\System32\\bash.exe$") {
-            return $null
-        }
-        return $source
+        return $bashCommand.Source
     }
 
     return $null

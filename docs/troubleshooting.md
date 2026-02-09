@@ -227,6 +227,54 @@ pip install -r requirements.txt
 
 ---
 
+### Issue: Deployment fails with "No such file or directory" on Windows
+
+**Symptoms:**
+```
+scripts/platform/kind-up.sh: line 32: /c/Program: No such file or directory
+make: *** [Makefile:53: kind-up] Error 1
+```
+
+**Root cause:** Paths with spaces (like `C:\Program Files\Git`) were not properly handled in bash scripts and Make variables.
+
+**Solution:**
+
+✅ **Already fixed!** (As of February 2026)
+
+The deployment scripts now fully support paths with spaces, including:
+- Git Bash in `C:\Program Files\Git`
+- Docker Desktop in `C:\Program Files\Docker`
+- Repository paths with spaces
+
+**What was fixed:**
+1. **PowerShell scripts**: Make SHELL variable now escapes spaces
+2. **Bash scripts**: All variable expansions properly quoted
+3. **Path detection**: Scripts auto-detect both Git Bash and WSL bash
+
+**Verify your setup:**
+```powershell
+# Check if Git Bash is detected correctly
+where.exe bash
+
+# Should show one of:
+# - C:\Program Files\Git\bin\bash.exe (Git Bash - recommended)
+# - C:\Windows\System32\bash.exe (WSL bash - supported)
+
+# Run deployment to test
+.\scripts\build-and-deploy-k8s\build-and-deploy-k8s-local.ps1
+```
+
+**If still encountering issues:**
+1. Ensure Git for Windows is installed: `winget install Git.Git`
+2. Restart your terminal to refresh PATH
+3. Run setup again: `.\scripts\dev-setup\setup.ps1`
+
+**See also:**
+- [Windows Path Compatibility](onboarding/new-dev-setup.md#windows-path-compatibility) in setup guide
+- [WSL Support FAQ](onboarding/new-dev-setup.md#q-can-i-use-wsl-windows-subsystem-for-linux) for WSL users
+
+---
+
 ### Issue: Permission denied accessing Docker socket
 
 **Symptoms:**
