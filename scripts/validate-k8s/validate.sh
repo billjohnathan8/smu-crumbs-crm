@@ -77,13 +77,11 @@ for tool in helm kubectl kubeconform; do
   if command -v "${tool}" >/dev/null 2>&1; then
     log "Found: ${tool}"
   elif command -v "${tool}.exe" >/dev/null 2>&1; then
-    log "Found: ${tool}.exe"
-    # Set the command variable to include .exe suffix for WSL
-    case "${tool}" in
-      helm) HELM_CMD="helm.exe" ;;
-      kubectl) KUBECTL_CMD="kubectl.exe" ;;
-      kubeconform) KUBECONFORM_CMD="kubeconform.exe" ;;
-    esac
+    log "Found: ${tool}.exe (Windows binary)"
+    # NOTE: Do NOT set command variable to .exe in WSL
+    # WSL's Windows interop requires invoking WITHOUT .exe suffix
+    # to trigger the binfmt_misc handler. Calling "helm.exe" directly
+    # bypasses interop and causes "Exec format error".
   else
     missing+=("${tool}")
   fi
