@@ -10,6 +10,9 @@
 # Usage: KEEP_CLUSTER=1 bash ./scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh
 set -euo pipefail
 
+# Source common environment setup
+source "$(dirname "${BASH_SOURCE[0]}")/../common/setup-env.sh"
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/../.." && pwd)"
 log_dir="${repo_root}/build-logs/build-and-deploy-k8s"
@@ -31,6 +34,11 @@ script_name="$(basename "${BASH_SOURCE[0]%.*}")"
 log_file="${log_dir}/inv${inverse_timestamp}__${timestamp_readable}__${script_name}.log"
 
 mkdir -p "${log_dir}"
+
+# Use commands from common setup
+KUBECTL="${KUBECTL_CMD}"
+HELM="${HELM_CMD}"
+KIND="${KIND_CMD}"
 
 rotate_logs() {
   local files
@@ -90,7 +98,7 @@ get_k8s_deployments() {
 kind_cluster_reachable() {
   local cluster_name="$1"
   local context_name="kind-${cluster_name}"
-  kubectl --context "${context_name}" version --request-timeout=10s >/dev/null 2>&1
+  "${KUBECTL}" --context "${context_name}" version --request-timeout=10s >/dev/null 2>&1
 }
 
 show_failure_diagnostics() {
@@ -102,26 +110,26 @@ show_failure_diagnostics() {
   echo ""
 
   log "Pod status:"
-  kubectl get pods -n "${namespace}" -o wide 2>&1 || true
+  "${KUBECTL}" get pods -n "${namespace}" -o wide 2>&1 || true
 
   log "Services and Ingress:"
-  kubectl get svc,ingress -n "${namespace}" 2>&1 || true
+  "${KUBECTL}" get svc,ingress -n "${namespace}" 2>&1 || true
 
   log "Recent events (last 200):"
-  kubectl get events -n "${namespace}" --sort-by=.metadata.creationTimestamp 2>&1 | tail -200 || true
+  "${KUBECTL}" get events -n "${namespace}" --sort-by=.metadata.creationTimestamp 2>&1 | tail -200 || true
 
   log "Describing failing pods:"
   local failing_pods
-  failing_pods="$(kubectl get pods -n "${namespace}" -o json 2>/dev/null | \
+  failing_pods="$("${KUBECTL}" get pods -n "${namespace}" -o json 2>/dev/null | \
     jq -r '.items[] | select(.status.phase != "Running" and .status.phase != "Succeeded") | .metadata.name' || true)"
-  
+
   if [[ -n "${failing_pods}" ]]; then
     while IFS= read -r pod; do
       [[ -z "${pod}" ]] && continue
       log "kubectl describe pod ${pod} -n ${namespace}"
-      kubectl describe pod "${pod}" -n "${namespace}" 2>&1 || true
+      "${KUBECTL}" describe pod "${pod}" -n "${namespace}" 2>&1 || true
       log "kubectl logs ${pod} -n ${namespace} --tail=100 --all-containers=true"
-      kubectl logs "${pod}" -n "${namespace}" --tail=100 --all-containers=true 2>&1 || true
+      "${KUBECTL}" logs "${pod}" -n "${namespace}" --tail=100 --all-containers=true 2>&1 || true
     done <<< "${failing_pods}"
   fi
 
@@ -148,12 +156,12 @@ show_failure_diagnostics() {
 kind_cluster_reachable() {
   local cluster_name="$1"
   local context_name="kind-${cluster_name}"
-  kubectl --context "${context_name}" version --request-timeout=10s >/dev/null 2>&1
+  "${KUBECTL}" --context "${context_name}" version --request-timeout=10s >/dev/null 2>&1
 }
 
 initialize_kind_cluster() {
   local cluster_name="$1"
-  if ! (kind get clusters 2>/dev/null || true) | grep -Fxq "${cluster_name}"; then
+  if ! ("${KIND}" get clusters 2>/dev/null || true) | grep -Fxq "${cluster_name}"; then
     run_make_target kind-up
     return
   fi
@@ -164,7 +172,7 @@ initialize_kind_cluster() {
   fi
 
   log "kind cluster '${cluster_name}' exists but is unreachable; recreating."
-  kind delete cluster --name "${cluster_name}" >/dev/null 2>&1 || true
+  "${KIND}" delete cluster --name "${cluster_name}" >/dev/null 2>&1 || true
   run_make_target kind-up
 }
 
@@ -296,7 +304,7 @@ fi
 initialize_kind_cluster "${kind_cluster_name}"
 
 context_name="kind-${kind_cluster_name}"
-if ! kubectl config use-context "${context_name}" >/dev/null 2>&1; then
+if ! "${KUBECTL}" config use-context "${context_name}" >/dev/null 2>&1; then
   log "Failed to switch kubectl context to '${context_name}'."
   exit 1
 fi
@@ -322,12 +330,12 @@ else
   log "Smoke passed: tearing down local k8s resources and kind cluster '${kind_cluster_name}'"
 
   # Best-effort cleanup. The kind cluster delete is the "complete teardown" step.
-  kubectl delete -k platform/k8s/apps/overlays/dev --ignore-not-found >/dev/null 2>&1 || true
-  helm uninstall postgres -n dev >/dev/null 2>&1 || true
-  helm uninstall ingress-nginx -n ingress-nginx >/dev/null 2>&1 || true
-  helm uninstall metrics-server -n kube-system >/dev/null 2>&1 || true
+  "${KUBECTL}" delete -k platform/k8s/apps/overlays/dev --ignore-not-found >/dev/null 2>&1 || true
+  "${HELM}" uninstall postgres -n dev >/dev/null 2>&1 || true
+  "${HELM}" uninstall ingress-nginx -n ingress-nginx >/dev/null 2>&1 || true
+  "${HELM}" uninstall metrics-server -n kube-system >/dev/null 2>&1 || true
 
-  if ! kind delete cluster --name "${kind_cluster_name}" >/dev/null 2>&1; then
+  if ! "${KIND}" delete cluster --name "${kind_cluster_name}" >/dev/null 2>&1; then
     log "Teardown failed: unable to delete kind cluster '${kind_cluster_name}'."
     exit 1
   fi

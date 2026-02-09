@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+# Source common environment setup
+source "$(dirname "${BASH_SOURCE[0]}")/../common/setup-env.sh"
+
 TMPDIR_BASE="${REPO_ROOT}/.k8s-validate-tmp"
 
 log() {
@@ -20,82 +22,19 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# On Windows (Git Bash), add common Windows tool paths that may not be auto-mapped
-if [[ -n "${WINDIR:-}" ]] || [[ "$(uname -s)" =~ ^(MINGW|MSYS|CYGWIN) ]]; then
-  # Add .devtools/bin (portable tools)
-  if [[ -d "${REPO_ROOT}/.devtools/bin" ]]; then
-    export PATH="${REPO_ROOT}/.devtools/bin:${PATH}"
-  fi
-  
-  # Add Chocolatey bin (where kubectl, helm, kind may be installed)
-  if [[ -d "/c/ProgramData/chocolatey/bin" ]]; then
-    export PATH="/c/ProgramData/chocolatey/bin:${PATH}"
-  fi
-  
-  # Add Docker Desktop resources (alternative kubectl location)
-  if [[ -d "/c/Program Files/Docker/Docker/resources/bin" ]]; then
-    export PATH="/c/Program Files/Docker/Docker/resources/bin:${PATH}"
-  fi
-fi
-
-# Additional WSL-specific PATH handling
-if [[ "$(uname -r)" =~ Microsoft || "$(uname -r)" =~ WSL ]]; then
-  log "WSL detected - adding Windows tool paths for cross-platform compatibility"
-  # Add .devtools/bin with absolute /mnt/c path for WSL
-  devtools_abs="${REPO_ROOT}/.devtools/bin"
-  if [[ -d "${devtools_abs}" ]]; then
-    export PATH="${devtools_abs}:${PATH}"
-    log "Added to PATH: ${devtools_abs}"
-  fi
-  
-  # Add Chocolatey bin for WSL
-  if [[ -d "/mnt/c/ProgramData/chocolatey/bin" ]]; then
-    export PATH="/mnt/c/ProgramData/chocolatey/bin:${PATH}"
-    log "Added to PATH: /mnt/c/ProgramData/chocolatey/bin"
-  fi
-fi
-
 # ---------------------------------------------------------------------------
 # 1) Tool checks
 # ---------------------------------------------------------------------------
 log "Checking required tools..."
 
 missing=()
-# On WSL, determine which command variant works (.exe or no suffix) and set command variables
-HELM_CMD="helm"
-KUBECTL_CMD="kubectl"
-KUBECONFORM_CMD="kubeconform"
-IS_WSL=false
-
-# Detect if we're running in WSL
-if [[ "$(uname -r)" =~ Microsoft || "$(uname -r)" =~ WSL ]]; then
-  IS_WSL=true
-fi
-
 for tool in helm kubectl kubeconform; do
-  # In WSL, try both with and without .exe suffix
-  if command -v "${tool}" >/dev/null 2>&1; then
+  if command -v "${tool}" >/dev/null 2>&1 || command -v "${tool}.exe" >/dev/null 2>&1; then
     log "Found: ${tool}"
-  elif command -v "${tool}.exe" >/dev/null 2>&1; then
-    log "Found: ${tool}.exe (Windows binary)"
-    # NOTE: Do NOT set command variable to .exe in WSL
-    # WSL's Windows interop requires invoking WITHOUT .exe suffix
-    # to trigger the binfmt_misc handler. Calling "helm.exe" directly
-    # bypasses interop and causes "Exec format error".
   else
     missing+=("${tool}")
   fi
 done
-
-# Helper function to convert WSL paths to Windows paths when calling .exe binaries
-to_native_path() {
-  local path="$1"
-  if ${IS_WSL} && [[ "${path}" =~ ^/ ]] && command -v wslpath >/dev/null 2>&1; then
-    wslpath -w "${path}"
-  else
-    echo "${path}"
-  fi
-}
 
 if [[ ${#missing[@]} -gt 0 ]]; then
   log "Missing required tool(s): ${missing[*]}"
@@ -108,6 +47,11 @@ if [[ ${#missing[@]} -gt 0 ]]; then
 fi
 
 log "All required tools found."
+
+# Use commands from common setup
+HELM="${HELM_CMD}"
+KUBECTL="${KUBECTL_CMD}"
+KUBECONFORM="${KUBECONFORM_CMD}"
 
 # ---------------------------------------------------------------------------
 # 2) Validate kind config YAML (best-effort with python)
@@ -160,9 +104,9 @@ fi
 mkdir -p "${TMPDIR_BASE}"
 
 log "Ensuring Helm repos are added..."
-${HELM_CMD} repo add ingress-nginx https://kubernetes.github.io/ingress-nginx >/dev/null 2>&1 || true
-${HELM_CMD} repo add bitnami https://charts.bitnami.com/bitnami >/dev/null 2>&1 || true
-${HELM_CMD} repo update >/dev/null
+"${HELM}" repo add ingress-nginx https://kubernetes.github.io/ingress-nginx >/dev/null 2>&1 || true
+"${HELM}" repo add bitnami https://charts.bitnami.com/bitnami >/dev/null 2>&1 || true
+"${HELM}" repo update >/dev/null
 
 HELM_CHARTS=(
   "infra-ingress|ingress-nginx|ingress-nginx/ingress-nginx|ingress-nginx|"
@@ -177,7 +121,7 @@ for entry in "${HELM_CHARTS[@]}"; do
   outfile="${TMPDIR_BASE}/${filename}.yaml"
 
   log "Rendering Helm chart: ${chart} (release=${release}, namespace=${namespace})..."
-  cmd=(${HELM_CMD} template "${release}" "${chart}" --namespace "${namespace}" --include-crds)
+  cmd=("${HELM}" template "${release}" "${chart}" --namespace "${namespace}" --include-crds)
   if [[ -n "${values_file}" ]]; then
     # Convert values file path to native format for Windows executables in WSL
     native_values_file="$(to_native_path "${values_file}")"
@@ -193,7 +137,7 @@ for entry in "${HELM_CHARTS[@]}"; do
   # Use strict mode but ignore missing schemas (CRDs from Helm charts may not have schemas).
   # Convert to Windows path only for kubeconform.exe argument
   native_outfile="$(to_native_path "${outfile}")"
-  if ! ${KUBECONFORM_CMD} -summary -strict -ignore-missing-schemas "${native_outfile}"; then
+  if ! "${KUBECONFORM}" -summary -strict -ignore-missing-schemas "${native_outfile}"; then
     fail "kubeconform validation failed for ${filename}.yaml"
   fi
 
@@ -208,21 +152,21 @@ APPS_OUTFILE="${TMPDIR_BASE}/apps-dev.yaml"
 
 log "Rendering Kustomize overlay: ${KUSTOMIZE_DIR}..."
 # For kubectl kustomize with .exe in WSL, use relative path to avoid path translation issues
-if ${IS_WSL} && [[ "${KUBECTL_CMD}" == *".exe" ]]; then
+if ${IS_WSL} && [[ "${KUBECTL}" == *".exe" ]]; then
   # Change to directory and kustomize current dir to avoid WSL/Windows path issues
-  if ! (cd "${KUSTOMIZE_DIR}" && ${KUBECTL_CMD} kustomize .) > "${APPS_OUTFILE}" 2>&1; then
+  if ! (cd "${KUSTOMIZE_DIR}" && "${KUBECTL}" kustomize .) > "${APPS_OUTFILE}" 2>&1; then
     fail "kubectl kustomize failed. Output:\n$(cat "${APPS_OUTFILE}")"
   fi
 else
   # Native kubectl or non-WSL: use path directly
-  if ! ${KUBECTL_CMD} kustomize "${KUSTOMIZE_DIR}" > "${APPS_OUTFILE}" 2>&1; then
+  if ! "${KUBECTL}" kustomize "${KUSTOMIZE_DIR}" > "${APPS_OUTFILE}" 2>&1; then
     fail "kubectl kustomize failed. Output:\n$(cat "${APPS_OUTFILE}")"
   fi
 fi
 
 log "Validating apps-dev.yaml with kubeconform..."
 native_apps_outfile="$(to_native_path "${APPS_OUTFILE}")"
-if ! ${KUBECONFORM_CMD} -summary -strict -ignore-missing-schemas "${native_apps_outfile}"; then
+if ! "${KUBECONFORM}" -summary -strict -ignore-missing-schemas "${native_apps_outfile}"; then
   fail "kubeconform validation failed for apps-dev.yaml"
 fi
 

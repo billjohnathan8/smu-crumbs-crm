@@ -1,47 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# On Windows (Git Bash), add common Windows tool paths that may not be auto-mapped
-if [[ -n "${WINDIR:-}" ]] || [[ "$(uname -s)" =~ ^(MINGW|MSYS|CYGWIN) ]]; then
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  repo_root="$(cd "${script_dir}/../.." && pwd)"
-
-  # Add .devtools/bin (portable tools)
-  if [[ -d "${repo_root}/.devtools/bin" ]]; then
-    export PATH="${repo_root}/.devtools/bin:${PATH}"
-  fi
-
-  # Add Chocolatey bin (where kubectl may be installed)
-  if [[ -d "/c/ProgramData/chocolatey/bin" ]]; then
-    export PATH="/c/ProgramData/chocolatey/bin:${PATH}"
-  fi
-
-  # Add Docker Desktop resources (alternative kubectl location)
-  if [[ -d "/c/Program Files/Docker/Docker/resources/bin" ]]; then
-    export PATH="/c/Program Files/Docker/Docker/resources/bin:${PATH}"
-  fi
-fi
-
-# Additional WSL-specific PATH handling
-if [[ "$(uname -r)" =~ Microsoft || "$(uname -r)" =~ WSL ]]; then
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  repo_root="$(cd "${script_dir}/../.." && pwd)"
-
-  # Add .devtools/bin with absolute path for WSL
-  if [[ -d "${repo_root}/.devtools/bin" ]]; then
-    export PATH="${repo_root}/.devtools/bin:${PATH}"
-  fi
-
-  # Add Chocolatey bin for WSL
-  if [[ -d "/mnt/c/ProgramData/chocolatey/bin" ]]; then
-    export PATH="/mnt/c/ProgramData/chocolatey/bin:${PATH}"
-  fi
-
-  # Add Docker Desktop resources for WSL
-  if [[ -d "/mnt/c/Program Files/Docker/Docker/resources/bin" ]]; then
-    export PATH="/mnt/c/Program Files/Docker/Docker/resources/bin:${PATH}"
-  fi
-fi
+# Source common environment setup
+source "$(dirname "${BASH_SOURCE[0]}")/../common/setup-env.sh"
 
 base_url=${BASE_URL:-http://localhost}
 curl_base_url="${base_url}"
@@ -55,6 +16,10 @@ CURL_LAST_BODY=""
 CURL_LAST_ERR=""
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/../.." && pwd)"
+
+# Use commands from common setup
+KUBECTL="${KUBECTL_CMD}"
+
 manifests_dir="${repo_root}/platform/k8s/apps/base"
 ingress_yaml="${manifests_dir}/ingress.yaml"
 kustomization_yaml="${manifests_dir}/kustomization.yaml"
@@ -301,7 +266,7 @@ start_service_port_forward() {
   fallback_port="$(find_free_port 18110 18220)"
   local log_file
   log_file="$(mktemp 2>/dev/null || echo "/tmp/smoke-${svc}-port-forward.log")"
-  kubectl -n dev port-forward "svc/${svc}" "${fallback_port}:80" >"${log_file}" 2>&1 &
+  ${KUBECTL} -n dev port-forward "svc/${svc}" "${fallback_port}:80" >"${log_file}" 2>&1 &
   local pid=$!
 
   service_port_forward_pid["${svc}"]="${pid}"
@@ -450,7 +415,7 @@ start_port_forward_fallback() {
   fallback_port="$(find_free_port 18080 18100)"
   local log_file
   log_file="$(mktemp 2>/dev/null || echo /tmp/smoke-port-forward.log)"
-  kubectl -n ingress-nginx port-forward svc/ingress-nginx-controller "${fallback_port}:80" >"${log_file}" 2>&1 &
+  ${KUBECTL} -n ingress-nginx port-forward svc/ingress-nginx-controller "${fallback_port}:80" >"${log_file}" 2>&1 &
   port_forward_pid=$!
 
   for _ in {1..20}; do
@@ -463,7 +428,7 @@ start_port_forward_fallback() {
     curl_host_args=(-H "Host: localhost")
     if tcp_connect "localhost" "${fallback_port}" 500; then
       ingress_port="${fallback_port}"
-      echo "Using kubectl port-forward fallback at ${base_url}"
+      echo "Using ${KUBECTL} port-forward fallback at ${base_url}"
       if ! can_reach_base; then
         echo "Port-forward established but base health check failed for ${base_url}."
       fi
@@ -500,7 +465,7 @@ fi
 
 if [[ ${#ingress_paths[@]} -gt 0 ]]; then
   if ! can_reach_base; then
-    echo "Initial health check against ${base_url} failed; attempting kubectl port-forward fallback..."
+    echo "Initial health check against ${base_url} failed; attempting ${KUBECTL} port-forward fallback..."
     start_port_forward_fallback
   fi
 else

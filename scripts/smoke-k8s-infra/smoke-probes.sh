@@ -2,7 +2,7 @@
 # smoke-probes.sh â€” Probe-aware smoke checks for Kubernetes workloads.
 #
 # Validates:
-#   1. Rollout readiness (kubectl rollout status) for every Deployment in the
+#   1. Rollout readiness (${KUBECTL} rollout status) for every Deployment in the
 #      app namespace before any HTTP checks run.
 #   2. Probe presence: every container has readinessProbe + livenessProbe;
 #      workloads listed in startup-probe-required.txt also need startupProbe.
@@ -16,53 +16,17 @@
 
 set -euo pipefail
 
-# On Windows (Git Bash), add common Windows tool paths that may not be auto-mapped
-if [[ -n "${WINDIR:-}" ]] || [[ "$(uname -s)" =~ ^(MINGW|MSYS|CYGWIN) ]]; then
-  script_dir_temp="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  repo_root_temp="$(cd "${script_dir_temp}/../.." && pwd)"
-
-  # Add .devtools/bin (portable tools)
-  if [[ -d "${repo_root_temp}/.devtools/bin" ]]; then
-    export PATH="${repo_root_temp}/.devtools/bin:${PATH}"
-  fi
-
-  # Add Chocolatey bin (where kubectl may be installed)
-  if [[ -d "/c/ProgramData/chocolatey/bin" ]]; then
-    export PATH="/c/ProgramData/chocolatey/bin:${PATH}"
-  fi
-
-  # Add Docker Desktop resources (alternative kubectl location)
-  if [[ -d "/c/Program Files/Docker/Docker/resources/bin" ]]; then
-    export PATH="/c/Program Files/Docker/Docker/resources/bin:${PATH}"
-  fi
-fi
-
-# Additional WSL-specific PATH handling
-if [[ "$(uname -r)" =~ Microsoft || "$(uname -r)" =~ WSL ]]; then
-  script_dir_temp="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  repo_root_temp="$(cd "${script_dir_temp}/../.." && pwd)"
-
-  # Add .devtools/bin with absolute path for WSL
-  if [[ -d "${repo_root_temp}/.devtools/bin" ]]; then
-    export PATH="${repo_root_temp}/.devtools/bin:${PATH}"
-  fi
-
-  # Add Chocolatey bin for WSL
-  if [[ -d "/mnt/c/ProgramData/chocolatey/bin" ]]; then
-    export PATH="/mnt/c/ProgramData/chocolatey/bin:${PATH}"
-  fi
-
-  # Add Docker Desktop resources for WSL
-  if [[ -d "/mnt/c/Program Files/Docker/Docker/resources/bin" ]]; then
-    export PATH="/mnt/c/Program Files/Docker/Docker/resources/bin:${PATH}"
-  fi
-fi
+# Source common environment setup
+source "$(dirname "${BASH_SOURCE[0]}")/../common/setup-env.sh"
 
 NAMESPACE="${1:-dev}"
 ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-300s}"
 CURL_IMAGE="${CURL_IMAGE:-curlimages/curl:8.5.0}"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 startup_required_file="${script_dir}/startup-probe-required.txt"
+
+# Use commands from common setup
+KUBECTL="${KUBECTL_CMD}"
 
 errors=()
 failed_deployments=()
@@ -121,13 +85,13 @@ fi
 # ---------------------------------------------------------------------------
 header "Rollout gating (namespace: ${NAMESPACE}, timeout: ${ROLLOUT_TIMEOUT})"
 
-deployments="$(kubectl -n "${NAMESPACE}" get deployments -o jsonpath='{.items[*].metadata.name}')"
+deployments="$(${KUBECTL} -n "${NAMESPACE}" get deployments -o jsonpath='{.items[*].metadata.name}')"
 if [[ -z "${deployments}" ]]; then
   fail "No Deployments found in namespace ${NAMESPACE}"
 else
   for deploy in ${deployments}; do
-    rollout_output=$(kubectl -n "${NAMESPACE}" rollout status "deployment/${deploy}" --timeout="${ROLLOUT_TIMEOUT}" 2>&1 || true)
-    if kubectl -n "${NAMESPACE}" rollout status "deployment/${deploy}" --timeout="${ROLLOUT_TIMEOUT}" >/dev/null 2>&1; then
+    rollout_output=$(${KUBECTL} -n "${NAMESPACE}" rollout status "deployment/${deploy}" --timeout="${ROLLOUT_TIMEOUT}" 2>&1 || true)
+    if ${KUBECTL} -n "${NAMESPACE}" rollout status "deployment/${deploy}" --timeout="${ROLLOUT_TIMEOUT}" >/dev/null 2>&1; then
       ok "deployment/${deploy} rolled out"
     else
       fail "deployment/${deploy} rollout timed out or failed"
@@ -139,11 +103,11 @@ else
 fi
 
 # Also check StatefulSets if any exist
-statefulsets="$(kubectl -n "${NAMESPACE}" get statefulsets -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || true)"
+statefulsets="$(${KUBECTL} -n "${NAMESPACE}" get statefulsets -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || true)"
 if [[ -n "${statefulsets}" ]]; then
   for sts in ${statefulsets}; do
-    rollout_output=$(kubectl -n "${NAMESPACE}" rollout status "statefulset/${sts}" --timeout="${ROLLOUT_TIMEOUT}" 2>&1 || true)
-    if kubectl -n "${NAMESPACE}" rollout status "statefulset/${sts}" --timeout="${ROLLOUT_TIMEOUT}" >/dev/null 2>&1; then
+    rollout_output=$(${KUBECTL} -n "${NAMESPACE}" rollout status "statefulset/${sts}" --timeout="${ROLLOUT_TIMEOUT}" 2>&1 || true)
+    if ${KUBECTL} -n "${NAMESPACE}" rollout status "statefulset/${sts}" --timeout="${ROLLOUT_TIMEOUT}" >/dev/null 2>&1; then
       ok "statefulset/${sts} rolled out"
     else
       fail "statefulset/${sts} rollout timed out or failed"
@@ -156,14 +120,14 @@ fi
 # If rollout failed, dump diagnostics immediately
 if [[ ${#failed_deployments[@]} -gt 0 ]]; then
   header "Rollout failure diagnostics"
-  kubectl get pods -n "${NAMESPACE}" -o wide 2>&1 || true
+  ${KUBECTL} get pods -n "${NAMESPACE}" -o wide 2>&1 || true
   echo "---"
-  kubectl describe pods -n "${NAMESPACE}" 2>&1 || true
+  ${KUBECTL} describe pods -n "${NAMESPACE}" 2>&1 || true
   echo "---"
-  kubectl get events -n "${NAMESPACE}" --sort-by=.metadata.creationTimestamp 2>&1 | tail -200 || true
+  ${KUBECTL} get events -n "${NAMESPACE}" --sort-by=.metadata.creationTimestamp 2>&1 | tail -200 || true
   for deploy in "${failed_deployments[@]}"; do
     echo "--- logs for deployment/${deploy} ---"
-    kubectl -n "${NAMESPACE}" logs "deployment/${deploy}" --all-containers --tail=80 2>&1 || true
+    ${KUBECTL} -n "${NAMESPACE}" logs "deployment/${deploy}" --all-containers --tail=80 2>&1 || true
   done
   echo ""
   echo "FAIL: Rollout gating failed. Aborting smoke."
@@ -176,7 +140,7 @@ fi
 header "Probe presence assertions (namespace: ${NAMESPACE})"
 
 # Get all Deployments as JSON
-deploy_json="$(kubectl -n "${NAMESPACE}" get deployments -o json)"
+deploy_json="$(${KUBECTL} -n "${NAMESPACE}" get deployments -o json)"
 deploy_count="$(echo "${deploy_json}" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['items']))" 2>/dev/null || echo 0)"
 
 for idx in $(seq 0 $((deploy_count - 1))); do
@@ -224,7 +188,7 @@ for idx in $(seq 0 $((deploy_count - 1))); do
 done
 
 # Also check StatefulSets
-sts_json="$(kubectl -n "${NAMESPACE}" get statefulsets -o json 2>/dev/null || echo '{"items":[]}')"
+sts_json="$(${KUBECTL} -n "${NAMESPACE}" get statefulsets -o json 2>/dev/null || echo '{"items":[]}')"
 sts_count="$(echo "${sts_json}" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['items']))" 2>/dev/null || echo 0)"
 
 for idx in $(seq 0 $((sts_count - 1))); do
@@ -351,7 +315,7 @@ done
 # Determine the k8s service name for each deployment.
 # Convention in this repo: the service name matches the deployment name (e.g., agent-service for agent).
 # We read actual Service objects to be safe.
-svc_json="$(kubectl -n "${NAMESPACE}" get services -o json 2>/dev/null || echo '{"items":[]}')"
+svc_json="$(${KUBECTL} -n "${NAMESPACE}" get services -o json 2>/dev/null || echo '{"items":[]}')"
 
 resolve_service_for_deploy() {
   local deploy_name="$1"
@@ -486,7 +450,7 @@ fi
   # Run ephemeral pod
   echo "Launching ephemeral curl pod for in-cluster probe checks..."
   pod_name="smoke-probe-check-$$"
-  if kubectl run "${pod_name}" \
+  if ${KUBECTL} run "${pod_name}" \
       --namespace="${NAMESPACE}" \
       --image="${CURL_IMAGE}" \
       --restart=Never \
@@ -498,7 +462,7 @@ fi
     fail "One or more in-cluster probe endpoint checks failed"
   fi
   # Clean up pod if it wasn't auto-removed
-  kubectl delete pod "${pod_name}" --namespace="${NAMESPACE}" --ignore-not-found --wait=false 2>/dev/null || true
+  ${KUBECTL} delete pod "${pod_name}" --namespace="${NAMESPACE}" --ignore-not-found --wait=false 2>/dev/null || true
 else
   warn "No probe endpoints to check in-cluster"
 fi
@@ -571,18 +535,18 @@ if [[ ${#errors[@]} -gt 0 ]]; then
   
   echo ""
   echo "--- pods ---"
-  kubectl get pods -n "${NAMESPACE}" -o wide 2>&1 || true
+  ${KUBECTL} get pods -n "${NAMESPACE}" -o wide 2>&1 || true
   echo ""
   echo "--- describe pods ---"
-  kubectl describe pods -n "${NAMESPACE}" 2>&1 || true
+  ${KUBECTL} describe pods -n "${NAMESPACE}" 2>&1 || true
   echo ""
   echo "--- events (last 200) ---"
-  kubectl get events -n "${NAMESPACE}" --sort-by=.metadata.creationTimestamp 2>&1 | tail -200 || true
+  ${KUBECTL} get events -n "${NAMESPACE}" --sort-by=.metadata.creationTimestamp 2>&1 | tail -200 || true
   echo ""
   echo "--- logs (tail) for deployments ---"
   for deploy in ${deployments}; do
     echo "=== deployment/${deploy} ==="
-    kubectl -n "${NAMESPACE}" logs "deployment/${deploy}" --all-containers --tail=60 2>&1 || true
+    ${KUBECTL} -n "${NAMESPACE}" logs "deployment/${deploy}" --all-containers --tail=60 2>&1 || true
   done
   echo ""
   
