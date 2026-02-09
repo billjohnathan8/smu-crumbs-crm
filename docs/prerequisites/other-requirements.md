@@ -17,6 +17,11 @@ Before running `python scripts/pipelines/setup_dev_env.py`, ensure you have:
 
 **Note:** CLI tools (kubectl, helm, kind, kubeconform) will be automatically installed to `.devtools/bin` by the setup script. You do not need to install these manually.
 
+**Note to Windows Users:** Ensure your system is allowed to run scripts. If is it not enabled to run scripts, run this command in Powershell (as Administrator) for your entire machine (i.e., running powershell from windows icon bar): 
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
 ---
 
 ## Required System Dependencies
