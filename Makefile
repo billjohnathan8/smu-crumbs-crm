@@ -39,13 +39,13 @@ GRADLEW := gradlew.bat
 SMOKE_INFRA_CMD := powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-infra/smoke-k8s-infra.ps1
 SMOKE_PROBES_CMD := powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-infra/smoke-probes.ps1
 VALIDATE_K8S_CMD := python scripts/validate-k8s/validate.py
-KIND_UP_CMD := bash scripts/platform/kind-up.sh
-PREPULL_CMD := bash scripts/platform/prepull-infra-images.sh
-INFRA_UP_CMD := bash scripts/platform/infra-up.sh
+KIND_UP_CMD := python scripts/platform/kind-up.py
+PREPULL_CMD := python scripts/platform/prepull-infra-images.py
+INFRA_UP_CMD := python scripts/platform/infra-up.py
 else
-KIND_UP_CMD := bash scripts/platform/kind-up.sh
-PREPULL_CMD := bash scripts/platform/prepull-infra-images.sh
-INFRA_UP_CMD := bash scripts/platform/infra-up.sh
+KIND_UP_CMD := $(PYTHON) scripts/platform/kind-up.py
+PREPULL_CMD := $(PYTHON) scripts/platform/prepull-infra-images.py
+INFRA_UP_CMD := $(PYTHON) scripts/platform/infra-up.py
 endif
 
 .PHONY: k8s-validate kind-up kind-down kind-reset prepull-infra-images infra-up build-images kind-load deploy-dev smoke-infra smoke-probes smoke build-and-deploy-local build-and-deploy-local-fast
