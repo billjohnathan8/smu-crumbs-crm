@@ -28,7 +28,9 @@ KIND ?= kind
 
 SMOKE_INFRA_CMD ?= bash ./scripts/smoke-k8s-infra/smoke-k8s-infra.sh
 SMOKE_PROBES_CMD ?= bash ./scripts/smoke-k8s-infra/smoke-probes.sh
-VALIDATE_K8S_CMD ?= bash scripts/validate-k8s/validate.sh
+# Python command: Try python3 first (Linux/macOS), fall back to python (Windows)
+PYTHON ?= $(shell command -v python3 2>/dev/null || command -v python 2>/dev/null || echo python)
+VALIDATE_K8S_CMD ?= $(PYTHON) scripts/validate-k8s/validate.py
 NS ?= dev
 
 ifeq ($(OS),Windows_NT)
@@ -36,7 +38,7 @@ NULL_DEVICE := NUL
 GRADLEW := gradlew.bat
 SMOKE_INFRA_CMD := powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-infra/smoke-k8s-infra.ps1
 SMOKE_PROBES_CMD := powershell -ExecutionPolicy Bypass -File scripts/smoke-k8s-infra/smoke-probes.ps1
-VALIDATE_K8S_CMD := bash scripts/validate-k8s/validate.sh
+VALIDATE_K8S_CMD := python scripts/validate-k8s/validate.py
 KIND_UP_CMD := bash scripts/platform/kind-up.sh
 PREPULL_CMD := bash scripts/platform/prepull-infra-images.sh
 INFRA_UP_CMD := bash scripts/platform/infra-up.sh
