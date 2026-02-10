@@ -451,3 +451,5 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
     return app
 
 app = create_app()
+
+
