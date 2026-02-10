@@ -11,8 +11,6 @@ import { AgentViewTransactions } from '@/pages/AgentViewTransactions'
 function RootRedirect() {
   const { user, isAuthenticated, isLoading } = useAuth()
 
-  
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
