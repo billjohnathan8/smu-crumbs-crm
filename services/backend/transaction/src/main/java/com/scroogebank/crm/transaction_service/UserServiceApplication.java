@@ -7,7 +7,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * Entry point for the transaction-service Spring Boot application.
  */
 
-// Testing CI pipeline
 @SpringBootApplication
 public class UserServiceApplication {
 
