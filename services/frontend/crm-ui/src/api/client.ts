@@ -1,177 +1,137 @@
-import type { ErrorResponse } from "./types";
+import type { ErrorResponse } from './types'
 
 export class ApiError extends Error {
-  status: number;
-  error: string;
-  requestId?: string;
+  status: number
+  error: string
+  requestId?: string
 
-  constructor(
-    status: number,
-    error: string,
-    message: string,
-    requestId?: string,
-  ) {
-    super(message);
-    this.name = "ApiError";
-    this.status = status;
-    this.error = error;
-    this.requestId = requestId;
+  constructor(status: number, error: string, message: string, requestId?: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.error = error
+    this.requestId = requestId
   }
 }
 
 export interface RequestOptions extends RequestInit {
-  timeout?: number;
-  skipAuth?: boolean;
+  timeout?: number
+  skipAuth?: boolean
 }
 
-const DEFAULT_TIMEOUT = 5000; // 5 seconds max latency requirement
+const DEFAULT_TIMEOUT = 5000 // 5 seconds max latency requirement
 
 /**
  * Get the stored auth token from localStorage
  */
 export function getAuthToken(): string | null {
-  return localStorage.getItem("authToken");
+  return localStorage.getItem('authToken')
 }
 
 /**
  * Store auth token in localStorage
  */
 export function setAuthToken(token: string): void {
-  localStorage.setItem("authToken", token);
+  localStorage.setItem('authToken', token)
 }
 
 /**
  * Remove auth token from localStorage
  */
 export function clearAuthToken(): void {
-  localStorage.removeItem("authToken");
-  localStorage.removeItem("refreshToken");
-  localStorage.removeItem("currentUser");
+  localStorage.removeItem('authToken')
+  localStorage.removeItem('refreshToken')
+  localStorage.removeItem('currentUser')
 }
 
 /**
  * Create an AbortSignal with timeout
  */
 function createTimeoutSignal(timeout: number): AbortSignal {
-  const controller = new AbortController();
-  setTimeout(() => controller.abort(), timeout);
-  return controller.signal;
+  const controller = new AbortController()
+  setTimeout(() => controller.abort(), timeout)
+  return controller.signal
 }
 
 /**
  * Base API request function with error handling, timeout, and auth
  */
-export async function apiRequest<T>(
-  endpoint: string,
-  options: RequestOptions = {},
-): Promise<T> {
-  const {
-    timeout = DEFAULT_TIMEOUT,
-    skipAuth = false,
-    ...fetchOptions
-  } = options;
+export async function apiRequest<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+  const { timeout = DEFAULT_TIMEOUT, skipAuth = false, ...fetchOptions } = options
 
   // Prepare headers
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    'Content-Type': 'application/json',
     ...(fetchOptions.headers as Record<string, string>),
-  };
+  }
 
   // Add auth token unless explicitly skipped
   if (!skipAuth) {
-    const token = getAuthToken();
+    const token = getAuthToken()
     if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
+      headers['Authorization'] = `Bearer ${token}`
     }
   }
 
   // Create timeout signal
-  const timeoutSignal = createTimeoutSignal(timeout);
+  const timeoutSignal = createTimeoutSignal(timeout)
   const signal = fetchOptions.signal
     ? AbortSignal.any([fetchOptions.signal, timeoutSignal])
-    : timeoutSignal;
+    : timeoutSignal
 
   try {
     const response = await fetch(endpoint, {
       ...fetchOptions,
       headers,
       signal,
-    });
+    })
 
     // Handle non-OK responses
     if (!response.ok) {
-      let errorData: ErrorResponse;
+      let errorData: ErrorResponse
       try {
-        errorData = await response.json();
+        errorData = await response.json()
       } catch {
         errorData = {
-          error: "unknown_error",
+          error: 'unknown_error',
           message: `Request failed with status ${response.status}`,
-        };
+        }
       }
 
-      throw new ApiError(
-        response.status,
-        errorData.error,
-        errorData.message,
-        errorData.requestId,
-      );
+      throw new ApiError(response.status, errorData.error, errorData.message, errorData.requestId)
     }
 
     // Handle 204 No Content
     if (response.status === 204) {
-      return undefined as T;
+      return undefined as T
     }
 
     // Parse JSON response
-    const data = await response.json();
-    return data as T;
+    const data = await response.json()
+    return data as T
   } catch (error) {
     if (error instanceof ApiError) {
-      throw error;
+      throw error
     }
 
     // Check for AbortError (can be DOMException or Error)
-    if (
-      error &&
-      typeof error === "object" &&
-      "name" in error &&
-      error.name === "AbortError"
-    ) {
-      throw new ApiError(
-        408,
-        "request_timeout",
-        "Request timed out. Please try again.",
-        undefined,
-      );
+    if (error && typeof error === 'object' && 'name' in error && error.name === 'AbortError') {
+      throw new ApiError(408, 'request_timeout', 'Request timed out. Please try again.', undefined)
     }
 
     if (error instanceof Error) {
-      throw new ApiError(
-        0,
-        "network_error",
-        error.message || "Network error occurred",
-        undefined,
-      );
+      throw new ApiError(0, 'network_error', error.message || 'Network error occurred', undefined)
     }
 
-    throw new ApiError(
-      0,
-      "unknown_error",
-      "An unknown error occurred",
-      undefined,
-    );
+    throw new ApiError(0, 'unknown_error', 'An unknown error occurred', undefined)
   }
 }
 
 /**
  * GET request
  */
-export async function apiGet<T>(
-  endpoint: string,
-  options?: RequestOptions,
-): Promise<T> {
-  return apiRequest<T>(endpoint, { ...options, method: "GET" });
+export async function apiGet<T>(endpoint: string, options?: RequestOptions): Promise<T> {
+  return apiRequest<T>(endpoint, { ...options, method: 'GET' })
 }
 
 /**
@@ -180,13 +140,13 @@ export async function apiGet<T>(
 export async function apiPost<T, D = unknown>(
   endpoint: string,
   data?: D,
-  options?: RequestOptions,
+  options?: RequestOptions
 ): Promise<T> {
   return apiRequest<T>(endpoint, {
     ...options,
-    method: "POST",
+    method: 'POST',
     body: data ? JSON.stringify(data) : undefined,
-  });
+  })
 }
 
 /**
@@ -195,21 +155,18 @@ export async function apiPost<T, D = unknown>(
 export async function apiPut<T, D = unknown>(
   endpoint: string,
   data: D,
-  options?: RequestOptions,
+  options?: RequestOptions
 ): Promise<T> {
   return apiRequest<T>(endpoint, {
     ...options,
-    method: "PUT",
+    method: 'PUT',
     body: JSON.stringify(data),
-  });
+  })
 }
 
 /**
  * DELETE request
  */
-export async function apiDelete<T>(
-  endpoint: string,
-  options?: RequestOptions,
-): Promise<T> {
-  return apiRequest<T>(endpoint, { ...options, method: "DELETE" });
+export async function apiDelete<T>(endpoint: string, options?: RequestOptions): Promise<T> {
+  return apiRequest<T>(endpoint, { ...options, method: 'DELETE' })
 }

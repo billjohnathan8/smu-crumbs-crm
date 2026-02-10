@@ -1,14 +1,14 @@
-import "@testing-library/jest-dom";
-import { cleanup } from "@testing-library/react";
-import { afterEach } from "vitest";
+import '@testing-library/jest-dom'
+import { cleanup } from '@testing-library/react'
+import { afterEach } from 'vitest'
 
 // Cleanup after each test
 afterEach(() => {
-  cleanup();
-});
+  cleanup()
+})
 
 // Mock window.matchMedia
-Object.defineProperty(window, "matchMedia", {
+Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: (query: string) => ({
     matches: false,
@@ -20,26 +20,26 @@ Object.defineProperty(window, "matchMedia", {
     removeEventListener: () => {},
     dispatchEvent: () => false,
   }),
-});
+})
 
 // Mock localStorage
 const localStorageMock = (() => {
-  let store: Record<string, string> = {};
+  let store: Record<string, string> = {}
 
   return {
     getItem: (key: string) => store[key] || null,
     setItem: (key: string, value: string) => {
-      store[key] = value.toString();
+      store[key] = value.toString()
     },
     removeItem: (key: string) => {
-      delete store[key];
+      delete store[key]
     },
     clear: () => {
-      store = {};
+      store = {}
     },
-  };
-})();
+  }
+})()
 
-Object.defineProperty(window, "localStorage", {
+Object.defineProperty(window, 'localStorage', {
   value: localStorageMock,
-});
+})

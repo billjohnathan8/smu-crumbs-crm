@@ -1,119 +1,112 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "@/features/auth/AuthContext";
-import {
-  listTransactions,
-  type ListTransactionsParams,
-} from "@/api/transactions";
-import type {
-  Transaction,
-  TransactionStatus,
-  TransactionKind,
-} from "@/api/types";
-import { ApiError } from "@/api/client";
+import { useState, useEffect } from 'react'
+import { useAuth } from '@/features/auth/AuthContext'
+import { listTransactions, type ListTransactionsParams } from '@/api/transactions'
+import type { Transaction, TransactionStatus, TransactionKind } from '@/api/types'
+import { ApiError } from '@/api/client'
 
-const ITEMS_PER_PAGE = 20;
+const ITEMS_PER_PAGE = 20
 
 export function AgentViewTransactions() {
-  const { logout } = useAuth();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [total, setTotal] = useState(0);
-  const [currentPage, setCurrentPage] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string>("");
+  const { logout } = useAuth()
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [total, setTotal] = useState(0)
+  const [currentPage, setCurrentPage] = useState(0)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string>('')
 
   const [filters, setFilters] = useState({
-    status: "" as TransactionStatus | "",
-    transaction: "" as TransactionKind | "",
-    fromDate: "",
-    toDate: "",
-    search: "",
-  });
+    status: '' as TransactionStatus | '',
+    transaction: '' as TransactionKind | '',
+    fromDate: '',
+    toDate: '',
+    search: '',
+  })
 
   const fetchTransactions = async (page: number) => {
-    setIsLoading(true);
-    setError("");
+    setIsLoading(true)
+    setError('')
 
     try {
       const params: ListTransactionsParams = {
         limit: ITEMS_PER_PAGE,
         offset: page * ITEMS_PER_PAGE,
-      };
+      }
 
-      if (filters.status) params.status = filters.status;
-      if (filters.transaction) params.transaction = filters.transaction;
-      if (filters.fromDate) params.fromDate = filters.fromDate;
-      if (filters.toDate) params.toDate = filters.toDate;
+      if (filters.status) params.status = filters.status
+      if (filters.transaction) params.transaction = filters.transaction
+      if (filters.fromDate) params.fromDate = filters.fromDate
+      if (filters.toDate) params.toDate = filters.toDate
 
-      const response = await listTransactions(params);
+      const response = await listTransactions(params)
 
-      let filteredData = response.data;
+      let filteredData = response.data
 
       // Client-side search filter (if API doesn't support search)
       if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
+        const searchLower = filters.search.toLowerCase()
         filteredData = filteredData.filter(
-          (t) =>
+          t =>
             t.clientId.toLowerCase().includes(searchLower) ||
-            t.id.toLowerCase().includes(searchLower),
-        );
+            t.id.toLowerCase().includes(searchLower)
+        )
       }
 
-      setTransactions(filteredData);
-      setTotal(response.pagination?.total || 0);
+      setTransactions(filteredData)
+      setTotal(response.pagination?.total || 0)
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
-          logout();
+          logout()
         } else {
-          setError(err.message || "Failed to load transactions");
+          setError(err.message || 'Failed to load transactions')
         }
       } else {
-        setError("An unexpected error occurred");
+        setError('An unexpected error occurred')
       }
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   useEffect(() => {
-    fetchTransactions(currentPage);
+    fetchTransactions(currentPage)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, filters]);
+  }, [currentPage, filters])
 
   const handleFilterChange = (key: string, value: string) => {
-    setFilters({ ...filters, [key]: value });
-    setCurrentPage(0);
-  };
+    setFilters({ ...filters, [key]: value })
+    setCurrentPage(0)
+  }
 
   const resetFilters = () => {
     setFilters({
-      status: "",
-      transaction: "",
-      fromDate: "",
-      toDate: "",
-      search: "",
-    });
-    setCurrentPage(0);
-  };
+      status: '',
+      transaction: '',
+      fromDate: '',
+      toDate: '',
+      search: '',
+    })
+    setCurrentPage(0)
+  }
 
   const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString("en-SG", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+    return new Date(dateString).toLocaleString('en-SG', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
 
   const formatAmount = (amount: number) => {
-    return new Intl.NumberFormat("en-SG", {
-      style: "currency",
-      currency: "SGD",
-    }).format(amount);
-  };
+    return new Intl.NumberFormat('en-SG', {
+      style: 'currency',
+      currency: 'SGD',
+    }).format(amount)
+  }
 
-  const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(total / ITEMS_PER_PAGE)
 
   return (
     <div className="min-h-screen bg-background">
@@ -148,25 +141,21 @@ export function AgentViewTransactions() {
           <h3 className="text-text font-medium mb-4">Filters</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div>
-              <label className="block text-xs text-text-muted mb-1">
-                Search
-              </label>
+              <label className="block text-xs text-text-muted mb-1">Search</label>
               <input
                 type="text"
                 placeholder="Client ID or Transaction ID"
                 value={filters.search}
-                onChange={(e) => handleFilterChange("search", e.target.value)}
+                onChange={e => handleFilterChange('search', e.target.value)}
                 className="w-full px-3 py-2 bg-background-light border border-border rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
 
             <div>
-              <label className="block text-xs text-text-muted mb-1">
-                Status
-              </label>
+              <label className="block text-xs text-text-muted mb-1">Status</label>
               <select
                 value={filters.status}
-                onChange={(e) => handleFilterChange("status", e.target.value)}
+                onChange={e => handleFilterChange('status', e.target.value)}
                 className="w-full px-3 py-2 bg-background-light border border-border rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="">All</option>
@@ -180,9 +169,7 @@ export function AgentViewTransactions() {
               <label className="block text-xs text-text-muted mb-1">Type</label>
               <select
                 value={filters.transaction}
-                onChange={(e) =>
-                  handleFilterChange("transaction", e.target.value)
-                }
+                onChange={e => handleFilterChange('transaction', e.target.value)}
                 className="w-full px-3 py-2 bg-background-light border border-border rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="">All</option>
@@ -192,25 +179,21 @@ export function AgentViewTransactions() {
             </div>
 
             <div>
-              <label className="block text-xs text-text-muted mb-1">
-                From Date
-              </label>
+              <label className="block text-xs text-text-muted mb-1">From Date</label>
               <input
                 type="date"
                 value={filters.fromDate}
-                onChange={(e) => handleFilterChange("fromDate", e.target.value)}
+                onChange={e => handleFilterChange('fromDate', e.target.value)}
                 className="w-full px-3 py-2 bg-background-light border border-border rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
 
             <div>
-              <label className="block text-xs text-text-muted mb-1">
-                To Date
-              </label>
+              <label className="block text-xs text-text-muted mb-1">To Date</label>
               <input
                 type="date"
                 value={filters.toDate}
-                onChange={(e) => handleFilterChange("toDate", e.target.value)}
+                onChange={e => handleFilterChange('toDate', e.target.value)}
                 className="w-full px-3 py-2 bg-background-light border border-border rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
@@ -239,9 +222,7 @@ export function AgentViewTransactions() {
               ></div>
             </div>
           ) : transactions.length === 0 ? (
-            <div className="p-6 text-center text-text-muted">
-              No transactions found
-            </div>
+            <div className="p-6 text-center text-text-muted">No transactions found</div>
           ) : (
             <>
               <div className="overflow-x-auto">
@@ -269,11 +250,8 @@ export function AgentViewTransactions() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {transactions.map((transaction) => (
-                      <tr
-                        key={transaction.id}
-                        className="hover:bg-background-light"
-                      >
+                    {transactions.map(transaction => (
+                      <tr key={transaction.id} className="hover:bg-background-light">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-text">
                           {formatDateTime(transaction.date)}
                         </td>
@@ -286,14 +264,12 @@ export function AgentViewTransactions() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
                             className={`px-2 py-1 rounded text-xs font-medium ${
-                              transaction.transaction === "D"
-                                ? "bg-success/20 text-success"
-                                : "bg-warning/20 text-warning"
+                              transaction.transaction === 'D'
+                                ? 'bg-success/20 text-success'
+                                : 'bg-warning/20 text-warning'
                             }`}
                           >
-                            {transaction.transaction === "D"
-                              ? "Deposit"
-                              : "Withdrawal"}
+                            {transaction.transaction === 'D' ? 'Deposit' : 'Withdrawal'}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-text text-right font-medium">
@@ -302,11 +278,11 @@ export function AgentViewTransactions() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
                             className={`px-2 py-1 rounded text-xs font-medium ${
-                              transaction.status === "Completed"
-                                ? "bg-success/20 text-success"
-                                : transaction.status === "Pending"
-                                  ? "bg-warning/20 text-warning"
-                                  : "bg-danger/20 text-danger"
+                              transaction.status === 'Completed'
+                                ? 'bg-success/20 text-success'
+                                : transaction.status === 'Pending'
+                                  ? 'bg-warning/20 text-warning'
+                                  : 'bg-danger/20 text-danger'
                             }`}
                           >
                             {transaction.status}
@@ -321,9 +297,8 @@ export function AgentViewTransactions() {
               {totalPages > 1 && (
                 <div className="px-6 py-4 border-t border-border flex items-center justify-between">
                   <p className="text-sm text-text-muted">
-                    Showing {currentPage * ITEMS_PER_PAGE + 1} to{" "}
-                    {currentPage * ITEMS_PER_PAGE + transactions.length} of{" "}
-                    {total} transactions
+                    Showing {currentPage * ITEMS_PER_PAGE + 1} to{' '}
+                    {currentPage * ITEMS_PER_PAGE + transactions.length} of {total} transactions
                   </p>
                   <div className="flex space-x-2">
                     <button
@@ -331,8 +306,8 @@ export function AgentViewTransactions() {
                       disabled={currentPage === 0}
                       className={`px-3 py-1 rounded ${
                         currentPage === 0
-                          ? "bg-background-light text-text-muted cursor-not-allowed"
-                          : "bg-primary hover:bg-primary-hover text-white"
+                          ? 'bg-background-light text-text-muted cursor-not-allowed'
+                          : 'bg-primary hover:bg-primary-hover text-white'
                       }`}
                     >
                       Previous
@@ -345,8 +320,8 @@ export function AgentViewTransactions() {
                       disabled={currentPage >= totalPages - 1}
                       className={`px-3 py-1 rounded ${
                         currentPage >= totalPages - 1
-                          ? "bg-background-light text-text-muted cursor-not-allowed"
-                          : "bg-primary hover:bg-primary-hover text-white"
+                          ? 'bg-background-light text-text-muted cursor-not-allowed'
+                          : 'bg-primary hover:bg-primary-hover text-white'
                       }`}
                     >
                       Next
@@ -359,5 +334,5 @@ export function AgentViewTransactions() {
         </div>
       </main>
     </div>
-  );
+  )
 }

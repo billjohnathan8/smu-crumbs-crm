@@ -27,7 +27,7 @@ def run_pip_install_requirements(
     """Install requirements.txt, reporting only if new dependencies were installed."""
     command = [str(venv_python), "-m", "pip", "install", "-r", requirements_file]
     print(f"[local-test-pipeline] {' '.join(command)}")
-    
+
     result = subprocess.run(
         command,
         cwd=cwd,
@@ -37,15 +37,14 @@ def run_pip_install_requirements(
         encoding="utf-8",
         errors="replace",
     )
-    
+
     output = result.stdout + result.stderr
-    
+
     # Check if new packages were installed
     has_new_installs = (
-        "Successfully installed" in output
-        or "Installing collected packages" in output
+        "Successfully installed" in output or "Installing collected packages" in output
     )
-    
+
     # Only report if new dependencies were actually installed
     if has_new_installs:
         print("[local-test-pipeline] New dependencies installed:")
@@ -78,12 +77,16 @@ def main() -> int:
         run([sys.executable, "-m", "venv", str(venv_dir)], cwd=service_root)
 
     if not venv_python.exists():
-        raise FileNotFoundError(f"Python executable not found in virtual environment: {venv_python}")
+        raise FileNotFoundError(
+            f"Python executable not found in virtual environment: {venv_python}"
+        )
 
     os.makedirs(coverage_dir, exist_ok=True)
     os.makedirs(test_dir, exist_ok=True)
 
-    run([str(venv_python), "-m", "pip", "install", "--upgrade", "pip"], cwd=service_root)
+    run(
+        [str(venv_python), "-m", "pip", "install", "--upgrade", "pip"], cwd=service_root
+    )
     run_pip_install_requirements(venv_python, "requirements.txt", cwd=service_root)
 
     # 1) Lint
