@@ -1,5 +1,53 @@
 #!/usr/bin/env python3
 """
+Minimal Kubernetes manifest validation for local/dev checks.
+"""
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+
+def run(cmd: list[str]) -> int:
+    result = subprocess.run(cmd, check=False)
+    return result.returncode
+
+
+def main() -> int:
+    repo_root = Path(__file__).resolve().parents[2]
+    overlay = repo_root / "platform" / "k8s" / "apps" / "overlays" / "dev"
+
+    kubectl = shutil.which("kubectl")
+    if not kubectl:
+        print("[validate] kubectl not found on PATH")
+        return 1
+
+    print(f"[validate] Rendering kustomize overlay: {overlay}")
+    render = subprocess.run([kubectl, "kustomize", str(overlay)], capture_output=True, text=True)
+    if render.returncode != 0:
+        print(render.stdout)
+        print(render.stderr, file=sys.stderr)
+        return render.returncode
+
+    kubeconform = shutil.which("kubeconform")
+    if not kubeconform:
+        print("[validate] kubeconform not found; skipping schema checks")
+        return 0
+
+    print("[validate] Validating with kubeconform")
+    validate = subprocess.run(
+        [kubeconform, "-strict", "-summary"],
+        input=render.stdout,
+        text=True,
+        check=False,
+    )
+    return validate.returncode
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+#!/usr/bin/env python3
+"""
 validate.py: Kubernetes manifest validation script
 
 This script validates Kubernetes manifests by:
@@ -130,6 +178,8 @@ class K8sValidator:
         repos = [
             ("ingress-nginx", "https://kubernetes.github.io/ingress-nginx"),
             ("bitnami", "https://charts.bitnami.com/bitnami"),
+            ("prometheus-community", "https://prometheus-community.github.io/helm-charts"),
+            ("kubeview", "https://benc-uk.github.io/kubeview/deploy/helm"),
         ]
 
         for name, url in repos:
@@ -144,20 +194,22 @@ class K8sValidator:
             except Exception as e:
                 self.logger.warning(f"Could not add Helm repo {name}: {e}")
 
-        # Update repos
-        try:
-            self.logger.info("Updating Helm repos...")
-            self.runner.run(
-                [self.helm, "repo", "update"],
-                capture_output=True
-            )
-            self.logger.success("Helm repos updated successfully.")
-            return True
-        except subprocess.CalledProcessError as e:
-            self.logger.error(f"Failed to update Helm repos: {e}")
-            if e.stderr:
-                self.logger.error(e.stderr)
-            return False
+        # Update only required repos to avoid failures from unrelated repos
+        update_failed = False
+        for name, _url in repos:
+            try:
+                self.logger.info(f"Updating Helm repo: {name}...")
+                self.runner.run(
+                    [self.helm, "repo", "update", name],
+                    capture_output=True,
+                )
+                self.logger.success(f"Helm repo updated: {name}")
+            except subprocess.CalledProcessError as e:
+                update_failed = True
+                self.logger.error(f"Failed to update Helm repo {name}: {e}")
+                if e.stderr:
+                    self.logger.error(e.stderr)
+        return not update_failed
 
     def validate_helm_charts(self) -> bool:
         """
@@ -172,6 +224,10 @@ class K8sValidator:
              self.repo_root / "platform" / "k8s" / "infra" / "helm-values" / "metrics-server-values.yaml"),
             ("infra-postgres", "postgres", "bitnami/postgresql", "dev",
              self.repo_root / "platform" / "k8s" / "infra" / "helm-values" / "postgresql-values.yaml"),
+            ("infra-observability", "kube-prometheus-stack", "prometheus-community/kube-prometheus-stack", "observability",
+             self.repo_root / "platform" / "k8s" / "infra" / "helm-values" / "kube-prometheus-stack-values.yaml"),
+            ("infra-kubeview", "kubeview", "kubeview/kubeview", "observability",
+             self.repo_root / "platform" / "k8s" / "infra" / "helm-values" / "kubeview-values.yaml"),
         ]
 
         for filename, release, chart, namespace, values_file in helm_charts:
