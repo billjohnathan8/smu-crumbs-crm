@@ -89,7 +89,7 @@ jobs:
 
       - name: Check formatting (Black)
         timeout-minutes: 1
-        run: python -m black --check app tests
+        run: python -m black --check --diff app tests
 
       - name: Lint (Flake8)
         timeout-minutes: 1

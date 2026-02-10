@@ -1,0 +1,44 @@
+default_stages: [pre-push] # Global setting
+
+repos:
+  # --- Python: Black & Flake8 ---
+  - repo: https://github.com/psf/black
+    rev: 24.10.0 
+    hooks:
+      - id: black
+        files: ^services/backend/log/
+        stages: [pre-push]
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.1.1
+    hooks:
+      - id: flake8
+        files: ^services/backend/log/
+        stages: [pre-push]
+
+  # --- Frontend: Prettier & ESLint ---
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.11
+    hooks:
+      - id: prettier
+        files: ^services/frontend/crm-ui/
+        stages: [pre-push]
+
+  # --- Java: Checkstyle ---
+  # Note: Java is heavier, so we often call the local gradlew script
+  - repo: local
+    hooks:
+      - id: java-checkstyle
+        name: Java Checkstyle
+        entry: bash -c "cd services/backend/client && ./gradlew checkstyleMain"
+        language: system
+        files: \.java$
+        stages: [pre-push]
+  
+  - repo: local
+    hooks:
+      - id: kubeconform
+        name: K8s Lint
+        entry: kubeconform -summary -verbose platform/
+        language: system
+        stages: [pre-push]
