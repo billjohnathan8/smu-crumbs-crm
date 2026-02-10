@@ -16,10 +16,12 @@ repos:
         stages: [pre-commit]
 
   # --- Frontend: Prettier & ESLint ---
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v4.0.0-alpha.8
+  - repo: local
     hooks:
       - id: prettier
+        name: Prettier
+        entry: bash -c "cd services/frontend/crm-ui && npx prettier --write 'src/**/*.{ts,tsx,js,jsx,json,css,md}'"
+        language: system
         files: ^services/frontend/crm-ui/
         stages: [pre-commit]
 
