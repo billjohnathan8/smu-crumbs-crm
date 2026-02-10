@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 /**
  * Spring Boot entry point for the client service.
  */
+
 // Testing CI pipeline
 @SpringBootApplication
 public class ClientsServiceApplication {
