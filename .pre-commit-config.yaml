@@ -1,37 +1,74 @@
 repos:
-  # --- Python: Black & Flake8 ---
+  # --- Python: Black ---
   - repo: https://github.com/psf/black
-    rev: 24.10.0 
+    rev: 24.10.0
     hooks:
       - id: black
-        files: ^services/backend/log/
+        name: Black (Python formatting)
+        files: ^services/backend/log/(app|tests)/.*\.py$
+        args: [--config, services/backend/log/pyproject.toml]
         stages: [pre-commit]
 
+  # --- Python: Flake8 ---
   - repo: https://github.com/pycqa/flake8
     rev: 7.1.1
     hooks:
       - id: flake8
-        args: ["--max-line-length=100", "--ignore=E501,E203,W503"]
-        files: ^services/backend/log/
+        name: Flake8 (Python linting)
+        files: ^services/backend/log/(app|tests)/.*\.py$
+        args: ["--max-line-length=100", "--extend-ignore=E501,E203,W503"]
         stages: [pre-commit]
 
-  # --- Frontend: Prettier & ESLint ---
+  # --- Frontend: Prettier (uses package.json versions) ---
   - repo: local
     hooks:
-      - id: prettier
-        name: Prettier
-        entry: bash -c "cd services/frontend/crm-ui && npx prettier --write 'src/**/*.{ts,tsx,js,jsx,json,css,md}'"
+      - id: eslint-frontend
+        name: ESLint (Frontend)
+        entry: cmd /c "cd services/frontend/crm-ui && npm run lint"
+        language: system
+        files: ^services/frontend/crm-ui/src/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+        stages: [commit]
+
+      - id: prettier-frontend
+        name: Prettier (Frontend)
+        entry: cmd /c "cd services/frontend/crm-ui && npm run format:check"
+        language: system
+        files: ^services/frontend/crm-ui/src/.*\.(ts|tsx|js|jsx|json|css|md)$
+        pass_filenames: false
+        stages: [commit]
+
+      - id: typecheck-frontend
+        name: TypeScript Typecheck (Frontend)
+        entry: cmd /c "cd services/frontend/crm-ui && npm run typecheck"
         language: system
         files: ^services/frontend/crm-ui/
-        stages: [pre-commit]
+        pass_filenames: false
+        stages: [commit]
 
-  # --- Java: Checkstyle ---
-  # Note: Java is heavier, so we often call the local gradlew script
+  # --- Java: Checkstyle (all services) ---
   - repo: local
     hooks:
-      - id: java-checkstyle
-        name: Java Checkstyle
-        entry: bash -c "cd services/backend/client && ./gradlew checkstyleMain"
+      - id: java-checkstyle-agent
+        name: Checkstyle (Agent)
+        entry: cmd /c "cd services/backend/agent && chmod +x gradlew && ./gradlew checkstyleMain checkstyleTest --no-daemon --console=plain"
         language: system
-        files: \.java$
-        stages: [pre-push]
+        files: ^services/backend/agent/src/.*\.java$
+        pass_filenames: false
+        stages: [push]
+
+      - id: java-checkstyle-client
+        name: Checkstyle (Client)
+        entry: cmd /c "cd services/backend/client && chmod +x gradlew && ./gradlew checkstyleMain checkstyleTest --no-daemon --console=plain"
+        language: system
+        files: ^services/backend/client/src/.*\.java$
+        pass_filenames: false
+        stages: [push]
+
+      - id: java-checkstyle-transaction
+        name: Checkstyle (Transaction)
+        entry: cmd /c "cd services/backend/transaction && chmod +x gradlew && ./gradlew checkstyleMain checkstyleTest --no-daemon --console=plain"
+        language: system
+        files: ^services/backend/transaction/src/.*\.java$
+        pass_filenames: false
+        stages: [push]
