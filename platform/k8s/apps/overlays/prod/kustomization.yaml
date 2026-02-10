@@ -1,10 +1,12 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: dev
+
+namespace: prod
+
 resources:
   - namespace.yaml
   - ../../base
-  - ../../base/postgres-backup
+
 images:
   - name: agent
     newTag: dev
@@ -16,10 +18,12 @@ images:
     newTag: dev
   - name: crm-ui
     newTag: dev
-labels:
-  - pairs:
-      app.kubernetes.io/part-of: crm-backend
-      app.kubernetes.io/environment: dev
-    includeSelectors: true
-    includeTemplates: true
+
+patches:
+  - path: replicas.yaml
+  - path: hpa-overrides.yaml
+  - target:
+      kind: Ingress
+      name: backend-ingress
+    path: ingress.yaml
 

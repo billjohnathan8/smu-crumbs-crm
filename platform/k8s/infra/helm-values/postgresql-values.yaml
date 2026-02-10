@@ -18,6 +18,13 @@ auth:
   database: cs301
   # For production: use existingSecret instead of plaintext password
 
+# Initialize a project-wide database/user for shared access
+initdbScripts:
+  01-crm.sql: |
+    CREATE DATABASE crm;
+    CREATE USER crm_app WITH PASSWORD 'crm_local_dev_pw';
+    GRANT ALL PRIVILEGES ON DATABASE crm TO crm_app;
+
 # Primary database configuration
 primary:
   # Disable persistence for local dev (faster cleanup, less disk usage)

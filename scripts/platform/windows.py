@@ -15,6 +15,7 @@ import subprocess
 import sys
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Union
 from typing import Dict, List, Optional, Generator
 
 
@@ -239,7 +240,7 @@ def run_cmd(
     return result
 
 
-def normalize_windows_path(path: str | Path) -> str:
+def normalize_windows_path(path: Union[str, Path]) -> str:
     """
     Normalize path for Windows.
     

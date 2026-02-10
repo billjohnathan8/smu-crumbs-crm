@@ -16,6 +16,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Union
 from typing import Dict, List, Optional
 
 
@@ -152,7 +153,7 @@ def set_env(name: str, value: str):
     os.environ[name] = value
 
 
-def add_to_path(path: str | Path):
+def add_to_path(path: Union[str, Path]):
     """
     Add directory to PATH for subsequent steps.
     

@@ -1,6 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+BASE_URL="${BASE_URL:-http://localhost:18080}"
+TIMEOUT_ARGS=(--connect-timeout 2 --max-time 8)
+
+echo "[smoke] Checking pods..."
+kubectl get pods -n dev
+
+echo "[smoke] Checking endpoints..."
+kubectl get endpoints -n dev
+
+echo "[smoke] Hitting health endpoints via ingress: ${BASE_URL}"
+curl -sS "${TIMEOUT_ARGS[@]}" -o /dev/null -w "log /health -> %{http_code}\n" "${BASE_URL}/health"
+curl -sS "${TIMEOUT_ARGS[@]}" -o /dev/null -w "agent /api/agents/api/v1/health -> %{http_code}\n" "${BASE_URL}/api/agents/api/v1/health"
+curl -sS "${TIMEOUT_ARGS[@]}" -o /dev/null -w "client /api/clients/api/v1/health -> %{http_code}\n" "${BASE_URL}/api/clients/api/v1/health"
+curl -sS "${TIMEOUT_ARGS[@]}" -o /dev/null -w "transaction /api/transactions/api/v1/health -> %{http_code}\n" "${BASE_URL}/api/transactions/api/v1/health"
+curl -sS "${TIMEOUT_ARGS[@]}" -o /dev/null -w "frontend /health -> %{http_code}\n" "${BASE_URL}/health"
+
+echo "[smoke] Done."
+#!/usr/bin/env bash
+set -euo pipefail
+
 # Source common environment setup
 source "$(dirname "${BASH_SOURCE[0]}")/../common/setup-env.sh"
 
@@ -17,24 +37,12 @@ CURL_LAST_ERR=""
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/../.." && pwd)"
 
-# Use commands from common setup, with explicit context to avoid Docker Desktop context hijacking
-if [[ -n "${KUBECTL_CONTEXT:-}" ]]; then
-  KUBECTL="${KUBECTL_CMD} --context ${KUBECTL_CONTEXT}"
-else
-  # Auto-detect kind cluster context if KUBECTL_CONTEXT not set
-  # This handles cases where smoke script is run directly from terminal
-  kind_context=$(${KUBECTL_CMD} config get-contexts -o name 2>/dev/null | grep "^kind-" | head -1 || echo "")
-  if [[ -n "${kind_context}" ]]; then
-    echo "Auto-detected kind context: ${kind_context}"
-    KUBECTL="${KUBECTL_CMD} --context ${kind_context}"
-  else
-    KUBECTL="${KUBECTL_CMD}"
-  fi
-fi
+# Use commands from common setup
+KUBECTL="${KUBECTL_CMD}"
 
 manifests_dir="${repo_root}/platform/k8s/apps/base"
-ingress_yaml="${manifests_dir}/ingress.yaml"
-kustomization_yaml="${manifests_dir}/kustomization.yaml"
+apps_yaml="${manifests_dir}/apps.yaml"
+ingress_yaml="${apps_yaml}"
 declare -A ingress_path_by_service
 declare -A probe_path_by_service
 declare -A ingress_health_by_service
@@ -99,42 +107,38 @@ parse_ingress_paths() {
 }
 
 parse_deployments() {
-  [[ -f "${kustomization_yaml}" ]] || return 0
-  while IFS= read -r line; do
-    line="${line%$'\r'}"
-    if [[ "${line}" =~ ^[[:space:]]*-[[:space:]](.+-deployment\.yaml)[[:space:]]*$ ]]; then
-      local deployment_file="${manifests_dir}/${BASH_REMATCH[1]}"
-      [[ -f "${deployment_file}" ]] || continue
+  [[ -f "${apps_yaml}" ]] || return 0
 
-      local svc_name
-      svc_name="$(awk '
-        /^[[:space:]]*metadata:/ { in_meta=1; next }
-        in_meta && /^[[:space:]]*name:/ { print $2; exit }
-      ' < <(tr -d '\r' < "${deployment_file}"))"
+  while IFS= read -r record; do
+    record="${record%$'\r'}"
+    local svc_name="${record%%|*}"
+    local rest="${record#*|}"
+    local readiness_path="${rest%%|*}"
+    local liveness_path="${rest#*|}"
 
-      [[ -n "${svc_name}" ]] || continue
+    [[ -n "${svc_name}" ]] || continue
 
-      local readiness_path
-      readiness_path="$(awk '
-        $1 == "readinessProbe:" { in_probe=1; next }
-        in_probe && $1 == "path:" { print $2; exit }
-      ' < <(tr -d '\r' < "${deployment_file}"))"
-
-      local liveness_path
-      liveness_path="$(awk '
-        $1 == "livenessProbe:" { in_probe=1; next }
-        in_probe && $1 == "path:" { print $2; exit }
-      ' < <(tr -d '\r' < "${deployment_file}"))"
-
-      if [[ -n "${readiness_path}" ]]; then
-        probe_path_by_service["${svc_name}"]="${readiness_path}"
-      elif [[ -n "${liveness_path}" ]]; then
-        probe_path_by_service["${svc_name}"]="${liveness_path}"
-      else
-        probe_path_by_service["${svc_name}"]="/health"
-      fi
+    if [[ -n "${readiness_path}" ]]; then
+      probe_path_by_service["${svc_name}"]="${readiness_path}"
+    elif [[ -n "${liveness_path}" ]]; then
+      probe_path_by_service["${svc_name}"]="${liveness_path}"
+    else
+      probe_path_by_service["${svc_name}"]="/health"
     fi
-  done < "${kustomization_yaml}"
+  done < <(awk '
+    /^kind: Deployment/ { in_dep=1; in_meta=0; name=""; readiness=""; liveness=""; next }
+    in_dep && /^kind: / && $2 != "Deployment" {
+      if (name != "") { print name "|" readiness "|" liveness }
+      in_dep=0; in_meta=0; next
+    }
+    in_dep && /^metadata:/ { in_meta=1; next }
+    in_dep && in_meta && /^  name:/ { name=$2; in_meta=0; next }
+    in_dep && $1 == "readinessProbe:" { in_read=1; in_live=0; next }
+    in_dep && $1 == "livenessProbe:" { in_live=1; in_read=0; next }
+    in_dep && in_read && $1 == "path:" { readiness=$2; in_read=0 }
+    in_dep && in_live && $1 == "path:" { liveness=$2; in_live=0 }
+    END { if (in_dep && name != "") print name "|" readiness "|" liveness }
+  ' < <(tr -d "\r" < "${apps_yaml}"))
 }
 
 build_health_checks() {
@@ -381,15 +385,25 @@ tcp_connect() {
   local host="$1"
   local port="$2"
   local timeout_ms="${3:-500}"
-  # Find a working Python (python3 may be a broken Windows App Store stub)
-  local py_cmd=""
-  if command -v python3 >/dev/null 2>&1 && python3 -c "import sys" >/dev/null 2>&1; then
-    py_cmd="python3"
-  elif command -v python >/dev/null 2>&1 && python -c "import sys" >/dev/null 2>&1; then
-    py_cmd="python"
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - <<PY >/dev/null 2>&1
+import socket, sys
+host="${host}"
+port=int("${port}")
+timeout=${timeout_ms}/1000.0
+try:
+    s=socket.socket()
+    s.settimeout(timeout)
+    s.connect((host, port))
+    s.close()
+    sys.exit(0)
+except Exception:
+    sys.exit(1)
+PY
+    return $?
   fi
-  if [[ -n "${py_cmd}" ]]; then
-    ${py_cmd} - <<PY >/dev/null 2>&1
+  if command -v python >/dev/null 2>&1; then
+    python - <<PY >/dev/null 2>&1
 import socket, sys
 host="${host}"
 port=int("${port}")
@@ -409,9 +423,7 @@ PY
     timeout 1 bash -c "cat < /dev/null > /dev/tcp/${host}/${port}" >/dev/null 2>&1
     return $?
   fi
-  # Last resort: try bash /dev/tcp directly (works in Git Bash)
-  bash -c "cat < /dev/null > /dev/tcp/${host}/${port}" >/dev/null 2>&1
-  return $?
+  return 1
 }
 
 start_port_forward_fallback() {

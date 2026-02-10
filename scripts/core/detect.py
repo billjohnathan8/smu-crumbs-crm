@@ -22,6 +22,7 @@ import sys
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from typing import Union
 from typing import Dict, List, Optional, Tuple
 
 
@@ -194,7 +195,7 @@ class Platform:
         
         return "unknown"
     
-    def normalize_path(self, path: str | Path) -> Path:
+    def normalize_path(self, path: Union[str, Path]) -> Path:
         """
         Normalize path for current platform.
         Handles Windows/Unix path separators, resolves relative paths.

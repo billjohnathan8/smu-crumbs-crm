@@ -15,6 +15,7 @@ import subprocess
 import sys
 from enum import Enum
 from pathlib import Path
+from typing import Union
 from typing import Dict, List, Optional, Tuple
 
 
@@ -192,7 +193,7 @@ def make_executable(script_path: Path) -> None:
     script_path.chmod(new_permissions)
 
 
-def normalize_unix_path(path: str | Path) -> str:
+def normalize_unix_path(path: Union[str, Path]) -> str:
     """
     Normalize path for Unix.
     

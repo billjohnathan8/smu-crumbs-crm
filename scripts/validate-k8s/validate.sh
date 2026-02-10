@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+python3 scripts/validate-k8s/validate.py
+#!/usr/bin/env bash
+set -euo pipefail
+
 # Source common environment setup
 source "$(dirname "${BASH_SOURCE[0]}")/../common/setup-env.sh"
 
@@ -106,12 +110,16 @@ mkdir -p "${TMPDIR_BASE}"
 log "Ensuring Helm repos are added..."
 "${HELM}" repo add ingress-nginx https://kubernetes.github.io/ingress-nginx >/dev/null 2>&1 || true
 "${HELM}" repo add bitnami https://charts.bitnami.com/bitnami >/dev/null 2>&1 || true
+"${HELM}" repo add prometheus-community https://prometheus-community.github.io/helm-charts >/dev/null 2>&1 || true
+"${HELM}" repo add kubeview https://benc-uk.github.io/kubeview/deploy/helm >/dev/null 2>&1 || true
 "${HELM}" repo update >/dev/null
 
 HELM_CHARTS=(
   "infra-ingress|ingress-nginx|ingress-nginx/ingress-nginx|ingress-nginx|"
   "infra-metrics|metrics-server|bitnami/metrics-server|kube-system|${REPO_ROOT}/platform/k8s/infra/helm-values/metrics-server-values.yaml"
   "infra-postgres|postgres|bitnami/postgresql|dev|${REPO_ROOT}/platform/k8s/infra/helm-values/postgresql-values.yaml"
+  "infra-observability|kube-prometheus-stack|prometheus-community/kube-prometheus-stack|observability|${REPO_ROOT}/platform/k8s/infra/helm-values/kube-prometheus-stack-values.yaml"
+  "infra-kubeview|kubeview|kubeview/kubeview|observability|${REPO_ROOT}/platform/k8s/infra/helm-values/kubeview-values.yaml"
 )
 
 validated_files=()

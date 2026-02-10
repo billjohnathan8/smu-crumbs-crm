@@ -1,0 +1,8 @@
+loadBalancer:
+  enabled: false
+
+nodePort:
+  enabled: true
+  port: 30081
+
+replicaCount: 1

@@ -1,5 +1,41 @@
 #!/usr/bin/env python3
 """
+Minimal developer setup helper: checks required tools and exits.
+"""
+import shutil
+import sys
+
+
+REQUIRED = [
+    "docker",
+    "kubectl",
+    "helm",
+    "kind",
+    "java",
+    "node",
+    "npm",
+    "python3",
+]
+
+
+def main() -> int:
+    missing = []
+    for tool in REQUIRED:
+        if not shutil.which(tool):
+            missing.append(tool)
+
+    if missing:
+        print("Missing tools:", ", ".join(missing))
+        return 1
+
+    print("All required tools are available.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+#!/usr/bin/env python3
+"""
 Developer environment setup - one-command onboarding.
 
 Replaces:
@@ -129,6 +165,7 @@ class EnvironmentChecker:
                 "git": "winget install Git.Git",
                 "java": "winget install EclipseAdoptium.Temurin.21.JDK",
                 "node": "winget install OpenJS.NodeJS.LTS",
+                "python": "winget install Python.Python.3.12",
                 "make": "winget install GnuWin32.Make",
             }
         elif stdlib_platform.system() == "Darwin":
@@ -136,7 +173,8 @@ class EnvironmentChecker:
                 "docker": "brew install --cask docker",
                 "git": "brew install git",
                 "java": "brew install openjdk@21",
-                "node": "brew install node@18",
+                "node": "brew install node",
+                "python": "brew install python@3.12",
                 "make": "brew install make",
             }
         else:  # Linux
@@ -145,6 +183,7 @@ class EnvironmentChecker:
                 "git": "sudo apt-get install git",
                 "java": "sudo apt-get install openjdk-21-jdk",
                 "node": "sudo apt-get install nodejs npm",
+                "python": "sudo apt-get install python3.12 python3.12-venv",
                 "make": "sudo apt-get install make",
             }
         
@@ -183,7 +222,7 @@ class EnvironmentChecker:
         return False
     
     def check_node_version(self, status: DependencyStatus) -> bool:
-        """Check if Node.js version meets minimum requirement (18+)."""
+        """Check if Node.js version meets minimum requirement (22+)."""
         if not status.found or not status.version:
             return False
         
@@ -191,8 +230,27 @@ class EnvironmentChecker:
         version_match = re.search(r'v?(\d+)\.(\d+)\.(\d+)', status.version)
         if version_match:
             major = int(version_match.group(1))
-            return major >= 18
+            return major >= 22
         
+        return False
+
+    def check_python_version(self, status: DependencyStatus) -> bool:
+        """Check if Python version meets minimum requirement (3.12+)."""
+        if not status.found or not status.version:
+            return False
+
+        version_match = re.search(r'Python\s+(\d+)\.(\d+)\.(\d+)', status.version)
+        if version_match:
+            major = int(version_match.group(1))
+            minor = int(version_match.group(2))
+            return (major, minor) >= (3, 12)
+
+        version_match = re.search(r'(\d+)\.(\d+)\.(\d+)', status.version)
+        if version_match:
+            major = int(version_match.group(1))
+            minor = int(version_match.group(2))
+            return (major, minor) >= (3, 12)
+
         return False
     
     def report(self):
@@ -665,13 +723,12 @@ def run_verification(mode: str, logger) -> bool:
     Run verification pipelines.
     
     Args:
-        mode: "tests" | "deploy" | "deploy-only"
+        mode: "tests"
         
     Returns:
         True if verification succeeded
     """
     if mode == "tests":
-        # Run test_all.py
         test_all = repo_root / "scripts" / "pipelines" / "test_all.py"
         
         if not test_all.exists():
@@ -681,39 +738,6 @@ def run_verification(mode: str, logger) -> bool:
         logger.info("Running test_all.py verification...")
         result = subprocess.run(
             [sys.executable, str(test_all)],
-            check=False
-        )
-        return result.returncode == 0
-    
-    elif mode == "deploy":
-        # Run test_all.py + deploy_k8s.py
-        test_all = repo_root / "scripts" / "pipelines" / "test_all.py"
-        deploy_k8s = repo_root / "scripts" / "pipelines" / "deploy_k8s.py"
-        
-        if test_all.exists():
-            logger.info("Running test_all.py verification...")
-            result = subprocess.run([sys.executable, str(test_all)], check=False)
-            if result.returncode != 0:
-                return False
-        
-        if deploy_k8s.exists():
-            logger.info("Running deploy_k8s.py...")
-            result = subprocess.run([sys.executable, str(deploy_k8s)], check=False)
-            return result.returncode == 0
-        
-        return True
-    
-    elif mode == "deploy-only":
-        # Run deploy_k8s.py only
-        deploy_k8s = repo_root / "scripts" / "pipelines" / "deploy_k8s.py"
-        
-        if not deploy_k8s.exists():
-            logger.warning("deploy_k8s.py not found, skipping verification")
-            return True
-        
-        logger.info("Running deploy_k8s.py...")
-        result = subprocess.run(
-            [sys.executable, str(deploy_k8s)],
             check=False
         )
         return result.returncode == 0
@@ -730,7 +754,6 @@ def main():
 Examples:
   python scripts/pipelines/setup_dev_env.py --doctor
   python scripts/pipelines/setup_dev_env.py
-  python scripts/pipelines/setup_dev_env.py --deploy
   python scripts/pipelines/setup_dev_env.py --verify-only
         """
     )
@@ -748,16 +771,6 @@ Examples:
         "--verify-only",
         action="store_true",
         help="Only run verification (skip setup)"
-    )
-    parser.add_argument(
-        "--deploy",
-        action="store_true",
-        help="Run full test + deployment pipeline"
-    )
-    parser.add_argument(
-        "--deploy-only",
-        action="store_true",
-        help="Run k8s deployment only (no tests)"
     )
     parser.add_argument(
         "--system",
@@ -814,9 +827,17 @@ Examples:
             node_status = checker.check_tool("Node.js", "node", required=True)
             if node_status.found:
                 if checker.check_node_version(node_status):
-                    logger.success("[OK] Node.js version >=18")
+                    logger.success("[OK] Node.js version >=22")
                 else:
-                    logger.warning("[WARN] Node.js version <18 (requires Node.js 18+)")
+                    logger.warning("[WARN] Node.js version <22 (requires Node.js 22+)")
+
+            python_executable = "python" if is_windows() else "python3"
+            python_status = checker.check_tool("Python", python_executable, required=True)
+            if python_status.found:
+                if checker.check_python_version(python_status):
+                    logger.success("[OK] Python version >=3.12")
+                else:
+                    logger.warning("[WARN] Python version <3.12 (requires Python 3.12+)")
             
             checker.check_tool("npm", "npm", required=True)
             checker.check_tool("Make", "make", required=True)
@@ -865,12 +886,7 @@ Examples:
         # Verification
         if not args.skip_verify:
             with logger.group("Verification"):
-                if args.deploy:
-                    success = run_verification("deploy", logger)
-                elif args.deploy_only:
-                    success = run_verification("deploy-only", logger)
-                else:
-                    success = run_verification("tests", logger)
+                success = run_verification("tests", logger)
                 
                 if not success:
                     logger.error("Verification failed")
@@ -885,7 +901,7 @@ Examples:
         logger.info("Next steps:")
         logger.info("  - Run backend tests:  python scripts/pipelines/test_backend.py")
         logger.info("  - Run frontend tests: python scripts/pipelines/test_frontend.py")
-        logger.info("  - Deploy to k8s:      python scripts/pipelines/deploy_k8s.py")
+        logger.info("  - Validate k8s:       python scripts/validate-k8s/validate.py")
         logger.info("  - VS Code: Open workspace and install recommended extensions")
         
         return 0

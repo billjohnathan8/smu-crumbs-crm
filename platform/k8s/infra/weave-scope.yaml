@@ -1,0 +1,226 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: weave
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: weave-scope
+  namespace: weave
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: weave-scope
+rules:
+  - apiGroups: ["", "extensions", "apps", "batch"]
+    resources: ["pods", "services", "endpoints", "nodes", "namespaces", "replicationcontrollers", "deployments", "replicasets", "daemonsets", "statefulsets", "jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log", "persistentvolumes", "persistentvolumeclaims"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: weave-scope
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: weave-scope
+subjects:
+  - kind: ServiceAccount
+    name: weave-scope
+    namespace: weave
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: weave-scope-agent
+  namespace: weave
+  labels:
+    app: weave-scope
+    name: weave-scope-agent
+    weave-cloud-component: scope
+    weave-scope-component: agent
+spec:
+  selector:
+    matchLabels:
+      app: weave-scope
+      name: weave-scope-agent
+      weave-cloud-component: scope
+      weave-scope-component: agent
+  template:
+    metadata:
+      labels:
+        app: weave-scope
+        name: weave-scope-agent
+        weave-cloud-component: scope
+        weave-scope-component: agent
+    spec:
+      serviceAccountName: weave-scope
+      containers:
+        - name: scope-agent
+          image: weaveworks/scope:1.13.2
+          args:
+            - "--mode=probe"
+            - "--probe-only"
+            - "--probe.kubernetes=true"
+            - "--probe.kubernetes.role=host"
+            - "--probe.docker=false"
+            - "--probe.cri=true"
+            - "--probe.cri.endpoint=unix:///run/containerd/containerd.sock"
+            - "--weave=false"
+            - "weave-scope-app.weave.svc.cluster.local.:80"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: containerd-sock
+              mountPath: /run/containerd/containerd.sock
+              readOnly: true
+            - name: scope-plugins
+              mountPath: /var/run/scope/plugins
+            - name: sys-kernel-debug
+              mountPath: /sys/kernel/debug
+      hostNetwork: true
+      hostPID: true
+      volumes:
+        - name: containerd-sock
+          hostPath:
+            path: /run/containerd/containerd.sock
+        - name: scope-plugins
+          hostPath:
+            path: /var/run/scope/plugins
+        - name: sys-kernel-debug
+          hostPath:
+            path: /sys/kernel/debug
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: weave-scope-app
+  namespace: weave
+  labels:
+    app: weave-scope
+    name: weave-scope-app
+    weave-cloud-component: scope
+    weave-scope-component: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: weave-scope
+      name: weave-scope-app
+      weave-cloud-component: scope
+      weave-scope-component: app
+  template:
+    metadata:
+      labels:
+        app: weave-scope
+        name: weave-scope-app
+        weave-cloud-component: scope
+        weave-scope-component: app
+    spec:
+      serviceAccountName: weave-scope
+      containers:
+        - name: scope-app
+          image: weaveworks/scope:1.13.2
+          args:
+            - "--no-probe"
+          ports:
+            - containerPort: 4040
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: weave-scope-cluster-agent
+  namespace: weave
+  labels:
+    app: weave-scope
+    name: weave-scope-cluster-agent
+    weave-cloud-component: scope
+    weave-scope-component: cluster-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: weave-scope
+      name: weave-scope-cluster-agent
+      weave-cloud-component: scope
+      weave-scope-component: cluster-agent
+  template:
+    metadata:
+      labels:
+        app: weave-scope
+        name: weave-scope-cluster-agent
+        weave-cloud-component: scope
+        weave-scope-component: cluster-agent
+    spec:
+      serviceAccountName: weave-scope
+      containers:
+        - name: scope-cluster-agent
+          image: weaveworks/scope:1.13.2
+          args:
+            - "--mode=probe"
+            - "--probe-only"
+            - "--probe.kubernetes=true"
+            - "--probe.kubernetes.role=cluster"
+            - "--weave=false"
+            - "weave-scope-app.weave.svc.cluster.local.:80"
+          command:
+            - /home/weave/scope
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          volumeMounts:
+            - name: scope-plugins
+              mountPath: /var/run/scope/plugins
+      volumes:
+        - name: scope-plugins
+          hostPath:
+            path: /var/run/scope/plugins
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: weave-scope-app
+  namespace: weave
+  labels:
+    app: weave-scope
+    name: weave-scope-app
+    weave-cloud-component: scope
+    weave-scope-component: app
+spec:
+  type: NodePort
+  selector:
+    app: weave-scope
+    name: weave-scope-app
+    weave-cloud-component: scope
+    weave-scope-component: app
+  ports:
+    - name: http
+      port: 80
+      targetPort: 4040
+      nodePort: 30084

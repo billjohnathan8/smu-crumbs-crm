@@ -1,5 +1,16 @@
 #!/usr/bin/env bash
-# smoke-probes.sh â€” Probe-aware smoke checks for Kubernetes workloads.
+set -euo pipefail
+
+NAMESPACE="${1:-dev}"
+
+echo "[smoke] Rollout status (${NAMESPACE})"
+kubectl rollout status deployment/agent -n "${NAMESPACE}" --timeout=180s
+kubectl rollout status deployment/client -n "${NAMESPACE}" --timeout=180s
+kubectl rollout status deployment/log -n "${NAMESPACE}" --timeout=180s
+kubectl rollout status deployment/transaction -n "${NAMESPACE}" --timeout=180s
+kubectl rollout status deployment/frontend -n "${NAMESPACE}" --timeout=180s
+#!/usr/bin/env bash
+# smoke-probes.sh -- Probe-aware smoke checks for Kubernetes workloads.
 #
 # Validates:
 #   1. Rollout readiness (${KUBECTL} rollout status) for every Deployment in the
@@ -25,41 +36,8 @@ CURL_IMAGE="${CURL_IMAGE:-curlimages/curl:8.5.0}"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 startup_required_file="${script_dir}/startup-probe-required.txt"
 
-# Use commands from common setup, with explicit context to avoid Docker Desktop context hijacking
-if [[ -n "${KUBECTL_CONTEXT:-}" ]]; then
-  KUBECTL="${KUBECTL_CMD} --context ${KUBECTL_CONTEXT}"
-else
-  # Auto-detect kind cluster context if KUBECTL_CONTEXT not set
-  # This handles cases where smoke script is run directly from terminal
-  kind_context=$(${KUBECTL_CMD} config get-contexts -o name 2>/dev/null | grep "^kind-" | head -1 || echo "")
-  if [[ -n "${kind_context}" ]]; then
-    echo "Auto-detected kind context: ${kind_context}"
-    KUBECTL="${KUBECTL_CMD} --context ${kind_context}"
-  else
-    KUBECTL="${KUBECTL_CMD}"
-  fi
-fi
-
-# Detect working Python command (python3 may be a broken Windows App Store stub)
-PYTHON_CMD=""
-if command -v python3 >/dev/null 2>&1 && python3 -c "import sys" >/dev/null 2>&1; then
-  PYTHON_CMD="python3"
-elif command -v python >/dev/null 2>&1 && python -c "import sys" >/dev/null 2>&1; then
-  PYTHON_CMD="python"
-else
-  echo "ERROR: No working Python found (tried python3, python)"
-  exit 1
-fi
-
-# Helper: run Python and strip Windows \r from output
-# Usage: py_eval "python code" [fallback_value]
-py_eval() {
-  local code="$1"
-  local fallback="${2:-}"
-  local result
-  result="$(${PYTHON_CMD} -c "${code}" 2>/dev/null || echo "${fallback}")"
-  printf '%s' "${result%$'\r'}"
-}
+# Use commands from common setup
+KUBECTL="${KUBECTL_CMD}"
 
 errors=()
 failed_deployments=()
@@ -174,20 +152,19 @@ header "Probe presence assertions (namespace: ${NAMESPACE})"
 
 # Get all Deployments as JSON
 deploy_json="$(${KUBECTL} -n "${NAMESPACE}" get deployments -o json)"
-deploy_count="$(echo "${deploy_json}" | ${PYTHON_CMD} -c "import sys,json; print(len(json.load(sys.stdin)['items']))" 2>/dev/null || echo 0)"
-deploy_count="${deploy_count%$'\r'}"
+deploy_count="$(echo "${deploy_json}" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['items']))" 2>/dev/null || echo 0)"
 
 for idx in $(seq 0 $((deploy_count - 1))); do
-  deploy_name="$(echo "${deploy_json}" | ${PYTHON_CMD} -c "import sys,json; print(json.load(sys.stdin)['items'][${idx}]['metadata']['name'])")"
-  container_count="$(echo "${deploy_json}" | ${PYTHON_CMD} -c "import sys,json; print(len(json.load(sys.stdin)['items'][${idx}]['spec']['template']['spec']['containers']))")"
+  deploy_name="$(echo "${deploy_json}" | python3 -c "import sys,json; print(json.load(sys.stdin)['items'][${idx}]['metadata']['name'])")"
+  container_count="$(echo "${deploy_json}" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['items'][${idx}]['spec']['template']['spec']['containers']))")"
 
   for cidx in $(seq 0 $((container_count - 1))); do
-    container_name="$(echo "${deploy_json}" | ${PYTHON_CMD} -c "import sys,json; print(json.load(sys.stdin)['items'][${idx}]['spec']['template']['spec']['containers'][${cidx}]['name'])")"
-    container_json="$(echo "${deploy_json}" | ${PYTHON_CMD} -c "import sys,json,json as j; print(j.dumps(json.load(sys.stdin)['items'][${idx}]['spec']['template']['spec']['containers'][${cidx}]))")"
+    container_name="$(echo "${deploy_json}" | python3 -c "import sys,json; print(json.load(sys.stdin)['items'][${idx}]['spec']['template']['spec']['containers'][${cidx}]['name'])")"
+    container_json="$(echo "${deploy_json}" | python3 -c "import sys,json,json as j; print(j.dumps(json.load(sys.stdin)['items'][${idx}]['spec']['template']['spec']['containers'][${cidx}]))")"
 
-    has_readiness="$(echo "${container_json}" | ${PYTHON_CMD} -c "import sys,json; c=json.load(sys.stdin); print('yes' if 'readinessProbe' in c else 'no')")"
-    has_liveness="$(echo "${container_json}" | ${PYTHON_CMD} -c "import sys,json; c=json.load(sys.stdin); print('yes' if 'livenessProbe' in c else 'no')")"
-    has_startup="$(echo "${container_json}" | ${PYTHON_CMD} -c "import sys,json; c=json.load(sys.stdin); print('yes' if 'startupProbe' in c else 'no')")"
+    has_readiness="$(echo "${container_json}" | python3 -c "import sys,json; c=json.load(sys.stdin); print('yes' if 'readinessProbe' in c else 'no')")"
+    has_liveness="$(echo "${container_json}" | python3 -c "import sys,json; c=json.load(sys.stdin); print('yes' if 'livenessProbe' in c else 'no')")"
+    has_startup="$(echo "${container_json}" | python3 -c "import sys,json; c=json.load(sys.stdin); print('yes' if 'startupProbe' in c else 'no')")"
 
     if [[ "${has_readiness}" == "yes" ]]; then
       ok "Deployment/${deploy_name} container=${container_name}: readinessProbe present"
@@ -223,20 +200,19 @@ done
 
 # Also check StatefulSets
 sts_json="$(${KUBECTL} -n "${NAMESPACE}" get statefulsets -o json 2>/dev/null || echo '{"items":[]}')"
-sts_count="$(echo "${sts_json}" | ${PYTHON_CMD} -c "import sys,json; print(len(json.load(sys.stdin)['items']))" 2>/dev/null || echo 0)"
-sts_count="${sts_count%$'\r'}"
+sts_count="$(echo "${sts_json}" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['items']))" 2>/dev/null || echo 0)"
 
 for idx in $(seq 0 $((sts_count - 1))); do
-  sts_name="$(echo "${sts_json}" | ${PYTHON_CMD} -c "import sys,json; print(json.load(sys.stdin)['items'][${idx}]['metadata']['name'])")"
-  container_count="$(echo "${sts_json}" | ${PYTHON_CMD} -c "import sys,json; print(len(json.load(sys.stdin)['items'][${idx}]['spec']['template']['spec']['containers']))")"
+  sts_name="$(echo "${sts_json}" | python3 -c "import sys,json; print(json.load(sys.stdin)['items'][${idx}]['metadata']['name'])")"
+  container_count="$(echo "${sts_json}" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['items'][${idx}]['spec']['template']['spec']['containers']))")"
 
   for cidx in $(seq 0 $((container_count - 1))); do
-    container_name="$(echo "${sts_json}" | ${PYTHON_CMD} -c "import sys,json; print(json.load(sys.stdin)['items'][${idx}]['spec']['template']['spec']['containers'][${cidx}]['name'])")"
-    container_json="$(echo "${sts_json}" | ${PYTHON_CMD} -c "import sys,json,json as j; print(j.dumps(json.load(sys.stdin)['items'][${idx}]['spec']['template']['spec']['containers'][${cidx}]))")"
+    container_name="$(echo "${sts_json}" | python3 -c "import sys,json; print(json.load(sys.stdin)['items'][${idx}]['spec']['template']['spec']['containers'][${cidx}]['name'])")"
+    container_json="$(echo "${sts_json}" | python3 -c "import sys,json,json as j; print(j.dumps(json.load(sys.stdin)['items'][${idx}]['spec']['template']['spec']['containers'][${cidx}]))")"
 
-    has_readiness="$(echo "${container_json}" | ${PYTHON_CMD} -c "import sys,json; c=json.load(sys.stdin); print('yes' if 'readinessProbe' in c else 'no')")"
-    has_liveness="$(echo "${container_json}" | ${PYTHON_CMD} -c "import sys,json; c=json.load(sys.stdin); print('yes' if 'livenessProbe' in c else 'no')")"
-    has_startup="$(echo "${container_json}" | ${PYTHON_CMD} -c "import sys,json; c=json.load(sys.stdin); print('yes' if 'startupProbe' in c else 'no')")"
+    has_readiness="$(echo "${container_json}" | python3 -c "import sys,json; c=json.load(sys.stdin); print('yes' if 'readinessProbe' in c else 'no')")"
+    has_liveness="$(echo "${container_json}" | python3 -c "import sys,json; c=json.load(sys.stdin); print('yes' if 'livenessProbe' in c else 'no')")"
+    has_startup="$(echo "${container_json}" | python3 -c "import sys,json; c=json.load(sys.stdin); print('yes' if 'startupProbe' in c else 'no')")"
 
     if [[ "${has_readiness}" == "yes" ]]; then
       ok "StatefulSet/${sts_name} container=${container_name}: readinessProbe present"
@@ -272,9 +248,9 @@ header "In-cluster probe health checks (namespace: ${NAMESPACE})"
 declare -a probe_checks=()
 
 for idx in $(seq 0 $((deploy_count - 1))); do
-  deploy_name="$(echo "${deploy_json}" | ${PYTHON_CMD} -c "import sys,json; print(json.load(sys.stdin)['items'][${idx}]['metadata']['name'])")"
-  # Extract all probe HTTP endpoints and container port mappings using a single Python call
-  probe_entries="$(echo "${deploy_json}" | ${PYTHON_CMD} -c "
+  deploy_name="$(echo "${deploy_json}" | python3 -c "import sys,json; print(json.load(sys.stdin)['items'][${idx}]['metadata']['name'])")"
+  # Extract all probe HTTP endpoints and container port mappings using a single python3 call
+  probe_entries="$(echo "${deploy_json}" | python3 -c "
 import sys, json
 items = json.load(sys.stdin)['items']
 deploy = items[${idx}]
@@ -312,8 +288,6 @@ for c in containers:
             print(f'{deploy_name} {c[\"name\"]} {probe_type} 0 EXEC')
 " 2>/dev/null || true)"
 
-  # Strip \r from Python output (Windows Python outputs \r\n line endings)
-  probe_entries="$(echo "${probe_entries}" | tr -d '\r')"
   while IFS= read -r entry; do
     [[ -z "${entry}" ]] && continue
     probe_checks+=("${entry}")
@@ -359,7 +333,7 @@ resolve_service_for_deploy() {
   # Try exact match first: "<deploy_name>-service", then "<deploy_name>"
   for candidate in "${deploy_name}-service" "${deploy_name}"; do
     local found
-    found="$(echo "${svc_json}" | ${PYTHON_CMD} -c "
+    found="$(echo "${svc_json}" | python3 -c "
 import sys, json
 items = json.load(sys.stdin)['items']
 for s in items:
@@ -367,7 +341,6 @@ for s in items:
         print(s['metadata']['name'])
         break
 " 2>/dev/null || true)"
-    found="${found%$'\r'}"  # Strip Windows \r
     if [[ -n "${found}" ]]; then
       echo "${found}"
       return
@@ -375,7 +348,7 @@ for s in items:
   done
   # Fallback: find service whose selector matches app=<deploy_name>
   local fallback
-  fallback="$(echo "${svc_json}" | ${PYTHON_CMD} -c "
+  fallback="$(echo "${svc_json}" | python3 -c "
 import sys, json
 items = json.load(sys.stdin)['items']
 for s in items:
@@ -384,7 +357,6 @@ for s in items:
         print(s['metadata']['name'])
         break
 " 2>/dev/null || true)"
-  fallback="${fallback%$'\r'}"  # Strip Windows \r
   echo "${fallback}"
 }
 
@@ -395,7 +367,7 @@ get_service_port_for_target() {
   local svc_name="$1"
   local target_port="$2"
   local svc_port
-  svc_port="$(echo "${svc_json}" | ${PYTHON_CMD} -c "
+  svc_port="$(echo "${svc_json}" | python3 -c "
 import sys, json
 items = json.load(sys.stdin)['items']
 target = '${target_port}'
@@ -416,7 +388,6 @@ for s in items:
 # Fallback to target port if no mapping found
 print(target)
 " 2>/dev/null || echo "${target_port}")"
-  svc_port="${svc_port%$'\r'}"  # Strip Windows \r
   echo "${svc_port}"
 }
 
@@ -488,10 +459,9 @@ fi
 '
 
   # Run ephemeral pod
-  # MSYS_NO_PATHCONV=1 prevents Git Bash from converting /bin/sh to C:/Program Files/Git/usr/bin/sh
   echo "Launching ephemeral curl pod for in-cluster probe checks..."
   pod_name="smoke-probe-check-$$"
-  if MSYS_NO_PATHCONV=1 ${KUBECTL} run "${pod_name}" \
+  if ${KUBECTL} run "${pod_name}" \
       --namespace="${NAMESPACE}" \
       --image="${CURL_IMAGE}" \
       --restart=Never \
