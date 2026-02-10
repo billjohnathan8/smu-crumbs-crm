@@ -11,6 +11,7 @@ on:
     branches:
       - agent-backend
   workflow_dispatch:
+  workflow_call:
 
 concurrency:
   group: ci-agent-backend-${{ github.ref }}

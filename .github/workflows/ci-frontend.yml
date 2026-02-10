@@ -11,6 +11,7 @@ on:
     branches:
       - frontend
   workflow_dispatch:
+  workflow_call:
 
 concurrency:
   group: ci-frontend-${{ github.ref }}

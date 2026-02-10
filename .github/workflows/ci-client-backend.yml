@@ -10,7 +10,8 @@ on:
   push:
     branches:
       - client-backend
-  workflow_dispatch:
+    workflow_dispatch:
+    workflow_call:
 
 concurrency:
   group: ci-client-backend-${{ github.ref }}

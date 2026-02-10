@@ -12,6 +12,7 @@ on:
     branches:
       - infrastructure
   workflow_dispatch:
+  workflow_call:
 
 concurrency:
   group: ci-infrastructure-${{ github.ref }}

@@ -15,6 +15,7 @@ on:
     branches:
       - xfactor-backend
   workflow_dispatch:
+  workflow_call:
 
 concurrency:
   group: ci-xfactor-backend-${{ github.ref }}
