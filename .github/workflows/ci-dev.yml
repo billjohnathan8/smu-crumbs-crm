@@ -23,10 +23,14 @@ jobs:
       platform: ${{ steps.filter.outputs.platform }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for comparison
       
       - uses: dorny/paths-filter@v3
         id: filter
         with:
+          base: ${{ github.event.before || 'HEAD~1' }}
+          ref: ${{ github.sha }}
           filters: |
             frontend:
               - 'services/frontend/**'
