@@ -28,7 +28,7 @@ repos:
         language: system
         files: ^services/frontend/crm-ui/src/.*\.(ts|tsx|js|jsx)$
         pass_filenames: false
-        stages: [commit]
+        stages: [pre-commit]
 
       - id: prettier-frontend
         name: Prettier (Frontend)
@@ -36,7 +36,7 @@ repos:
         language: system
         files: ^services/frontend/crm-ui/src/.*\.(ts|tsx|js|jsx|json|css|md)$
         pass_filenames: false
-        stages: [commit]
+        stages: [pre-commit]
 
       - id: typecheck-frontend
         name: TypeScript Typecheck (Frontend)
@@ -44,7 +44,7 @@ repos:
         language: system
         files: ^services/frontend/crm-ui/
         pass_filenames: false
-        stages: [commit]
+        stages: [pre-commit]
 
   # --- Java: Checkstyle (all services) ---
   - repo: local
@@ -55,7 +55,7 @@ repos:
         language: system
         files: ^services/backend/agent/src/.*\.java$
         pass_filenames: false
-        stages: [push]
+        stages: [pre-push]
 
       - id: java-checkstyle-client
         name: Checkstyle (Client)
@@ -63,7 +63,7 @@ repos:
         language: system
         files: ^services/backend/client/src/.*\.java$
         pass_filenames: false
-        stages: [push]
+        stages: [pre-push]
 
       - id: java-checkstyle-transaction
         name: Checkstyle (Transaction)
@@ -71,4 +71,4 @@ repos:
         language: system
         files: ^services/backend/transaction/src/.*\.java$
         pass_filenames: false
-        stages: [push]
+        stages: [pre-push]
