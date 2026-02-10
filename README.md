@@ -43,6 +43,13 @@ python scripts/pipelines/setup_dev_env.py
 # Observability (Local K8s)
 Prometheus + Grafana + Weave Scope + Kubeview are installed during infra deploy.
 
+# Observing K8s Deployments
+```
+kubectl get pods -A -o wide
+kubectl get svc -A -o wide
+kubectl get ingress -A -o wide
+```
+
 # Database (Local Postgres)
 - Host: `postgres-postgresql.dev.svc.cluster.local:5432`
 - Database: `cs301`
@@ -50,5 +57,21 @@ Prometheus + Grafana + Weave Scope + Kubeview are installed during infra deploy.
 - Password: `cs301_local_dev_pw`
 - Shared DB/User (project-wide): `crm` / `crm_app` / `crm_local_dev_pw`
 
-# Docs
-- Frontend overview: `docs/frontend/README.md`
+# Testing Credentials
+## Frontend
+Root admin Email: admin@crm.local
+Password: admin123
+
+Agent Account Email: agent@crm.local
+Password: client123
+
+## Database (Project-wide)
+Created shared DB + user in Postgres:
+DB: crm
+User: crm_app
+Password: crm_local_dev_pw
+
+Existing service DB is still:
+DB: cs301
+User: cs301
+Password: cs301_local_dev_pw
