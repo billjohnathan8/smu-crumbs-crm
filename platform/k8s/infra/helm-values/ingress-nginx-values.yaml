@@ -1,0 +1,9 @@
+controller:
+  autoscaling:
+    enabled: false
+  replicaCount: 1
+  service:
+    type: NodePort
+    nodePorts:
+      http: 30080
+      https: 30443

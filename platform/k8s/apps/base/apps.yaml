@@ -1,0 +1,601 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  labels:
+    app: frontend
+    component: ui
+data:
+  APP_NAME: "CRM UI"
+  APP_VERSION: "1.0.0"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: transaction-mock-sftp
+data:
+  transactions.csv: |
+    clientId,transaction,amount,date,status
+    clt_1001,D,1200.50,2026-02-01,Completed
+    clt_1001,W,250.00,2026-02-02,Pending
+    clt_1001,D,75.25,2026-02-03,Failed
+    clt_1002,D,500.00,2026-02-05,Completed
+    clt_1002,W,150.00,2026-02-06,Completed
+    clt_1003,D,4200.00,2026-02-07,Pending
+    clt_1003,W,300.00,2026-02-08,Failed
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: middleware-nginx-config
+data:
+  nginx.conf: |
+    events {}
+    http {
+      log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_request_id"';
+      access_log /var/log/nginx/access.log main;
+      error_log /var/log/nginx/error.log warn;
+
+      upstream agent_service { server agent.dev.svc.cluster.local:80; }
+      upstream client_service { server client.dev.svc.cluster.local:80; }
+      upstream log_service { server log.dev.svc.cluster.local:80; }
+      upstream transaction_service { server transaction.dev.svc.cluster.local:80; }
+      upstream frontend_service { server frontend.dev.svc.cluster.local:80; }
+
+      server {
+        listen 8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-Id $request_id;
+
+        location /api/agents {
+          proxy_pass http://agent_service;
+        }
+        location /api/auth {
+          proxy_pass http://agent_service;
+        }
+        location /api/clients {
+          proxy_pass http://client_service;
+        }
+        location /api/accounts {
+          proxy_pass http://client_service;
+        }
+        location /api/logs {
+          proxy_pass http://log_service;
+        }
+        location /api/communications {
+          proxy_pass http://log_service;
+        }
+        location /api/insights {
+          proxy_pass http://log_service;
+        }
+        location /api/transactions {
+          proxy_pass http://transaction_service;
+        }
+        location /health {
+          proxy_pass http://log_service;
+        }
+        location / {
+          proxy_pass http://frontend_service;
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agent
+  template:
+    metadata:
+      labels:
+        app: agent
+    spec:
+      containers:
+        - name: agent
+          image: agent:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          env:
+            - name: ROOT_ADMIN_EMAIL
+              value: admin@crm.local
+            - name: ROOT_ADMIN_PASSWORD
+              value: admin123
+            - name: DEFAULT_AGENT_FIRST_NAME
+              value: Client
+            - name: DEFAULT_AGENT_LAST_NAME
+              value: Agent
+            - name: DEFAULT_AGENT_EMAIL
+              value: agent@crm.local
+            - name: DEFAULT_AGENT_PASSWORD
+              value: client123
+            - name: JWT_ISSUER
+              value: "http://agent.dev.svc.cluster.local"
+            - name: JWT_AUDIENCE
+              value: "crm"
+            - name: JWT_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-keys
+                  key: private.pem
+                  optional: true
+            - name: JWT_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-keys
+                  key: public.pem
+                  optional: true
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 30
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: middleware
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: middleware
+  template:
+    metadata:
+      labels:
+        app: middleware
+    spec:
+      containers:
+        - name: middleware
+          image: nginx:alpine
+          ports:
+            - containerPort: 8080
+              name: http
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: middleware-nginx-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: middleware
+spec:
+  selector:
+    app: middleware
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent
+spec:
+  selector:
+    app: agent
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: client
+  template:
+    metadata:
+      labels:
+        app: client
+    spec:
+      containers:
+        - name: client
+          image: client:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: 300m
+              memory: 512Mi
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres-postgresql.dev.svc.cluster.local:5432/cs301
+            - name: SPRING_DATASOURCE_USERNAME
+              value: cs301
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-postgresql
+                  key: password
+            - name: LOG_SERVICE_URL
+              value: http://log.dev.svc.cluster.local/api/v1/logs
+            - name: JWT_ISSUER
+              value: "http://agent.dev.svc.cluster.local"
+            - name: JWT_AUDIENCE
+              value: "crm"
+            - name: JWT_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-keys
+                  key: public.pem
+                  optional: true
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: client
+spec:
+  selector:
+    app: client
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: log
+  template:
+    metadata:
+      labels:
+        app: log
+    spec:
+      containers:
+        - name: log
+          image: log:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          env:
+            - name: DB_HOST
+              value: postgres-postgresql.dev.svc.cluster.local
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: cs301
+            - name: DB_USER
+              value: cs301
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-postgresql
+                  key: password
+            - name: JWT_ISSUER
+              value: "http://agent.dev.svc.cluster.local"
+            - name: JWT_AUDIENCE
+              value: "crm"
+            - name: JWT_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-keys
+                  key: public.pem
+                  optional: true
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: log
+spec:
+  selector:
+    app: log
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transaction
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: transaction
+  template:
+    metadata:
+      labels:
+        app: transaction
+    spec:
+      containers:
+        - name: transaction
+          image: transaction:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MOCK_SFTP_ROOT
+              value: /app/mock-sftp
+            - name: CLIENT_SERVICE_URL
+              value: http://client.dev.svc.cluster.local
+            - name: JWT_ISSUER
+              value: "http://agent.dev.svc.cluster.local"
+            - name: JWT_AUDIENCE
+              value: "crm"
+            - name: JWT_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-keys
+                  key: public.pem
+                  optional: true
+            - name: JWT_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-keys
+                  key: private.pem
+                  optional: true
+            - name: SFTP_ENABLED
+              value: "false"
+            - name: SFTP_HOST
+              value: "sftp.local"
+            - name: SFTP_PORT
+              value: "22"
+            - name: SFTP_USERNAME
+              value: "user"
+            - name: SFTP_PASSWORD
+              value: "change-me"
+            - name: SFTP_REMOTE_PATH
+              value: "/transactions.csv"
+          ports:
+            - containerPort: 8080
+              name: http
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          volumeMounts:
+            - name: mock-sftp
+              mountPath: /app/mock-sftp
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 30
+      volumes:
+        - name: mock-sftp
+          configMap:
+            name: transaction-mock-sftp
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: transaction
+spec:
+  selector:
+    app: transaction
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  labels:
+    app: frontend
+    component: ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+        component: ui
+    spec:
+      containers:
+        - name: frontend
+          image: crm-ui:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: "production"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  labels:
+    app: frontend
+    component: ui
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+  selector:
+    app: frontend
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: backend-ingress
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: middleware
+                port:
+                  number: 80
