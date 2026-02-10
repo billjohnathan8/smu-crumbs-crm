@@ -1,5 +1,3 @@
-// Add a comment at the top of the file
-// Test CI pipeline
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/features/auth/AuthContext";
 import { ProtectedRoute } from "./ProtectedRoute";
@@ -9,7 +7,7 @@ import { AdminManageAccounts } from "@/pages/AdminManageAccounts";
 import { AgentDashboard } from "@/pages/AgentDashboard";
 import { AgentCreateClient } from "@/pages/AgentCreateClient";
 import { AgentViewTransactions } from "@/pages/AgentViewTransactions";
-
+// Test CI pipeline
 function RootRedirect() {
   const { user, isAuthenticated, isLoading } = useAuth();
 
