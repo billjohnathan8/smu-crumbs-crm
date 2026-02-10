@@ -1,8 +1,13 @@
-fastapi
-uvicorn[standard]
-psycopg[binary]
-pytest
-pytest-cov
-black
-flake8
-httpx
+# Core dependencies
+fastapi==0.115.12
+uvicorn[standard]==0.34.0
+psycopg[binary]==3.2.5
+
+# Testing
+pytest==8.3.5
+pytest-cov==6.0.0
+httpx==0.28.5
+
+# Linting/Formatting
+black==24.10.0
+flake8==7.1.1
