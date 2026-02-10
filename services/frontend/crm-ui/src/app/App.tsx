@@ -1,4 +1,3 @@
-// Testing CI pipeline
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/features/auth/AuthContext";
 import { ProtectedRoute } from "./ProtectedRoute";
@@ -30,6 +29,8 @@ function RootRedirect() {
 
   return <Navigate to="/agent" replace />;
 }
+
+// Testing CI pipeline
 
 export function App() {
   return (
