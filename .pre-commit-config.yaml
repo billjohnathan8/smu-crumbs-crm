@@ -51,7 +51,7 @@ repos:
     hooks:
       - id: java-checkstyle-agent
         name: Checkstyle (Agent)
-        entry: cmd /c "cd services/backend/agent && chmod +x gradlew && ./gradlew checkstyleMain checkstyleTest --no-daemon --console=plain"
+        entry: cmd /c "cd services\backend\agent && gradlew.bat checkstyleMain checkstyleTest --no-daemon --console=plain"
         language: system
         files: ^services/backend/agent/src/.*\.java$
         pass_filenames: false
@@ -59,7 +59,7 @@ repos:
 
       - id: java-checkstyle-client
         name: Checkstyle (Client)
-        entry: cmd /c "cd services/backend/client && chmod +x gradlew && ./gradlew checkstyleMain checkstyleTest --no-daemon --console=plain"
+        entry: cmd /c "cd services\backend\client && gradlew.bat checkstyleMain checkstyleTest --no-daemon --console=plain"
         language: system
         files: ^services/backend/client/src/.*\.java$
         pass_filenames: false
@@ -67,7 +67,7 @@ repos:
 
       - id: java-checkstyle-transaction
         name: Checkstyle (Transaction)
-        entry: cmd /c "cd services/backend/transaction && chmod +x gradlew && ./gradlew checkstyleMain checkstyleTest --no-daemon --console=plain"
+        entry: cmd /c "cd services\backend\transaction && gradlew.bat checkstyleMain checkstyleTest --no-daemon --console=plain"
         language: system
         files: ^services/backend/transaction/src/.*\.java$
         pass_filenames: false
