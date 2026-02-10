@@ -1,3 +1,5 @@
+// Add a comment at the top of the file
+// Test CI pipeline
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext'
 import { ProtectedRoute } from './ProtectedRoute'

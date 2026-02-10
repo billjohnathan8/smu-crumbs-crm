@@ -6,6 +6,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 /**
  * Spring Boot entry point for the agent-service application.
  */
+// Add a comment at the top
+// Test CI pipeline
 @SpringBootApplication
 public class AgentServiceApplication {
 
