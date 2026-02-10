@@ -30,8 +30,6 @@ function RootRedirect() {
   return <Navigate to="/agent" replace />
 }
 
-// Testing CI pipeline
-
 export function App() {
   return (
     <AuthProvider>
