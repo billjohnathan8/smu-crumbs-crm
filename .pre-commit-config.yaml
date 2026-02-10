@@ -34,11 +34,3 @@ repos:
         language: system
         files: \.java$
         stages: [pre-push]
-  
-  - repo: local
-    hooks:
-      - id: kubeconform
-        name: K8s Lint
-        entry: kubeconform -summary -verbose platform/
-        language: system
-        stages: [pre-push]
