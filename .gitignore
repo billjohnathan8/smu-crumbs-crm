@@ -115,3 +115,5 @@ build-logs/migration-validation/
 *k8s-validate-tmp*apps*.yaml
 
 # Ignore Test Directories
+
+node_modules/
