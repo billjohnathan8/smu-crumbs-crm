@@ -6,6 +6,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 /**
  * Verifies that the Spring application context loads.
  */
+
+// Testing CI pipeline
 @SpringBootTest
 class AgentServiceApplicationTests {
 
