@@ -1,139 +1,143 @@
-import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useAuth } from '@/features/auth/AuthContext'
-import { createClient } from '@/api/clients'
-import type { ClientCreateRequest, Gender } from '@/api/types'
-import { ApiError } from '@/api/client'
+import { useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/features/auth/AuthContext";
+import { createClient } from "@/api/clients";
+import type { ClientCreateRequest, Gender } from "@/api/types";
+import { ApiError } from "@/api/client";
 
 export function AgentCreateClient() {
-  const navigate = useNavigate()
-  const { logout } = useAuth()
+  const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const [formData, setFormData] = useState<ClientCreateRequest>({
-    firstName: '',
-    lastName: '',
-    dateOfBirth: '',
-    gender: 'Prefer not to say',
-    emailAddress: '',
-    phoneNumber: '',
-    address: '',
-    city: '',
-    state: '',
-    country: '',
-    postalCode: '',
-  })
+    firstName: "",
+    lastName: "",
+    dateOfBirth: "",
+    gender: "Prefer not to say",
+    emailAddress: "",
+    phoneNumber: "",
+    address: "",
+    city: "",
+    state: "",
+    country: "",
+    postalCode: "",
+  });
 
-  const [errors, setErrors] = useState<Partial<Record<keyof ClientCreateRequest, string>>>({})
-  const [generalError, setGeneralError] = useState<string>('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof ClientCreateRequest, string>>
+  >({});
+  const [generalError, setGeneralError] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<Record<keyof ClientCreateRequest, string>> = {}
+    const newErrors: Partial<Record<keyof ClientCreateRequest, string>> = {};
 
     // Required fields
     if (!formData.firstName.trim()) {
-      newErrors.firstName = 'First name is required'
+      newErrors.firstName = "First name is required";
     }
     if (!formData.lastName.trim()) {
-      newErrors.lastName = 'Last name is required'
+      newErrors.lastName = "Last name is required";
     }
 
     // Date of Birth validation (18-100 years)
     if (!formData.dateOfBirth) {
-      newErrors.dateOfBirth = 'Date of birth is required'
+      newErrors.dateOfBirth = "Date of birth is required";
     } else {
-      const dob = new Date(formData.dateOfBirth)
-      const today = new Date()
-      const age = today.getFullYear() - dob.getFullYear()
-      const monthDiff = today.getMonth() - dob.getMonth()
+      const dob = new Date(formData.dateOfBirth);
+      const today = new Date();
+      const age = today.getFullYear() - dob.getFullYear();
+      const monthDiff = today.getMonth() - dob.getMonth();
       const actualAge =
-        monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate()) ? age - 1 : age
+        monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())
+          ? age - 1
+          : age;
 
       if (actualAge < 18) {
-        newErrors.dateOfBirth = 'Client must be at least 18 years old'
+        newErrors.dateOfBirth = "Client must be at least 18 years old";
       } else if (actualAge > 100) {
-        newErrors.dateOfBirth = 'Client age cannot exceed 100 years'
+        newErrors.dateOfBirth = "Client age cannot exceed 100 years";
       }
     }
 
     // Email validation
     if (!formData.emailAddress.trim()) {
-      newErrors.emailAddress = 'Email is required'
+      newErrors.emailAddress = "Email is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.emailAddress)) {
-      newErrors.emailAddress = 'Invalid email format'
+      newErrors.emailAddress = "Invalid email format";
     }
 
     // Phone validation (simple format check)
     if (!formData.phoneNumber.trim()) {
-      newErrors.phoneNumber = 'Phone number is required'
+      newErrors.phoneNumber = "Phone number is required";
     } else if (!/^[+]?[\d\s()-]{8,}$/.test(formData.phoneNumber)) {
-      newErrors.phoneNumber = 'Invalid phone format (min 8 digits)'
+      newErrors.phoneNumber = "Invalid phone format (min 8 digits)";
     }
 
     // Address fields
     if (!formData.address.trim()) {
-      newErrors.address = 'Address is required'
+      newErrors.address = "Address is required";
     }
     if (!formData.city.trim()) {
-      newErrors.city = 'City is required'
+      newErrors.city = "City is required";
     }
     if (!formData.state.trim()) {
-      newErrors.state = 'State is required'
+      newErrors.state = "State is required";
     }
     if (!formData.country.trim()) {
-      newErrors.country = 'Country is required'
+      newErrors.country = "Country is required";
     }
     if (!formData.postalCode.trim()) {
-      newErrors.postalCode = 'Postal code is required'
+      newErrors.postalCode = "Postal code is required";
     }
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
-    setGeneralError('')
+    e.preventDefault();
+    setGeneralError("");
 
     if (!validateForm()) {
-      return
+      return;
     }
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
 
     try {
-      const client = await createClient(formData)
-      navigate('/agent', {
+      const client = await createClient(formData);
+      navigate("/agent", {
         replace: true,
         state: {
           successMessage: `Client ${client.firstName} ${client.lastName} created successfully`,
         },
-      })
+      });
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
-          logout()
+          logout();
         } else if (err.status === 409) {
-          setGeneralError('A client with this email already exists')
+          setGeneralError("A client with this email already exists");
         } else if (err.status === 422) {
-          setGeneralError('Invalid data provided. Please check your inputs.')
+          setGeneralError("Invalid data provided. Please check your inputs.");
         } else {
-          setGeneralError(err.message || 'Failed to create client')
+          setGeneralError(err.message || "Failed to create client");
         }
       } else {
-        setGeneralError('An unexpected error occurred')
+        setGeneralError("An unexpected error occurred");
       }
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   const updateField = (field: keyof ClientCreateRequest, value: string) => {
-    setFormData({ ...formData, [field]: value })
+    setFormData({ ...formData, [field]: value });
     if (errors[field]) {
-      setErrors({ ...errors, [field]: '' })
+      setErrors({ ...errors, [field]: "" });
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -175,13 +179,15 @@ export function AgentCreateClient() {
                   type="text"
                   name="firstName"
                   value={formData.firstName}
-                  onChange={e => updateField('firstName', e.target.value)}
+                  onChange={(e) => updateField("firstName", e.target.value)}
                   className={`w-full px-4 py-2 bg-background-light border ${
-                    errors.firstName ? 'border-danger' : 'border-border'
+                    errors.firstName ? "border-danger" : "border-border"
                   } rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent`}
                   disabled={isSubmitting}
                 />
-                {errors.firstName && <p className="text-danger text-xs mt-1">{errors.firstName}</p>}
+                {errors.firstName && (
+                  <p className="text-danger text-xs mt-1">{errors.firstName}</p>
+                )}
               </div>
 
               <div>
@@ -192,17 +198,22 @@ export function AgentCreateClient() {
                   type="text"
                   name="lastName"
                   value={formData.lastName}
-                  onChange={e => updateField('lastName', e.target.value)}
+                  onChange={(e) => updateField("lastName", e.target.value)}
                   className={`w-full px-4 py-2 bg-background-light border ${
-                    errors.lastName ? 'border-danger' : 'border-border'
+                    errors.lastName ? "border-danger" : "border-border"
                   } rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent`}
                   disabled={isSubmitting}
                 />
-                {errors.lastName && <p className="text-danger text-xs mt-1">{errors.lastName}</p>}
+                {errors.lastName && (
+                  <p className="text-danger text-xs mt-1">{errors.lastName}</p>
+                )}
               </div>
 
               <div>
-                <label htmlFor="dateOfBirth" className="block text-sm font-medium text-text mb-2">
+                <label
+                  htmlFor="dateOfBirth"
+                  className="block text-sm font-medium text-text mb-2"
+                >
                   Date of Birth <span className="text-danger">*</span>
                 </label>
                 <input
@@ -210,14 +221,16 @@ export function AgentCreateClient() {
                   name="dateOfBirth"
                   type="date"
                   value={formData.dateOfBirth}
-                  onChange={e => updateField('dateOfBirth', e.target.value)}
+                  onChange={(e) => updateField("dateOfBirth", e.target.value)}
                   className={`w-full px-4 py-2 bg-background-light border ${
-                    errors.dateOfBirth ? 'border-danger' : 'border-border'
+                    errors.dateOfBirth ? "border-danger" : "border-border"
                   } rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent`}
                   disabled={isSubmitting}
                 />
                 {errors.dateOfBirth && (
-                  <p className="text-danger text-xs mt-1">{errors.dateOfBirth}</p>
+                  <p className="text-danger text-xs mt-1">
+                    {errors.dateOfBirth}
+                  </p>
                 )}
               </div>
 
@@ -228,7 +241,9 @@ export function AgentCreateClient() {
                 <select
                   name="gender"
                   value={formData.gender}
-                  onChange={e => updateField('gender', e.target.value as Gender)}
+                  onChange={(e) =>
+                    updateField("gender", e.target.value as Gender)
+                  }
                   className="w-full px-4 py-2 bg-background-light border border-border rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   disabled={isSubmitting}
                 >
@@ -247,14 +262,16 @@ export function AgentCreateClient() {
                   type="email"
                   name="emailAddress"
                   value={formData.emailAddress}
-                  onChange={e => updateField('emailAddress', e.target.value)}
+                  onChange={(e) => updateField("emailAddress", e.target.value)}
                   className={`w-full px-4 py-2 bg-background-light border ${
-                    errors.emailAddress ? 'border-danger' : 'border-border'
+                    errors.emailAddress ? "border-danger" : "border-border"
                   } rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent`}
                   disabled={isSubmitting}
                 />
                 {errors.emailAddress && (
-                  <p className="text-danger text-xs mt-1">{errors.emailAddress}</p>
+                  <p className="text-danger text-xs mt-1">
+                    {errors.emailAddress}
+                  </p>
                 )}
               </div>
 
@@ -266,15 +283,17 @@ export function AgentCreateClient() {
                   type="tel"
                   name="phoneNumber"
                   value={formData.phoneNumber}
-                  onChange={e => updateField('phoneNumber', e.target.value)}
+                  onChange={(e) => updateField("phoneNumber", e.target.value)}
                   placeholder="+65 1234 5678"
                   className={`w-full px-4 py-2 bg-background-light border ${
-                    errors.phoneNumber ? 'border-danger' : 'border-border'
+                    errors.phoneNumber ? "border-danger" : "border-border"
                   } rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent`}
                   disabled={isSubmitting}
                 />
                 {errors.phoneNumber && (
-                  <p className="text-danger text-xs mt-1">{errors.phoneNumber}</p>
+                  <p className="text-danger text-xs mt-1">
+                    {errors.phoneNumber}
+                  </p>
                 )}
               </div>
             </div>
@@ -287,13 +306,15 @@ export function AgentCreateClient() {
                 type="text"
                 name="address"
                 value={formData.address}
-                onChange={e => updateField('address', e.target.value)}
+                onChange={(e) => updateField("address", e.target.value)}
                 className={`w-full px-4 py-2 bg-background-light border ${
-                  errors.address ? 'border-danger' : 'border-border'
+                  errors.address ? "border-danger" : "border-border"
                 } rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent`}
                 disabled={isSubmitting}
               />
-              {errors.address && <p className="text-danger text-xs mt-1">{errors.address}</p>}
+              {errors.address && (
+                <p className="text-danger text-xs mt-1">{errors.address}</p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -305,13 +326,15 @@ export function AgentCreateClient() {
                   type="text"
                   name="city"
                   value={formData.city}
-                  onChange={e => updateField('city', e.target.value)}
+                  onChange={(e) => updateField("city", e.target.value)}
                   className={`w-full px-4 py-2 bg-background-light border ${
-                    errors.city ? 'border-danger' : 'border-border'
+                    errors.city ? "border-danger" : "border-border"
                   } rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent`}
                   disabled={isSubmitting}
                 />
-                {errors.city && <p className="text-danger text-xs mt-1">{errors.city}</p>}
+                {errors.city && (
+                  <p className="text-danger text-xs mt-1">{errors.city}</p>
+                )}
               </div>
 
               <div>
@@ -322,13 +345,15 @@ export function AgentCreateClient() {
                   type="text"
                   name="state"
                   value={formData.state}
-                  onChange={e => updateField('state', e.target.value)}
+                  onChange={(e) => updateField("state", e.target.value)}
                   className={`w-full px-4 py-2 bg-background-light border ${
-                    errors.state ? 'border-danger' : 'border-border'
+                    errors.state ? "border-danger" : "border-border"
                   } rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent`}
                   disabled={isSubmitting}
                 />
-                {errors.state && <p className="text-danger text-xs mt-1">{errors.state}</p>}
+                {errors.state && (
+                  <p className="text-danger text-xs mt-1">{errors.state}</p>
+                )}
               </div>
 
               <div>
@@ -339,13 +364,15 @@ export function AgentCreateClient() {
                   type="text"
                   name="country"
                   value={formData.country}
-                  onChange={e => updateField('country', e.target.value)}
+                  onChange={(e) => updateField("country", e.target.value)}
                   className={`w-full px-4 py-2 bg-background-light border ${
-                    errors.country ? 'border-danger' : 'border-border'
+                    errors.country ? "border-danger" : "border-border"
                   } rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent`}
                   disabled={isSubmitting}
                 />
-                {errors.country && <p className="text-danger text-xs mt-1">{errors.country}</p>}
+                {errors.country && (
+                  <p className="text-danger text-xs mt-1">{errors.country}</p>
+                )}
               </div>
 
               <div>
@@ -356,14 +383,16 @@ export function AgentCreateClient() {
                   type="text"
                   name="postalCode"
                   value={formData.postalCode}
-                  onChange={e => updateField('postalCode', e.target.value)}
+                  onChange={(e) => updateField("postalCode", e.target.value)}
                   className={`w-full px-4 py-2 bg-background-light border ${
-                    errors.postalCode ? 'border-danger' : 'border-border'
+                    errors.postalCode ? "border-danger" : "border-border"
                   } rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent`}
                   disabled={isSubmitting}
                 />
                 {errors.postalCode && (
-                  <p className="text-danger text-xs mt-1">{errors.postalCode}</p>
+                  <p className="text-danger text-xs mt-1">
+                    {errors.postalCode}
+                  </p>
                 )}
               </div>
             </div>
@@ -371,7 +400,7 @@ export function AgentCreateClient() {
             <div className="flex justify-end space-x-4 pt-4">
               <button
                 type="button"
-                onClick={() => navigate('/agent')}
+                onClick={() => navigate("/agent")}
                 className="px-6 py-3 rounded-lg bg-background-light text-text hover:bg-background-lighter font-medium transition-colors"
                 disabled={isSubmitting}
               >
@@ -382,16 +411,16 @@ export function AgentCreateClient() {
                 disabled={isSubmitting}
                 className={`px-6 py-3 rounded-lg font-medium transition-colors ${
                   isSubmitting
-                    ? 'bg-primary/50 cursor-not-allowed text-white'
-                    : 'bg-primary hover:bg-primary-hover text-white'
+                    ? "bg-primary/50 cursor-not-allowed text-white"
+                    : "bg-primary hover:bg-primary-hover text-white"
                 }`}
               >
-                {isSubmitting ? 'Creating...' : 'Create Client'}
+                {isSubmitting ? "Creating..." : "Create Client"}
               </button>
             </div>
           </form>
         </div>
       </main>
     </div>
-  )
+  );
 }

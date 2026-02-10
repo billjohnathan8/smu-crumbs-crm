@@ -1,62 +1,66 @@
-import { apiGet, apiPost, apiDelete } from './client'
+import { apiGet, apiPost, apiDelete } from "./client";
 import type {
   Transaction,
   CreateTransactionRequest,
   PaginatedResponse,
   TransactionStatus,
   TransactionKind,
-} from './types'
+} from "./types";
 
-const BASE = '/api/transactions'
+const BASE = "/api/transactions";
 
 export interface ListTransactionsParams {
-  limit?: number
-  offset?: number
-  clientId?: string
-  status?: TransactionStatus
-  transaction?: TransactionKind
-  fromDate?: string
-  toDate?: string
+  limit?: number;
+  offset?: number;
+  clientId?: string;
+  status?: TransactionStatus;
+  transaction?: TransactionKind;
+  fromDate?: string;
+  toDate?: string;
 }
 
 /**
  * List transactions (agents see only their clients' transactions, admins see all)
  */
 export async function listTransactions(
-  params?: ListTransactionsParams
+  params?: ListTransactionsParams,
 ): Promise<PaginatedResponse<Transaction>> {
-  const query = new URLSearchParams()
-  if (params?.limit) query.append('limit', params.limit.toString())
-  if (params?.offset) query.append('offset', params.offset.toString())
-  if (params?.clientId) query.append('clientId', params.clientId)
-  if (params?.status) query.append('status', params.status)
-  if (params?.transaction) query.append('transaction', params.transaction)
-  if (params?.fromDate) query.append('fromDate', params.fromDate)
-  if (params?.toDate) query.append('toDate', params.toDate)
+  const query = new URLSearchParams();
+  if (params?.limit) query.append("limit", params.limit.toString());
+  if (params?.offset) query.append("offset", params.offset.toString());
+  if (params?.clientId) query.append("clientId", params.clientId);
+  if (params?.status) query.append("status", params.status);
+  if (params?.transaction) query.append("transaction", params.transaction);
+  if (params?.fromDate) query.append("fromDate", params.fromDate);
+  if (params?.toDate) query.append("toDate", params.toDate);
 
-  const endpoint = query.toString() ? `${BASE}?${query.toString()}` : BASE
-  return apiGet<PaginatedResponse<Transaction>>(endpoint)
+  const endpoint = query.toString() ? `${BASE}?${query.toString()}` : BASE;
+  return apiGet<PaginatedResponse<Transaction>>(endpoint);
 }
 
 /**
  * Get transaction by ID
  */
-export async function getTransactionById(transactionId: string): Promise<Transaction> {
-  return apiGet<Transaction>(`${BASE}/${transactionId}`)
+export async function getTransactionById(
+  transactionId: string,
+): Promise<Transaction> {
+  return apiGet<Transaction>(`${BASE}/${transactionId}`);
 }
 
 /**
  * Create transaction (admin only)
  */
-export async function createTransaction(data: CreateTransactionRequest): Promise<Transaction> {
-  return apiPost<Transaction, CreateTransactionRequest>(BASE, data)
+export async function createTransaction(
+  data: CreateTransactionRequest,
+): Promise<Transaction> {
+  return apiPost<Transaction, CreateTransactionRequest>(BASE, data);
 }
 
 /**
  * Delete transaction (admin only)
  */
 export async function deleteTransaction(transactionId: string): Promise<void> {
-  return apiDelete<void>(`${BASE}/${transactionId}`)
+  return apiDelete<void>(`${BASE}/${transactionId}`);
 }
 
 /**
@@ -64,14 +68,14 @@ export async function deleteTransaction(transactionId: string): Promise<void> {
  */
 export async function listClientTransactions(
   clientId: string,
-  params?: { limit?: number; offset?: number }
+  params?: { limit?: number; offset?: number },
 ): Promise<PaginatedResponse<Transaction>> {
-  const query = new URLSearchParams()
-  if (params?.limit) query.append('limit', params.limit.toString())
-  if (params?.offset) query.append('offset', params.offset.toString())
+  const query = new URLSearchParams();
+  if (params?.limit) query.append("limit", params.limit.toString());
+  if (params?.offset) query.append("offset", params.offset.toString());
 
   const endpoint = query.toString()
     ? `/api/clients/${clientId}/transactions?${query.toString()}`
-    : `/api/clients/${clientId}/transactions`
-  return apiGet<PaginatedResponse<Transaction>>(endpoint)
+    : `/api/clients/${clientId}/transactions`;
+  return apiGet<PaginatedResponse<Transaction>>(endpoint);
 }
