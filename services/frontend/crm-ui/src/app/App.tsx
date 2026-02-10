@@ -8,7 +8,6 @@ import { AgentDashboard } from '@/pages/AgentDashboard'
 import { AgentCreateClient } from '@/pages/AgentCreateClient'
 import { AgentViewTransactions } from '@/pages/AgentViewTransactions'
 
-// Testing CI pipeline
 function RootRedirect() {
   const { user, isAuthenticated, isLoading } = useAuth()
 
