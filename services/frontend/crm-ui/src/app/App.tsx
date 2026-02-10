@@ -7,7 +7,9 @@ import { AdminManageAccounts } from "@/pages/AdminManageAccounts";
 import { AgentDashboard } from "@/pages/AgentDashboard";
 import { AgentCreateClient } from "@/pages/AgentCreateClient";
 import { AgentViewTransactions } from "@/pages/AgentViewTransactions";
-// Test CI pipeline
+
+// Testing CI pipeline
+
 function RootRedirect() {
   const { user, isAuthenticated, isLoading } = useAuth();
 
