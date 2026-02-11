@@ -10,7 +10,7 @@ import static org.mockito.Mockito.when;
 
 import com.scroogebank.crm.agentservice.api.Pagination;
 import com.scroogebank.crm.agentservice.dto.CreateUserRequest;
-import com.scroogebank.crm.agentservice.dto.ResetPasswordRequest;
+// import com.scroogebank.crm.agentservice.dto.ResetPasswordRequest;
 import com.scroogebank.crm.agentservice.dto.UpdateUserRequest;
 import com.scroogebank.crm.agentservice.dto.UserDto;
 import com.scroogebank.crm.agentservice.dto.UserRole;

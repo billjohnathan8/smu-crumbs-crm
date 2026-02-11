@@ -1,7 +1,7 @@
 package com.scroogebank.crm.agentservice.controller;
 
 import com.scroogebank.crm.agentservice.dto.CreateUserRequest;
-import com.scroogebank.crm.agentservice.dto.ResetPasswordRequest;
+// import com.scroogebank.crm.agentservice.dto.ResetPasswordRequest;
 import com.scroogebank.crm.agentservice.dto.UpdateUserRequest;
 import com.scroogebank.crm.agentservice.dto.UserDto;
 import com.scroogebank.crm.agentservice.dto.UserRole;
@@ -13,7 +13,7 @@ import com.scroogebank.crm.agentservice.service.UserAccountService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+// import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.DeleteMapping;

@@ -14,7 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import tools.jackson.databind.ObjectMapper;
 import com.scroogebank.crm.agentservice.api.Pagination;
 import com.scroogebank.crm.agentservice.dto.CreateUserRequest;
-import com.scroogebank.crm.agentservice.dto.ResetPasswordRequest;
+// import com.scroogebank.crm.agentservice.dto.ResetPasswordRequest;
 import com.scroogebank.crm.agentservice.dto.UpdateUserRequest;
 import com.scroogebank.crm.agentservice.dto.UserDto;
 import com.scroogebank.crm.agentservice.dto.UserRole;
@@ -32,7 +32,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import static org.mockito.Mockito.doNothing;
 
 /**
  * Web-layer tests for {@link UserController}.
