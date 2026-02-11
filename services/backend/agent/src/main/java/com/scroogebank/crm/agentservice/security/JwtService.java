@@ -70,7 +70,7 @@ public class JwtService {
 		if (sub == null || role == null) {
 			throw new JwtValidationException("missing_required_claims");
 		}
-		if (!"admin".equals(role) && !"agent".equals(role)) {
+		if (!"admin".equals(role) && !"agent".equals(role) && !"superadmin".equals(role)) {
 			throw new JwtValidationException("invalid_role");
 		}
 		return new AuthenticatedUser(sub, role);

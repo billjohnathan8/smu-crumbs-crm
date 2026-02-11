@@ -20,9 +20,11 @@ The Agent Service provides CRUD operations for managing insurance agents in the 
 **Key Endpoints:**
 - `GET /api/agents` - List all agents
 - `GET /api/agents/{id}` - Get agent by ID
+- `GET /api/agents/me` - Get user's own profile
 - `POST /api/agents` - Create new agent
 - `PUT /api/agents/{id}` - Update agent
 - `DELETE /api/agents/{id}` - Delete agent
+- `DELETE /api/agents/{id}/disable` - Disable user
 - `GET /health` - Health check
 
 ## Local Development
