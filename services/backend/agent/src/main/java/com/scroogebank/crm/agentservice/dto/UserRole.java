@@ -8,7 +8,8 @@ import com.fasterxml.jackson.annotation.JsonValue;
  */
 public enum UserRole {
 	admin("admin"),
-	agent("agent");
+	agent("agent"),
+	super_admin("super_admin");
 
 	private final String wireValue;
 
