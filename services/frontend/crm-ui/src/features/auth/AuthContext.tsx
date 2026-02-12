@@ -3,6 +3,28 @@ import { login as apiLogin, getCurrentUser } from '@/api/auth'
 import { setAuthToken, clearAuthToken, getAuthToken } from '@/api/client'
 import type { User, LoginRequest } from '@/api/types'
 
+const DEV_BYPASS_AUTH = import.meta.env.DEV && import.meta.env.VITE_BYPASS_AUTH === 'true'
+const DEV_ROLE = (import.meta.env.VITE_BYPASS_ROLE ?? 'admin') as 'admin' | 'agent'
+
+const DEV_USERS = {
+  admin: {
+    id: 'admin-123',
+    firstName: 'Admin',
+    lastName: 'User',
+    email: 'admin@example.com',
+    role: 'admin',
+    status: 'active',
+  },
+  agent: {
+    id: 'user-123',
+    firstName: 'John',
+    lastName: 'Doe',
+    email: 'agent@example.com',
+    role: 'agent',
+    status: 'active',
+  },
+} as const
+
 interface AuthContextValue {
   user: User | null
   isAuthenticated: boolean
@@ -20,13 +42,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Initialize auth state from localStorage
   useEffect(() => {
     const initAuth = async () => {
+      // ✅ DEV bypass: auto-auth without backend
+      if (DEV_BYPASS_AUTH) {
+        const devUser = DEV_USERS[DEV_ROLE]
+        setUser(devUser as unknown as User)
+        localStorage.setItem('currentUser', JSON.stringify(devUser))
+        setIsLoading(false)
+        return
+      }
+
       const token = getAuthToken()
       const storedUser = localStorage.getItem('currentUser')
 
       if (token && storedUser) {
         try {
           setUser(JSON.parse(storedUser))
-          // Optionally re-fetch to ensure token is still valid
           const freshUser = await getCurrentUser()
           setUser(freshUser)
           localStorage.setItem('currentUser', JSON.stringify(freshUser))
@@ -42,6 +72,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = useCallback(async (credentials: LoginRequest) => {
+    // ✅ DEV bypass: accept README test creds
+    if (DEV_BYPASS_AUTH) {
+      const { email, password } = credentials as any
+
+      const devUser =
+        email === 'admin@example.com' && password === 'password123'
+          ? DEV_USERS.admin
+          : email === 'agent@example.com' && password === 'password123'
+            ? DEV_USERS.agent
+            : null
+
+      if (!devUser) throw new Error('Invalid email or password')
+
+      setUser(devUser as unknown as User)
+      localStorage.setItem('currentUser', JSON.stringify(devUser))
+      setIsLoading(false)
+      return
+    }
+
     const tokenResponse = await apiLogin(credentials)
     setAuthToken(tokenResponse.accessToken)
     if (tokenResponse.refreshToken) {
