@@ -3,8 +3,14 @@ import { useAuth } from '@/features/auth/AuthContext'
 import { listUsers, createUser, disableUser, deleteUser, resetUserPassword } from '@/api/users'
 import type { User, CreateUserRequest, UserRole } from '@/api/types'
 import { ApiError } from '@/api/client'
+import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 
 const ITEMS_PER_PAGE = 10
+
+const adminNav: NavItem[] = [
+  { label: 'Home', to: '/admin', end: true },
+  { label: 'Manage Accounts', to: '/admin/accounts' },
+]
 
 export function AdminManageAccounts() {
   const { logout } = useAuth()
@@ -173,40 +179,36 @@ export function AdminManageAccounts() {
 
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE)
 
-  return (
-    <div className="min-h-screen bg-background">
-      <nav className="bg-card border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center space-x-4">
-              <a href="/admin" className="text-text-muted hover:text-text">
-                Dashboard
-              </a>
-              <span className="text-text-muted">/</span>
-              <h1 className="text-xl font-bold text-text">Manage Accounts</h1>
-            </div>
-            <button
-              onClick={logout}
-              className="px-4 py-2 rounded-lg bg-danger hover:bg-danger-hover text-white font-medium transition-colors"
-            >
-              Logout
-            </button>
-          </div>
+return (
+  <SidebarLayout items={adminNav}>
+    <div className="flex justify-between h-16 items-center">
+      <div className="flex items-center space-x-4">
+        <a href="/admin" className="text-text-muted hover:text-text">
+          Dashboard
+        </a>
+        <span className="text-text-muted">/</span>
+        <h1 className="text-xl font-bold text-text">Manage Accounts</h1>
+      </div>
+      <button
+        onClick={logout}
+        className="px-4 py-2 rounded-lg bg-danger hover:bg-danger-hover text-white font-medium transition-colors"
+      >
+        Logout
+      </button>
+    </div>
+
+    <main className="mt-6">
+      {error && (
+        <div className="bg-danger/10 border border-danger rounded-lg p-4 mb-6">
+          <p className="text-danger text-sm">{error}</p>
         </div>
-      </nav>
+      )}
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {error && (
-          <div className="bg-danger/10 border border-danger rounded-lg p-4 mb-6">
-            <p className="text-danger text-sm">{error}</p>
-          </div>
-        )}
-
-        {successMessage && (
-          <div className="bg-success/10 border border-success rounded-lg p-4 mb-6">
-            <p className="text-success text-sm">{successMessage}</p>
-          </div>
-        )}
+      {successMessage && (
+        <div className="bg-success/10 border border-success rounded-lg p-4 mb-6">
+          <p className="text-success text-sm">{successMessage}</p>
+        </div>
+      )}
 
         <div className="bg-card border border-border rounded-lg">
           <div className="px-6 py-4 border-b border-border flex justify-between items-center">
@@ -488,6 +490,6 @@ export function AdminManageAccounts() {
           </div>
         </div>
       )}
-    </div>
+    </SidebarLayout>
   )
 }

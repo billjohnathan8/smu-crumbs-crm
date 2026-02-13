@@ -5,12 +5,18 @@ import { listUsers } from '@/api/users'
 import { listClients } from '@/api/clients'
 import type { LogEntry } from '@/api/types'
 import { ApiError } from '@/api/client'
+import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 
 interface Stats {
   totalAgents: number
   totalClients: number
   recentActivities: number
 }
+
+const adminNav: NavItem[] = [
+  { label: 'Home', to: '/admin', end: true },
+  { label: 'Manage Accounts', to: '/admin/accounts' },
+]
 
 export function AdminDashboard() {
   const { user, logout } = useAuth()
@@ -71,35 +77,33 @@ export function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <nav className="bg-card border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div>
-              <h1 className="text-xl font-bold text-text">Admin Dashboard</h1>
-              <p className="text-sm text-text-muted">
-                Welcome, {user?.firstName} {user?.lastName}
-              </p>
-            </div>
-            <div className="flex space-x-4">
-              <a
-                href="/admin/accounts"
-                className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white font-medium transition-colors"
-              >
-                Manage Accounts
-              </a>
-              <button
-                onClick={logout}
-                className="px-4 py-2 rounded-lg bg-danger hover:bg-danger-hover text-white font-medium transition-colors"
-              >
-                Logout
-              </button>
-            </div>
+    <SidebarLayout items={adminNav}>
+      <div>
+        <div className="flex justify-between h-16 items-center">
+          <div>
+            <h1 className="text-xl font-bold text-text">Admin Dashboard</h1>
+            <p className="text-sm text-text-muted">
+              Welcome, {user?.firstName} {user?.lastName}
+            </p>
+          </div>
+          <div className="flex space-x-4">
+            <a
+              href="/admin/accounts"
+              className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white font-medium transition-colors"
+            >
+              Manage Accounts
+            </a>
+            <button
+              onClick={logout}
+              className="px-4 py-2 rounded-lg bg-danger hover:bg-danger-hover text-white font-medium transition-colors"
+            >
+              Logout
+            </button>
           </div>
         </div>
-      </nav>
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="mt-6">
         {error && (
           <div className="bg-danger/10 border border-danger rounded-lg p-4 mb-6">
             <p className="text-danger text-sm">{error}</p>
@@ -193,6 +197,6 @@ export function AdminDashboard() {
           </>
         )}
       </main>
-    </div>
+    </SidebarLayout>
   )
 }
