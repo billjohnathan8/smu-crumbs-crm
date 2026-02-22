@@ -41,7 +41,7 @@ import os
 import statistics
 import uuid
 from dataclasses import dataclass, field  # noqa: F401
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -342,6 +342,10 @@ def detect_statistical_outliers(
 
     A transaction is flagged when:
         |amount - mean| > SIGMA_THRESHOLD * std_dev   (std_dev > 0)
+
+    Optimisation: peer mean and std are derived from precomputed total sum and
+    sum-of-squares, so each client's fallback baseline costs O(1) rather than
+    rebuilding the peer list from scratch on every iteration.
     """
     alerts: list[AMLAlert] = []
     now = datetime.now(tz=timezone.utc)
@@ -351,27 +355,39 @@ def detect_statistical_outliers(
     for txn in transactions:
         by_client.setdefault(txn.client_id, []).append(txn)
 
+    # Precompute per-client amount lists and global aggregates (single pass).
+    # These allow O(1) peer mean/std by subtracting the current client's
+    # contribution from the global totals instead of rebuilding the peer list.
+    client_amounts: dict[str, list[float]] = {
+        cid: [t.amount for t in ts] for cid, ts in by_client.items()
+    }
+    total_sum = sum(a for amounts in client_amounts.values() for a in amounts)
+    total_sq  = sum(a * a for amounts in client_amounts.values() for a in amounts)
+    total_n   = sum(len(amounts) for amounts in client_amounts.values())
+
     for client_id, txns in by_client.items():
         historical = historical_repo.get_historical_amounts(client_id)
 
         if len(historical) >= MIN_HISTORY_TRANSACTIONS:
-            # Client has enough history: use their own personal baseline
+            # Client has enough history: use their personal baseline.
             mean = statistics.mean(historical)
             std = statistics.pstdev(historical) if len(historical) > 1 else 0.0
         else:
-            # Fallback: peer-group baseline from OTHER clients' current-batch amounts.
-            # Deliberately excludes the client being evaluated so their own
-            # outlier cannot pollute the reference distribution.
-            peer_amounts = [
-                t.amount
-                for cid, ts in by_client.items()
-                if cid != client_id
-                for t in ts
-            ]
-            if len(peer_amounts) < 2:
+            # Fallback: peer-group baseline — subtract this client's contribution
+            # from the precomputed global totals (O(1) per client).
+            own_amounts = client_amounts[client_id]
+            own_n   = len(own_amounts)
+            peer_n  = total_n - own_n
+            if peer_n < 2:
                 continue  # Not enough peer data to form a meaningful baseline
-            mean = statistics.mean(peer_amounts)
-            std = statistics.pstdev(peer_amounts)
+            own_sum = sum(own_amounts)
+            own_sq  = sum(a * a for a in own_amounts)
+            peer_sum = total_sum - own_sum
+            peer_sq  = total_sq  - own_sq
+            mean = peer_sum / peer_n
+            # Population variance via E[X²] − E[X]²
+            variance = (peer_sq / peer_n) - (mean ** 2)
+            std = variance ** 0.5 if variance > 0 else 0.0
 
         if std == 0:
             continue  # Cannot compute z-score with zero variance
@@ -413,6 +429,11 @@ def detect_structuring(transactions: list[Transaction]) -> list[AMLAlert]:
     subsequent deposits within the window are assessed. Once a set of
     transactions has been flagged, they are excluded from future windows to
     avoid duplicate alerts.
+
+    Optimisation: a prefix-sum array and a monotonically advancing right
+    pointer reduce the per-client window scan from O(n²) to O(n log n)
+    (dominated by the sort).  Window sums are computed in O(1) via index
+    subtraction rather than re-summing on each iteration.
     """
     alerts: list[AMLAlert] = []
     now = datetime.now(tz=timezone.utc)
@@ -428,18 +449,30 @@ def detect_structuring(transactions: list[Transaction]) -> list[AMLAlert]:
 
     for client_id, deposits in candidate_deposits.items():
         deposits_sorted = sorted(deposits, key=lambda t: t.date)
+        n = len(deposits_sorted)
+
+        # Build prefix-sum so window totals are O(1): prefix[j] - prefix[i]
+        prefix = [0.0] * (n + 1)
+        for k, t in enumerate(deposits_sorted):
+            prefix[k + 1] = prefix[k] + t.amount
+
         flagged_ids: set[str] = set()
+        right = 0  # right pointer advances monotonically — O(n) total movement
 
         for i, anchor in enumerate(deposits_sorted):
-            window_end = anchor.date + timedelta(days=STRUCTURING_WINDOW_DAYS)
-            window_txns = [
-                t
-                for t in deposits_sorted[i:]
-                if anchor.date <= t.date <= window_end
-            ]
-            cumulative = sum(t.amount for t in window_txns)
+            # Advance right until the next deposit falls outside the 7-day window
+            while (
+                right < n
+                and (deposits_sorted[right].date - anchor.date).days
+                <= STRUCTURING_WINDOW_DAYS
+            ):
+                right += 1
+
+            # Window is deposits_sorted[i:right]; sum is O(1) via prefix array
+            cumulative = prefix[right] - prefix[i]
 
             if cumulative >= STRUCTURING_THRESHOLD:
+                window_txns  = deposits_sorted[i:right]
                 involved_ids = [t.transaction_id for t in window_txns]
                 new_ids = set(involved_ids) - flagged_ids
                 if new_ids:
@@ -498,12 +531,13 @@ def detect_velocity_anomalies(
         by_client.setdefault(txn.client_id, []).append(txn)
 
     for client_id, txns in by_client.items():
-        inflow = sum(
-            t.amount for t in txns if t.transaction_type == TransactionType.DEPOSIT
-        )
-        outflow = sum(
-            t.amount for t in txns if t.transaction_type == TransactionType.WITHDRAWAL
-        )
+        # Single pass — avoids iterating txns twice for inflow and outflow
+        inflow = outflow = 0.0
+        for t in txns:
+            if t.transaction_type == TransactionType.DEPOSIT:
+                inflow += t.amount
+            else:
+                outflow += t.amount
         total_volume = inflow + outflow
 
         # --- Pass-through detection ---
