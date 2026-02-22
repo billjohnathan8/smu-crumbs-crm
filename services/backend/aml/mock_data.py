@@ -62,12 +62,12 @@ TXN020,CLIENT_F,W,50.00,2026-01-05,Completed
 # inception-spike check fires on the 2026-01 batch run.
 
 MOCK_ACCOUNTS_DATA: list[tuple] = [
-    ("ACC001", "CLIENT_A", "Savings",  "Active", "2025-06-01",  5_000.0),
+    ("ACC001", "CLIENT_A", "Savings", "Active", "2025-06-01", 5_000.0),
     ("ACC002", "CLIENT_B", "Checking", "Active", "2020-01-01", 10_000.0),
-    ("ACC003", "CLIENT_C", "Savings",  "Active", "2015-03-01",  2_000.0),
+    ("ACC003", "CLIENT_C", "Savings", "Active", "2015-03-01", 2_000.0),
     ("ACC004", "CLIENT_D", "Business", "Active", "2023-05-01", 50_000.0),
-    ("ACC005", "CLIENT_E", "Checking", "Active", "2025-12-01",  1_000.0),
-    ("ACC006", "CLIENT_F", "Savings",  "Active", "2022-08-01",  3_000.0),
+    ("ACC005", "CLIENT_E", "Checking", "Active", "2025-12-01", 1_000.0),
+    ("ACC006", "CLIENT_F", "Savings", "Active", "2022-08-01", 3_000.0),
 ]
 
 # ---------------------------------------------------------------------------
@@ -76,6 +76,7 @@ MOCK_ACCOUNTS_DATA: list[tuple] = [
 # Clients absent from this dict fall back to a peer-group baseline inside
 # Module A.  The history for CLIENT_C is very stable so the 50 000 SGD
 # deposit stands out clearly.
+
 
 MOCK_HISTORY_DATA: dict[str, list[float]] = {
     # Very stable small-value history → $50 000 is a clear outlier

@@ -21,6 +21,7 @@ The only companion file is mock_data.py, which holds the raw mock data
 (CSV string, account tuples, historical amounts).  Swap it out or delete it
 entirely when wiring real clients.
 
+
 Environment variables (production):
     SFTP_HOST           - SFTP server hostname
     SFTP_PORT           - SFTP port (default 22)
@@ -54,13 +55,13 @@ logger.setLevel(logging.INFO)
 # Constants
 # ---------------------------------------------------------------------------
 
-STRUCTURING_THRESHOLD: float = 10_000.0   # Regulatory reporting threshold (SGD)
-STRUCTURING_MIN_AMOUNT: float = 3_000.0   # Lower bound for individual suspicious deposit
-STRUCTURING_WINDOW_DAYS: int = 7           # Rolling window for structuring detection
-SIGMA_THRESHOLD: float = 3.0              # Z-score threshold (Module A)
-MIN_HISTORY_TRANSACTIONS: int = 5         # Minimum samples for per-client baseline
-PASSTHROUGH_RATIO: float = 0.9            # Outflow / Inflow ratio for pass-through flag
-INCEPTION_MONTHS: int = 3                 # Account age threshold for inception-spike flag
+STRUCTURING_THRESHOLD: float = 10_000.0  # Regulatory reporting threshold (SGD)
+STRUCTURING_MIN_AMOUNT: float = 3_000.0  # Lower bound for individual suspicious deposit
+STRUCTURING_WINDOW_DAYS: int = 7  # Rolling window for structuring detection
+SIGMA_THRESHOLD: float = 3.0  # Z-score threshold (Module A)
+MIN_HISTORY_TRANSACTIONS: int = 5  # Minimum samples for per-client baseline
+PASSTHROUGH_RATIO: float = 0.9  # Outflow / Inflow ratio for pass-through flag
+INCEPTION_MONTHS: int = 3  # Account age threshold for inception-spike flag
 
 
 # ---------------------------------------------------------------------------
@@ -362,8 +363,8 @@ def detect_statistical_outliers(
         cid: [t.amount for t in ts] for cid, ts in by_client.items()
     }
     total_sum = sum(a for amounts in client_amounts.values() for a in amounts)
-    total_sq  = sum(a * a for amounts in client_amounts.values() for a in amounts)
-    total_n   = sum(len(amounts) for amounts in client_amounts.values())
+    total_sq = sum(a * a for amounts in client_amounts.values() for a in amounts)
+    total_n = sum(len(amounts) for amounts in client_amounts.values())
 
     for client_id, txns in by_client.items():
         historical = historical_repo.get_historical_amounts(client_id)
@@ -376,18 +377,18 @@ def detect_statistical_outliers(
             # Fallback: peer-group baseline — subtract this client's contribution
             # from the precomputed global totals (O(1) per client).
             own_amounts = client_amounts[client_id]
-            own_n   = len(own_amounts)
-            peer_n  = total_n - own_n
+            own_n = len(own_amounts)
+            peer_n = total_n - own_n
             if peer_n < 2:
                 continue  # Not enough peer data to form a meaningful baseline
             own_sum = sum(own_amounts)
-            own_sq  = sum(a * a for a in own_amounts)
+            own_sq = sum(a * a for a in own_amounts)
             peer_sum = total_sum - own_sum
-            peer_sq  = total_sq  - own_sq
+            peer_sq = total_sq - own_sq
             mean = peer_sum / peer_n
             # Population variance via E[X²] − E[X]²
-            variance = (peer_sq / peer_n) - (mean ** 2)
-            std = variance ** 0.5 if variance > 0 else 0.0
+            variance = (peer_sq / peer_n) - (mean**2)
+            std = variance**0.5 if variance > 0 else 0.0
 
         if std == 0:
             continue  # Cannot compute z-score with zero variance
@@ -472,7 +473,7 @@ def detect_structuring(transactions: list[Transaction]) -> list[AMLAlert]:
             cumulative = prefix[right] - prefix[i]
 
             if cumulative >= STRUCTURING_THRESHOLD:
-                window_txns  = deposits_sorted[i:right]
+                window_txns = deposits_sorted[i:right]
                 involved_ids = [t.transaction_id for t in window_txns]
                 new_ids = set(involved_ids) - flagged_ids
                 if new_ids:
@@ -559,9 +560,8 @@ def detect_velocity_anomalies(
         # --- Inception spike detection ---
         account = account_map.get(client_id)
         if account:
-            account_age_months = (
-                (ref.year - account.opening_date.year) * 12
-                + (ref.month - account.opening_date.month)
+            account_age_months = (ref.year - account.opening_date.year) * 12 + (
+                ref.month - account.opening_date.month
             )
             if (
                 account_age_months < INCEPTION_MONTHS
@@ -695,9 +695,7 @@ def run_aml_engine(
 
     logger.info(
         "AML engine complete — %s",
-        json.dumps(
-            {k: v for k, v in summary.items() if k != "alerts"}, default=str
-        ),
+        json.dumps({k: v for k, v in summary.items() if k != "alerts"}, default=str),
     )
     return summary
 
