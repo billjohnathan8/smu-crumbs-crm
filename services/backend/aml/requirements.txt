@@ -1,0 +1,13 @@
+# AML Lambda Service — Python Dependencies
+#
+# Production runtime (AWS Lambda layer)
+paramiko==3.5.0          # SFTP client (swap MockSFTPClient for real implementation)
+cryptography==44.0.2     # Dependency of paramiko for SSH key handling
+
+# Testing
+pytest==8.3.5
+pytest-cov==6.0.0
+
+# Linting / Formatting
+black==24.10.0
+flake8==7.1.1
