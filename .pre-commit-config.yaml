@@ -4,9 +4,15 @@ repos:
     rev: 24.10.0
     hooks:
       - id: black
-        name: Black (Python formatting)
+        name: Black (Log Service)
         files: ^services/backend/log/(app|tests)/.*\.py$
         args: [--config, services/backend/log/pyproject.toml]
+        stages: [pre-commit]
+
+      - id: black
+        name: Black (AML Service)
+        files: ^services/backend/aml/(app|tests)/.*\.py$
+        args: [--config, services/backend/aml/pyproject.toml]
         stages: [pre-commit]
 
   # --- Python: Flake8 ---
@@ -14,8 +20,14 @@ repos:
     rev: 7.1.1
     hooks:
       - id: flake8
-        name: Flake8 (Python linting)
+        name: Flake8 (Log Service)
         files: ^services/backend/log/(app|tests)/.*\.py$
+        args: ["--max-line-length=100", "--extend-ignore=E501,E203,W503"]
+        stages: [pre-commit]
+
+      - id: flake8
+        name: Flake8 (AML Service)
+        files: ^services/backend/aml/(app|tests)/.*\.py$
         args: ["--max-line-length=100", "--extend-ignore=E501,E203,W503"]
         stages: [pre-commit]
 
