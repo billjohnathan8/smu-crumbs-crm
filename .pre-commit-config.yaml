@@ -11,7 +11,7 @@ repos:
 
       - id: black
         name: Black (AML Service)
-        files: ^services/backend/aml/(app|tests)/.*\.py$
+        files: ^services/backend/aml/.*\.py$
         args: [--config, services/backend/aml/pyproject.toml]
         stages: [pre-commit]
 
@@ -27,7 +27,7 @@ repos:
 
       - id: flake8
         name: Flake8 (AML Service)
-        files: ^services/backend/aml/(app|tests)/.*\.py$
+        files: ^services/backend/aml/.*\.py$
         args: ["--max-line-length=100", "--extend-ignore=E501,E203,W503"]
         stages: [pre-commit]
 
