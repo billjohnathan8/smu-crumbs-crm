@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (credentials: LoginRequest) => {
     // ✅ DEV bypass: accept README test creds
     if (DEV_BYPASS_AUTH) {
-      const { email, password } = credentials as any
+      const { email, password } = credentials
 
       const devUser =
         email === 'admin@example.com' && password === 'password123'
