@@ -285,6 +285,7 @@ class ClientServiceImplTest {
 			payload.postalCode()
 		);
 		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
+		existing.setFirstName("OldFirst");
 		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
 		when(clientRepository.existsByEmailAddressIgnoreCaseAndIdNot(payload.emailAddress(), 12L)).thenReturn(false);
 		when(clientRepository.existsByPhoneNumberAndIdNot(payload.phoneNumber(), 12L)).thenReturn(false);
@@ -298,9 +299,9 @@ class ClientServiceImplTest {
 		verify(clientRepository).save(existing);
 		verify(clientAuditLogger).logAuditEvent(
 			eq("UPDATE"),
-			any(),
-			any(),
-			any(),
+			eq("firstName"),
+			eq("OldFirst"),
+			eq("Jordan"),
 			eq("usr_1"),
 			eq("clt_12"),
 			eq("req-1"),
