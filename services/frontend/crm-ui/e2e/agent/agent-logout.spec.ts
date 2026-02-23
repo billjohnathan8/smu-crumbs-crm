@@ -140,7 +140,7 @@ test.describe("Agent Logout Flow", () => {
     });
 
     await test.step("Verify on transactions page", async () => {
-      await expect(page.getByText("Transactions")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Transactions" })).toBeVisible();
     });
 
     await test.step("Click logout button", async () => {
