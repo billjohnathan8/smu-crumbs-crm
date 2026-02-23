@@ -2,18 +2,21 @@ package com.scroogebank.crm.client_service.controller;
 
 import com.scroogebank.crm.client_service.dto.AccountCreateRequest;
 import com.scroogebank.crm.client_service.dto.AccountDto;
+import com.scroogebank.crm.client_service.dto.AccountListResponse;
+import com.scroogebank.crm.client_service.dto.AccountUpdateRequest;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 import com.scroogebank.crm.client_service.security.RequestAuth;
 import com.scroogebank.crm.client_service.service.AccountService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -61,12 +64,17 @@ public class AccountController {
 		return accountService.getAccount(user, accountId);
 	}
 
-	/**
-	 * Deletes an account and emits an audit entry when possible.
-	 *
-	 * @param httpRequest HTTP request used for auth and correlation id extraction
-	 * @param accountId public account identifier
-	 */
+	@PutMapping("/api/accounts/{accountId}")
+	public AccountDto updateAccount(
+		HttpServletRequest httpRequest,
+		@PathVariable String accountId,
+		@Valid @RequestBody AccountUpdateRequest request
+	) {
+		AuthenticatedUser user = requestAuth.requireUser(httpRequest);
+		String authorizationHeader = httpRequest.getHeader("Authorization");
+		return accountService.updateAccount(user, accountId, request, authorizationHeader, requestId(httpRequest));
+	}
+
 	@DeleteMapping("/api/accounts/{accountId}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteAccount(
@@ -78,17 +86,15 @@ public class AccountController {
 		accountService.deleteAccount(user, accountId, authorizationHeader, requestId(httpRequest));
 	}
 
-	/**
-	 * Lists all accounts for a client visible to the authenticated user.
-	 *
-	 * @param httpRequest HTTP request used for auth
-	 * @param clientId public client identifier
-	 * @return list of account DTOs
-	 */
 	@GetMapping("/api/clients/{clientId}/accounts")
-	public List<AccountDto> listAccounts(HttpServletRequest httpRequest, @PathVariable String clientId) {
+	public AccountListResponse listAccounts(
+		HttpServletRequest httpRequest,
+		@PathVariable String clientId,
+		@RequestParam(defaultValue = "50") int limit,
+		@RequestParam(defaultValue = "0") int offset
+	) {
 		AuthenticatedUser user = requestAuth.requireUser(httpRequest);
-		return accountService.listAccounts(user, clientId);
+		return accountService.listAccounts(user, clientId, limit, offset);
 	}
 
 	/**

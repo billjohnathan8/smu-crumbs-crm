@@ -14,6 +14,7 @@ import com.scroogebank.crm.client_service.dto.AccountCreateRequest;
 import com.scroogebank.crm.client_service.dto.AccountDto;
 import com.scroogebank.crm.client_service.dto.AccountStatus;
 import com.scroogebank.crm.client_service.dto.AccountType;
+import com.scroogebank.crm.client_service.dto.AccountUpdateRequest;
 import com.scroogebank.crm.client_service.entity.AccountEntity;
 import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.exception.AccountNotFoundException;
@@ -154,6 +155,130 @@ class AccountServiceImplTest {
 	}
 
 	@Test
+	void updateAccount_changesStatusAndPublishesAuditWithBeforeAfter() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AccountEntity existing = account(10L, client(1L, "usr_1"));
+		when(accountRepository.findById(10L)).thenReturn(Optional.of(existing));
+		when(accountRepository.save(any(AccountEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+		AccountUpdateRequest request = new AccountUpdateRequest(null, AccountStatus.Inactive, null);
+		AccountDto updated = accountService.updateAccount(admin, "acc_10", request, "Bearer x", "req-u");
+
+		assertThat(updated.accountStatus()).isEqualTo(AccountStatus.Inactive);
+		verify(auditLogger).logAuditEvent(
+			eq("UPDATE"),
+			eq("accountStatus"),
+			eq("Active"),
+			eq("Inactive"),
+			eq("usr_admin"),
+			eq("clt_1"),
+			eq("req-u"),
+			eq("Bearer x")
+		);
+	}
+
+	@Test
+	void updateAccount_multipleFieldChanges_pipeDelimitedAudit() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AccountEntity existing = account(10L, client(1L, "usr_1"));
+		when(accountRepository.findById(10L)).thenReturn(Optional.of(existing));
+		when(accountRepository.save(any(AccountEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+		AccountUpdateRequest request = new AccountUpdateRequest(
+			AccountType.Business, AccountStatus.Pending, "br_new"
+		);
+		AccountDto updated = accountService.updateAccount(admin, "acc_10", request, "Bearer x", "req-u");
+
+		assertThat(updated.accountType()).isEqualTo(AccountType.Business);
+		assertThat(updated.accountStatus()).isEqualTo(AccountStatus.Pending);
+		assertThat(updated.branchId()).isEqualTo("br_new");
+		verify(auditLogger).logAuditEvent(
+			eq("UPDATE"),
+			eq("accountType|accountStatus|branchId"),
+			eq("Savings|Active|br_1"),
+			eq("Business|Pending|br_new"),
+			eq("usr_admin"),
+			eq("clt_1"),
+			eq("req-u"),
+			eq("Bearer x")
+		);
+	}
+
+	@Test
+	void updateAccount_noFieldsChanged_skipsAuditLogging() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AccountEntity existing = account(10L, client(1L, "usr_1"));
+		when(accountRepository.findById(10L)).thenReturn(Optional.of(existing));
+		when(accountRepository.save(any(AccountEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+		AccountUpdateRequest request = new AccountUpdateRequest(null, null, null);
+		accountService.updateAccount(admin, "acc_10", request, "Bearer x", "req-u");
+
+		verify(auditLogger, never()).logAuditEvent(any(), any(), any(), any(), any(), any(), any(), any());
+	}
+
+	@Test
+	void updateAccount_sameValues_skipsAuditLogging() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AccountEntity existing = account(10L, client(1L, "usr_1"));
+		when(accountRepository.findById(10L)).thenReturn(Optional.of(existing));
+		when(accountRepository.save(any(AccountEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+		AccountUpdateRequest request = new AccountUpdateRequest(AccountType.Savings, AccountStatus.Active, "br_1");
+		accountService.updateAccount(admin, "acc_10", request, "Bearer x", "req-u");
+
+		verify(auditLogger, never()).logAuditEvent(any(), any(), any(), any(), any(), any(), any(), any());
+	}
+
+	@Test
+	void updateAccount_agentOnUnownedAccount_throwsAccountNotFound() {
+		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AccountEntity existing = account(10L, client(1L, "usr_other"));
+		when(accountRepository.findById(10L)).thenReturn(Optional.of(existing));
+
+		AccountUpdateRequest request = new AccountUpdateRequest(null, AccountStatus.Inactive, null);
+		assertThatThrownBy(() -> accountService.updateAccount(agent, "acc_10", request, "Bearer x", "req-u"))
+			.isInstanceOf(AccountNotFoundException.class);
+		verify(accountRepository, never()).save(any());
+	}
+
+	@Test
+	void listAccounts_paginationClipsResults() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		ClientEntity client = client(3L, "usr_3");
+		when(clientRepository.findById(3L)).thenReturn(Optional.of(client));
+		when(accountRepository.findByClientId(3L)).thenReturn(List.of(
+			account(11L, client),
+			account(12L, client),
+			account(13L, client)
+		));
+
+		var response = accountService.listAccounts(admin, "clt_3", 2, 0);
+
+		assertThat(response.data()).hasSize(2);
+		assertThat(response.pagination().total()).isEqualTo(3);
+		assertThat(response.pagination().limit()).isEqualTo(2);
+	}
+
+	@Test
+	void listAccounts_offsetSkipsResults() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		ClientEntity client = client(3L, "usr_3");
+		when(clientRepository.findById(3L)).thenReturn(Optional.of(client));
+		when(accountRepository.findByClientId(3L)).thenReturn(List.of(
+			account(11L, client),
+			account(12L, client),
+			account(13L, client)
+		));
+
+		var response = accountService.listAccounts(admin, "clt_3", 50, 2);
+
+		assertThat(response.data()).hasSize(1);
+		assertThat(response.data().get(0).accountId()).isEqualTo("acc_13");
+		assertThat(response.pagination().offset()).isEqualTo(2);
+	}
+
+	@Test
 	void listAccounts_mapsResultsToDtos() {
 		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
 		ClientEntity client = client(3L, "usr_3");
@@ -163,11 +288,12 @@ class AccountServiceImplTest {
 			account(12L, client)
 		));
 
-		List<AccountDto> accounts = accountService.listAccounts(admin, "clt_3");
+		var response = accountService.listAccounts(admin, "clt_3", 50, 0);
 
-		assertThat(accounts).hasSize(2);
-		assertThat(accounts.get(0).accountId()).isEqualTo("acc_11");
-		assertThat(accounts.get(1).accountId()).isEqualTo("acc_12");
+		assertThat(response.data()).hasSize(2);
+		assertThat(response.data().get(0).accountId()).isEqualTo("acc_11");
+		assertThat(response.data().get(1).accountId()).isEqualTo("acc_12");
+		assertThat(response.pagination().total()).isEqualTo(2);
 	}
 
 	private ClientEntity client(Long id, String assignedAgentId) {

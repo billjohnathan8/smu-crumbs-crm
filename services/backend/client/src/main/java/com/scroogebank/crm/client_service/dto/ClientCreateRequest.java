@@ -1,6 +1,7 @@
 package com.scroogebank.crm.client_service.dto;
 
 import com.scroogebank.crm.client_service.entity.Gender;
+import com.scroogebank.crm.client_service.validation.ValidDateOfBirth;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -23,6 +24,7 @@ public record ClientCreateRequest(
 	String lastName,
 
 	@NotNull
+	@ValidDateOfBirth
 	LocalDate dateOfBirth,
 
 	@NotNull
@@ -33,7 +35,7 @@ public record ClientCreateRequest(
 	String emailAddress,
 
 	@NotBlank
-	@Size(min = 10, max = 15)
+	@Pattern(regexp = "^\\+\\d{10,15}$", message = "Phone must start with + followed by 10-15 digits")
 	String phoneNumber,
 
 	@NotBlank

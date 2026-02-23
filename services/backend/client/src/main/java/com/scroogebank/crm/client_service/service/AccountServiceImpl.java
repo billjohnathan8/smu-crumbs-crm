@@ -1,7 +1,10 @@
 package com.scroogebank.crm.client_service.service;
 
+import com.scroogebank.crm.client_service.api.Pagination;
 import com.scroogebank.crm.client_service.dto.AccountCreateRequest;
 import com.scroogebank.crm.client_service.dto.AccountDto;
+import com.scroogebank.crm.client_service.dto.AccountListResponse;
+import com.scroogebank.crm.client_service.dto.AccountUpdateRequest;
 import com.scroogebank.crm.client_service.entity.AccountEntity;
 import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.exception.AccountNotFoundException;
@@ -12,6 +15,7 @@ import com.scroogebank.crm.client_service.repository.ClientRepository;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 import com.scroogebank.crm.client_service.util.IdCodec;
 import java.util.List;
+import java.util.StringJoiner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -40,15 +44,6 @@ public class AccountServiceImpl implements AccountService {
 		this.auditLogger = auditLogger;
 	}
 
-	/**
-	 * Creates a new account for a client owned by the authenticated user.
-	 *
-	 * @param user authenticated user
-	 * @param request account creation payload
-	 * @param authorizationHeader bearer token for downstream audit logging
-	 * @param requestId request correlation id
-	 * @return created account DTO
-	 */
 	@Override
 	@Transactional
 	public AccountDto createAccount(
@@ -72,40 +67,64 @@ public class AccountServiceImpl implements AccountService {
 
 		String apiAccountId = accountId(saved.getId());
 		publishAuditSafe(
-			"CREATE",
-			"Account ID",
-			null,
-			apiAccountId,
-			user.userId(),
-			clientId(client.getId()),
-			requestId,
-			authorizationHeader
+			"CREATE", "Account ID", null, apiAccountId,
+			user.userId(), clientId(client.getId()), requestId, authorizationHeader
 		);
 
 		return toDto(saved);
 	}
 
-	/**
-	 * Retrieves a single account visible to the authenticated user.
-	 *
-	 * @param user authenticated user
-	 * @param accountId public account identifier
-	 * @return account DTO
-	 */
 	@Override
 	public AccountDto getAccount(AuthenticatedUser user, String accountId) {
 		AccountEntity entity = loadOwnedAccount(user, accountId);
 		return toDto(entity);
 	}
 
-	/**
-	 * Deletes an account visible to the authenticated user.
-	 *
-	 * @param user authenticated user
-	 * @param accountId public account identifier
-	 * @param authorizationHeader bearer token for downstream audit logging
-	 * @param requestId request correlation id
-	 */
+	@Override
+	@Transactional
+	public AccountDto updateAccount(
+		AuthenticatedUser user,
+		String accountId,
+		AccountUpdateRequest request,
+		String authorizationHeader,
+		String requestId
+	) {
+		AccountEntity entity = loadOwnedAccount(user, accountId);
+		String cltId = clientId(entity.getClient().getId());
+
+		StringJoiner attrs = new StringJoiner("|");
+		StringJoiner befores = new StringJoiner("|");
+		StringJoiner afters = new StringJoiner("|");
+
+		if (request.accountType() != null && request.accountType() != entity.getAccountType()) {
+			collectChange(attrs, befores, afters, "accountType",
+				entity.getAccountType().name(), request.accountType().name());
+			entity.setAccountType(request.accountType());
+		}
+		if (request.accountStatus() != null && request.accountStatus() != entity.getAccountStatus()) {
+			collectChange(attrs, befores, afters, "accountStatus",
+				entity.getAccountStatus().name(), request.accountStatus().name());
+			entity.setAccountStatus(request.accountStatus());
+		}
+		if (request.branchId() != null && !request.branchId().equals(entity.getBranchId())) {
+			collectChange(attrs, befores, afters, "branchId",
+				entity.getBranchId(), request.branchId());
+			entity.setBranchId(request.branchId());
+		}
+
+		AccountEntity saved = accountRepository.save(entity);
+
+		String attrString = attrs.toString();
+		if (!attrString.isEmpty()) {
+			publishAuditSafe(
+				"UPDATE", attrString, befores.toString(), afters.toString(),
+				user.userId(), cltId, requestId, authorizationHeader
+			);
+		}
+
+		return toDto(saved);
+	}
+
 	@Override
 	@Transactional
 	public void deleteAccount(
@@ -115,40 +134,39 @@ public class AccountServiceImpl implements AccountService {
 		String requestId
 	) {
 		AccountEntity entity = loadOwnedAccount(user, accountId);
-		String clientId = clientId(entity.getClient().getId());
+		String cltId = clientId(entity.getClient().getId());
 		accountRepository.delete(entity);
 
 		publishAuditSafe(
-			"DELETE",
-			"Account ID",
-			accountId,
-			null,
-			user.userId(),
-			clientId,
-			requestId,
-			authorizationHeader
+			"DELETE", "Account ID", accountId, null,
+			user.userId(), cltId, requestId, authorizationHeader
 		);
 	}
 
-	/**
-	 * Lists accounts for a client visible to the authenticated user.
-	 *
-	 * @param user authenticated user
-	 * @param clientId public client identifier
-	 * @return list of account DTOs
-	 */
 	@Override
-	public List<AccountDto> listAccounts(AuthenticatedUser user, String clientId) {
+	public AccountListResponse listAccounts(AuthenticatedUser user, String clientId, int limit, int offset) {
 		ClientEntity client = loadOwnedClient(user, clientId);
-		return accountRepository.findByClientId(client.getId()).stream().map(this::toDto).toList();
+		List<AccountEntity> all = accountRepository.findByClientId(client.getId());
+
+		int normalizedLimit = Math.max(1, Math.min(200, limit));
+		int normalizedOffset = Math.max(0, offset);
+		long total = all.size();
+		int fromIndex = Math.min(normalizedOffset, all.size());
+		int toIndex = Math.min(fromIndex + normalizedLimit, all.size());
+
+		List<AccountDto> data = all.subList(fromIndex, toIndex).stream().map(this::toDto).toList();
+		return new AccountListResponse(data, new Pagination(normalizedLimit, normalizedOffset, total));
 	}
 
-	/**
-	 * Maps an account entity to its API DTO.
-	 *
-	 * @param entity account entity
-	 * @return account DTO
-	 */
+	private void collectChange(
+		StringJoiner attrs, StringJoiner befores, StringJoiner afters,
+		String fieldName, String oldValue, String newValue
+	) {
+		attrs.add(fieldName);
+		befores.add(oldValue != null ? oldValue : "");
+		afters.add(newValue);
+	}
+
 	private AccountDto toDto(AccountEntity entity) {
 		return new AccountDto(
 			accountId(entity.getId()),
@@ -159,18 +177,11 @@ public class AccountServiceImpl implements AccountService {
 			entity.getInitialDeposit(),
 			entity.getCurrency(),
 			entity.getBranchId(),
-			entity.getCreatedAt()
+			entity.getCreatedAt(),
+			entity.getUpdatedAt()
 		);
 	}
 
-	/**
-	 * Loads a client and verifies ownership for the authenticated user.
-	 *
-	 * @param user authenticated user
-	 * @param clientId public client identifier
-	 * @return owned client entity
-	 * @throws ClientNotFoundException when the client does not exist or is not owned
-	 */
 	private ClientEntity loadOwnedClient(AuthenticatedUser user, String clientId) {
 		long dbClientId = decodeClientId(clientId);
 		ClientEntity client = clientRepository.findById(dbClientId)
@@ -181,14 +192,6 @@ public class AccountServiceImpl implements AccountService {
 		return client;
 	}
 
-	/**
-	 * Loads an account and verifies ownership for the authenticated user.
-	 *
-	 * @param user authenticated user
-	 * @param accountId public account identifier
-	 * @return owned account entity
-	 * @throws AccountNotFoundException when the account does not exist or is not owned
-	 */
 	private AccountEntity loadOwnedAccount(AuthenticatedUser user, String accountId) {
 		long dbAccountId = decodeAccountId(accountId);
 		AccountEntity entity = accountRepository.findById(dbAccountId)
@@ -200,85 +203,38 @@ public class AccountServiceImpl implements AccountService {
 		return entity;
 	}
 
-	/**
-	 * Decodes an API client id to a database id.
-	 *
-	 * @param clientId public client identifier
-	 * @return database id
-	 */
 	private long decodeClientId(String clientId) {
 		return IdCodec.decode(CLIENT_ID_PREFIX, clientId);
 	}
 
-	/**
-	 * Decodes an API account id to a database id.
-	 *
-	 * @param accountId public account identifier
-	 * @return database id
-	 */
 	private long decodeAccountId(String accountId) {
 		return IdCodec.decode(ACCOUNT_ID_PREFIX, accountId);
 	}
 
-	/**
-	 * Encodes a database client id into the public API format.
-	 *
-	 * @param dbId database id
-	 * @return public client identifier
-	 */
 	private String clientId(long dbId) {
 		return IdCodec.encode(CLIENT_ID_PREFIX, dbId);
 	}
 
-	/**
-	 * Encodes a database account id into the public API format.
-	 *
-	 * @param dbId database id
-	 * @return public account identifier
-	 */
 	private String accountId(long dbId) {
 		return IdCodec.encode(ACCOUNT_ID_PREFIX, dbId);
 	}
 
-	/**
-	 * Emits audit events when an authorization header is provided.
-	 *
-	 * @param action audit action
-	 * @param attributeName attribute being changed or observed
-	 * @param beforeValue previous value (nullable)
-	 * @param afterValue new value (nullable)
-	 * @param agentId authenticated agent id
-	 * @param clientId associated client id
-	 * @param correlationId request correlation id
-	 * @param authorizationHeader bearer token for downstream auth
-	 */
 	private void publishAuditSafe(
-		String action,
-		String attributeName,
-		String beforeValue,
-		String afterValue,
-		String agentId,
-		String clientId,
-		String correlationId,
-		String authorizationHeader
+		String action, String attributeName, String beforeValue, String afterValue,
+		String agentId, String clientId, String correlationId, String authorizationHeader
 	) {
 		if (authorizationHeader == null || authorizationHeader.isBlank()) {
 			return;
 		}
 		try {
 			auditLogger.logAuditEvent(
-				action,
-				attributeName,
-				beforeValue,
-				afterValue,
-				agentId,
-				clientId,
-				correlationId,
-				authorizationHeader
+				action, attributeName, beforeValue, afterValue,
+				agentId, clientId, correlationId, authorizationHeader
 			);
 		}
 		catch (Exception ex) {
-			LOGGER.warn("Account operation completed but audit logging failed. action={} clientId={}", action, clientId, ex);
+			LOGGER.warn("Account operation completed but audit logging failed. action={} clientId={}",
+				action, clientId, ex);
 		}
 	}
 }

@@ -463,6 +463,88 @@ class ClientServiceImplTest {
 	}
 
 	@Test
+	void updateClient_singleFieldChange_auditLogContainsFieldNameAndValues() {
+		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		ClientPayload payload = samplePayload();
+		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
+		ClientUpdateRequest request = new ClientUpdateRequest(
+			"NewName", null, null, null, null, null, null, null, null, null, null
+		);
+		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
+		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		clientService.updateClient(agent, "clt_12", request, "Bearer x", "req-1");
+
+		verify(clientAuditLogger).logAuditEvent(
+			eq("UPDATE"),
+			eq("firstName"),
+			eq("Jordan"),
+			eq("NewName"),
+			eq("usr_1"),
+			eq("clt_12"),
+			eq("req-1"),
+			eq("Bearer x")
+		);
+	}
+
+	@Test
+	void updateClient_multipleFieldChanges_auditLogPipeDelimited() {
+		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		ClientPayload payload = samplePayload();
+		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
+		ClientUpdateRequest request = new ClientUpdateRequest(
+			"NewFirst", "NewLast", null, null, null, null, null, null, null, null, null
+		);
+		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
+		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		clientService.updateClient(agent, "clt_12", request, "Bearer x", "req-1");
+
+		verify(clientAuditLogger).logAuditEvent(
+			eq("UPDATE"),
+			eq("firstName|lastName"),
+			eq("Jordan|Taylor"),
+			eq("NewFirst|NewLast"),
+			eq("usr_1"),
+			eq("clt_12"),
+			eq("req-1"),
+			eq("Bearer x")
+		);
+	}
+
+	@Test
+	void updateClient_noFieldsChanged_skipsAuditLogging() {
+		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		ClientPayload payload = samplePayload();
+		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
+		ClientUpdateRequest request = new ClientUpdateRequest(
+			null, null, null, null, null, null, null, null, null, null, null
+		);
+		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
+		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		clientService.updateClient(agent, "clt_12", request, "Bearer x", "req-1");
+
+		verify(clientAuditLogger, never()).logAuditEvent(any(), any(), any(), any(), any(), any(), any(), any());
+	}
+
+	@Test
+	void updateClient_sameValuesSubmitted_skipsAuditLogging() {
+		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		ClientPayload payload = samplePayload();
+		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
+		ClientUpdateRequest request = new ClientUpdateRequest(
+			payload.firstName(), payload.lastName(), null, null, null, null, null, null, null, null, null
+		);
+		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
+		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		clientService.updateClient(agent, "clt_12", request, "Bearer x", "req-1");
+
+		verify(clientAuditLogger, never()).logAuditEvent(any(), any(), any(), any(), any(), any(), any(), any());
+	}
+
+	@Test
 	void verifyClient_setsStatusToVerified_andAuditsWithNullBeforeValueWhenStatusWasNull() {
 		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
 		ClientPayload payload = samplePayload();
