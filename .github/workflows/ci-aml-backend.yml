@@ -1,0 +1,49 @@
+name: CI - AML Backend
+
+# Component pipeline for the aml-backend trunk.
+# Runs Python Black + Flake8 lint + pytest with coverage.
+
+on:
+  pull_request:
+    branches:
+      - aml-backend
+  push:
+    branches:
+      - aml-backend
+  workflow_dispatch:
+  workflow_call:
+
+concurrency:
+  group: ci-aml-backend-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    uses: ./.github/workflows/reusable-lint.yml
+    with:
+      run-backend-java: false
+      run-backend-python: true
+      run-frontend: false
+
+  test:
+    needs: lint
+    uses: ./.github/workflows/reusable-test-component.yml
+    with:
+      component: aml
+      runtime: python
+      working-directory: services/backend/aml
+      test-command: |
+        python -m pytest tests \
+          --junitxml=build/reports/tests/junit.xml \
+          --cov=lambda_function \
+          --cov-branch \
+          --cov-report=term-missing \
+          --cov-report=xml:build/reports/coverage/coverage.xml \
+          --cov-report=html:build/reports/coverage/html
+      timeout-minutes: 8
+      artifact-paths: |
+        services/backend/aml/build/reports/**
+        services/backend/aml/build/coverage.xml
