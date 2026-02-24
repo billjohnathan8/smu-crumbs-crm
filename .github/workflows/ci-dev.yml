@@ -16,6 +16,7 @@ jobs:
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
       agent-backend: ${{ steps.filter.outputs.agent-backend }}
+      aml-backend: ${{ steps.filter.outputs.aml-backend }}
       client-backend: ${{ steps.filter.outputs.client-backend }}
       log-backend: ${{ steps.filter.outputs.log-backend }}
       transaction-backend: ${{ steps.filter.outputs.transaction-backend }}
@@ -36,6 +37,8 @@ jobs:
               - 'services/frontend/**'
             agent-backend:
               - 'services/backend/agent/**'
+            aml-backend:
+              - 'services/backend/aml/**'
             client-backend:
               - 'services/backend/client/**'
             log-backend:
@@ -59,6 +62,12 @@ jobs:
     needs: [detect-changes]
     if: needs.detect-changes.outputs.agent-backend == 'true'
     uses: ./.github/workflows/ci-agent-backend.yml
+
+  ci-aml-backend:
+    name: CI - AML Backend
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.aml-backend == 'true'
+    uses: ./.github/workflows/ci-aml-backend.yml
 
   ci-client-backend:
     name: CI - Client Backend
@@ -101,6 +110,7 @@ jobs:
       - ci-platform
       - ci-frontend
       - ci-agent-backend
+      - ci-aml-backend
       - ci-client-backend
       - ci-log-backend
       - ci-transaction-backend
