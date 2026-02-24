@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from datetime import date
 
-import pytest
-
 from lambda_function import (
     Account,
     AccountStatus,
@@ -40,7 +38,9 @@ class TestModuleC_Passthrough:
         passthrough = [a for a in alerts if a.alert_type == AlertType.PASSTHROUGH]
         assert all(a.client_id == "CLIENT_MULE" for a in passthrough)
 
-    def test_passthrough_no_transaction_id(self, transactions_passthrough, default_accounts):
+    def test_passthrough_no_transaction_id(
+        self, transactions_passthrough, default_accounts
+    ):
         """Pass-through is a client-level flag; no single transaction_id."""
         alerts = detect_velocity_anomalies(
             transactions_passthrough, default_accounts, REF_DATE
@@ -48,7 +48,9 @@ class TestModuleC_Passthrough:
         passthrough = [a for a in alerts if a.alert_type == AlertType.PASSTHROUGH]
         assert all(a.transaction_id is None for a in passthrough)
 
-    def test_passthrough_review_status_pending(self, transactions_passthrough, default_accounts):
+    def test_passthrough_review_status_pending(
+        self, transactions_passthrough, default_accounts
+    ):
         alerts = detect_velocity_anomalies(
             transactions_passthrough, default_accounts, REF_DATE
         )
@@ -77,8 +79,12 @@ class TestModuleC_Passthrough:
             make_withdrawal("PT2", "CLIENT_PT", outflow, date(2026, 1, 2)),
         ]
         account = Account(
-            "ACC_PT", "CLIENT_PT", AccountType.SAVINGS,
-            AccountStatus.ACTIVE, date(2020, 1, 1), 5_000.0,
+            "ACC_PT",
+            "CLIENT_PT",
+            AccountType.SAVINGS,
+            AccountStatus.ACTIVE,
+            date(2020, 1, 1),
+            5_000.0,
         )
         alerts = detect_velocity_anomalies(txns, [account], REF_DATE)
         types = [a.alert_type for a in alerts]
@@ -91,8 +97,12 @@ class TestModuleC_Passthrough:
             make_withdrawal("LP2", "CLIENT_LP", 5_000.0, date(2026, 1, 2)),  # 50%
         ]
         account = Account(
-            "ACC_LP", "CLIENT_LP", AccountType.SAVINGS,
-            AccountStatus.ACTIVE, date(2020, 1, 1), 5_000.0,
+            "ACC_LP",
+            "CLIENT_LP",
+            AccountType.SAVINGS,
+            AccountStatus.ACTIVE,
+            date(2020, 1, 1),
+            5_000.0,
         )
         alerts = detect_velocity_anomalies(txns, [account], REF_DATE)
         types = [a.alert_type for a in alerts]
@@ -102,8 +112,12 @@ class TestModuleC_Passthrough:
         """A withdrawal-only client must not raise ZeroDivisionError."""
         txns = [make_withdrawal("WO1", "CLIENT_WO", 1_000.0, date(2026, 1, 1))]
         account = Account(
-            "ACC_WO", "CLIENT_WO", AccountType.SAVINGS,
-            AccountStatus.ACTIVE, date(2020, 1, 1), 5_000.0,
+            "ACC_WO",
+            "CLIENT_WO",
+            AccountType.SAVINGS,
+            AccountStatus.ACTIVE,
+            date(2020, 1, 1),
+            5_000.0,
         )
         # Should not raise
         alerts = detect_velocity_anomalies(txns, [account], REF_DATE)
@@ -138,7 +152,9 @@ class TestModuleC_InceptionSpike:
     def test_old_account_no_inception_spike(self, account_savings_old):
         """Account older than INCEPTION_MONTHS threshold must never trigger inception spike."""
         txns = [
-            make_deposit("OS1", account_savings_old.client_id, 999_999.0, date(2026, 1, 1)),
+            make_deposit(
+                "OS1", account_savings_old.client_id, 999_999.0, date(2026, 1, 1)
+            ),
         ]
         alerts = detect_velocity_anomalies(txns, [account_savings_old], REF_DATE)
         types = [a.alert_type for a in alerts]
@@ -147,7 +163,9 @@ class TestModuleC_InceptionSpike:
     def test_new_account_below_initial_deposit_not_flagged(self, account_checking_new):
         """New account whose monthly volume stays below initial deposit must not flag."""
         txns = [
-            make_deposit("NL1", account_checking_new.client_id, 500.0, date(2026, 1, 1)),
+            make_deposit(
+                "NL1", account_checking_new.client_id, 500.0, date(2026, 1, 1)
+            ),
             # 500 < initial_deposit (1,000) → no flag
         ]
         alerts = detect_velocity_anomalies(txns, [account_checking_new], REF_DATE)
@@ -165,12 +183,18 @@ class TestModuleC_InceptionSpike:
             opening = date(REF_DATE.year, raw_month, 1)
 
         # Sanity-check: months_diff should equal exactly INCEPTION_MONTHS
-        months_diff = (REF_DATE.year - opening.year) * 12 + (REF_DATE.month - opening.month)
+        months_diff = (REF_DATE.year - opening.year) * 12 + (
+            REF_DATE.month - opening.month
+        )
         assert months_diff == INCEPTION_MONTHS
 
         account = Account(
-            "ACC_AGE", "CLIENT_AGE", AccountType.SAVINGS,
-            AccountStatus.ACTIVE, opening, 1_000.0,
+            "ACC_AGE",
+            "CLIENT_AGE",
+            AccountType.SAVINGS,
+            AccountStatus.ACTIVE,
+            opening,
+            1_000.0,
         )
         txns = [make_deposit("AGE1", "CLIENT_AGE", 99_999.0, date(2026, 1, 5))]
         alerts = detect_velocity_anomalies(txns, [account], REF_DATE)
@@ -196,8 +220,12 @@ class TestModuleC_BothFlags:
     def test_client_can_trigger_both_alerts(self):
         """A new account that also shows pass-through behaviour gets two alerts."""
         account = Account(
-            "ACC_BOTH", "CLIENT_BOTH", AccountType.CHECKING,
-            AccountStatus.ACTIVE, date(2025, 12, 15), 500.0,
+            "ACC_BOTH",
+            "CLIENT_BOTH",
+            AccountType.CHECKING,
+            AccountStatus.ACTIVE,
+            date(2025, 12, 15),
+            500.0,
         )
         txns = [
             make_deposit("B1", "CLIENT_BOTH", 50_000.0, date(2026, 1, 1)),

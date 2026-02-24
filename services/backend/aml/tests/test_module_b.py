@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
-import pytest
-
 from lambda_function import (
     AlertType,
     STRUCTURING_MIN_AMOUNT,
@@ -63,7 +61,9 @@ class TestModuleB_BoundaryConditions:
     def test_exactly_at_threshold_is_flagged(self):
         """Cumulative deposits == STRUCTURING_THRESHOLD should be flagged (>=)."""
         txns = [
-            make_deposit("B1", "CLIENT_BOUNDARY", STRUCTURING_MIN_AMOUNT, date(2026, 1, 1)),
+            make_deposit(
+                "B1", "CLIENT_BOUNDARY", STRUCTURING_MIN_AMOUNT, date(2026, 1, 1)
+            ),
             make_deposit(
                 "B2",
                 "CLIENT_BOUNDARY",
@@ -77,7 +77,9 @@ class TestModuleB_BoundaryConditions:
     def test_just_below_threshold_not_flagged(self):
         """Cumulative just under threshold must not be flagged."""
         txns = [
-            make_deposit("C1", "CLIENT_BELOW", STRUCTURING_MIN_AMOUNT, date(2026, 1, 1)),
+            make_deposit(
+                "C1", "CLIENT_BELOW", STRUCTURING_MIN_AMOUNT, date(2026, 1, 1)
+            ),
             make_deposit(
                 "C2",
                 "CLIENT_BELOW",
@@ -92,7 +94,9 @@ class TestModuleB_BoundaryConditions:
         """A deposit >= STRUCTURING_THRESHOLD is NOT suspicious by itself (reported outright)."""
         txns = [
             make_deposit("X1", "CLIENT_LARGE", STRUCTURING_THRESHOLD, date(2026, 1, 1)),
-            make_deposit("X2", "CLIENT_LARGE", STRUCTURING_THRESHOLD + 500, date(2026, 1, 2)),
+            make_deposit(
+                "X2", "CLIENT_LARGE", STRUCTURING_THRESHOLD + 500, date(2026, 1, 2)
+            ),
         ]
         alerts = detect_structuring(txns)
         assert len(alerts) == 0
@@ -102,7 +106,12 @@ class TestModuleB_BoundaryConditions:
         # Each individual amount is below the minimum; even if cumulative > 10k,
         # these are not suspicious structured deposits.
         txns = [
-            make_deposit(f"L{i}", "CLIENT_LOW", STRUCTURING_MIN_AMOUNT - 1.0, date(2026, 1, i + 1))
+            make_deposit(
+                f"L{i}",
+                "CLIENT_LOW",
+                STRUCTURING_MIN_AMOUNT - 1.0,
+                date(2026, 1, i + 1),
+            )
             for i in range(5)
         ]
         alerts = detect_structuring(txns)
