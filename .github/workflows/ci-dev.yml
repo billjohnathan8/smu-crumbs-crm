@@ -20,7 +20,6 @@ jobs:
       client-backend: ${{ steps.filter.outputs.client-backend }}
       log-backend: ${{ steps.filter.outputs.log-backend }}
       transaction-backend: ${{ steps.filter.outputs.transaction-backend }}
-      xfactor-backend: ${{ steps.filter.outputs.xfactor-backend }}
       platform: ${{ steps.filter.outputs.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -45,8 +44,6 @@ jobs:
               - 'services/backend/log/**'
             transaction-backend:
               - 'services/backend/transaction/**'
-            xfactor-backend:
-              - 'services/backend/xfactor/**'
             platform:
               - 'platform/**'
 
@@ -87,12 +84,6 @@ jobs:
     if: needs.detect-changes.outputs.transaction-backend == 'true'
     uses: ./.github/workflows/ci-transaction-backend.yml
 
-  ci-xfactor-backend:
-    name: CI - X-Factor Backend
-    needs: [detect-changes]
-    if: needs.detect-changes.outputs.xfactor-backend == 'true'
-    uses: ./.github/workflows/ci-xfactor-backend.yml
-
   ci-platform:
     name: CI - Platform Kubernetes
     needs: [detect-changes]
@@ -114,7 +105,6 @@ jobs:
       - ci-client-backend
       - ci-log-backend
       - ci-transaction-backend
-      - ci-xfactor-backend
     if: always()
     steps:
       - name: Check all jobs status
