@@ -4,7 +4,6 @@ Scrooge Global Bank CRM - Feature 5
 
 AWS Lambda entry point — invoked monthly by EventBridge.
 
-
 Architecture Flow:
     Trigger:  EventBridge triggers the Lambda monthly.
     Fetch:    Lambda connects to the SFTP server and downloads the transaction CSV.
