@@ -2,8 +2,9 @@ package com.scroogebank.crm.client_service.service;
 
 import com.scroogebank.crm.client_service.dto.AccountCreateRequest;
 import com.scroogebank.crm.client_service.dto.AccountDto;
+import com.scroogebank.crm.client_service.dto.AccountListResponse;
+import com.scroogebank.crm.client_service.dto.AccountUpdateRequest;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
-import java.util.List;
 
 /**
  * Business operations for managing client accounts.
@@ -35,6 +36,24 @@ public interface AccountService {
 	AccountDto getAccount(AuthenticatedUser user, String accountId);
 
 	/**
+	 * Updates an existing account visible to the authenticated user.
+	 *
+	 * @param user authenticated user
+	 * @param accountId public account identifier
+	 * @param request update payload
+	 * @param authorizationHeader bearer token for downstream audit logging
+	 * @param requestId request correlation id
+	 * @return updated account DTO
+	 */
+	AccountDto updateAccount(
+		AuthenticatedUser user,
+		String accountId,
+		AccountUpdateRequest request,
+		String authorizationHeader,
+		String requestId
+	);
+
+	/**
 	 * Deletes an account visible to the authenticated user.
 	 *
 	 * @param user authenticated user
@@ -45,11 +64,13 @@ public interface AccountService {
 	void deleteAccount(AuthenticatedUser user, String accountId, String authorizationHeader, String requestId);
 
 	/**
-	 * Lists accounts for a client visible to the authenticated user.
+	 * Lists accounts for a client visible to the authenticated user with pagination.
 	 *
 	 * @param user authenticated user
 	 * @param clientId public client identifier
-	 * @return list of account DTOs
+	 * @param limit page size
+	 * @param offset pagination offset
+	 * @return list response with pagination metadata
 	 */
-	List<AccountDto> listAccounts(AuthenticatedUser user, String clientId);
+	AccountListResponse listAccounts(AuthenticatedUser user, String clientId, int limit, int offset);
 }

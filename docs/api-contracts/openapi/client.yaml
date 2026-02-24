@@ -195,6 +195,25 @@ paths:
         '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+    put:
+      tags: [accounts]
+      summary: Update account
+      description: Updates account type, status, or branch. Only changed fields are applied. A log entry must be recorded (Feature 3).
+      security: [{BearerAuth: []}]
+      x-required-roles: [agent, admin]
+      parameters:
+      - {name: accountId, in: path, required: true, schema: {$ref: '#/components/schemas/AccountId'}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AccountUpdateRequest'}
+      responses:
+        '200': {description: Account updated., content: {application/json: {schema: {$ref: '#/components/schemas/Account'}}}}
+        '400': {description: Validation error., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
     delete:
       tags: [accounts]
       summary: Delete account
@@ -216,8 +235,21 @@ paths:
       x-required-roles: [agent, admin]
       parameters:
       - {name: clientId, in: path, required: true, schema: {$ref: '#/components/schemas/ClientId'}}
+      - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+      - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}}
       responses:
-        '200': {description: Accounts for client., content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Account'}}}}}
+        '200':
+          description: Accounts for client.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/Account'}
+                  pagination: {$ref: '#/components/schemas/Pagination'}
+                required: [data]
         '404': {description: Client not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
@@ -273,7 +305,7 @@ components:
         dateOfBirth: {type: string, format: date, description: Must be in the past; age 18-100.}
         gender: {$ref: '#/components/schemas/Gender'}
         emailAddress: {type: string, format: email}
-        phoneNumber: {type: string, minLength: 10, maxLength: 15, example: '+6591234567'}
+        phoneNumber: {type: string, pattern: '^\+\d{10,15}$', example: '+6591234567'}
         address: {type: string, minLength: 5, maxLength: 100}
         city: {type: string, minLength: 2, maxLength: 50}
         state: {type: string, minLength: 2, maxLength: 50}
@@ -305,10 +337,10 @@ components:
       properties:
         firstName: {type: string, minLength: 2, maxLength: 50, pattern: '^[A-Za-z ]+$'}
         lastName: {type: string, minLength: 2, maxLength: 50, pattern: '^[A-Za-z ]+$'}
-        dateOfBirth: {type: string, format: date}
+        dateOfBirth: {type: string, format: date, description: Must be in the past; age 18-100.}
         gender: {$ref: '#/components/schemas/Gender'}
         emailAddress: {type: string, format: email}
-        phoneNumber: {type: string, minLength: 10, maxLength: 15}
+        phoneNumber: {type: string, pattern: '^\+\d{10,15}$', example: '+6591234567'}
         address: {type: string, minLength: 5, maxLength: 100}
         city: {type: string, minLength: 2, maxLength: 50}
         state: {type: string, minLength: 2, maxLength: 50}
@@ -321,10 +353,10 @@ components:
       properties:
         firstName: {type: string, minLength: 2, maxLength: 50, pattern: '^[A-Za-z ]+$'}
         lastName: {type: string, minLength: 2, maxLength: 50, pattern: '^[A-Za-z ]+$'}
-        dateOfBirth: {type: string, format: date}
+        dateOfBirth: {type: string, format: date, description: Must be in the past; age 18-100.}
         gender: {$ref: '#/components/schemas/Gender'}
         emailAddress: {type: string, format: email}
-        phoneNumber: {type: string, minLength: 10, maxLength: 15}
+        phoneNumber: {type: string, pattern: '^\+\d{10,15}$', example: '+6591234567'}
         address: {type: string, minLength: 5, maxLength: 100}
         city: {type: string, minLength: 2, maxLength: 50}
         state: {type: string, minLength: 2, maxLength: 50}
@@ -334,7 +366,7 @@ components:
     VerifyClientRequest:
       type: object
       properties:
-        nric: {type: string, minLength: 6, maxLength: 20, description: Identity document reference (store securely).}
+        nric: {type: string, pattern: '^[STFGM]\d{7}[A-Z]$', description: 'Singapore NRIC (e.g. S1234567D). Store securely.'}
         documentType: {type: string, enum: [NRIC], default: NRIC}
         documentRef: {type: string, description: Reference to uploaded/secured doc (do not send raw docs via API).}
       required: [nric]
@@ -356,6 +388,7 @@ components:
         currency: {type: string, example: SGD}
         branchId: {type: string, example: UBS-SG-001}
         createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
       required: [accountId, clientId, accountType, accountStatus, openingDate, initialDeposit, currency, branchId]
     AccountCreateRequest:
       type: object
@@ -368,5 +401,13 @@ components:
         currency: {type: string, example: SGD}
         branchId: {type: string}
       required: [clientId, accountType, accountStatus, openingDate, initialDeposit, currency, branchId]
+      additionalProperties: false
+    AccountUpdateRequest:
+      type: object
+      description: Partial update for an account. All fields are optional; only provided fields are applied.
+      properties:
+        accountType: {$ref: '#/components/schemas/AccountType'}
+        accountStatus: {$ref: '#/components/schemas/AccountStatus'}
+        branchId: {type: string, example: UBS-SG-002}
       additionalProperties: false
   responses: {}

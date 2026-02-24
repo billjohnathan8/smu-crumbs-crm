@@ -77,7 +77,8 @@ export async function verifyClient(
  * List accounts for a client
  */
 export async function listClientAccounts(clientId: string): Promise<Account[]> {
-  return apiGet<Account[]>(`${CLIENTS_BASE}/${clientId}/accounts`)
+  const response = await apiGet<PaginatedResponse<Account>>(`${CLIENTS_BASE}/${clientId}/accounts`)
+  return response.data
 }
 
 /**

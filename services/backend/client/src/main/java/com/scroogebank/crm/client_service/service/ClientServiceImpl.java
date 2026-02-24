@@ -12,11 +12,14 @@ import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
 import com.scroogebank.crm.client_service.exception.DuplicateClientException;
 import com.scroogebank.crm.client_service.logging.ClientAuditLogger;
+import com.scroogebank.crm.client_service.logging.PiiMasker;
 import com.scroogebank.crm.client_service.repository.ClientRepository;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 import com.scroogebank.crm.client_service.util.IdCodec;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.StringJoiner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -153,19 +156,57 @@ public class ClientServiceImpl implements ClientService {
 		ClientEntity entity = loadOwnedClient(user, clientId);
 		Long id = entity.getId();
 		checkUpdateConflicts(id, request.emailAddress(), request.phoneNumber());
+
+		StringJoiner attrs = new StringJoiner("|");
+		StringJoiner befores = new StringJoiner("|");
+		StringJoiner afters = new StringJoiner("|");
+		collectChange(attrs, befores, afters, "firstName", entity.getFirstName(), request.firstName());
+		collectChange(attrs, befores, afters, "lastName", entity.getLastName(), request.lastName());
+		collectChange(attrs, befores, afters, "dateOfBirth",
+			Objects.toString(entity.getDateOfBirth(), null),
+			request.dateOfBirth() == null ? null : request.dateOfBirth().toString());
+		collectChange(attrs, befores, afters, "gender",
+			Objects.toString(entity.getGender(), null),
+			request.gender() == null ? null : request.gender().name());
+		collectChange(attrs, befores, afters, "emailAddress", entity.getEmailAddress(), request.emailAddress());
+		collectChange(attrs, befores, afters, "phoneNumber", entity.getPhoneNumber(), request.phoneNumber());
+		collectChange(attrs, befores, afters, "address", entity.getAddress(), request.address());
+		collectChange(attrs, befores, afters, "city", entity.getCity(), request.city());
+		collectChange(attrs, befores, afters, "state", entity.getState(), request.state());
+		collectChange(attrs, befores, afters, "country", entity.getCountry(), request.country());
+		collectChange(attrs, befores, afters, "postalCode", entity.getPostalCode(), request.postalCode());
+
 		applyUpdate(entity, request);
 		ClientEntity saved = clientRepository.save(entity);
-		publishAuditSafe(
-			"UPDATE",
-			"Client",
-			null,
-			"updated",
-			user.userId(),
-			clientId(saved.getId()),
-			requestId,
-			authorizationHeader
-		);
+
+		String attrString = attrs.toString();
+		if (!attrString.isEmpty()) {
+			publishAuditSafe(
+				"UPDATE",
+				attrString,
+				befores.toString(),
+				afters.toString(),
+				user.userId(),
+				clientId(saved.getId()),
+				requestId,
+				authorizationHeader
+			);
+		}
 		return toDto(saved);
+	}
+
+	/**
+	 * Records a field change into the attribute/before/after joiners when the new value differs.
+	 */
+	private void collectChange(
+		StringJoiner attrs, StringJoiner befores, StringJoiner afters,
+		String fieldName, String oldValue, String newValue
+	) {
+		if (newValue != null && !newValue.equals(oldValue)) {
+			attrs.add(fieldName);
+			befores.add(oldValue != null ? PiiMasker.mask(fieldName, oldValue) : "");
+			afters.add(PiiMasker.mask(fieldName, newValue));
+		}
 	}
 
 	/**

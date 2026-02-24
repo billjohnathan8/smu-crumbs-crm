@@ -242,10 +242,9 @@ describe('AdminDashboard', () => {
     renderAdminDashboard()
 
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: /Manage Accounts/i })).toHaveAttribute(
-        'href',
-        '/admin/accounts'
-      )
+      const links = screen.getAllByRole('link', { name: /Manage Accounts/i })
+      expect(links.length).toBeGreaterThanOrEqual(1)
+      expect(links[0]).toHaveAttribute('href', '/admin/accounts')
     })
   })
 

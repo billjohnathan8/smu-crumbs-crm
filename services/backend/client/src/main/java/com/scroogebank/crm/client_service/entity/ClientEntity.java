@@ -1,7 +1,9 @@
 package com.scroogebank.crm.client_service.entity;
 
+import com.scroogebank.crm.client_service.crypto.EncryptedStringConverter;
 import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -51,19 +53,23 @@ public class ClientEntity {
 	@Column(name = "phone_number", nullable = false, length = 20)
 	private String phoneNumber;
 
-	@Column(name = "address", nullable = false, length = 100)
+	@Convert(converter = EncryptedStringConverter.class)
+	@Column(name = "address", nullable = false, length = 512)
 	private String address;
 
-	@Column(name = "city", nullable = false, length = 50)
+	@Convert(converter = EncryptedStringConverter.class)
+	@Column(name = "city", nullable = false, length = 512)
 	private String city;
 
-	@Column(name = "state", nullable = false, length = 50)
+	@Convert(converter = EncryptedStringConverter.class)
+	@Column(name = "state", nullable = false, length = 512)
 	private String state;
 
 	@Column(name = "country", nullable = false, length = 50)
 	private String country;
 
-	@Column(name = "postal_code", nullable = false, length = 10)
+	@Convert(converter = EncryptedStringConverter.class)
+	@Column(name = "postal_code", nullable = false, length = 512)
 	private String postalCode;
 
 	@Column(name = "assigned_agent_id", nullable = false, length = 64)
