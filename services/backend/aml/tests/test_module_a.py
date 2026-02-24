@@ -4,17 +4,13 @@ from __future__ import annotations
 
 from datetime import date
 
-import pytest
 
 from lambda_function import (
     AlertType,
-    MockHistoricalTransactionRepository,
-    Transaction,
-    TransactionStatus,
-    TransactionType,
     detect_statistical_outliers,
 )
-from tests.conftest import make_deposit, make_withdrawal
+from tests.mocks import MockHistoricalTransactionRepository
+from tests.conftest import make_deposit
 
 
 # ---------------------------------------------------------------------------
@@ -28,7 +24,9 @@ def _empty_repo() -> MockHistoricalTransactionRepository:
     return repo
 
 
-def _repo_with(client_id: str, amounts: list[float]) -> MockHistoricalTransactionRepository:
+def _repo_with(
+    client_id: str, amounts: list[float]
+) -> MockHistoricalTransactionRepository:
     repo = MockHistoricalTransactionRepository()
     repo.MOCK_HISTORY = {client_id: amounts}
     return repo
@@ -42,33 +40,57 @@ def _repo_with(client_id: str, amounts: list[float]) -> MockHistoricalTransactio
 class TestModuleA_OutlierFlagged:
     """A transaction far outside the client's baseline should be flagged."""
 
-    def test_single_outlier_detected(self, transactions_outlier, historical_repo_outlier):
-        alerts = detect_statistical_outliers(transactions_outlier, historical_repo_outlier)
+    def test_single_outlier_detected(
+        self, transactions_outlier, historical_repo_outlier
+    ):
+        alerts = detect_statistical_outliers(
+            transactions_outlier, historical_repo_outlier
+        )
         assert len(alerts) == 1
 
     def test_outlier_alert_type(self, transactions_outlier, historical_repo_outlier):
-        alerts = detect_statistical_outliers(transactions_outlier, historical_repo_outlier)
+        alerts = detect_statistical_outliers(
+            transactions_outlier, historical_repo_outlier
+        )
         assert alerts[0].alert_type == AlertType.STATISTICAL_OUTLIER
 
-    def test_outlier_transaction_id(self, transactions_outlier, historical_repo_outlier):
-        alerts = detect_statistical_outliers(transactions_outlier, historical_repo_outlier)
+    def test_outlier_transaction_id(
+        self, transactions_outlier, historical_repo_outlier
+    ):
+        alerts = detect_statistical_outliers(
+            transactions_outlier, historical_repo_outlier
+        )
         assert alerts[0].transaction_id == "O004"
 
     def test_outlier_client_id(self, transactions_outlier, historical_repo_outlier):
-        alerts = detect_statistical_outliers(transactions_outlier, historical_repo_outlier)
+        alerts = detect_statistical_outliers(
+            transactions_outlier, historical_repo_outlier
+        )
         assert alerts[0].client_id == "CLIENT_OUTLIER"
 
-    def test_alert_description_contains_sigma(self, transactions_outlier, historical_repo_outlier):
-        alerts = detect_statistical_outliers(transactions_outlier, historical_repo_outlier)
+    def test_alert_description_contains_sigma(
+        self, transactions_outlier, historical_repo_outlier
+    ):
+        alerts = detect_statistical_outliers(
+            transactions_outlier, historical_repo_outlier
+        )
         assert "3" in alerts[0].description and "σ" in alerts[0].description
 
-    def test_review_status_is_pending(self, transactions_outlier, historical_repo_outlier):
-        alerts = detect_statistical_outliers(transactions_outlier, historical_repo_outlier)
+    def test_review_status_is_pending(
+        self, transactions_outlier, historical_repo_outlier
+    ):
+        alerts = detect_statistical_outliers(
+            transactions_outlier, historical_repo_outlier
+        )
         assert alerts[0].review_status == "Pending"
 
-    def test_non_outlier_transactions_not_flagged(self, transactions_outlier, historical_repo_outlier):
+    def test_non_outlier_transactions_not_flagged(
+        self, transactions_outlier, historical_repo_outlier
+    ):
         """Only the extreme outlier transaction should appear; the ~$200 ones must not."""
-        alerts = detect_statistical_outliers(transactions_outlier, historical_repo_outlier)
+        alerts = detect_statistical_outliers(
+            transactions_outlier, historical_repo_outlier
+        )
         flagged_ids = [a.transaction_id for a in alerts]
         assert "O001" not in flagged_ids
         assert "O002" not in flagged_ids
@@ -83,7 +105,9 @@ class TestModuleA_OutlierFlagged:
 class TestModuleA_NoFalsePositives:
     """Stable transactions within 3σ must not generate alerts."""
 
-    def test_normal_transactions_no_alerts(self, transactions_normal, historical_repo_empty):
+    def test_normal_transactions_no_alerts(
+        self, transactions_normal, historical_repo_empty
+    ):
         # transactions_normal has only 3 data points and no history, so std comes
         # from global baseline — all values are clustered; no extreme outliers.
         alerts = detect_statistical_outliers(transactions_normal, historical_repo_empty)
@@ -112,10 +136,14 @@ class TestModuleA_ThinHistoryFallback:
         """A client with no history should still be checked against the global std."""
         # Build a batch where one client has nothing suspicious and one has a massive spike
         normal_txns = [
-            make_deposit(f"G{i}", "CLIENT_GLOBAL", float(1000 + i * 10), date(2026, 1, i + 1))
+            make_deposit(
+                f"G{i}", "CLIENT_GLOBAL", float(1000 + i * 10), date(2026, 1, i + 1)
+            )
             for i in range(5)
         ]
-        spike_txn = make_deposit("SPIKE", "CLIENT_NEW_SPIKE", 999_999.0, date(2026, 1, 15))
+        spike_txn = make_deposit(
+            "SPIKE", "CLIENT_NEW_SPIKE", 999_999.0, date(2026, 1, 15)
+        )
         all_txns = normal_txns + [spike_txn]
 
         repo = _empty_repo()
@@ -190,12 +218,20 @@ class TestModuleA_MultipleClients:
 
 class TestModuleA_AlertFields:
     def test_alert_has_unique_ids(self, transactions_outlier, historical_repo_outlier):
-        alerts = detect_statistical_outliers(transactions_outlier, historical_repo_outlier)
+        alerts = detect_statistical_outliers(
+            transactions_outlier, historical_repo_outlier
+        )
         assert alerts[0].alert_id  # non-empty
         # Run twice to confirm UUIDs differ
-        alerts2 = detect_statistical_outliers(transactions_outlier, historical_repo_outlier)
+        alerts2 = detect_statistical_outliers(
+            transactions_outlier, historical_repo_outlier
+        )
         assert alerts[0].alert_id != alerts2[0].alert_id
 
-    def test_alert_detected_at_is_set(self, transactions_outlier, historical_repo_outlier):
-        alerts = detect_statistical_outliers(transactions_outlier, historical_repo_outlier)
+    def test_alert_detected_at_is_set(
+        self, transactions_outlier, historical_repo_outlier
+    ):
+        alerts = detect_statistical_outliers(
+            transactions_outlier, historical_repo_outlier
+        )
         assert alerts[0].detected_at is not None

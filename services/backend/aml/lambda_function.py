@@ -17,11 +17,6 @@ All external dependencies (SFTP, CRM DB, historical data) are mocked for local
 development and testing; replace the Mock* classes with real clients via the
 environment-variable-driven wiring in lambda_handler().
 
-The only companion file is mock_data.py, which holds the raw mock data
-(CSV string, account tuples, historical amounts).  Swap it out or delete it
-entirely when wiring real clients.
-
-
 Environment variables (production):
     SFTP_HOST           - SFTP server hostname
     SFTP_PORT           - SFTP port (default 22)
@@ -44,9 +39,7 @@ import uuid
 from dataclasses import dataclass, field  # noqa: F401
 from datetime import date, datetime, timezone
 from enum import Enum
-from typing import Any
-
-from mock_data import MOCK_CSV, MOCK_ACCOUNTS_DATA, MOCK_HISTORY_DATA
+from typing import Any, Protocol
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -161,131 +154,197 @@ class LogEntry:
 
 
 # ---------------------------------------------------------------------------
-# Mock: SFTP Client
-# (Replace with a paramiko-based implementation in production)
+# Protocols — structural interfaces for all external dependencies.
+# Production clients and test mocks each implement these independently,
+# ensuring the main code never depends on test infrastructure.
 # ---------------------------------------------------------------------------
 
 
-class MockSFTPClient:
-    """Simulates downloading a monthly transaction CSV from an SFTP server.
+class SFTPClientProtocol(Protocol):
+    """Downloads the monthly transaction CSV from the SFTP server."""
 
-    The actual CSV content lives in mock_data.MOCK_CSV and is also exposed as
-    the class attribute MOCK_CSV for test-code convenience.
-    """
+    def download_transactions_csv(self, remote_path: str) -> str: ...
 
-    # Expose raw CSV as a class attribute so tests can access sftp.MOCK_CSV
-    MOCK_CSV: str = MOCK_CSV  # type: ignore[assignment]
 
-    def download_transactions_csv(
-        self, remote_path: str = "/transactions/latest.csv"
-    ) -> str:
-        """Return mock CSV content as a string."""
-        logger.info("MockSFTPClient: simulating download from '%s'", remote_path)
-        return MOCK_CSV
+class AccountRepositoryProtocol(Protocol):
+    """Reads account records for the current legal-entity instance."""
+
+    def get_accounts(self) -> list[Account]: ...
+
+    def get_account_by_client_id(self, client_id: str) -> Account | None: ...
+
+
+class HistoricalTransactionRepositoryProtocol(Protocol):
+    """Returns prior-period transaction amounts per client."""
+
+    def get_historical_amounts(self, client_id: str) -> list[float]: ...
+
+
+class CRMWriteClientProtocol(Protocol):
+    """Persists AML alerts and audit log entries to the CRM."""
+
+    def write_alert(self, alert: AMLAlert) -> None: ...
+
+    def write_log(self, log: LogEntry) -> None: ...
 
 
 # ---------------------------------------------------------------------------
-# Mock: Account Repository
-# (Replace with a CRM DB query in production)
+# Production clients
+# Instantiated by _create_clients() which is called from lambda_handler().
+# Set the environment variables documented at the top of this file before use.
 # ---------------------------------------------------------------------------
 
 
-class MockAccountRepository:
-    """Returns account records for the current legal-entity instance.
+class SFTPClient:
+    """Production SFTP client backed by paramiko.
 
-    Raw data is sourced from mock_data.MOCK_ACCOUNTS_DATA and converted to
-    Account dataclass instances on construction.
+    Authenticates using the SSH private key fetched from AWS Secrets Manager
+    (SFTP_KEY_SECRET) and downloads the monthly transaction CSV.
     """
 
     def __init__(self) -> None:
-        self._accounts: list[Account] = [
-            Account(
-                account_id=row[0],
-                client_id=row[1],
-                account_type=AccountType(row[2]),
-                account_status=AccountStatus(row[3]),
-                opening_date=date.fromisoformat(row[4]),
-                initial_deposit=row[5],
-            )
-            for row in MOCK_ACCOUNTS_DATA
-        ]
+        self._host = os.environ["SFTP_HOST"]
+        self._port = int(os.environ.get("SFTP_PORT", "22"))
+        self._user = os.environ["SFTP_USER"]
+        self._key_secret_arn = os.environ["SFTP_KEY_SECRET"]
 
+    # SFTPClientProtocol
+    def download_transactions_csv(self, remote_path: str) -> str:
+        import paramiko  # noqa: PLC0415
+
+        pkey = paramiko.RSAKey.from_private_key(io.StringIO(self._fetch_key()))
+        with paramiko.SSHClient() as ssh:
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(
+                hostname=self._host,
+                port=self._port,
+                username=self._user,
+                pkey=pkey,
+            )
+            with ssh.open_sftp() as sftp_session:
+                with sftp_session.file(remote_path, "r") as fh:
+                    return fh.read().decode("utf-8")
+
+    def _fetch_key(self) -> str:
+        """Retrieve the SSH private key string from AWS Secrets Manager."""
+        import boto3  # noqa: PLC0415
+
+        sm = boto3.client("secretsmanager")
+        return sm.get_secret_value(SecretId=self._key_secret_arn)["SecretString"]
+
+
+class AccountRepository:
+    """Production account repository — queries the CRM accounts REST endpoint."""
+
+    def __init__(self) -> None:
+        self._base_url = os.environ["CRM_API_BASE_URL"].rstrip("/")
+        self._entity_id = os.environ["ENTITY_ID"]
+
+    # AccountRepositoryProtocol
     def get_accounts(self) -> list[Account]:
-        return list(self._accounts)
+        import urllib.request  # noqa: PLC0415
+
+        url = f"{self._base_url}/entities/{self._entity_id}/accounts"
+        with urllib.request.urlopen(url) as resp:
+            rows = json.loads(resp.read().decode())
+        return [self._deserialise(row) for row in rows]
 
     def get_account_by_client_id(self, client_id: str) -> Account | None:
-        for acc in self._accounts:
-            if acc.client_id == client_id:
-                return acc
-        return None
+        import urllib.error  # noqa: PLC0415
+        import urllib.request  # noqa: PLC0415
+
+        url = f"{self._base_url}/entities/{self._entity_id}/accounts/{client_id}"
+        try:
+            with urllib.request.urlopen(url) as resp:
+                return self._deserialise(json.loads(resp.read().decode()))
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                return None
+            raise
+
+    @staticmethod
+    def _deserialise(row: dict[str, Any]) -> Account:
+        return Account(
+            account_id=row["account_id"],
+            client_id=row["client_id"],
+            account_type=AccountType(row["account_type"]),
+            account_status=AccountStatus(row["account_status"]),
+            opening_date=date.fromisoformat(row["opening_date"]),
+            initial_deposit=float(row["initial_deposit"]),
+            currency=row.get("currency", "SGD"),
+            branch_id=row.get("branch_id", ""),
+        )
 
 
-# ---------------------------------------------------------------------------
-# Mock: Historical Transaction Repository
-# (Replace with a CRM DB query for prior-period amounts in production)
-# ---------------------------------------------------------------------------
-
-
-class MockHistoricalTransactionRepository:
-    """Returns historical transaction amounts used to build per-client baselines.
-
-    Raw data is sourced from mock_data.MOCK_HISTORY_DATA on construction and
-    stored as the instance attribute MOCK_HISTORY so that test code can
-    override it per-instance:
-        repo = MockHistoricalTransactionRepository()
-        repo.MOCK_HISTORY = {"CLIENT_X": [100.0, 200.0, ...]}
-    """
+class HistoricalTransactionRepository:
+    """Production historical transaction repository — queries the CRM history endpoint."""
 
     def __init__(self) -> None:
-        # Copy so individual instances can be mutated independently
-        self.MOCK_HISTORY: dict[str, list[float]] = {
-            k: list(v) for k, v in MOCK_HISTORY_DATA.items()
-        }
+        self._base_url = os.environ["CRM_API_BASE_URL"].rstrip("/")
+        self._entity_id = os.environ["ENTITY_ID"]
 
+    # HistoricalTransactionRepositoryProtocol
     def get_historical_amounts(self, client_id: str) -> list[float]:
-        return list(self.MOCK_HISTORY.get(client_id, []))
+        import urllib.request  # noqa: PLC0415
+
+        url = (
+            f"{self._base_url}/entities/{self._entity_id}"
+            f"/clients/{client_id}/historical-amounts"
+        )
+        with urllib.request.urlopen(url) as resp:
+            return [float(v) for v in json.loads(resp.read().decode())]
 
 
-# ---------------------------------------------------------------------------
-# Mock: CRM Write Client
-# (Replace with real HTTP/DB calls in production)
-# ---------------------------------------------------------------------------
-
-
-class MockCRMWriteClient:
-    """Captures alerts and log entries that would be written to the CRM."""
+class CRMWriteClient:
+    """Production CRM write client — POSTs alerts and log entries via REST."""
 
     def __init__(self) -> None:
-        self.written_alerts: list[dict[str, Any]] = []
-        self.written_logs: list[dict[str, Any]] = []
+        self._base_url = os.environ["CRM_API_BASE_URL"].rstrip("/")
+        self._entity_id = os.environ["ENTITY_ID"]
 
+    # CRMWriteClientProtocol
     def write_alert(self, alert: AMLAlert) -> None:
-        payload: dict[str, Any] = {
-            "alert_id": alert.alert_id,
-            "client_id": alert.client_id,
-            "transaction_id": alert.transaction_id,
-            "alert_type": alert.alert_type.value,
-            "description": alert.description,
-            "detected_at": alert.detected_at.isoformat(),
-            "review_status": alert.review_status,
-        }
-        self.written_alerts.append(payload)
-        logger.info("CRM WRITE - Alert: %s", json.dumps(payload, default=str))
+        self._post(
+            f"/entities/{self._entity_id}/aml-alerts",
+            {
+                "alert_id": alert.alert_id,
+                "client_id": alert.client_id,
+                "transaction_id": alert.transaction_id,
+                "alert_type": alert.alert_type.value,
+                "description": alert.description,
+                "detected_at": alert.detected_at.isoformat(),
+                "review_status": alert.review_status,
+            },
+        )
 
     def write_log(self, log: LogEntry) -> None:
-        payload: dict[str, Any] = {
-            "log_id": log.log_id,
-            "action": log.action.value,
-            "attribute_name": log.attribute_name,
-            "before_value": log.before_value,
-            "after_value": log.after_value,
-            "agent_id": log.agent_id,
-            "client_id": log.client_id,
-            "date_time": log.date_time.isoformat(),
-            "correlation_id": log.correlation_id,
-        }
-        self.written_logs.append(payload)
-        logger.info("CRM WRITE - Log: %s", json.dumps(payload, default=str))
+        self._post(
+            f"/entities/{self._entity_id}/logs",
+            {
+                "log_id": log.log_id,
+                "action": log.action.value,
+                "attribute_name": log.attribute_name,
+                "before_value": log.before_value,
+                "after_value": log.after_value,
+                "agent_id": log.agent_id,
+                "client_id": log.client_id,
+                "date_time": log.date_time.isoformat(),
+                "correlation_id": log.correlation_id,
+            },
+        )
+
+    def _post(self, path: str, payload: dict[str, Any]) -> None:
+        import urllib.request  # noqa: PLC0415
+
+        body = json.dumps(payload, default=str).encode()
+        req = urllib.request.Request(
+            url=self._base_url + path,
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req):
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -328,7 +387,7 @@ def parse_transactions_csv(csv_content: str) -> list[Transaction]:
 
 def detect_statistical_outliers(
     transactions: list[Transaction],
-    historical_repo: MockHistoricalTransactionRepository,
+    historical_repo: HistoricalTransactionRepositoryProtocol,
 ) -> list[AMLAlert]:
     """Flag transactions that deviate more than 3σ from a client's baseline.
 
@@ -630,8 +689,8 @@ def create_log_entry_for_alert(alert: AMLAlert) -> LogEntry:
 def run_aml_engine(
     transactions: list[Transaction],
     accounts: list[Account],
-    historical_repo: MockHistoricalTransactionRepository,
-    crm_client: MockCRMWriteClient,
+    historical_repo: HistoricalTransactionRepositoryProtocol,
+    crm_client: CRMWriteClientProtocol,
     reference_date: date | None = None,
 ) -> dict[str, Any]:
     """Orchestrate all three AML detection modules and persist results.
@@ -701,6 +760,39 @@ def run_aml_engine(
 
 
 # ---------------------------------------------------------------------------
+# Client Factory
+# ---------------------------------------------------------------------------
+
+
+def _create_clients() -> tuple[
+    SFTPClientProtocol,
+    AccountRepositoryProtocol,
+    HistoricalTransactionRepositoryProtocol,
+    CRMWriteClientProtocol,
+]:
+    """Instantiate and return the four production external clients.
+
+    Isolated in its own function so that integration tests can swap all four
+    clients with a single monkeypatch call instead of patching each constructor
+    separately:
+
+        monkeypatch.setattr(
+            "lambda_function._create_clients",
+            lambda: (MockSFTPClient(), MockAccountRepository(),
+                     MockHistoricalTransactionRepository(), MockCRMWriteClient()),
+        )
+
+    See tests/mocks.py for the mock implementations.
+    """
+    return (
+        SFTPClient(),
+        AccountRepository(),
+        HistoricalTransactionRepository(),
+        CRMWriteClient(),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Lambda Handler (AWS entry point)
 # ---------------------------------------------------------------------------
 
@@ -708,13 +800,14 @@ def run_aml_engine(
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """AWS Lambda entry point — invoked monthly by EventBridge.
 
-    The function wires together the mock (or real, via env vars) external
-    clients and runs the full AML batch pipeline:
+    Obtains the four external clients from _create_clients() and runs the full
+    AML batch pipeline:
 
         SFTP download → CSV parse → AML engine → CRM write + Log write
 
-    In production replace each Mock* client with a real implementation driven
-    by the environment variables documented at the top of this file.
+    For integration testing, monkeypatch _create_clients to inject mocks
+    (see tests/mocks.py).  For production, set the environment variables
+    documented at the top of this file.
 
     Args:
         event:   EventBridge scheduled-event payload (not consumed directly).
@@ -725,16 +818,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """
     logger.info("Lambda invoked. Event: %s", json.dumps(event, default=str))
 
-    # --- Dependency wiring ---
-    # Production swap-outs:
-    #   sftp_client      = ParamikoSFTPClient(host, user, key_secret)
-    #   account_repo     = CRMAccountRepository(CRM_API_BASE_URL)
-    #   historical_repo  = CRMHistoricalTransactionRepository(CRM_API_BASE_URL)
-    #   crm_client       = CRMWriteClient(CRM_API_BASE_URL)
-    sftp_client = MockSFTPClient()
-    account_repo = MockAccountRepository()
-    historical_repo = MockHistoricalTransactionRepository()
-    crm_client = MockCRMWriteClient()
+    sftp_client, account_repo, historical_repo, crm_client = _create_clients()
 
     # Step 1 — Fetch transaction CSV from SFTP
     remote_path = os.environ.get("SFTP_REMOTE_PATH", "/transactions/latest.csv")

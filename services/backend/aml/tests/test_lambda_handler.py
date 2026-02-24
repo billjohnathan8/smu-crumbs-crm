@@ -14,17 +14,18 @@ from lambda_function import (
     AlertType,
     AMLAlert,
     LogAction,
-    MockAccountRepository,
-    MockCRMWriteClient,
-    MockHistoricalTransactionRepository,
-    MockSFTPClient,
-    Transaction,
     TransactionStatus,
     TransactionType,
     create_log_entry_for_alert,
     lambda_handler,
     parse_transactions_csv,
     run_aml_engine,
+)
+from tests.mocks import (
+    MockAccountRepository,
+    MockCRMWriteClient,
+    MockHistoricalTransactionRepository,
+    MockSFTPClient,
 )
 from tests.conftest import REF_DATE
 
@@ -173,7 +174,10 @@ class TestRunAmlEngine:
         txns = parse_transactions_csv(sftp.MOCK_CSV)
         accounts = MockAccountRepository().get_accounts()
         hist_repo = MockHistoricalTransactionRepository()
-        return run_aml_engine(txns, accounts, hist_repo, crm_client, REF_DATE), crm_client
+        return (
+            run_aml_engine(txns, accounts, hist_repo, crm_client, REF_DATE),
+            crm_client,
+        )
 
     def test_summary_has_required_keys(self, engine_result):
         summary, _ = engine_result
@@ -252,6 +256,19 @@ class TestRunAmlEngine:
 
 
 class TestLambdaHandler:
+    @pytest.fixture(autouse=True)
+    def _inject_mocks(self, monkeypatch):
+        """Patch _create_clients so lambda_handler uses mocks, not real clients."""
+        monkeypatch.setattr(
+            "lambda_function._create_clients",
+            lambda: (
+                MockSFTPClient(),
+                MockAccountRepository(),
+                MockHistoricalTransactionRepository(),
+                MockCRMWriteClient(),
+            ),
+        )
+
     def test_returns_200_status(self):
         result = lambda_handler({}, None)
         assert result["statusCode"] == 200

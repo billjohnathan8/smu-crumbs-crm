@@ -22,12 +22,14 @@ from lambda_function import (  # noqa: E402
     Account,
     AccountStatus,
     AccountType,
-    MockAccountRepository,
-    MockCRMWriteClient,
-    MockHistoricalTransactionRepository,
     Transaction,
     TransactionStatus,
     TransactionType,
+)
+from tests.mocks import (  # noqa: E402
+    MockAccountRepository,
+    MockCRMWriteClient,
+    MockHistoricalTransactionRepository,
 )
 
 
@@ -179,7 +181,9 @@ def transactions_structuring() -> list[Transaction]:
     return [
         make_deposit("S001", "CLIENT_SMURF", 4_000.0, date(2026, 1, 1)),
         make_deposit("S002", "CLIENT_SMURF", 3_500.0, date(2026, 1, 3)),
-        make_deposit("S003", "CLIENT_SMURF", 3_200.0, date(2026, 1, 6)),  # cumulative = 10,700
+        make_deposit(
+            "S003", "CLIENT_SMURF", 3_200.0, date(2026, 1, 6)
+        ),  # cumulative = 10,700
     ]
 
 

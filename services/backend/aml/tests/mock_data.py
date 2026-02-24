@@ -1,14 +1,12 @@
 """
-AML Mock Data
-Scrooge Global Bank CRM - Feature 5
+Raw mock data for the AML test suite.
 
-This module contains ONLY the raw mock data used by the local-development
-mock clients inside lambda_function.py.  It has no business logic and no
-custom type imports, so it stays pure-primitive and can be imported without
-circular-dependency concerns.
+This module contains only primitive values (strings, tuples, dicts).
+It has no imports from lambda_function and no business logic, so it can
+be imported by tests/mocks.py without triggering any side-effects.
 
-In production these values are replaced by live data fetched from the SFTP
-server, the CRM account database, and the historical-transaction store.
+In production this data comes from the SFTP server, the CRM account DB,
+and the historical transaction store.
 """
 
 # ---------------------------------------------------------------------------
@@ -76,7 +74,6 @@ MOCK_ACCOUNTS_DATA: list[tuple] = [
 # Clients absent from this dict fall back to a peer-group baseline inside
 # Module A.  The history for CLIENT_C is very stable so the 50 000 SGD
 # deposit stands out clearly.
-
 
 MOCK_HISTORY_DATA: dict[str, list[float]] = {
     # Very stable small-value history → $50 000 is a clear outlier
