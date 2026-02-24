@@ -10,6 +10,7 @@ import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.exception.AccountNotFoundException;
 import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
 import com.scroogebank.crm.client_service.logging.ClientAuditLogger;
+import com.scroogebank.crm.client_service.logging.PiiMasker;
 import com.scroogebank.crm.client_service.repository.AccountRepository;
 import com.scroogebank.crm.client_service.repository.ClientRepository;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
@@ -163,8 +164,8 @@ public class AccountServiceImpl implements AccountService {
 		String fieldName, String oldValue, String newValue
 	) {
 		attrs.add(fieldName);
-		befores.add(oldValue != null ? oldValue : "");
-		afters.add(newValue);
+		befores.add(oldValue != null ? PiiMasker.mask(fieldName, oldValue) : "");
+		afters.add(PiiMasker.mask(fieldName, newValue));
 	}
 
 	private AccountDto toDto(AccountEntity entity) {

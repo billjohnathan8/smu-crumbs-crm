@@ -12,6 +12,7 @@ import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
 import com.scroogebank.crm.client_service.exception.DuplicateClientException;
 import com.scroogebank.crm.client_service.logging.ClientAuditLogger;
+import com.scroogebank.crm.client_service.logging.PiiMasker;
 import com.scroogebank.crm.client_service.repository.ClientRepository;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 import com.scroogebank.crm.client_service.util.IdCodec;
@@ -203,8 +204,8 @@ public class ClientServiceImpl implements ClientService {
 	) {
 		if (newValue != null && !newValue.equals(oldValue)) {
 			attrs.add(fieldName);
-			befores.add(oldValue != null ? oldValue : "");
-			afters.add(newValue);
+			befores.add(oldValue != null ? PiiMasker.mask(fieldName, oldValue) : "");
+			afters.add(PiiMasker.mask(fieldName, newValue));
 		}
 	}
 
