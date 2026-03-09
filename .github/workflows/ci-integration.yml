@@ -2,7 +2,7 @@ name: CI - Integration Pipeline
 
 # Full pipeline for the integration trunk.
 # Mirrors the local test flow:
-#   lint -> tests (all 5 components) -> e2e
+#   lint -> tests (all 5 components) -> core integration -> fullstack integration -> e2e
 #
 # This is the staging gate: everything must pass here before merging to main.
 
@@ -138,9 +138,46 @@ jobs:
       timeout-minutes: 10
       artifact-paths: services/frontend/crm-ui/coverage/**
 
+  # ==========================================================================
+  # Layer 3: Core integration smoke (cross-service checks before deploy)
+  # ==========================================================================
+  core-integration:
+    needs:
+      - changes
+      - actionlint
+      - lint
+      - test-agent
+      - test-client
+      - test-transaction
+      - test-log
+    if: >-
+      ${{ always()
+          && !contains(needs.*.result, 'failure')
+          && !contains(needs.*.result, 'cancelled')
+          && (needs.changes.outputs.any-backend == 'true'
+              || needs.changes.outputs.ci-config == 'true') }}
+    uses: ./.github/workflows/reusable-core-integration.yml
+
+  # ==========================================================================
+  # Layer 4: Containerized fullstack integration (real backend+frontend E2E)
+  # ==========================================================================
+  fullstack-integration-e2e:
+    needs:
+      - changes
+      - actionlint
+      - test-frontend
+      - core-integration
+    if: >-
+      ${{ always()
+          && !contains(needs.*.result, 'failure')
+          && !contains(needs.*.result, 'cancelled')
+          && (needs.changes.outputs.any-service == 'true'
+              || needs.changes.outputs.ci-config == 'true') }}
+    uses: ./.github/workflows/reusable-fullstack-integration.yml
+
   e2e-frontend:
     name: E2E Tests - Frontend
-    needs: [changes, test-frontend]
+    needs: [changes, test-frontend, fullstack-integration-e2e]
     if: >-
       ${{ !failure() && !cancelled()
           && (needs.changes.outputs.frontend == 'true'

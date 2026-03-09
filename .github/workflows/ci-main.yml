@@ -1,7 +1,7 @@
 name: CI - Main Pipeline
 
 # Full pipeline for the main branch.
-# Runs: changes -> lint -> tests -> e2e.
+# Runs: changes -> lint -> component tests -> core integration -> fullstack integration -> e2e.
 #
 # Job DAG:
 #
@@ -17,7 +17,13 @@ name: CI - Main Pipeline
 #      +---> test-frontend        /
 #      |
 #      v
-#   e2e-frontend (needs test-frontend)
+#   core-integration (cross-service smoke before deploy)
+#      |
+#      v
+#   fullstack-integration-e2e (containerized backend+frontend, no API mocks)
+#      |
+#      v
+#   e2e-frontend (needs test-frontend + fullstack-integration-e2e)
 
 on:
   pull_request:
@@ -148,9 +154,44 @@ jobs:
       timeout-minutes: 10
       artifact-paths: services/frontend/crm-ui/coverage/**
 
+  # ==========================================================================
+  # Layer 3: Core integration smoke (cross-service checks before deploy)
+  # ==========================================================================
+  core-integration:
+    needs:
+      - changes
+      - lint
+      - test-agent
+      - test-client
+      - test-transaction
+      - test-log
+    if: >-
+      ${{ always()
+          && !contains(needs.*.result, 'failure')
+          && !contains(needs.*.result, 'cancelled')
+          && (needs.changes.outputs.any-backend == 'true'
+              || needs.changes.outputs.ci-config == 'true') }}
+    uses: ./.github/workflows/reusable-core-integration.yml
+
+  # ==========================================================================
+  # Layer 4: Containerized fullstack integration (real backend+frontend E2E)
+  # ==========================================================================
+  fullstack-integration-e2e:
+    needs:
+      - changes
+      - test-frontend
+      - core-integration
+    if: >-
+      ${{ always()
+          && !contains(needs.*.result, 'failure')
+          && !contains(needs.*.result, 'cancelled')
+          && (needs.changes.outputs.any-service == 'true'
+              || needs.changes.outputs.ci-config == 'true') }}
+    uses: ./.github/workflows/reusable-fullstack-integration.yml
+
   e2e-frontend:
     name: E2E Tests - Frontend
-    needs: [changes, test-frontend]
+    needs: [changes, test-frontend, fullstack-integration-e2e]
     if: >-
       ${{ !failure() && !cancelled()
           && (needs.changes.outputs.frontend == 'true'
