@@ -1,40 +1,8 @@
 import { test, expect } from "@playwright/test";
+import { setupAdminRoutes } from "./helpers/mockRoutes";
 
 test("simple admin login test", async ({ page }) => {
-  // Set up route mocking
-  await page.route("**/api/**", (route) => {
-    const url = route.request().url();
-
-    if (url.includes("/api/auth/login")) {
-      return route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          accessToken: "mock-admin-token",
-          refreshToken: "mock-refresh-token",
-          expiresIn: 3600,
-          tokenType: "Bearer",
-        }),
-      });
-    }
-
-    if (url.includes("/api/agents/me")) {
-      return route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          id: "admin-1",
-          firstName: "Admin",
-          lastName: "User",
-          email: "admin@example.com",
-          role: "admin",
-          status: "active",
-        }),
-      });
-    }
-
-    route.continue();
-  });
+  await setupAdminRoutes(page);
 
   // Navigate to login page
   await page.goto("/login");

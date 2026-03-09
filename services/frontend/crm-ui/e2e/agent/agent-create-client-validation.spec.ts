@@ -1,10 +1,13 @@
 import { test, expect, Route } from "@playwright/test";
 import { setAuthState } from "../helpers/auth";
+import { setupAgentRoutes } from "../helpers/mockRoutes";
 import { uniqueEmail, uniquePhone, dobForAge } from "../helpers/testData";
 
 test.describe("Agent Create Client - Validation (Flow 6)", () => {
   test.beforeEach(async ({ page, context }) => {
     await context.clearCookies();
+    // Install default API mocks before first navigation to avoid Vite proxy noise.
+    await setupAgentRoutes(page);
     await page.goto("/login");
     await setAuthState(page, "agent");
   });

@@ -1,10 +1,13 @@
 import { test, expect, Route } from "@playwright/test";
 import { setAuthState } from "../helpers/auth";
+import { setupAdminRoutes } from "../helpers/mockRoutes";
 import { uniqueEmail, uniqueId } from "../helpers/testData";
 
 test.describe("Admin Manage Accounts (Flow 3)", () => {
   test.beforeEach(async ({ page, context }) => {
     await context.clearCookies();
+    // Install default API mocks before first navigation to avoid Vite proxy noise.
+    await setupAdminRoutes(page);
     await page.goto("/login");
     await setAuthState(page, "admin");
   });
