@@ -1,53 +1,23 @@
-import { test, expect, Route } from "@playwright/test";
-import { setAuthState } from "../helpers/auth";
+/**
+ * Protected Route Access Integration Tests
+ * 
+ * Moved from e2e/auth/protected-routes.spec.ts due to proxy errors.
+ * Tests navigation to protected routes that auto-load data.
+ * 
+ * Run with: npm run e2e:integration:real
+ */
 
-test.describe("Protected Route Access (Flow 9)", () => {
+import { test, expect } from "@playwright/test";
+
+test.describe("Protected Route Access (Integration)", () => {
   test.beforeEach(async ({ page, context }) => {
-    // Clear cookies and storage
+    // Clear cookies and storage for clean state
     await context.clearCookies();
-
-    // Set up minimal API mocking to prevent hanging requests
-    await page.route("**/api/**", (route: Route) => {
-      const url = route.request().url();
-
-      // Skip Vite dev server requests
-      if (
-        url.includes("/@vite") ||
-        url.includes("/@fs") ||
-        url.includes("/@id") ||
-        url.includes(".js") ||
-        url.includes(".ts") ||
-        url.includes(".jsx") ||
-        url.includes(".tsx") ||
-        url.includes(".css")
-      ) {
-        return route.continue();
-      }
-
-      // Mock auth endpoints
-      if (
-        url.includes("/api/agents/me") &&
-        route.request().method() === "GET"
-      ) {
-        const authHeader = route.request().headers()["authorization"];
-
-        if (!authHeader || authHeader === "Bearer null") {
-          return route.fulfill({
-            status: 401,
-            contentType: "application/json",
-            body: JSON.stringify({
-              error: "unauthorized",
-              message: "Not authenticated",
-            }),
-          });
-        }
-
-        // Determine role from token
-        const role = authHeader.includes("admin") ? "admin" : "agent";
-
-        return route.fulfill({
-          status: 200,
-          contentType: "application/json",
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+  });
           body: JSON.stringify({
             id: `${role}-1`,
             firstName: role === "admin" ? "Admin" : "Agent",

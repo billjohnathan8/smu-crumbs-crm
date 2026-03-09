@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE_FILE="${ROOT_DIR}/scripts/ci/fullstack-integration.compose.yml"
 LOG_DIR="${ROOT_DIR}/build-logs/fullstack-integration"
 FRONTEND_DIR="${ROOT_DIR}/services/frontend/crm-ui"
+INTEGRATION_TEST_DIR="${ROOT_DIR}/tests/integration"
 
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-http://127.0.0.1:18088}"
 COMPOSE_PROJECT_NAME="crm-fullstack-it-${GITHUB_RUN_ID:-local}-$$"
@@ -255,13 +256,13 @@ echo "All cross-service smoke assertions passed."
 
 echo ""
 echo "=== Phase 5: Playwright integration E2E ==="
-pushd "${FRONTEND_DIR}" >/dev/null
+pushd "${INTEGRATION_TEST_DIR}" >/dev/null
 PLAYWRIGHT_EXTERNAL_BASE_URL=true \
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
 E2E_ADMIN_EMAIL="${E2E_ADMIN_EMAIL:-admin@crm.local}" \
 E2E_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-admin123}" \
 E2E_AGENT_PASSWORD="${E2E_AGENT_PASSWORD:-AgentPass123!}" \
-npm run e2e:integration:real
+npm test
 popd >/dev/null
 
 echo ""
