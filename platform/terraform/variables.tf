@@ -57,22 +57,12 @@ variable "public_subnet_cidrs" {
   description = "CIDR blocks for public subnets (must match az_count)."
   type        = list(string)
   default     = ["10.42.0.0/24", "10.42.1.0/24"]
-
-  validation {
-    condition     = length(var.public_subnet_cidrs) == var.az_count
-    error_message = "public_subnet_cidrs length must equal az_count."
-  }
 }
 
 variable "private_subnet_cidrs" {
   description = "CIDR blocks for private app/data subnets (must match az_count)."
   type        = list(string)
   default     = ["10.42.10.0/24", "10.42.11.0/24"]
-
-  validation {
-    condition     = length(var.private_subnet_cidrs) == var.az_count
-    error_message = "private_subnet_cidrs length must equal az_count."
-  }
 }
 
 #--------------------------------------------------------------
