@@ -255,7 +255,7 @@ Authors should:
 <a id="sec-7-5-terraform"></a>
 ### 7.4 Terraform (AWS IaC)
 **Rules**
-- One module per responsibility (network, eks, rds, cognito, ecr)
+- One module per responsibility (network, rds, cognito, ecr)
 - Avoid copy/paste between environments; use variables/workspaces
 - Use remote state + locking for teams
 - Never commit `.tfstate` or `.tfstate.backup`
