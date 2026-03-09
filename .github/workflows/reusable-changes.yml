@@ -33,6 +33,9 @@ on:
       any-service:
         description: 'true if any service (backend or frontend) changed'
         value: ${{ jobs.detect.outputs.any-service }}
+      platform:
+        description: 'true if platform/ (Terraform/k8s) changed'
+        value: ${{ jobs.detect.outputs.platform }}
 
 permissions:
   contents: read
@@ -52,6 +55,7 @@ jobs:
       ci-config: ${{ steps.filter.outputs.ci-config }}
       any-backend: ${{ steps.aggregate.outputs.any-backend }}
       any-service: ${{ steps.aggregate.outputs.any-service }}
+      platform: ${{ steps.filter.outputs.platform }}
 
     steps:
       - name: Checkout code
@@ -80,6 +84,8 @@ jobs:
             ci-config:
               - '.github/workflows/**'
               - '.github/actions/**'
+            platform:
+              - 'platform/**'
 
       - name: Compute aggregate flags
         id: aggregate
@@ -116,4 +122,5 @@ jobs:
             echo "| frontend | ${{ steps.filter.outputs.frontend }} |"
             echo "| scripts | ${{ steps.filter.outputs.scripts }} |"
             echo "| ci-config | ${{ steps.filter.outputs.ci-config }} |"
+            echo "| platform | ${{ steps.filter.outputs.platform }} |"
           } >> "$GITHUB_STEP_SUMMARY"

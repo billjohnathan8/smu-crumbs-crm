@@ -64,6 +64,9 @@ jobs:
       run-frontend: >-
         ${{ needs.changes.outputs.frontend == 'true'
             || needs.changes.outputs.ci-config == 'true' }}
+      run-terraform: >-
+        ${{ needs.changes.outputs.platform == 'true'
+            || needs.changes.outputs.ci-config == 'true' }}
 
   # ==========================================================================
   # Layer 2: Component tests  (parallel, each gated by its scope)

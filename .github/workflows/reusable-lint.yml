@@ -21,6 +21,11 @@ on:
         required: false
         type: boolean
         default: false
+      run-terraform:
+        description: 'Run terraform fmt, validate, tflint, and checkov for platform/terraform'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -140,3 +145,73 @@ jobs:
       - name: Prettier format check
         timeout-minutes: 1
         run: npm run format:check
+
+  # ---- Terraform fmt + validate + tflint + checkov ----
+  terraform-lint:
+    name: Terraform Static Analysis
+    if: inputs.run-terraform
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: platform/terraform
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        timeout-minutes: 2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        timeout-minutes: 2
+        with:
+          terraform_version: "~1.6"
+
+      - name: terraform fmt check
+        timeout-minutes: 2
+        run: terraform fmt -check -recursive
+
+      - name: terraform init (no backend)
+        timeout-minutes: 5
+        run: terraform init -backend=false
+
+      - name: terraform validate
+        timeout-minutes: 2
+        run: terraform validate
+
+      - name: Set up TFLint
+        uses: terraform-linters/setup-tflint@v4
+        timeout-minutes: 3
+        with:
+          tflint_version: v0.53.0
+
+      - name: TFLint init (download AWS plugin)
+        timeout-minutes: 3
+        run: tflint --init
+
+      - name: Run TFLint
+        timeout-minutes: 3
+        run: tflint --format compact
+
+      - name: Set up Python for Checkov
+        uses: actions/setup-python@v5
+        timeout-minutes: 2
+        with:
+          python-version: '3.13'
+
+      - name: Install Checkov
+        timeout-minutes: 3
+        run: pip install checkov
+
+      - name: Run Checkov (security & compliance scan)
+        # --soft-fail reports findings without blocking the pipeline.
+        # Remove --soft-fail once critical findings are resolved and
+        # enforcement is desired on every merge.
+        timeout-minutes: 5
+        run: |
+          checkov \
+            --directory . \
+            --framework terraform \
+            --output cli \
+            --compact \
+            --quiet \
+            --soft-fail

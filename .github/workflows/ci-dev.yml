@@ -20,6 +20,7 @@ jobs:
       client-backend: ${{ steps.filter.outputs.client-backend }}
       log-backend: ${{ steps.filter.outputs.log-backend }}
       transaction-backend: ${{ steps.filter.outputs.transaction-backend }}
+      platform: ${{ steps.filter.outputs.platform }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,6 +44,8 @@ jobs:
               - 'services/backend/log/**'
             transaction-backend:
               - 'services/backend/transaction/**'
+            platform:
+              - 'platform/**'
 
   # Conditional CI jobs based on changed services
   ci-frontend:
@@ -81,6 +84,14 @@ jobs:
     if: needs.detect-changes.outputs.transaction-backend == 'true'
     uses: ./.github/workflows/ci-transaction-backend.yml
 
+  ci-terraform:
+    name: CI - Terraform Static Analysis
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.platform == 'true'
+    uses: ./.github/workflows/reusable-lint.yml
+    with:
+      run-terraform: true
+
   # Summary job that runs after all checks
   ci-dev-summary:
     name: CI/CD Summary
@@ -92,6 +103,7 @@ jobs:
       - ci-client-backend
       - ci-log-backend
       - ci-transaction-backend
+      - ci-terraform
     if: always()
     steps:
       - name: Check all jobs status
