@@ -9,9 +9,15 @@ def test_settings_prefers_direct_env_values(monkeypatch) -> None:
     monkeypatch.setenv("DB_USER", "direct-user")
     monkeypatch.setenv("DB_PASSWORD", "direct-password")
     monkeypatch.setenv("JWT_HMAC_SECRET", "direct-jwt")
-    monkeypatch.setenv("DB_USER_SECRET_ARN", "arn:aws:secretsmanager:region:acct:secret:u")
-    monkeypatch.setenv("DB_PASSWORD_SECRET_ARN", "arn:aws:secretsmanager:region:acct:secret:p")
-    monkeypatch.setenv("JWT_HMAC_SECRET_ARN", "arn:aws:secretsmanager:region:acct:secret:j")
+    monkeypatch.setenv(
+        "DB_USER_SECRET_ARN", "arn:aws:secretsmanager:region:acct:secret:u"
+    )
+    monkeypatch.setenv(
+        "DB_PASSWORD_SECRET_ARN", "arn:aws:secretsmanager:region:acct:secret:p"
+    )
+    monkeypatch.setenv(
+        "JWT_HMAC_SECRET_ARN", "arn:aws:secretsmanager:region:acct:secret:j"
+    )
 
     settings = Settings()
 
