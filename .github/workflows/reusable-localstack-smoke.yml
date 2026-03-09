@@ -35,7 +35,7 @@ jobs:
         timeout-minutes: 1
 
       - name: Mark init script executable
-        run: git update-index --chmod=+x platform/localstack/init/01-setup.sh
+        run: chmod +x platform/localstack/init/01-setup.sh
         timeout-minutes: 1
 
       - name: Run LocalStack smoke test
