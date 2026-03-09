@@ -92,6 +92,13 @@ jobs:
     with:
       run-terraform: true
 
+  # Secret scanning runs unconditionally on every push/PR regardless of what changed.
+  secrets-scan:
+    name: CI - Secret Scanning
+    uses: ./.github/workflows/reusable-lint.yml
+    with:
+      run-secrets: true
+
   # Summary job that runs after all checks
   ci-dev-summary:
     name: CI/CD Summary
@@ -104,6 +111,7 @@ jobs:
       - ci-log-backend
       - ci-transaction-backend
       - ci-terraform
+      - secrets-scan
     if: always()
     steps:
       - name: Check all jobs status

@@ -26,6 +26,11 @@ on:
         required: false
         type: boolean
         default: false
+      run-secrets:
+        description: 'Run Gitleaks and TruffleHog secret scanning across the full git history'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -215,3 +220,45 @@ jobs:
             --compact \
             --quiet \
             --soft-fail
+
+  # ---- Gitleaks secret scanner ----
+  gitleaks:
+    name: Gitleaks (Secret Scanning)
+    if: inputs.run-secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        timeout-minutes: 2
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+          # Required for private repos in GitHub org accounts.
+          # Obtain a free licence at https://gitleaks.io and store it as a
+          # repo/org secret named GITLEAKS_LICENSE if scans fail with a
+          # licence error.
+
+  # ---- TruffleHog secret scanner ----
+  trufflehog:
+    name: TruffleHog (Secret Scanning)
+    if: inputs.run-secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        timeout-minutes: 2
+        with:
+          fetch-depth: 0
+
+      - name: Run TruffleHog OSS
+        uses: trufflesecurity/trufflehog@v3
+        with:
+          path: ./
+          extra_args: --only-verified
