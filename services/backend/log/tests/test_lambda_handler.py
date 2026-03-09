@@ -51,7 +51,9 @@ def test_lambda_handler_health_ok(monkeypatch) -> None:
     asgi_handler = Mangum(create_app(_FakeLogService()))
     monkeypatch.setattr(lambda_function, "_get_asgi_handler", lambda: asgi_handler)
 
-    response = lambda_function.lambda_handler(_http_api_v2_event("GET", "/health"), None)
+    response = lambda_function.lambda_handler(
+        _http_api_v2_event("GET", "/health"), None
+    )
 
     assert response["statusCode"] == 200
     body = json.loads(response["body"])
