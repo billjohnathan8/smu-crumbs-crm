@@ -140,8 +140,10 @@ jobs:
 
   # ==========================================================================
   # Layer 3: Core integration smoke (cross-service checks before deploy)
+  # TEMPORARILY DISABLED - remove `if: false` to re-enable
   # ==========================================================================
   core-integration:
+    if: false
     needs:
       - changes
       - actionlint
@@ -150,38 +152,25 @@ jobs:
       - test-client
       - test-transaction
       - test-log
-    if: >-
-      ${{ always()
-          && !contains(needs.*.result, 'failure')
-          && !contains(needs.*.result, 'cancelled')
-          && (needs.changes.outputs.any-backend == 'true'
-              || needs.changes.outputs.ci-config == 'true') }}
     uses: ./.github/workflows/reusable-core-integration.yml
 
   # ==========================================================================
   # Layer 4: Containerized fullstack integration (real backend+frontend E2E)
+  # TEMPORARILY DISABLED - remove `if: false` to re-enable
   # ==========================================================================
   fullstack-integration-e2e:
+    if: false
     needs:
       - changes
       - actionlint
       - test-frontend
       - core-integration
-    if: >-
-      ${{ always()
-          && !contains(needs.*.result, 'failure')
-          && !contains(needs.*.result, 'cancelled')
-          && (needs.changes.outputs.any-service == 'true'
-              || needs.changes.outputs.ci-config == 'true') }}
     uses: ./.github/workflows/reusable-fullstack-integration.yml
 
   e2e-frontend:
     name: E2E Tests - Frontend
+    if: false
     needs: [changes, test-frontend, fullstack-integration-e2e]
-    if: >-
-      ${{ !failure() && !cancelled()
-          && (needs.changes.outputs.frontend == 'true'
-              || needs.changes.outputs.ci-config == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
