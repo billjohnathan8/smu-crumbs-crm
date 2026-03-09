@@ -40,6 +40,7 @@ jobs:
     needs: changes
     uses: ./.github/workflows/reusable-lint.yml
     with:
+      run-secrets: true
       run-backend-java: >-
         ${{ needs.changes.outputs.any-backend == 'true'
             || needs.changes.outputs.ci-config == 'true' }}
@@ -49,6 +50,7 @@ jobs:
       run-frontend: >-
         ${{ needs.changes.outputs.frontend == 'true'
             || needs.changes.outputs.ci-config == 'true' }}
+      run-terraform: true
 
   # ==========================================================================
   # Layer 2: Component tests (parallel, each gated by scope)
