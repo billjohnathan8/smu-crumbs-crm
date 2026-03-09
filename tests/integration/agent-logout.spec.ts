@@ -1,82 +1,40 @@
-import { test, expect, Route } from "@playwright/test";
+/**
+ * Agent Logout Integration Tests
+ * 
+ * Moved from e2e/agent/agent-logout.spec.ts due to proxy errors.
+ * Tests navigation to /agent dashboard which auto-loads data.
+ * 
+ * Run with: npm run e2e:integration:real
+ */
+
+import { test, expect } from "@playwright/test";
 import { setAuthState } from "../helpers/auth";
 
-test.describe("Agent Logout Flow", () => {
+const AGENT_EMAIL = process.env.E2E_AGENT_EMAIL ?? "agent@crm.local";
+const AGENT_PASSWORD = process.env.E2E_AGENT_PASSWORD ?? "AgentPass123!";
+
+test.describe("Agent Logout Flow (Integration)", () => {
   test.beforeEach(async ({ page, context }) => {
     await context.clearCookies();
     await page.goto("/login");
-    await setAuthState(page, "agent");
-
-    // Set up minimal API mocking
-    await page.route("**/api/**", (route: Route) => {
-      const url = route.request().url();
-
-      if (
-        url.includes("/@vite") ||
-        url.includes("/@fs") ||
-        url.includes("/@id") ||
-        url.includes(".js") ||
-        url.includes(".ts") ||
-        url.includes(".jsx") ||
-        url.includes(".tsx") ||
-        url.includes(".css")
-      ) {
-        return route.continue();
-      }
-
-      if (url.includes("/api/agents/me")) {
-        return route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({
-            id: "agent-1",
-            firstName: "Agent",
-            lastName: "User",
-            email: "agent@example.com",
-            role: "agent",
-            status: "active",
-          }),
-        });
-      }
-
-      if (url.includes("/api/clients")) {
-        return route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({
-            data: [],
-            pagination: { limit: 10, offset: 0, total: 0 },
-          }),
-        });
-      }
-
-      if (url.includes("/api/transactions")) {
-        return route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({
-            data: [],
-            pagination: { limit: 20, offset: 0, total: 0 },
-          }),
-        });
-      }
-
-      return route.fulfill({
-        status: 404,
-        contentType: "application/json",
-        body: JSON.stringify({ error: "not_found" }),
-      });
-    });
+    // Note: setAuthState may need updating for integration tests
+    // Consider using real login instead of mocked auth state
   });
 
   test("should logout from agent dashboard", async ({ page }) => {
+    await test.step("Login as agent", async () => {
+      await page.fill('[data-testid="email-input"]', AGENT_EMAIL);
+      await page.fill('[data-testid="password-input"]', AGENT_PASSWORD);
+      await page.click('[data-testid="login-submit-button"]');
+    });
+
     await test.step("Navigate to agent dashboard", async () => {
       await page.goto("/agent");
       await page.waitForLoadState("domcontentloaded");
     });
 
     await test.step("Verify agent is logged in", async () => {
-      await expect(page.getByText("Agent Dashboard")).toBeVisible();
+      await expect(page.getByText("Agent Dashboard")).toBeVisible({ timeout: 10000 });
     });
 
     await test.step("Click logout button", async () => {

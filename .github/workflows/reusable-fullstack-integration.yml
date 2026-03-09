@@ -63,6 +63,6 @@ jobs:
           name: fullstack-integration-artifacts
           path: |
             build-logs/fullstack-integration/**
-            services/frontend/crm-ui/test-results/**
-            services/frontend/crm-ui/playwright-report/**
+            tests/integration/test-results/**
+            tests/integration/playwright-report/**
           retention-days: 7

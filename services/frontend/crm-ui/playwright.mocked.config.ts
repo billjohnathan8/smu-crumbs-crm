@@ -1,8 +1,15 @@
 import { defineConfig } from "@playwright/test";
 import baseConfig from "./playwright.config";
 
+/**
+ * Playwright configuration for MOCKED e2e tests.
+ * 
+ * These tests use route mocking and do NOT require a real backend.
+ * Integration tests requiring real backend are in e2e/integration/.
+ * 
+ * Run with: npm run e2e:mocked
+ */
 export default defineConfig({
   ...baseConfig,
-  // Mocked E2E excludes full-stack integration specs run in a separate job.
   testIgnore: ["e2e/integration/**"],
 });
