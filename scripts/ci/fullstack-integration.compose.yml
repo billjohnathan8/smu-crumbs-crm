@@ -1,0 +1,118 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: crm_it
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d crm_it"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  localstack:
+    image: localstack/localstack:4
+    container_name: localstack-fullstack-it
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=sqs,dynamodb,s3,lambda,sns,secretsmanager
+      - DEFAULT_REGION=ap-southeast-1
+      - AWS_DEFAULT_REGION=ap-southeast-1
+      # local executor: simpler, no Docker-in-Docker needed in CI
+      - LAMBDA_EXECUTOR=local
+    volumes:
+      - "../../platform/localstack/init:/etc/localstack/init/ready.d"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  log-service:
+    build:
+      context: ../../services/backend/log
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: crm_it
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      JWT_HMAC_SECRET: dev-only-insecure-secret
+      # Point boto3 at LocalStack instead of real AWS
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: ap-southeast-1
+      AWS_ENDPOINT_URL: http://localstack:4566
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    ports:
+      - "18084:8080"
+
+  agent-service:
+    build:
+      context: ../../services/backend/agent
+      dockerfile: Dockerfile
+    environment:
+      JWT_HMAC_SECRET: dev-only-insecure-secret
+      ROOT_ADMIN_EMAIL: admin@crm.local
+      ROOT_ADMIN_PASSWORD: admin123
+    ports:
+      - "18081:8080"
+
+  client-service:
+    build:
+      context: ../../services/backend/client
+      dockerfile: Dockerfile
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/crm_it
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      LOG_SERVICE_URL: http://log-service:8080
+      JWT_HMAC_SECRET: dev-only-insecure-secret
+    depends_on:
+      postgres:
+        condition: service_healthy
+      log-service:
+        condition: service_started
+    ports:
+      - "18082:8080"
+
+  transaction-service:
+    build:
+      context: ../../services/backend/transaction
+      dockerfile: Dockerfile
+    environment:
+      CLIENT_SERVICE_URL: http://client-service:8080
+      JWT_HMAC_SECRET: dev-only-insecure-secret
+    depends_on:
+      client-service:
+        condition: service_started
+    ports:
+      - "18083:8080"
+
+  frontend:
+    build:
+      context: ../../services/frontend/crm-ui
+      dockerfile: Dockerfile
+    ports:
+      - "18085:80"
+
+  integration-gateway:
+    image: nginx:1.27-alpine
+    depends_on:
+      - frontend
+      - agent-service
+      - client-service
+      - transaction-service
+      - log-service
+    volumes:
+      - ./fullstack-gateway.nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "18088:80"

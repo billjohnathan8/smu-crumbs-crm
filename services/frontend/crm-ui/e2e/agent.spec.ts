@@ -190,7 +190,7 @@ test.describe("Agent Flow", () => {
 
     await page.click('a[href="/agent/transactions"]');
     await expect(page).toHaveURL("http://localhost:4173/agent/transactions");
-    await expect(page.getByText("Transactions")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Transactions" })).toBeVisible();
 
     const transactionsLoadTime = Date.now() - transactionsStartTime;
     expect(transactionsLoadTime).toBeLessThan(3000);
@@ -255,8 +255,8 @@ test.describe("Agent Flow", () => {
     await page.click('a[href="/agent/transactions"]');
     await expect(page).toHaveURL("http://localhost:4173/agent/transactions");
 
-    // Wait for transactions table to load
-    await expect(page.getByText("Transactions")).toBeVisible();
+    // Wait for transactions page heading
+    await expect(page.getByRole("heading", { name: "Transactions" })).toBeVisible();
   });
 
   test("should navigate between pages successfully", async ({ page }) => {

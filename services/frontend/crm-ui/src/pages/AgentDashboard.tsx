@@ -4,6 +4,13 @@ import { listLogs } from '@/api/logs'
 import { listClients } from '@/api/clients'
 import type { LogEntry } from '@/api/types'
 import { ApiError } from '@/api/client'
+import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
+
+const agentNav: NavItem[] = [
+  { label: 'Home', to: '/agent', end: true },
+  { label: 'Manage Clients', to: '/agent/clients' },
+  { label: 'Transactions', to: '/agent/transactions' },
+]
 
 export function AgentDashboard() {
   const { user, logout } = useAuth()
@@ -54,41 +61,38 @@ export function AgentDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <nav className="bg-card border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div>
-              <h1 className="text-xl font-bold text-text">Agent Dashboard</h1>
-              <p className="text-sm text-text-muted">
-                Welcome, {user?.firstName} {user?.lastName}
-              </p>
-            </div>
-            <div className="flex space-x-4">
-              <a
-                href="/agent/clients/new"
-                className="px-4 py-2 rounded-lg bg-success hover:bg-success-hover text-white font-medium transition-colors"
-              >
-                Create Client
-              </a>
-              <a
-                href="/agent/transactions"
-                className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white font-medium transition-colors"
-              >
-                View Transactions
-              </a>
-              <button
-                onClick={logout}
-                className="px-4 py-2 rounded-lg bg-danger hover:bg-danger-hover text-white font-medium transition-colors"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
+    <SidebarLayout items={agentNav}>
+      <div className="flex justify-between h-16 items-center">
+        <div>
+          <h1 className="text-xl font-bold text-text">Agent Dashboard</h1>
+          <p className="text-sm text-text-muted">
+            Welcome, {user?.firstName} {user?.lastName}
+          </p>
         </div>
-      </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex space-x-4">
+          <a
+            href="/agent/clients/new"
+            className="px-4 py-2 rounded-lg bg-success hover:bg-success-hover text-white font-medium transition-colors"
+          >
+            Create Client
+          </a>
+          <a
+            href="/agent/transactions"
+            className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white font-medium transition-colors"
+          >
+            View Transactions
+          </a>
+          <button
+            onClick={logout}
+            className="px-4 py-2 rounded-lg bg-danger hover:bg-danger-hover text-white font-medium transition-colors"
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+
+      <main className="mt-6">
         {error && (
           <div className="bg-danger/10 border border-danger rounded-lg p-4 mb-6">
             <p className="text-danger text-sm">{error}</p>
@@ -116,6 +120,7 @@ export function AgentDashboard() {
               <div className="px-6 py-4 border-b border-border">
                 <h2 className="text-xl font-bold text-text">My Recent Activities</h2>
               </div>
+
               <div className="overflow-x-auto">
                 {recentActivities.length === 0 ? (
                   <div className="p-6 text-center text-text-muted">No recent activities</div>
@@ -184,6 +189,6 @@ export function AgentDashboard() {
           </>
         )}
       </main>
-    </div>
+    </SidebarLayout>
   )
 }

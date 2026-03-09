@@ -425,7 +425,7 @@ if __name__ == "__main__":
 
     print("\n=== Executable Finder ===")
     finder = create_executable_finder()
-    for tool in ["kubectl", "helm", "kind", "kubeconform", "python3", "python"]:
+    for tool in ["docker", "git", "java", "node", "python3", "python"]:
         exe = finder.find(tool)
         if exe:
             print(f"Found {tool}: {exe}")

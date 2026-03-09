@@ -122,7 +122,6 @@ def validate_executable_finding():
         "git": True,      # Required
         "java": False,    # Optional
         "node": False,    # Optional
-        "kubectl": False, # Optional
     }
     
     print("\nSearching for executables:")

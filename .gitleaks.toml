@@ -1,0 +1,48 @@
+# Gitleaks configuration
+# Extends the default ruleset and adds project-specific allowlists.
+# See https://github.com/gitleaks/gitleaks#configuration for full reference.
+
+title = "Gitleaks Configuration"
+
+[extend]
+# Inherit all default Gitleaks detection rules.
+useDefault = true
+
+# ---------------------------------------------------------------------------
+# Allowlists
+#
+# Within a single [[allowlists]] block all conditions use AND logic — every
+# condition must match for the finding to be suppressed.  Items within a
+# 'regexes' array use OR logic (any one match is enough).
+#
+# regexTarget = "secret" matches the regex against the extracted secret value
+# only, not the full matched line, so anchors ^/$ work as expected.
+# ---------------------------------------------------------------------------
+
+[[allowlists]]
+description = "Dummy e2e test credentials in fullstack integration fixture"
+# E2E_ADMIN_PASSWORD (admin123) and E2E_AGENT_PASSWORD (AgentPass123!) are
+# intentionally weak credentials seeded only into ephemeral GitHub Actions
+# containers for integration tests.  They are not real secrets and grant no
+# access to any production system.
+regexTarget = "secret"
+paths = [
+  '''.github/workflows/reusable-fullstack-integration\.yml''',
+]
+regexes = [
+  '''(?i)^admin123$''',
+  '''(?i)^AgentPass123!$''',
+]
+
+[[allowlists]]
+description = "Default postgres Docker image password in core integration service container"
+# POSTGRES_PASSWORD is set to 'postgres' — the well-known default for the
+# official postgres Docker image.  It is only reachable within the ephemeral
+# runner network and grants no access to any real database.
+regexTarget = "secret"
+paths = [
+  '''.github/workflows/reusable-core-integration\.yml''',
+]
+regexes = [
+  '''(?i)^postgres$''',
+]

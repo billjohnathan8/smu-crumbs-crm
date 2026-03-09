@@ -1,0 +1,68 @@
+name: Fullstack Integration E2E
+
+# Reusable workflow that validates real backend/frontend integration using
+# containerized services and non-mocked Playwright tests.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  E2E_ADMIN_EMAIL: admin@crm.local
+  E2E_ADMIN_PASSWORD: admin123
+  E2E_AGENT_PASSWORD: AgentPass123!
+  PLAYWRIGHT_BASE_URL: http://127.0.0.1:18088
+
+jobs:
+  fullstack-integration-e2e:
+    name: Fullstack Integration - Containerized Real E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        timeout-minutes: 2
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        timeout-minutes: 2
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        timeout-minutes: 2
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: services/frontend/crm-ui/package-lock.json
+
+      - name: Install frontend dependencies
+        timeout-minutes: 3
+        run: npm ci
+        working-directory: services/frontend/crm-ui
+
+      - name: Install Playwright browsers
+        timeout-minutes: 6
+        run: npx playwright install --with-deps chromium
+        working-directory: services/frontend/crm-ui
+
+      - name: Run containerized fullstack integration tests
+        timeout-minutes: 35
+        run: bash scripts/ci/run-fullstack-integration-e2e.sh
+
+      - name: Upload integration artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fullstack-integration-artifacts
+          path: |
+            build-logs/fullstack-integration/**
+            services/frontend/crm-ui/test-results/**
+            services/frontend/crm-ui/playwright-report/**
+          retention-days: 7

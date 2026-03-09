@@ -6,7 +6,7 @@
 - **Related:** <links to issues/PRs/docs/other ADRs>
 
 ## Context
-What problem are we solving? What constraints do we have (CS301 requirements, team skill, deadlines, AWS/K8s, etc.)?
+What problem are we solving? What constraints do we have (CS301 requirements, team skill, deadlines, AWS, etc.)?
 
 ## Decision
 What did we decide, specifically?

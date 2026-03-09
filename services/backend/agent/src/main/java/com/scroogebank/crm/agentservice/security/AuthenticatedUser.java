@@ -11,6 +11,13 @@ public record AuthenticatedUser(
 	String role
 ) {
 	/**
+	 * @return true when the user has the super admin role
+	 */
+	public boolean isSuperAdmin() {
+		return "super_admin".equals(role);
+	}
+
+	/**
 	 * @return true when the user has the admin role
 	 */
 	public boolean isAdmin() {

@@ -69,9 +69,9 @@ jobs:
         timeout-minutes: 5
         run: npx playwright install --with-deps chromium
 
-      - name: Run E2E tests
+      - name: Run E2E tests (mocked)
         timeout-minutes: 10
-        run: npm run e2e
+        run: npm run e2e:mocked
 
       - name: Upload test results on failure
         if: failure()

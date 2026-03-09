@@ -16,5 +16,6 @@ public record AccountDto(
 	BigDecimal initialDeposit,
 	String currency,
 	String branchId,
-	Instant createdAt
+	Instant createdAt,
+	Instant updatedAt
 ) {}

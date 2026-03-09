@@ -289,7 +289,10 @@ describe('clients API', () => {
         },
       ]
 
-      vi.spyOn(client, 'apiGet').mockResolvedValue(mockAccounts)
+      vi.spyOn(client, 'apiGet').mockResolvedValue({
+        data: mockAccounts,
+        pagination: { limit: 50, offset: 0, total: 2 },
+      })
 
       const result = await listClientAccounts('client-123')
 

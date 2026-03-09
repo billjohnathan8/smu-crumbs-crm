@@ -1,0 +1,60 @@
+# docker-compose.localstack.yml
+#
+# Local development stack for the ScroogeBank CRM event-driven pipeline.
+#
+# What runs here:
+#   - LocalStack  — emulates SQS, DynamoDB, S3, Lambda, SNS, Secrets Manager
+#   - PostgreSQL  — local DB for the Spring Boot services
+#
+# What is NOT replicated locally (see docs/infrastructure/localstack-setup.md):
+#   VPC, NAT Gateway, ALB, CloudFront, WAF, ACM, Route53, CloudTrail, ECS Fargate
+#
+# Usage:
+#   docker compose -f docker-compose.localstack.yml up -d
+#   docker compose -f docker-compose.localstack.yml down -v   # full teardown
+
+services:
+  localstack:
+    image: localstack/localstack:4
+    container_name: localstack
+    ports:
+      - "4566:4566" # All LocalStack services share one gateway port
+    environment:
+      - SERVICES=sqs,dynamodb,s3,lambda,sns,secretsmanager
+      - DEFAULT_REGION=ap-southeast-1
+      - AWS_DEFAULT_REGION=ap-southeast-1
+      # LAMBDA_EXECUTOR=docker runs each Lambda invocation inside its own
+      # container. Requires the Docker socket mount below.
+      - LAMBDA_EXECUTOR=docker
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      # Give LocalStack access to Docker so it can launch Lambda containers.
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      # Scripts in ready.d/ are executed automatically once LocalStack is healthy.
+      - "./platform/localstack/init:/etc/localstack/init/ready.d"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: crm-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: crm
+      POSTGRES_USER: crm_app
+      POSTGRES_PASSWORD: devpassword
+    volumes:
+      - crm-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crm_app -d crm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  crm-pgdata:

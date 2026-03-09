@@ -163,7 +163,7 @@ test.describe("Admin Flow", () => {
     await page.click('a[href="/admin/accounts"]');
 
     await expect(page).toHaveURL("http://localhost:4173/admin/accounts");
-    await expect(page.getByText("Manage Accounts")).toBeVisible();
+    await expect(page.getByRole("main").getByRole("link", { name: "Manage Accounts" })).toBeVisible();
 
     const accountsLoadTime = Date.now() - accountsStartTime;
     expect(accountsLoadTime).toBeLessThan(3000);

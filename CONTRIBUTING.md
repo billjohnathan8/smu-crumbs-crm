@@ -68,18 +68,6 @@ python scripts/pipelines/test_backend.py    # Backend only
 python scripts/pipelines/test_frontend.py   # Frontend only
 ```
 
-**Validate Kubernetes manifests:**
-
-```bash
-make k8s-validate
-```
-
-**Optional: Deploy locally to verify integration:**
-
-```bash
-python scripts/pipelines/deploy_k8s.py --keep-cluster
-```
-
 ### 4. Commit Your Changes
 
 ```bash
@@ -128,7 +116,7 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
 ```bash
 feat(agent): add CRUD endpoints for agent management
 fix(client): resolve null pointer exception in client service
-docs: update local k8s deployment guide
+docs: update local deployment guide
 test(transaction): add integration tests for transaction service
 refactor(log): simplify logging configuration
 chore: update dependencies to latest versions
@@ -302,23 +290,6 @@ python scripts/pipelines/test_all.py
 - **Integration tests:** Test interactions between components
 - **E2E tests:** Test complete user flows (Playwright for frontend)
 
-### Smoke Tests
-
-If your changes affect Kubernetes deployment or service integration, run smoke tests:
-
-```bash
-python scripts/pipelines/deploy_k8s.py
-# Smoke tests run automatically at the end
-```
-
-**What smoke tests validate:**
-- Service health endpoints accessible
-- CRUD operations work end-to-end
-- Kubernetes probes configured correctly
-- Services can communicate with each other
-
-See [Smoke Testing Guide](docs/testing/smoke/README.md) for details.
-
 ---
 
 ## 📤 Pull Request Process
@@ -339,7 +310,6 @@ When creating a PR, the [PR template](.github/pull_request_template.md) will aut
 Before requesting review, ensure:
 
 - [ ] Tests pass locally: `python scripts/pipelines/test_all.py`
-- [ ] K8s manifests validated: `make k8s-validate`
 - [ ] Code follows coding standards
 - [ ] New code has tests
 - [ ] Coverage thresholds met
@@ -535,7 +505,6 @@ code example
 **Need help with:**
 - **Setup issues:** [New Developer Setup](docs/onboarding/new-dev-setup.md)
 - **Testing failures:** [Testing Guide](docs/testing/TESTING-GUIDE.md)
-- **K8s issues:** [Local K8s Troubleshooting](docs/local-k8s-dev.md#common-failure-modes-and-debug-commands)
 - **General issues:** [Troubleshooting Guide](docs/troubleshooting.md)
 
 **Can't find the answer?**
