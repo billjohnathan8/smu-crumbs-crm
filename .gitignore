@@ -94,6 +94,7 @@ TODO.md
 CHANGELOG.md
 NOTES.md
 temp/*
+fail-logs/*
 
 # Debug Screenshots
 services/frontend/crm-ui/debug-*.png
