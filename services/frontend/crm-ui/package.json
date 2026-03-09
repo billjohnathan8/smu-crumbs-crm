@@ -17,7 +17,7 @@
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "e2e": "playwright test",
-    "e2e:mocked": "playwright test --ignore=e2e/integration",
+    "e2e:mocked": "playwright test -c playwright.mocked.config.ts",
     "e2e:integration:real": "playwright test e2e/integration --workers=1",
     "e2e:ui": "playwright test --ui",
     "e2e:report": "playwright show-report",
