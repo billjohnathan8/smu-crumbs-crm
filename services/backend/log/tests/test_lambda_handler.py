@@ -9,8 +9,10 @@ import pytest
 mangum = pytest.importorskip("mangum")
 Mangum = mangum.Mangum
 
-import lambda_function
-from app.main import create_app
+# Imported after `importorskip` so the test module is skipped cleanly when `mangum`
+# is unavailable in local/dev environments.
+import lambda_function  # noqa: E402
+from app.main import create_app  # noqa: E402
 
 
 class _FakeLogService:
