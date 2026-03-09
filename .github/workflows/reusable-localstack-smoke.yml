@@ -1,0 +1,55 @@
+name: LocalStack AWS Smoke Test
+
+# Reusable workflow — spins up LocalStack, waits for the init script to
+# provision all AWS resources, then runs resource-existence assertions and
+# an SQS round-trip smoke test.
+#
+# Intended position in the pipeline DAG:
+#   ... component-tests → localstack-smoke → [deploy] (not yet implemented)
+#
+# This job acts as the final gate before the deploy stage, confirming that the
+# LocalStack-emulated AWS infrastructure (SQS, DynamoDB, S3, SNS, Secrets
+# Manager) can be provisioned cleanly from the current codebase.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  localstack-smoke:
+    name: LocalStack - AWS Infrastructure Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        timeout-minutes: 2
+
+      # AWS CLI v2 is pre-installed on ubuntu-latest runners; this step pins
+      # and verifies it is available before the smoke script runs.
+      - name: Verify AWS CLI
+        run: aws --version
+        timeout-minutes: 1
+
+      - name: Mark init script executable
+        run: git update-index --chmod=+x platform/localstack/init/01-setup.sh
+        timeout-minutes: 1
+
+      - name: Run LocalStack smoke test
+        run: bash scripts/ci/run-localstack-smoke.sh
+        timeout-minutes: 12
+
+      - name: Dump LocalStack container logs on failure
+        if: failure()
+        run: docker logs localstack 2>&1 || true
+
+      - name: Upload smoke-test build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: localstack-smoke-logs
+          path: build-logs/localstack-smoke/
+          retention-days: 7

@@ -1,7 +1,7 @@
 name: CI - Main Pipeline
 
 # Full pipeline for the main branch.
-# Runs: changes -> lint -> component tests -> core integration -> fullstack integration -> e2e.
+# Runs: changes -> lint -> unit tests -> mocked e2e -> fullstack integration -> deploy (TBD).
 #
 # Job DAG:
 #
@@ -11,19 +11,20 @@ name: CI - Main Pipeline
 #    lint    (3-5 min, only scopes that changed)
 #      |
 #      +---> test-agent           \
-#      +---> test-client           |  parallel, each gated by its scope
+#      +---> test-client           |  parallel unit tests, each gated by its scope
 #      +---> test-transaction      |
 #      +---> test-log              |
 #      +---> test-frontend        /
 #      |
 #      v
-#   core-integration (cross-service smoke before deploy)
+#   e2e-frontend-mocked  (Playwright against vite preview + MSW mocks, ~10 min)
 #      |
 #      v
-#   fullstack-integration-e2e (containerized backend+frontend, no API mocks)
+#   fullstack-integration-e2e  (real Docker containers + LocalStack + HTTP smoke
+#                               + Playwright against live stack, ~30-40 min)
 #      |
 #      v
-#   e2e-frontend (needs test-frontend + fullstack-integration-e2e)
+#   [deploy — not yet implemented]
 
 on:
   pull_request:
@@ -159,11 +160,15 @@ jobs:
       artifact-paths: services/frontend/crm-ui/coverage/**
 
   # ==========================================================================
-  # Layer 3: Core integration smoke (cross-service checks before deploy)
-  # TEMPORARILY DISABLED - remove `if: false` to re-enable
+  # Layer 3: Frontend E2E — mocked
+  # Runs after all unit tests. Uses Playwright against a local vite preview
+  # build with MSW-mocked API routes (no backend infra). Provides fast UI
+  # feedback before committing to the expensive fullstack build.
+  # Excludes e2e/integration/ (those run in Layer 4 against real containers).
   # ==========================================================================
-  core-integration:
-    if: false
+  e2e-frontend-mocked:
+    name: E2E Tests - Frontend (Mocked)
+    if: ${{ !failure() && !cancelled() }}
     needs:
       - changes
       - lint
@@ -171,24 +176,7 @@ jobs:
       - test-client
       - test-transaction
       - test-log
-    uses: ./.github/workflows/reusable-core-integration.yml
-
-  # ==========================================================================
-  # Layer 4: Containerized fullstack integration (real backend+frontend E2E)
-  # TEMPORARILY DISABLED - remove `if: false` to re-enable
-  # ==========================================================================
-  fullstack-integration-e2e:
-    if: false
-    needs:
-      - changes
       - test-frontend
-      - core-integration
-    uses: ./.github/workflows/reusable-fullstack-integration.yml
-
-  e2e-frontend:
-    name: E2E Tests - Frontend
-    if: false
-    needs: [changes, test-frontend, fullstack-integration-e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -216,16 +204,35 @@ jobs:
         timeout-minutes: 5
         run: npx playwright install --with-deps chromium
 
-      - name: Run E2E tests
+      - name: Run mocked E2E tests
         timeout-minutes: 10
-        run: npm run e2e
+        run: npm run e2e:mocked
 
       - name: Upload test results on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-results-main
+          name: playwright-results-mocked-main
           path: |
             services/frontend/crm-ui/test-results/
             services/frontend/crm-ui/playwright-report/
           retention-days: 7
+
+  # ==========================================================================
+  # Layer 4: Fullstack integration — real containers + LocalStack
+  # Builds all service Docker images, starts LocalStack + PostgreSQL,
+  # provisions all AWS resources via the init script, runs cross-service HTTP
+  # smoke assertions, then runs real Playwright E2E against the live stack.
+  # This is the production-closest test gate before deploy.
+  # ==========================================================================
+  fullstack-integration-e2e:
+    if: ${{ !failure() && !cancelled() }}
+    needs:
+      - changes
+      - e2e-frontend-mocked
+    uses: ./.github/workflows/reusable-fullstack-integration.yml
+
+  # ==========================================================================
+  # Layer 5: Deploy  (not yet implemented — placeholder)
+  # fullstack-integration-e2e must pass before this gate can proceed.
+  # ==========================================================================

@@ -11,6 +11,26 @@ services:
       timeout: 5s
       retries: 20
 
+  localstack:
+    image: localstack/localstack:4
+    container_name: localstack-fullstack-it
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=sqs,dynamodb,s3,lambda,sns,secretsmanager
+      - DEFAULT_REGION=ap-southeast-1
+      - AWS_DEFAULT_REGION=ap-southeast-1
+      # local executor: simpler, no Docker-in-Docker needed in CI
+      - LAMBDA_EXECUTOR=local
+    volumes:
+      - "../../platform/localstack/init:/etc/localstack/init/ready.d"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
   log-service:
     build:
       context: ../../services/backend/log
@@ -22,8 +42,15 @@ services:
       DB_USER: postgres
       DB_PASSWORD: postgres
       JWT_HMAC_SECRET: dev-only-insecure-secret
+      # Point boto3 at LocalStack instead of real AWS
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: ap-southeast-1
+      AWS_ENDPOINT_URL: http://localstack:4566
     depends_on:
       postgres:
+        condition: service_healthy
+      localstack:
         condition: service_healthy
     ports:
       - "18084:8080"
