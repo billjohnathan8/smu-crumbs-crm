@@ -110,17 +110,6 @@ export SPRING_DATASOURCE_URL=jdbc:postgresql://myhost:5432/mydb
 ./gradlew bootRun
 ```
 
-## Kubernetes Deployment
-
-**Deployed via:** Kustomize overlay at `platform/k8s/apps/overlays/dev/`
-
-**Deploy locally:**
-```bash
-python scripts/pipelines/deploy_k8s.py
-```
-
-**See:** [Local K8s Development Guide](../../../docs/local-k8s-dev.md)
-
 ## Project Structure
 
 ```

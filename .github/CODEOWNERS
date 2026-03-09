@@ -20,8 +20,7 @@ services/backend/client/**                 @verdiowong
 services/backend/transaction/**            @siewyu
 services/backend/log/**                    @siewyu
 
-# ── Infrastructure / K8s ────────────────────────────────────────────
-platform/k8s/**                            @billjohnathan8 @dexue67
+# ── Infrastructure ─────────────────────────────────────────────────
 platform/terraform/**                      @billjohnathan8 @dexue67
 scripts/**                                 @billjohnathan8 @mattw23n
 Makefile                                   @billjohnathan8

@@ -140,15 +140,6 @@ Use these credentials for manual testing:
 
 The frontend requires backend services to be running. The Vite dev server proxies API calls to `http://localhost/api`.
 
-**Option 1: Deploy to local Kubernetes**
-```bash
-# From repository root
-python scripts/pipelines/deploy_k8s.py
-```
-
-**Option 2: Access via Kubernetes ingress**
-After deploying to kind cluster, access the full application at **http://localhost/** (port 80)
-
 ## Testing
 
 ### Unit Tests
@@ -247,35 +238,6 @@ App runs at http://localhost:8080
 ```bash
 curl http://localhost:8080/health
 ```
-
-## Kubernetes Deployment
-
-### Manifests
-
-Located in `platform/k8s/apps/base/`:
-- `frontend-deployment.yaml` - 2 replicas, resource limits, health probes
-- `frontend-service.yaml` - ClusterIP on port 80
-- `frontend-configmap.yaml` - Environment config
-- `ingress.yaml` - Routes `/` to frontend, `/api/*` to backend services
-
-### Deploy
-
-```bash
-cd platform/k8s/apps/base
-kubectl apply -k .
-```
-
-### Verify
-
-```bash
-kubectl get pods -n crm -l app=frontend
-kubectl get svc -n crm frontend-service
-kubectl describe ingress backend-ingress -n crm
-```
-
-### Access
-
-Via ingress: http://localhost/ (or configured domain)
 
 ## API Client
 
@@ -376,18 +338,6 @@ Playwright config expects `http://localhost:5173`.
 Use Docker BuildKit:
 ```bash
 DOCKER_BUILDKIT=1 docker build -t crm-frontend:latest .
-```
-
-### K8s Pods Not Ready
-
-Check logs:
-```bash
-kubectl logs -n crm -l app=frontend
-```
-
-Check ingress:
-```bash
-kubectl describe ingress backend-ingress -n crm
 ```
 
 ## Contributing

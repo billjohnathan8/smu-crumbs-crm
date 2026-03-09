@@ -108,12 +108,6 @@ build-logs/migration-validation/
 # Developer Setup - Portable Tools
 .devtools/
 
-# K8s Validation Temp Directory
-.k8s-validate-tmp/
-# Catch malformed validation output files (bug from WSL path handling)
-*k8s-validate-tmp*infra*.yaml
-*k8s-validate-tmp*apps*.yaml
-
 # Ignore Test Directories
 
 node_modules/

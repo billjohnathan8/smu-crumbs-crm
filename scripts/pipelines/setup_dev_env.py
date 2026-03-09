@@ -8,9 +8,6 @@ import sys
 
 REQUIRED = [
     "docker",
-    "kubectl",
-    "helm",
-    "kind",
     "java",
     "node",
     "npm",
@@ -279,10 +276,6 @@ class ToolInstaller:
     """Install missing development tools."""
     
     TOOL_VERSIONS = {
-        "kubectl": "v1.28.0",
-        "helm": "v3.13.0",
-        "kind": "v0.20.0",
-        "kubeconform": "v0.6.3",
         "actionlint": "v1.7.5",
     }
     
@@ -319,135 +312,6 @@ class ToolInstaller:
             arch = "amd64"  # Default fallback
         
         return os_name, arch
-    
-    def download_kubectl(self, version: Optional[str] = None):
-        """Download kubectl to .devtools/bin."""
-        version = version or self.TOOL_VERSIONS["kubectl"]
-        os_name, arch = self._get_platform_arch()
-        
-        url = f"https://dl.k8s.io/release/{version}/bin/{os_name}/{arch}/kubectl"
-        if os_name == "windows":
-            url += ".exe"
-        
-        dest = self.devtools_bin / ("kubectl.exe" if os_name == "windows" else "kubectl")
-        
-        self.logger.info(f"Downloading kubectl {version}...")
-        self._download_file(url, dest)
-        
-        if os_name != "windows":
-            dest.chmod(dest.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-        
-        self.logger.success(f"kubectl installed to {dest}")
-        self.installed_count += 1
-    
-    def download_helm(self, version: Optional[str] = None):
-        """Download helm to .devtools/bin."""
-        version = version or self.TOOL_VERSIONS["helm"]
-        os_name, arch = self._get_platform_arch()
-        
-        # Helm uses different naming
-        filename = f"helm-{version}-{os_name}-{arch}"
-        if os_name == "windows":
-            archive_url = f"https://get.helm.sh/{filename}.zip"
-            archive_file = self.devtools_bin / f"{filename}.zip"
-        else:
-            archive_url = f"https://get.helm.sh/{filename}.tar.gz"
-            archive_file = self.devtools_bin / f"{filename}.tar.gz"
-        
-        self.logger.info(f"Downloading helm {version}...")
-        self._download_file(archive_url, archive_file)
-        
-        # Extract
-        self.logger.info("Extracting helm...")
-        if os_name == "windows":
-            with zipfile.ZipFile(archive_file, 'r') as zip_ref:
-                # Extract helm.exe from windows-amd64/helm.exe
-                for member in zip_ref.namelist():
-                    if member.endswith("helm.exe"):
-                        source = zip_ref.open(member)
-                        dest = self.devtools_bin / "helm.exe"
-                        with open(dest, 'wb') as f:
-                            f.write(source.read())
-        else:
-            with tarfile.open(archive_file, 'r:gz') as tar_ref:
-                # Extract helm from {os_name}-{arch}/helm
-                for member in tar_ref.getmembers():
-                    if member.name.endswith("/helm") or member.name == "helm":
-                        member.name = "helm"
-                        tar_ref.extract(member, self.devtools_bin)
-            
-            dest = self.devtools_bin / "helm"
-            dest.chmod(dest.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-        
-        # Cleanup archive
-        archive_file.unlink()
-        
-        self.logger.success(f"helm installed to {self.devtools_bin / ('helm.exe' if os_name == 'windows' else 'helm')}")
-        self.installed_count += 1
-    
-    def download_kind(self, version: Optional[str] = None):
-        """Download kind to .devtools/bin."""
-        version = version or self.TOOL_VERSIONS["kind"]
-        os_name, arch = self._get_platform_arch()
-        
-        url = f"https://kind.sigs.k8s.io/dl/{version}/kind-{os_name}-{arch}"
-        dest = self.devtools_bin / ("kind.exe" if os_name == "windows" else "kind")
-        
-        self.logger.info(f"Downloading kind {version}...")
-        self._download_file(url, dest)
-        
-        if os_name != "windows":
-            dest.chmod(dest.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-        
-        self.logger.success(f"kind installed to {dest}")
-        self.installed_count += 1
-    
-    def download_kubeconform(self, version: Optional[str] = None):
-        """Download kubeconform to .devtools/bin."""
-        version = version or self.TOOL_VERSIONS["kubeconform"]
-        os_name, arch = self._get_platform_arch()
-        
-        # kubeconform uses different naming conventions
-        if os_name == "darwin":
-            os_suffix = "darwin"
-        elif os_name == "linux":
-            os_suffix = "linux"
-        else:  # windows
-            os_suffix = "windows"
-        
-        # Remove 'v' prefix for kubeconform URLs
-        version_number = version.lstrip('v')
-        
-        # Archive filename (no .exe extension)
-        filename = f"kubeconform-{os_suffix}-{arch}"
-        if os_name == "windows":
-            archive_url = f"https://github.com/yannh/kubeconform/releases/download/{version}/{filename}.zip"
-            archive_file = self.devtools_bin / f"{filename}.zip"
-        else:
-            archive_url = f"https://github.com/yannh/kubeconform/releases/download/{version}/{filename}.tar.gz"
-            archive_file = self.devtools_bin / f"{filename}.tar.gz"
-        
-        self.logger.info(f"Downloading kubeconform {version}...")
-        self._download_file(archive_url, archive_file)
-        
-        # Extract
-        self.logger.info("Extracting kubeconform...")
-        dest = self.devtools_bin / ("kubeconform.exe" if os_name == "windows" else "kubeconform")
-        
-        if os_name == "windows":
-            with zipfile.ZipFile(archive_file, 'r') as zip_ref:
-                zip_ref.extractall(self.devtools_bin)
-        else:
-            with tarfile.open(archive_file, 'r:gz') as tar_ref:
-                tar_ref.extractall(self.devtools_bin)
-            
-            dest.chmod(dest.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-        
-        # Cleanup archive
-        archive_file.unlink()
-        
-        self.logger.success(f"kubeconform installed to {dest}")
-        self.installed_count += 1
     
     def download_actionlint(self, version: Optional[str] = None):
         """Download actionlint to .devtools/bin."""
@@ -551,15 +415,7 @@ class ToolInstaller:
         
         for tool in missing_portable:
             try:
-                if tool == "kubectl":
-                    self.download_kubectl()
-                elif tool == "helm":
-                    self.download_helm()
-                elif tool == "kind":
-                    self.download_kind()
-                elif tool == "kubeconform":
-                    self.download_kubeconform()
-                elif tool == "actionlint":
+                if tool == "actionlint":
                     self.download_actionlint()
             except Exception as e:
                 self.logger.warning(f"Failed to install {tool}: {e}")
@@ -811,7 +667,7 @@ Examples:
             if docker_status.found:
                 docker_running = checker.check_docker_daemon()
                 if not docker_running:
-                    logger.warning("[WARN] Docker daemon is not running (required for kind)")
+                    logger.warning("[WARN] Docker daemon is not running")
                 else:
                     logger.success("[OK] Docker daemon is running")
             
@@ -843,10 +699,6 @@ Examples:
             checker.check_tool("Make", "make", required=True)
             
             # Check portable tools
-            checker.check_tool("kubectl", "kubectl", required=False)
-            checker.check_tool("helm", "helm", required=False)
-            checker.check_tool("kind", "kind", required=False)
-            checker.check_tool("kubeconform", "kubeconform", required=False)
             checker.check_tool("actionlint", "actionlint", required=False)
             
             checker.report()
@@ -901,7 +753,6 @@ Examples:
         logger.info("Next steps:")
         logger.info("  - Run backend tests:  python scripts/pipelines/test_backend.py")
         logger.info("  - Run frontend tests: python scripts/pipelines/test_frontend.py")
-        logger.info("  - Validate k8s:       python scripts/validate-k8s/validate.py")
         logger.info("  - VS Code: Open workspace and install recommended extensions")
         
         return 0

@@ -1,6 +1,6 @@
 # Coding Standards & Contribution Guidelines (CS301-ITSA-Scroogebank-CRM)
 
-This document defines **how we write code**, **how we structure changes**, and **how we ship safely** for the CS301-ITSA-Scroogebank-CRM project (Kubernetes-first, AWS-realistic, OpenAPI-first).
+This document defines **how we write code**, **how we structure changes**, and **how we ship safely** for the CS301-ITSA-Scroogebank-CRM project (AWS-native, OpenAPI-first).
 
 If there are any issues and you need help, please ping the **telegram** or **discord**.
 
@@ -27,8 +27,7 @@ Refer to [onboarding](../onboarding/new-dev-setup.md) for setting up development
   - [7.1 General Standards (All Code)](#sec-7-1-general)
   - [7.2 TypeScript / React (Frontend)](#sec-7-2-ts-react)
   - [7.3 Java 21 / Spring Boot (Backend Services)](#sec-7-3-java-spring)
-  - [7.4 Kubernetes Manifests (YAML)](#sec-7-4-k8s-yaml)
-  - [7.5 Terraform (AWS IaC)](#sec-7-5-terraform)
+  - [7.4 Terraform (AWS IaC)](#sec-7-5-terraform)
   - [7.6 OpenAPI Contracts](#sec-7-6-openapi)
 - [8) Comments & Documentation Standards](#sec-8-comments-docs)
   - [8.1 Comments](#sec-8-1-comments)
@@ -67,9 +66,6 @@ Refer to [onboarding](../onboarding/new-dev-setup.md) for setting up development
 /services                 # application code (frontend + microservices)
 /platform
   /terraform              # AWS infra as code
-  /k8s
-    /infra                # cluster add-ons (ingress, monitoring, etc.)
-    /apps                 # app manifests + env overlays (Kustomize)
 /tests
   /e2e                    # Playwright e2e tests
 /docs
@@ -256,21 +252,8 @@ Authors should:
 - Packages: `lowercase`
 - Test classes: `*Test` / `*IT` for integration tests
 
-<a id="sec-7-4-k8s-yaml"></a>
-### 7.4 Kubernetes Manifests (YAML)
-**Rules**
-- Use Kustomize overlays for environments (`dev`, `staging`, `prod`)
-- Always set resource requests/limits for services (baseline)
-- Add readiness/liveness probes
-- Do not hardcode secrets (use Secrets or External Secrets)
-- Keep manifests minimal; avoid duplication via Kustomize patches
-
-**Validation**
-- Run manifest validation in CI (e.g., kubeconform/kubeval)
-- Prefer pinned image tags (commit SHA), not `latest`
-
 <a id="sec-7-5-terraform"></a>
-### 7.5 Terraform (AWS IaC)
+### 7.4 Terraform (AWS IaC)
 **Rules**
 - One module per responsibility (network, eks, rds, cognito, ecr)
 - Avoid copy/paste between environments; use variables/workspaces
@@ -533,8 +516,6 @@ CI should fail if any of these fail (tooling may vary by implementation):
   - Static analysis (Checkstyle/SpotBugs/etc.)
 - **Contracts**
   - OpenAPI validation/lint
-- **Kubernetes**
-  - Manifest validation (kubeconform)
 - **Terraform**
   - fmt + validate (+ optional tflint)
 - **E2E**
@@ -613,7 +594,6 @@ git branch -d feature/your-branch
 - Backend: `spotless`, `checkstyle`/`spotbugs`, `junit`, `mockito`, `testcontainers`
 - E2E: `playwright`
 - Contracts: `openapi-cli`, `spectral`
-- K8s: `kubeconform`, `helm lint`
 - Terraform: `terraform fmt/validate`, `tflint`
 
 ---

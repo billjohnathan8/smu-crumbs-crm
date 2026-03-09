@@ -1,8 +1,8 @@
 name: CI - Integration Pipeline
 
-# Full pipeline for the integration and infrastructure trunks.
-# Mirrors the local test-and-spinup-all flow:
-#   lint → tests (all 5 components) → k8s-validate → kind-deploy + smoke
+# Full pipeline for the integration trunk.
+# Mirrors the local test flow:
+#   lint -> tests (all 5 components) -> e2e
 #
 # This is the staging gate: everything must pass here before merging to main.
 
@@ -10,21 +10,10 @@ on:
   pull_request:
     branches:
       - integration
-      - infrastructure
   push:
     branches:
       - integration
-      - infrastructure
   workflow_dispatch:
-    inputs:
-      kind_cluster_name:
-        description: 'kind cluster name (default: cs301-crm)'
-        required: false
-        default: 'cs301-crm'
-      namespace:
-        description: 'Kubernetes namespace (default: dev)'
-        required: false
-        default: 'dev'
 
 concurrency:
   group: ci-integration-${{ github.ref }}
@@ -196,34 +185,3 @@ jobs:
             services/frontend/crm-ui/test-results/
             services/frontend/crm-ui/playwright-report/
           retention-days: 7
-
-  # ==========================================================================
-  # Layer 3: K8s manifest validation
-  # ==========================================================================
-  k8s-validate:
-    needs:
-      - changes
-      - lint
-      - test-agent
-      - test-client
-      - test-transaction
-      - test-log
-      - test-frontend
-      - e2e-frontend
-    if: ${{ !failure() && !cancelled() }}
-    uses: ./.github/workflows/reusable-k8s-validate.yml
-
-  # ==========================================================================
-  # Layer 4: Kind deploy + smoke tests
-  # Runs on push to integration/infrastructure or workflow_dispatch (not PRs).
-  # ==========================================================================
-  kind-smoke:
-    needs:
-      - k8s-validate
-    if: >-
-      ${{ !failure() && !cancelled()
-          && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
-    uses: ./.github/workflows/reusable-kind-smoke.yml
-    with:
-      kind-cluster-name: ${{ github.event.inputs.kind_cluster_name || 'cs301-crm' }}
-      namespace: ${{ github.event.inputs.namespace || 'dev' }}
