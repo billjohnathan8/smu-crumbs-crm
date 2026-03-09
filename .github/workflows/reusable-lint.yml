@@ -139,6 +139,10 @@ jobs:
         timeout-minutes: 3
         run: npm ci
 
+      - name: Prettier format check
+        timeout-minutes: 1
+        run: npm run format:check
+
       - name: TypeScript typecheck
         timeout-minutes: 2
         run: npm run typecheck
@@ -146,10 +150,6 @@ jobs:
       - name: ESLint
         timeout-minutes: 2
         run: npm run lint
-
-      - name: Prettier format check
-        timeout-minutes: 1
-        run: npm run format:check
 
   # ---- Terraform fmt + validate + tflint + checkov ----
   terraform-lint:
