@@ -159,4 +159,120 @@ The following resource types were detected but have no direct cost:
 - ECS task counts reflect the **desired count of 2 per service** (agent, client, transaction). Autoscaling can increase this to max 4 per service.
 - RDS is configured as **Multi-AZ** — disabling this would roughly halve the RDS instance cost ($37 → ~$18/mo).
 - A **second NAT Gateway** would be added if `enable_multi_az_nat = true`, adding another ~$43/mo.
-- To regenerate this estimate: `cd platform/terraform && infracost breakdown --path .`
+
+---
+
+## Running Infracost Locally
+
+Infracost reads the Terraform source (no `terraform plan` required) and produces a cost breakdown against live AWS pricing.
+
+### Prerequisites
+
+| Requirement | Notes |
+|---|---|
+| [Infracost CLI](https://www.infracost.io/docs/#quick-start) | v0.10+ — install via `winget`, `brew`, or download |
+| Infracost API key | Free account at [infracost.io](https://www.infracost.io/) |
+| Terraform source | `platform/terraform/` in this repository |
+
+#### Install Infracost
+
+```bash
+# macOS / Linux
+brew install infracost
+
+# Windows (winget)
+winget install Infracost.Infracost
+
+# Or download directly
+# https://www.infracost.io/docs/#quick-start
+```
+
+#### Authenticate
+
+```bash
+infracost auth login
+```
+
+This opens a browser, creates a free account, and writes your API key to `~/.config/infracost/credentials.yml`. The key starts with `ico-`.
+
+---
+
+### Commands
+
+All commands should be run from `platform/terraform/`.
+
+#### Full breakdown (current branch)
+
+```bash
+cd platform/terraform
+infracost breakdown --path .
+```
+
+Produces a table of every priced resource with monthly estimates and a project total.
+
+#### Breakdown with custom variables
+
+If you pass a tfvars file at apply time, pass it to Infracost too so the resource counts and sizes match:
+
+```bash
+infracost breakdown --path . \
+  --terraform-var-file terraform.tfvars
+```
+
+#### Cost diff between two branches
+
+Shows the delta of adding, changing, or removing resources — useful before opening a PR.
+
+```bash
+# From the branch with your changes:
+infracost diff --path . \
+  --compare-to main
+
+# Or compare against a specific tfvars baseline:
+infracost diff --path . \
+  --compare-to main \
+  --terraform-var-file terraform.tfvars
+```
+
+#### JSON output (for scripting or archiving)
+
+```bash
+infracost breakdown --path . --format json --out-file infracost.json
+```
+
+#### HTML report
+
+```bash
+infracost breakdown --path . --format html --out-file infracost-report.html
+```
+
+---
+
+### Interpreting the Output
+
+```
+Name                                          Monthly Qty  Unit   Monthly Cost
+─────────────────────────────────────────────────────────────────────────────
+aws_ecs_service.services["agent"]
+├─ Per vCPU per hour                                730  vCPU-hours    $36.91
+└─ Per GB per hour                                1,460  GB-hours       $8.07
+...
+OVERALL TOTAL                                                          $247.36
+```
+
+- **Resources with `$0`** are free tier or priced only on usage (Lambda requests, S3 storage, etc.).
+- **Resources marked `Cost depends on usage`** have a $0 baseline but accrue charges at runtime — see the [usage-dependent costs](#usage-dependent-costs) section.
+- **`infracost diff`** prefixes rows with `+`/`-`/`~` to show additions, removals, and changes.
+
+---
+
+### Updating This Document
+
+After making infrastructure changes that affect cost, regenerate the baseline and update the tables above:
+
+```bash
+cd platform/terraform
+infracost breakdown --path . --format table
+```
+
+Then update the [Fixed Monthly Costs](#fixed-monthly-costs) and [Cost by Service Group](#cost-by-service-group) sections to reflect the new numbers.

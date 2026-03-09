@@ -147,6 +147,20 @@ The SQS → Lambda → DynamoDB consumer path matches the diagram's AML asynchro
 
 ---
 
+## 10. Cost Estimation
+
+Infrastructure costs are tracked using [Infracost](https://www.infracost.io/), which analyses the Terraform source and produces per-resource AWS pricing estimates without requiring `terraform plan` or live credentials.
+
+**Current baseline (ap-southeast-1):** ~$247.36/month fixed costs
+
+| Dominant cost driver | Share |
+|---|---|
+| ECS Fargate (3 services × 2 tasks) | ~73% |
+| NAT Gateway | ~17% |
+| RDS PostgreSQL Multi-AZ | ~17% |
+
+> See [cost-estimate.md](cost-estimate.md) for the full breakdown, per-unit usage rates, and instructions for running Infracost locally against the Terraform source.
+
 ## 10. Verification/Document Flow
 
 The diagram shows: SES → Verification Lambda → SNS → Document Verification storage.

@@ -10,3 +10,4 @@ Documentation for the AWS infrastructure managed under `platform/terraform/`.
 | [terraform-resource-inventory.md](terraform-resource-inventory.md) | Complete inventory of all Terraform modules and AWS resources |
 | [backend-setup.md](backend-setup.md) | Guide for configuring the S3 + DynamoDB remote state backend |
 | [architecture-conformance.md](architecture-conformance.md) | Conformance summary against the reference architecture diagram, with identified gaps and remediation plan |
+| [cost-estimate.md](cost-estimate.md) | AWS cost baseline ($247.36/mo) with per-resource breakdown and guide for running Infracost locally |
