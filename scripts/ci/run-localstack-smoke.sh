@@ -117,7 +117,7 @@ done
 # --------------------------------------------------------------------------
 
 echo "==> Waiting for init scripts to provision resources..."
-INIT_ATTEMPTS=40
+INIT_ATTEMPTS=80
 for i in $(seq 1 ${INIT_ATTEMPTS}); do
   if aws_local sqs get-queue-url \
        --queue-name scroogebank-crm-dev-audit >/dev/null 2>&1; then

@@ -112,7 +112,7 @@ echo "=== Phase 2: LocalStack ==="
 wait_for_http "${LOCALSTACK_ENDPOINT}/_localstack/health" "localstack"
 
 echo "Waiting for LocalStack init provisioning (SQS sentinel)..."
-INIT_ATTEMPTS=40
+INIT_ATTEMPTS=80
 for i in $(seq 1 ${INIT_ATTEMPTS}); do
   aws --endpoint-url "${LOCALSTACK_ENDPOINT}" --region ap-southeast-1 \
     sqs get-queue-url --queue-name scroogebank-crm-dev-audit >/dev/null 2>&1 && {
