@@ -39,6 +39,7 @@ jobs:
   lint:
     needs: changes
     uses: ./.github/workflows/reusable-lint.yml
+    secrets: inherit
     with:
       run-secrets: true
       run-backend-java: >-

@@ -31,6 +31,9 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      INFRACOST_API_KEY:
+        required: false
 
 permissions:
   contents: read
@@ -196,6 +199,37 @@ jobs:
       - name: Run TFLint
         timeout-minutes: 3
         run: tflint --format compact
+
+      - name: Prepare Infracost artifact directory
+        timeout-minutes: 1
+        run: mkdir -p .infracost
+
+      - name: Set up Infracost
+        if: ${{ secrets.INFRACOST_API_KEY != '' }}
+        uses: infracost/actions/setup@v3
+        timeout-minutes: 2
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Generate Infracost report
+        if: ${{ secrets.INFRACOST_API_KEY != '' }}
+        timeout-minutes: 5
+        run: |
+          infracost breakdown --path=. --format=json --out-file=.infracost/infracost-report.json
+          infracost breakdown --path=. --format=table --out-file=.infracost/infracost-report.txt
+
+      - name: Record skipped Infracost reason
+        if: ${{ secrets.INFRACOST_API_KEY == '' }}
+        timeout-minutes: 1
+        run: echo "INFRACOST_API_KEY is not configured; Infracost cost report was skipped." > .infracost/README.txt
+
+      - name: Upload Infracost artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: infracost-terraform-${{ github.run_id }}-${{ github.run_attempt }}
+          path: platform/terraform/.infracost/
+          retention-days: 7
 
       - name: Set up Python for Checkov
         uses: actions/setup-python@v5

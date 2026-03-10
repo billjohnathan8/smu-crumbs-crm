@@ -89,6 +89,7 @@ jobs:
     needs: [detect-changes]
     if: needs.detect-changes.outputs.platform == 'true'
     uses: ./.github/workflows/ci-terraform.yml
+    secrets: inherit
 
   # Secret scanning runs unconditionally on every push/PR regardless of what changed.
   secrets-scan:
