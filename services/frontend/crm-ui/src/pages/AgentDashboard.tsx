@@ -10,6 +10,7 @@ const agentNav: NavItem[] = [
   { label: 'Home', to: '/agent', end: true },
   { label: 'Manage Clients', to: '/agent/clients' },
   { label: 'Transactions', to: '/agent/transactions' },
+  { label: 'AML Alerts', to: '/agent/aml-alerts' },
 ]
 
 export function AgentDashboard() {
@@ -82,6 +83,12 @@ export function AgentDashboard() {
             className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white font-medium transition-colors"
           >
             View Transactions
+          </a>
+          <a
+            href="/agent/aml-alerts"
+            className="px-4 py-2 rounded-lg bg-warning hover:bg-warning-hover text-white font-medium transition-colors"
+          >
+            AML Alerts
           </a>
           <button
             onClick={logout}

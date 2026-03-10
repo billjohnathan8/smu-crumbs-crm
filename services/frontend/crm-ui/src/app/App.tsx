@@ -7,6 +7,7 @@ import { AdminManageAccounts } from '@/pages/AdminManageAccounts'
 import { AgentDashboard } from '@/pages/AgentDashboard'
 import { AgentCreateClient } from '@/pages/AgentCreateClient'
 import { AgentViewTransactions } from '@/pages/AgentViewTransactions'
+import { AmlAlertsPage } from '@/pages/AmlAlertsPage'
 
 function RootRedirect() {
   const { user, isAuthenticated, isLoading } = useAuth()
@@ -40,12 +41,14 @@ export function App() {
           <Route element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} />}>
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/accounts" element={<AdminManageAccounts />} />
+            <Route path="/admin/aml-alerts" element={<AmlAlertsPage />} />
           </Route>
 
           <Route element={<ProtectedRoute allowedRoles={['agent']} />}>
             <Route path="/agent" element={<AgentDashboard />} />
             <Route path="/agent/clients/new" element={<AgentCreateClient />} />
             <Route path="/agent/transactions" element={<AgentViewTransactions />} />
+            <Route path="/agent/aml-alerts" element={<AmlAlertsPage />} />
           </Route>
 
           <Route path="/" element={<RootRedirect />} />

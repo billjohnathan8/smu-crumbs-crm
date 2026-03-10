@@ -9,6 +9,7 @@ const agentNav: NavItem[] = [
   { label: 'Home', to: '/agent', end: true },
   { label: 'Manage Clients', to: '/agent/clients' }, // change if your route differs
   { label: 'View Transactions', to: '/agent/transactions' },
+  { label: 'AML Alerts', to: '/agent/aml-alerts' },
 ]
 
 const ITEMS_PER_PAGE = 20

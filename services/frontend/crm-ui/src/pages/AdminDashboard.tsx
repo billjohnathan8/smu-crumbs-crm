@@ -16,6 +16,7 @@ interface Stats {
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
   { label: 'Manage Accounts', to: '/admin/accounts' },
+  { label: 'AML Alerts', to: '/admin/aml-alerts' },
 ]
 
 export function AdminDashboard() {
@@ -87,6 +88,12 @@ export function AdminDashboard() {
             </p>
           </div>
           <div className="flex space-x-4">
+            <a
+              href="/admin/aml-alerts"
+              className="px-4 py-2 rounded-lg bg-warning hover:bg-warning-hover text-white font-medium transition-colors"
+            >
+              AML Alerts
+            </a>
             <a
               href="/admin/accounts"
               className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white font-medium transition-colors"
