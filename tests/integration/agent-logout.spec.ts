@@ -26,6 +26,7 @@ test.describe("Agent Logout Flow (Integration)", () => {
       await page.fill('[data-testid="email-input"]', AGENT_EMAIL);
       await page.fill('[data-testid="password-input"]', AGENT_PASSWORD);
       await page.click('[data-testid="login-submit-button"]');
+      await expect(page).toHaveURL(/\/agent$/, { timeout: 10000 });
     });
 
     await test.step("Navigate to agent dashboard", async () => {
@@ -64,6 +65,13 @@ test.describe("Agent Logout Flow (Integration)", () => {
   });
 
   test("should logout from agent create client page", async ({ page }) => {
+    await test.step("Login as agent", async () => {
+      await page.fill('[data-testid="email-input"]', AGENT_EMAIL);
+      await page.fill('[data-testid="password-input"]', AGENT_PASSWORD);
+      await page.click('[data-testid="login-submit-button"]');
+      await expect(page).toHaveURL(/\/agent$/, { timeout: 10000 });
+    });
+
     await test.step("Navigate to create client page", async () => {
       await page.goto("/agent/clients/new");
       await page.waitForLoadState("domcontentloaded");
@@ -92,6 +100,13 @@ test.describe("Agent Logout Flow (Integration)", () => {
   });
 
   test("should logout from agent transactions page", async ({ page }) => {
+    await test.step("Login as agent", async () => {
+      await page.fill('[data-testid="email-input"]', AGENT_EMAIL);
+      await page.fill('[data-testid="password-input"]', AGENT_PASSWORD);
+      await page.click('[data-testid="login-submit-button"]');
+      await expect(page).toHaveURL(/\/agent$/, { timeout: 10000 });
+    });
+
     await test.step("Navigate to transactions page", async () => {
       await page.goto("/agent/transactions");
       await page.waitForLoadState("domcontentloaded");

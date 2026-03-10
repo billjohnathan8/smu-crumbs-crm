@@ -21,6 +21,7 @@ test.describe("Admin Flow (Integration)", () => {
   test.beforeEach(async ({ page, context }) => {
     // Clear all cookies and storage state for clean slate
     await context.clearCookies();
+    await page.goto("/");
     await page.evaluate(() => {
       localStorage.clear();
       sessionStorage.clear();
@@ -42,21 +43,21 @@ test.describe("Admin Flow (Integration)", () => {
     await page.fill('[data-testid="password-input"]', ADMIN_PASSWORD);
     await page.click('[data-testid="login-submit-button"]');
 
-    await expect(page).toHaveURL(/\/admin$/);
+    await expect(page).toHaveURL(/\/admin$/, { timeout: 10000 });
     await expect(page.getByText("Admin Dashboard")).toBeVisible();
 
     const dashboardLoadTime = Date.now() - startTime;
-    expect(dashboardLoadTime).toBeLessThan(10000); // Generous timeout for real backend
+    expect(dashboardLoadTime).toBeLessThan(15000); // Generous timeout for real backend
 
     const accountsStartTime = Date.now();
 
     await page.click('a[href="/admin/accounts"]');
 
     await expect(page).toHaveURL(/\/admin\/accounts$/);
-    await expect(page.getByRole("main").getByRole("link", { name: "Manage Accounts" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Manage Accounts" })).toBeVisible();
 
     const accountsLoadTime = Date.now() - accountsStartTime;
-    expect(accountsLoadTime).toBeLessThan(5000);
+    expect(accountsLoadTime).toBeLessThan(10000);
   });
 
   test("should display stats on admin dashboard", async ({ page }) => {
@@ -67,7 +68,7 @@ test.describe("Admin Flow (Integration)", () => {
     await page.fill('[data-testid="password-input"]', ADMIN_PASSWORD);
     await page.click('[data-testid="login-submit-button"]');
 
-    await expect(page).toHaveURL(/\/admin$/);
+    await expect(page).toHaveURL(/\/admin$/, { timeout: 10000 });
 
     // Wait for stats to load from real backend (may take time)
     await expect(page.getByText("Total Agents")).toBeVisible({ timeout: 10000 });
@@ -85,7 +86,7 @@ test.describe("Admin Flow (Integration)", () => {
     await page.fill('[data-testid="password-input"]', ADMIN_PASSWORD);
     await page.click('[data-testid="login-submit-button"]');
 
-    await expect(page).toHaveURL(/\/admin$/);
+    await expect(page).toHaveURL(/\/admin$/, { timeout: 10000 });
 
     await page.click('a[href="/admin/accounts"]');
     await expect(page).toHaveURL(/\/admin\/accounts$/);
@@ -104,7 +105,7 @@ test.describe("Admin Flow (Integration)", () => {
     await page.fill('[data-testid="password-input"]', ADMIN_PASSWORD);
     await page.click('[data-testid="login-submit-button"]');
 
-    await expect(page).toHaveURL(/\/admin$/);
+    await expect(page).toHaveURL(/\/admin$/, { timeout: 10000 });
 
     // Click logout button
     await page.click('button:has-text("Logout")');

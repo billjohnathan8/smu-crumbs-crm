@@ -22,6 +22,7 @@ const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "AdminPass123!";
 test.describe("API Error Handling (Integration)", () => {
   test.beforeEach(async ({ page, context }) => {
     await context.clearCookies();
+    await page.goto("/");
     await page.evaluate(() => {
       localStorage.clear();
       sessionStorage.clear();
@@ -196,10 +197,10 @@ test.describe("API Error Handling (Integration)", () => {
     context,
   }) => {
     await test.step("Go offline and try to login", async () => {
-      // Set offline mode
-      await context.setOffline(true);
-
       await page.goto("/login");
+
+      // Set offline mode after page has loaded so subsequent API calls fail
+      await context.setOffline(true);
 
       // Try to submit login form
       await page.fill('[data-testid="email-input"]', AGENT_EMAIL);

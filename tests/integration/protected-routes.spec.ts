@@ -7,82 +7,97 @@
  * Run with: npm run e2e:integration:real
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
+
+async function setAuthState(page: Page, role: "admin" | "agent"): Promise<void> {
+  const mockUser = {
+    id: `${role}-1`,
+    firstName: role === "admin" ? "Admin" : "Agent",
+    lastName: "User",
+    email: `${role}@example.com`,
+    role,
+    status: "active",
+  };
+
+  await page.evaluate((user) => {
+    localStorage.setItem("authToken", `mock-token-${user.role}`);
+    localStorage.setItem("currentUser", JSON.stringify(user));
+  }, mockUser);
+
+  await page.route("**/api/**", async (route) => {
+    const url = route.request().url();
+
+    if (url.includes("/api/agents/me")) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(mockUser),
+      });
+    }
+
+    if (url.includes("/api/agents") && route.request().method() === "GET") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [],
+          pagination: { limit: 10, offset: 0, total: 0 },
+        }),
+      });
+    }
+
+    if (url.includes("/api/clients")) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [],
+          pagination: { limit: 10, offset: 0, total: 0 },
+        }),
+      });
+    }
+
+    if (url.includes("/api/transactions")) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [],
+          pagination: { limit: 20, offset: 0, total: 0 },
+        }),
+      });
+    }
+
+    if (url.includes("/api/logs")) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [],
+          pagination: { limit: 10, offset: 0, total: 0 },
+        }),
+      });
+    }
+
+    return route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: "not_found",
+        message: "Endpoint not mocked",
+      }),
+    });
+  });
+}
 
 test.describe("Protected Route Access (Integration)", () => {
   test.beforeEach(async ({ page, context }) => {
     // Clear cookies and storage for clean state
     await context.clearCookies();
+    await page.goto("/");
     await page.evaluate(() => {
       localStorage.clear();
       sessionStorage.clear();
-    });
-  });
-          body: JSON.stringify({
-            id: `${role}-1`,
-            firstName: role === "admin" ? "Admin" : "Agent",
-            lastName: "User",
-            email: `${role}@example.com`,
-            role,
-            status: "active",
-          }),
-        });
-      }
-
-      // Mock other endpoints generically
-      if (url.includes("/api/agents") && route.request().method() === "GET") {
-        return route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({
-            data: [],
-            pagination: { limit: 10, offset: 0, total: 0 },
-          }),
-        });
-      }
-
-      if (url.includes("/api/clients")) {
-        return route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({
-            data: [],
-            pagination: { limit: 10, offset: 0, total: 0 },
-          }),
-        });
-      }
-
-      if (url.includes("/api/transactions")) {
-        return route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({
-            data: [],
-            pagination: { limit: 20, offset: 0, total: 0 },
-          }),
-        });
-      }
-
-      if (url.includes("/api/logs")) {
-        return route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({
-            data: [],
-            pagination: { limit: 10, offset: 0, total: 0 },
-          }),
-        });
-      }
-
-      // Default: return 404 for unmocked endpoints
-      return route.fulfill({
-        status: 404,
-        contentType: "application/json",
-        body: JSON.stringify({
-          error: "not_found",
-          message: "Endpoint not mocked",
-        }),
-      });
     });
   });
 

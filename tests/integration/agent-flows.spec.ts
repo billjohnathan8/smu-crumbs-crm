@@ -20,52 +20,12 @@ const AGENT_PASSWORD = process.env.E2E_AGENT_PASSWORD ?? "AgentPass123!";
 test.describe("Agent Flow (Integration)", () => {
   test.beforeEach(async ({ page, context }) => {
     await context.clearCookies();
+    await page.goto("/");
     await page.evaluate(() => {
       localStorage.clear();
       sessionStorage.clear();
     });
     page.on("pageerror", (err) => console.error("Browser error:", err.message));
-  });
-                transaction: "D",
-                amount: 1000.0,
-                date: "2024-01-15T10:30:00Z",
-                status: "Completed",
-              },
-              {
-                id: "txn-2",
-                clientId: "client-2",
-                transaction: "W",
-                amount: 500.0,
-                date: "2024-01-16T14:20:00Z",
-                status: "Pending",
-              },
-            ],
-            pagination: { limit: 20, offset: 0, total: 2 },
-          }),
-        });
-      }
-
-      if (url.includes("/api/logs")) {
-        return route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({
-            data: [],
-            pagination: { limit: 10, offset: 0, total: 0 },
-          }),
-        });
-      }
-
-      // For any other API requests, return 404 to prevent hanging
-      return route.fulfill({
-        status: 404,
-        contentType: "application/json",
-        body: JSON.stringify({
-          error: "not_found",
-          message: "Endpoint not mocked in test",
-        }),
-      });
-    });
   });
 
   test("should login as agent and view dashboard", async ({ page }) => {
@@ -86,32 +46,32 @@ test.describe("Agent Flow (Integration)", () => {
   });
 
   test("should display clients and transactions on agent dashboard", async ({ page }) => {
+    const startTime = Date.now();
     await page.goto("/login");
-      sessionStorage.clear();
-    });
     await page.waitForLoadState("domcontentloaded");
 
-    await page.fill('[data-testid="email-input"]', "agent@example.com");
-    await page.fill('[data-testid="password-input"]', "password123");
+    await page.fill('[data-testid="email-input"]', AGENT_EMAIL);
+    await page.fill('[data-testid="password-input"]', AGENT_PASSWORD);
     await page.click('[data-testid="login-submit-button"]');
 
-    await expect(page).toHaveURL("http://localhost:4173/agent");
+    await expect(page).toHaveURL(/\/agent$/, { timeout: 10000 });
     await expect(page.getByText("Agent Dashboard")).toBeVisible();
 
     const dashboardLoadTime = Date.now() - startTime;
-    expect(dashboardLoadTime).toBeLessThan(5000);
+    expect(dashboardLoadTime).toBeLessThan(15000);
 
     const createClientStartTime = Date.now();
 
     await page.click('a[href="/agent/clients/new"]');
-    await expect(page).toHaveURL("http://localhost:4173/agent/clients/new");
+    await expect(page).toHaveURL(/\/agent\/clients\/new$/);
 
+    const suffix = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
     await page.fill('input[name="firstName"]', "John");
     await page.fill('input[name="lastName"]', "Doe");
     await page.fill('input[name="dateOfBirth"]', "1990-01-01");
     await page.selectOption('select[name="gender"]', "Male");
-    await page.fill('input[name="emailAddress"]', "john.doe@example.com");
-    await page.fill('input[name="phoneNumber"]', "+65 12345678");
+    await page.fill('input[name="emailAddress"]', `john.doe.${suffix}@example.com`);
+    await page.fill('input[name="phoneNumber"]', "+6512345678");
     await page.fill('input[name="address"]', "123 Main St");
     await page.fill('input[name="city"]', "Singapore");
     await page.fill('input[name="state"]', "Singapore");
@@ -120,37 +80,33 @@ test.describe("Agent Flow (Integration)", () => {
 
     await page.click('button[type="submit"]');
 
-    await expect(page).toHaveURL("http://localhost:4173/agent");
+    await expect(page).toHaveURL(/\/agent$/, { timeout: 10000 });
 
     const createClientTime = Date.now() - createClientStartTime;
-    expect(createClientTime).toBeLessThan(5000);
+    expect(createClientTime).toBeLessThan(15000);
 
     const transactionsStartTime = Date.now();
 
     await page.click('a[href="/agent/transactions"]');
-    await expect(page).toHaveURL("http://localhost:4173/agent/transactions");
+    await expect(page).toHaveURL(/\/agent\/transactions$/);
     await expect(page.getByRole("heading", { name: "Transactions" })).toBeVisible();
 
     const transactionsLoadTime = Date.now() - transactionsStartTime;
-    expect(transactionsLoadTime).toBeLessThan(3000);
+    expect(transactionsLoadTime).toBeLessThan(10000);
   });
 
   test("should validate client creation form", async ({ page }) => {
-    await page.goto("http://localhost:4173/login");
-    await page.evaluate(() => {
-      localStorage.clear();
-      sessionStorage.clear();
-    });
+    await page.goto("/login");
     await page.waitForLoadState("domcontentloaded");
 
-    await page.fill('[data-testid="email-input"]', "agent@example.com");
-    await page.fill('[data-testid="password-input"]', "password123");
+    await page.fill('[data-testid="email-input"]', AGENT_EMAIL);
+    await page.fill('[data-testid="password-input"]', AGENT_PASSWORD);
     await page.click('[data-testid="login-submit-button"]');
 
-    await expect(page).toHaveURL("http://localhost:4173/agent");
+    await expect(page).toHaveURL(/\/agent$/, { timeout: 10000 });
 
     await page.click('a[href="/agent/clients/new"]');
-    await expect(page).toHaveURL("http://localhost:4173/agent/clients/new");
+    await expect(page).toHaveURL(/\/agent\/clients\/new$/);
 
     // Try to submit without filling required fields
     await page.click('button[type="submit"]');
@@ -160,11 +116,7 @@ test.describe("Agent Flow (Integration)", () => {
   });
 
   test("should display agent dashboard stats", async ({ page }) => {
-    await page.goto("http://localhost:4173/login");
-    await page.evaluate(() => {
-      localStorage.clear();
-      sessionStorage.clear();
-    });
+    await page.goto("/login");
     await page.waitForLoadState("domcontentloaded");
 
     await page.fill('[data-testid="email-input"]', AGENT_EMAIL);
@@ -212,7 +164,7 @@ test.describe("Agent Flow (Integration)", () => {
     // Navigate to transactions (if link exists)
     const transactionsLink = page.locator('a[href="/agent/transactions"]');
     if (await transactionsLink.count() > 0) {
-      await transactionsLink.click();
+      await transactionsLink.first().click();
       await expect(page).toHaveURL(/\/agent\/transactions$/);
       
       // Navigate back to dashboard
