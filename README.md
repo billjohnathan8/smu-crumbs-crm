@@ -22,6 +22,21 @@
 python scripts/pipelines/setup_dev_env.py
 ```
 
+Note: `setup_dev_env.py` can install `inframap` without Docker (portable binary download). Docker Desktop is still required for container-based workflows and Docker fallback paths.
+
+# Infrastructure Visualization
+Use these commands from repo root to visualize Terraform infrastructure:
+
+```bash
+make inframap
+make inframap-full
+make terraform-graph
+```
+
+Docs:
+- `docs/infrastructure/inframap-setup.md`
+- `docs/infrastructure/README.md`
+
 # Prerequisites
 - Docker Desktop (or Docker Engine)
 - Git

@@ -8,6 +8,9 @@ name: Branch Policy
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
 
 permissions:
   contents: read

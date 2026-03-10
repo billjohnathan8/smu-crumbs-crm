@@ -160,6 +160,23 @@ aws dynamodb describe-table \
   --query 'Table.KeySchema'
 ```
 
+## Step 5 (Optional): Generate Infrastructure Visualizations
+
+After backend initialization, you can generate architecture/dependency diagrams:
+
+```bash
+# From repository root
+make inframap
+make inframap-full
+make terraform-graph
+```
+
+Outputs are written to:
+- `docs/infrastructure/generated/inframap/`
+- `docs/infrastructure/generated/terraform-graph/`
+
+For advanced options and troubleshooting, see `docs/infrastructure/inframap-setup.md`.
+
 ## Security Best Practices
 
 ### Secrets Management

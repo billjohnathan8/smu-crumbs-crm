@@ -1,18 +1,23 @@
 name: CI - Integration Pipeline
 
-# Full pipeline for the integration trunk.
-# Mirrors the local test flow:
-#   lint -> unit tests -> mocked e2e -> fullstack integration (LocalStack + real Playwright)
-#
-# This is the staging gate: everything must pass here before merging to main.
+# Lean pipeline for integration.
+# Purpose:
+# - Avoid rerunning lint/unit/mock checks already enforced earlier in dev/component pipelines.
+# - Keep only integration-specific validation before merging to main.
 
 on:
   pull_request:
     branches:
       - integration
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   push:
     branches:
       - integration
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   workflow_dispatch:
 
 concurrency:
@@ -23,198 +28,13 @@ permissions:
   contents: read
 
 jobs:
-  # ==========================================================================
-  # Layer 0: Detect which components changed
-  # ==========================================================================
-  changes:
-    uses: ./.github/workflows/reusable-changes.yml
-
-  # Optional: Lint GitHub Actions workflows (catches YAML mistakes early)
+  # Keep a lightweight CI-config sanity check.
   actionlint:
     uses: ./.github/workflows/reusable-actionlint.yml
 
-  # ==========================================================================
-  # Layer 1: Lint / Format / Typecheck
-  # ==========================================================================
-  lint:
-    needs: changes
-    uses: ./.github/workflows/reusable-lint.yml
-    with:
-      run-secrets: true
-      run-backend-java: >-
-        ${{ needs.changes.outputs.any-backend == 'true'
-            || needs.changes.outputs.ci-config == 'true' }}
-      run-backend-python: >-
-        ${{ needs.changes.outputs.backend-log == 'true'
-            || needs.changes.outputs.ci-config == 'true' }}
-      run-frontend: >-
-        ${{ needs.changes.outputs.frontend == 'true'
-            || needs.changes.outputs.ci-config == 'true' }}
-      run-terraform: true
-
-  # ==========================================================================
-  # Layer 2: Component tests (parallel, each gated by scope)
-  # ==========================================================================
-  test-agent:
-    needs: [changes, lint]
-    if: >-
-      ${{ needs.changes.outputs.backend-agent == 'true'
-          || needs.changes.outputs.ci-config == 'true' }}
-    uses: ./.github/workflows/reusable-test-component.yml
-    with:
-      component: agent
-      runtime: java
-      working-directory: services/backend/agent
-      test-command: |
-        chmod +x gradlew
-        ./gradlew test jacocoTestReport --no-daemon --console=plain
-      timeout-minutes: 10
-      artifact-paths: services/backend/agent/build/reports/**
-
-  test-client:
-    needs: [changes, lint]
-    if: >-
-      ${{ needs.changes.outputs.backend-client == 'true'
-          || needs.changes.outputs.ci-config == 'true' }}
-    uses: ./.github/workflows/reusable-test-component.yml
-    with:
-      component: client
-      runtime: java
-      working-directory: services/backend/client
-      test-command: |
-        chmod +x gradlew
-        ./gradlew test jacocoTestReport --no-daemon --console=plain
-      timeout-minutes: 12
-      artifact-paths: services/backend/client/build/reports/**
-
-  test-transaction:
-    needs: [changes, lint]
-    if: >-
-      ${{ needs.changes.outputs.backend-transaction == 'true'
-          || needs.changes.outputs.ci-config == 'true' }}
-    uses: ./.github/workflows/reusable-test-component.yml
-    with:
-      component: transaction
-      runtime: java
-      working-directory: services/backend/transaction
-      test-command: |
-        chmod +x gradlew
-        ./gradlew test jacocoTestReport --no-daemon --console=plain
-      timeout-minutes: 10
-      artifact-paths: services/backend/transaction/build/reports/**
-
-  test-log:
-    needs: [changes, lint]
-    if: >-
-      ${{ needs.changes.outputs.backend-log == 'true'
-          || needs.changes.outputs.ci-config == 'true' }}
-    uses: ./.github/workflows/reusable-test-component.yml
-    with:
-      component: log
-      runtime: python
-      working-directory: services/backend/log
-      test-command: |
-        python -m pytest tests \
-          --junitxml=build/reports/tests/junit.xml \
-          --cov=app \
-          --cov-branch \
-          --cov-report=term-missing \
-          --cov-report=xml:build/reports/coverage/coverage.xml \
-          --cov-report=html:build/reports/coverage/html
-      timeout-minutes: 8
-      artifact-paths: |
-        services/backend/log/build/reports/**
-        services/backend/log/build/coverage.xml
-
-  test-frontend:
-    needs: [changes, lint]
-    if: >-
-      ${{ needs.changes.outputs.frontend == 'true'
-          || needs.changes.outputs.ci-config == 'true' }}
-    uses: ./.github/workflows/reusable-test-component.yml
-    with:
-      component: frontend
-      runtime: node
-      working-directory: services/frontend/crm-ui
-      test-command: npm run test:coverage
-      timeout-minutes: 10
-      artifact-paths: services/frontend/crm-ui/coverage/**
-
-  # ==========================================================================
-  # Layer 3: Frontend E2E — mocked
-  # Runs after all unit tests. Uses Playwright against a local vite preview
-  # build with MSW-mocked API routes (no backend infra). Provides fast UI
-  # feedback before committing to the expensive fullstack build.
-  # Excludes e2e/integration/ (those run in Layer 4 against real containers).
-  # ==========================================================================
-  e2e-frontend-mocked:
-    name: E2E Tests - Frontend (Mocked)
-    if: ${{ !failure() && !cancelled() }}
-    needs:
-      - changes
-      - actionlint
-      - lint
-      - test-agent
-      - test-client
-      - test-transaction
-      - test-log
-      - test-frontend
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: services/frontend/crm-ui
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        timeout-minutes: 2
-
-      - name: Set up Node.js 20
-        uses: actions/setup-node@v4
-        timeout-minutes: 2
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: services/frontend/crm-ui/package-lock.json
-
-      - name: Install dependencies
-        timeout-minutes: 3
-        run: npm ci
-
-      - name: Install Playwright browsers
-        timeout-minutes: 5
-        run: npx playwright install --with-deps chromium
-
-      - name: Run mocked E2E tests
-        timeout-minutes: 10
-        run: npm run e2e:mocked
-
-      - name: Upload test results on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-results-mocked-integration
-          path: |
-            services/frontend/crm-ui/test-results/
-            services/frontend/crm-ui/playwright-report/
-          retention-days: 7
-
-  # ==========================================================================
-  # Layer 4: Fullstack integration — real containers + LocalStack
-  # Builds all service Docker images, starts LocalStack + PostgreSQL,
-  # provisions all AWS resources via the init script, runs cross-service HTTP
-  # smoke assertions, then runs real Playwright E2E against the live stack.
-  # This is the production-closest test gate before deploy.
-  # ==========================================================================
+  # Integration-only validation: real stack (containers + LocalStack + Playwright).
   fullstack-integration-e2e:
     if: ${{ !failure() && !cancelled() }}
     needs:
-      - changes
-      - e2e-frontend-mocked
+      - actionlint
     uses: ./.github/workflows/reusable-fullstack-integration.yml
-
-  # ==========================================================================
-  # Layer 5: Deploy  (not yet implemented — placeholder)
-  # fullstack-integration-e2e must pass before this gate can proceed.
-  # ==========================================================================

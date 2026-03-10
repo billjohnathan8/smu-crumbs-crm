@@ -30,9 +30,15 @@ on:
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   push:
     branches:
       - main
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   workflow_dispatch:
 
 concurrency:
@@ -55,6 +61,7 @@ jobs:
   lint:
     needs: changes
     uses: ./.github/workflows/reusable-lint.yml
+    secrets: inherit
     with:
       run-secrets: true
       run-backend-java: >-
@@ -236,3 +243,4 @@ jobs:
   # Layer 5: Deploy  (not yet implemented — placeholder)
   # fullstack-integration-e2e must pass before this gate can proceed.
   # ==========================================================================
+

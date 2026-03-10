@@ -43,7 +43,7 @@ variable "az_count" {
 
   validation {
     condition     = var.az_count >= 2
-    error_message = "az_count must be at least 2 for high availability."
+    error_message = "The az_count value must be at least 2 for high availability."
   }
 }
 
@@ -369,7 +369,7 @@ variable "cloudfront_price_class" {
       ["PriceClass_All", "PriceClass_200", "PriceClass_100"],
       var.cloudfront_price_class
     )
-    error_message = "cloudfront_price_class must be PriceClass_100, PriceClass_200, or PriceClass_All."
+    error_message = "The cloudfront_price_class value must be PriceClass_100, PriceClass_200, or PriceClass_All."
   }
 }
 

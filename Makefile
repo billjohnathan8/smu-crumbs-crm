@@ -1,4 +1,3 @@
-SHELL ?= /usr/bin/env bash
 NULL_DEVICE ?= /dev/null
 GRADLEW ?= ./gradlew
 
@@ -7,19 +6,16 @@ ifneq ($(wildcard .devtools/bin),)
 export PATH := $(CURDIR)/.devtools/bin:$(PATH)
 endif
 
-# Python command: Use python (not python3) when in Git Bash on Windows to avoid WindowsApps stub
-ifdef MSYSTEM
-PYTHON ?= python
-else
-PYTHON ?= $(shell command -v python3 2>/dev/null || command -v python 2>/dev/null || echo python)
-endif
-
 ifeq ($(OS),Windows_NT)
 NULL_DEVICE ?= NUL
 GRADLEW ?= gradlew.bat
+PYTHON ?= python
+else
+SHELL ?= /usr/bin/env bash
+PYTHON ?= $(shell command -v python3 2>/dev/null || command -v python 2>/dev/null || echo python)
 endif
 
-.PHONY: build-images
+.PHONY: build-images inframap inframap-full terraform-graph
 
 build-images:
 	cd services/backend/agent && $(GRADLEW) bootJar
@@ -30,3 +26,12 @@ build-images:
 	docker build -t log:dev services/backend/log
 	docker build -t transaction:dev services/backend/transaction
 	docker build -t crm-ui:dev services/frontend/crm-ui
+
+inframap:
+	$(PYTHON) scripts/pipelines/generate_inframap.py --install-portable
+
+inframap-full:
+	$(PYTHON) scripts/pipelines/generate_inframap.py --full-graph --source platform/terraform --basename terraform-full
+
+terraform-graph:
+	$(PYTHON) scripts/pipelines/generate_terraform_graph.py
