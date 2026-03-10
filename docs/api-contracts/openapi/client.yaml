@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: client
-  version: 0.2.0
+  version: 0.3.0
   description: 'Feature 2: Client Profile Management and Account Management.
 
     Agents can only access their own clients; admins can access all clients.'
@@ -48,8 +48,8 @@ paths:
       security: [{BearerAuth: []}]
       x-required-roles: [admin, agent]
       parameters:
-      - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
-      - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}}
+      - {name: limit, in: query, description: Requested page size. Values outside 1..200 are clamped by the service., schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+      - {name: offset, in: query, description: Requested start offset. Negative values are clamped to 0 by the service., schema: {type: integer, minimum: 0, default: 0}}
       - {name: q, in: query, schema: {type: string, description: Optional search query (name/email/phone).}}
       responses:
         '200':
@@ -64,6 +64,9 @@ paths:
                     items: {$ref: '#/components/schemas/Client'}
                   pagination: {$ref: '#/components/schemas/Pagination'}
                 required: [data]
+        '400':
+          description: Validation error (for example malformed query parameter types).
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
         '401':
           description: Unauthorized
           content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
@@ -108,6 +111,7 @@ paths:
       - {name: clientId, in: path, required: true, schema: {$ref: '#/components/schemas/ClientId'}}
       responses:
         '200': {description: Client found., content: {application/json: {schema: {$ref: '#/components/schemas/Client'}}}}
+        '400': {description: Validation error (for example invalid clientId format)., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
@@ -141,6 +145,7 @@ paths:
       - {name: clientId, in: path, required: true, schema: {$ref: '#/components/schemas/ClientId'}}
       responses:
         '204': {description: Client deleted.}
+        '400': {description: Validation error (for example invalid clientId format)., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
@@ -192,6 +197,7 @@ paths:
       - {name: accountId, in: path, required: true, schema: {$ref: '#/components/schemas/AccountId'}}
       responses:
         '200': {description: Account found., content: {application/json: {schema: {$ref: '#/components/schemas/Account'}}}}
+        '400': {description: Validation error (for example invalid accountId format)., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
@@ -224,6 +230,7 @@ paths:
       - {name: accountId, in: path, required: true, schema: {$ref: '#/components/schemas/AccountId'}}
       responses:
         '204': {description: Account deleted.}
+        '400': {description: Validation error (for example invalid accountId format)., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
@@ -235,8 +242,8 @@ paths:
       x-required-roles: [agent, admin]
       parameters:
       - {name: clientId, in: path, required: true, schema: {$ref: '#/components/schemas/ClientId'}}
-      - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
-      - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}}
+      - {name: limit, in: query, description: Requested page size. Values outside 1..200 are clamped by the service., schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+      - {name: offset, in: query, description: Requested start offset. Negative values are clamped to 0 by the service., schema: {type: integer, minimum: 0, default: 0}}
       responses:
         '200':
           description: Accounts for client.
@@ -250,6 +257,7 @@ paths:
                     items: {$ref: '#/components/schemas/Account'}
                   pagination: {$ref: '#/components/schemas/Pagination'}
                 required: [data]
+        '400': {description: Validation error (for example invalid clientId or malformed query parameters)., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '404': {description: Client not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
@@ -278,11 +286,11 @@ components:
     ClientId:
       type: string
       description: System-generated unique, non-editable client identifier.
-      example: clt_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+      example: clt_42
     AccountId:
       type: string
       description: System-generated account identifier.
-      example: acc_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+      example: acc_42
     Gender:
       type: string
       enum: [Male, Female, Non-binary, Prefer not to say]
@@ -370,6 +378,7 @@ components:
         documentType: {type: string, enum: [NRIC], default: NRIC}
         documentRef: {type: string, description: Reference to uploaded/secured doc (do not send raw docs via API).}
       required: [nric]
+      additionalProperties: false
     VerifyClientResponse:
       type: object
       properties:

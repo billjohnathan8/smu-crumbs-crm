@@ -1,5 +1,7 @@
 package com.scroogebank.crm.client_service.controller;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.scroogebank.crm.client_service.api.Pagination;
 import com.scroogebank.crm.client_service.dto.ClientDto;
 import com.scroogebank.crm.client_service.dto.ClientListResponse;
@@ -19,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -51,8 +54,12 @@ class ClientControllerTest {
 		clientService = mock(ClientService.class);
 		requestAuth = mock(RequestAuth.class);
 		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "agent"));
+		ObjectMapper objectMapper = new ObjectMapper()
+			.findAndRegisterModules()
+			.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
 		mockMvc = MockMvcBuilders.standaloneSetup(new ClientController(clientService, requestAuth))
 			.setControllerAdvice(new ApiExceptionHandler())
+			.setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
 			.build();
 	}
 
@@ -145,6 +152,34 @@ class ClientControllerTest {
 	}
 
 	@Test
+	void createClient_unknownField_returnsBadRequest() throws Exception {
+		String payloadWithUnknownField = """
+			{
+			  "firstName": "Jordan",
+			  "lastName": "Taylor",
+			  "dateOfBirth": "1990-01-15",
+			  "gender": "Male",
+			  "emailAddress": "jordan.taylor@example.com",
+			  "phoneNumber": "+15551234567",
+			  "address": "123 Main Street",
+			  "city": "Springfield",
+			  "state": "Illinois",
+			  "country": "United States",
+			  "postalCode": "62704",
+			  "unknownField": "unexpected"
+			}
+			""";
+
+		mockMvc.perform(post("/api/clients")
+				.header("Authorization", AUTH_HEADER)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(payloadWithUnknownField))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error").value("validation_error"))
+			.andExpect(jsonPath("$.message").value("Invalid request body"));
+	}
+
+	@Test
 	void getClient_returnsClient() throws Exception {
 		when(clientService.getClient(any(), eq("clt_7"), any(), any())).thenReturn(sampleDto("clt_7"));
 
@@ -180,5 +215,13 @@ class ClientControllerTest {
 
 		mockMvc.perform(delete("/api/clients/clt_55").header("Authorization", AUTH_HEADER))
 			.andExpect(status().isNoContent());
+	}
+
+	@Test
+	void listClients_invalidLimitType_returnsBadRequest() throws Exception {
+		mockMvc.perform(get("/api/clients?limit=abc").header("Authorization", AUTH_HEADER))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error").value("validation_error"))
+			.andExpect(jsonPath("$.message").value("Invalid request parameter: limit"));
 	}
 }

@@ -12,6 +12,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.scroogebank.crm.client_service.api.Pagination;
 import com.scroogebank.crm.client_service.dto.AccountDto;
 import com.scroogebank.crm.client_service.dto.AccountListResponse;
@@ -29,6 +31,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -46,9 +49,13 @@ class AccountControllerTest {
 		accountService = mock(AccountService.class);
 		RequestAuth requestAuth = mock(RequestAuth.class);
 		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "agent"));
+		ObjectMapper objectMapper = new ObjectMapper()
+			.findAndRegisterModules()
+			.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
 
 		mockMvc = MockMvcBuilders.standaloneSetup(new AccountController(accountService, requestAuth))
 			.setControllerAdvice(new ApiExceptionHandler())
+			.setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
 			.build();
 	}
 
@@ -75,6 +82,28 @@ class AccountControllerTest {
 				.content("{\"clientId\":\"\",\"initialDeposit\":-1}"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.error").value("validation_error"));
+	}
+
+	@Test
+	void createAccount_unknownField_returnsBadRequest() throws Exception {
+		mockMvc.perform(post("/api/accounts")
+				.header("Authorization", AUTH_HEADER)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "clientId": "clt_1",
+					  "accountType": "Savings",
+					  "accountStatus": "Active",
+					  "openingDate": "2026-02-01",
+					  "initialDeposit": 100.00,
+					  "currency": "USD",
+					  "branchId": "br_1",
+					  "unknownField": "unexpected"
+					}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error").value("validation_error"))
+			.andExpect(jsonPath("$.message").value("Invalid request body"));
 	}
 
 	@Test
@@ -111,6 +140,14 @@ class AccountControllerTest {
 			.andExpect(status().isNoContent());
 
 		verify(accountService).deleteAccount(any(), eq("acc_1"), eq(AUTH_HEADER), eq("req-del"));
+	}
+
+	@Test
+	void listAccounts_invalidOffsetType_returnsBadRequest() throws Exception {
+		mockMvc.perform(get("/api/clients/clt_1/accounts?offset=oops").header("Authorization", AUTH_HEADER))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error").value("validation_error"))
+			.andExpect(jsonPath("$.message").value("Invalid request parameter: offset"));
 	}
 
 	private String createRequestJson(String clientId) {
