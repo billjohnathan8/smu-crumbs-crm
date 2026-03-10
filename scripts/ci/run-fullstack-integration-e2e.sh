@@ -290,6 +290,48 @@ if "data" not in p or "pagination" not in p:
 print("  [OK] transaction-service -> client-service")
 PY
 
+echo "  Smoke: AML alerts -> log-service (CREATE + REVIEW)"
+ALERT_ID="aml-smoke-$(date +%s)"
+AML_CREATE_RESPONSE="$(
+  curl --silent --show-error --fail \
+    --request POST "http://127.0.0.1:18084/api/aml/alerts" \
+    --header "Authorization: Bearer ${AGENT_TOKEN}" \
+    --header "Content-Type: application/json" \
+    --data "{
+      \"alertId\": \"${ALERT_ID}\",
+      \"clientId\": \"${CLIENT_ID}\",
+      \"transactionId\": null,
+      \"alertType\": \"STRUCTURING\",
+      \"description\": \"CI AML smoke alert\",
+      \"detectedAt\": \"2026-01-01T00:00:00Z\",
+      \"reviewStatus\": \"Pending\"
+    }"
+)"
+AML_CREATE_RESPONSE_JSON="${AML_CREATE_RESPONSE}" ${PYTHON_CMD} - "${ALERT_ID}" <<'PY'
+import json, os, sys
+payload = json.loads(os.environ["AML_CREATE_RESPONSE_JSON"])
+if payload.get("alertId") != sys.argv[1]:
+    raise SystemExit("AML create response alertId mismatch")
+if payload.get("reviewStatus") != "Pending":
+    raise SystemExit("AML create response reviewStatus mismatch")
+print("  [OK] AML alert created")
+PY
+
+AML_REVIEW_RESPONSE="$(
+  curl --silent --show-error --fail \
+    --request PUT "http://127.0.0.1:18084/api/aml/alerts/${ALERT_ID}/review" \
+    --header "Authorization: Bearer ${AGENT_TOKEN}" \
+    --header "Content-Type: application/json" \
+    --data '{"reviewStatus":"Confirmed"}'
+)"
+AML_REVIEW_RESPONSE_JSON="${AML_REVIEW_RESPONSE}" ${PYTHON_CMD} - <<'PY'
+import json, os
+payload = json.loads(os.environ["AML_REVIEW_RESPONSE_JSON"])
+if payload.get("reviewStatus") != "Confirmed":
+    raise SystemExit("AML review update failed")
+print("  [OK] AML alert review updated")
+PY
+
 echo "  Smoke: LocalStack SQS round-trip"
 QUEUE_URL="$(
   aws --endpoint-url "${LOCALSTACK_ENDPOINT}" --region ap-southeast-1 \
