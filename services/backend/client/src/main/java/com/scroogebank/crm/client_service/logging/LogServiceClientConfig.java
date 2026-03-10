@@ -11,10 +11,20 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class LogServiceClientConfig {
 	/**
+	 * Provides a {@link RestClient.Builder} if not already available.
+	 *
+	 * @return RestClient.Builder instance
+	 */
+	@Bean
+	RestClient.Builder restClientBuilder() {
+		return RestClient.builder();
+	}
+
+	/**
 	 * Builds a {@link RestClient} with the configured base URL.
 	 *
 	 * @param logServiceUrl base URL for the log service
-	 * @param builder auto-configured RestClient.Builder with proper message converters
+	 * @param builder RestClient.Builder with proper message converters
 	 * @return RestClient instance
 	 */
 	@Bean
