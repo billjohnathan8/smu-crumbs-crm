@@ -26,7 +26,6 @@ class HttpClientAuditLoggerTest {
 				{
 				  "action": "CREATE",
 				  "attributeName": "Client",
-				  "beforeValue": null,
 				  "afterValue": "after",
 				  "agentId": "usr_1",
 				  "clientId": "clt_1",

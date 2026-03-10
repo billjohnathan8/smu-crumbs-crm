@@ -33,14 +33,22 @@ public class HttpClientAuditLogger implements ClientAuditLogger {
 		String correlationId,
 		String authorizationHeader
 	) {
-		logServiceRestClient.post()
-			.uri("/api/logs")
-			.header(HttpHeaders.AUTHORIZATION, authorizationHeader)
-			.contentType(MediaType.APPLICATION_JSON)
-			.body(new LogEventRequest(action, attributeName, beforeValue, afterValue, agentId, clientId, Instant.now(), correlationId))
-			.retrieve()
-			.toBodilessEntity();
+		try {
+			LogEventRequest request = new LogEventRequest(
+				action, attributeName, beforeValue, afterValue, agentId, clientId, Instant.now(), correlationId
+			);
 
-		LOGGER.debug("Published audit log action={} clientId={}", action, clientId);
+			logServiceRestClient.post()
+				.uri("/api/logs")
+				.header(HttpHeaders.AUTHORIZATION, authorizationHeader)
+				.contentType(MediaType.APPLICATION_JSON)
+				.body(request)
+				.retrieve()
+				.toBodilessEntity();
+
+			LOGGER.debug("Published audit log action={} clientId={}", action, clientId);
+		} catch (Exception ex) {
+			LOGGER.warn("Failed to serialize or send audit log: {}", ex.getMessage());
+		}
 	}
 }

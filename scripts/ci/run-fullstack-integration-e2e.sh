@@ -66,6 +66,28 @@ wait_for_http() {
 build_java_jar() {
   local service_dir="$1"
   local service_name="$2"
+
+  # On WSL, 'java' may not be on PATH while a Windows JDK is installed.
+  # Probe known Windows install locations using globbing (safe for spaces).
+  if ! command -v java >/dev/null 2>&1; then
+    local _jh=""
+    for _glob in \
+        "/mnt/c/Users/*/AppData/Local/Programs/Eclipse Adoptium/jdk-*/bin/java.exe" \
+        "/mnt/c/Program Files/Eclipse Adoptium/jdk-*/bin/java.exe" \
+        "/mnt/c/Program Files/Java/jdk-*/bin/java.exe" \
+        "/mnt/c/Program Files/Microsoft/jdk-*/bin/java.exe"; do
+      # Expand glob without erroring if no match
+      for _candidate in ${_glob}; do
+        if [ -x "${_candidate}" ]; then
+          _jh="${_candidate%/bin/java.exe}"
+          export JAVA_HOME="${_jh}"
+          export PATH="${_jh}/bin:${PATH}"
+          break 2
+        fi
+      done
+    done
+  fi
+
   pushd "${service_dir}" >/dev/null
   chmod +x gradlew
   ./gradlew bootJar --no-daemon --console=plain \
