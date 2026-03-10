@@ -150,6 +150,12 @@ export interface AccountCreateRequest {
   branchId: string
 }
 
+export interface AccountUpdateRequest {
+  accountType?: AccountType
+  accountStatus?: AccountStatus
+  branchId?: string
+}
+
 // Transaction types (transaction-service)
 export type TransactionKind = 'D' | 'W'
 export type TransactionStatus = 'Completed' | 'Pending' | 'Failed'
