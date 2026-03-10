@@ -14,7 +14,7 @@ COMPOSE_PROJECT_NAME="crm-fullstack-it-${GITHUB_RUN_ID:-local}-$$"
 export AWS_ACCESS_KEY_ID=test
 export AWS_SECRET_ACCESS_KEY=test
 export AWS_DEFAULT_REGION=ap-southeast-1
-LOCALSTACK_ENDPOINT="http://127.0.0.1:4566"
+LOCALSTACK_ENDPOINT="http://127.0.0.1:14566"
 
 mkdir -p "${LOG_DIR}"
 

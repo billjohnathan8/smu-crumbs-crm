@@ -13,9 +13,8 @@ services:
 
   localstack:
     image: localstack/localstack:4
-    container_name: localstack-fullstack-it
     ports:
-      - "4566:4566"
+      - "14566:4566"
     environment:
       - SERVICES=sqs,dynamodb,s3,lambda,sns,secretsmanager
       - DEFAULT_REGION=ap-southeast-1
