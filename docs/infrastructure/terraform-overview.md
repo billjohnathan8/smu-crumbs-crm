@@ -42,6 +42,23 @@ There is **one** root Terraform configuration. There are no environment-specific
 
 ---
 
+## 1.1 Visualization Workflow
+
+Use both visualization modes during design review and change validation:
+
+- `make inframap` to generate InfraMap topology diagrams (best for service/resource relationships).
+- `make inframap-full` to render a single full dependency graph using `terraform graph`.
+- `make terraform-graph` to generate a standard Terraform dependency graph with configurable options.
+
+Generated outputs are written to:
+
+- `docs/infrastructure/generated/inframap/`
+- `docs/infrastructure/generated/terraform-graph/`
+
+For installation/setup details and advanced examples, see [inframap-setup.md](inframap-setup.md).
+
+---
+
 ## 2. Module Design Philosophy
 
 - **Single-purpose modules**: Each module encapsulates one AWS service domain.
