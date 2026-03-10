@@ -119,7 +119,7 @@ done
 # --------------------------------------------------------------------------
 # 3. Wait for the init script to complete
 #    The init script runs asynchronously inside LocalStack after it's healthy.
-#    We poll for the first SQS queue as a sentinel.
+#    We poll for the last Secrets Manager secret as a sentinel.
 # --------------------------------------------------------------------------
 
 echo "==> Waiting for init scripts to provision resources..."
