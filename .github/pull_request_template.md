@@ -24,11 +24,6 @@
 - [ ] `npm run test:coverage` passes in `services/frontend/crm-ui/`
 - [ ] `npm run lint` and `npm run typecheck` pass
 
-### If infrastructure / K8s changes
-
-- [ ] `make k8s-validate` passes
-- [ ] Tested with local kind deploy: `bash scripts/build-and-deploy-k8s/build-and-deploy-k8s-local.sh`
-
 ### Documentation
 
 - [ ] Docs updated (if user-facing behaviour changed)

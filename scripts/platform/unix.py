@@ -246,7 +246,7 @@ def find_windows_tool_in_wsl(tool_name: str) -> Optional[Path]:
     """
     Find Windows tool when running in WSL.
     
-    Example: Find docker.exe, kubectl.exe from WSL
+    Example: Find docker.exe from WSL
     
     Args:
         tool_name: Tool name (will add .exe if needed)

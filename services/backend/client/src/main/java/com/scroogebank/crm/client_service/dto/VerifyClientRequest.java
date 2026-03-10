@@ -2,14 +2,13 @@ package com.scroogebank.crm.client_service.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
 
 /**
  * Request payload for verifying a client's identity document.
  */
 public record VerifyClientRequest(
 	@NotBlank
-	@Size(min = 6, max = 20)
+	@Pattern(regexp = "^[STFGM]\\d{7}[A-Z]$", message = "NRIC must follow Singapore format (e.g. S1234567D)")
 	String nric,
 	@Pattern(regexp = "^NRIC$", message = "documentType must be NRIC")
 	String documentType,

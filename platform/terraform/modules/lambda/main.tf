@@ -1,0 +1,225 @@
+#--------------------------------------------------------------
+# Lambda Module
+# Log-service Lambda function with CloudWatch logging,
+# DynamoDB access, and API Gateway integration.
+#--------------------------------------------------------------
+
+resource "aws_cloudwatch_log_group" "log_lambda" {
+  name              = "/aws/lambda/${var.name_prefix}-log-service"
+  retention_in_days = var.cloudwatch_log_retention_days
+}
+
+resource "aws_lambda_function" "log" {
+  function_name    = "${var.name_prefix}-log-service"
+  filename         = var.log_lambda_zip_path
+  source_code_hash = filebase64sha256(var.log_lambda_zip_path)
+  role             = var.log_lambda_role_arn
+  handler          = "lambda_function.lambda_handler"
+  runtime          = "python3.13"
+  memory_size      = var.log_lambda_memory_size
+  timeout          = var.log_lambda_timeout_seconds
+
+  vpc_config {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [var.lambda_security_group_id]
+  }
+
+  environment {
+    variables = {
+      DB_HOST                = var.db_host
+      DB_PORT                = tostring(var.db_port)
+      DB_NAME                = var.db_name
+      DB_USER_SECRET_ARN     = var.db_username_secret_arn
+      DB_PASSWORD_SECRET_ARN = var.db_password_secret_arn
+      JWT_HMAC_SECRET_ARN    = var.jwt_hmac_secret_arn
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_group.log_lambda]
+}
+
+resource "aws_cloudwatch_log_group" "aml_lambda" {
+  name              = "/aws/lambda/${var.name_prefix}-aml"
+  retention_in_days = var.cloudwatch_log_retention_days
+}
+
+resource "aws_lambda_function" "aml" {
+  function_name    = "${var.name_prefix}-aml"
+  filename         = var.aml_lambda_zip_path
+  source_code_hash = filebase64sha256(var.aml_lambda_zip_path)
+  role             = var.aml_lambda_role_arn
+  handler          = "lambda_function.lambda_handler"
+  runtime          = "python3.13"
+  memory_size      = var.aml_lambda_memory_size
+  timeout          = var.aml_lambda_timeout_seconds
+
+  environment {
+    variables = {
+      SFTP_HOST        = var.aml_sftp_host
+      SFTP_PORT        = tostring(var.aml_sftp_port)
+      SFTP_USER        = var.aml_sftp_user
+      SFTP_KEY_SECRET  = var.aml_sftp_key_secret_arn
+      SFTP_REMOTE_PATH = var.aml_sftp_remote_path
+      CRM_API_BASE_URL = var.crm_api_base_url
+      ENTITY_ID        = var.aml_entity_id
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_group.aml_lambda]
+}
+
+resource "aws_cloudwatch_event_rule" "aml_schedule" {
+  name                = "${var.name_prefix}-aml-schedule"
+  description         = "Schedule for AML Lambda batch processing."
+  schedule_expression = var.aml_schedule_expression
+  state               = "ENABLED"
+}
+
+resource "aws_cloudwatch_event_target" "aml_lambda" {
+  rule      = aws_cloudwatch_event_rule.aml_schedule.name
+  target_id = "aml-lambda"
+  arn       = aws_lambda_function.aml.arn
+  input     = "{}"
+}
+
+resource "aws_lambda_permission" "allow_eventbridge_invoke_aml" {
+  statement_id  = "AllowExecutionFromEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.aml.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.aml_schedule.arn
+}
+
+# --- Audit consumer Lambda (SQS → DynamoDB) ---
+
+resource "aws_cloudwatch_log_group" "audit_consumer" {
+  count = var.enable_audit_consumer ? 1 : 0
+
+  name              = "/aws/lambda/${var.name_prefix}-audit-consumer"
+  retention_in_days = var.cloudwatch_log_retention_days
+}
+
+resource "aws_lambda_function" "audit_consumer" {
+  count = var.enable_audit_consumer ? 1 : 0
+
+  function_name    = "${var.name_prefix}-audit-consumer"
+  filename         = var.audit_consumer_zip_path
+  source_code_hash = filebase64sha256(var.audit_consumer_zip_path)
+  role             = var.audit_consumer_role_arn
+  handler          = "lambda_function.lambda_handler"
+  runtime          = "python3.13"
+  memory_size      = var.audit_consumer_memory_size
+  timeout          = var.audit_consumer_timeout_seconds
+
+  environment {
+    variables = {
+      DYNAMODB_TABLE_NAME = var.audit_dynamodb_table_name
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_group.audit_consumer]
+}
+
+resource "aws_lambda_event_source_mapping" "audit_sqs" {
+  count = var.enable_audit_consumer ? 1 : 0
+
+  event_source_arn = var.audit_sqs_arn
+  function_name    = aws_lambda_function.audit_consumer[0].arn
+  batch_size       = 10
+  enabled          = true
+}
+
+# --- AML consumer Lambda (SQS → DynamoDB) ---
+
+resource "aws_cloudwatch_log_group" "aml_consumer" {
+  count = var.enable_aml_consumer ? 1 : 0
+
+  name              = "/aws/lambda/${var.name_prefix}-aml-consumer"
+  retention_in_days = var.cloudwatch_log_retention_days
+}
+
+resource "aws_lambda_function" "aml_consumer" {
+  count = var.enable_aml_consumer ? 1 : 0
+
+  function_name    = "${var.name_prefix}-aml-consumer"
+  filename         = var.aml_consumer_zip_path
+  source_code_hash = filebase64sha256(var.aml_consumer_zip_path)
+  role             = var.aml_consumer_role_arn
+  handler          = "lambda_function.lambda_handler"
+  runtime          = "python3.13"
+  memory_size      = var.aml_consumer_memory_size
+  timeout          = var.aml_consumer_timeout_seconds
+
+  environment {
+    variables = {
+      DYNAMODB_TABLE_NAME = var.aml_dynamodb_table_name
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_group.aml_consumer]
+}
+
+resource "aws_lambda_event_source_mapping" "aml_sqs" {
+  count = var.enable_aml_consumer ? 1 : 0
+
+  event_source_arn = var.aml_sqs_arn
+  function_name    = aws_lambda_function.aml_consumer[0].arn
+  batch_size       = 10
+  enabled          = true
+}
+
+# --- Verification Lambda (S3 → SNS → SES) ---
+
+resource "aws_cloudwatch_log_group" "verification" {
+  count = var.enable_verification_lambda ? 1 : 0
+
+  name              = "/aws/lambda/${var.name_prefix}-verification"
+  retention_in_days = var.cloudwatch_log_retention_days
+}
+
+resource "aws_lambda_function" "verification" {
+  count = var.enable_verification_lambda ? 1 : 0
+
+  function_name    = "${var.name_prefix}-verification"
+  filename         = var.verification_zip_path
+  source_code_hash = filebase64sha256(var.verification_zip_path)
+  role             = var.verification_role_arn
+  handler          = "lambda_function.lambda_handler"
+  runtime          = "python3.13"
+  memory_size      = var.verification_memory_size
+  timeout          = var.verification_timeout_seconds
+
+  environment {
+    variables = {
+      SNS_TOPIC_ARN    = var.verification_sns_topic_arn
+      SES_SENDER_EMAIL = var.ses_sender_email
+      S3_BUCKET_NAME   = var.verification_bucket_id
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_group.verification]
+}
+
+resource "aws_lambda_permission" "allow_s3_invoke_verification" {
+  count = var.enable_verification_lambda ? 1 : 0
+
+  statement_id  = "AllowExecutionFromS3"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.verification[0].function_name
+  principal     = "s3.amazonaws.com"
+  source_arn    = var.verification_bucket_arn
+}
+
+resource "aws_s3_bucket_notification" "verification" {
+  count = var.enable_verification_lambda ? 1 : 0
+
+  bucket = var.verification_bucket_id
+
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.verification[0].arn
+    events              = ["s3:ObjectCreated:*"]
+    filter_prefix       = "uploads/"
+  }
+
+  depends_on = [aws_lambda_permission.allow_s3_invoke_verification]
+}

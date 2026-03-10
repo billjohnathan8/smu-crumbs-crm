@@ -21,12 +21,6 @@ on:
       frontend:
         description: 'true if services/frontend/crm-ui changed'
         value: ${{ jobs.detect.outputs.frontend }}
-      k8s-manifests:
-        description: 'true if platform/k8s/apps changed'
-        value: ${{ jobs.detect.outputs.k8s-manifests }}
-      k8s-infra:
-        description: 'true if platform/k8s/infra changed'
-        value: ${{ jobs.detect.outputs.k8s-infra }}
       scripts:
         description: 'true if scripts/ or Makefile changed'
         value: ${{ jobs.detect.outputs.scripts }}
@@ -39,9 +33,9 @@ on:
       any-service:
         description: 'true if any service (backend or frontend) changed'
         value: ${{ jobs.detect.outputs.any-service }}
-      any-k8s:
-        description: 'true if any k8s config changed'
-        value: ${{ jobs.detect.outputs.any-k8s }}
+      platform:
+        description: 'true if platform/ (Terraform/k8s) changed'
+        value: ${{ jobs.detect.outputs.platform }}
 
 permissions:
   contents: read
@@ -57,13 +51,11 @@ jobs:
       backend-transaction: ${{ steps.filter.outputs.backend-transaction }}
       backend-log: ${{ steps.filter.outputs.backend-log }}
       frontend: ${{ steps.filter.outputs.frontend }}
-      k8s-manifests: ${{ steps.filter.outputs.k8s-manifests }}
-      k8s-infra: ${{ steps.filter.outputs.k8s-infra }}
       scripts: ${{ steps.filter.outputs.scripts }}
       ci-config: ${{ steps.filter.outputs.ci-config }}
       any-backend: ${{ steps.aggregate.outputs.any-backend }}
       any-service: ${{ steps.aggregate.outputs.any-service }}
-      any-k8s: ${{ steps.aggregate.outputs.any-k8s }}
+      platform: ${{ steps.filter.outputs.platform }}
 
     steps:
       - name: Checkout code
@@ -86,16 +78,14 @@ jobs:
               - 'services/backend/log/**'
             frontend:
               - 'services/frontend/crm-ui/**'
-            k8s-manifests:
-              - 'platform/k8s/apps/**'
-            k8s-infra:
-              - 'platform/k8s/infra/**'
             scripts:
               - 'scripts/**'
               - 'Makefile'
             ci-config:
               - '.github/workflows/**'
               - '.github/actions/**'
+            platform:
+              - 'platform/**'
 
       - name: Compute aggregate flags
         id: aggregate
@@ -114,16 +104,9 @@ jobs:
             ANY_SERVICE="true"
           fi
 
-          ANY_K8S="false"
-          if [[ "${{ steps.filter.outputs.k8s-manifests }}" == "true" ]] || \
-             [[ "${{ steps.filter.outputs.k8s-infra }}" == "true" ]]; then
-            ANY_K8S="true"
-          fi
-
           {
             echo "any-backend=${ANY_BACKEND}"
             echo "any-service=${ANY_SERVICE}"
-            echo "any-k8s=${ANY_K8S}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Summary
@@ -137,8 +120,7 @@ jobs:
             echo "| backend-transaction | ${{ steps.filter.outputs.backend-transaction }} |"
             echo "| backend-log | ${{ steps.filter.outputs.backend-log }} |"
             echo "| frontend | ${{ steps.filter.outputs.frontend }} |"
-            echo "| k8s-manifests | ${{ steps.filter.outputs.k8s-manifests }} |"
-            echo "| k8s-infra | ${{ steps.filter.outputs.k8s-infra }} |"
             echo "| scripts | ${{ steps.filter.outputs.scripts }} |"
             echo "| ci-config | ${{ steps.filter.outputs.ci-config }} |"
+            echo "| platform | ${{ steps.filter.outputs.platform }} |"
           } >> "$GITHUB_STEP_SUMMARY"

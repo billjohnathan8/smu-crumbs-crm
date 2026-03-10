@@ -3,6 +3,13 @@ import { useAuth } from '@/features/auth/AuthContext'
 import { listTransactions, type ListTransactionsParams } from '@/api/transactions'
 import type { Transaction, TransactionStatus, TransactionKind } from '@/api/types'
 import { ApiError } from '@/api/client'
+import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
+
+const agentNav: NavItem[] = [
+  { label: 'Home', to: '/agent', end: true },
+  { label: 'Manage Clients', to: '/agent/clients' }, // change if your route differs
+  { label: 'View Transactions', to: '/agent/transactions' },
+]
 
 const ITEMS_PER_PAGE = 20
 
@@ -109,28 +116,26 @@ export function AgentViewTransactions() {
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE)
 
   return (
-    <div className="min-h-screen bg-background">
-      <nav className="bg-card border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center space-x-4">
-              <a href="/agent" className="text-text-muted hover:text-text">
-                Dashboard
-              </a>
-              <span className="text-text-muted">/</span>
-              <h1 className="text-xl font-bold text-text">Transactions</h1>
-            </div>
-            <button
-              onClick={logout}
-              className="px-4 py-2 rounded-lg bg-danger hover:bg-danger-hover text-white font-medium transition-colors"
-            >
-              Logout
-            </button>
+    <SidebarLayout items={agentNav}>
+      <nav>
+        <div className="flex justify-between h-16 items-center px-4">
+          <div className="flex items-center space-x-4">
+            <a href="/agent" className="text-text-muted hover:text-text">
+              Dashboard
+            </a>
+            <span className="text-text-muted">/</span>
+            <h1 className="text-xl font-bold text-text">Transactions</h1>
           </div>
+          <button
+            onClick={logout}
+            className="px-4 py-2 rounded-lg bg-danger hover:bg-danger-hover text-white font-medium transition-colors"
+          >
+            Logout
+          </button>
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="mt-6">
         {error && (
           <div className="bg-danger/10 border border-danger rounded-lg p-4 mb-6">
             <p className="text-danger text-sm">{error}</p>
@@ -333,6 +338,6 @@ export function AgentViewTransactions() {
           )}
         </div>
       </main>
-    </div>
+    </SidebarLayout>
   )
 }

@@ -12,7 +12,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.scroogebank.crm.client_service.api.Pagination;
 import com.scroogebank.crm.client_service.dto.AccountDto;
+import com.scroogebank.crm.client_service.dto.AccountListResponse;
 import com.scroogebank.crm.client_service.dto.AccountStatus;
 import com.scroogebank.crm.client_service.dto.AccountType;
 import com.scroogebank.crm.client_service.exception.AccountNotFoundException;
@@ -78,7 +80,11 @@ class AccountControllerTest {
 	@Test
 	void getAndListEndpoints_returnData() throws Exception {
 		when(accountService.getAccount(any(), eq("acc_1"))).thenReturn(accountDto("acc_1", "clt_1"));
-		when(accountService.listAccounts(any(), eq("clt_1"))).thenReturn(List.of(accountDto("acc_1", "clt_1")));
+		when(accountService.listAccounts(any(), eq("clt_1"), eq(50), eq(0)))
+			.thenReturn(new AccountListResponse(
+				List.of(accountDto("acc_1", "clt_1")),
+				new Pagination(50, 0, 1)
+			));
 
 		mockMvc.perform(get("/api/accounts/acc_1").header("Authorization", AUTH_HEADER))
 			.andExpect(status().isOk())
@@ -86,7 +92,8 @@ class AccountControllerTest {
 
 		mockMvc.perform(get("/api/clients/clt_1/accounts").header("Authorization", AUTH_HEADER))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$[0].clientId").value("clt_1"));
+			.andExpect(jsonPath("$.data[0].clientId").value("clt_1"))
+			.andExpect(jsonPath("$.pagination.total").value(1));
 	}
 
 	@Test
@@ -130,6 +137,7 @@ class AccountControllerTest {
 			new BigDecimal("100.00"),
 			"USD",
 			"br_1",
+			Instant.parse("2026-02-05T00:00:00Z"),
 			Instant.parse("2026-02-05T00:00:00Z")
 		);
 	}

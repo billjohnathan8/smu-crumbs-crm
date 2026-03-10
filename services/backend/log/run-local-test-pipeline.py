@@ -84,9 +84,6 @@ def main() -> int:
     os.makedirs(coverage_dir, exist_ok=True)
     os.makedirs(test_dir, exist_ok=True)
 
-    run(
-        [str(venv_python), "-m", "pip", "install", "--upgrade", "pip"], cwd=service_root
-    )
     run_pip_install_requirements(venv_python, "requirements.txt", cwd=service_root)
 
     # 1) Lint
@@ -99,7 +96,10 @@ def main() -> int:
     )
 
     # 2) Build (syntax compilation check for Python service code)
-    run([str(venv_python), "-m", "compileall", "-q", "app", "tests"], cwd=service_root)
+    run(
+        [str(venv_python), "-m", "compileall", "-q", "app", "lambda_function.py", "tests"],
+        cwd=service_root,
+    )
 
     # 3 + 4) Tests + coverage reports
     # pytest-cov always uses `data_suffix=True`, which makes coverage.py rename the data file to include
@@ -116,6 +116,7 @@ def main() -> int:
             "tests",
             "--junitxml=build/reports/tests/junit.xml",
             "--cov=app",
+            "--cov=lambda_function",
             "--cov-branch",
             "--cov-report=term-missing",
             "--cov-report=xml:build/reports/coverage/coverage.xml",

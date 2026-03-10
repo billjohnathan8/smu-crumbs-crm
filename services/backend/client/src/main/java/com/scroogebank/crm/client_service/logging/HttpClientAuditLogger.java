@@ -1,9 +1,11 @@
 package com.scroogebank.crm.client_service.logging;
 
 import java.time.Instant;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -31,25 +33,22 @@ public class HttpClientAuditLogger implements ClientAuditLogger {
 		String correlationId,
 		String authorizationHeader
 	) {
-		LogEventRequest request = new LogEventRequest(
-			action,
-			attributeName,
-			beforeValue,
-			afterValue,
-			agentId,
-			clientId,
-			Instant.now(),
-			correlationId
-		);
+		try {
+			LogEventRequest request = new LogEventRequest(
+				action, attributeName, beforeValue, afterValue, agentId, clientId, Instant.now(), correlationId
+			);
 
-		logServiceRestClient.post()
-			.uri("/api/logs")
-			.header(HttpHeaders.AUTHORIZATION, authorizationHeader)
-			.contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-			.body(request)
-			.retrieve()
-			.toBodilessEntity();
+			logServiceRestClient.post()
+				.uri("/api/logs")
+				.header(HttpHeaders.AUTHORIZATION, authorizationHeader)
+				.contentType(MediaType.APPLICATION_JSON)
+				.body(request)
+				.retrieve()
+				.toBodilessEntity();
 
-		LOGGER.debug("Published audit log action={} clientId={}", action, clientId);
+			LOGGER.debug("Published audit log action={} clientId={}", action, clientId);
+		} catch (Exception ex) {
+			LOGGER.warn("Failed to serialize or send audit log: {}", ex.getMessage());
+		}
 	}
 }

@@ -1,8 +1,8 @@
 name: CI - Integration Pipeline
 
-# Full pipeline for the integration and infrastructure trunks.
-# Mirrors the local test-and-spinup-all flow:
-#   lint → tests (all 5 components) → k8s-validate → kind-deploy + smoke
+# Full pipeline for the integration trunk.
+# Mirrors the local test flow:
+#   lint -> unit tests -> mocked e2e -> fullstack integration (LocalStack + real Playwright)
 #
 # This is the staging gate: everything must pass here before merging to main.
 
@@ -10,21 +10,10 @@ on:
   pull_request:
     branches:
       - integration
-      - infrastructure
   push:
     branches:
       - integration
-      - infrastructure
   workflow_dispatch:
-    inputs:
-      kind_cluster_name:
-        description: 'kind cluster name (default: cs301-crm)'
-        required: false
-        default: 'cs301-crm'
-      namespace:
-        description: 'Kubernetes namespace (default: dev)'
-        required: false
-        default: 'dev'
 
 concurrency:
   group: ci-integration-${{ github.ref }}
@@ -51,6 +40,7 @@ jobs:
     needs: changes
     uses: ./.github/workflows/reusable-lint.yml
     with:
+      run-secrets: true
       run-backend-java: >-
         ${{ needs.changes.outputs.any-backend == 'true'
             || needs.changes.outputs.ci-config == 'true' }}
@@ -60,6 +50,7 @@ jobs:
       run-frontend: >-
         ${{ needs.changes.outputs.frontend == 'true'
             || needs.changes.outputs.ci-config == 'true' }}
+      run-terraform: true
 
   # ==========================================================================
   # Layer 2: Component tests (parallel, each gated by scope)
@@ -149,13 +140,25 @@ jobs:
       timeout-minutes: 10
       artifact-paths: services/frontend/crm-ui/coverage/**
 
-  e2e-frontend:
-    name: E2E Tests - Frontend
-    needs: [changes, test-frontend]
-    if: >-
-      ${{ !failure() && !cancelled()
-          && (needs.changes.outputs.frontend == 'true'
-              || needs.changes.outputs.ci-config == 'true') }}
+  # ==========================================================================
+  # Layer 3: Frontend E2E — mocked
+  # Runs after all unit tests. Uses Playwright against a local vite preview
+  # build with MSW-mocked API routes (no backend infra). Provides fast UI
+  # feedback before committing to the expensive fullstack build.
+  # Excludes e2e/integration/ (those run in Layer 4 against real containers).
+  # ==========================================================================
+  e2e-frontend-mocked:
+    name: E2E Tests - Frontend (Mocked)
+    if: ${{ !failure() && !cancelled() }}
+    needs:
+      - changes
+      - actionlint
+      - lint
+      - test-agent
+      - test-client
+      - test-transaction
+      - test-log
+      - test-frontend
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -183,47 +186,35 @@ jobs:
         timeout-minutes: 5
         run: npx playwright install --with-deps chromium
 
-      - name: Run E2E tests
+      - name: Run mocked E2E tests
         timeout-minutes: 10
-        run: npm run e2e
+        run: npm run e2e:mocked
 
       - name: Upload test results on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-results-integration
+          name: playwright-results-mocked-integration
           path: |
             services/frontend/crm-ui/test-results/
             services/frontend/crm-ui/playwright-report/
           retention-days: 7
 
   # ==========================================================================
-  # Layer 3: K8s manifest validation
+  # Layer 4: Fullstack integration — real containers + LocalStack
+  # Builds all service Docker images, starts LocalStack + PostgreSQL,
+  # provisions all AWS resources via the init script, runs cross-service HTTP
+  # smoke assertions, then runs real Playwright E2E against the live stack.
+  # This is the production-closest test gate before deploy.
   # ==========================================================================
-  k8s-validate:
+  fullstack-integration-e2e:
+    if: ${{ !failure() && !cancelled() }}
     needs:
       - changes
-      - lint
-      - test-agent
-      - test-client
-      - test-transaction
-      - test-log
-      - test-frontend
-      - e2e-frontend
-    if: ${{ !failure() && !cancelled() }}
-    uses: ./.github/workflows/reusable-k8s-validate.yml
+      - e2e-frontend-mocked
+    uses: ./.github/workflows/reusable-fullstack-integration.yml
 
   # ==========================================================================
-  # Layer 4: Kind deploy + smoke tests
-  # Runs on push to integration/infrastructure or workflow_dispatch (not PRs).
+  # Layer 5: Deploy  (not yet implemented — placeholder)
+  # fullstack-integration-e2e must pass before this gate can proceed.
   # ==========================================================================
-  kind-smoke:
-    needs:
-      - k8s-validate
-    if: >-
-      ${{ !failure() && !cancelled()
-          && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
-    uses: ./.github/workflows/reusable-kind-smoke.yml
-    with:
-      kind-cluster-name: ${{ github.event.inputs.kind_cluster_name || 'cs301-crm' }}
-      namespace: ${{ github.event.inputs.namespace || 'dev' }}

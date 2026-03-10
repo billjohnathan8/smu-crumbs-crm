@@ -1,8 +1,7 @@
 name: CI - Main Pipeline
 
 # Full pipeline for the main branch.
-# Runs: changes → lint → tests → k8s-validate → kind-smoke.
-# All smoke tests ALWAYS run after successful validation.
+# Runs: changes -> lint -> unit tests -> mocked e2e -> fullstack integration -> deploy (TBD).
 #
 # Job DAG:
 #
@@ -12,16 +11,20 @@ name: CI - Main Pipeline
 #    lint    (3-5 min, only scopes that changed)
 #      |
 #      +---> test-agent           \
-#      +---> test-client           |  parallel, each gated by its scope
+#      +---> test-client           |  parallel unit tests, each gated by its scope
 #      +---> test-transaction      |
 #      +---> test-log              |
 #      +---> test-frontend        /
 #      |
 #      v
-#   k8s-validate  (needs all tests, gated by k8s/scripts/ci-config scope)
+#   e2e-frontend-mocked  (Playwright against vite preview + MSW mocks, ~10 min)
 #      |
 #      v
-#   kind-smoke    (always runs after validation passes)
+#   fullstack-integration-e2e  (real Docker containers + LocalStack + HTTP smoke
+#                               + Playwright against live stack, ~30-40 min)
+#      |
+#      v
+#   [deploy — not yet implemented]
 
 on:
   pull_request:
@@ -31,20 +34,6 @@ on:
     branches:
       - main
   workflow_dispatch:
-    inputs:
-      run_kind_deploy:
-        description: 'Run kind deploy + smoke tests (expensive, ~15 min)'
-        required: false
-        type: boolean
-        default: false
-      kind_cluster_name:
-        description: 'kind cluster name (default: cs301-crm)'
-        required: false
-        default: 'cs301-crm'
-      namespace:
-        description: 'Kubernetes namespace (default: dev)'
-        required: false
-        default: 'dev'
 
 concurrency:
   group: ci-main-${{ github.ref }}
@@ -67,6 +56,7 @@ jobs:
     needs: changes
     uses: ./.github/workflows/reusable-lint.yml
     with:
+      run-secrets: true
       run-backend-java: >-
         ${{ needs.changes.outputs.any-backend == 'true'
             || needs.changes.outputs.ci-config == 'true' }}
@@ -75,6 +65,9 @@ jobs:
             || needs.changes.outputs.ci-config == 'true' }}
       run-frontend: >-
         ${{ needs.changes.outputs.frontend == 'true'
+            || needs.changes.outputs.ci-config == 'true' }}
+      run-terraform: >-
+        ${{ needs.changes.outputs.platform == 'true'
             || needs.changes.outputs.ci-config == 'true' }}
 
   # ==========================================================================
@@ -166,13 +159,24 @@ jobs:
       timeout-minutes: 10
       artifact-paths: services/frontend/crm-ui/coverage/**
 
-  e2e-frontend:
-    name: E2E Tests - Frontend
-    needs: [changes, test-frontend]
-    if: >-
-      ${{ !failure() && !cancelled()
-          && (needs.changes.outputs.frontend == 'true'
-              || needs.changes.outputs.ci-config == 'true') }}
+  # ==========================================================================
+  # Layer 3: Frontend E2E — mocked
+  # Runs after all unit tests. Uses Playwright against a local vite preview
+  # build with MSW-mocked API routes (no backend infra). Provides fast UI
+  # feedback before committing to the expensive fullstack build.
+  # Excludes e2e/integration/ (those run in Layer 4 against real containers).
+  # ==========================================================================
+  e2e-frontend-mocked:
+    name: E2E Tests - Frontend (Mocked)
+    if: ${{ !failure() && !cancelled() }}
+    needs:
+      - changes
+      - lint
+      - test-agent
+      - test-client
+      - test-transaction
+      - test-log
+      - test-frontend
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -200,52 +204,35 @@ jobs:
         timeout-minutes: 5
         run: npx playwright install --with-deps chromium
 
-      - name: Run E2E tests
+      - name: Run mocked E2E tests
         timeout-minutes: 10
-        run: npm run e2e
+        run: npm run e2e:mocked
 
       - name: Upload test results on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-results-main
+          name: playwright-results-mocked-main
           path: |
             services/frontend/crm-ui/test-results/
             services/frontend/crm-ui/playwright-report/
           retention-days: 7
 
   # ==========================================================================
-  # Layer 3: K8s manifest validation
-  # Runs only after ALL tests pass (or are skipped).
-  # Gated to k8s / infra / scripts / ci-config scope.
+  # Layer 4: Fullstack integration — real containers + LocalStack
+  # Builds all service Docker images, starts LocalStack + PostgreSQL,
+  # provisions all AWS resources via the init script, runs cross-service HTTP
+  # smoke assertions, then runs real Playwright E2E against the live stack.
+  # This is the production-closest test gate before deploy.
   # ==========================================================================
-  k8s-validate:
+  fullstack-integration-e2e:
+    if: ${{ !failure() && !cancelled() }}
     needs:
       - changes
-      - lint
-      - test-agent
-      - test-client
-      - test-transaction
-      - test-log
-      - test-frontend
-      - e2e-frontend
-    if: >-
-      ${{ !failure() && !cancelled()
-          && (needs.changes.outputs.any-k8s == 'true'
-              || needs.changes.outputs.scripts == 'true'
-              || needs.changes.outputs.ci-config == 'true') }}
-    uses: ./.github/workflows/reusable-k8s-validate.yml
+      - e2e-frontend-mocked
+    uses: ./.github/workflows/reusable-fullstack-integration.yml
 
   # ==========================================================================
-  # Layer 4: Kind deploy + smoke tests (ALWAYS RUNS)
-  # Runs after successful k8s-validate to ensure deploy readiness.
+  # Layer 5: Deploy  (not yet implemented — placeholder)
+  # fullstack-integration-e2e must pass before this gate can proceed.
   # ==========================================================================
-  kind-smoke:
-    needs:
-      - k8s-validate
-    if: >-
-      ${{ !failure() && !cancelled() }}
-    uses: ./.github/workflows/reusable-kind-smoke.yml
-    with:
-      kind-cluster-name: ${{ github.event.inputs.kind_cluster_name || 'cs301-crm' }}
-      namespace: ${{ github.event.inputs.namespace || 'dev' }}

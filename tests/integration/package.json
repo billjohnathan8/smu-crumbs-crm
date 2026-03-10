@@ -1,0 +1,19 @@
+{
+  "name": "@scroogebank/integration-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Full-stack integration tests for Scroogebank CRM (all microservices + UI)",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.1",
+    "@types/node": "^24.10.1",
+    "typescript": "^5.7.3"
+  }
+}

@@ -102,17 +102,6 @@ See [Configuration Guide](../../../docs/configuration.md) for full details.
 | `SPRING_DATASOURCE_PASSWORD` | `postgres` | Database password |
 | `LOG_SERVICE_URL` | `http://localhost:8083` | Log service URL for audit events |
 
-## Kubernetes Deployment
-
-**Deployed via:** Kustomize overlay at `platform/k8s/apps/overlays/dev/`
-
-**Deploy locally:**
-```bash
-python scripts/pipelines/deploy_k8s.py
-```
-
-**See:** [Local K8s Development Guide](../../../docs/local-k8s-dev.md)
-
 ## Related Documentation
 
 - **[Testing Guide](../../../docs/testing/TESTING-GUIDE.md)** - Testing workflows

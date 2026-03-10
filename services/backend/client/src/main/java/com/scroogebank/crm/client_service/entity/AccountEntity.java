@@ -12,6 +12,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -55,12 +56,25 @@ public class AccountEntity {
 	@Column(name = "created_at", nullable = false)
 	private Instant createdAt;
 
+	@Column(name = "updated_at", nullable = false)
+	private Instant updatedAt;
+
 	/**
-	 * Initializes creation timestamp before persistence.
+	 * Initializes timestamps before persistence.
 	 */
 	@PrePersist
 	void prePersist() {
-		createdAt = Instant.now();
+		Instant now = Instant.now();
+		createdAt = now;
+		updatedAt = now;
+	}
+
+	/**
+	 * Updates the modification timestamp before update.
+	 */
+	@PreUpdate
+	void preUpdate() {
+		updatedAt = Instant.now();
 	}
 
 	public Long getId() {
@@ -125,5 +139,9 @@ public class AccountEntity {
 
 	public Instant getCreatedAt() {
 		return createdAt;
+	}
+
+	public Instant getUpdatedAt() {
+		return updatedAt;
 	}
 }

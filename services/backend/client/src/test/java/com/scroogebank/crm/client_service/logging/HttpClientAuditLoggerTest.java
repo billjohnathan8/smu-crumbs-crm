@@ -3,13 +3,13 @@ package com.scroogebank.crm.client_service.logging;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.web.client.RestClient;
 import org.springframework.test.web.client.MockRestServiceServer;
-
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import org.springframework.web.client.RestClient;
 
 /**
  * Unit tests for {@link HttpClientAuditLogger}.
@@ -22,6 +22,16 @@ class HttpClientAuditLoggerTest {
 		server.expect(requestTo("http://log-service/api/logs"))
 			.andExpect(method(HttpMethod.POST))
 			.andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer x"))
+			.andExpect(content().json("""
+				{
+				  "action": "CREATE",
+				  "attributeName": "Client",
+				  "afterValue": "after",
+				  "agentId": "usr_1",
+				  "clientId": "clt_1",
+				  "correlationId": "req-1"
+				}
+			"""))
 			.andRespond(withSuccess());
 
 		HttpClientAuditLogger logger = new HttpClientAuditLogger(builder.build());

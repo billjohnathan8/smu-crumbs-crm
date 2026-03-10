@@ -1,0 +1,14 @@
+# Playwright test outputs
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Test artifacts
+*.log
+
+# Node modules
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db

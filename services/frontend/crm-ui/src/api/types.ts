@@ -137,6 +137,7 @@ export interface Account {
   currency: string
   branchId: string
   createdAt?: string
+  updatedAt?: string
 }
 
 export interface AccountCreateRequest {

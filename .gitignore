@@ -17,6 +17,9 @@ crash.*.log
 *.tfvars
 *.tfvars.json
 
+# Ignore backend configuration files (may contain sensitive S3/DynamoDB info)
+backend.hcl
+
 # Ignore override files as they are usually used to override resources locally and so
 # are not checked in
 override.tf
@@ -90,6 +93,8 @@ id_rsa
 TODO.md
 CHANGELOG.md
 NOTES.md
+temp/*
+fail-logs/*
 
 # Debug Screenshots
 services/frontend/crm-ui/debug-*.png
@@ -107,12 +112,6 @@ build-logs/migration-validation/
 
 # Developer Setup - Portable Tools
 .devtools/
-
-# K8s Validation Temp Directory
-.k8s-validate-tmp/
-# Catch malformed validation output files (bug from WSL path handling)
-*k8s-validate-tmp*infra*.yaml
-*k8s-validate-tmp*apps*.yaml
 
 # Ignore Test Directories
 
