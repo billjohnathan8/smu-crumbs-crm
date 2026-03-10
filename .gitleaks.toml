@@ -33,16 +33,3 @@ regexes = [
   '''(?i)^admin123$''',
   '''(?i)^AgentPass123!$''',
 ]
-
-[[allowlists]]
-description = "Default postgres Docker image password in core integration service container"
-# POSTGRES_PASSWORD is set to 'postgres' — the well-known default for the
-# official postgres Docker image.  It is only reachable within the ephemeral
-# runner network and grants no access to any real database.
-regexTarget = "secret"
-paths = [
-  '''.github/workflows/reusable-core-integration\.yml''',
-]
-regexes = [
-  '''(?i)^postgres$''',
-]
