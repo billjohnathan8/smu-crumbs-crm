@@ -61,6 +61,6 @@ variable "mfa_configuration" {
 
   validation {
     condition     = contains(["OFF", "ON", "OPTIONAL"], var.mfa_configuration)
-    error_message = "mfa_configuration must be one of: OFF, ON, or OPTIONAL."
+    error_message = "The mfa_configuration value must be one of OFF, ON, or OPTIONAL."
   }
 }
