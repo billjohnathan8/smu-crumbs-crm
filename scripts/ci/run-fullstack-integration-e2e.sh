@@ -8,7 +8,7 @@ FRONTEND_DIR="${ROOT_DIR}/services/frontend/crm-ui"
 INTEGRATION_TEST_DIR="${ROOT_DIR}/tests/integration"
 
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-http://127.0.0.1:18088}"
-COMPOSE_PROJECT_NAME="crm-fullstack-it-${GITHUB_RUN_ID:-local}-$$"
+COMPOSE_PROJECT_NAME="crm-fullstack-it-${GITHUB_RUN_ID:-local}"
 
 # Fake creds — LocalStack accepts any non-empty value
 export AWS_ACCESS_KEY_ID=test
@@ -173,6 +173,42 @@ wait_for_http "http://127.0.0.1:18085/health" "frontend"
 wait_for_http "${PLAYWRIGHT_BASE_URL}/health"  "integration-gateway"
 
 # --------------------------------------------------------------------------
+# Phase 3b: Warm up JVM + seed CI agent user
+# The agent-service JVM (port 18081) only receives health-check traffic in
+# Phase 3; the first real API call from Playwright would be cold.  Logging in
+# here warms the JVM and also creates the agent@crm.local account that the
+# Playwright agent-flow tests expect.
+# --------------------------------------------------------------------------
+
+echo ""
+echo "=== Phase 3b: Warm up agent-service + seed CI agent user ==="
+
+ADMIN_ACCESS_TOKEN="$(
+  curl --silent --show-error --fail \
+    --request POST "http://127.0.0.1:18081/api/auth/login" \
+    --header "Content-Type: application/json" \
+    --data "{\"email\":\"${E2E_ADMIN_EMAIL:-admin@crm.local}\",\"password\":\"${E2E_ADMIN_PASSWORD:-admin123}\"}" \
+  | ${PYTHON_CMD} -c "import json,sys; print(json.load(sys.stdin)['accessToken'])"
+)"
+
+echo "  [OK] admin login (agent-service JVM warmed up)"
+
+curl --silent --show-error \
+  --request POST "http://127.0.0.1:18081/api/agents" \
+  --header "Authorization: Bearer ${ADMIN_ACCESS_TOKEN}" \
+  --header "Content-Type: application/json" \
+  --data "{
+    \"firstName\": \"CI\",
+    \"lastName\": \"Agent\",
+    \"email\": \"agent@crm.local\",
+    \"role\": \"agent\",
+    \"sendInviteEmail\": false,
+    \"temporaryPassword\": \"${E2E_AGENT_PASSWORD:-AgentPass123!}\"
+  }" > /dev/null \
+  && echo "  [OK] CI agent user created (agent@crm.local)" \
+  || echo "  [WARN] CI agent user creation skipped (may already exist)"
+
+# --------------------------------------------------------------------------
 # Phase 4: Cross-service HTTP smoke assertions
 # Validates critical service-to-service paths against real containers +
 # real LocalStack before Playwright tests run.
@@ -290,6 +326,8 @@ echo "All cross-service smoke assertions passed."
 echo ""
 echo "=== Phase 5: Playwright integration E2E ==="
 pushd "${INTEGRATION_TEST_DIR}" >/dev/null
+npm ci
+npx playwright install --with-deps chromium
 PLAYWRIGHT_EXTERNAL_BASE_URL=true \
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
 E2E_ADMIN_EMAIL="${E2E_ADMIN_EMAIL:-admin@crm.local}" \
