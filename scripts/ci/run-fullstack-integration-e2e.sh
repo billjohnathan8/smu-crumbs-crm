@@ -18,6 +18,17 @@ LOCALSTACK_ENDPOINT="http://127.0.0.1:14566"
 
 mkdir -p "${LOG_DIR}"
 
+# Detect a working Python interpreter.
+# On Windows/Git Bash, `python3` may resolve to the broken Microsoft Store stub.
+if command -v python3 >/dev/null 2>&1 && python3 -c "import sys; sys.exit(0)" 2>/dev/null; then
+  PYTHON_CMD="python3"
+elif command -v python >/dev/null 2>&1 && python -c "import sys; sys.exit(0)" 2>/dev/null; then
+  PYTHON_CMD="python"
+else
+  echo "[FAIL] No working Python interpreter found (python3 or python)" >&2
+  exit 1
+fi
+
 dump_compose_logs() {
   docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" logs --no-color \
     > "${LOG_DIR}/docker-compose.log" 2>&1 || true
@@ -66,7 +77,7 @@ mint_jwt() {
   local subject="$1"
   local role="$2"
 
-  python3 - "${subject}" "${role}" <<'PY'
+  ${PYTHON_CMD} - "${subject}" "${role}" <<'PY'
 import base64, hashlib, hmac, json, sys, time
 
 subject, role = sys.argv[1], sys.argv[2]
@@ -174,7 +185,7 @@ CREATE_RESPONSE="$(
     --data "${CREATE_BODY}"
 )"
 
-CLIENT_ID="$(CREATE_RESPONSE_JSON="${CREATE_RESPONSE}" python3 - <<'PY'
+CLIENT_ID="$(CREATE_RESPONSE_JSON="${CREATE_RESPONSE}" ${PYTHON_CMD} - <<'PY'
 import json, os
 print(json.loads(os.environ["CREATE_RESPONSE_JSON"])["clientId"])
 PY
@@ -189,7 +200,7 @@ for _ in {1..20}; do
       --header "Authorization: Bearer ${AGENT_TOKEN}" \
     || true
   )"
-  if LOGS_JSON="${LOGS_JSON}" python3 - "${CLIENT_ID}" <<'PY' 2>/dev/null; then
+  if LOGS_JSON="${LOGS_JSON}" ${PYTHON_CMD} - "${CLIENT_ID}" <<'PY' 2>/dev/null; then
 import json, os, sys
 rows = json.loads(os.environ["LOGS_JSON"]).get("data", [])
 if any(r.get("clientId") == sys.argv[1] and r.get("action") == "CREATE" for r in rows):
@@ -213,7 +224,7 @@ TX_RESPONSE="$(
     "http://127.0.0.1:18083/api/clients/${CLIENT_ID}/transactions" \
     --header "Authorization: Bearer ${AGENT_TOKEN}"
 )"
-TX_RESPONSE_JSON="${TX_RESPONSE}" python3 - <<'PY'
+TX_RESPONSE_JSON="${TX_RESPONSE}" ${PYTHON_CMD} - <<'PY'
 import json, os, sys
 p = json.loads(os.environ["TX_RESPONSE_JSON"])
 if "data" not in p or "pagination" not in p:
