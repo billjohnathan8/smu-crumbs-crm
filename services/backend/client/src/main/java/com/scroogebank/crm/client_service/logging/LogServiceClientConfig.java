@@ -14,10 +14,14 @@ public class LogServiceClientConfig {
 	 * Builds a {@link RestClient} with the configured base URL.
 	 *
 	 * @param logServiceUrl base URL for the log service
+	 * @param builder auto-configured RestClient.Builder with proper message converters
 	 * @return RestClient instance
 	 */
 	@Bean
-	RestClient logServiceRestClient(@Value("${app.log-service-url}") String logServiceUrl) {
-		return RestClient.builder().baseUrl(logServiceUrl).build();
+	RestClient logServiceRestClient(
+		@Value("${app.log-service-url}") String logServiceUrl,
+		RestClient.Builder builder
+	) {
+		return builder.baseUrl(logServiceUrl).build();
 	}
 }
