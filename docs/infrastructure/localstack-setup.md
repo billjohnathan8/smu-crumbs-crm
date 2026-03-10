@@ -255,6 +255,8 @@ Pipeline position:
 changes → lint → test-* (parallel) → e2e-frontend-mocked → fullstack-integration-e2e → [deploy: not yet implemented]
 ```
 
+**Run the fullstack-integration-e2e tests in Git Bash (use linux instead of powershell)**
+
 The reusable workflow is at `.github/workflows/reusable-fullstack-integration.yml`.
 The CI script is at `scripts/ci/run-fullstack-integration-e2e.sh`.
 
