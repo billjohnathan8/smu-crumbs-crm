@@ -262,7 +262,7 @@ export function AdminManageAccounts() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
                             className={`px-2 py-1 rounded text-xs font-medium ${
-                              user.role === 'admin'
+                              user.role === 'admin' || user.role === 'super_admin'
                                 ? 'bg-primary/20 text-primary'
                                 : 'bg-success/20 text-success'
                             }`}

@@ -1,7 +1,7 @@
 package com.scroogebank.crm.agentservice.controller;
 
 import com.scroogebank.crm.agentservice.dto.CreateUserRequest;
-// import com.scroogebank.crm.agentservice.dto.ResetPasswordRequest;
+import com.scroogebank.crm.agentservice.dto.ResetPasswordRequest;
 import com.scroogebank.crm.agentservice.dto.UpdateUserRequest;
 import com.scroogebank.crm.agentservice.dto.UserDto;
 import com.scroogebank.crm.agentservice.dto.UserRole;
@@ -12,8 +12,11 @@ import com.scroogebank.crm.agentservice.security.RequestAuth;
 import com.scroogebank.crm.agentservice.service.UserAccountService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.springframework.http.HttpStatus;
-// import org.springframework.http.ResponseEntity;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -29,6 +32,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
  * REST endpoints for user administration and self-service lookups.
  */
 @RestController
+@Validated
 @RequestMapping("/api/agents")
 public class UserController {
 	private final UserAccountService userAccountService;
@@ -51,12 +55,15 @@ public class UserController {
 	@GetMapping
 	public UsersListResponse listUsers(
 		HttpServletRequest request,
-		@RequestParam(defaultValue = "50") int limit,
-		@RequestParam(defaultValue = "0") int offset,
+		@RequestParam(defaultValue = "50") @Min(1) @Max(200) int limit,
+		@RequestParam(defaultValue = "0") @Min(0) int offset,
 		@RequestParam(required = false) String role
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		requireAdminOrSuperAdmin(user);
+		if (limit < 1 || limit > 200 || offset < 0) {
+			throw new IllegalArgumentException("invalid pagination");
+		}
 		return userAccountService.listUsers(limit, offset, role);
 	}
 
@@ -103,7 +110,7 @@ public class UserController {
 	}
 
 	/**
-	 * Updates a user's profile (admin-only or super admin-only)
+	 * Updates a user's profile. Admin/super admin can update any user; an agent can update self.
 	 *
 	 * @param request HTTP request containing the bearer token
 	 * @param userId API user identifier
@@ -148,25 +155,25 @@ public class UserController {
 		return userAccountService.disableUser(userId, user);
 	}
 
-	// /**
-	//  * Resets a user's password and invalidates existing refresh tokens (admin-only).
-	//  *
-	//  * @param request HTTP request containing the bearer token
-	//  * @param userId API user identifier
-	//  * @param body optional reset payload (currently unused)
-	//  * @return accepted response
-	//  */
-	// @PostMapping("/{userId}/reset-password")
-	// public ResponseEntity<Void> resetPassword(
-	// 	HttpServletRequest request,
-	// 	@PathVariable String userId,
-	// 	@RequestBody(required = false) ResetPasswordRequest body
-	// ) {
-	// 	AuthenticatedUser user = requestAuth.requireUser(request);
-	// 	requireAdminOrSuperAdmin(user);
-	// 	userAccountService.resetPassword(userId, body);
-	// 	return ResponseEntity.status(HttpStatus.ACCEPTED).build();
-	// }
+	/**
+	 * Resets a user's password and invalidates existing refresh tokens (admin/super admin only).
+	 *
+	 * @param request HTTP request containing the bearer token
+	 * @param userId API user identifier
+	 * @param body optional reset payload
+	 * @return accepted response
+	 */
+	@PostMapping("/{userId}/reset-password")
+	public ResponseEntity<Void> resetPassword(
+		HttpServletRequest request,
+		@PathVariable String userId,
+		@Valid @RequestBody(required = false) ResetPasswordRequest body
+	) {
+		AuthenticatedUser user = requestAuth.requireUser(request);
+		requireAdminOrSuperAdmin(user);
+		userAccountService.resetPassword(userId, body);
+		return ResponseEntity.status(HttpStatus.ACCEPTED).build();
+	}
 
 	/**
 	 * Enforces that the authenticated user is an admin.

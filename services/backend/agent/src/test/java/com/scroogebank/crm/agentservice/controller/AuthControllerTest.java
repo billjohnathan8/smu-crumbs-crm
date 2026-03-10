@@ -42,7 +42,7 @@ class AuthControllerTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(java.util.Map.of(
 					"email", "ava@example.com",
-					"password", "secret"
+					"password", "secret123"
 				))))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.accessToken").value("access_1"))

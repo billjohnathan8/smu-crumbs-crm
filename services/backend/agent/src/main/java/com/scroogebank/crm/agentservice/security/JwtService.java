@@ -66,11 +66,12 @@ public class JwtService {
 		validateExp(claims);
 
 		String sub = asString(claims.get("sub"));
-		String role = asString(claims.get("role"));
-		if (sub == null || role == null) {
+		String roleClaim = asString(claims.get("role"));
+		if (sub == null || roleClaim == null) {
 			throw new JwtValidationException("missing_required_claims");
 		}
-		if (!"admin".equals(role) && !"agent".equals(role) && !"superadmin".equals(role)) {
+		String role = normalizeRole(roleClaim);
+		if (role == null) {
 			throw new JwtValidationException("invalid_role");
 		}
 		return new AuthenticatedUser(sub, role);
@@ -149,6 +150,14 @@ public class JwtService {
 
 	private static String asString(Object value) {
 		return value instanceof String s ? s : null;
+	}
+
+	private static String normalizeRole(String value) {
+		return switch (value) {
+			case "admin", "agent", "super_admin" -> value;
+			case "superadmin" -> "super_admin";
+			default -> null;
+		};
 	}
 
 	private static long asLong(Object value) {

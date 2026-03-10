@@ -4,7 +4,7 @@ import { setAuthToken, clearAuthToken, getAuthToken } from '@/api/client'
 import type { User, LoginRequest } from '@/api/types'
 
 const DEV_BYPASS_AUTH = import.meta.env.DEV && import.meta.env.VITE_BYPASS_AUTH === 'true'
-const DEV_ROLE = (import.meta.env.VITE_BYPASS_ROLE ?? 'admin') as 'admin' | 'agent'
+const DEV_ROLE = (import.meta.env.VITE_BYPASS_ROLE ?? 'admin') as 'admin' | 'agent' | 'super_admin'
 
 const DEV_USERS = {
   admin: {
@@ -13,6 +13,14 @@ const DEV_USERS = {
     lastName: 'User',
     email: 'admin@example.com',
     role: 'admin',
+    status: 'active',
+  },
+  super_admin: {
+    id: 'super-admin-123',
+    firstName: 'Super',
+    lastName: 'Admin',
+    email: 'super-admin@example.com',
+    role: 'super_admin',
     status: 'active',
   },
   agent: {

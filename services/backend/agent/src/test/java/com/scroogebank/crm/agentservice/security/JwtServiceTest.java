@@ -43,6 +43,31 @@ class JwtServiceTest {
 	}
 
 	@Test
+	void verifyAndParse_superAdminRole_returnsNormalizedRole() {
+		String token = jwtService.mintAccessToken("usr_1", "super_admin", FIXED_CLOCK.instant().plusSeconds(3600));
+
+		AuthenticatedUser user = jwtService.verifyAndParse(token);
+
+		assertEquals("usr_1", user.userId());
+		assertEquals("super_admin", user.role());
+	}
+
+	@Test
+	void verifyAndParse_legacySuperadminRole_isAcceptedAndNormalized() {
+		String token = signedToken(Map.of(
+			"sub", "usr_1",
+			"role", "superadmin",
+			"iat", FIXED_CLOCK.instant().getEpochSecond(),
+			"exp", FIXED_CLOCK.instant().plusSeconds(3600).getEpochSecond()
+		));
+
+		AuthenticatedUser user = jwtService.verifyAndParse(token);
+
+		assertEquals("usr_1", user.userId());
+		assertEquals("super_admin", user.role());
+	}
+
+	@Test
 	void verifyAndParse_expiredToken_throws() {
 		String token = jwtService.mintAccessToken("usr_1", "admin", FIXED_CLOCK.instant().minusSeconds(1));
 

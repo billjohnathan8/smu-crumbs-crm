@@ -17,7 +17,7 @@ export interface PaginatedResponse<T> {
 }
 
 // Auth types (agent-service)
-export type UserRole = 'admin' | 'agent'
+export type UserRole = 'admin' | 'agent' | 'super_admin'
 export type UserStatus = 'active' | 'disabled'
 
 export interface User {
