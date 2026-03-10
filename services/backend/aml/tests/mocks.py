@@ -156,13 +156,13 @@ class MockCRMWriteClient:
 
     def write_alert(self, alert: AMLAlert) -> None:
         payload: dict[str, Any] = {
-            "alert_id": alert.alert_id,
-            "client_id": alert.client_id,
-            "transaction_id": alert.transaction_id,
-            "alert_type": alert.alert_type.value,
+            "alertId": alert.alert_id,
+            "clientId": alert.client_id,
+            "transactionId": alert.transaction_id,
+            "alertType": alert.alert_type.value,
             "description": alert.description,
-            "detected_at": alert.detected_at.isoformat(),
-            "review_status": alert.review_status,
+            "detectedAt": alert.detected_at.isoformat(),
+            "reviewStatus": alert.review_status,
         }
         self.written_alerts.append(payload)
         logger.debug(
@@ -171,15 +171,15 @@ class MockCRMWriteClient:
 
     def write_log(self, log: LogEntry) -> None:
         payload: dict[str, Any] = {
-            "log_id": log.log_id,
+            "logId": log.log_id,
             "action": log.action.value,
-            "attribute_name": log.attribute_name,
-            "before_value": log.before_value,
-            "after_value": log.after_value,
-            "agent_id": log.agent_id,
-            "client_id": log.client_id,
-            "date_time": log.date_time.isoformat(),
-            "correlation_id": log.correlation_id,
+            "attributeName": log.attribute_name,
+            "beforeValue": log.before_value,
+            "afterValue": log.after_value,
+            "agentId": log.agent_id,
+            "clientId": log.client_id,
+            "dateTime": log.date_time.isoformat(),
+            "correlationId": log.correlation_id,
         }
         self.written_logs.append(payload)
         logger.debug(

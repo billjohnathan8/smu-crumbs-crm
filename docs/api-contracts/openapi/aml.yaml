@@ -1,0 +1,230 @@
+openapi: 3.0.3
+info:
+  title: aml-integration
+  version: 0.1.0
+  description: |
+    Feature 5: AML batch engine outbound HTTP integration contract.
+
+    This contract documents the REST request/response shapes used by the AML Lambda
+    when reading client/transaction context and writing AML alerts + audit logs.
+servers:
+  - url: http://localhost
+    description: Local integration gateway base URL.
+tags:
+  - name: aml-read
+  - name: aml-write
+
+paths:
+  /api/clients/{clientId}/accounts:
+    get:
+      tags: [aml-read]
+      summary: Resolve account context for a client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 1 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        "200":
+          description: Account list response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Account" }
+                required: [data]
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /api/clients/{clientId}/transactions:
+    get:
+      tags: [aml-read]
+      summary: Resolve historical transaction amounts for a client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 200 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        "200":
+          description: Transactions list response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Transaction" }
+                required: [data]
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /api/aml/alerts:
+    post:
+      tags: [aml-write]
+      summary: Persist AML alert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateAmlAlertRequest" }
+      responses:
+        "201":
+          description: Alert persisted.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AmlAlert" }
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409":
+          description: Duplicate alert id
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /api/logs:
+    post:
+      tags: [aml-write]
+      summary: Persist AML audit log entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateLogRequest" }
+      responses:
+        "201":
+          description: Log persisted.
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error: { type: string }
+        message: { type: string }
+        requestId: { type: string }
+      required: [error, message]
+
+    Account:
+      type: object
+      properties:
+        accountId: { type: string }
+        clientId: { type: string }
+        accountType: { type: string }
+        accountStatus: { type: string }
+        openingDate: { type: string, format: date }
+        initialDeposit: { type: number }
+        currency: { type: string }
+        branchId: { type: string }
+      required:
+        - accountId
+        - clientId
+        - accountType
+        - accountStatus
+        - openingDate
+        - initialDeposit
+
+    Transaction:
+      type: object
+      properties:
+        id: { type: string }
+        clientId: { type: string }
+        transaction: { type: string, enum: [D, W] }
+        amount: { type: number }
+        date: { type: string, format: date }
+        status: { type: string, enum: [Completed, Pending, Failed] }
+      required: [id, clientId, transaction, amount, date, status]
+
+    AmlAlertType:
+      type: string
+      enum: [STATISTICAL_OUTLIER, STRUCTURING, PASSTHROUGH, INCEPTION_SPIKE]
+
+    AmlReviewStatus:
+      type: string
+      enum: [Pending, Confirmed, Dismissed]
+      default: Pending
+
+    CreateAmlAlertRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        alertId: { type: string, minLength: 1, maxLength: 64 }
+        clientId: { type: string, minLength: 1, maxLength: 64 }
+        transactionId: { type: string, nullable: true, maxLength: 255 }
+        alertType: { $ref: "#/components/schemas/AmlAlertType" }
+        description: { type: string, minLength: 1, maxLength: 2000 }
+        detectedAt: { type: string, format: date-time }
+        reviewStatus: { $ref: "#/components/schemas/AmlReviewStatus" }
+      required: [alertId, clientId, alertType, description, detectedAt]
+
+    AmlAlert:
+      type: object
+      properties:
+        alertId: { type: string }
+        clientId: { type: string }
+        transactionId: { type: string, nullable: true }
+        alertType: { $ref: "#/components/schemas/AmlAlertType" }
+        description: { type: string }
+        detectedAt: { type: string, format: date-time }
+        reviewStatus: { $ref: "#/components/schemas/AmlReviewStatus" }
+      required:
+        - alertId
+        - clientId
+        - alertType
+        - description
+        - detectedAt
+        - reviewStatus
+
+    CreateLogRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        action: { type: string, enum: [CREATE, READ, UPDATE, DELETE, COMMUNICATION] }
+        attributeName: { type: string, minLength: 1, maxLength: 100 }
+        beforeValue: { type: string, nullable: true, maxLength: 2000 }
+        afterValue: { type: string, nullable: true, maxLength: 2000 }
+        agentId: { type: string, minLength: 1, maxLength: 64 }
+        clientId: { type: string, minLength: 1, maxLength: 64 }
+        dateTime: { type: string, format: date-time }
+        correlationId: { type: string, nullable: true, maxLength: 120 }
+      required: [action, attributeName, agentId, clientId]

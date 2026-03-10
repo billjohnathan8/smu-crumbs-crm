@@ -23,8 +23,13 @@ Environment variables (production):
     SFTP_USER           - SFTP username
     SFTP_KEY_SECRET     - AWS Secrets Manager ARN for the SSH private key
     SFTP_REMOTE_PATH    - Remote path to the monthly transaction CSV
-    CRM_API_BASE_URL    - Base URL of the CRM REST API
-    ENTITY_ID           - Legal entity / country instance (data-segregation)
+    CRM_API_BASE_URL    - Base URL of the CRM integration gateway
+    CRM_API_AUTHORIZATION_HEADER - Optional full Authorization header for outbound calls
+    CRM_API_BEARER_TOKEN - Optional bearer token fallback for outbound calls
+    CRM_CLIENT_ACCOUNTS_PATH_TEMPLATE - Optional path template for client accounts lookup
+    CRM_CLIENT_TRANSACTIONS_PATH_TEMPLATE - Optional path template for client transactions lookup
+    CRM_AML_ALERTS_PATH - Optional override for AML alert write endpoint
+    CRM_LOGS_PATH       - Optional override for audit log write endpoint
 """
 
 from __future__ import annotations
@@ -55,6 +60,31 @@ SIGMA_THRESHOLD: float = 3.0  # Z-score threshold (Module A)
 MIN_HISTORY_TRANSACTIONS: int = 5  # Minimum samples for per-client baseline
 PASSTHROUGH_RATIO: float = 0.9  # Outflow / Inflow ratio for pass-through flag
 INCEPTION_MONTHS: int = 3  # Account age threshold for inception-spike flag
+DEFAULT_HTTP_TIMEOUT_SECONDS: int = 10
+MAX_LIST_PAGE_SIZE: int = 200
+DEFAULT_CLIENT_ACCOUNTS_PATH_TEMPLATE = "/api/clients/{client_id}/accounts"
+DEFAULT_CLIENT_TRANSACTIONS_PATH_TEMPLATE = "/api/clients/{client_id}/transactions"
+DEFAULT_AML_ALERTS_PATH = "/api/aml/alerts"
+DEFAULT_LOGS_PATH = "/api/logs"
+
+
+def _authorization_header() -> str | None:
+    """Resolve outbound Authorization header from environment variables."""
+    explicit_header = os.environ.get("CRM_API_AUTHORIZATION_HEADER", "").strip()
+    if explicit_header:
+        return explicit_header
+    bearer_token = os.environ.get("CRM_API_BEARER_TOKEN", "").strip()
+    if bearer_token:
+        return f"Bearer {bearer_token}"
+    return None
+
+
+def _auth_headers() -> dict[str, str]:
+    """Build optional auth headers for service-to-service HTTP calls."""
+    authorization = _authorization_header()
+    if authorization:
+        return {"Authorization": authorization}
+    return {}
 
 
 # ---------------------------------------------------------------------------
@@ -238,41 +268,69 @@ class AccountRepository:
 
     def __init__(self) -> None:
         self._base_url = os.environ["CRM_API_BASE_URL"].rstrip("/")
-        self._entity_id = os.environ["ENTITY_ID"]
 
     # AccountRepositoryProtocol
     def get_accounts(self) -> list[Account]:
+        """Deprecated bulk fetch. Prefer get_account_by_client_id for active clients."""
         import urllib.request  # noqa: PLC0415
 
-        url = f"{self._base_url}/entities/{self._entity_id}/accounts"
-        with urllib.request.urlopen(url) as resp:
-            rows = json.loads(resp.read().decode())
+        path = os.environ.get("CRM_ACCOUNTS_PATH", "/api/accounts")
+        req = urllib.request.Request(
+            url=self._base_url + path,
+            headers=_auth_headers(),
+            method="GET",
+        )
+        with urllib.request.urlopen(req, timeout=DEFAULT_HTTP_TIMEOUT_SECONDS) as resp:
+            payload = json.loads(resp.read().decode())
+        rows = payload.get("data", payload) if isinstance(payload, dict) else payload
+        if not isinstance(rows, list):
+            return []
         return [self._deserialise(row) for row in rows]
 
     def get_account_by_client_id(self, client_id: str) -> Account | None:
         import urllib.error  # noqa: PLC0415
+        import urllib.parse  # noqa: PLC0415
         import urllib.request  # noqa: PLC0415
 
-        url = f"{self._base_url}/entities/{self._entity_id}/accounts/{client_id}"
+        path_template = os.environ.get(
+            "CRM_CLIENT_ACCOUNTS_PATH_TEMPLATE",
+            DEFAULT_CLIENT_ACCOUNTS_PATH_TEMPLATE,
+        )
+        path = path_template.format(
+            client_id=urllib.parse.quote(client_id, safe="")
+        )
+        query = urllib.parse.urlencode({"limit": 1, "offset": 0})
+        url = f"{self._base_url}{path}?{query}"
+        req = urllib.request.Request(url=url, headers=_auth_headers(), method="GET")
         try:
-            with urllib.request.urlopen(url) as resp:
-                return self._deserialise(json.loads(resp.read().decode()))
+            with urllib.request.urlopen(req, timeout=DEFAULT_HTTP_TIMEOUT_SECONDS) as resp:
+                payload = json.loads(resp.read().decode())
         except urllib.error.HTTPError as exc:
             if exc.code == 404:
                 return None
             raise
+        rows = payload.get("data", payload) if isinstance(payload, dict) else payload
+        if not isinstance(rows, list) or not rows:
+            return None
+        return self._deserialise(rows[0])
 
     @staticmethod
     def _deserialise(row: dict[str, Any]) -> Account:
+        def pick(*keys: str) -> Any:
+            for key in keys:
+                if key in row and row[key] is not None:
+                    return row[key]
+            raise KeyError(keys[0])
+
         return Account(
-            account_id=row["account_id"],
-            client_id=row["client_id"],
-            account_type=AccountType(row["account_type"]),
-            account_status=AccountStatus(row["account_status"]),
-            opening_date=date.fromisoformat(row["opening_date"]),
-            initial_deposit=float(row["initial_deposit"]),
+            account_id=str(pick("accountId", "account_id")),
+            client_id=str(pick("clientId", "client_id")),
+            account_type=AccountType(pick("accountType", "account_type")),
+            account_status=AccountStatus(pick("accountStatus", "account_status")),
+            opening_date=date.fromisoformat(str(pick("openingDate", "opening_date"))),
+            initial_deposit=float(pick("initialDeposit", "initial_deposit")),
             currency=row.get("currency", "SGD"),
-            branch_id=row.get("branch_id", ""),
+            branch_id=str(row.get("branchId", row.get("branch_id", ""))),
         )
 
 
@@ -281,18 +339,39 @@ class HistoricalTransactionRepository:
 
     def __init__(self) -> None:
         self._base_url = os.environ["CRM_API_BASE_URL"].rstrip("/")
-        self._entity_id = os.environ["ENTITY_ID"]
 
     # HistoricalTransactionRepositoryProtocol
     def get_historical_amounts(self, client_id: str) -> list[float]:
+        import urllib.parse  # noqa: PLC0415
         import urllib.request  # noqa: PLC0415
 
-        url = (
-            f"{self._base_url}/entities/{self._entity_id}"
-            f"/clients/{client_id}/historical-amounts"
+        path_template = os.environ.get(
+            "CRM_CLIENT_TRANSACTIONS_PATH_TEMPLATE",
+            DEFAULT_CLIENT_TRANSACTIONS_PATH_TEMPLATE,
         )
-        with urllib.request.urlopen(url) as resp:
-            return [float(v) for v in json.loads(resp.read().decode())]
+        path = path_template.format(
+            client_id=urllib.parse.quote(client_id, safe="")
+        )
+        query = urllib.parse.urlencode({"limit": MAX_LIST_PAGE_SIZE, "offset": 0})
+        url = f"{self._base_url}{path}?{query}"
+        req = urllib.request.Request(url=url, headers=_auth_headers(), method="GET")
+        with urllib.request.urlopen(req, timeout=DEFAULT_HTTP_TIMEOUT_SECONDS) as resp:
+            payload = json.loads(resp.read().decode())
+
+        rows = payload.get("data", payload) if isinstance(payload, dict) else payload
+        if not isinstance(rows, list):
+            return []
+
+        month_start = date.today().replace(day=1)
+        historical_amounts: list[float] = []
+        for row in rows:
+            row_date = _parse_date_value(row.get("date"))
+            if row_date is not None and row_date < month_start:
+                historical_amounts.append(float(row["amount"]))
+
+        if historical_amounts:
+            return historical_amounts
+        return [float(row["amount"]) for row in rows if "amount" in row]
 
 
 class CRMWriteClient:
@@ -300,56 +379,79 @@ class CRMWriteClient:
 
     def __init__(self) -> None:
         self._base_url = os.environ["CRM_API_BASE_URL"].rstrip("/")
-        self._entity_id = os.environ["ENTITY_ID"]
 
     # CRMWriteClientProtocol
     def write_alert(self, alert: AMLAlert) -> None:
+        alerts_path = os.environ.get("CRM_AML_ALERTS_PATH", DEFAULT_AML_ALERTS_PATH)
         self._post(
-            f"/entities/{self._entity_id}/aml-alerts",
+            alerts_path,
             {
-                "alert_id": alert.alert_id,
-                "client_id": alert.client_id,
-                "transaction_id": alert.transaction_id,
-                "alert_type": alert.alert_type.value,
+                "alertId": alert.alert_id,
+                "clientId": alert.client_id,
+                "transactionId": alert.transaction_id,
+                "alertType": alert.alert_type.value,
                 "description": alert.description,
-                "detected_at": alert.detected_at.isoformat(),
-                "review_status": alert.review_status,
+                "detectedAt": alert.detected_at.isoformat(),
+                "reviewStatus": alert.review_status,
             },
         )
 
     def write_log(self, log: LogEntry) -> None:
+        logs_path = os.environ.get("CRM_LOGS_PATH", DEFAULT_LOGS_PATH)
         self._post(
-            f"/entities/{self._entity_id}/logs",
+            logs_path,
             {
-                "log_id": log.log_id,
+                "logId": log.log_id,
                 "action": log.action.value,
-                "attribute_name": log.attribute_name,
-                "before_value": log.before_value,
-                "after_value": log.after_value,
-                "agent_id": log.agent_id,
-                "client_id": log.client_id,
-                "date_time": log.date_time.isoformat(),
-                "correlation_id": log.correlation_id,
+                "attributeName": log.attribute_name,
+                "beforeValue": log.before_value,
+                "afterValue": log.after_value,
+                "agentId": log.agent_id,
+                "clientId": log.client_id,
+                "dateTime": log.date_time.isoformat(),
+                "correlationId": log.correlation_id,
             },
         )
 
     def _post(self, path: str, payload: dict[str, Any]) -> None:
+        import urllib.error  # noqa: PLC0415
         import urllib.request  # noqa: PLC0415
 
         body = json.dumps(payload, default=str).encode()
+        headers = {"Content-Type": "application/json", **_auth_headers()}
         req = urllib.request.Request(
             url=self._base_url + path,
             data=body,
-            headers={"Content-Type": "application/json"},
+            headers=headers,
             method="POST",
         )
-        with urllib.request.urlopen(req):
-            pass
+        try:
+            with urllib.request.urlopen(req, timeout=DEFAULT_HTTP_TIMEOUT_SECONDS):
+                pass
+        except urllib.error.HTTPError as exc:
+            error_body = exc.read().decode("utf-8", errors="replace")
+            logger.error(
+                "CRM API POST failed. path=%s status=%s body=%s",
+                path,
+                exc.code,
+                error_body,
+            )
+            raise RuntimeError(f"CRM API POST failed for path={path}") from exc
 
 
 # ---------------------------------------------------------------------------
 # Data Ingestion
 # ---------------------------------------------------------------------------
+
+
+def _parse_date_value(value: Any) -> date | None:
+    """Parse ISO date strings safely; return None for missing/invalid values."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return date.fromisoformat(value.strip())
+    except ValueError:
+        return None
 
 
 def parse_transactions_csv(csv_content: str) -> list[Transaction]:
@@ -668,8 +770,8 @@ def create_log_entry_for_alert(alert: AMLAlert) -> LogEntry:
         before_value=None,
         after_value=json.dumps(
             {
-                "alert_id": alert.alert_id,
-                "alert_type": alert.alert_type.value,
+                "alertId": alert.alert_id,
+                "alertType": alert.alert_type.value,
                 "description": alert.description,
             },
             default=str,
@@ -727,9 +829,9 @@ def run_aml_engine(
         crm_client.write_log(create_log_entry_for_alert(alert))
 
     summary: dict[str, Any] = {
-        "total_transactions_processed": len(transactions),
-        "total_alerts_generated": len(all_alerts),
-        "alerts_by_type": {
+        "totalTransactionsProcessed": len(transactions),
+        "totalAlertsGenerated": len(all_alerts),
+        "alertsByType": {
             AlertType.STATISTICAL_OUTLIER.value: len(module_a_alerts),
             AlertType.STRUCTURING.value: len(module_b_alerts),
             AlertType.PASSTHROUGH.value: sum(
@@ -741,12 +843,12 @@ def run_aml_engine(
         },
         "alerts": [
             {
-                "alert_id": a.alert_id,
-                "client_id": a.client_id,
-                "alert_type": a.alert_type.value,
+                "alertId": a.alert_id,
+                "clientId": a.client_id,
+                "alertType": a.alert_type.value,
                 "description": a.description,
-                "detected_at": a.detected_at.isoformat(),
-                "review_status": a.review_status,
+                "detectedAt": a.detected_at.isoformat(),
+                "reviewStatus": a.review_status,
             }
             for a in all_alerts
         ],
@@ -792,6 +894,19 @@ def _create_clients() -> tuple[
     )
 
 
+def _load_accounts_for_active_clients(
+    transactions: list[Transaction],
+    account_repo: AccountRepositoryProtocol,
+) -> list[Account]:
+    """Load one account per active client in the current transaction batch."""
+    accounts: list[Account] = []
+    for client_id in sorted({txn.client_id for txn in transactions}):
+        account = account_repo.get_account_by_client_id(client_id)
+        if account is not None:
+            accounts.append(account)
+    return accounts
+
+
 # ---------------------------------------------------------------------------
 # Lambda Handler (AWS entry point)
 # ---------------------------------------------------------------------------
@@ -818,23 +933,37 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """
     logger.info("Lambda invoked. Event: %s", json.dumps(event, default=str))
 
-    sftp_client, account_repo, historical_repo, crm_client = _create_clients()
+    try:
+        sftp_client, account_repo, historical_repo, crm_client = _create_clients()
 
-    # Step 1 — Fetch transaction CSV from SFTP
-    remote_path = os.environ.get("SFTP_REMOTE_PATH", "/transactions/latest.csv")
-    csv_content = sftp_client.download_transactions_csv(remote_path)
+        # Step 1 — Fetch transaction CSV from SFTP
+        remote_path = os.environ.get("SFTP_REMOTE_PATH", "/transactions/latest.csv")
+        csv_content = sftp_client.download_transactions_csv(remote_path)
 
-    # Step 2 — Parse
-    transactions = parse_transactions_csv(csv_content)
-    accounts = account_repo.get_accounts()
+        # Step 2 — Parse
+        transactions = parse_transactions_csv(csv_content)
+        accounts = _load_accounts_for_active_clients(transactions, account_repo)
 
-    # Steps 3–5 — Process, Populate, Log
-    summary = run_aml_engine(transactions, accounts, historical_repo, crm_client)
+        # Steps 3–5 — Process, Populate, Log
+        summary = run_aml_engine(transactions, accounts, historical_repo, crm_client)
 
-    return {
-        "statusCode": 200,
-        "body": json.dumps(summary, default=str),
-    }
+        return {
+            "statusCode": 200,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps(summary, default=str),
+        }
+    except Exception:
+        logger.exception("AML batch execution failed")
+        return {
+            "statusCode": 500,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps(
+                {
+                    "error": "internal_error",
+                    "message": "AML batch execution failed",
+                }
+            ),
+        }
 
 
 # ---------------------------------------------------------------------------
