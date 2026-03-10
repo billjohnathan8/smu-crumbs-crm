@@ -246,25 +246,39 @@ docker compose -f docker-compose.localstack.yml up -d
 
 ## 10. CI/CD Integration
 
-The LocalStack smoke test runs automatically in GitHub Actions as the last step
-before the (unimplemented) deploy stage in both `ci-main.yml` and
-`ci-integration.yml`.
+LocalStack is validated in CI as part of the **fullstack integration test** in
+both `ci-main.yml` and `ci-integration.yml`. It is not a separate pipeline stage.
 
 Pipeline position:
 
 ```
-changes → lint → test-* (parallel) → localstack-smoke → [deploy: not yet implemented]
+changes → lint → test-* (parallel) → e2e-frontend-mocked → fullstack-integration-e2e → [deploy: not yet implemented]
 ```
 
-The reusable workflow is at `.github/workflows/reusable-localstack-smoke.yml`.
-The CI script is at `scripts/ci/run-localstack-smoke.sh`.
+The reusable workflow is at `.github/workflows/reusable-fullstack-integration.yml`.
+The CI script is at `scripts/ci/run-fullstack-integration-e2e.sh`.
 
-The smoke test:
-1. Starts only the `localstack` service from `docker-compose.localstack.yml`
-2. Waits for the health endpoint to report all services running
-3. Waits for `platform/localstack/init/01-setup.sh` to finish provisioning
-4. Asserts every SQS queue, DynamoDB table, S3 bucket, SNS topic, and Secret exists
-5. Runs an SQS send → receive round-trip
+The fullstack integration test handles LocalStack as part of a broader test that:
+1. Builds all Java service JARs and Docker images
+2. Starts the full containerised stack (LocalStack + PostgreSQL + all services) via `scripts/ci/fullstack-integration.compose.yml`
+3. Waits for LocalStack health and for `platform/localstack/init/01-setup.sh` to finish provisioning
+4. Runs cross-service HTTP smoke assertions (client-service → log-service, transaction-service, SQS round-trip)
+5. Runs real Playwright E2E tests against the live stack
+
+### Local debugging script
+
+A standalone LocalStack-only smoke script is available for local debugging when
+you want to verify the init script provisions resources correctly without
+standing up the full service stack:
+
+```bash
+bash scripts/ci/run-localstack-smoke.sh
+```
+
+This starts only the `localstack` service from `docker-compose.localstack.yml`,
+waits for provisioning, asserts every SQS queue, DynamoDB table, S3 bucket, SNS
+topic, and Secret exists, then runs an SQS round-trip. It tears down LocalStack
+on exit. It is **not** wired into the CI pipeline.
 
 ---
 
