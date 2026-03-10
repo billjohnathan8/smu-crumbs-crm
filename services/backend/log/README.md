@@ -7,6 +7,7 @@
 
 - Local HTTP server: FastAPI + Uvicorn (`app.main:app`)
 - AWS Lambda: entrypoint module `lambda_function.py` with handler `lambda_function.lambda_handler`
+- Includes AML alert endpoints at `/api/aml/alerts` for Feature 5 persistence/review.
 
 ## Local test pipeline (service root)
 

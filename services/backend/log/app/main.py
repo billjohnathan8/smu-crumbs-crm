@@ -15,13 +15,16 @@ from .auth import ForbiddenError, UnauthorizedError, require_bearer_user, requir
 from .config import Settings
 from .repository import LogRepository
 from .schemas import (
+    AmlAlert,
     Communication,
+    CreateAmlAlertRequest,
     CreateCommunicationRequest,
     CreateLogRequest,
     ErrorResponse,
     HealthResponse,
     LogEntry,
     Pagination,
+    UpdateAmlAlertReviewRequest,
     UpdateLogRequest,
 )
 from .service import LogService
@@ -110,6 +113,20 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
     def encode_prefixed_id(prefix: str, value: int) -> str:
         """Attach an API prefix to a numeric id."""
         return f"{prefix}{value}"
+
+    def to_aml_alert(row: dict) -> AmlAlert:
+        """Convert AML alert persistence row to API response model."""
+        return AmlAlert(
+            alertId=row["alert_id"],
+            clientId=row["client_id"],
+            transactionId=row["transaction_id"],
+            alertType=row["alert_type"],
+            description=row["description"],
+            detectedAt=row["detected_at"],
+            reviewStatus=row["review_status"],
+            createdAt=row["created_at"],
+            updatedAt=row["updated_at"],
+        )
 
     @app.get("/health", response_model=HealthResponse)
     def health(service: LogService = Depends(get_log_service)) -> HealthResponse:
@@ -339,6 +356,94 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
                 limit=min(max(limit, 1), 200), offset=max(offset, 0), total=total
             ).model_dump(),
         }
+
+    @app.post(
+        "/api/aml/alerts",
+        status_code=status.HTTP_201_CREATED,
+        response_model=AmlAlert,
+    )
+    def create_aml_alert(
+        request: Request,
+        body: CreateAmlAlertRequest,
+        user=Depends(get_user),
+        service: LogService = Depends(get_log_service),
+    ):
+        require_roles(user, {"admin", "agent"})
+        try:
+            row = service.create_aml_alert(body)
+        except ValueError as exc:
+            return _error(
+                request, status.HTTP_400_BAD_REQUEST, "validation_error", str(exc)
+            )
+        except Exception as exc:  # pragma: no cover
+            if "duplicate key value" in str(exc):
+                return _error(
+                    request,
+                    status.HTTP_409_CONFLICT,
+                    "conflict",
+                    "Alert already exists",
+                )
+            LOGGER.exception("failed to create aml alert")
+            return _error(
+                request,
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                "internal_error",
+                "Internal error",
+            )
+        return to_aml_alert(row)
+
+    @app.get("/api/aml/alerts")
+    def list_aml_alerts(
+        request: Request,
+        user=Depends(get_user),
+        service: LogService = Depends(get_log_service),
+        limit: int = 50,
+        offset: int = 0,
+        clientId: str | None = None,
+        alertType: str | None = None,
+        reviewStatus: str | None = None,
+    ):
+        require_roles(user, {"admin", "agent"})
+        rows, total = service.list_aml_alerts(
+            limit=min(max(limit, 1), 200),
+            offset=max(offset, 0),
+            client_id=clientId,
+            alert_type=alertType,
+            review_status=reviewStatus,
+        )
+        return {
+            "data": [to_aml_alert(row).model_dump(exclude_none=True) for row in rows],
+            "pagination": Pagination(
+                limit=min(max(limit, 1), 200), offset=max(offset, 0), total=total
+            ).model_dump(),
+        }
+
+    @app.get("/api/aml/alerts/{alertId}", response_model=AmlAlert)
+    def get_aml_alert(
+        request: Request,
+        alertId: str,
+        user=Depends(get_user),
+        service: LogService = Depends(get_log_service),
+    ):
+        require_roles(user, {"admin", "agent"})
+        row = service.get_aml_alert(alertId)
+        if row is None:
+            return _error(request, status.HTTP_404_NOT_FOUND, "not_found", "Not found")
+        return to_aml_alert(row)
+
+    @app.put("/api/aml/alerts/{alertId}/review", response_model=AmlAlert)
+    def review_aml_alert(
+        request: Request,
+        alertId: str,
+        body: UpdateAmlAlertReviewRequest,
+        user=Depends(get_user),
+        service: LogService = Depends(get_log_service),
+    ):
+        require_roles(user, {"admin", "agent"})
+        row = service.update_aml_alert_review(alertId, body.reviewStatus.value)
+        if row is None:
+            return _error(request, status.HTTP_404_NOT_FOUND, "not_found", "Not found")
+        return to_aml_alert(row)
 
     @app.post("/api/communications", status_code=status.HTTP_202_ACCEPTED)
     def create_communication(

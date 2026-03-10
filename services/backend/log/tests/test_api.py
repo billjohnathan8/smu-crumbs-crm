@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from app.main import create_app
 from app.schemas import (
+    CreateAmlAlertRequest,
     CreateCommunicationRequest,
     CreateLogRequest,
     UpdateLogRequest,
@@ -42,6 +43,7 @@ class FakeLogService:
     def __init__(self) -> None:
         self.logs: list[dict] = []
         self.communications: list[dict] = []
+        self.aml_alerts: dict[str, dict] = {}
 
     def bootstrap(self) -> None:
         return
@@ -147,6 +149,52 @@ class FakeLogService:
             rows = [r for r in rows if r["agent_id"] == agent_id]
         total = len(rows)
         return rows[offset : offset + limit], total
+
+    def create_aml_alert(self, request: CreateAmlAlertRequest) -> dict:
+        now = datetime.now(timezone.utc)
+        row = {
+            "id": len(self.aml_alerts) + 1,
+            "alert_id": request.alertId,
+            "client_id": request.clientId,
+            "transaction_id": request.transactionId,
+            "alert_type": request.alertType.value,
+            "description": request.description,
+            "detected_at": request.detectedAt,
+            "review_status": request.reviewStatus.value,
+            "created_at": now,
+            "updated_at": now,
+        }
+        self.aml_alerts[request.alertId] = row
+        return row
+
+    def get_aml_alert(self, alert_id: str) -> dict | None:
+        return self.aml_alerts.get(alert_id)
+
+    def list_aml_alerts(
+        self,
+        limit: int,
+        offset: int,
+        client_id: str | None,
+        alert_type: str | None,
+        review_status: str | None,
+    ):
+        rows = list(self.aml_alerts.values())
+        if client_id:
+            rows = [r for r in rows if r["client_id"] == client_id]
+        if alert_type:
+            rows = [r for r in rows if r["alert_type"] == alert_type]
+        if review_status:
+            rows = [r for r in rows if r["review_status"] == review_status]
+        total = len(rows)
+        return rows[offset : offset + limit], total
+
+    def update_aml_alert_review(self, alert_id: str, review_status: str) -> dict | None:
+        row = self.aml_alerts.get(alert_id)
+        if row is None:
+            return None
+        row["review_status"] = review_status
+        row["updated_at"] = datetime.now(timezone.utc)
+        return row
 
 
 class FakeUnhealthyLogService(FakeLogService):
@@ -665,3 +713,60 @@ def test_list_communications_admin_sees_all_agent_scoped() -> None:
     assert agent_response.status_code == 200
     assert len(agent_response.json()["data"]) == 1
     assert agent_response.json()["data"][0]["agentId"] == "usr_1"
+
+
+def test_create_and_review_aml_alert_flow() -> None:
+    secret = "test-secret"
+    os.environ["JWT_HMAC_SECRET"] = secret
+    service = FakeLogService()
+    app = create_app(service)
+    client = TestClient(app)
+    token = mint_token("usr_admin", "admin", secret)
+
+    create_response = client.post(
+        "/api/aml/alerts",
+        json={
+            "alertId": "aml_1",
+            "clientId": "clt_1",
+            "transactionId": "txn_1",
+            "alertType": "STRUCTURING",
+            "description": "Structuring detected",
+            "detectedAt": "2026-02-01T12:00:00Z",
+            "reviewStatus": "Pending",
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert create_response.status_code == 201
+    assert create_response.json()["alertId"] == "aml_1"
+    assert create_response.json()["reviewStatus"] == "Pending"
+
+    list_response = client.get(
+        "/api/aml/alerts?clientId=clt_1",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert list_response.status_code == 200
+    assert len(list_response.json()["data"]) == 1
+
+    review_response = client.put(
+        "/api/aml/alerts/aml_1/review",
+        json={"reviewStatus": "Confirmed"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert review_response.status_code == 200
+    assert review_response.json()["reviewStatus"] == "Confirmed"
+
+
+def test_get_aml_alert_not_found() -> None:
+    secret = "test-secret"
+    os.environ["JWT_HMAC_SECRET"] = secret
+    app = create_app(FakeLogService())
+    client = TestClient(app)
+    token = mint_token("usr_admin", "admin", secret)
+
+    response = client.get(
+        "/api/aml/alerts/aml_missing",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"] == "not_found"

@@ -5,7 +5,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from .repository import LogRepository
-from .schemas import CreateCommunicationRequest, CreateLogRequest, UpdateLogRequest
+from .schemas import (
+    CreateAmlAlertRequest,
+    CreateCommunicationRequest,
+    CreateLogRequest,
+    UpdateLogRequest,
+)
 
 
 class LogService:
@@ -68,6 +73,35 @@ class LogService:
         payload["providerMessageId"] = None
         payload["errorMessage"] = None
         return self._repository.insert_communication(payload)
+
+    def create_aml_alert(self, request: CreateAmlAlertRequest) -> dict:
+        """Create and return an AML alert record."""
+        return self._repository.insert_aml_alert(request.model_dump())
+
+    def get_aml_alert(self, alert_id: str) -> dict | None:
+        """Fetch a single AML alert by external alert id."""
+        return self._repository.get_aml_alert_by_alert_id(alert_id)
+
+    def list_aml_alerts(
+        self,
+        limit: int,
+        offset: int,
+        client_id: str | None,
+        alert_type: str | None,
+        review_status: str | None,
+    ):
+        """List AML alerts with pagination and optional filters."""
+        return self._repository.list_aml_alerts(
+            limit=limit,
+            offset=offset,
+            client_id=client_id,
+            alert_type=alert_type,
+            review_status=review_status,
+        )
+
+    def update_aml_alert_review(self, alert_id: str, review_status: str) -> dict | None:
+        """Update review status for an AML alert."""
+        return self._repository.update_aml_alert_review(alert_id, review_status)
 
     def get_communication(self, communication_id: int) -> dict | None:
         """Fetch a single communication record by id."""

@@ -99,6 +99,49 @@ class Communication(BaseModel):
     updatedAt: datetime
 
 
+class AmlAlertType(str, Enum):
+    STATISTICAL_OUTLIER = "STATISTICAL_OUTLIER"
+    STRUCTURING = "STRUCTURING"
+    PASSTHROUGH = "PASSTHROUGH"
+    INCEPTION_SPIKE = "INCEPTION_SPIKE"
+
+
+class AmlReviewStatus(str, Enum):
+    Pending = "Pending"
+    Confirmed = "Confirmed"
+    Dismissed = "Dismissed"
+
+
+class CreateAmlAlertRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    alertId: str = Field(min_length=1, max_length=64)
+    clientId: str = Field(min_length=1, max_length=64)
+    transactionId: str | None = Field(default=None, max_length=255)
+    alertType: AmlAlertType
+    description: str = Field(min_length=1, max_length=2000)
+    detectedAt: datetime
+    reviewStatus: AmlReviewStatus = AmlReviewStatus.Pending
+
+
+class AmlAlert(BaseModel):
+    alertId: str
+    clientId: str
+    transactionId: str | None = None
+    alertType: AmlAlertType
+    description: str
+    detectedAt: datetime
+    reviewStatus: AmlReviewStatus
+    createdAt: datetime
+    updatedAt: datetime
+
+
+class UpdateAmlAlertReviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reviewStatus: AmlReviewStatus
+
+
 def now_utc() -> datetime:
     """Return the current UTC timestamp."""
     return datetime.now(timezone.utc)
