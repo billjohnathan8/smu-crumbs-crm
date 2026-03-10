@@ -30,9 +30,15 @@ on:
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   push:
     branches:
       - main
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   workflow_dispatch:
 
 concurrency:
@@ -237,3 +243,4 @@ jobs:
   # Layer 5: Deploy  (not yet implemented — placeholder)
   # fullstack-integration-e2e must pass before this gate can proceed.
   # ==========================================================================
+

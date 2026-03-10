@@ -7,9 +7,15 @@ on:
   pull_request:
     branches:
       - client-backend
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   push:
     branches:
       - client-backend
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   workflow_dispatch:
   workflow_call:
 

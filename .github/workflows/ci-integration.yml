@@ -10,9 +10,15 @@ on:
   pull_request:
     branches:
       - integration
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   push:
     branches:
       - integration
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   workflow_dispatch:
 
 concurrency:

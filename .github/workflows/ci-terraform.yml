@@ -8,12 +8,18 @@ on:
     branches:
       - dev
       - main
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
     paths:
       - 'platform/terraform/**'
   push:
     branches:
       - dev
       - main
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
     paths:
       - 'platform/terraform/**'
   workflow_dispatch:

@@ -4,9 +4,15 @@ on:
   push:
     branches:
       - dev
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   pull_request:
     branches:
       - dev
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
 
 jobs:
   # Detect which services have changed
