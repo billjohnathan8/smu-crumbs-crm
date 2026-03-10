@@ -23,13 +23,12 @@ services:
       - SERVICES=sqs,dynamodb,s3,lambda,sns,secretsmanager
       - DEFAULT_REGION=ap-southeast-1
       - AWS_DEFAULT_REGION=ap-southeast-1
-      # LAMBDA_EXECUTOR=docker runs each Lambda invocation inside its own
-      # container. Requires the Docker socket mount below.
-      - LAMBDA_EXECUTOR=docker
-      - DOCKER_HOST=unix:///var/run/docker.sock
+      # LAMBDA_EXECUTOR=local runs Lambda invocations as subprocesses inside
+      # the LocalStack container. No Docker socket required, and avoids the
+      # 4+ minute Docker executor init delay on Windows/Docker Desktop that
+      # prevents ready.d/ init scripts from running before the poll times out.
+      - LAMBDA_EXECUTOR=local
     volumes:
-      # Give LocalStack access to Docker so it can launch Lambda containers.
-      - "/var/run/docker.sock:/var/run/docker.sock"
       # Scripts in ready.d/ are executed automatically once LocalStack is healthy.
       - "./platform/localstack/init:/etc/localstack/init/ready.d"
     healthcheck:

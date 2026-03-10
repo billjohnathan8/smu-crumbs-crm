@@ -31,7 +31,13 @@ ENDPOINT="http://localhost:4566"
 # --------------------------------------------------------------------------
 
 aws_local() {
-  aws --endpoint-url "${ENDPOINT}" --region "${REGION}" "$@"
+  # Prefer the host aws CLI when available (CI runners have it pre-installed).
+  # Fall back to docker exec so the script works locally without aws CLI.
+  if command -v aws >/dev/null 2>&1; then
+    aws --endpoint-url "${ENDPOINT}" --region "${REGION}" "$@"
+  else
+    docker exec localstack awslocal --region "${REGION}" "$@"
+  fi
 }
 
 assert_sqs_queue() {
@@ -117,10 +123,13 @@ done
 # --------------------------------------------------------------------------
 
 echo "==> Waiting for init scripts to provision resources..."
+# Poll for the LAST resource created by 01-setup.sh (root_admin_password secret).
+# Polling for an early resource (e.g. the first SQS queue) causes a race condition:
+# the sentinel passes before DynamoDB/S3/SNS/Secrets Manager have been created.
 INIT_ATTEMPTS=80
 for i in $(seq 1 ${INIT_ATTEMPTS}); do
-  if aws_local sqs get-queue-url \
-       --queue-name scroogebank-crm-dev-audit >/dev/null 2>&1; then
+  if aws_local secretsmanager describe-secret \
+       --secret-id scroogebank-crm-dev/root_admin_password >/dev/null 2>&1; then
     echo "    [OK] Init scripts completed (attempt ${i}/${INIT_ATTEMPTS})"
     break
   fi
