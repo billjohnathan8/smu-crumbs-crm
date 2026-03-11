@@ -274,6 +274,28 @@ The fullstack integration test handles LocalStack as part of a broader test that
 5. Runs cross-service HTTP smoke assertions (client-service -> log-service Lambda API, transaction-service, SQS round-trip)
 6. Runs real Playwright E2E tests against the live stack
 
+### Expected Runtime / CI Minutes (Guideline)
+
+Reference baseline from a successful **local full-mode run** (`FULLSTACK_MODE=full`, March 2026):
+
+| Phase | Time |
+|---|---:|
+| Phase 1: Build artifacts + start base infra (parallel) | 77s |
+| Phase 2: LocalStack provisioning + log Lambda/API | 31s |
+| Phase 2b: Start application services + integration gateway | 142s |
+| Phase 3: Service health | 12s |
+| Phase 3b: Warm up + seed CI agent user | 1s |
+| Phase 4: Cross-service HTTP smoke | 5s |
+| Phase 5: Playwright integration E2E | 68s |
+| **Total (`mode=full`)** | **342s (~5.7 min)** |
+
+Use this as a planning baseline for GitHub Actions minutes:
+- Fullstack test step (`bash scripts/ci/run-fullstack-integration-e2e.sh`): typically about **6-11 minutes** on `ubuntu-latest` when healthy.
+- Full reusable workflow job wall-clock (checkout + setup + test): typically about **8-14 minutes**.
+- Pull requests run `smoke` mode, so runtime is usually lower than `full` mode.
+- Timeout ceilings are intentionally higher than typical runtime: `35` minutes for the test step and `50` minutes for the full job (`.github/workflows/reusable-fullstack-integration.yml`).
+- Transient startup lines like `curl: (56) Recv failure: Connection reset by peer` can occur during readiness polling; treat as non-fatal if subsequent `[ready]` checks pass.
+
 ### Local debugging script
 
 A standalone LocalStack-only smoke script is available for local debugging when

@@ -451,25 +451,24 @@ Before opening a PR, run the local pipeline for every service you changed, then 
 
 #### Step 1: Run pipelines
 
-**Prerequisites:** Ensure Python 3.8+ is installed. See [Python Requirement Guide](../prerequisites/PYTHON-REQUIREMENT.md).
+**Prerequisites:** Ensure Python 3.12+ is installed. See [Python Requirement Guide](../prerequisites/PYTHON-REQUIREMENT.md).
 
-From repo root (all backend services):
+From repo root (full local CI-main equivalent order):
 ```bash
-python scripts/pipelines/test_backend.py
+python scripts/pipelines/test_all.py
 ```
 
-From each backend service root (single service):
-- Java services (`agent`, `client`):
-  - Windows: `.\gradlew.bat localTestPipeline`
-  - macOS/Linux: `./gradlew localTestPipeline`
-- Python service (`log`):
-  - Windows: `python run-local-test-pipeline.py`
-  - macOS/Linux: `python3 run-local-test-pipeline.py`
+Useful local variants:
+- Backend-focused run: `python scripts/pipelines/test_backend.py`
+- Frontend-focused run: `python scripts/pipelines/test_frontend.py`
+- Skip fullstack integration: `python scripts/pipelines/test_all.py --skip-fullstack`
+- PR-equivalent fullstack mode: `python scripts/pipelines/test_all.py --fullstack-mode smoke`
 
 #### Step 2: Open reports (what to check, where to find)
-For the aggregated coverage hub `build-logs/build-and-test-backend/index.html`:
-- Open it directly in a normal browser window (`file:///...`).
-- Do **not** use VS Code **Open Preview** for this file.
+For the local timing summary from `test_all.py`:
+- Markdown summary: `build-logs/test-all/last-run-summary.md`
+- JSON summary: `build-logs/test-all/last-run-summary.json`
+- Per-step logs: `build-logs/test-all/<timestamp>/*.log`
 
 Java backend services (`services/backend/agent`, `services/backend/client`):
 - Checkstyle (lint):
@@ -482,16 +481,15 @@ Java backend services (`services/backend/agent`, `services/backend/client`):
   - XML: `build/reports/jacoco/test/jacocoTestReport.xml`
 
 Python backend service (`services/backend/log`):
-- Black + Flake8 lint:
-  - In terminal output and `build-logs/build-and-test-backend/*.log` (when run via repo-root scripts)
+- Black + Flake8 lint: terminal output + per-step logs in `build-logs/test-all/<timestamp>/`
 - Pytest report:
   - `build/reports/tests/junit.xml`
 - Coverage:
   - HTML: `build/reports/coverage/html/index.html`
   - XML: `build/reports/coverage/coverage.xml`
 
-Cross-service aggregated report:
-- Hub: `build-logs/build-and-test-backend/index.html` (open in browser, then click report links)
+Frontend coverage:
+- `services/frontend/crm-ui/coverage/index.html`
 
 #### Step 3: What to do before PR
 - Fix all lint/style failures (Checkstyle, Black, Flake8)
