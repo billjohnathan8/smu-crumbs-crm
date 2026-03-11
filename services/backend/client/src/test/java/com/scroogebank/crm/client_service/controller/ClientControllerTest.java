@@ -1,7 +1,5 @@
 package com.scroogebank.crm.client_service.controller;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.scroogebank.crm.client_service.api.Pagination;
 import com.scroogebank.crm.client_service.dto.ClientDto;
 import com.scroogebank.crm.client_service.dto.ClientListResponse;
@@ -21,9 +19,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.http.MediaType;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -54,12 +54,14 @@ class ClientControllerTest {
 		clientService = mock(ClientService.class);
 		requestAuth = mock(RequestAuth.class);
 		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "agent"));
-		ObjectMapper objectMapper = new ObjectMapper()
-			.findAndRegisterModules()
-			.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
 		mockMvc = MockMvcBuilders.standaloneSetup(new ClientController(clientService, requestAuth))
 			.setControllerAdvice(new ApiExceptionHandler())
-			.setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
+			.setMessageConverters(new JacksonJsonHttpMessageConverter(
+				JsonMapper.builder()
+					.findAndAddModules()
+					.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true)
+					.build()
+			))
 			.build();
 	}
 

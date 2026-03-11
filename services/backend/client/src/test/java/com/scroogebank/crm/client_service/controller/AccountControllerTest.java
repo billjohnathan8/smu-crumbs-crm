@@ -12,8 +12,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.scroogebank.crm.client_service.api.Pagination;
 import com.scroogebank.crm.client_service.dto.AccountDto;
 import com.scroogebank.crm.client_service.dto.AccountListResponse;
@@ -31,9 +29,11 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Web MVC tests for {@link AccountController}.
@@ -49,13 +49,15 @@ class AccountControllerTest {
 		accountService = mock(AccountService.class);
 		RequestAuth requestAuth = mock(RequestAuth.class);
 		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "agent"));
-		ObjectMapper objectMapper = new ObjectMapper()
-			.findAndRegisterModules()
-			.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
 
 		mockMvc = MockMvcBuilders.standaloneSetup(new AccountController(accountService, requestAuth))
 			.setControllerAdvice(new ApiExceptionHandler())
-			.setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
+			.setMessageConverters(new JacksonJsonHttpMessageConverter(
+				JsonMapper.builder()
+					.findAndAddModules()
+					.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true)
+					.build()
+			))
 			.build();
 	}
 
