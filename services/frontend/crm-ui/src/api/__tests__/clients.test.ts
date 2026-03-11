@@ -304,7 +304,9 @@ describe('clients API', () => {
 
       const result = await listClientAccountsPaginated('client-123', { limit: 20, offset: 40 })
 
-      expect(client.apiGet).toHaveBeenCalledWith('/api/clients/client-123/accounts?limit=20&offset=40')
+      expect(client.apiGet).toHaveBeenCalledWith(
+        '/api/clients/client-123/accounts?limit=20&offset=40'
+      )
       expect(result).toEqual(mockResponse)
     })
   })
@@ -343,7 +345,9 @@ describe('clients API', () => {
 
       const result = await listClientAccounts('client-123', { limit: 50, offset: 0 })
 
-      expect(client.apiGet).toHaveBeenCalledWith('/api/clients/client-123/accounts?limit=50&offset=0')
+      expect(client.apiGet).toHaveBeenCalledWith(
+        '/api/clients/client-123/accounts?limit=50&offset=0'
+      )
       expect(result).toEqual(mockAccounts)
       expect(result).toHaveLength(2)
     })

@@ -86,7 +86,7 @@ export function AmlAlertsPage() {
   }, [currentPage, filters])
 
   const setFilter = (key: keyof typeof filters, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value as typeof prev[typeof key] }))
+    setFilters(prev => ({ ...prev, [key]: value as (typeof prev)[typeof key] }))
     setCurrentPage(0)
   }
 
@@ -280,7 +280,9 @@ export function AmlAlertsPage() {
                             </button>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-sm text-text max-w-xl">{alert.description}</td>
+                        <td className="px-6 py-4 text-sm text-text max-w-xl">
+                          {alert.description}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

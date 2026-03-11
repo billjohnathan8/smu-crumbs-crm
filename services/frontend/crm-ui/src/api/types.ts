@@ -224,11 +224,7 @@ export interface Communication {
 }
 
 // AML alert types (log-service AML endpoints)
-export type AmlAlertType =
-  | 'STATISTICAL_OUTLIER'
-  | 'STRUCTURING'
-  | 'PASSTHROUGH'
-  | 'INCEPTION_SPIKE'
+export type AmlAlertType = 'STATISTICAL_OUTLIER' | 'STRUCTURING' | 'PASSTHROUGH' | 'INCEPTION_SPIKE'
 export type AmlReviewStatus = 'Pending' | 'Confirmed' | 'Dismissed'
 
 export interface AmlAlert {

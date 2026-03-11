@@ -1,10 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  createAmlAlert,
-  getAmlAlertById,
-  listAmlAlerts,
-  updateAmlAlertReview,
-} from '../aml'
+import { createAmlAlert, getAmlAlertById, listAmlAlerts, updateAmlAlertReview } from '../aml'
 import * as client from '../client'
 import type { AmlAlert, CreateAmlAlertRequest, PaginatedResponse } from '../types'
 

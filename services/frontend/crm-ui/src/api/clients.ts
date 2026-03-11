@@ -124,7 +124,10 @@ export async function getAccountById(accountId: string): Promise<Account> {
 /**
  * Update account details.
  */
-export async function updateAccount(accountId: string, data: AccountUpdateRequest): Promise<Account> {
+export async function updateAccount(
+  accountId: string,
+  data: AccountUpdateRequest
+): Promise<Account> {
   return apiPut<Account, AccountUpdateRequest>(`${ACCOUNTS_BASE}/${accountId}`, data)
 }
 
