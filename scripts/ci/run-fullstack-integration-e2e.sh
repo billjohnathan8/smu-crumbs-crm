@@ -85,6 +85,39 @@ else
   exit 1
 fi
 
+AWS_IS_WINDOWS=false
+AWS_VERSION_STR="$("${AWS_CMD}" --version 2>&1 || true)"
+if echo "${AWS_VERSION_STR}" | grep -qi "windows/"; then
+  AWS_IS_WINDOWS=true
+fi
+
+require_docker_ready() {
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "[FAIL] Docker CLI not found in PATH." >&2
+    echo "       Install Docker Desktop (or Docker Engine + Compose v2), then re-run." >&2
+    exit 1
+  fi
+
+  if ! docker compose version >/dev/null 2>&1; then
+    echo "[FAIL] Docker Compose v2 is unavailable ('docker compose')." >&2
+    echo "       Install/enable Docker Compose v2, then re-run." >&2
+    exit 1
+  fi
+
+  local docker_info_err=""
+  if ! docker_info_err="$(docker info 2>&1 >/dev/null)"; then
+    echo "[FAIL] Docker daemon is not reachable." >&2
+    if echo "${docker_info_err}" | grep -q "dockerDesktopLinuxEngine"; then
+      echo "       Detected missing Docker Desktop Linux engine pipe (//./pipe/dockerDesktopLinuxEngine)." >&2
+    fi
+    echo "       Start Docker Desktop and ensure it is fully running, then re-run." >&2
+    if [[ -n "${docker_info_err}" ]]; then
+      echo "       docker info: ${docker_info_err}" >&2
+    fi
+    exit 1
+  fi
+}
+
 dump_compose_logs() {
   docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" logs --no-color \
     > "${LOG_DIR}/docker-compose.log" 2>&1 || true
@@ -109,6 +142,8 @@ localstack_queue_exists() {
     awslocal sqs get-queue-url --queue-name "${queue_name}" --region ap-southeast-1 \
     >/dev/null 2>&1
 }
+
+require_docker_ready
 
 cleanup() {
   local exit_code=$?
@@ -219,14 +254,38 @@ build_java_jar() {
 package_log_lambda() {
   local package_dir="${LOG_DIR}/log-lambda-package"
   local zip_path="${LOG_DIR}/log-lambda.zip"
+  local pip_log="${LOG_DIR}/log-lambda-pip.log"
+  local python_platform=""
+  local lambda_python_version=""
+  local lambda_python_abi=""
 
   rm -rf "${package_dir}" "${zip_path}"
   mkdir -p "${package_dir}"
 
-  ${PYTHON_CMD} -m pip install \
-    -r "${ROOT_DIR}/services/backend/log/requirements.txt" \
-    -t "${package_dir}" \
-    > "${LOG_DIR}/log-lambda-pip.log" 2>&1
+  python_platform="$(${PYTHON_CMD} -c 'import sys; print(sys.platform)' 2>/dev/null || true)"
+  lambda_python_version="${LOG_LAMBDA_RUNTIME#python}"
+  if [[ ! "${lambda_python_version}" =~ ^[0-9]+\.[0-9]+$ ]]; then
+    lambda_python_version="3.12"
+  fi
+  lambda_python_abi="cp${lambda_python_version//./}"
+
+  if [[ "${python_platform}" == "win32" ]]; then
+    # Build Linux-compatible deps when packaging from Windows host Python.
+    ${PYTHON_CMD} -m pip install \
+      -r "${ROOT_DIR}/services/backend/log/requirements.txt" \
+      -t "${package_dir}" \
+      --platform manylinux2014_x86_64 \
+      --implementation cp \
+      --python-version "${lambda_python_version}" \
+      --abi "${lambda_python_abi}" \
+      --only-binary=:all: \
+      > "${pip_log}" 2>&1
+  else
+    ${PYTHON_CMD} -m pip install \
+      -r "${ROOT_DIR}/services/backend/log/requirements.txt" \
+      -t "${package_dir}" \
+      > "${pip_log}" 2>&1
+  fi
 
   cp "${ROOT_DIR}/services/backend/log/lambda_function.py" "${package_dir}/"
   cp -R "${ROOT_DIR}/services/backend/log/app" "${package_dir}/app"
@@ -257,8 +316,12 @@ PY
 deploy_log_lambda() {
   local zip_path="${LOG_DIR}/log-lambda.zip"
   local zip_arg="fileb://${zip_path}"
-  if [[ "${AWS_CMD}" == *".exe" || "${AWS_CMD}" == *".exe\""* ]]; then
-    if command -v wslpath >/dev/null 2>&1; then
+  if [[ "${AWS_IS_WINDOWS}" == "true" ]]; then
+    if command -v cygpath >/dev/null 2>&1; then
+      local zip_windows_path
+      zip_windows_path="$(cygpath -w "${zip_path}")"
+      zip_arg="fileb://${zip_windows_path}"
+    elif command -v wslpath >/dev/null 2>&1; then
       local zip_windows_path
       zip_windows_path="$(wslpath -w "${zip_path}")"
       zip_arg="fileb://${zip_windows_path}"
