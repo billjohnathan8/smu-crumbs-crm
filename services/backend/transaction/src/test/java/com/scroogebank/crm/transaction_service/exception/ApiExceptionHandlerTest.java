@@ -1,18 +1,24 @@
 package com.scroogebank.crm.transaction_service.exception;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.scroogebank.crm.transaction_service.dto.TransactionStatus;
 import com.scroogebank.crm.transaction_service.security.ForbiddenException;
 import com.scroogebank.crm.transaction_service.security.JwtValidationException;
 import com.scroogebank.crm.transaction_service.security.UnauthorizedException;
 import com.scroogebank.crm.transaction_service.web.RequestIdFilter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -67,6 +73,22 @@ class ApiExceptionHandlerTest {
 	}
 
 	@Test
+	void typeMismatch_mapsTo400() throws Exception {
+		mockMvc.perform(get("/type-mismatch").queryParam("status", "invalid"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error").value("validation_error"));
+	}
+
+	@Test
+	void unreadableBody_mapsTo400() throws Exception {
+		mockMvc.perform(post("/body")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"clientId\":"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error").value("validation_error"));
+	}
+
+	@Test
 	void genericException_mapsTo500() throws Exception {
 		mockMvc.perform(get("/boom"))
 			.andExpect(status().isInternalServerError())
@@ -100,10 +122,24 @@ class ApiExceptionHandlerTest {
 			throw new IllegalArgumentException("bad");
 		}
 
+		@GetMapping("/type-mismatch")
+		ResponseEntity<Void> typeMismatch(@RequestParam TransactionStatus status) {
+			return ResponseEntity.ok().build();
+		}
+
+		@PostMapping("/body")
+		ResponseEntity<Void> body(@RequestBody BodyPayload payload) {
+			return ResponseEntity.ok().build();
+		}
+
 		@GetMapping("/boom")
 		ResponseEntity<Void> boom() {
 			throw new RuntimeException("boom");
 		}
 	}
+
+	private record BodyPayload(
+		String clientId
+	) {}
 }
 

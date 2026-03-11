@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: transaction
-  version: 0.2.1
+  version: 0.3.0
   description: |
     Feature 4: Bank Account Transactions Management.
 
@@ -43,7 +43,7 @@ paths:
                   service:
                     type: string
                     example: transaction
-                required: [status]
+                required: [status, service]
 
   /api/v1/health:
     get:
@@ -60,12 +60,14 @@ paths:
       summary: List transactions
       description: |
         Lists transactions. Admins may see all transactions; agents may see only transactions for their own clients.
+        If the caller is an agent and `clientId` is not provided, the service returns an empty page.
       security:
         - BearerAuth: []
       x-required-roles: [admin, agent]
       parameters:
         - name: limit
           in: query
+          description: Requested page size. Values outside 1..200 are clamped by the service.
           schema:
             type: integer
             minimum: 1
@@ -73,6 +75,7 @@ paths:
             default: 50
         - name: offset
           in: query
+          description: Requested start offset. Negative values are clamped to 0 by the service.
           schema:
             type: integer
             minimum: 0
@@ -107,15 +110,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Transaction"
-                  pagination:
-                    $ref: "#/components/schemas/Pagination"
-                required: [data]
+                $ref: "#/components/schemas/TransactionsListResponse"
+        "400":
+          description: Validation error (for example malformed query parameter types).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Unauthorized
           content:
@@ -190,6 +191,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Transaction"
+        "400":
+          description: Validation error (for example invalid transactionId format).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Not found
           content:
@@ -225,6 +232,12 @@ paths:
       responses:
         "204":
           description: Transaction deleted.
+        "400":
+          description: Validation error (for example invalid transactionId format).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Not found
           content:
@@ -259,6 +272,7 @@ paths:
             $ref: "#/components/schemas/ClientId"
         - name: limit
           in: query
+          description: Requested page size. Values outside 1..200 are clamped by the service.
           schema:
             type: integer
             minimum: 1
@@ -266,6 +280,7 @@ paths:
             default: 50
         - name: offset
           in: query
+          description: Requested start offset. Negative values are clamped to 0 by the service.
           schema:
             type: integer
             minimum: 0
@@ -276,15 +291,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Transaction"
-                  pagination:
-                    $ref: "#/components/schemas/Pagination"
-                required: [data]
+                $ref: "#/components/schemas/TransactionsListResponse"
+        "400":
+          description: Validation error (for example invalid clientId or malformed query parameters).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Unauthorized
           content:
@@ -360,6 +373,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ImportBatch"
+        "400":
+          description: Validation error (for example invalid importBatchId format).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Not found
           content:
@@ -420,15 +439,27 @@ components:
           type: integer
           minimum: 0
 
+    TransactionsListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Transaction"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+      required: [data, pagination]
+
     TransactionId:
       type: string
       description: The transaction ID.
-      example: txn_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+      pattern: "^txn_[0-9]+$"
+      example: txn_42
 
     ClientId:
       type: string
       description: The client ID.
-      example: clt_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+      example: clt_42
 
     TransactionKind:
       type: string
@@ -492,7 +523,8 @@ components:
     ImportBatchId:
       type: string
       description: System-generated import batch identifier.
-      example: imp_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+      pattern: "^imp_[0-9]+$"
+      example: imp_7
 
     ImportBatchStatus:
       type: string
