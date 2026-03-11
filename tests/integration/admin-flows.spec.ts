@@ -14,8 +14,8 @@
 
 import { test, expect } from "@playwright/test";
 
-const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? "admin@crm.local";
-const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "admin123";
+const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.local").trim();
+const ADMIN_PASSWORD = (process.env.E2E_ADMIN_PASSWORD ?? "admin123").trim();
 
 test.describe("Admin Flow (Integration)", () => {
   test.beforeEach(async ({ page, context }) => {

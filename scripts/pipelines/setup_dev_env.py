@@ -781,6 +781,7 @@ Examples:
         
         logger.info("")
         logger.info("Next steps:")
+        logger.info("  - Run full local CI-equivalent checks: python scripts/pipelines/test_all.py")
         logger.info("  - Run backend tests:  python scripts/pipelines/test_backend.py")
         logger.info("  - Run frontend tests: python scripts/pipelines/test_frontend.py")
         logger.info("  - VS Code: Open workspace and install recommended extensions")

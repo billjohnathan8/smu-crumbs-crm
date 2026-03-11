@@ -32,9 +32,22 @@ jobs:
   actionlint:
     uses: ./.github/workflows/reusable-actionlint.yml
 
-  # Integration-only validation: real stack (containers + LocalStack + Playwright).
+  # Detect changed scopes so expensive fullstack runs only when relevant.
+  changes:
+    uses: ./.github/workflows/reusable-changes.yml
+
+  # Integration validation: real stack (containers + LocalStack), with Playwright in full mode.
   fullstack-integration-e2e:
-    if: ${{ !failure() && !cancelled() }}
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.any-service == 'true' ||
+           needs.changes.outputs.integration-tests == 'true' ||
+           needs.changes.outputs.scripts == 'true' ||
+           needs.changes.outputs.platform == 'true' ||
+           needs.changes.outputs.ci-config == 'true') }}
     needs:
       - actionlint
+      - changes
     uses: ./.github/workflows/reusable-fullstack-integration.yml
+    with:
+      fullstack-mode: ${{ github.event_name == 'pull_request' && 'smoke' || 'full' }}

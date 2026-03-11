@@ -9,15 +9,29 @@ INTEGRATION_TEST_DIR="${ROOT_DIR}/tests/integration"
 
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-http://127.0.0.1:18088}"
 COMPOSE_PROJECT_NAME="crm-fullstack-it-${GITHUB_RUN_ID:-local}"
+FULLSTACK_MODE="${FULLSTACK_MODE:-full}" # full | smoke
+case "${FULLSTACK_MODE}" in
+  full|smoke) ;;
+  *)
+    echo "[FAIL] FULLSTACK_MODE must be 'full' or 'smoke' (got: ${FULLSTACK_MODE})" >&2
+    exit 1
+    ;;
+esac
+
+SCRIPT_START_TS="$(date +%s)"
+CURRENT_PHASE_NAME=""
+CURRENT_PHASE_START_TS=0
 
 # Fake creds - LocalStack accepts any non-empty value
 export AWS_ACCESS_KEY_ID=test
 export AWS_SECRET_ACCESS_KEY=test
 export AWS_DEFAULT_REGION=ap-southeast-1
+export AWS_PAGER=""
 LOCALSTACK_ENDPOINT="http://127.0.0.1:14566"
 LOG_LAMBDA_FUNCTION_NAME="scroogebank-crm-dev-log-service"
 LOG_HTTP_API_NAME="scroogebank-crm-dev-log-http-api-it"
 LOG_HTTP_API_STAGE="local"
+LOG_LAMBDA_RUNTIME="${LOG_LAMBDA_RUNTIME:-python3.12}"
 
 # Set safe defaults so compose parsing works for `down` before dynamic provisioning.
 export LOG_SERVICE_URL="${LOG_SERVICE_URL:-http://localstack:4566}"
@@ -25,14 +39,49 @@ export LOG_API_UPSTREAM="${LOG_API_UPSTREAM:-http://localstack:4566}"
 
 mkdir -p "${LOG_DIR}"
 
+start_phase() {
+  local phase_name="$1"
+  echo ""
+  echo "=== ${phase_name} ==="
+  CURRENT_PHASE_NAME="${phase_name}"
+  CURRENT_PHASE_START_TS="$(date +%s)"
+}
+
+end_phase() {
+  if [[ -n "${CURRENT_PHASE_NAME}" ]]; then
+    local phase_end_ts elapsed
+    phase_end_ts="$(date +%s)"
+    elapsed=$((phase_end_ts - CURRENT_PHASE_START_TS))
+    echo "[timing] ${CURRENT_PHASE_NAME}: ${elapsed}s"
+    CURRENT_PHASE_NAME=""
+  fi
+}
+
 # Detect a working Python interpreter.
 # On Windows/Git Bash, `python3` may resolve to the broken Microsoft Store stub.
-if command -v python3 >/dev/null 2>&1 && python3 -c "import sys; sys.exit(0)" 2>/dev/null; then
+if command -v python3 >/dev/null 2>&1 \
+  && python3 -c "import sys; sys.exit(0)" 2>/dev/null \
+  && python3 -m pip --version >/dev/null 2>&1; then
   PYTHON_CMD="python3"
-elif command -v python >/dev/null 2>&1 && python -c "import sys; sys.exit(0)" 2>/dev/null; then
+elif command -v python >/dev/null 2>&1 \
+  && python -c "import sys; sys.exit(0)" 2>/dev/null \
+  && python -m pip --version >/dev/null 2>&1; then
   PYTHON_CMD="python"
 else
-  echo "[FAIL] No working Python interpreter found (python3 or python)" >&2
+  echo "[FAIL] No working Python interpreter with pip found (python3 or python)" >&2
+  exit 1
+fi
+
+# Detect AWS CLI in bash/WSL. Prefer Linux aws, then aws.exe interop.
+if command -v aws >/dev/null 2>&1; then
+  AWS_CMD="aws"
+elif command -v aws.exe >/dev/null 2>&1; then
+  AWS_CMD="aws.exe"
+elif [ -x "/mnt/c/Program Files/Amazon/AWSCLIV2/aws.exe" ]; then
+  AWS_CMD="/mnt/c/Program Files/Amazon/AWSCLIV2/aws.exe"
+else
+  echo "[FAIL] AWS CLI not found in bash/WSL environment." >&2
+  echo "       Install in WSL (sudo apt install -y awscli) or ensure aws.exe is discoverable from bash." >&2
   exit 1
 fi
 
@@ -42,14 +91,35 @@ dump_compose_logs() {
 }
 
 aws_local() {
-  aws --endpoint-url "${LOCALSTACK_ENDPOINT}" --region ap-southeast-1 "$@"
+  "${AWS_CMD}" --endpoint-url "${LOCALSTACK_ENDPOINT}" --region ap-southeast-1 "$@"
+}
+
+normalize_text() {
+  echo "$1" | tr -d '\r'
+}
+
+localstack_queue_exists() {
+  local queue_name="$1"
+
+  if aws_local sqs get-queue-url --queue-name "${queue_name}" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" exec -T localstack \
+    awslocal sqs get-queue-url --queue-name "${queue_name}" --region ap-southeast-1 \
+    >/dev/null 2>&1
 }
 
 cleanup() {
   local exit_code=$?
+  end_phase
   dump_compose_logs
   docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" down -v --remove-orphans \
     >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
+
+  local total_elapsed
+  total_elapsed=$(( $(date +%s) - SCRIPT_START_TS ))
+  echo "[timing] total-runtime: ${total_elapsed}s (mode=${FULLSTACK_MODE})"
 
   if [[ ${exit_code} -ne 0 ]]; then
     echo "Fullstack integration failed. Logs saved to ${LOG_DIR}/docker-compose.log"
@@ -74,6 +144,30 @@ wait_for_http() {
   return 1
 }
 
+wait_for_jobs() {
+  local failed=0
+  while [[ $# -gt 0 ]]; do
+    local pid="$1"
+    local name="$2"
+    shift 2
+    if wait "${pid}"; then
+      echo "[OK] ${name}"
+    else
+      echo "[FAIL] ${name}" >&2
+      failed=1
+    fi
+  done
+  return "${failed}"
+}
+
+start_base_infra() {
+  docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" down -v --remove-orphans \
+    >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
+  docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" up -d --build \
+    postgres localstack \
+    >> "${LOG_DIR}/docker-compose.log" 2>&1
+}
+
 build_java_jar() {
   local service_dir="$1"
   local service_name="$2"
@@ -82,27 +176,43 @@ build_java_jar() {
   # Probe known Windows install locations using globbing (safe for spaces).
   if ! command -v java >/dev/null 2>&1; then
     local _jh=""
-    for _glob in \
-        "/mnt/c/Users/*/AppData/Local/Programs/Eclipse Adoptium/jdk-*/bin/java.exe" \
-        "/mnt/c/Program Files/Eclipse Adoptium/jdk-*/bin/java.exe" \
-        "/mnt/c/Program Files/Java/jdk-*/bin/java.exe" \
-        "/mnt/c/Program Files/Microsoft/jdk-*/bin/java.exe"; do
-      # Expand glob without erroring if no match
-      for _candidate in ${_glob}; do
+    local _patterns=(
+      "/mnt/c/Users/*/AppData/Local/Programs/Eclipse Adoptium/jdk-*/bin/java.exe"
+      "/mnt/c/Program Files/Eclipse Adoptium/jdk-*/bin/java.exe"
+      "/mnt/c/Program Files/Java/jdk-*/bin/java.exe"
+      "/mnt/c/Program Files/Microsoft/jdk-*/bin/java.exe"
+    )
+    for _pattern in "${_patterns[@]}"; do
+      while IFS= read -r _candidate; do
         if [ -x "${_candidate}" ]; then
           _jh="${_candidate%/bin/java.exe}"
           export JAVA_HOME="${_jh}"
           export PATH="${_jh}/bin:${PATH}"
           break 2
         fi
-      done
+      done < <(compgen -G "${_pattern}")
     done
   fi
 
   pushd "${service_dir}" >/dev/null
   chmod +x gradlew
-  ./gradlew bootJar --no-daemon --console=plain \
-    > "${LOG_DIR}/${service_name}-bootjar.log" 2>&1
+  local gradle_log="${LOG_DIR}/${service_name}-bootjar.log"
+  if ! ./gradlew bootJar --no-daemon --console=plain > "${gradle_log}" 2>&1; then
+    # WSL can fail to execute Windows-discovered JAVA_HOME (java.exe only).
+    # Retry with Gradle Windows wrapper when available.
+    if grep -q "JAVA_HOME" "${gradle_log}" \
+      && command -v cmd.exe >/dev/null 2>&1 \
+      && [ -f "./gradlew.bat" ] \
+      && command -v wslpath >/dev/null 2>&1; then
+      local win_gradlew
+      win_gradlew="$(wslpath -w "${service_dir}/gradlew.bat")"
+      cmd.exe /c "${win_gradlew} bootJar --no-daemon --console=plain" \
+        > "${gradle_log}" 2>&1
+    else
+      popd >/dev/null
+      return 1
+    fi
+  fi
   popd >/dev/null
 }
 
@@ -146,18 +256,26 @@ PY
 
 deploy_log_lambda() {
   local zip_path="${LOG_DIR}/log-lambda.zip"
+  local zip_arg="fileb://${zip_path}"
+  if [[ "${AWS_CMD}" == *".exe" || "${AWS_CMD}" == *".exe\""* ]]; then
+    if command -v wslpath >/dev/null 2>&1; then
+      local zip_windows_path
+      zip_windows_path="$(wslpath -w "${zip_path}")"
+      zip_arg="fileb://${zip_windows_path}"
+    fi
+  fi
   local env_vars="Variables={DB_HOST=postgres,DB_PORT=5432,DB_NAME=crm_it,DB_USER=postgres,DB_PASSWORD=postgres,JWT_HMAC_SECRET=dev-only-insecure-secret,AWS_DEFAULT_REGION=ap-southeast-1,AWS_ENDPOINT_URL=http://localstack:4566}"
 
   if aws_local lambda get-function --function-name "${LOG_LAMBDA_FUNCTION_NAME}" >/dev/null 2>&1; then
     aws_local lambda update-function-code \
       --function-name "${LOG_LAMBDA_FUNCTION_NAME}" \
-      --zip-file "fileb://${zip_path}" \
+      --zip-file "${zip_arg}" \
       >/dev/null
 
     aws_local lambda update-function-configuration \
       --function-name "${LOG_LAMBDA_FUNCTION_NAME}" \
       --handler lambda_function.lambda_handler \
-      --runtime python3.13 \
+      --runtime "${LOG_LAMBDA_RUNTIME}" \
       --timeout 30 \
       --memory-size 512 \
       --environment "${env_vars}" \
@@ -165,9 +283,9 @@ deploy_log_lambda() {
   else
     aws_local lambda create-function \
       --function-name "${LOG_LAMBDA_FUNCTION_NAME}" \
-      --runtime python3.13 \
+      --runtime "${LOG_LAMBDA_RUNTIME}" \
       --handler lambda_function.lambda_handler \
-      --zip-file "fileb://${zip_path}" \
+      --zip-file "${zip_arg}" \
       --role arn:aws:iam::000000000000:role/lambda-role \
       --timeout 30 \
       --memory-size 512 \
@@ -182,11 +300,40 @@ deploy_log_lambda() {
         --query "State" \
         --output text 2>/dev/null || true
     )"
+    state="$(echo "${state}" | tr -d '\r')"
     if [[ "${state}" == "Active" ]]; then
       return 0
     fi
+    if [[ "${state}" == "Failed" ]]; then
+      local reason
+      reason="$(
+        aws_local lambda get-function-configuration \
+          --function-name "${LOG_LAMBDA_FUNCTION_NAME}" \
+          --query "StateReason" \
+          --output text 2>/dev/null || true
+      )"
+      reason="$(echo "${reason}" | tr -d '\r')"
+      echo "[FAIL] Log Lambda entered Failed state: ${reason}" >&2
+      exit 1
+    fi
     [[ ${i} -eq 40 ]] && {
-      echo "[FAIL] Log Lambda did not become Active in time" >&2
+      local state_reason
+      local update_reason
+      state_reason="$(
+        aws_local lambda get-function-configuration \
+          --function-name "${LOG_LAMBDA_FUNCTION_NAME}" \
+          --query "StateReason" \
+          --output text 2>/dev/null || true
+      )"
+      state_reason="$(echo "${state_reason}" | tr -d '\r')"
+      update_reason="$(
+        aws_local lambda get-function-configuration \
+          --function-name "${LOG_LAMBDA_FUNCTION_NAME}" \
+          --query "LastUpdateStatusReason" \
+          --output text 2>/dev/null || true
+      )"
+      update_reason="$(echo "${update_reason}" | tr -d '\r')"
+      echo "[FAIL] Log Lambda did not become Active in time (state=${state}, stateReason=${state_reason}, lastUpdateReason=${update_reason})" >&2
       exit 1
     }
     sleep 1
@@ -194,6 +341,7 @@ deploy_log_lambda() {
 }
 
 provision_log_http_api() {
+  local fallback_note_file="${LOG_DIR}/log-http-api-v2.err"
   local existing_ids
   existing_ids="$(
     aws_local apigatewayv2 get-apis \
@@ -206,15 +354,6 @@ provision_log_http_api() {
     done
   fi
 
-  local api_id
-  api_id="$(
-    aws_local apigatewayv2 create-api \
-      --name "${LOG_HTTP_API_NAME}" \
-      --protocol-type HTTP \
-      --query "ApiId" \
-      --output text
-  )"
-
   local lambda_arn
   lambda_arn="$(
     aws_local lambda get-function \
@@ -222,30 +361,124 @@ provision_log_http_api() {
       --query "Configuration.FunctionArn" \
       --output text
   )"
+  lambda_arn="$(normalize_text "${lambda_arn}")"
 
-  local integration_id
-  integration_id="$(
-    aws_local apigatewayv2 create-integration \
+  local api_id
+  if api_id="$(
+    aws_local apigatewayv2 create-api \
+      --name "${LOG_HTTP_API_NAME}" \
+      --protocol-type HTTP \
+      --query "ApiId" \
+      --output text 2>"${fallback_note_file}"
+  )"; then
+    api_id="$(normalize_text "${api_id}")"
+    local integration_id
+    integration_id="$(
+      aws_local apigatewayv2 create-integration \
+        --api-id "${api_id}" \
+        --integration-type AWS_PROXY \
+        --integration-uri "${lambda_arn}" \
+        --payload-format-version 2.0 \
+        --timeout-milliseconds 29000 \
+        --query "IntegrationId" \
+        --output text
+    )"
+    integration_id="$(normalize_text "${integration_id}")"
+
+    aws_local apigatewayv2 create-route \
       --api-id "${api_id}" \
-      --integration-type AWS_PROXY \
-      --integration-uri "${lambda_arn}" \
-      --payload-format-version 2.0 \
-      --timeout-milliseconds 29000 \
-      --query "IntegrationId" \
-      --output text
-  )"
+      --route-key '$default' \
+      --target "integrations/${integration_id}" \
+      >/dev/null
 
-  aws_local apigatewayv2 create-route \
-    --api-id "${api_id}" \
-    --route-key '$default' \
-    --target "integrations/${integration_id}" \
-    >/dev/null
+    aws_local apigatewayv2 create-stage \
+      --api-id "${api_id}" \
+      --stage-name "${LOG_HTTP_API_STAGE}" \
+      --auto-deploy \
+      >/dev/null
+  else
+    echo "[WARN] API Gateway v2 unavailable; falling back to API Gateway v1 (REST)." >&2
 
-  aws_local apigatewayv2 create-stage \
-    --api-id "${api_id}" \
-    --stage-name "${LOG_HTTP_API_STAGE}" \
-    --auto-deploy \
-    >/dev/null
+    local existing_rest_ids
+    existing_rest_ids="$(
+      aws_local apigateway get-rest-apis \
+        --query "items[?name=='${LOG_HTTP_API_NAME}'].id" \
+        --output text 2>/dev/null || true
+    )"
+    if [[ -n "${existing_rest_ids}" && "${existing_rest_ids}" != "None" ]]; then
+      for rest_id in ${existing_rest_ids}; do
+        aws_local apigateway delete-rest-api --rest-api-id "${rest_id}" >/dev/null 2>&1 || true
+      done
+    fi
+
+    api_id="$(
+      aws_local apigateway create-rest-api \
+        --name "${LOG_HTTP_API_NAME}" \
+        --query "id" \
+        --output text
+    )"
+    api_id="$(normalize_text "${api_id}")"
+
+    local root_id
+    root_id="$(
+      aws_local apigateway get-resources \
+        --rest-api-id "${api_id}" \
+        --query "items[?path=='/'].id | [0]" \
+        --output text
+    )"
+    root_id="$(normalize_text "${root_id}")"
+
+    local proxy_id
+    proxy_id="$(
+      aws_local apigateway create-resource \
+        --rest-api-id "${api_id}" \
+        --parent-id "${root_id}" \
+        --path-part "{proxy+}" \
+        --query "id" \
+        --output text
+    )"
+    proxy_id="$(normalize_text "${proxy_id}")"
+
+    local lambda_integration_uri
+    lambda_integration_uri="arn:aws:apigateway:ap-southeast-1:lambda:path/2015-03-31/functions/${lambda_arn}/invocations"
+
+    aws_local apigateway put-method \
+      --rest-api-id "${api_id}" \
+      --resource-id "${root_id}" \
+      --http-method ANY \
+      --authorization-type NONE \
+      >/dev/null
+
+    aws_local apigateway put-integration \
+      --rest-api-id "${api_id}" \
+      --resource-id "${root_id}" \
+      --http-method ANY \
+      --type AWS_PROXY \
+      --integration-http-method POST \
+      --uri "${lambda_integration_uri}" \
+      >/dev/null
+
+    aws_local apigateway put-method \
+      --rest-api-id "${api_id}" \
+      --resource-id "${proxy_id}" \
+      --http-method ANY \
+      --authorization-type NONE \
+      >/dev/null
+
+    aws_local apigateway put-integration \
+      --rest-api-id "${api_id}" \
+      --resource-id "${proxy_id}" \
+      --http-method ANY \
+      --type AWS_PROXY \
+      --integration-http-method POST \
+      --uri "${lambda_integration_uri}" \
+      >/dev/null
+
+    aws_local apigateway create-deployment \
+      --rest-api-id "${api_id}" \
+      --stage-name "${LOG_HTTP_API_STAGE}" \
+      >/dev/null
+  fi
 
   aws_local lambda add-permission \
     --function-name "${LOG_LAMBDA_FUNCTION_NAME}" \
@@ -287,33 +520,44 @@ PY
 }
 
 # --------------------------------------------------------------------------
-# Phase 1: Build Java artifacts
+# Phase 1: Build artifacts and start base infra in parallel
 # --------------------------------------------------------------------------
 
-echo "=== Phase 1: Build ==="
-build_java_jar "${ROOT_DIR}/services/backend/agent"       "agent"
-build_java_jar "${ROOT_DIR}/services/backend/client"      "client"
-build_java_jar "${ROOT_DIR}/services/backend/transaction" "transaction"
+start_phase "Phase 1: Build artifacts + start base infra (parallel)"
+start_base_infra &
+infra_pid=$!
 
-echo "=== Phase 1: Start base infra containers ==="
-docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" down -v --remove-orphans \
-  >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
-docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" up -d --build \
-  postgres localstack \
-  >> "${LOG_DIR}/docker-compose.log" 2>&1
+build_java_jar "${ROOT_DIR}/services/backend/agent" "agent" &
+agent_build_pid=$!
+
+build_java_jar "${ROOT_DIR}/services/backend/client" "client" &
+client_build_pid=$!
+
+build_java_jar "${ROOT_DIR}/services/backend/transaction" "transaction" &
+transaction_build_pid=$!
+
+package_log_lambda &
+lambda_package_pid=$!
+
+wait_for_jobs \
+  "${infra_pid}" "base-infra-up (postgres + localstack)" \
+  "${agent_build_pid}" "bootJar-agent" \
+  "${client_build_pid}" "bootJar-client" \
+  "${transaction_build_pid}" "bootJar-transaction" \
+  "${lambda_package_pid}" "package-log-lambda"
+end_phase
 
 # --------------------------------------------------------------------------
 # Phase 2: Wait for LocalStack + init provisioning + deploy log Lambda/API
 # --------------------------------------------------------------------------
 
-echo ""
-echo "=== Phase 2: LocalStack ==="
+start_phase "Phase 2: LocalStack provisioning + log Lambda/API"
 wait_for_http "${LOCALSTACK_ENDPOINT}/_localstack/health" "localstack"
 
 echo "Waiting for LocalStack init provisioning (SQS sentinel)..."
 INIT_ATTEMPTS=80
 for i in $(seq 1 ${INIT_ATTEMPTS}); do
-  aws_local sqs get-queue-url --queue-name scroogebank-crm-dev-audit >/dev/null 2>&1 && {
+  localstack_queue_exists scroogebank-crm-dev-audit && {
     echo "[OK] LocalStack provisioning complete (attempt ${i}/${INIT_ATTEMPTS})"
     break
   }
@@ -325,32 +569,43 @@ for i in $(seq 1 ${INIT_ATTEMPTS}); do
 done
 
 echo "Packaging + deploying log-service Lambda to LocalStack..."
-package_log_lambda
 deploy_log_lambda
 provision_log_http_api
 wait_for_http "${LOG_SERVICE_PUBLIC_URL}/health" "log-service-lambda"
+end_phase
 
-echo "=== Phase 2b: Start application services ==="
+start_phase "Phase 2b: Start application services + integration gateway"
 docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" up -d --build \
-  agent-service client-service transaction-service frontend \
+  agent-service client-service transaction-service frontend integration-gateway \
   >> "${LOG_DIR}/docker-compose.log" 2>&1
-
-echo "=== Phase 2c: Start integration gateway ==="
-docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" up -d integration-gateway \
-  >> "${LOG_DIR}/docker-compose.log" 2>&1
+end_phase
 
 # --------------------------------------------------------------------------
 # Phase 3: Wait for all application services to be healthy
 # --------------------------------------------------------------------------
 
-echo ""
-echo "=== Phase 3: Service health ==="
-wait_for_http "http://127.0.0.1:18081/health" "agent-service"
-wait_for_http "http://127.0.0.1:18082/health" "client-service"
-wait_for_http "http://127.0.0.1:18083/health" "transaction-service"
-wait_for_http "http://127.0.0.1:18085/health" "frontend"
-wait_for_http "${PLAYWRIGHT_BASE_URL}/health"  "integration-gateway"
-wait_for_http "${PLAYWRIGHT_BASE_URL}/api/v1/logs/health" "log-service (lambda via gateway)"
+start_phase "Phase 3: Service health"
+wait_for_http "http://127.0.0.1:18081/health" "agent-service" &
+agent_health_pid=$!
+wait_for_http "http://127.0.0.1:18082/health" "client-service" &
+client_health_pid=$!
+wait_for_http "http://127.0.0.1:18083/health" "transaction-service" &
+transaction_health_pid=$!
+wait_for_http "http://127.0.0.1:18085/health" "frontend" &
+frontend_health_pid=$!
+wait_for_http "${PLAYWRIGHT_BASE_URL}/health" "integration-gateway" &
+gateway_health_pid=$!
+wait_for_http "${PLAYWRIGHT_BASE_URL}/api/v1/logs/health" "log-service (lambda via gateway)" &
+log_health_pid=$!
+
+wait_for_jobs \
+  "${agent_health_pid}" "health-agent-service" \
+  "${client_health_pid}" "health-client-service" \
+  "${transaction_health_pid}" "health-transaction-service" \
+  "${frontend_health_pid}" "health-frontend" \
+  "${gateway_health_pid}" "health-integration-gateway" \
+  "${log_health_pid}" "health-log-service-via-gateway"
+end_phase
 
 # --------------------------------------------------------------------------
 # Phase 3b: Warm up JVM + seed CI agent user
@@ -360,8 +615,7 @@ wait_for_http "${PLAYWRIGHT_BASE_URL}/api/v1/logs/health" "log-service (lambda v
 # Playwright agent-flow tests expect.
 # --------------------------------------------------------------------------
 
-echo ""
-echo "=== Phase 3b: Warm up agent-service + seed CI agent user ==="
+start_phase "Phase 3b: Warm up agent-service + seed CI agent user"
 
 ADMIN_ACCESS_TOKEN="$(
   curl --silent --show-error --fail \
@@ -387,6 +641,7 @@ curl --silent --show-error \
   }" > /dev/null \
   && echo "  [OK] CI agent user created (agent@crm.local)" \
   || echo "  [WARN] CI agent user creation skipped (may already exist)"
+end_phase
 
 # --------------------------------------------------------------------------
 # Phase 4: Cross-service HTTP smoke assertions
@@ -394,8 +649,7 @@ curl --silent --show-error \
 # real LocalStack before Playwright tests run.
 # --------------------------------------------------------------------------
 
-echo ""
-echo "=== Phase 4: Cross-service HTTP smoke ==="
+start_phase "Phase 4: Cross-service HTTP smoke"
 
 AGENT_TOKEN="$(mint_jwt "ci_agent" "agent")"
 
@@ -537,23 +791,43 @@ echo "${RECV_BODY}" | grep -q "CI_FULLSTACK_SMOKE" || {
 echo "  [OK] SQS round-trip"
 
 echo "All cross-service smoke assertions passed."
+end_phase
 
 # --------------------------------------------------------------------------
 # Phase 5: Real Playwright E2E against the live stack
 # --------------------------------------------------------------------------
 
-echo ""
-echo "=== Phase 5: Playwright integration E2E ==="
-pushd "${INTEGRATION_TEST_DIR}" >/dev/null
-npm ci
-npx playwright install --with-deps chromium
-PLAYWRIGHT_EXTERNAL_BASE_URL=true \
-PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
-E2E_ADMIN_EMAIL="${E2E_ADMIN_EMAIL:-admin@crm.local}" \
-E2E_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-admin123}" \
-E2E_AGENT_PASSWORD="${E2E_AGENT_PASSWORD:-AgentPass123!}" \
-npm test
-popd >/dev/null
+if [[ "${FULLSTACK_MODE}" == "full" ]]; then
+  start_phase "Phase 5: Playwright integration E2E"
+  pushd "${INTEGRATION_TEST_DIR}" >/dev/null
+  if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1 && command -v npx >/dev/null 2>&1; then
+    npm ci
+    npx playwright install --with-deps chromium
+    PLAYWRIGHT_EXTERNAL_BASE_URL=true \
+    PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
+    E2E_ADMIN_EMAIL="${E2E_ADMIN_EMAIL:-admin@crm.local}" \
+    E2E_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-admin123}" \
+    E2E_AGENT_PASSWORD="${E2E_AGENT_PASSWORD:-AgentPass123!}" \
+    npm test
+  elif command -v cmd.exe >/dev/null 2>&1 && command -v wslpath >/dev/null 2>&1; then
+    win_integration_dir="$(wslpath -w "${INTEGRATION_TEST_DIR}")"
+    cmd.exe /c "cd /d ${win_integration_dir} && npm.cmd ci"
+    cmd.exe /c "cd /d ${win_integration_dir} && npx.cmd playwright install chromium"
+    cmd.exe /c "cd /d ${win_integration_dir} && set PLAYWRIGHT_EXTERNAL_BASE_URL=true&& set PLAYWRIGHT_BASE_URL=${PLAYWRIGHT_BASE_URL}&& set E2E_ADMIN_EMAIL=${E2E_ADMIN_EMAIL:-admin@crm.local}&& set E2E_ADMIN_PASSWORD=${E2E_ADMIN_PASSWORD:-admin123}&& set E2E_AGENT_PASSWORD=${E2E_AGENT_PASSWORD:-AgentPass123!}&& npm.cmd test"
+  else
+    echo "[FAIL] Node.js toolchain unavailable (need node/npm/npx, or cmd.exe + npm.cmd in WSL)." >&2
+    exit 1
+  fi
+  popd >/dev/null
+  end_phase
+else
+  echo ""
+  echo "=== Phase 5: Skipped Playwright integration E2E (FULLSTACK_MODE=${FULLSTACK_MODE}) ==="
+fi
 
 echo ""
-echo "Fullstack integration tests passed (LocalStack + HTTP smoke + Playwright)."
+if [[ "${FULLSTACK_MODE}" == "full" ]]; then
+  echo "Fullstack integration tests passed (LocalStack + HTTP smoke + Playwright)."
+else
+  echo "Fullstack smoke tests passed (LocalStack + HTTP smoke; Playwright skipped)."
+fi

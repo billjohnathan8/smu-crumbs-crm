@@ -23,6 +23,7 @@ services:
       - LAMBDA_EXECUTOR=local
     volumes:
       - "../../platform/localstack/init:/etc/localstack/init/ready.d"
+      - "/var/run/docker.sock:/var/run/docker.sock"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
       interval: 5s

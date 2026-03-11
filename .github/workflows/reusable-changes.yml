@@ -21,6 +21,9 @@ on:
       frontend:
         description: 'true if services/frontend/crm-ui changed'
         value: ${{ jobs.detect.outputs.frontend }}
+      integration-tests:
+        description: 'true if tests/integration changed'
+        value: ${{ jobs.detect.outputs.integration-tests }}
       scripts:
         description: 'true if scripts/ or Makefile changed'
         value: ${{ jobs.detect.outputs.scripts }}
@@ -51,6 +54,7 @@ jobs:
       backend-transaction: ${{ steps.filter.outputs.backend-transaction }}
       backend-log: ${{ steps.filter.outputs.backend-log }}
       frontend: ${{ steps.filter.outputs.frontend }}
+      integration-tests: ${{ steps.filter.outputs.integration-tests }}
       scripts: ${{ steps.filter.outputs.scripts }}
       ci-config: ${{ steps.filter.outputs.ci-config }}
       any-backend: ${{ steps.aggregate.outputs.any-backend }}
@@ -78,6 +82,8 @@ jobs:
               - 'services/backend/log/**'
             frontend:
               - 'services/frontend/crm-ui/**'
+            integration-tests:
+              - 'tests/integration/**'
             scripts:
               - 'scripts/**'
               - 'Makefile'
@@ -120,6 +126,7 @@ jobs:
             echo "| backend-transaction | ${{ steps.filter.outputs.backend-transaction }} |"
             echo "| backend-log | ${{ steps.filter.outputs.backend-log }} |"
             echo "| frontend | ${{ steps.filter.outputs.frontend }} |"
+            echo "| integration-tests | ${{ steps.filter.outputs.integration-tests }} |"
             echo "| scripts | ${{ steps.filter.outputs.scripts }} |"
             echo "| ci-config | ${{ steps.filter.outputs.ci-config }} |"
             echo "| platform | ${{ steps.filter.outputs.platform }} |"
