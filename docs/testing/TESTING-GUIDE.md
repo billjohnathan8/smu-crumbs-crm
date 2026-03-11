@@ -91,24 +91,25 @@ Related workflow/config:
 
 ## Expected Runtime and CI Minutes
 
-Guideline baseline from a successful local `FULLSTACK_MODE=full` run (March 2026):
+Guideline baseline from the latest successful local `test_all.py` run in full mode
+(March 11, 2026), from:
+- `build-logs/test-all/last-run-summary.md`
+- `build-logs/test-all/last-run-summary.json`
 
-| Phase | Time |
+| Pipeline Layer | Time |
 |---|---:|
-| Build artifacts + start base infra (parallel) | 77s |
-| LocalStack provisioning + log Lambda/API | 31s |
-| Start application services + integration gateway | 142s |
-| Service health checks | 12s |
-| Warmup + seed CI agent user | 1s |
-| Cross-service HTTP smoke | 5s |
-| Playwright integration E2E | 68s |
-| **Total (`mode=full`)** | **342s (~5.7 min)** |
+| Layer 1 - Lint / Format / Typecheck | 135.2s (~2.3 min) |
+| Layer 2 - Unit / Component Tests | 127.1s (~2.1 min) |
+| Layer 3 - Frontend Mocked E2E | 90.4s (~1.5 min) |
+| Layer 4 - Fullstack Integration E2E | 171.1s (~2.9 min) |
+| **Total (`test_all.py`, full mode)** | **523.8s (~8.7 min)** |
 
 Planning expectations for GitHub Actions:
-- Fullstack script step usually lands around **6-11 minutes** on `ubuntu-latest`.
-- Full reusable workflow job (checkout/setup/test) usually lands around **8-14 minutes**.
-- `smoke` mode runs are usually faster than `full`.
-- The timeout limits are safety ceilings, not expected runtime.
+- Fullstack integration in CI is usually slower than local due to runner startup and
+  environment variability.
+- PRs run `FULLSTACK_MODE=smoke`; pushes run `FULLSTACK_MODE=full`.
+- Timeout limits are safety ceilings, not expected runtime (`35` minutes for the
+  fullstack test step and `50` minutes for the reusable workflow job).
 
 Operational note:
 - Transient readiness polling errors like `curl: (56) Recv failure: Connection reset by peer` can appear during startup and can be non-fatal if later `[ready]` checks succeed.
