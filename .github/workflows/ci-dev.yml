@@ -97,6 +97,13 @@ jobs:
     uses: ./.github/workflows/ci-terraform.yml
     secrets: inherit
 
+  # OpenAPI contract linting runs unconditionally (fast, ~5s).
+  openapi-lint:
+    name: CI - OpenAPI Lint
+    uses: ./.github/workflows/reusable-lint.yml
+    with:
+      run-openapi: true
+
   # Secret scanning runs unconditionally on every push/PR regardless of what changed.
   secrets-scan:
     name: CI - Secret Scanning
@@ -116,6 +123,7 @@ jobs:
       - ci-log-backend
       - ci-transaction-backend
       - ci-terraform
+      - openapi-lint
       - secrets-scan
     if: always()
     steps:

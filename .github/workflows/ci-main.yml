@@ -64,6 +64,7 @@ jobs:
     secrets: inherit
     with:
       run-secrets: true
+      run-openapi: true
       run-backend-java: >-
         ${{ needs.changes.outputs.any-backend == 'true'
             || needs.changes.outputs.ci-config == 'true' }}

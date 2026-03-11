@@ -26,6 +26,11 @@ on:
         required: false
         type: boolean
         default: false
+      run-openapi:
+        description: 'Run Spectral OpenAPI contract linting'
+        required: false
+        type: boolean
+        default: false
       run-secrets:
         description: 'Run Gitleaks and TruffleHog secret scanning across the full git history'
         required: false
@@ -254,6 +259,31 @@ jobs:
             --compact \
             --quiet \
             --soft-fail
+
+  # ---- OpenAPI Spectral lint ----
+  openapi-spectral:
+    name: Spectral (OpenAPI)
+    if: inputs.run-openapi
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        timeout-minutes: 2
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        timeout-minutes: 2
+        with:
+          node-version: '20'
+
+      - name: Install Spectral
+        timeout-minutes: 1
+        run: npm install -g @stoplight/spectral-cli
+
+      - name: Lint OpenAPI specs
+        timeout-minutes: 1
+        run: spectral lint docs/api-contracts/openapi/*.yaml --fail-severity error
 
   # ---- Gitleaks secret scanner ----
   gitleaks:

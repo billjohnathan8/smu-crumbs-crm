@@ -341,6 +341,44 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
             )
         )
 
+    if not args.skip_openapi:
+        phase = "Layer 1 - Lint / Format / Typecheck"
+        openapi_dir = REPO_ROOT / "docs" / "api-contracts" / "openapi"
+        spectral_available = shutil.which("spectral") is not None
+        if spectral_available:
+            steps.append(
+                Step(
+                    phase=phase,
+                    name="Spectral OpenAPI lint",
+                    cwd=REPO_ROOT,
+                    command=[
+                        "spectral",
+                        "lint",
+                        str(openapi_dir / "*.yaml"),
+                        "--fail-severity",
+                        "error",
+                    ],
+                )
+            )
+        else:
+            # Fall back to npx (slower but doesn't require global install).
+            steps.append(
+                Step(
+                    phase=phase,
+                    name="Spectral OpenAPI lint (npx)",
+                    cwd=REPO_ROOT,
+                    command=[
+                        "npx",
+                        "--yes",
+                        "@stoplight/spectral-cli",
+                        "lint",
+                        str(openapi_dir / "*.yaml"),
+                        "--fail-severity",
+                        "error",
+                    ],
+                )
+            )
+
     if run_backend:
         phase = "Layer 2 - Unit / Component Tests"
         for svc in ("agent", "client", "transaction"):
@@ -565,6 +603,7 @@ def write_summary(results: List[StepResult], run_dir: Path, started_at: float, a
         "skip_fullstack": args.skip_fullstack,
         "skip_mocked_e2e": args.skip_mocked_e2e,
         "skip_terraform": args.skip_terraform,
+        "skip_openapi": args.skip_openapi,
         "run_dir": str(run_dir),
         "ok": ok,
         "total_seconds": round(total_seconds, 3),
@@ -650,6 +689,11 @@ def parse_args() -> argparse.Namespace:
         help="Skip Terraform lint/static checks from Layer 1.",
     )
     parser.add_argument(
+        "--skip-openapi",
+        action="store_true",
+        help="Skip Spectral OpenAPI contract linting from Layer 1.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print all commands and timing sections without executing commands.",
@@ -670,6 +714,7 @@ def main() -> int:
         f"skip_fullstack={args.skip_fullstack}, "
         f"skip_mocked_e2e={args.skip_mocked_e2e}, "
         f"skip_terraform={args.skip_terraform}, "
+        f"skip_openapi={args.skip_openapi}, "
         f"dry_run={args.dry_run}"
     )
 
