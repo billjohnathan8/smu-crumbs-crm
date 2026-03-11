@@ -66,6 +66,7 @@ def main() -> int:
     reports_root = service_root / "build" / "reports"
     coverage_dir = reports_root / "coverage"
     test_dir = reports_root / "tests"
+    black_cache_dir = service_root / ".cache" / "black"
 
     if platform.system().lower().startswith("win"):
         venv_python = venv_dir / "Scripts" / "python.exe"
@@ -83,11 +84,16 @@ def main() -> int:
 
     os.makedirs(coverage_dir, exist_ok=True)
     os.makedirs(test_dir, exist_ok=True)
+    os.makedirs(black_cache_dir, exist_ok=True)
 
     run_pip_install_requirements(venv_python, "requirements.txt", cwd=service_root)
 
     # 1) Lint
-    run([str(venv_python), "-m", "black", "--check", "app", "tests"], cwd=service_root)
+    run(
+        [str(venv_python), "-m", "black", "--check", "app", "tests"],
+        cwd=service_root,
+        env={"BLACK_CACHE_DIR": str(black_cache_dir)},
+    )
     # On Windows + newer Python versions, flake8's default "auto" job count can
     # trigger multiprocessing permission errors. Force single-process linting.
     run(

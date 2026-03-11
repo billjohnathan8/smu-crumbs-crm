@@ -10,7 +10,7 @@ import org.springframework.http.converter.json.MappingJackson2HttpMessageConvert
 import org.springframework.web.client.RestClient;
 
 /**
- * Configures the REST client used to reach the log service.
+ * Configures the REST client used to reach the Lambda-backed log API.
  */
 @Configuration
 public class LogServiceClientConfig {
@@ -28,10 +28,10 @@ public class LogServiceClientConfig {
 
 	/**
 	 * Builds a {@link RestClient} with the configured base URL.
-	 * Uses SimpleClientHttpRequestFactory (HTTP/1.1) to ensure compatibility
-	 * with the Python/Uvicorn log service which does not support h2c.
+	 * Uses SimpleClientHttpRequestFactory (HTTP/1.1) for compatibility with
+	 * LocalStack/API Gateway style HTTP endpoints in local and CI flows.
 	 *
-	 * @param logServiceUrl base URL for the log service
+	 * @param logServiceUrl base URL for the log API endpoint
 	 * @param logServiceObjectMapper Jackson mapper with JSR-310 support
 	 * @return RestClient instance
 	 */

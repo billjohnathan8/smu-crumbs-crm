@@ -5,8 +5,11 @@
 
 ## Runtime modes
 
-- Local HTTP server: FastAPI + Uvicorn (`app.main:app`)
-- AWS Lambda: entrypoint module `lambda_function.py` with handler `lambda_function.lambda_handler`
+- Canonical runtime: AWS Lambda via entrypoint module `lambda_function.py` and handler
+  `lambda_function.lambda_handler`
+- FastAPI `app.main:create_app()` remains the shared application surface used by Lambda
+  adapter and test clients; local/CI integration routes HTTP traffic through
+  LocalStack API Gateway -> Lambda.
 - Includes AML alert endpoints at `/api/aml/alerts` for Feature 5 persistence/review.
 
 ## Local test pipeline (service root)
@@ -44,7 +47,7 @@ Reports:
 
 ## Deploy as AWS Lambda
 
-This service is Lambda-ready using Mangum and a root Lambda entrypoint module.
+This service is Lambda-first using Mangum and a root Lambda entrypoint module.
 
 ### Handler
 
@@ -68,3 +71,10 @@ Use Terraform `aws_lambda_function` with:
 - `filename = "log-lambda.zip"`
 - `handler = "lambda_function.lambda_handler"`
 - `runtime = "python3.13"`
+
+## Local/CI topology note
+
+The repository's local/CI integration topology does not run this service as a dedicated
+long-running HTTP container. Instead, tests provision and invoke this service through a
+Lambda-compatible HTTP integration path in LocalStack (see
+`scripts/ci/run-fullstack-integration-e2e.sh`).

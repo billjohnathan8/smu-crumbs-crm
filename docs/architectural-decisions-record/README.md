@@ -15,10 +15,13 @@ Each ADR was validated against the repository state at HEAD and, where needed, a
   Establishes repeatable make-driven deploy stages plus post-deploy infrastructure smoke verification.
 
 - [ADR 0003 - Route client audit events to an internal HTTP log-service with PostgreSQL persistence](adr-0003-route-audit-events-to-http-log-service.md)  
-  Introduces dedicated HTTP log ingestion and PostgreSQL-backed audit event storage.
+  Historical decision for HTTP log ingestion; later superseded by ADR 0007 for local/CI runtime topology.
 
 - [ADR 0004 - Adopt runtime-discovery local CI for polyglot backend services under `services/backend`](adr-0004-adopt-polyglot-backend-local-ci-discovery.md)  
   Uses one local CI runner for mixed Gradle and Python backend services with Docker health checks.
 
 - [ADR 0005 - Align OpenAPI contracts with active local HTTP interfaces](adr-0005-align-openapi-with-active-local-http-interfaces.md)  
   Keeps API contracts aligned with currently implemented and routed local HTTP endpoints.
+
+- [ADR 0007 - Adopt Lambda-only log-service runtime in local and CI integration topology](adr-0007-adopt-lambda-only-log-service-runtime-in-local-and-ci.md)  
+  Removes dedicated log container from fullstack integration and provisions log runtime through Lambda + LocalStack HTTP API.

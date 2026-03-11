@@ -140,15 +140,20 @@ This is a functionally equivalent flow. The Lambda does not write directly to RD
 
 ## 8. Audit Logging Flow
 
-The diagram shows: App services → SQS → Log Lambda → LogDB.
+The diagram shows: App services -> SQS -> Log Lambda -> LogDB.
 
-The repository implements:
-- `aws_sqs_queue.audit` — audit queue (gated by `enable_audit_pipeline`)
-- `aws_lambda_function.audit_consumer` — reads from SQS, writes to DynamoDB
-- `aws_lambda_event_source_mapping.audit_sqs` — wires SQS to Lambda
-- `aws_dynamodb_table.audit_logs` — audit log datastore
-- ECS task roles have `sqs:SendMessage` IAM policy to audit queue
-- This is **distinct from CloudWatch/CloudTrail** — it is a dedicated business audit pipeline
+The repository implements two audit-related paths:
+- HTTP log ingestion path:
+  - API Gateway HTTP API routes log endpoints to `aws_lambda_function.log`.
+  - The log Lambda persists API log events to PostgreSQL.
+- Optional queue-based audit pipeline (feature-flagged):
+  - `aws_sqs_queue.audit` - audit queue (gated by `enable_audit_pipeline`)
+  - `aws_lambda_function.audit_consumer` - reads from SQS, writes to DynamoDB
+  - `aws_lambda_event_source_mapping.audit_sqs` - wires SQS to Lambda
+  - `aws_dynamodb_table.audit_logs` - queue-consumer audit datastore
+  - ECS task roles have `sqs:SendMessage` IAM policy to audit queue
+
+The SQS consumer flow and the HTTP log API are separate concerns in this repo.
 
 ---
 
@@ -234,6 +239,6 @@ The flow direction differs slightly from diagram (S3 triggers Lambda, Lambda use
 1. **ECS Fargate over EC2 ASGs**: Equivalent scalable compute; matches diagram intent
 2. **Feature flags for pipelines**: Audit, AML consumer, verification, Cognito, CloudTrail, alarms all default to `false` — present in code but not active by default
 3. **Single ECR repository**: All services share one repo with tagged images
-4. **API Gateway for log service**: Log Lambda is fronted by HTTP API Gateway, not ALB — this adds a separate origin in CloudFront
+4. **API Gateway for log service**: Log API is fronted by HTTP API Gateway -> Lambda (no dedicated log ECS service) - this adds a separate origin in CloudFront
 5. **ACM certificates are external**: ARNs are passed in as variables, not created/validated in Terraform
 6. **Route53 hosted zone is external**: Zone ID is passed in; zone itself is not managed

@@ -100,7 +100,7 @@ See [Configuration Guide](../../../docs/configuration.md) for full details.
 | `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/crm_db` | Database URL |
 | `SPRING_DATASOURCE_USERNAME` | `postgres` | Database username |
 | `SPRING_DATASOURCE_PASSWORD` | `postgres` | Database password |
-| `LOG_SERVICE_URL` | `http://localhost:8083` | Log service URL for audit events |
+| `LOG_SERVICE_URL` | `http://localhost:4566/restapis/<api-id>/local/_user_request_` | Lambda-backed log API URL for audit events |
 
 ## Related Documentation
 

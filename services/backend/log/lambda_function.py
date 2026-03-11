@@ -25,4 +25,3 @@ def _get_asgi_handler() -> Mangum:
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """Lambda handler compatible with API Gateway HTTP API v2 proxy events."""
     return _get_asgi_handler()(event, context)
-

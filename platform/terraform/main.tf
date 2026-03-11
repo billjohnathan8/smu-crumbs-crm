@@ -145,6 +145,8 @@ module "alb" {
 module "lambda" {
   source = "./modules/lambda"
 
+  project_name                  = var.project_name
+  environment                   = var.environment
   name_prefix                   = local.name_prefix
   cloudwatch_log_retention_days = var.cloudwatch_log_retention_days
   log_lambda_zip_path           = var.log_lambda_zip_path

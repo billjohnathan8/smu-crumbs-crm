@@ -65,6 +65,7 @@ docs/infrastructure/generated/*
 # Python / pytest cache
 .python-build-test-venvs
 .venv/
+.venv312_aml_validation/
 **/.venv/
 venv/
 **/venv/
@@ -81,6 +82,10 @@ __pycache__/
 pytest-cache-files-*/
 **/build/reports/tests/
 **/build/reports/coverage/
+**/.venv312_validation/*
+.black-cache/
+.black-cache-local/
+**/.cache/black/
 
 # Private Keys - do not commit any secrets
 *.pem

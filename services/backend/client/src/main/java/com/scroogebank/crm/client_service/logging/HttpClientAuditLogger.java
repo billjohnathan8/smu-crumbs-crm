@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 /**
- * HTTP-backed audit logger that posts to the log service.
+ * HTTP-backed audit logger that posts to the Lambda-backed log API.
  */
 @Component
 public class HttpClientAuditLogger implements ClientAuditLogger {

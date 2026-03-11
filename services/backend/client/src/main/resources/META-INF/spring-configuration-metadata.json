@@ -16,7 +16,7 @@
       "name": "app.log-service-url",
       "type": "java.lang.String",
       "sourceType": "com.scroogebank.crm.client_service.config.AppProperties",
-      "description": "URL of the log service for audit logging"
+      "description": "Base URL of the Lambda-backed log API used for audit logging"
     },
     {
       "name": "app.jwt.hmac-secret",

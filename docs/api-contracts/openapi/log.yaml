@@ -16,9 +16,14 @@ info:
     - Agent ID
     - Client ID
     - DateTime (ISO 8601)
+
+    Deployment note:
+    - Endpoint shapes are runtime-independent.
+    - Local/CI topology serves this contract through LocalStack API Gateway -> Lambda.
+    - Infrastructure topology serves this contract through API Gateway -> Lambda.
 servers:
   - url: http://localhost
-    description: Local / ingress base URL.
+    description: Local gateway/ingress base URL (deployment-specific upstream).
 tags:
   - name: health
   - name: logs

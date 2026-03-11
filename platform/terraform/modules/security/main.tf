@@ -260,7 +260,21 @@ data "aws_iam_policy_document" "aml_lambda_secrets" {
     actions = [
       "secretsmanager:GetSecretValue",
     ]
-    resources = [var.aml_sftp_key_secret_arn]
+    resources = compact([
+      var.aml_sftp_key_secret_arn,
+      aws_secretsmanager_secret.jwt_hmac.arn,
+    ])
+  }
+
+  statement {
+    sid    = "ReadLogApiUrlParameter"
+    effect = "Allow"
+    actions = [
+      "ssm:GetParameter",
+    ]
+    resources = [
+      "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${var.project_name}/${var.environment}/service/log/url",
+    ]
   }
 }
 

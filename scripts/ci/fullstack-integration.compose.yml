@@ -16,7 +16,7 @@ services:
     ports:
       - "14566:4566"
     environment:
-      - SERVICES=sqs,dynamodb,s3,lambda,sns,secretsmanager
+      - SERVICES=sqs,dynamodb,s3,lambda,sns,secretsmanager,apigateway,apigatewayv2
       - DEFAULT_REGION=ap-southeast-1
       - AWS_DEFAULT_REGION=ap-southeast-1
       # local executor: simpler, no Docker-in-Docker needed in CI
@@ -29,30 +29,6 @@ services:
       timeout: 5s
       retries: 20
       start_period: 10s
-
-  log-service:
-    build:
-      context: ../../services/backend/log
-      dockerfile: Dockerfile
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: crm_it
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      JWT_HMAC_SECRET: dev-only-insecure-secret
-      # Point boto3 at LocalStack instead of real AWS
-      AWS_ACCESS_KEY_ID: test
-      AWS_SECRET_ACCESS_KEY: test
-      AWS_DEFAULT_REGION: ap-southeast-1
-      AWS_ENDPOINT_URL: http://localstack:4566
-    depends_on:
-      postgres:
-        condition: service_healthy
-      localstack:
-        condition: service_healthy
-    ports:
-      - "18084:8080"
 
   agent-service:
     build:
@@ -73,13 +49,14 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/crm_it
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
-      LOG_SERVICE_URL: http://log-service:8080
+      # Lambda-backed log API endpoint (provisioned by run-fullstack-integration-e2e.sh)
+      LOG_SERVICE_URL: ${LOG_SERVICE_URL}
       JWT_HMAC_SECRET: dev-only-insecure-secret
     depends_on:
       postgres:
         condition: service_healthy
-      log-service:
-        condition: service_started
+      localstack:
+        condition: service_healthy
     ports:
       - "18082:8080"
 
@@ -105,13 +82,16 @@ services:
 
   integration-gateway:
     image: nginx:1.27-alpine
+    environment:
+      # Used by nginx template rendering to target the LocalStack HTTP API
+      LOG_API_UPSTREAM: ${LOG_API_UPSTREAM}
     depends_on:
       - frontend
       - agent-service
       - client-service
       - transaction-service
-      - log-service
+      - localstack
     volumes:
-      - ./fullstack-gateway.nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./fullstack-gateway.nginx.conf:/etc/nginx/templates/default.conf.template:ro
     ports:
       - "18088:80"

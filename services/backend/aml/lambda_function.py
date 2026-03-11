@@ -23,9 +23,13 @@ Environment variables (production):
     SFTP_USER           - SFTP username
     SFTP_KEY_SECRET     - AWS Secrets Manager ARN for the SSH private key
     SFTP_REMOTE_PATH    - Remote path to the monthly transaction CSV
-    CRM_API_BASE_URL    - Base URL of the CRM integration gateway
+    CRM_API_BASE_URL    - Base URL for account/transaction read APIs
+    CRM_WRITE_API_BASE_URL - Optional explicit base URL for alert/log write APIs
+    CRM_LOG_API_URL_PARAM - Optional SSM parameter name that stores log API base URL
     CRM_API_AUTHORIZATION_HEADER - Optional full Authorization header for outbound calls
     CRM_API_BEARER_TOKEN - Optional bearer token fallback for outbound calls
+    CRM_API_JWT_HMAC_SECRET_ARN - Optional Secrets Manager ARN used to mint service JWTs
+    JWT_HMAC_SECRET_ARN - Fallback secret ARN for service JWT minting
     CRM_CLIENT_ACCOUNTS_PATH_TEMPLATE - Optional path template for client accounts lookup
     CRM_CLIENT_TRANSACTIONS_PATH_TEMPLATE - Optional path template for client transactions lookup
     CRM_AML_ALERTS_PATH - Optional override for AML alert write endpoint
@@ -40,6 +44,9 @@ import json
 import logging
 import os
 import statistics
+import base64
+import hashlib
+import hmac
 import uuid
 from dataclasses import dataclass, field  # noqa: F401
 from datetime import date, datetime, timezone
@@ -66,6 +73,75 @@ DEFAULT_CLIENT_ACCOUNTS_PATH_TEMPLATE = "/api/clients/{client_id}/accounts"
 DEFAULT_CLIENT_TRANSACTIONS_PATH_TEMPLATE = "/api/clients/{client_id}/transactions"
 DEFAULT_AML_ALERTS_PATH = "/api/aml/alerts"
 DEFAULT_LOGS_PATH = "/api/logs"
+SERVICE_JWT_SUBJECT = "SYSTEM_AML"
+SERVICE_JWT_ROLE = "admin"
+
+_JWT_HMAC_SECRET_CACHE: str | None = None
+_LOG_WRITE_BASE_URL_CACHE: str | None = None
+
+
+def _b64url_encode(data: bytes) -> str:
+    """Encode bytes as base64url without padding."""
+    return base64.urlsafe_b64encode(data).decode("ascii").rstrip("=")
+
+
+def _load_service_jwt_secret() -> str | None:
+    """Load and cache a JWT HMAC secret for service-to-service calls."""
+    global _JWT_HMAC_SECRET_CACHE
+    if _JWT_HMAC_SECRET_CACHE:
+        return _JWT_HMAC_SECRET_CACHE
+
+    inline_secret = os.environ.get("CRM_API_JWT_HMAC_SECRET", "").strip()
+    if inline_secret:
+        _JWT_HMAC_SECRET_CACHE = inline_secret
+        return _JWT_HMAC_SECRET_CACHE
+
+    secret_arn = os.environ.get("CRM_API_JWT_HMAC_SECRET_ARN", "").strip()
+    if not secret_arn:
+        secret_arn = os.environ.get("JWT_HMAC_SECRET_ARN", "").strip()
+    if not secret_arn:
+        return None
+
+    import boto3  # noqa: PLC0415
+
+    try:
+        secret_value = boto3.client("secretsmanager").get_secret_value(
+            SecretId=secret_arn
+        )["SecretString"]
+    except Exception:
+        logger.exception("Failed to load service JWT secret from Secrets Manager")
+        return None
+
+    if isinstance(secret_value, str) and secret_value.strip():
+        _JWT_HMAC_SECRET_CACHE = secret_value.strip()
+    return _JWT_HMAC_SECRET_CACHE
+
+
+def _mint_service_jwt() -> str | None:
+    """Mint an internal HS256 JWT for log API authorization."""
+    secret = _load_service_jwt_secret()
+    if not secret:
+        return None
+
+    header = {"alg": "HS256", "typ": "JWT"}
+    payload = {
+        "sub": SERVICE_JWT_SUBJECT,
+        "role": SERVICE_JWT_ROLE,
+        "iat": int(datetime.now(timezone.utc).timestamp()),
+    }
+    header_segment = _b64url_encode(
+        json.dumps(header, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    )
+    payload_segment = _b64url_encode(
+        json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    )
+    signing_input = f"{header_segment}.{payload_segment}"
+    signature = hmac.new(
+        secret.encode("utf-8"),
+        signing_input.encode("ascii"),
+        hashlib.sha256,
+    ).digest()
+    return f"{signing_input}.{_b64url_encode(signature)}"
 
 
 def _authorization_header() -> str | None:
@@ -76,6 +152,9 @@ def _authorization_header() -> str | None:
     bearer_token = os.environ.get("CRM_API_BEARER_TOKEN", "").strip()
     if bearer_token:
         return f"Bearer {bearer_token}"
+    service_token = _mint_service_jwt()
+    if service_token:
+        return f"Bearer {service_token}"
     return None
 
 
@@ -85,6 +164,39 @@ def _auth_headers() -> dict[str, str]:
     if authorization:
         return {"Authorization": authorization}
     return {}
+
+
+def _resolve_log_write_base_url(default_base_url: str) -> str:
+    """Resolve base URL for AML alert/log writes with safe fallback order."""
+    global _LOG_WRITE_BASE_URL_CACHE
+
+    explicit_base_url = os.environ.get("CRM_WRITE_API_BASE_URL", "").strip()
+    if explicit_base_url:
+        return explicit_base_url.rstrip("/")
+
+    if _LOG_WRITE_BASE_URL_CACHE:
+        return _LOG_WRITE_BASE_URL_CACHE
+
+    parameter_name = os.environ.get("CRM_LOG_API_URL_PARAM", "").strip()
+    if parameter_name:
+        import boto3  # noqa: PLC0415
+
+        try:
+            param_value = (
+                boto3.client("ssm")
+                .get_parameter(Name=parameter_name)["Parameter"]["Value"]
+                .strip()
+            )
+            if param_value:
+                _LOG_WRITE_BASE_URL_CACHE = param_value.rstrip("/")
+                return _LOG_WRITE_BASE_URL_CACHE
+        except Exception:
+            logger.exception(
+                "Failed to resolve log API URL from SSM parameter '%s'",
+                parameter_name,
+            )
+
+    return default_base_url
 
 
 # ---------------------------------------------------------------------------
@@ -296,14 +408,14 @@ class AccountRepository:
             "CRM_CLIENT_ACCOUNTS_PATH_TEMPLATE",
             DEFAULT_CLIENT_ACCOUNTS_PATH_TEMPLATE,
         )
-        path = path_template.format(
-            client_id=urllib.parse.quote(client_id, safe="")
-        )
+        path = path_template.format(client_id=urllib.parse.quote(client_id, safe=""))
         query = urllib.parse.urlencode({"limit": 1, "offset": 0})
         url = f"{self._base_url}{path}?{query}"
         req = urllib.request.Request(url=url, headers=_auth_headers(), method="GET")
         try:
-            with urllib.request.urlopen(req, timeout=DEFAULT_HTTP_TIMEOUT_SECONDS) as resp:
+            with urllib.request.urlopen(
+                req, timeout=DEFAULT_HTTP_TIMEOUT_SECONDS
+            ) as resp:
                 payload = json.loads(resp.read().decode())
         except urllib.error.HTTPError as exc:
             if exc.code == 404:
@@ -349,9 +461,7 @@ class HistoricalTransactionRepository:
             "CRM_CLIENT_TRANSACTIONS_PATH_TEMPLATE",
             DEFAULT_CLIENT_TRANSACTIONS_PATH_TEMPLATE,
         )
-        path = path_template.format(
-            client_id=urllib.parse.quote(client_id, safe="")
-        )
+        path = path_template.format(client_id=urllib.parse.quote(client_id, safe=""))
         query = urllib.parse.urlencode({"limit": MAX_LIST_PAGE_SIZE, "offset": 0})
         url = f"{self._base_url}{path}?{query}"
         req = urllib.request.Request(url=url, headers=_auth_headers(), method="GET")
@@ -378,7 +488,8 @@ class CRMWriteClient:
     """Production CRM write client — POSTs alerts and log entries via REST."""
 
     def __init__(self) -> None:
-        self._base_url = os.environ["CRM_API_BASE_URL"].rstrip("/")
+        read_base_url = os.environ["CRM_API_BASE_URL"].rstrip("/")
+        self._base_url = _resolve_log_write_base_url(read_base_url)
 
     # CRMWriteClientProtocol
     def write_alert(self, alert: AMLAlert) -> None:
@@ -419,8 +530,11 @@ class CRMWriteClient:
 
         body = json.dumps(payload, default=str).encode()
         headers = {"Content-Type": "application/json", **_auth_headers()}
+        url = (
+            path if path.startswith(("http://", "https://")) else self._base_url + path
+        )
         req = urllib.request.Request(
-            url=self._base_url + path,
+            url=url,
             data=body,
             headers=headers,
             method="POST",

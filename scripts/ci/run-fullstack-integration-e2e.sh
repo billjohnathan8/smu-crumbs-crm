@@ -10,11 +10,18 @@ INTEGRATION_TEST_DIR="${ROOT_DIR}/tests/integration"
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-http://127.0.0.1:18088}"
 COMPOSE_PROJECT_NAME="crm-fullstack-it-${GITHUB_RUN_ID:-local}"
 
-# Fake creds — LocalStack accepts any non-empty value
+# Fake creds - LocalStack accepts any non-empty value
 export AWS_ACCESS_KEY_ID=test
 export AWS_SECRET_ACCESS_KEY=test
 export AWS_DEFAULT_REGION=ap-southeast-1
 LOCALSTACK_ENDPOINT="http://127.0.0.1:14566"
+LOG_LAMBDA_FUNCTION_NAME="scroogebank-crm-dev-log-service"
+LOG_HTTP_API_NAME="scroogebank-crm-dev-log-http-api-it"
+LOG_HTTP_API_STAGE="local"
+
+# Set safe defaults so compose parsing works for `down` before dynamic provisioning.
+export LOG_SERVICE_URL="${LOG_SERVICE_URL:-http://localstack:4566}"
+export LOG_API_UPSTREAM="${LOG_API_UPSTREAM:-http://localstack:4566}"
 
 mkdir -p "${LOG_DIR}"
 
@@ -32,6 +39,10 @@ fi
 dump_compose_logs() {
   docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" logs --no-color \
     > "${LOG_DIR}/docker-compose.log" 2>&1 || true
+}
+
+aws_local() {
+  aws --endpoint-url "${LOCALSTACK_ENDPOINT}" --region ap-southeast-1 "$@"
 }
 
 cleanup() {
@@ -95,6 +106,160 @@ build_java_jar() {
   popd >/dev/null
 }
 
+package_log_lambda() {
+  local package_dir="${LOG_DIR}/log-lambda-package"
+  local zip_path="${LOG_DIR}/log-lambda.zip"
+
+  rm -rf "${package_dir}" "${zip_path}"
+  mkdir -p "${package_dir}"
+
+  ${PYTHON_CMD} -m pip install \
+    -r "${ROOT_DIR}/services/backend/log/requirements.txt" \
+    -t "${package_dir}" \
+    > "${LOG_DIR}/log-lambda-pip.log" 2>&1
+
+  cp "${ROOT_DIR}/services/backend/log/lambda_function.py" "${package_dir}/"
+  cp -R "${ROOT_DIR}/services/backend/log/app" "${package_dir}/app"
+
+  if command -v zip >/dev/null 2>&1; then
+    (
+      cd "${package_dir}"
+      zip -rq "${zip_path}" .
+    )
+  else
+    # Fallback for environments without `zip` (for example, bare Windows shells).
+    ${PYTHON_CMD} - "${package_dir}" "${zip_path}" <<'PY'
+import pathlib
+import sys
+import zipfile
+
+src_dir = pathlib.Path(sys.argv[1])
+zip_path = pathlib.Path(sys.argv[2])
+
+with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+    for path in src_dir.rglob("*"):
+        if path.is_file():
+            zf.write(path, path.relative_to(src_dir))
+PY
+  fi
+}
+
+deploy_log_lambda() {
+  local zip_path="${LOG_DIR}/log-lambda.zip"
+  local env_vars="Variables={DB_HOST=postgres,DB_PORT=5432,DB_NAME=crm_it,DB_USER=postgres,DB_PASSWORD=postgres,JWT_HMAC_SECRET=dev-only-insecure-secret,AWS_DEFAULT_REGION=ap-southeast-1,AWS_ENDPOINT_URL=http://localstack:4566}"
+
+  if aws_local lambda get-function --function-name "${LOG_LAMBDA_FUNCTION_NAME}" >/dev/null 2>&1; then
+    aws_local lambda update-function-code \
+      --function-name "${LOG_LAMBDA_FUNCTION_NAME}" \
+      --zip-file "fileb://${zip_path}" \
+      >/dev/null
+
+    aws_local lambda update-function-configuration \
+      --function-name "${LOG_LAMBDA_FUNCTION_NAME}" \
+      --handler lambda_function.lambda_handler \
+      --runtime python3.13 \
+      --timeout 30 \
+      --memory-size 512 \
+      --environment "${env_vars}" \
+      >/dev/null
+  else
+    aws_local lambda create-function \
+      --function-name "${LOG_LAMBDA_FUNCTION_NAME}" \
+      --runtime python3.13 \
+      --handler lambda_function.lambda_handler \
+      --zip-file "fileb://${zip_path}" \
+      --role arn:aws:iam::000000000000:role/lambda-role \
+      --timeout 30 \
+      --memory-size 512 \
+      --environment "${env_vars}" \
+      >/dev/null
+  fi
+
+  for i in $(seq 1 40); do
+    state="$(
+      aws_local lambda get-function-configuration \
+        --function-name "${LOG_LAMBDA_FUNCTION_NAME}" \
+        --query "State" \
+        --output text 2>/dev/null || true
+    )"
+    if [[ "${state}" == "Active" ]]; then
+      return 0
+    fi
+    [[ ${i} -eq 40 ]] && {
+      echo "[FAIL] Log Lambda did not become Active in time" >&2
+      exit 1
+    }
+    sleep 1
+  done
+}
+
+provision_log_http_api() {
+  local existing_ids
+  existing_ids="$(
+    aws_local apigatewayv2 get-apis \
+      --query "Items[?Name=='${LOG_HTTP_API_NAME}'].ApiId" \
+      --output text 2>/dev/null || true
+  )"
+  if [[ -n "${existing_ids}" && "${existing_ids}" != "None" ]]; then
+    for api_id in ${existing_ids}; do
+      aws_local apigatewayv2 delete-api --api-id "${api_id}" >/dev/null 2>&1 || true
+    done
+  fi
+
+  local api_id
+  api_id="$(
+    aws_local apigatewayv2 create-api \
+      --name "${LOG_HTTP_API_NAME}" \
+      --protocol-type HTTP \
+      --query "ApiId" \
+      --output text
+  )"
+
+  local lambda_arn
+  lambda_arn="$(
+    aws_local lambda get-function \
+      --function-name "${LOG_LAMBDA_FUNCTION_NAME}" \
+      --query "Configuration.FunctionArn" \
+      --output text
+  )"
+
+  local integration_id
+  integration_id="$(
+    aws_local apigatewayv2 create-integration \
+      --api-id "${api_id}" \
+      --integration-type AWS_PROXY \
+      --integration-uri "${lambda_arn}" \
+      --payload-format-version 2.0 \
+      --timeout-milliseconds 29000 \
+      --query "IntegrationId" \
+      --output text
+  )"
+
+  aws_local apigatewayv2 create-route \
+    --api-id "${api_id}" \
+    --route-key '$default' \
+    --target "integrations/${integration_id}" \
+    >/dev/null
+
+  aws_local apigatewayv2 create-stage \
+    --api-id "${api_id}" \
+    --stage-name "${LOG_HTTP_API_STAGE}" \
+    --auto-deploy \
+    >/dev/null
+
+  aws_local lambda add-permission \
+    --function-name "${LOG_LAMBDA_FUNCTION_NAME}" \
+    --statement-id "allow-apigw-${api_id}" \
+    --action lambda:InvokeFunction \
+    --principal apigateway.amazonaws.com \
+    --source-arn "arn:aws:execute-api:ap-southeast-1:000000000000:${api_id}/*/*/*" \
+    >/dev/null 2>&1 || true
+
+  export LOG_SERVICE_URL="http://localstack:4566/restapis/${api_id}/${LOG_HTTP_API_STAGE}/_user_request_"
+  export LOG_API_UPSTREAM="${LOG_SERVICE_URL}"
+  export LOG_SERVICE_PUBLIC_URL="${LOCALSTACK_ENDPOINT}/restapis/${api_id}/${LOG_HTTP_API_STAGE}/_user_request_"
+}
+
 mint_jwt() {
   local subject="$1"
   local role="$2"
@@ -122,7 +287,7 @@ PY
 }
 
 # --------------------------------------------------------------------------
-# Phase 1: Build Java artifacts + start containerised stack
+# Phase 1: Build Java artifacts
 # --------------------------------------------------------------------------
 
 echo "=== Phase 1: Build ==="
@@ -130,14 +295,15 @@ build_java_jar "${ROOT_DIR}/services/backend/agent"       "agent"
 build_java_jar "${ROOT_DIR}/services/backend/client"      "client"
 build_java_jar "${ROOT_DIR}/services/backend/transaction" "transaction"
 
-echo "=== Phase 1: Start containers ==="
+echo "=== Phase 1: Start base infra containers ==="
 docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" down -v --remove-orphans \
   >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
 docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" up -d --build \
+  postgres localstack \
   >> "${LOG_DIR}/docker-compose.log" 2>&1
 
 # --------------------------------------------------------------------------
-# Phase 2: Wait for LocalStack + init provisioning
+# Phase 2: Wait for LocalStack + init provisioning + deploy log Lambda/API
 # --------------------------------------------------------------------------
 
 echo ""
@@ -147,8 +313,7 @@ wait_for_http "${LOCALSTACK_ENDPOINT}/_localstack/health" "localstack"
 echo "Waiting for LocalStack init provisioning (SQS sentinel)..."
 INIT_ATTEMPTS=80
 for i in $(seq 1 ${INIT_ATTEMPTS}); do
-  aws --endpoint-url "${LOCALSTACK_ENDPOINT}" --region ap-southeast-1 \
-    sqs get-queue-url --queue-name scroogebank-crm-dev-audit >/dev/null 2>&1 && {
+  aws_local sqs get-queue-url --queue-name scroogebank-crm-dev-audit >/dev/null 2>&1 && {
     echo "[OK] LocalStack provisioning complete (attempt ${i}/${INIT_ATTEMPTS})"
     break
   }
@@ -159,6 +324,21 @@ for i in $(seq 1 ${INIT_ATTEMPTS}); do
   sleep 3
 done
 
+echo "Packaging + deploying log-service Lambda to LocalStack..."
+package_log_lambda
+deploy_log_lambda
+provision_log_http_api
+wait_for_http "${LOG_SERVICE_PUBLIC_URL}/health" "log-service-lambda"
+
+echo "=== Phase 2b: Start application services ==="
+docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" up -d --build \
+  agent-service client-service transaction-service frontend \
+  >> "${LOG_DIR}/docker-compose.log" 2>&1
+
+echo "=== Phase 2c: Start integration gateway ==="
+docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" up -d integration-gateway \
+  >> "${LOG_DIR}/docker-compose.log" 2>&1
+
 # --------------------------------------------------------------------------
 # Phase 3: Wait for all application services to be healthy
 # --------------------------------------------------------------------------
@@ -168,9 +348,9 @@ echo "=== Phase 3: Service health ==="
 wait_for_http "http://127.0.0.1:18081/health" "agent-service"
 wait_for_http "http://127.0.0.1:18082/health" "client-service"
 wait_for_http "http://127.0.0.1:18083/health" "transaction-service"
-wait_for_http "http://127.0.0.1:18084/health" "log-service"
 wait_for_http "http://127.0.0.1:18085/health" "frontend"
 wait_for_http "${PLAYWRIGHT_BASE_URL}/health"  "integration-gateway"
+wait_for_http "${PLAYWRIGHT_BASE_URL}/api/v1/logs/health" "log-service (lambda via gateway)"
 
 # --------------------------------------------------------------------------
 # Phase 3b: Warm up JVM + seed CI agent user
@@ -233,7 +413,7 @@ CREATE_BODY='{
   "postalCode": "62704"
 }'
 
-echo "  Smoke: client-service -> log-service (CREATE client, assert audit log written)"
+echo "  Smoke: client-service -> log-service-lambda (CREATE client, assert audit log written)"
 CREATE_RESPONSE="$(
   curl --silent --show-error --fail \
     --request POST "http://127.0.0.1:18082/api/clients" \
@@ -249,12 +429,12 @@ print(json.loads(os.environ["CREATE_RESPONSE_JSON"])["clientId"])
 PY
 )"
 
-# Poll log-service for the CREATE audit entry (log-service writes to LocalStack / Postgres)
+# Poll log API for the CREATE audit entry (served by LocalStack-backed Lambda)
 LOG_FOUND=false
 for _ in {1..20}; do
   LOGS_JSON="$(
     curl --silent --show-error --fail \
-      "http://127.0.0.1:18084/api/logs?clientId=${CLIENT_ID}" \
+      "${PLAYWRIGHT_BASE_URL}/api/logs?clientId=${CLIENT_ID}" \
       --header "Authorization: Bearer ${AGENT_TOKEN}" \
     || true
   )"
@@ -290,11 +470,11 @@ if "data" not in p or "pagination" not in p:
 print("  [OK] transaction-service -> client-service")
 PY
 
-echo "  Smoke: AML alerts -> log-service (CREATE + REVIEW)"
+echo "  Smoke: AML alerts -> log-service-lambda (CREATE + REVIEW)"
 ALERT_ID="aml-smoke-$(date +%s)"
 AML_CREATE_RESPONSE="$(
   curl --silent --show-error --fail \
-    --request POST "http://127.0.0.1:18084/api/aml/alerts" \
+    --request POST "${PLAYWRIGHT_BASE_URL}/api/aml/alerts" \
     --header "Authorization: Bearer ${AGENT_TOKEN}" \
     --header "Content-Type: application/json" \
     --data "{
@@ -319,7 +499,7 @@ PY
 
 AML_REVIEW_RESPONSE="$(
   curl --silent --show-error --fail \
-    --request PUT "http://127.0.0.1:18084/api/aml/alerts/${ALERT_ID}/review" \
+    --request PUT "${PLAYWRIGHT_BASE_URL}/api/aml/alerts/${ALERT_ID}/review" \
     --header "Authorization: Bearer ${AGENT_TOKEN}" \
     --header "Content-Type: application/json" \
     --data '{"reviewStatus":"Confirmed"}'
@@ -334,27 +514,24 @@ PY
 
 echo "  Smoke: LocalStack SQS round-trip"
 QUEUE_URL="$(
-  aws --endpoint-url "${LOCALSTACK_ENDPOINT}" --region ap-southeast-1 \
-    sqs get-queue-url --queue-name scroogebank-crm-dev-audit \
+  aws_local sqs get-queue-url --queue-name scroogebank-crm-dev-audit \
     --query QueueUrl --output text
 )"
-aws --endpoint-url "${LOCALSTACK_ENDPOINT}" --region ap-southeast-1 \
-  sqs send-message \
-    --queue-url "${QUEUE_URL}" \
-    --message-body '{"eventType":"CI_FULLSTACK_SMOKE","source":"run-fullstack-integration-e2e"}' \
+aws_local sqs send-message \
+  --queue-url "${QUEUE_URL}" \
+  --message-body '{"eventType":"CI_FULLSTACK_SMOKE","source":"run-fullstack-integration-e2e"}' \
   >/dev/null
 RECV_BODY=""
 for _ in {1..10}; do
   RECV_BODY="$(
-    aws --endpoint-url "${LOCALSTACK_ENDPOINT}" --region ap-southeast-1 \
-      sqs receive-message --queue-url "${QUEUE_URL}" --wait-time-seconds 2 \
+    aws_local sqs receive-message --queue-url "${QUEUE_URL}" --wait-time-seconds 2 \
       --query 'Messages[0].Body' --output text 2>/dev/null || true
   )"
   echo "${RECV_BODY}" | grep -q "CI_FULLSTACK_SMOKE" && break
   sleep 1
 done
 echo "${RECV_BODY}" | grep -q "CI_FULLSTACK_SMOKE" || {
-  echo "  [FAIL] SQS round-trip failed — message not received" >&2
+  echo "  [FAIL] SQS round-trip failed - message not received" >&2
   exit 1
 }
 echo "  [OK] SQS round-trip"

@@ -5,6 +5,7 @@ ScroogeBank CRM event-driven pipeline (SQS → Lambda → DynamoDB → S3 → SN
 
 **What runs in LocalStack:** SQS, DynamoDB, S3, Lambda, SNS, Secrets Manager  
 **What runs natively:** PostgreSQL (Docker), Spring Boot services (docker-compose or IDE), React frontend  
+**Log API runtime in local/CI:** LocalStack API Gateway -> log Lambda (no dedicated log-service container)  
 **What is skipped locally:** VPC, NAT Gateway, ALB, CloudFront, WAF, ACM, Route53, CloudTrail, ECS Fargate
 
 ---
@@ -180,18 +181,23 @@ Run services with the `local` profile:
 
 ---
 
-## 7. Deploy a Lambda to LocalStack for Testing
+## 7. Deploy the Log Lambda to LocalStack for Testing
 
 ```bash
 cd services/backend/log
 
-# Build zip
-zip -r log-lambda.zip lambda_function.py app/ requirements.txt
+# Build zip package (dependencies + app code)
+rm -rf package log-lambda.zip
+mkdir -p package
+pip install -r requirements.txt -t package
+cp lambda_function.py package/
+cp -R app package/app
+(cd package && zip -rq ../log-lambda.zip .)
 
 # Deploy to LocalStack
 awslocal lambda create-function \
-  --function-name scroogebank-crm-dev-log \
-  --runtime python3.11 \
+  --function-name scroogebank-crm-dev-log-service \
+  --runtime python3.13 \
   --handler lambda_function.lambda_handler \
   --zip-file fileb://log-lambda.zip \
   --role arn:aws:iam::000000000000:role/lambda-role \
@@ -199,7 +205,7 @@ awslocal lambda create-function \
 
 # Invoke it
 awslocal lambda invoke \
-  --function-name scroogebank-crm-dev-log \
+  --function-name scroogebank-crm-dev-log-service \
   --payload '{"test": true}' \
   /tmp/response.json
 
@@ -252,7 +258,7 @@ both `ci-main.yml` and `ci-integration.yml`. It is not a separate pipeline stage
 Pipeline position:
 
 ```
-changes → lint → test-* (parallel) → e2e-frontend-mocked → fullstack-integration-e2e → [deploy: not yet implemented]
+changes -> lint -> test-* (parallel) -> e2e-frontend-mocked -> fullstack-integration-e2e -> [deploy: not yet implemented]
 ```
 
 **Run the fullstack-integration-e2e tests in Git Bash (use linux instead of powershell)**
@@ -261,11 +267,12 @@ The reusable workflow is at `.github/workflows/reusable-fullstack-integration.ym
 The CI script is at `scripts/ci/run-fullstack-integration-e2e.sh`.
 
 The fullstack integration test handles LocalStack as part of a broader test that:
-1. Builds all Java service JARs and Docker images
-2. Starts the full containerised stack (LocalStack + PostgreSQL + all services) via `scripts/ci/fullstack-integration.compose.yml`
-3. Waits for LocalStack health and for `platform/localstack/init/01-setup.sh` to finish provisioning
-4. Runs cross-service HTTP smoke assertions (client-service → log-service, transaction-service, SQS round-trip)
-5. Runs real Playwright E2E tests against the live stack
+1. Builds all Java service JARs and required Docker images
+2. Starts base infra containers (`localstack`, `postgres`) via `scripts/ci/fullstack-integration.compose.yml`
+3. Provisions log-service as a LocalStack Lambda + HTTP API and waits for readiness
+4. Starts application services and integration gateway
+5. Runs cross-service HTTP smoke assertions (client-service -> log-service Lambda API, transaction-service, SQS round-trip)
+6. Runs real Playwright E2E tests against the live stack
 
 ### Local debugging script
 
@@ -304,3 +311,4 @@ on exit. It is **not** wired into the CI pipeline.
 - LocalStack docs: https://docs.localstack.cloud
 - `awslocal` CLI: https://github.com/localstack/awscli-local
 - LocalStack Docker image: https://hub.docker.com/r/localstack/localstack
+

@@ -7,6 +7,16 @@ variable "name_prefix" {
   type        = string
 }
 
+variable "project_name" {
+  description = "Project name used in SSM parameter paths."
+  type        = string
+}
+
+variable "environment" {
+  description = "Environment name used in SSM parameter paths."
+  type        = string
+}
+
 variable "cloudwatch_log_retention_days" {
   description = "CloudWatch log retention in days."
   type        = number

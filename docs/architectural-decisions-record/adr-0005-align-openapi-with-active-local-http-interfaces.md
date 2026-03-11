@@ -18,8 +18,8 @@ To reduce drift between contract and implementation, the specs were revised to d
   - `docs/api-contracts/openapi/agent.yaml` - documents concrete `/api/v1/agents` and health endpoints.
   - `docs/api-contracts/openapi/log.yaml` - documents `/api/v1/logs` and health endpoints.
   - `docs/api-contracts/openapi/client.yaml` - updates audit logging descriptions from SQS to HTTP log-service calls.
-  - `services/backend/agent-service/src/main/java/com/itsa/crm/agentservice/controller/UserController.java` - implements documented user endpoints.
-  - `services/backend/log-service/app/main.py` - implements documented log endpoints.
+  - `services/backend/agent/src/main/java/com/scroogebank/crm/agentservice/controller/UserController.java` - implements documented user endpoints.
+  - `services/backend/log/app/main.py` - implements documented log endpoints.
 
 ## Decision
 Use OpenAPI files in `docs/api-contracts/openapi` as implementation-aligned contracts for the currently active local HTTP services and update them whenever endpoint behavior changes.

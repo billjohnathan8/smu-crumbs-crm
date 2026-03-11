@@ -30,6 +30,6 @@ server:
   port: 8080
 
 app:
-  log-service-url: ${LOG_SERVICE_URL:http://localhost:8081}
+  log-service-url: ${LOG_SERVICE_URL:http://localhost:4566/restapis/local/local/_user_request_}
   jwt:
     hmac-secret: ${JWT_HMAC_SECRET:dev-only-insecure-secret}
