@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: log
-  version: 0.3.0
+  version: 1.0.1
   description: |
     Feature 3: Logging of Agent Interactions and Client Communications.
 
@@ -21,6 +21,7 @@ info:
     - Endpoint shapes are runtime-independent.
     - Local/CI topology serves this contract through LocalStack API Gateway -> Lambda.
     - Infrastructure topology serves this contract through API Gateway -> Lambda.
+    - Validation failures (body/query/path) return HTTP 400 with ErrorResponse.
 servers:
   - url: http://localhost
     description: Local gateway/ingress base URL (deployment-specific upstream).
@@ -46,6 +47,11 @@ paths:
                   status: { type: string, example: ok }
                   service: { type: string, example: log }
                 required: [status]
+        "503":
+          description: Service dependency unavailable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /api/v1/health:
     get:
@@ -61,7 +67,21 @@ paths:
       tags: [health]
       summary: (Deprecated) Logs route health check
       responses:
-        "200": { description: OK }
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  service: { type: string, example: log }
+                required: [status]
+        "503":
+          description: Service dependency unavailable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /api/logs:
     get:
@@ -74,9 +94,11 @@ paths:
       parameters:
         - name: limit
           in: query
+          description: Requested page size. Values outside 1..200 are clamped by the service.
           schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
         - name: offset
           in: query
+          description: Requested start offset. Negative values are clamped to 0 by the service.
           schema: { type: integer, minimum: 0, default: 0 }
         - name: clientId
           in: query
@@ -279,9 +301,11 @@ paths:
           schema: { $ref: "#/components/schemas/ClientId" }
         - name: limit
           in: query
+          description: Requested page size. Values outside 1..200 are clamped by the service.
           schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
         - name: offset
           in: query
+          description: Requested start offset. Negative values are clamped to 0 by the service.
           schema: { type: integer, minimum: 0, default: 0 }
       responses:
         "200":
@@ -359,9 +383,11 @@ paths:
       parameters:
         - name: limit
           in: query
+          description: Requested page size. Values outside 1..200 are clamped by the service.
           schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
         - name: offset
           in: query
+          description: Requested start offset. Negative values are clamped to 0 by the service.
           schema: { type: integer, minimum: 0, default: 0 }
         - name: clientId
           in: query
@@ -554,9 +580,11 @@ paths:
           schema: { $ref: "#/components/schemas/ClientId" }
         - name: limit
           in: query
+          description: Requested page size. Values outside 1..200 are clamped by the service.
           schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
         - name: offset
           in: query
+          description: Requested start offset. Negative values are clamped to 0 by the service.
           schema: { type: integer, minimum: 0, default: 0 }
       responses:
         "200":
@@ -595,7 +623,7 @@ components:
       type: object
       properties:
         error: { type: string, example: validation_error }
-        message: { type: string, example: "Field 'clientId' is required" }
+        message: { type: string, example: "attributeName: Field required" }
         requestId: { type: string, example: 7f1d2c3b-0c44-4ce9-a7ed-4c0c0c8edc1d }
       required: [error, message]
 
@@ -609,7 +637,7 @@ components:
     LogId:
       type: string
       description: System-generated unique log identifier.
-      example: log_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+      example: log_42
 
     ClientId:
       type: string
@@ -716,7 +744,7 @@ components:
     CommunicationId:
       type: string
       description: System-generated unique communication identifier.
-      example: com_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+      example: com_42
 
     CommunicationChannel:
       type: string
@@ -738,6 +766,7 @@ components:
         toEmail:
           type: string
           format: email
+          pattern: "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
           example: client@example.com
         subject:
           type: string
@@ -773,6 +802,7 @@ components:
         toEmail:
           type: string
           format: email
+          pattern: "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
         subject:
           type: string
           maxLength: 200

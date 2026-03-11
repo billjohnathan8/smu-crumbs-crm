@@ -239,6 +239,7 @@ def test_logs_health_unavailable() -> None:
     response = client.get("/api/v1/logs/health")
 
     assert response.status_code == 503
+    assert response.json()["error"] == "service_unavailable"
 
 
 def test_logs_requires_auth() -> None:
@@ -329,6 +330,28 @@ def test_create_log_validation_error_returns_400() -> None:
 
     assert response.status_code == 400
     assert response.json()["error"] == "validation_error"
+
+
+def test_create_log_body_validation_returns_400_error_shape() -> None:
+    secret = "test-secret"
+    os.environ["JWT_HMAC_SECRET"] = secret
+    app = create_app(FakeLogService())
+    client = TestClient(app)
+
+    token = mint_token("usr_admin", "admin", secret)
+    payload = {
+        "action": "CREATE",
+        "agentId": "usr_1",
+        "clientId": "clt_1",
+    }
+
+    response = client.post(
+        "/api/logs", json=payload, headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"] == "validation_error"
+    assert "attributeName" in response.json()["message"]
 
 
 def test_update_log_admin_only() -> None:
@@ -643,6 +666,30 @@ def test_create_communication_returns_500_when_missing_row() -> None:
 
     assert response.status_code == 500
     assert response.json()["error"] == "internal_error"
+
+
+def test_create_communication_invalid_email_returns_400() -> None:
+    secret = "test-secret"
+    os.environ["JWT_HMAC_SECRET"] = secret
+    app = create_app(FakeLogService())
+    client = TestClient(app)
+    admin_token = mint_token("usr_admin", "admin", secret)
+
+    response = client.post(
+        "/api/communications",
+        json={
+            "clientId": "clt_1",
+            "agentId": "usr_1",
+            "toEmail": "invalid-email",
+            "subject": "Hello",
+            "body": "Body",
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"] == "validation_error"
+    assert "toEmail" in response.json()["message"]
 
 
 def test_get_communication_invalid_id_and_not_found() -> None:

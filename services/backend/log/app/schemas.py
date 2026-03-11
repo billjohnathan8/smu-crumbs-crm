@@ -67,15 +67,23 @@ class LogEntry(BaseModel):
     correlationId: str | None = None
 
 
+class CommunicationChannel(str, Enum):
+    email = "email"
+
+
 class CreateCommunicationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     clientId: str = Field(min_length=1, max_length=64)
     agentId: str = Field(min_length=1, max_length=64)
-    toEmail: str = Field(min_length=3, max_length=320)
+    toEmail: str = Field(
+        min_length=3,
+        max_length=320,
+        pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$",
+    )
     subject: str = Field(min_length=1, max_length=200)
     body: str = Field(min_length=1, max_length=20000)
-    channel: str | None = None
+    channel: CommunicationChannel | None = None
 
 
 class CommunicationStatus(str, Enum):
@@ -88,7 +96,7 @@ class Communication(BaseModel):
     communicationId: str
     clientId: str
     agentId: str
-    channel: str = "email"
+    channel: CommunicationChannel = CommunicationChannel.email
     toEmail: str
     subject: str
     body: str

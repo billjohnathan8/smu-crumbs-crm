@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from .auth import ForbiddenError, UnauthorizedError, require_bearer_user, require_roles
@@ -30,6 +31,39 @@ from .schemas import (
 from .service import LogService
 
 LOGGER = logging.getLogger("log")
+
+
+def _error_name_for_status(status_code: int) -> str:
+    if status_code == status.HTTP_400_BAD_REQUEST:
+        return "validation_error"
+    if status_code == status.HTTP_401_UNAUTHORIZED:
+        return "unauthorized"
+    if status_code == status.HTTP_403_FORBIDDEN:
+        return "forbidden"
+    if status_code == status.HTTP_404_NOT_FOUND:
+        return "not_found"
+    if status_code == status.HTTP_409_CONFLICT:
+        return "conflict"
+    if status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
+        return "service_unavailable"
+    if status_code >= status.HTTP_500_INTERNAL_SERVER_ERROR:
+        return "internal_error"
+    return "request_error"
+
+
+def _validation_message(exc: RequestValidationError) -> str:
+    errors = exc.errors()
+    if not errors:
+        return "Invalid request"
+    first = errors[0]
+    location = [
+        str(segment)
+        for segment in first.get("loc", ())
+        if segment not in {"body", "query", "path"}
+    ]
+    prefix = ".".join(location)
+    detail = first.get("msg", "Invalid value")
+    return f"{prefix}: {detail}" if prefix else str(detail)
 
 
 def _default_service() -> LogService:
@@ -87,6 +121,41 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
     async def forbidden_handler(request: Request, _exc: ForbiddenError):
         return _error(request, status.HTTP_403_FORBIDDEN, "forbidden", "Forbidden")
 
+    @app.exception_handler(RequestValidationError)
+    async def request_validation_handler(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        return _error(
+            request,
+            status.HTTP_400_BAD_REQUEST,
+            "validation_error",
+            _validation_message(exc),
+        )
+
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(
+        request: Request, exc: HTTPException
+    ) -> JSONResponse:
+        detail = exc.detail if isinstance(exc.detail, str) else "Request failed"
+        return _error(
+            request,
+            exc.status_code,
+            _error_name_for_status(exc.status_code),
+            detail,
+        )
+
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(
+        request: Request, exc: Exception
+    ) -> JSONResponse:
+        LOGGER.error("Unhandled exception: %s", exc, exc_info=True)
+        return _error(
+            request,
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "internal_error",
+            "Internal error",
+        )
+
     def get_log_service(request: Request) -> LogService:
         """Provide the configured LogService from application state."""
         return request.app.state.log_service
@@ -108,7 +177,10 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
         """Validate an id prefix and return the raw numeric id."""
         if not value.startswith(prefix):
             raise ValueError("invalid id")
-        return int(value.removeprefix(prefix))
+        try:
+            return int(value.removeprefix(prefix))
+        except ValueError as exc:
+            raise ValueError("invalid id") from exc
 
     def encode_prefixed_id(prefix: str, value: int) -> str:
         """Attach an API prefix to a numeric id."""
