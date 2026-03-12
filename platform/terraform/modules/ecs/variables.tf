@@ -165,6 +165,18 @@ variable "log_api_base_url" {
   type        = string
 }
 
+variable "verification_email_provider" {
+  description = "Verification email provider for client service (mock or ses)."
+  type        = string
+  default     = "mock"
+}
+
+variable "ses_sender_email" {
+  description = "SES sender email passed to client service for verification notifications."
+  type        = string
+  default     = ""
+}
+
 variable "root_admin_password_secret_arn" {
   description = "Secret ARN for ROOT_ADMIN_PASSWORD."
   type        = string

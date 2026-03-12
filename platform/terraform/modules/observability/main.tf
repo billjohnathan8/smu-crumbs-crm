@@ -183,3 +183,49 @@ resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
     Name = "${var.name_prefix}-alb-5xx-high"
   }
 }
+
+resource "aws_cloudwatch_metric_alarm" "ses_bounce_rate_high" {
+  count = var.enable_ses_alarms && var.ses_identity != "" ? 1 : 0
+
+  alarm_name          = "${var.name_prefix}-ses-bounce-rate-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "Reputation.BounceRate"
+  namespace           = "AWS/SES"
+  period              = 300
+  statistic           = "Average"
+  threshold           = var.ses_bounce_rate_alarm_threshold
+  alarm_description   = "SES bounce rate above threshold"
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    Identity = var.ses_identity
+  }
+
+  tags = {
+    Name = "${var.name_prefix}-ses-bounce-rate-high"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "ses_complaint_rate_high" {
+  count = var.enable_ses_alarms && var.ses_identity != "" ? 1 : 0
+
+  alarm_name          = "${var.name_prefix}-ses-complaint-rate-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "Reputation.ComplaintRate"
+  namespace           = "AWS/SES"
+  period              = 300
+  statistic           = "Average"
+  threshold           = var.ses_complaint_rate_alarm_threshold
+  alarm_description   = "SES complaint rate above threshold"
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    Identity = var.ses_identity
+  }
+
+  tags = {
+    Name = "${var.name_prefix}-ses-complaint-rate-high"
+  }
+}

@@ -202,13 +202,15 @@ module "lambda" {
   aml_dynamodb_table_name = module.dynamodb.aml_reports_table_name != null ? module.dynamodb.aml_reports_table_name : ""
 
   # Verification Lambda
-  enable_verification_lambda = var.enable_verification_pipeline
-  verification_zip_path      = var.verification_zip_path
-  verification_role_arn      = module.security.verification_lambda_role_arn != null ? module.security.verification_lambda_role_arn : ""
-  verification_bucket_arn    = module.s3.verification_bucket_arn != null ? module.s3.verification_bucket_arn : ""
-  verification_bucket_id     = module.s3.verification_bucket_id != null ? module.s3.verification_bucket_id : ""
-  verification_sns_topic_arn = module.sns.verification_topic_arn != null ? module.sns.verification_topic_arn : ""
-  ses_sender_email           = var.ses_sender_email
+  enable_verification_lambda       = var.enable_verification_pipeline
+  verification_zip_path            = var.verification_zip_path
+  verification_role_arn            = module.security.verification_lambda_role_arn != null ? module.security.verification_lambda_role_arn : ""
+  verification_bucket_arn          = module.s3.verification_bucket_arn != null ? module.s3.verification_bucket_arn : ""
+  verification_bucket_id           = module.s3.verification_bucket_id != null ? module.s3.verification_bucket_id : ""
+  verification_sns_topic_arn       = module.sns.verification_topic_arn != null ? module.sns.verification_topic_arn : ""
+  ses_sender_email                 = var.ses_sender_email
+  log_api_base_url                 = var.enable_log_lambda ? module.apigateway[0].log_api_base_url : ""
+  verification_jwt_hmac_secret_arn = module.security.jwt_hmac_secret_arn
 }
 
 #--------------------------------------------------------------
@@ -261,6 +263,8 @@ module "ecs" {
   transaction_import_s3_path_style_access_enabled = var.transaction_import_s3_path_style_access_enabled
   db_jdbc_url                                     = module.rds.db_jdbc_url
   log_api_base_url                                = var.enable_log_lambda ? module.apigateway[0].log_api_base_url : ""
+  verification_email_provider                     = var.enable_verification_pipeline ? "ses" : "mock"
+  ses_sender_email                                = var.ses_sender_email
   root_admin_password_secret_arn                  = module.security.root_admin_password_secret_arn
   jwt_hmac_secret_arn                             = module.security.jwt_hmac_secret_arn
   db_username_secret_arn                          = module.security.db_username_secret_arn
@@ -390,10 +394,11 @@ module "sns" {
 module "ses" {
   source = "./modules/ses"
 
-  enable_ses          = true
-  sender_email        = var.ses_sender_email
-  domain              = var.ses_domain
-  mail_from_subdomain = var.ses_mail_from_subdomain
+  enable_ses             = true
+  sender_email           = var.ses_sender_email
+  domain                 = var.ses_domain
+  mail_from_subdomain    = var.ses_mail_from_subdomain
+  notification_topic_arn = module.sns.verification_topic_arn != null ? module.sns.verification_topic_arn : ""
 }
 
 #--------------------------------------------------------------
@@ -427,6 +432,9 @@ module "observability" {
 
   enable_alb_alarms = var.enable_cloudwatch_alarms
   alb_arn_suffix    = module.alb.alb_arn_suffix
+
+  enable_ses_alarms = var.enable_cloudwatch_alarms && var.enable_verification_pipeline
+  ses_identity      = var.ses_domain != "" ? var.ses_domain : var.ses_sender_email
 }
 
 #--------------------------------------------------------------

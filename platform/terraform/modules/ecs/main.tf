@@ -71,6 +71,18 @@ locals {
         {
           name  = "LOG_SERVICE_URL"
           value = var.log_api_base_url
+        },
+        {
+          name  = "VERIFICATION_EMAIL_PROVIDER"
+          value = var.verification_email_provider
+        },
+        {
+          name  = "SES_SENDER_EMAIL"
+          value = var.ses_sender_email
+        },
+        {
+          name  = "AWS_REGION"
+          value = var.aws_region
         }
       ]
       secrets = [

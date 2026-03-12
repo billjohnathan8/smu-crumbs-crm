@@ -405,3 +405,20 @@ variable "ses_sender_email" {
   type        = string
   default     = ""
 }
+
+variable "log_api_base_url" {
+  description = "Log API base URL used by verification feedback Lambda."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = !var.enable_verification_lambda || trimspace(var.log_api_base_url) != ""
+    error_message = "When enable_verification_lambda is true, log_api_base_url must be non-empty."
+  }
+}
+
+variable "verification_jwt_hmac_secret_arn" {
+  description = "JWT HMAC secret ARN used by verification feedback Lambda for internal service auth."
+  type        = string
+  default     = ""
+}

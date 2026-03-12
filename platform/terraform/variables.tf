@@ -669,6 +669,11 @@ variable "enable_verification_pipeline" {
   description = "Create verification Lambda, SNS topic, SES identity, and S3 bucket."
   type        = bool
   default     = false
+
+  validation {
+    condition     = !var.enable_verification_pipeline || var.enable_log_lambda
+    error_message = "enable_verification_pipeline requires enable_log_lambda=true so the verification feedback Lambda receives a non-empty LOG_API_BASE_URL."
+  }
 }
 
 variable "audit_consumer_zip_path" {

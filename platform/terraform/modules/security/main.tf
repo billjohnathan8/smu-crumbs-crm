@@ -493,6 +493,25 @@ data "aws_iam_policy_document" "verification_lambda" {
     ]
     resources = [var.verification_sns_topic_arn]
   }
+
+  statement {
+    sid    = "ReadVerificationJwtSecret"
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue",
+    ]
+    resources = [aws_secretsmanager_secret.jwt_hmac.arn]
+  }
+
+  statement {
+    sid    = "SendVerificationEmailViaSes"
+    effect = "Allow"
+    actions = [
+      "ses:SendEmail",
+      "ses:SendRawEmail",
+    ]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_role_policy" "verification_lambda" {
@@ -501,6 +520,28 @@ resource "aws_iam_role_policy" "verification_lambda" {
   name   = "${var.name_prefix}-verification-lambda"
   role   = aws_iam_role.verification_lambda[0].id
   policy = data.aws_iam_policy_document.verification_lambda[0].json
+}
+
+data "aws_iam_policy_document" "ecs_client_ses_send" {
+  count = var.enable_verification_pipeline ? 1 : 0
+
+  statement {
+    sid    = "SendVerificationEmailViaSes"
+    effect = "Allow"
+    actions = [
+      "ses:SendEmail",
+      "ses:SendRawEmail",
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "ecs_task_client_ses_send" {
+  count = var.enable_verification_pipeline ? 1 : 0
+
+  name   = "${var.name_prefix}-ecs-task-client-ses-send"
+  role   = aws_iam_role.ecs_task["client"].id
+  policy = data.aws_iam_policy_document.ecs_client_ses_send[0].json
 }
 
 # --- ECS task policy: allow sending to SQS queues ---

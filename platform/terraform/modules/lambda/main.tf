@@ -266,35 +266,32 @@ resource "aws_lambda_function" "verification" {
 
   environment {
     variables = {
-      SNS_TOPIC_ARN    = var.verification_sns_topic_arn
-      SES_SENDER_EMAIL = var.ses_sender_email
-      S3_BUCKET_NAME   = var.verification_bucket_id
+      LOG_API_BASE_URL                 = var.log_api_base_url
+      VERIFICATION_JWT_HMAC_SECRET_ARN = var.verification_jwt_hmac_secret_arn
+      VERIFICATION_JWT_SUB             = "SYSTEM_VERIFICATION_FEEDBACK"
+      VERIFICATION_JWT_ROLE            = "admin"
     }
   }
 
   depends_on = [aws_cloudwatch_log_group.verification]
 }
 
-resource "aws_lambda_permission" "allow_s3_invoke_verification" {
+resource "aws_lambda_permission" "allow_sns_invoke_verification" {
   count = var.enable_verification_lambda ? 1 : 0
 
-  statement_id  = "AllowExecutionFromS3"
+  statement_id  = "AllowExecutionFromSns"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.verification[0].function_name
-  principal     = "s3.amazonaws.com"
-  source_arn    = var.verification_bucket_arn
+  principal     = "sns.amazonaws.com"
+  source_arn    = var.verification_sns_topic_arn
 }
 
-resource "aws_s3_bucket_notification" "verification" {
+resource "aws_sns_topic_subscription" "verification_feedback" {
   count = var.enable_verification_lambda ? 1 : 0
 
-  bucket = var.verification_bucket_id
+  topic_arn = var.verification_sns_topic_arn
+  protocol  = "lambda"
+  endpoint  = aws_lambda_function.verification[0].arn
 
-  lambda_function {
-    lambda_function_arn = aws_lambda_function.verification[0].arn
-    events              = ["s3:ObjectCreated:*"]
-    filter_prefix       = "uploads/"
-  }
-
-  depends_on = [aws_lambda_permission.allow_s3_invoke_verification]
+  depends_on = [aws_lambda_permission.allow_sns_invoke_verification]
 }
