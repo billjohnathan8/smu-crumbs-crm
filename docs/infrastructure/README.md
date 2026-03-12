@@ -33,6 +33,7 @@ Outputs:
 - Remote state backend setup: [backend-setup.md](backend-setup.md)
 - LocalStack setup: [localstack-setup.md](localstack-setup.md)
 - Diagram setup/troubleshooting: [inframap-setup.md](inframap-setup.md)
+- Auth migration: [auth-cognito-safe-rollout.md](auth-cognito-safe-rollout.md)
 
 ## Notes
 

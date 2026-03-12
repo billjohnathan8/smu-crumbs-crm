@@ -50,3 +50,9 @@ app:
       service-user-id: ${VERIFICATION_EMAIL_DISPATCH_SERVICE_USER_ID:usr_system_verification}
   jwt:
     hmac-secret: ${JWT_HMAC_SECRET:}
+    auth-mode: ${AUTH_MODE:local}
+    cognito:
+      issuer: ${COGNITO_ISSUER:}
+      audience: ${COGNITO_AUDIENCE:}
+      jwks-url: ${COGNITO_JWKS_URL:}
+      jwks-cache-ttl-seconds: ${COGNITO_JWKS_CACHE_TTL_SECONDS:300}

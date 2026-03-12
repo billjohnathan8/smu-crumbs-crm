@@ -126,6 +126,30 @@ variable "root_admin_email" {
   type        = string
 }
 
+variable "auth_mode" {
+  description = "Runtime auth mode exposed to backend services (local, hybrid, cognito)."
+  type        = string
+  default     = "local"
+}
+
+variable "cognito_issuer_url" {
+  description = "Cognito issuer URL exposed to backend services."
+  type        = string
+  default     = ""
+}
+
+variable "cognito_jwks_url" {
+  description = "Cognito JWKS URL exposed to backend services."
+  type        = string
+  default     = ""
+}
+
+variable "cognito_audience" {
+  description = "Cognito audience/client ID exposed to backend services."
+  type        = string
+  default     = ""
+}
+
 variable "transaction_mock_sftp_root" {
   description = "MOCK_SFTP_ROOT value for transaction service."
   type        = string

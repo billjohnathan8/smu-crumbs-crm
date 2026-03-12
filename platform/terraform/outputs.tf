@@ -199,6 +199,16 @@ output "cognito_user_pool_endpoint" {
   value       = var.enable_cognito ? module.cognito[0].user_pool_endpoint : null
 }
 
+output "cognito_issuer_url" {
+  description = "Cognito issuer URL used for JWT verification."
+  value       = var.enable_cognito ? module.cognito[0].issuer_url : null
+}
+
+output "cognito_jwks_url" {
+  description = "Cognito JWKS URL used for JWT verification."
+  value       = var.enable_cognito ? module.cognito[0].jwks_url : null
+}
+
 #--------------------------------------------------------------
 # Messaging Outputs (SQS / SNS)
 #--------------------------------------------------------------

@@ -39,6 +39,22 @@ locals {
         {
           name  = "APP_USER_STORE_TYPE"
           value = "postgres"
+        },
+        {
+          name  = "AUTH_MODE"
+          value = var.auth_mode
+        },
+        {
+          name  = "COGNITO_ISSUER"
+          value = var.cognito_issuer_url
+        },
+        {
+          name  = "COGNITO_JWKS_URL"
+          value = var.cognito_jwks_url
+        },
+        {
+          name  = "COGNITO_AUDIENCE"
+          value = var.cognito_audience
         }
       ]
       secrets = [
@@ -83,6 +99,22 @@ locals {
         {
           name  = "VERIFICATION_EMAIL_AWS_REGION"
           value = var.aws_region
+        },
+        {
+          name  = "AUTH_MODE"
+          value = var.auth_mode
+        },
+        {
+          name  = "COGNITO_ISSUER"
+          value = var.cognito_issuer_url
+        },
+        {
+          name  = "COGNITO_JWKS_URL"
+          value = var.cognito_jwks_url
+        },
+        {
+          name  = "COGNITO_AUDIENCE"
+          value = var.cognito_audience
         }
       ]
       secrets = [
@@ -135,6 +167,22 @@ locals {
         {
           name  = "TRANSACTION_IMPORT_S3_PATH_STYLE_ACCESS_ENABLED"
           value = tostring(var.transaction_import_s3_path_style_access_enabled)
+        },
+        {
+          name  = "AUTH_MODE"
+          value = var.auth_mode
+        },
+        {
+          name  = "COGNITO_ISSUER"
+          value = var.cognito_issuer_url
+        },
+        {
+          name  = "COGNITO_JWKS_URL"
+          value = var.cognito_jwks_url
+        },
+        {
+          name  = "COGNITO_AUDIENCE"
+          value = var.cognito_audience
         }
       ]
       secrets = [

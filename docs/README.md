@@ -17,6 +17,7 @@ This directory keeps only current, high-signal docs.
 ## Architecture and Platform
 
 - Infrastructure guide: [infrastructure/README.md](infrastructure/README.md)
+- Cognito auth rollout: [infrastructure/auth-cognito-safe-rollout.md](infrastructure/auth-cognito-safe-rollout.md)
 - ADR index: [architectural-decisions-record/README.md](architectural-decisions-record/README.md)
 - API contracts: [api-contracts/openapi](api-contracts/openapi)
 

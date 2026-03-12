@@ -650,6 +650,35 @@ variable "cognito_logout_urls" {
   default     = []
 }
 
+variable "auth_mode" {
+  description = "Runtime auth mode for backend services. Supported values: local, hybrid, cognito."
+  type        = string
+  default     = "local"
+
+  validation {
+    condition     = contains(["local", "hybrid", "cognito"], lower(trimspace(var.auth_mode)))
+    error_message = "auth_mode must be one of: local, hybrid, cognito."
+  }
+}
+
+variable "cognito_issuer_url" {
+  description = "Optional Cognito issuer URL override. Leave empty to derive from the Cognito module output."
+  type        = string
+  default     = ""
+}
+
+variable "cognito_jwks_url" {
+  description = "Optional Cognito JWKS URL override. Leave empty to derive from the Cognito module output."
+  type        = string
+  default     = ""
+}
+
+variable "cognito_audience" {
+  description = "Optional Cognito audience/client ID override. Leave empty to derive from the Cognito app client ID."
+  type        = string
+  default     = ""
+}
+
 #--------------------------------------------------------------
 # Messaging Pipelines (Audit, AML, Verification)
 #--------------------------------------------------------------

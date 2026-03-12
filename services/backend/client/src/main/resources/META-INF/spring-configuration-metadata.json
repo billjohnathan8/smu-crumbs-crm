@@ -35,6 +35,36 @@
       "description": "HMAC secret for JWT token signing and validation"
     },
     {
+      "name": "app.jwt.auth-mode",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.client_service.config.AppProperties$Jwt",
+      "description": "Authentication token validation mode. Supported values: local, hybrid, cognito."
+    },
+    {
+      "name": "app.jwt.cognito.issuer",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.client_service.config.AppProperties$Jwt",
+      "description": "Expected Cognito issuer URL for RS256 token validation."
+    },
+    {
+      "name": "app.jwt.cognito.audience",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.client_service.config.AppProperties$Jwt",
+      "description": "Expected Cognito app client ID used as token audience/client_id."
+    },
+    {
+      "name": "app.jwt.cognito.jwks-url",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.client_service.config.AppProperties$Jwt",
+      "description": "Cognito JWKS endpoint URL used to resolve RSA verification keys."
+    },
+    {
+      "name": "app.jwt.cognito.jwks-cache-ttl-seconds",
+      "type": "java.lang.Long",
+      "sourceType": "com.scroogebank.crm.client_service.config.AppProperties$Jwt",
+      "description": "JWKS cache TTL in seconds for Cognito key refresh."
+    },
+    {
       "name": "app.verification-email.provider",
       "type": "java.lang.String",
       "sourceType": "com.scroogebank.crm.client_service.config.AppProperties$VerificationEmail",

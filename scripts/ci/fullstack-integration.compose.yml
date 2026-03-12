@@ -40,6 +40,7 @@ services:
       SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-crm_app}
       SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASSWORD:-devpassword}
       APP_USER_STORE_TYPE: postgres
+      AUTH_MODE: local
       JWT_HMAC_SECRET: dev-only-insecure-secret
       ROOT_ADMIN_EMAIL: admin@crm.local
       ROOT_ADMIN_PASSWORD: admin123
@@ -61,6 +62,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASSWORD:-devpassword}
       # Lambda-backed log API endpoint (provisioned by run-fullstack-integration-e2e.sh)
       CLIENT_LOG_SERVICE_URL: ${CLIENT_LOG_SERVICE_URL}
+      AUTH_MODE: local
       JWT_HMAC_SECRET: dev-only-insecure-secret
       VERIFICATION_EMAIL_PROVIDER: ${VERIFICATION_EMAIL_PROVIDER:-mock}
       SES_SENDER_EMAIL: ${SES_SENDER_EMAIL:-verification@crm.local}
@@ -87,6 +89,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASSWORD:-devpassword}
       APP_TRANSACTIONS_STORE_TYPE: postgres
       CLIENT_SERVICE_URL: http://client-service:8080
+      AUTH_MODE: local
       JWT_HMAC_SECRET: dev-only-insecure-secret
       TRANSACTION_SFTP_POLL_ENABLED: "true"
       TRANSACTION_SFTP_POLL_FIXED_DELAY_MS: "5000"

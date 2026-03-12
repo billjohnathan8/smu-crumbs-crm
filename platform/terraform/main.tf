@@ -256,6 +256,10 @@ module "ecs" {
   ecs_task_execution_role_arn                     = module.security.ecs_task_execution_role_arn
   ecs_task_role_arns                              = module.security.ecs_task_role_arns
   root_admin_email                                = var.root_admin_email
+  auth_mode                                       = lower(trimspace(var.auth_mode))
+  cognito_issuer_url                              = var.cognito_issuer_url != "" ? var.cognito_issuer_url : (var.enable_cognito ? module.cognito[0].issuer_url : "")
+  cognito_jwks_url                                = var.cognito_jwks_url != "" ? var.cognito_jwks_url : (var.enable_cognito ? module.cognito[0].jwks_url : "")
+  cognito_audience                                = var.cognito_audience != "" ? var.cognito_audience : (var.enable_cognito ? module.cognito[0].app_client_id : "")
   transaction_mock_sftp_root                      = var.transaction_mock_sftp_root
   transaction_import_s3_bucket                    = module.s3.transaction_sftp_bucket_name != null ? module.s3.transaction_sftp_bucket_name : ""
   transaction_import_s3_region                    = var.aws_region

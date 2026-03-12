@@ -33,6 +33,12 @@ spring:
 app:
   jwt:
     hmac-secret: ${JWT_HMAC_SECRET:}
+    auth-mode: ${AUTH_MODE:local}
+    cognito:
+      issuer: ${COGNITO_ISSUER:}
+      audience: ${COGNITO_AUDIENCE:}
+      jwks-url: ${COGNITO_JWKS_URL:}
+      jwks-cache-ttl-seconds: ${COGNITO_JWKS_CACHE_TTL_SECONDS:300}
   client-service-url: ${CLIENT_SERVICE_URL:http://localhost:8080}
   mock-sftp:
     root: ${MOCK_SFTP_ROOT:./mock-sftp}
