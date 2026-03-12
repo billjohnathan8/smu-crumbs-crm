@@ -68,7 +68,9 @@ def _load_service_jwt_secret() -> str | None:
         return None
 
     try:
-        secret_value = boto3.client("secretsmanager").get_secret_value(SecretId=secret_arn)["SecretString"]
+        secret_value = boto3.client("secretsmanager").get_secret_value(
+            SecretId=secret_arn
+        )["SecretString"]
     except Exception:
         logger.exception("Failed to load JWT secret for verification feedback auth")
         return None
@@ -92,10 +94,16 @@ def _mint_service_jwt() -> str | None:
         "iat": now_epoch,
         "exp": now_epoch + ttl_seconds,
     }
-    header_segment = _b64url_encode(json.dumps(header, separators=(",", ":"), sort_keys=True).encode("utf-8"))
-    payload_segment = _b64url_encode(json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8"))
+    header_segment = _b64url_encode(
+        json.dumps(header, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    )
+    payload_segment = _b64url_encode(
+        json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    )
     signing_input = f"{header_segment}.{payload_segment}"
-    signature = hmac.new(secret.encode("utf-8"), signing_input.encode("ascii"), hashlib.sha256).digest()
+    signature = hmac.new(
+        secret.encode("utf-8"), signing_input.encode("ascii"), hashlib.sha256
+    ).digest()
     return f"{signing_input}.{_b64url_encode(signature)}"
 
 
@@ -160,7 +168,9 @@ def _update_communication_feedback(
     authorization = _resolve_authorization_header()
     if authorization:
         headers["Authorization"] = authorization
-    request = urllib.request.Request(url=url, data=payload, headers=headers, method="PATCH")
+    request = urllib.request.Request(
+        url=url, data=payload, headers=headers, method="PATCH"
+    )
     with urllib.request.urlopen(request, timeout=15) as response:
         return response.getcode(), response.read().decode("utf-8", errors="replace")
 

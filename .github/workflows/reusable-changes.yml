@@ -18,6 +18,9 @@ on:
       backend-log:
         description: 'true if services/backend/log changed'
         value: ${{ jobs.detect.outputs.backend-log }}
+      backend-verification:
+        description: 'true if services/backend/verification changed'
+        value: ${{ jobs.detect.outputs.backend-verification }}
       backend-transaction-ingestion-lambda:
         description: 'true if services/backend/transaction-ingestion-lambda changed'
         value: ${{ jobs.detect.outputs.backend-transaction-ingestion-lambda }}
@@ -56,6 +59,7 @@ jobs:
       backend-client: ${{ steps.filter.outputs.backend-client }}
       backend-transaction: ${{ steps.filter.outputs.backend-transaction }}
       backend-log: ${{ steps.filter.outputs.backend-log }}
+      backend-verification: ${{ steps.filter.outputs.backend-verification }}
       backend-transaction-ingestion-lambda: ${{ steps.filter.outputs.backend-transaction-ingestion-lambda }}
       frontend: ${{ steps.filter.outputs.frontend }}
       integration-tests: ${{ steps.filter.outputs.integration-tests }}
@@ -84,6 +88,8 @@ jobs:
               - 'services/backend/transaction/**'
             backend-log:
               - 'services/backend/log/**'
+            backend-verification:
+              - 'services/backend/verification/**'
             backend-transaction-ingestion-lambda:
               - 'services/backend/transaction-ingestion-lambda/**'
             frontend:
@@ -107,6 +113,7 @@ jobs:
              [[ "${{ steps.filter.outputs.backend-client }}" == "true" ]] || \
              [[ "${{ steps.filter.outputs.backend-transaction }}" == "true" ]] || \
              [[ "${{ steps.filter.outputs.backend-log }}" == "true" ]] || \
+             [[ "${{ steps.filter.outputs.backend-verification }}" == "true" ]] || \
              [[ "${{ steps.filter.outputs.backend-transaction-ingestion-lambda }}" == "true" ]]; then
             ANY_BACKEND="true"
           fi
@@ -132,6 +139,7 @@ jobs:
             echo "| backend-client | ${{ steps.filter.outputs.backend-client }} |"
             echo "| backend-transaction | ${{ steps.filter.outputs.backend-transaction }} |"
             echo "| backend-log | ${{ steps.filter.outputs.backend-log }} |"
+            echo "| backend-verification | ${{ steps.filter.outputs.backend-verification }} |"
             echo "| backend-transaction-ingestion-lambda | ${{ steps.filter.outputs.backend-transaction-ingestion-lambda }} |"
             echo "| frontend | ${{ steps.filter.outputs.frontend }} |"
             echo "| integration-tests | ${{ steps.filter.outputs.integration-tests }} |"

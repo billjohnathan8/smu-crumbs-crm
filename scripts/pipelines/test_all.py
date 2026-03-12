@@ -268,6 +268,42 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
             )
         )
 
+        verification_dir = services_backend / "verification"
+        steps.append(
+            Step(
+                phase=phase,
+                name="Python deps install (verification)",
+                cwd=verification_dir,
+                command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
+            )
+        )
+        steps.append(
+            Step(
+                phase=phase,
+                name="Black check (verification)",
+                cwd=verification_dir,
+                command=[py, "-m", "black", "--check", "--diff", "lambda_function.py", "tests"],
+            )
+        )
+        steps.append(
+            Step(
+                phase=phase,
+                name="Flake8 (verification)",
+                cwd=verification_dir,
+                command=[
+                    py,
+                    "-m",
+                    "flake8",
+                    "--jobs",
+                    "1",
+                    "--max-line-length=100",
+                    "--extend-ignore=E501,E203,W503",
+                    "lambda_function.py",
+                    "tests",
+                ],
+            )
+        )
+
         if not args.skip_terraform:
             steps.append(
                 Step(
@@ -474,6 +510,15 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                 command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
             )
         )
+        verification_dir = services_backend / "verification"
+        steps.append(
+            Step(
+                phase=phase,
+                name="Python deps install (verification test stage)",
+                cwd=verification_dir,
+                command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
+            )
+        )
 
         for svc in ("agent", "client", "transaction"):
             svc_dir = services_backend / svc
@@ -519,6 +564,26 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                 phase=phase,
                 name="Unit tests (transaction-ingestion-lambda)",
                 cwd=transaction_ingestion_lambda_dir,
+                command=[
+                    py,
+                    "-m",
+                    "pytest",
+                    "tests",
+                    "--junitxml=build/reports/tests/junit.xml",
+                    "--cov=lambda_function",
+                    "--cov-branch",
+                    "--cov-report=term-missing",
+                    "--cov-report=xml:build/reports/coverage/coverage.xml",
+                    "--cov-report=html:build/reports/coverage/html",
+                ],
+                parallel_group=backend_parallel_group,
+            )
+        )
+        steps.append(
+            Step(
+                phase=phase,
+                name="Unit tests (verification)",
+                cwd=verification_dir,
                 command=[
                     py,
                     "-m",

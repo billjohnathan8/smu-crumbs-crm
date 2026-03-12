@@ -95,6 +95,8 @@ jobs:
             source-dirs: lambda_function.py tests
           - service: transaction-ingestion-lambda
             source-dirs: lambda_function.py tests
+          - service: verification
+            source-dirs: lambda_function.py tests
     defaults:
       run:
         working-directory: services/backend/${{ matrix.service }}
