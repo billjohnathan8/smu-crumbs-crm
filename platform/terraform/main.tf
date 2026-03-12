@@ -145,6 +145,7 @@ module "alb" {
 module "lambda" {
   source = "./modules/lambda"
 
+  enable_log_lambda             = var.enable_log_lambda
   project_name                  = var.project_name
   environment                   = var.environment
   name_prefix                   = local.name_prefix
@@ -161,6 +162,7 @@ module "lambda" {
   db_username_secret_arn        = module.security.db_username_secret_arn
   db_password_secret_arn        = module.security.db_password_secret_arn
   jwt_hmac_secret_arn           = module.security.jwt_hmac_secret_arn
+  enable_aml_lambda             = var.enable_aml_lambda
   aml_lambda_zip_path           = var.aml_lambda_zip_path
   aml_lambda_memory_size        = var.aml_lambda_memory_size
   aml_lambda_timeout_seconds    = var.aml_lambda_timeout_seconds
@@ -204,6 +206,7 @@ module "lambda" {
 #--------------------------------------------------------------
 module "apigateway" {
   source = "./modules/apigateway"
+  count  = var.enable_log_lambda ? 1 : 0
 
   project_name                  = var.project_name
   environment                   = var.environment
@@ -242,7 +245,7 @@ module "ecs" {
   root_admin_email                  = var.root_admin_email
   transaction_mock_sftp_root        = var.transaction_mock_sftp_root
   db_jdbc_url                       = module.rds.db_jdbc_url
-  log_api_base_url                  = module.apigateway.log_api_base_url
+  log_api_base_url                  = var.enable_log_lambda ? module.apigateway[0].log_api_base_url : ""
   root_admin_password_secret_arn    = module.security.root_admin_password_secret_arn
   jwt_hmac_secret_arn               = module.security.jwt_hmac_secret_arn
   db_username_secret_arn            = module.security.db_username_secret_arn
@@ -311,10 +314,11 @@ module "cloudfront" {
   frontend_certificate_arn             = local.use_custom_domain ? module.acm[0].frontend_certificate_arn : null
   alb_origin_domain_name               = local.use_custom_domain ? module.acm[0].alb_origin_domain_name : null
   alb_dns_name                         = module.alb.alb_dns_name
-  log_api_origin_domain_name           = module.apigateway.log_api_origin_domain_name
   frontend_bucket_id                   = module.s3.frontend_bucket_id
   frontend_bucket_arn                  = module.s3.frontend_bucket_arn
   frontend_bucket_regional_domain_name = module.s3.frontend_bucket_regional_domain_name
+  enable_log_api_origin                = var.enable_log_lambda
+  log_api_origin_domain_name           = var.enable_log_lambda ? module.apigateway[0].log_api_origin_domain_name : null
   waf_arn                              = module.waf.waf_arn
   route53_zone_id                      = var.route53_hosted_zone_id
 }

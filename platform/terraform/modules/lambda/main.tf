@@ -5,11 +5,15 @@
 #--------------------------------------------------------------
 
 resource "aws_cloudwatch_log_group" "log_lambda" {
+  count = var.enable_log_lambda ? 1 : 0
+
   name              = "/aws/lambda/${var.name_prefix}-log-service"
   retention_in_days = var.cloudwatch_log_retention_days
 }
 
 resource "aws_lambda_function" "log" {
+  count = var.enable_log_lambda ? 1 : 0
+
   function_name    = "${var.name_prefix}-log-service"
   filename         = var.log_lambda_zip_path
   source_code_hash = filebase64sha256(var.log_lambda_zip_path)
@@ -35,15 +39,19 @@ resource "aws_lambda_function" "log" {
     }
   }
 
-  depends_on = [aws_cloudwatch_log_group.log_lambda]
+  depends_on = [aws_cloudwatch_log_group.log_lambda[0]]
 }
 
 resource "aws_cloudwatch_log_group" "aml_lambda" {
+  count = var.enable_aml_lambda ? 1 : 0
+
   name              = "/aws/lambda/${var.name_prefix}-aml"
   retention_in_days = var.cloudwatch_log_retention_days
 }
 
 resource "aws_lambda_function" "aml" {
+  count = var.enable_aml_lambda ? 1 : 0
+
   function_name    = "${var.name_prefix}-aml"
   filename         = var.aml_lambda_zip_path
   source_code_hash = filebase64sha256(var.aml_lambda_zip_path)
@@ -67,10 +75,12 @@ resource "aws_lambda_function" "aml" {
     }
   }
 
-  depends_on = [aws_cloudwatch_log_group.aml_lambda]
+  depends_on = [aws_cloudwatch_log_group.aml_lambda[0]]
 }
 
 resource "aws_cloudwatch_event_rule" "aml_schedule" {
+  count = var.enable_aml_lambda ? 1 : 0
+
   name                = "${var.name_prefix}-aml-schedule"
   description         = "Schedule for AML Lambda batch processing."
   schedule_expression = var.aml_schedule_expression
@@ -78,18 +88,22 @@ resource "aws_cloudwatch_event_rule" "aml_schedule" {
 }
 
 resource "aws_cloudwatch_event_target" "aml_lambda" {
-  rule      = aws_cloudwatch_event_rule.aml_schedule.name
+  count = var.enable_aml_lambda ? 1 : 0
+
+  rule      = aws_cloudwatch_event_rule.aml_schedule[0].name
   target_id = "aml-lambda"
-  arn       = aws_lambda_function.aml.arn
+  arn       = aws_lambda_function.aml[0].arn
   input     = "{}"
 }
 
 resource "aws_lambda_permission" "allow_eventbridge_invoke_aml" {
+  count = var.enable_aml_lambda ? 1 : 0
+
   statement_id  = "AllowExecutionFromEventBridge"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.aml.function_name
+  function_name = aws_lambda_function.aml[0].function_name
   principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.aml_schedule.arn
+  source_arn    = aws_cloudwatch_event_rule.aml_schedule[0].arn
 }
 
 # --- Audit consumer Lambda (SQS → DynamoDB) ---

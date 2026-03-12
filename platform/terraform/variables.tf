@@ -273,10 +273,25 @@ variable "transaction_mock_sftp_root" {
 #--------------------------------------------------------------
 # Lambda Functions Configuration
 #--------------------------------------------------------------
+variable "enable_log_lambda" {
+  description = "Create the log service Lambda and its API Gateway integration."
+  type        = bool
+  default     = false
+}
+
 variable "log_lambda_zip_path" {
   description = "Path to the packaged log Lambda zip artifact."
   type        = string
   default     = "../../services/backend/log/log-lambda.zip"
+
+  validation {
+    condition = !var.enable_log_lambda || (
+      trimspace(var.log_lambda_zip_path) != "" &&
+      fileexists(var.log_lambda_zip_path) &&
+      filesize(var.log_lambda_zip_path) > 0
+    )
+    error_message = "When enable_log_lambda is true, log_lambda_zip_path must point to an existing, non-empty zip file."
+  }
 }
 
 variable "log_lambda_memory_size" {
@@ -294,10 +309,25 @@ variable "log_lambda_timeout_seconds" {
 #--------------------------------------------------------------
 # AML / SFTP Ingestion Configuration
 #--------------------------------------------------------------
+variable "enable_aml_lambda" {
+  description = "Create the scheduled AML ingestion Lambda and EventBridge schedule."
+  type        = bool
+  default     = false
+}
+
 variable "aml_lambda_zip_path" {
   description = "Path to the packaged AML Lambda zip artifact."
   type        = string
   default     = "../../services/backend/aml/aml-lambda.zip"
+
+  validation {
+    condition = !var.enable_aml_lambda || (
+      trimspace(var.aml_lambda_zip_path) != "" &&
+      fileexists(var.aml_lambda_zip_path) &&
+      filesize(var.aml_lambda_zip_path) > 0
+    )
+    error_message = "When enable_aml_lambda is true, aml_lambda_zip_path must point to an existing, non-empty zip file."
+  }
 }
 
 variable "aml_lambda_memory_size" {
@@ -500,37 +530,64 @@ variable "cognito_logout_urls" {
 variable "enable_audit_pipeline" {
   description = "Create audit SQS queue, consumer Lambda, and DynamoDB table."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "enable_aml_pipeline" {
   description = "Create AML SQS queue, consumer Lambda, and DynamoDB table."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "enable_verification_pipeline" {
   description = "Create verification Lambda, SNS topic, SES identity, and S3 bucket."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "audit_consumer_zip_path" {
   description = "Path to audit consumer Lambda zip."
   type        = string
   default     = "../../services/backend/audit-consumer/audit-consumer-lambda.zip"
+
+  validation {
+    condition = !var.enable_audit_pipeline || (
+      trimspace(var.audit_consumer_zip_path) != "" &&
+      fileexists(var.audit_consumer_zip_path) &&
+      filesize(var.audit_consumer_zip_path) > 0
+    )
+    error_message = "When enable_audit_pipeline is true, audit_consumer_zip_path must point to an existing, non-empty zip file."
+  }
 }
 
 variable "aml_consumer_zip_path" {
   description = "Path to AML consumer Lambda zip."
   type        = string
   default     = "../../services/backend/aml-consumer/aml-consumer-lambda.zip"
+
+  validation {
+    condition = !var.enable_aml_pipeline || (
+      trimspace(var.aml_consumer_zip_path) != "" &&
+      fileexists(var.aml_consumer_zip_path) &&
+      filesize(var.aml_consumer_zip_path) > 0
+    )
+    error_message = "When enable_aml_pipeline is true, aml_consumer_zip_path must point to an existing, non-empty zip file."
+  }
 }
 
 variable "verification_zip_path" {
   description = "Path to verification Lambda zip."
   type        = string
   default     = "../../services/backend/verification/verification-lambda.zip"
+
+  validation {
+    condition = !var.enable_verification_pipeline || (
+      trimspace(var.verification_zip_path) != "" &&
+      fileexists(var.verification_zip_path) &&
+      filesize(var.verification_zip_path) > 0
+    )
+    error_message = "When enable_verification_pipeline is true, verification_zip_path must point to an existing, non-empty zip file."
+  }
 }
 
 #--------------------------------------------------------------

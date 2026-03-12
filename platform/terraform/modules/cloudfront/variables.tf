@@ -41,9 +41,22 @@ variable "alb_dns_name" {
   type        = string
 }
 
+variable "enable_log_api_origin" {
+  description = "Enable CloudFront origin and path rules for the log API Gateway."
+  type        = bool
+  default     = false
+}
+
 variable "log_api_origin_domain_name" {
   description = "API Gateway origin domain."
   type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition     = !var.enable_log_api_origin || (var.log_api_origin_domain_name != null && trimspace(var.log_api_origin_domain_name) != "")
+    error_message = "log_api_origin_domain_name must be set when enable_log_api_origin is true."
+  }
 }
 
 variable "frontend_bucket_id" {

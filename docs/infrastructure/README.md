@@ -41,3 +41,44 @@ make terraform-graph
 Generated outputs:
 - `docs/infrastructure/generated/inframap/` (InfraMap outputs)
 - `docs/infrastructure/generated/terraform-graph/` (Terraform dependency graph outputs)
+
+## Optional Lambda Features and Artifacts
+
+These Lambda-backed features are disabled by default so a clean checkout validates without local zip artifacts:
+
+- `enable_log_lambda` (log-service Lambda + API Gateway)
+- `enable_aml_lambda` (scheduled AML ingestion Lambda)
+- `enable_audit_pipeline` (audit SQS + consumer Lambda + DynamoDB)
+- `enable_aml_pipeline` (AML SQS + consumer Lambda + DynamoDB)
+- `enable_verification_pipeline` (verification Lambda + SNS + S3 + SES integration)
+
+When any of the above flags is set to `true`, Terraform enforces that the corresponding zip path exists and is non-empty.
+
+Example commands (from repo root):
+
+```bash
+# Log service Lambda (+ API Gateway)
+terraform -chdir=platform/terraform plan \
+  -var='enable_log_lambda=true' \
+  -var='log_lambda_zip_path=../../services/backend/log/log-lambda.zip'
+
+# AML ingestion Lambda (EventBridge scheduled)
+terraform -chdir=platform/terraform plan \
+  -var='enable_aml_lambda=true' \
+  -var='aml_lambda_zip_path=../../services/backend/aml/aml-lambda.zip'
+
+# Audit pipeline consumer Lambda
+terraform -chdir=platform/terraform plan \
+  -var='enable_audit_pipeline=true' \
+  -var='audit_consumer_zip_path=../../services/backend/audit-consumer/audit-consumer-lambda.zip'
+
+# AML pipeline consumer Lambda
+terraform -chdir=platform/terraform plan \
+  -var='enable_aml_pipeline=true' \
+  -var='aml_consumer_zip_path=../../services/backend/aml-consumer/aml-consumer-lambda.zip'
+
+# Verification pipeline Lambda
+terraform -chdir=platform/terraform plan \
+  -var='enable_verification_pipeline=true' \
+  -var='verification_zip_path=../../services/backend/verification/verification-lambda.zip'
+```

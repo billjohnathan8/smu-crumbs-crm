@@ -46,7 +46,7 @@ output "alb_dns_name" {
 
 output "log_api_invoke_url" {
   description = "API Gateway invoke URL for log Lambda routes."
-  value       = module.apigateway.log_api_base_url
+  value       = var.enable_log_lambda ? module.apigateway[0].log_api_base_url : null
 }
 
 #--------------------------------------------------------------
