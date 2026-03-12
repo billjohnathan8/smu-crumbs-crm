@@ -25,6 +25,7 @@ jobs:
       aml-backend: ${{ steps.filter.outputs.aml-backend }}
       client-backend: ${{ steps.filter.outputs.client-backend }}
       log-backend: ${{ steps.filter.outputs.log-backend }}
+      transaction-ingestion-lambda-backend: ${{ steps.filter.outputs.transaction-ingestion-lambda-backend }}
       transaction-backend: ${{ steps.filter.outputs.transaction-backend }}
       platform: ${{ steps.filter.outputs.platform }}
     steps:
@@ -48,6 +49,8 @@ jobs:
               - 'services/backend/client/**'
             log-backend:
               - 'services/backend/log/**'
+            transaction-ingestion-lambda-backend:
+              - 'services/backend/transaction-ingestion-lambda/**'
             transaction-backend:
               - 'services/backend/transaction/**'
             platform:
@@ -83,6 +86,12 @@ jobs:
     needs: [detect-changes]
     if: needs.detect-changes.outputs.log-backend == 'true'
     uses: ./.github/workflows/ci-log-backend.yml
+
+  ci-transaction-ingestion-lambda-backend:
+    name: CI - Transaction Ingestion Lambda Backend
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.transaction-ingestion-lambda-backend == 'true'
+    uses: ./.github/workflows/ci-transaction-ingestion-lambda-backend.yml
 
   ci-transaction-backend:
     name: CI - Transaction Backend
@@ -121,6 +130,7 @@ jobs:
       - ci-aml-backend
       - ci-client-backend
       - ci-log-backend
+      - ci-transaction-ingestion-lambda-backend
       - ci-transaction-backend
       - ci-terraform
       - openapi-lint

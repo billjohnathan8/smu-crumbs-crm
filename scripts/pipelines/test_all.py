@@ -14,6 +14,7 @@ It runs the same logical layers as `.github/workflows/ci-main.yml`:
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import json
 import os
 import shutil
@@ -38,6 +39,7 @@ class Step:
     cwd: Path
     command: List[str]
     env: Dict[str, str] = field(default_factory=dict)
+    parallel_group: Optional[str] = None
 
 
 @dataclass
@@ -230,6 +232,42 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
             )
         )
 
+        transaction_ingestion_lambda_dir = services_backend / "transaction-ingestion-lambda"
+        steps.append(
+            Step(
+                phase=phase,
+                name="Python deps install (transaction-ingestion-lambda)",
+                cwd=transaction_ingestion_lambda_dir,
+                command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
+            )
+        )
+        steps.append(
+            Step(
+                phase=phase,
+                name="Black check (transaction-ingestion-lambda)",
+                cwd=transaction_ingestion_lambda_dir,
+                command=[py, "-m", "black", "--check", "--diff", "lambda_function.py", "tests"],
+            )
+        )
+        steps.append(
+            Step(
+                phase=phase,
+                name="Flake8 (transaction-ingestion-lambda)",
+                cwd=transaction_ingestion_lambda_dir,
+                command=[
+                    py,
+                    "-m",
+                    "flake8",
+                    "--jobs",
+                    "1",
+                    "--max-line-length=100",
+                    "--extend-ignore=E501,E203,W503",
+                    "lambda_function.py",
+                    "tests",
+                ],
+            )
+        )
+
         if not args.skip_terraform:
             steps.append(
                 Step(
@@ -382,6 +420,27 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
 
     if run_backend:
         phase = "Layer 2 - Unit / Component Tests"
+        backend_parallel_group = "backend-unit-tests"
+
+        log_dir = services_backend / "log"
+        steps.append(
+            Step(
+                phase=phase,
+                name="Python deps install (log test stage)",
+                cwd=log_dir,
+                command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
+            )
+        )
+        transaction_ingestion_lambda_dir = services_backend / "transaction-ingestion-lambda"
+        steps.append(
+            Step(
+                phase=phase,
+                name="Python deps install (transaction-ingestion-lambda test stage)",
+                cwd=transaction_ingestion_lambda_dir,
+                command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
+            )
+        )
+
         for svc in ("agent", "client", "transaction"):
             svc_dir = services_backend / svc
             steps.append(
@@ -396,18 +455,10 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                         "--no-daemon",
                         "--console=plain",
                     ),
+                    parallel_group=backend_parallel_group,
                 )
             )
 
-        log_dir = services_backend / "log"
-        steps.append(
-            Step(
-                phase=phase,
-                name="Python deps install (log test stage)",
-                cwd=log_dir,
-                command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
-            )
-        )
         steps.append(
             Step(
                 phase=phase,
@@ -425,6 +476,28 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                     "--cov-report=xml:build/reports/coverage/coverage.xml",
                     "--cov-report=html:build/reports/coverage/html",
                 ],
+                parallel_group=backend_parallel_group,
+            )
+        )
+
+        steps.append(
+            Step(
+                phase=phase,
+                name="Unit tests (transaction-ingestion-lambda)",
+                cwd=transaction_ingestion_lambda_dir,
+                command=[
+                    py,
+                    "-m",
+                    "pytest",
+                    "tests",
+                    "--junitxml=build/reports/tests/junit.xml",
+                    "--cov=lambda_function",
+                    "--cov-branch",
+                    "--cov-report=term-missing",
+                    "--cov-report=xml:build/reports/coverage/coverage.xml",
+                    "--cov-report=html:build/reports/coverage/html",
+                ],
+                parallel_group=backend_parallel_group,
             )
         )
 
@@ -528,7 +601,7 @@ def prune_old_runs(keep: int = LOG_RETENTION_RUNS) -> None:
         shutil.rmtree(old_run, ignore_errors=True)
 
 
-def run_step(step: Step, run_dir: Path, index: int, dry_run: bool) -> StepResult:
+def log_file_for_step(step: Step, run_dir: Path, index: int) -> Path:
     slug = (
         step.name.lower()
         .replace(" ", "-")
@@ -537,7 +610,11 @@ def run_step(step: Step, run_dir: Path, index: int, dry_run: bool) -> StepResult
         .replace(")", "")
         .replace(":", "")
     )
-    log_file = run_dir / f"{index:02d}-{slug}.log"
+    return run_dir / f"{index:02d}-{slug}.log"
+
+
+def run_step(step: Step, run_dir: Path, index: int, dry_run: bool) -> StepResult:
+    log_file = log_file_for_step(step, run_dir, index)
     cmd_display = display_command(step.command)
 
     print("")
@@ -610,6 +687,98 @@ def run_step(step: Step, run_dir: Path, index: int, dry_run: bool) -> StepResult
         duration_seconds=elapsed,
         log_file=str(log_file),
     )
+
+
+def run_parallel_step(step: Step, run_dir: Path, index: int, dry_run: bool) -> StepResult:
+    log_file = log_file_for_step(step, run_dir, index)
+    cmd_display = display_command(step.command)
+
+    if dry_run:
+        return StepResult(
+            phase=step.phase,
+            name=step.name,
+            command=cmd_display,
+            cwd=str(step.cwd),
+            status="DRY-RUN",
+            duration_seconds=0.0,
+            log_file=str(log_file),
+        )
+
+    start = time.monotonic()
+    env = os.environ.copy()
+    env.update(step.env)
+    run_command = resolve_windows_command(step.command)
+
+    with log_file.open("w", encoding="utf-8", errors="replace") as handle:
+        try:
+            completed = subprocess.run(
+                run_command,
+                cwd=step.cwd,
+                env=env,
+                stdout=handle,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+            )
+        except FileNotFoundError as exc:
+            elapsed = time.monotonic() - start
+            message = f"[FAIL] Unable to start command: {exc}"
+            handle.write(message + "\n")
+            return StepResult(
+                phase=step.phase,
+                name=step.name,
+                command=cmd_display,
+                cwd=str(step.cwd),
+                status="FAIL",
+                duration_seconds=elapsed,
+                log_file=str(log_file),
+            )
+
+    elapsed = time.monotonic() - start
+    status = "PASS" if completed.returncode == 0 else "FAIL"
+    return StepResult(
+        phase=step.phase,
+        name=step.name,
+        command=cmd_display,
+        cwd=str(step.cwd),
+        status=status,
+        duration_seconds=elapsed,
+        log_file=str(log_file),
+    )
+
+
+def run_parallel_group(
+    steps: List[Step], run_dir: Path, start_index: int, dry_run: bool
+) -> List[StepResult]:
+    print("")
+    print(f"[PARALLEL GROUP] {steps[0].parallel_group} ({len(steps)} steps)")
+    indexed_steps = list(enumerate(steps, start=start_index))
+    for index, step in indexed_steps:
+        log_file = log_file_for_step(step, run_dir, index)
+        cmd_display = display_command(step.command)
+        print(f"  [STEP {index:02d}] {step.name}")
+        print(f"    cwd : {step.cwd}")
+        print(f"    cmd : {cmd_display}")
+        print(f"    log : {log_file}")
+
+    results_by_index: dict[int, StepResult] = {}
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=len(indexed_steps)
+    ) as executor:
+        future_to_index = {
+            executor.submit(run_parallel_step, step, run_dir, index, dry_run): index
+            for index, step in indexed_steps
+        }
+
+        for future in concurrent.futures.as_completed(future_to_index):
+            index = future_to_index[future]
+            result = future.result()
+            results_by_index[index] = result
+            print(f"[{result.status}] {result.name} ({result.duration_seconds:.1f}s)")
+
+    return [results_by_index[index] for index, _ in indexed_steps]
 
 
 def write_summary(results: List[StepResult], run_dir: Path, started_at: float, args: argparse.Namespace) -> None:
@@ -755,7 +924,10 @@ def main() -> int:
     results: List[StepResult] = []
     current_phase = ""
 
-    for idx, step in enumerate(steps, start=1):
+    index = 0
+    while index < len(steps):
+        step = steps[index]
+
         if step.phase != current_phase:
             current_phase = step.phase
             print("")
@@ -763,10 +935,32 @@ def main() -> int:
             print(current_phase)
             print("#" * 90)
 
-        result = run_step(step, run_dir, idx, args.dry_run)
+        if step.parallel_group:
+            group: List[Step] = [step]
+            group_index = index + 1
+            next_index = index + 1
+            while next_index < len(steps):
+                next_step = steps[next_index]
+                if (
+                    next_step.phase != step.phase
+                    or next_step.parallel_group != step.parallel_group
+                ):
+                    break
+                group.append(next_step)
+                next_index += 1
+
+            group_results = run_parallel_group(group, run_dir, group_index, args.dry_run)
+            results.extend(group_results)
+            if any(result.status == "FAIL" for result in group_results):
+                break
+            index = next_index
+            continue
+
+        result = run_step(step, run_dir, index + 1, args.dry_run)
         results.append(result)
         if result.status == "FAIL":
             break
+        index += 1
 
     write_summary(results, run_dir, started_at, args)
     prune_old_runs(keep=LOG_RETENTION_RUNS)

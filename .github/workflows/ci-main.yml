@@ -14,6 +14,7 @@ name: CI - Main Pipeline
 #      +---> test-client           |  parallel unit tests, each gated by its scope
 #      +---> test-transaction      |
 #      +---> test-log              |
+#      +---> test-transaction-ingestion-lambda |
 #      +---> test-frontend        /
 #      |
 #      v
@@ -70,6 +71,7 @@ jobs:
             || needs.changes.outputs.ci-config == 'true' }}
       run-backend-python: >-
         ${{ needs.changes.outputs.backend-log == 'true'
+            || needs.changes.outputs.backend-transaction-ingestion-lambda == 'true'
             || needs.changes.outputs.ci-config == 'true' }}
       run-frontend: >-
         ${{ needs.changes.outputs.frontend == 'true'
@@ -153,6 +155,29 @@ jobs:
         services/backend/log/build/reports/**
         services/backend/log/build/coverage.xml
 
+  test-transaction-ingestion-lambda:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-transaction-ingestion-lambda == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component.yml
+    with:
+      component: transaction-ingestion-lambda
+      runtime: python
+      working-directory: services/backend/transaction-ingestion-lambda
+      test-command: |
+        python -m pytest tests \
+          --junitxml=build/reports/tests/junit.xml \
+          --cov=lambda_function \
+          --cov-branch \
+          --cov-report=term-missing \
+          --cov-report=xml:build/reports/coverage/coverage.xml \
+          --cov-report=html:build/reports/coverage/html
+      timeout-minutes: 8
+      artifact-paths: |
+        services/backend/transaction-ingestion-lambda/build/reports/**
+        services/backend/transaction-ingestion-lambda/build/coverage.xml
+
   test-frontend:
     needs: [changes, lint]
     if: >-
@@ -184,6 +209,7 @@ jobs:
       - test-client
       - test-transaction
       - test-log
+      - test-transaction-ingestion-lambda
       - test-frontend
     runs-on: ubuntu-latest
     timeout-minutes: 15

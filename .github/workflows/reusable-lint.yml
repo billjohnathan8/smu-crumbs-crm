@@ -12,7 +12,7 @@ on:
         type: boolean
         default: false
       run-backend-python:
-        description: 'Run Black + Flake8 for Python log service'
+        description: 'Run Black + Flake8 for Python backend services'
         required: false
         type: boolean
         default: false
@@ -92,6 +92,8 @@ jobs:
           - service: log
             source-dirs: app tests
           - service: aml
+            source-dirs: lambda_function.py tests
+          - service: transaction-ingestion-lambda
             source-dirs: lambda_function.py tests
     defaults:
       run:
