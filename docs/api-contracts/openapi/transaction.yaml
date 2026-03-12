@@ -5,9 +5,11 @@ info:
   description: |
     Feature 4: Bank Account Transactions Management.
 
-    The CRM retrieves transaction information (dummy data) from an external SFTP server
-    and populates its own Transaction table. This API supports viewing transactions
-    and triggering imports from the mock SFTP source.
+    The CRM imports transaction information from a configured source path (filesystem
+    mock SFTP or S3-backed mock SFTP) and populates its own Transaction table.
+    This API supports viewing transactions and triggering imports.
+    In runtime, ingestion can be triggered manually, by the transaction-service
+    scheduler, or by the transaction-ingestion Lambda calling this API.
 
     Appendix 2 (Transaction attributes) requires:
     - ID
@@ -314,9 +316,9 @@ paths:
   /api/transactions/import:
     post:
       tags: [imports]
-      summary: Trigger import from external SFTP source
+      summary: Trigger import from configured source
       description: |
-        Triggers a pull from the mock SFTP server and stores transactions in CRM database.
+        Triggers a pull from the configured source path and stores transactions in CRM database.
         If clientId is provided, imports only for that client; otherwise imports all available records.
       security:
         - BearerAuth: []
