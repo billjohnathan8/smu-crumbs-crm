@@ -237,7 +237,7 @@ The flow direction differs slightly from diagram (S3 triggers Lambda, Lambda use
 ## 15. Key Design Decisions
 
 1. **ECS Fargate over EC2 ASGs**: Equivalent scalable compute; matches diagram intent
-2. **Feature flags for pipelines**: Audit, AML consumer, verification, Cognito, CloudTrail, alarms all default to `false` — present in code but not active by default
+2. **Feature flags for Lambda artifact-dependent flows**: Log Lambda/API, AML ingestion Lambda, audit consumer pipeline, AML consumer pipeline, and verification pipeline are feature-gated and can be disabled for clean-checkout validation
 3. **Single ECR repository**: All services share one repo with tagged images
 4. **API Gateway for log service**: Log API is fronted by HTTP API Gateway -> Lambda (no dedicated log ECS service) - this adds a separate origin in CloudFront
 5. **ACM certificates are external**: ARNs are passed in as variables, not created/validated in Terraform
