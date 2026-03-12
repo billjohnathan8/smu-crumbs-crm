@@ -78,6 +78,9 @@ services:
     build:
       context: ../../services/frontend/crm-ui
       dockerfile: Dockerfile
+    environment:
+      # Keep /api owned by integration-gateway in this topology.
+      FRONTEND_API_UPSTREAM: ""
     ports:
       - "18085:80"
 

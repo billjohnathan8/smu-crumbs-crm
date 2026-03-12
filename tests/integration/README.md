@@ -54,6 +54,9 @@ npm run report
 - Frontend container: `http://127.0.0.1:18085`
 - LocalStack: `http://127.0.0.1:14566`
 
+Routing note:
+- The frontend container runs with `FRONTEND_API_UPSTREAM=""` in this stack, so `/api/*` is intentionally owned by `integration-gateway` (`http://127.0.0.1:18088`).
+
 ## Test Credentials
 
 - Admin: `admin@crm.local` / `admin123`

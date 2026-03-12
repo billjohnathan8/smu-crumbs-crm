@@ -138,7 +138,14 @@ Use these credentials for manual testing:
 
 ### Backend Services Requirement
 
-The frontend requires backend services to be running. The Vite dev server proxies API calls to `http://localhost/api`.
+The frontend always calls relative API paths (`/api/...`).
+Runtime routing is environment-driven:
+
+| Environment | Access URL | How `/api/*` is resolved | Expected config values |
+| --- | --- | --- | --- |
+| Local Vite dev | `http://localhost:5173` | Vite dev server proxies `/api/*` to backend target | `VITE_API_PROXY_ENABLED=true` (default), `VITE_API_PROXY_TARGET=http://localhost:8080` (default) |
+| Fullstack integration stack | `http://127.0.0.1:18088` | `integration-gateway` routes `/api/*` to backend services and log API | Frontend container `FRONTEND_API_UPSTREAM=""` (explicit in compose); gateway config in `scripts/ci/fullstack-gateway.nginx.conf` |
+| Production-like behind ingress/gateway/cloudfront | your public app URL | Edge gateway/ingress routes `/api/*` | Keep `FRONTEND_API_UPSTREAM` empty in frontend container, or set it only for standalone proxy mode |
 
 ## Testing
 
@@ -233,6 +240,14 @@ docker run -p 8080:80 crm-frontend:latest
 
 App runs at http://localhost:8080
 
+`/api/*` behavior in container runtime:
+- Default (`FRONTEND_API_UPSTREAM` unset/empty): frontend serves SPA only; `/api/*` must be routed by an external gateway/ingress.
+- Standalone proxy mode: set `FRONTEND_API_UPSTREAM` to an API gateway/backend origin.
+
+```bash
+docker run -p 8080:80 -e FRONTEND_API_UPSTREAM=http://host.docker.internal:18088 crm-frontend:latest
+```
+
 ### Health Check
 
 ```bash
@@ -298,9 +313,9 @@ All forms validate:
 
 ## Environment Variables
 
-None required (API accessed via same-origin ingress).
-
-For local dev with backend on different port, configure Vite proxy in `vite.config.ts`.
+- `VITE_API_PROXY_ENABLED` (default: `true`): enable/disable Vite `/api` proxy in local dev.
+- `VITE_API_PROXY_TARGET` (default: `http://localhost:8080`): backend target used by Vite dev proxy when enabled.
+- `FRONTEND_API_UPSTREAM` (default: empty): optional nginx runtime upstream for `/api` proxying inside frontend container.
 
 ## Troubleshooting
 

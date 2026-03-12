@@ -20,8 +20,12 @@ RUN npm run build
 # Stage 2: Serve with nginx
 FROM nginx:alpine
 
-# Copy custom nginx config
-COPY nginx.conf /etc/nginx/nginx.conf
+# Runtime API upstream for optional standalone API proxying.
+# Empty default means /api should be handled by external gateway/ingress.
+ENV FRONTEND_API_UPSTREAM=""
+
+# Copy nginx server template (rendered by nginx entrypoint envsubst)
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 
 # Copy built files from build stage
 COPY --from=build /app/dist /usr/share/nginx/html
