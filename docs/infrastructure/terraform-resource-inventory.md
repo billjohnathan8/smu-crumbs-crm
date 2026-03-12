@@ -141,8 +141,20 @@
 | `aws_lb_target_group.service["agent"|"client"|"transaction"]` | `aws_lb_target_group` | `main.tf` |
 | `aws_lb_listener.http` | `aws_lb_listener` | `main.tf` |
 | `aws_lb_listener.https[0]` | `aws_lb_listener` | `main.tf` (when custom domain) |
+| `aws_lb_listener_rule.options_preflight` | `aws_lb_listener_rule` | `main.tf` |
+| `aws_lb_listener_rule.client_transactions` | `aws_lb_listener_rule` | `main.tf` |
 | `aws_lb_listener_rule.service["agent"|"client"|"transaction"]` | `aws_lb_listener_rule` | `main.tf` |
 | `aws_route53_record.alb[0]` | `aws_route53_record` | `route53.tf` (when custom domain + zone_id) |
+
+ALB route precedence (lower priority number evaluated first):
+
+| Priority | Path Pattern | Target Service | Why |
+|----------|--------------|----------------|-----|
+| `1` | `OPTIONS` method | Fixed `200` response | CORS preflight handling |
+| `10` | `/api/auth*`, `/api/agents*`, `/api/v1/agents*`, `/api/v1/health` | `agent` | Agent/auth APIs |
+| `15` | `/api/clients/*/transactions*` | `transaction` | Contract path `/api/clients/{clientId}/transactions` belongs to transaction API and must override generic client routing |
+| `20` | `/api/clients*`, `/api/accounts*`, `/api/v1/clients*` | `client` | Client/account APIs |
+| `30` | `/api/transactions*` | `transaction` | Transaction APIs |
 
 ### module.lambda
 
@@ -312,7 +324,7 @@ Several pipelines are gated behind boolean variables (default `false`):
 ## Resources Always Created (unconditional)
 
 - VPC, IGW, NAT Gateway, public/private subnets, route tables
-- ALB + 3 target groups + listener rules (agent/client/transaction)
+- ALB + 3 target groups + listener rules (including `/api/clients/*/transactions*` -> transaction-service precedence override)
 - ECS cluster, 3 task definitions, 3 services, 3 autoscaling targets + policies
 - CloudMap namespace + 3 service discovery services
 - ECR repository
