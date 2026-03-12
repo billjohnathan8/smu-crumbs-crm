@@ -79,6 +79,8 @@ terraform -chdir=platform/terraform plan \
 
 # Verification pipeline Lambda
 terraform -chdir=platform/terraform plan \
+  -var='enable_log_lambda=true' \
+  -var='log_lambda_zip_path=../../services/backend/log/log-lambda.zip' \
   -var='enable_verification_pipeline=true' \
   -var='verification_zip_path=../../services/backend/verification/verification-lambda.zip'
 ```

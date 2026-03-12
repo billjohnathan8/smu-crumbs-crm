@@ -3,7 +3,7 @@
 This guide covers installing and wiring LocalStack for local development of the
 ScroogeBank CRM event-driven pipeline (SQS → Lambda → DynamoDB → S3 → SNS/SES).
 
-**What runs in LocalStack:** SQS, DynamoDB, S3, Lambda, SNS, Secrets Manager  
+**What runs in LocalStack:** SQS, DynamoDB, S3, Lambda, SNS, SES, Secrets Manager  
 **What runs natively:** PostgreSQL (Docker), Spring Boot services (docker-compose or IDE), React frontend  
 **Log API runtime in local/CI:** LocalStack API Gateway -> log Lambda (no dedicated log-service container)  
 **What is skipped locally:** VPC, NAT Gateway, ALB, CloudFront, WAF, ACM, Route53, CloudTrail, ECS Fargate
@@ -81,6 +81,7 @@ healthy. It creates:
 | scroogebank-crm-dev-frontend | S3 bucket | Frontend static assets |
 | scroogebank-crm-dev-verification | S3 bucket | Verification documents |
 | scroogebank-crm-dev-verification | SNS topic | Verification notifications |
+| verification@crm.local | SES identity | Verification sender identity for local SES tests |
 | scroogebank-crm-dev/db_username | Secret | PostgreSQL username |
 | scroogebank-crm-dev/db_password | Secret | PostgreSQL password |
 | scroogebank-crm-dev/jwt_hmac | Secret | JWT signing secret |

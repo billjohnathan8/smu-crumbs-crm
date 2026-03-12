@@ -115,9 +115,15 @@ build-logs/migration-validation/
 # Build Logs
 /build-logs/
 
+# Local CI-generated Terraform artifact zips
+.ci-artifacts/
+
 # Developer Setup - Portable Tools
 .devtools/
 
 # Ignore Test Directories
 
 node_modules/
+
+# Hypothesis (property-based testing) local cache
+services/backend/verification/.hypothesis/

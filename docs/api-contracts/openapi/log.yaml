@@ -529,6 +529,40 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
 
+  /api/communications/queued:
+    get:
+      tags: [communications]
+      summary: List queued communications due for dispatch
+      security: [{ BearerAuth: [] }]
+      x-required-roles: [admin]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        "200":
+          description: Queued communications.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Communication" }
+                  pagination: { $ref: "#/components/schemas/Pagination" }
+                required: [data]
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
   /api/communications/{communicationId}:
     get:
       tags: [communications]
@@ -563,6 +597,82 @@ paths:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
         "403":
           description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /api/communications/{communicationId}/status:
+    patch:
+      tags: [communications]
+      summary: Update communication delivery status
+      security: [{ BearerAuth: [] }]
+      x-required-roles: [admin]
+      parameters:
+        - name: communicationId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/CommunicationId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateCommunicationStatusRequest" }
+      responses:
+        "200":
+          description: Updated communication.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Communication" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /api/communications/provider/{providerMessageId}/status:
+    patch:
+      tags: [communications]
+      summary: Update communication status by provider message id
+      security: [{ BearerAuth: [] }]
+      x-required-roles: [admin]
+      parameters:
+        - name: providerMessageId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateCommunicationStatusRequest" }
+      responses:
+        "200":
+          description: Updated communication.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Communication" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: Not found
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -782,6 +892,24 @@ components:
         errorMessage:
           type: string
           nullable: true
+        idempotencyKey:
+          type: string
+          nullable: true
+        retryCount:
+          type: integer
+          minimum: 0
+          default: 0
+        nextAttemptAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastAttemptAt:
+          type: string
+          format: date-time
+          nullable: true
+        deliveryEvent:
+          type: string
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -811,7 +939,39 @@ components:
           maxLength: 20000
         channel:
           $ref: "#/components/schemas/CommunicationChannel"
+        idempotencyKey:
+          type: string
+          maxLength: 160
       required: [clientId, agentId, toEmail, subject, body]
+      additionalProperties: false
+
+    UpdateCommunicationStatusRequest:
+      type: object
+      properties:
+        status: { $ref: "#/components/schemas/CommunicationStatus" }
+        providerMessageId:
+          type: string
+          maxLength: 200
+          nullable: true
+        errorMessage:
+          type: string
+          maxLength: 2000
+          nullable: true
+        retryCount:
+          type: integer
+          minimum: 0
+        nextAttemptAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastAttemptAt:
+          type: string
+          format: date-time
+          nullable: true
+        deliveryEvent:
+          type: string
+          maxLength: 80
+          nullable: true
       additionalProperties: false
 
     AmlAlertType:
