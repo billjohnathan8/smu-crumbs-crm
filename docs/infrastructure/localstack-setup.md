@@ -16,11 +16,60 @@ LocalStack emulates AWS services used by the stack (SQS, DynamoDB, S3, Lambda, S
 docker compose -f docker-compose.localstack.yml up -d
 ```
 
+Local Postgres contract for stateful services (`agent`, `client`, `transaction`, `log`):
+- Host: `localhost` (or `postgres` from Docker network)
+- Port: `5432`
+- Database: `crm`
+- User: `crm_app`
+- Password: `devpassword`
+- Canonical environment matrix and variable contract: [../configuration.md](../configuration.md)
+
+Optional overrides when launching compose:
+
+```bash
+LOCAL_DB_NAME=crm LOCAL_DB_USER=crm_app LOCAL_DB_PASSWORD=devpassword docker compose -f docker-compose.localstack.yml up -d
+```
+
 Health check:
 
 ```bash
 curl http://localhost:4566/_localstack/health
+docker compose -f docker-compose.localstack.yml exec postgres pg_isready -U crm_app -d crm
 ```
+
+## 1b. Standardized DB Migrate / Seed / Verify
+
+Apply schema migrations for all stateful services:
+
+```bash
+bash scripts/db/run-shared-postgres.sh migrate
+```
+
+Seed baseline local/test principals (requires `agent-service` running):
+
+```bash
+bash scripts/db/run-shared-postgres.sh seed
+```
+
+Verify schema and seed state:
+
+```bash
+bash scripts/db/run-shared-postgres.sh verify
+bash scripts/db/run-shared-postgres.sh verify-seed
+```
+
+Reset and rebuild local DB when needed:
+
+```bash
+bash scripts/db/run-shared-postgres.sh reset
+bash scripts/db/run-shared-postgres.sh migrate
+```
+
+Notes:
+- `migrate` is deterministic and rerunnable.
+- Java services are migrated via Flyway; log service migrations use `services/backend/log/app/migrations` with `schema_migrations` tracking.
+- `seed` is idempotent and safe to run multiple times.
+- Before changing local/CI DB config, run `bash scripts/ci/guard-no-prod-db.sh`.
 
 ## 2. Resource Bootstrap
 
@@ -42,7 +91,7 @@ awslocal sqs list-queues
 bash scripts/ci/run-fullstack-integration-e2e.sh
 ```
 
-This script handles service startup, log Lambda/API provisioning, smoke checks, and integration Playwright tests.
+This script handles service startup, standardized DB migrate/seed orchestration, log Lambda/API provisioning, smoke checks, and integration Playwright tests.
 
 ## 5. Teardown
 

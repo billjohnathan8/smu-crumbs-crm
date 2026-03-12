@@ -5,6 +5,7 @@ This directory keeps only current, high-signal docs.
 ## Start Here
 
 - Onboarding: [onboarding/new-dev-setup.md](onboarding/new-dev-setup.md)
+- Configuration: [configuration.md](configuration.md)
 - Testing: [testing/TESTING-GUIDE.md](testing/TESTING-GUIDE.md)
 - Troubleshooting: [troubleshooting.md](troubleshooting.md)
 

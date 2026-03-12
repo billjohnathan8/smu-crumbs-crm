@@ -49,7 +49,28 @@ python scripts/pipelines/setup_dev_env.py
 
 Use `python3` where required.
 
-## 3. Run validation
+## 3. Start local infra (LocalStack + Postgres)
+
+```bash
+docker compose -f docker-compose.localstack.yml up -d
+```
+
+Database settings used across local integration flows:
+- Host: `localhost` (or `postgres` from Docker network)
+- Port: `5432`
+- Database: `crm`
+- User: `crm_app`
+- Password: `devpassword`
+
+Canonical config reference:
+- [../configuration.md](../configuration.md)
+- Service env templates:
+  - `services/backend/agent/.env.example`
+  - `services/backend/client/.env.example`
+  - `services/backend/transaction/.env.example`
+  - `services/backend/log/.env.example`
+
+## 4. Run validation
 
 ```bash
 python scripts/pipelines/test_all.py

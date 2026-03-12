@@ -55,10 +55,13 @@ Docs:
 - Make
 
 # Database (Local Postgres)
-- Database: `cs301`
-- User: `cs301`
-- Password: `cs301_local_dev_pw`
-- Shared DB/User (project-wide): `crm` / `crm_app` / `crm_local_dev_pw`
+- Host: `localhost` (or `postgres` inside Docker Compose network)
+- Port: `5432`
+- Database: `crm`
+- User: `crm_app`
+- Password: `devpassword`
+- Runtime override vars (optional): `LOCAL_DB_NAME`, `LOCAL_DB_USER`, `LOCAL_DB_PASSWORD`
+- Full environment matrix and variable contract: [docs/configuration.md](docs/configuration.md)
 
 # Testing Credentials
 Local development/testing only. Do not use these values for production deployments.
@@ -74,9 +77,9 @@ Password: client123
 Created shared DB + user in Postgres:
 DB: crm
 User: crm_app
-Password: crm_local_dev_pw
+Password: devpassword
 
-Existing service DB is still:
-DB: cs301
-User: cs301
-Password: cs301_local_dev_pw
+## Configuration Reference
+- Central config contract: [docs/configuration.md](docs/configuration.md)
+- LocalStack + local DB flow: [docs/infrastructure/localstack-setup.md](docs/infrastructure/localstack-setup.md)
+- New developer setup: [docs/onboarding/new-dev-setup.md](docs/onboarding/new-dev-setup.md)

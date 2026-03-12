@@ -63,7 +63,7 @@ The runtime-discovery concept remains architecturally valid, but implementation 
 - Single source of truth for backend testing logic
 - Cross-platform support without dual maintenance
 
-See [Pipeline Migration Guide](../migration/pipeline-migration.md) for complete details.
+See `scripts/pipelines/` and `../testing/TESTING-GUIDE.md` for current usage details.
 
 **Historical Context:** This ADR documents the original decision to adopt runtime
 discovery for polyglot backends. The decision remains architecturally sound; only

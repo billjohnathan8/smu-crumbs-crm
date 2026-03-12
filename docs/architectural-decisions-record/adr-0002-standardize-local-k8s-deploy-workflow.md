@@ -61,8 +61,8 @@ consistency.
 - Same deployment stages, new implementation
 - **Deprecated:** `scripts/build-and-deploy-k8s/*.{ps1,sh}` (see Migration Guide)
 
-See [Pipeline Migration Guide](../migration/pipeline-migration.md) and
-[Local K8s Dev Guide](../local-k8s-dev.md) for current usage.
+See `scripts/pipelines/` plus `../onboarding/new-dev-setup.md` and
+`../testing/TESTING-GUIDE.md` for current usage.
 
 ## Implementation Notes
 - Add any new deploy stage as a Make target first, then call it from wrappers.

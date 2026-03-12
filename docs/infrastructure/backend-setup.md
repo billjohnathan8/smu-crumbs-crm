@@ -41,16 +41,22 @@ terraform -chdir=platform/terraform validate
 
 ## 4. Configure Variables
 
-```bash
-cp platform/terraform/terraform.tfvars.example platform/terraform/terraform.tfvars
-```
+This repository does not include a checked-in `terraform.tfvars` template file.
+Create `platform/terraform/terraform.tfvars` manually only for values you need to override from defaults in `platform/terraform/variables.tf`.
 
 Do not commit real secrets in `terraform.tfvars`.
-Prefer environment variables in CI/CD:
+Prefer environment variables in CI/CD, especially for sensitive values:
 
 ```bash
 export TF_VAR_jwt_hmac_secret="<value>"
 export TF_VAR_root_admin_password="<value>"
+```
+
+If you need a local `terraform.tfvars`, start minimal and add only required overrides, for example:
+
+```hcl
+environment = "dev"
+aws_region  = "ap-southeast-1"
 ```
 
 ## Security Checklist
