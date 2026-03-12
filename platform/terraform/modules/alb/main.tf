@@ -5,6 +5,9 @@
 #--------------------------------------------------------------
 
 locals {
+  # Route groups are ordered by listener-rule priority (lower value = evaluated first).
+  # A dedicated exception for `/api/clients/*/transactions*` is defined below with a
+  # higher precedence than generic client routes.
   service_routing = {
     agent = {
       priority      = 10
@@ -119,6 +122,27 @@ resource "aws_lb_listener_rule" "options_preflight" {
   condition {
     http_request_method {
       values = ["OPTIONS"]
+    }
+  }
+}
+
+#--------------------------------------------------------------
+# Special-case route precedence
+# `/api/clients/{clientId}/transactions` belongs to transaction API.
+# This must match before generic `/api/clients*` (client service).
+#--------------------------------------------------------------
+resource "aws_lb_listener_rule" "client_transactions" {
+  listener_arn = var.use_custom_domain ? aws_lb_listener.https[0].arn : aws_lb_listener.http.arn
+  priority     = 15
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.service["transaction"].arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/api/clients/*/transactions*"]
     }
   }
 }
