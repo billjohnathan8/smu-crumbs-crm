@@ -60,6 +60,8 @@ jobs:
               - 'platform/**'
 
   # Conditional CI jobs based on changed services
+  # Stateful backend component workflows (agent/client/transaction/log) include
+  # both fast unit tests and a separate DB-backed Postgres gate.
   ci-frontend:
     name: CI - Frontend
     needs: [detect-changes]

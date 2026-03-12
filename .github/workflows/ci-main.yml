@@ -1,7 +1,8 @@
 name: CI - Main Pipeline
 
 # Full pipeline for the main branch.
-# Runs: changes -> lint -> unit tests -> mocked e2e -> fullstack integration -> deploy (TBD).
+# Runs: changes -> lint -> component tests (unit + DB-backed) -> mocked e2e
+# -> fullstack integration -> deploy (TBD).
 #
 # Job DAG:
 #
@@ -10,10 +11,14 @@ name: CI - Main Pipeline
 #      v
 #    lint    (3-5 min, only scopes that changed)
 #      |
-#      +---> test-agent           \
-#      +---> test-client           |  parallel unit tests, each gated by its scope
-#      +---> test-transaction      |
-#      +---> test-log              |
+#      +---> test-agent            \
+#      +---> test-agent-db          |
+#      +---> test-client            |
+#      +---> test-client-db         |  parallel component checks, each gated by scope
+#      +---> test-transaction       |
+#      +---> test-transaction-db    |
+#      +---> test-log               |
+#      +---> test-log-db            |
 #      +---> test-verification     |
 #      +---> test-transaction-ingestion-lambda |
 #      +---> test-frontend        /
@@ -84,7 +89,8 @@ jobs:
 
   # ==========================================================================
   # Layer 2: Component tests  (parallel, each gated by its scope)
-  # All require lint to pass first.
+  # Includes fast unit tests and separate DB-backed Postgres gates for
+  # stateful services.
   # ==========================================================================
   test-agent:
     needs: [changes, lint]
@@ -100,6 +106,24 @@ jobs:
         chmod +x gradlew
         ./gradlew test jacocoTestReport --no-daemon --console=plain
       timeout-minutes: 10
+      artifact-paths: services/backend/agent/build/reports/**
+
+  test-agent-db:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-agent == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component-db.yml
+    with:
+      component: agent
+      runtime: java
+      working-directory: services/backend/agent
+      test-command: |
+        chmod +x gradlew
+        ./gradlew test \
+          --tests "com.scroogebank.crm.agentservice.service.PersistentUserStoreTest" \
+          --no-daemon --console=plain
+      timeout-minutes: 12
       artifact-paths: services/backend/agent/build/reports/**
 
   test-client:
@@ -118,6 +142,25 @@ jobs:
       timeout-minutes: 12
       artifact-paths: services/backend/client/build/reports/**
 
+  test-client-db:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-client == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component-db.yml
+    with:
+      component: client
+      runtime: java
+      working-directory: services/backend/client
+      test-command: |
+        chmod +x gradlew
+        ./gradlew test \
+          --tests "com.scroogebank.crm.client_service.ClientsServiceIT" \
+          -PincludeIntegration=true \
+          --no-daemon --console=plain
+      timeout-minutes: 15
+      artifact-paths: services/backend/client/build/reports/**
+
   test-transaction:
     needs: [changes, lint]
     if: >-
@@ -132,6 +175,24 @@ jobs:
         chmod +x gradlew
         ./gradlew test jacocoTestReport --no-daemon --console=plain
       timeout-minutes: 10
+      artifact-paths: services/backend/transaction/build/reports/**
+
+  test-transaction-db:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-transaction == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component-db.yml
+    with:
+      component: transaction
+      runtime: java
+      working-directory: services/backend/transaction
+      test-command: |
+        chmod +x gradlew
+        ./gradlew test \
+          --tests "com.scroogebank.crm.transaction_service.service.PersistentTransactionsStoreTest" \
+          --no-daemon --console=plain
+      timeout-minutes: 12
       artifact-paths: services/backend/transaction/build/reports/**
 
   test-log:
@@ -156,6 +217,22 @@ jobs:
       artifact-paths: |
         services/backend/log/build/reports/**
         services/backend/log/build/coverage.xml
+
+  test-log-db:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-log == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component-db.yml
+    with:
+      component: log
+      runtime: python
+      working-directory: services/backend/log
+      test-command: |
+        RUN_DB_INTEGRATION_TESTS=true python -m pytest tests/test_repository_postgres_integration.py \
+          --junitxml=build/reports/tests/junit-postgres.xml
+      timeout-minutes: 10
+      artifact-paths: services/backend/log/build/reports/**
 
   test-transaction-ingestion-lambda:
     needs: [changes, lint]
@@ -231,9 +308,13 @@ jobs:
       - changes
       - lint
       - test-agent
+      - test-agent-db
       - test-client
+      - test-client-db
       - test-transaction
+      - test-transaction-db
       - test-log
+      - test-log-db
       - test-verification
       - test-transaction-ingestion-lambda
       - test-frontend
