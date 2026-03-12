@@ -69,7 +69,7 @@ locals {
           value = var.db_jdbc_url
         },
         {
-          name  = "LOG_SERVICE_URL"
+          name  = "CLIENT_LOG_SERVICE_URL"
           value = var.log_api_base_url
         },
         {
@@ -81,7 +81,7 @@ locals {
           value = var.ses_sender_email
         },
         {
-          name  = "AWS_REGION"
+          name  = "VERIFICATION_EMAIL_AWS_REGION"
           value = var.aws_region
         }
       ]

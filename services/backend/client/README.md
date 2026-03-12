@@ -98,11 +98,13 @@ See [Configuration Guide](../../../docs/configuration.md) for full details.
 | `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/crm_db` | Database URL |
 | `SPRING_DATASOURCE_USERNAME` | `postgres` | Database username |
 | `SPRING_DATASOURCE_PASSWORD` | `postgres` | Database password |
-| `LOG_SERVICE_URL` | `http://localhost:4566/restapis/<api-id>/local/_user_request_` | Lambda-backed log API URL for audit events |
+| `CLIENT_LOG_SERVICE_URL` | `http://localhost:4566/restapis/<api-id>/local/_user_request_` | Canonical Lambda-backed log API URL for audit and communication APIs |
+| `LOG_SERVICE_URL` | same as above | Backward-compatible fallback for `CLIENT_LOG_SERVICE_URL` |
 | `VERIFICATION_EMAIL_PROVIDER` | `mock` | Email provider for verification notifications (`mock` or `ses`) |
 | `SES_SENDER_EMAIL` | *(empty)* | Verified SES sender email used when `VERIFICATION_EMAIL_PROVIDER=ses` |
-| `AWS_REGION` | AWS SDK default chain | AWS region for SES client (optional override) |
-| `AWS_ENDPOINT_URL` | *(empty)* | Optional AWS endpoint override for SES client (used for LocalStack) |
+| `VERIFICATION_EMAIL_AWS_REGION` | AWS SDK default chain | Canonical AWS region override for SES verification sender |
+| `VERIFICATION_EMAIL_AWS_ENDPOINT_URL` | *(empty)* | Canonical endpoint override for SES verification sender (used for LocalStack) |
+| `AWS_REGION` / `AWS_ENDPOINT_URL` | *(fallback)* | Backward-compatible fallbacks for verification SES settings |
 | `VERIFICATION_EMAIL_DISPATCH_ENABLED` | `true` | Enables queued verification email dispatch worker |
 | `VERIFICATION_EMAIL_DISPATCH_POLL_INTERVAL_MS` | `30000` | Worker polling interval for queued communications |
 | `VERIFICATION_EMAIL_DISPATCH_MAX_BATCH_SIZE` | `50` | Max queued communications processed per poll |

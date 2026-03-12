@@ -30,12 +30,12 @@ server:
   port: 8080
 
 app:
-  log-service-url: ${LOG_SERVICE_URL:http://localhost:4566/restapis/local/local/_user_request_}
+  log-service-url: ${CLIENT_LOG_SERVICE_URL:${LOG_SERVICE_URL:http://localhost:4566/restapis/local/local/_user_request_}}
   verification-email:
     provider: ${VERIFICATION_EMAIL_PROVIDER:mock}
     sender-email: ${SES_SENDER_EMAIL:}
-    aws-region: ${AWS_REGION:}
-    aws-endpoint-url: ${AWS_ENDPOINT_URL:}
+    aws-region: ${VERIFICATION_EMAIL_AWS_REGION:${AWS_REGION:}}
+    aws-endpoint-url: ${VERIFICATION_EMAIL_AWS_ENDPOINT_URL:${AWS_ENDPOINT_URL:}}
     dispatch:
       enabled: ${VERIFICATION_EMAIL_DISPATCH_ENABLED:true}
       poll-interval-ms: ${VERIFICATION_EMAIL_DISPATCH_POLL_INTERVAL_MS:30000}
