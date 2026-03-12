@@ -61,6 +61,7 @@ echo "==> Creating S3 buckets..."
 
 awslocal s3 mb s3://scroogebank-crm-dev-frontend  --region "${REGION}"
 awslocal s3 mb s3://scroogebank-crm-dev-verification --region "${REGION}"
+awslocal s3 mb s3://scroogebank-crm-dev-transaction-sftp --region "${REGION}"
 
 # --------------------------------------------------------------------------
 # SNS topics

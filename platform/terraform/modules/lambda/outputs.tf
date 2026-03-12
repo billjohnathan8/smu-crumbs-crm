@@ -17,6 +17,11 @@ output "aml_lambda_name" {
   value       = var.enable_aml_lambda ? aws_lambda_function.aml[0].function_name : null
 }
 
+output "transaction_ingestion_lambda_name" {
+  description = "Transaction ingestion Lambda function name."
+  value       = var.enable_transaction_ingestion_lambda ? aws_lambda_function.transaction_ingestion[0].function_name : null
+}
+
 output "audit_consumer_lambda_name" {
   description = "Audit consumer Lambda function name."
   value       = var.enable_audit_consumer ? aws_lambda_function.audit_consumer[0].function_name : null

@@ -108,6 +108,65 @@ resource "aws_lambda_permission" "allow_eventbridge_invoke_aml" {
 
 # --- Audit consumer Lambda (SQS → DynamoDB) ---
 
+resource "aws_cloudwatch_log_group" "transaction_ingestion_lambda" {
+  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+
+  name              = "/aws/lambda/${var.name_prefix}-transaction-ingestion"
+  retention_in_days = var.cloudwatch_log_retention_days
+}
+
+resource "aws_lambda_function" "transaction_ingestion" {
+  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+
+  function_name    = "${var.name_prefix}-transaction-ingestion"
+  filename         = var.transaction_ingestion_lambda_zip_path
+  source_code_hash = filebase64sha256(var.transaction_ingestion_lambda_zip_path)
+  role             = var.transaction_ingestion_lambda_role_arn
+  handler          = "lambda_function.lambda_handler"
+  runtime          = "python3.13"
+  memory_size      = var.transaction_ingestion_lambda_memory_size
+  timeout          = var.transaction_ingestion_lambda_timeout_seconds
+
+  environment {
+    variables = {
+      TRANSACTION_SFTP_BUCKET = var.transaction_sftp_bucket_id
+      TRANSACTION_SFTP_PREFIX = var.transaction_sftp_remote_prefix
+      TRANSACTION_IMPORT_URL  = var.transaction_import_api_url
+      JWT_HMAC_SECRET_ARN     = var.jwt_hmac_secret_arn
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_group.transaction_ingestion_lambda[0]]
+}
+
+resource "aws_cloudwatch_event_rule" "transaction_ingestion_schedule" {
+  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+
+  name                = "${var.name_prefix}-transaction-ingestion-schedule"
+  description         = "Schedule for transaction ingestion Lambda."
+  schedule_expression = var.transaction_ingestion_schedule_expression
+  state               = "ENABLED"
+}
+
+resource "aws_cloudwatch_event_target" "transaction_ingestion_lambda" {
+  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+
+  rule      = aws_cloudwatch_event_rule.transaction_ingestion_schedule[0].name
+  target_id = "transaction-ingestion-lambda"
+  arn       = aws_lambda_function.transaction_ingestion[0].arn
+  input     = "{}"
+}
+
+resource "aws_lambda_permission" "allow_eventbridge_invoke_transaction_ingestion" {
+  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+
+  statement_id  = "AllowExecutionFromEventBridgeTransactionIngestion"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.transaction_ingestion[0].function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.transaction_ingestion_schedule[0].arn
+}
+
 resource "aws_cloudwatch_log_group" "audit_consumer" {
   count = var.enable_audit_consumer ? 1 : 0
 

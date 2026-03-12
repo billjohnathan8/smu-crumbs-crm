@@ -188,6 +188,7 @@ echo ""
 echo "==> Asserting S3 buckets..."
 assert_s3_bucket "scroogebank-crm-dev-frontend"
 assert_s3_bucket "scroogebank-crm-dev-verification"
+assert_s3_bucket "scroogebank-crm-dev-transaction-sftp"
 
 echo ""
 echo "==> Asserting SNS topics..."

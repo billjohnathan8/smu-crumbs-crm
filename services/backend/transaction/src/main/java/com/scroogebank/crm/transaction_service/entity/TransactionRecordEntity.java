@@ -52,6 +52,9 @@ public class TransactionRecordEntity {
 	@JoinColumn(name = "import_batch_id")
 	private TransactionImportBatchEntity importBatch;
 
+	@Column(name = "import_dedupe_key", length = 64)
+	private String importDedupeKey;
+
 	public Long getId() {
 		return id;
 	}
@@ -114,5 +117,13 @@ public class TransactionRecordEntity {
 
 	public void setImportBatch(TransactionImportBatchEntity importBatch) {
 		this.importBatch = importBatch;
+	}
+
+	public String getImportDedupeKey() {
+		return importDedupeKey;
+	}
+
+	public void setImportDedupeKey(String importDedupeKey) {
+		this.importDedupeKey = importDedupeKey;
 	}
 }

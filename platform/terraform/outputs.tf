@@ -114,6 +114,11 @@ output "frontend_bucket_name" {
   value       = module.s3.frontend_bucket_name
 }
 
+output "transaction_sftp_bucket_name" {
+  description = "Mocked transaction SFTP source S3 bucket name."
+  value       = module.s3.transaction_sftp_bucket_name
+}
+
 #--------------------------------------------------------------
 # Secrets Manager Outputs
 #--------------------------------------------------------------
@@ -148,6 +153,11 @@ output "log_lambda_name" {
 output "aml_lambda_name" {
   description = "AML Lambda function name."
   value       = module.lambda.aml_lambda_name
+}
+
+output "transaction_ingestion_lambda_name" {
+  description = "Scheduled transaction ingestion Lambda function name."
+  value       = module.lambda.transaction_ingestion_lambda_name
 }
 
 #--------------------------------------------------------------

@@ -107,6 +107,22 @@ locals {
         {
           name  = "APP_TRANSACTIONS_STORE_TYPE"
           value = "postgres"
+        },
+        {
+          name  = "TRANSACTION_IMPORT_S3_BUCKET"
+          value = var.transaction_import_s3_bucket
+        },
+        {
+          name  = "TRANSACTION_IMPORT_S3_REGION"
+          value = var.transaction_import_s3_region
+        },
+        {
+          name  = "TRANSACTION_IMPORT_S3_ENDPOINT"
+          value = var.transaction_import_s3_endpoint
+        },
+        {
+          name  = "TRANSACTION_IMPORT_S3_PATH_STYLE_ACCESS_ENABLED"
+          value = tostring(var.transaction_import_s3_path_style_access_enabled)
         }
       ]
       secrets = [

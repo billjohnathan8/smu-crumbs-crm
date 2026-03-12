@@ -131,6 +131,30 @@ variable "transaction_mock_sftp_root" {
   type        = string
 }
 
+variable "transaction_import_s3_bucket" {
+  description = "Optional S3 bucket used by transaction service for import source files."
+  type        = string
+  default     = ""
+}
+
+variable "transaction_import_s3_region" {
+  description = "AWS region used by transaction service S3 import client."
+  type        = string
+  default     = "ap-southeast-1"
+}
+
+variable "transaction_import_s3_endpoint" {
+  description = "Optional endpoint override for transaction service S3 import client."
+  type        = string
+  default     = ""
+}
+
+variable "transaction_import_s3_path_style_access_enabled" {
+  description = "Enable path-style addressing for transaction service S3 import client."
+  type        = bool
+  default     = false
+}
+
 variable "db_jdbc_url" {
   description = "JDBC URL consumed by client service."
   type        = string

@@ -3,16 +3,24 @@ package com.scroogebank.crm.transaction_service.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.scroogebank.crm.transaction_service.dto.CreateTransactionRequest;
+import com.scroogebank.crm.transaction_service.dto.ImportBatchDto;
+import com.scroogebank.crm.transaction_service.dto.ImportTransactionsRequest;
 import com.scroogebank.crm.transaction_service.dto.TransactionDto;
 import com.scroogebank.crm.transaction_service.dto.TransactionKind;
 import com.scroogebank.crm.transaction_service.dto.TransactionStatus;
 import com.scroogebank.crm.transaction_service.repository.TransactionImportBatchRepository;
 import com.scroogebank.crm.transaction_service.repository.TransactionRecordRepository;
+import com.scroogebank.crm.transaction_service.service.imports.MockFilesystemSftpClient;
+import com.scroogebank.crm.transaction_service.service.imports.TransactionCsvParser;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -21,6 +29,9 @@ import org.springframework.boot.test.context.SpringBootTest;
  */
 @SpringBootTest(properties = {"app.transactions-store.type=postgres"})
 class PersistentTransactionsStoreTest {
+	@TempDir
+	Path tempDir;
+
 	@Autowired
 	private TransactionsStore store;
 
@@ -53,7 +64,8 @@ class PersistentTransactionsStoreTest {
 
 		PersistentTransactionsStore recreated = new PersistentTransactionsStore(
 			clock,
-			"./mock-sftp",
+			new MockFilesystemSftpClient(tempDir),
+			new TransactionCsvParser(),
 			transactionRepository,
 			batchRepository
 		);
@@ -65,5 +77,31 @@ class PersistentTransactionsStoreTest {
 		assertEquals(0, created.amount().compareTo(loaded.amount()));
 		assertEquals(created.date(), loaded.date());
 		assertEquals(created.status(), loaded.status());
+	}
+
+	@Test
+	void importFromMockSftp_reImportDoesNotDuplicateRows() throws IOException {
+		Path csv = tempDir.resolve("transactions.csv");
+		Files.writeString(csv, """
+			clientId,transaction,amount,date,status
+			clt_1,D,100.00,2026-01-01,Completed
+			clt_1,W,30.00,2026-01-02,Pending
+			""");
+
+		PersistentTransactionsStore localStore = new PersistentTransactionsStore(
+			clock,
+			new MockFilesystemSftpClient(tempDir),
+			new TransactionCsvParser(),
+			transactionRepository,
+			batchRepository
+		);
+
+		ImportBatchDto first = localStore.importFromMockSftp(new ImportTransactionsRequest(null, "transactions.csv"));
+		ImportBatchDto second = localStore.importFromMockSftp(new ImportTransactionsRequest(null, "transactions.csv"));
+		InMemoryTransactionsStore.ListResult listResult = localStore.list(50, 0, null, null, null, null, null);
+
+		assertEquals(2, first.importedRecords());
+		assertEquals(0, second.importedRecords());
+		assertEquals(2, listResult.total());
 	}
 }

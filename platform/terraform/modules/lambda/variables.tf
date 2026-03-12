@@ -172,6 +172,69 @@ variable "crm_api_base_url" {
   type        = string
 }
 
+variable "enable_transaction_ingestion_lambda" {
+  description = "Create the transaction ingestion Lambda and schedule."
+  type        = bool
+  default     = false
+}
+
+variable "transaction_ingestion_lambda_zip_path" {
+  description = "Path to transaction ingestion lambda zip."
+  type        = string
+  default     = ""
+
+  validation {
+    condition = !var.enable_transaction_ingestion_lambda || (
+      trimspace(var.transaction_ingestion_lambda_zip_path) != "" &&
+      fileexists(var.transaction_ingestion_lambda_zip_path) &&
+      filesize(var.transaction_ingestion_lambda_zip_path) > 0
+    )
+    error_message = "When enable_transaction_ingestion_lambda is true, transaction_ingestion_lambda_zip_path must point to an existing, non-empty zip file."
+  }
+}
+
+variable "transaction_ingestion_lambda_memory_size" {
+  description = "Transaction ingestion lambda memory size."
+  type        = number
+  default     = 512
+}
+
+variable "transaction_ingestion_lambda_timeout_seconds" {
+  description = "Transaction ingestion lambda timeout in seconds."
+  type        = number
+  default     = 60
+}
+
+variable "transaction_ingestion_lambda_role_arn" {
+  description = "Transaction ingestion Lambda IAM role ARN."
+  type        = string
+  default     = ""
+}
+
+variable "transaction_ingestion_schedule_expression" {
+  description = "EventBridge schedule expression for transaction ingestion Lambda."
+  type        = string
+  default     = "rate(1 hour)"
+}
+
+variable "transaction_sftp_bucket_id" {
+  description = "S3 bucket ID used as mocked transaction SFTP source."
+  type        = string
+  default     = ""
+}
+
+variable "transaction_sftp_remote_prefix" {
+  description = "S3 object prefix used by transaction ingestion Lambda."
+  type        = string
+  default     = "incoming/"
+}
+
+variable "transaction_import_api_url" {
+  description = "Transaction import API URL called by the ingestion Lambda."
+  type        = string
+  default     = ""
+}
+
 # --- Audit consumer Lambda (SQS → DynamoDB) ---
 
 variable "enable_audit_consumer" {

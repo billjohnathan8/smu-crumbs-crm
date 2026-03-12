@@ -13,6 +13,8 @@ import com.scroogebank.crm.transaction_service.dto.TransactionKind;
 import com.scroogebank.crm.transaction_service.dto.TransactionStatus;
 import com.scroogebank.crm.transaction_service.exception.ImportBatchNotFoundException;
 import com.scroogebank.crm.transaction_service.exception.TransactionNotFoundException;
+import com.scroogebank.crm.transaction_service.service.imports.MockFilesystemSftpClient;
+import com.scroogebank.crm.transaction_service.service.imports.TransactionCsvParser;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
@@ -38,7 +40,8 @@ class InMemoryTransactionsStoreTest {
 	void setUp() {
 		store = new InMemoryTransactionsStore(
 			Clock.fixed(Instant.parse("2026-02-05T00:00:00Z"), ZoneOffset.UTC),
-			tempDir.toString()
+			new MockFilesystemSftpClient(tempDir),
+			new TransactionCsvParser()
 		);
 	}
 
@@ -120,6 +123,24 @@ class InMemoryTransactionsStoreTest {
 		assertEquals(ImportBatchStatus.failed, batch.status());
 		assertEquals(0, batch.totalRecords());
 		assertEquals("failed to read source", batch.errorMessage());
+	}
+
+	@Test
+	void importFromMockSftp_reImportDoesNotCreateDuplicates() throws IOException {
+		Path csv = tempDir.resolve("transactions.csv");
+		Files.writeString(csv, """
+			clientId,transaction,amount,date,status
+			clt_1,D,100.00,2026-01-01,Completed
+			clt_1,W,30.00,2026-01-02,Pending
+			""");
+
+		ImportBatchDto firstBatch = store.importFromMockSftp(new ImportTransactionsRequest(null, "transactions.csv"));
+		ImportBatchDto secondBatch = store.importFromMockSftp(new ImportTransactionsRequest(null, "transactions.csv"));
+		InMemoryTransactionsStore.ListResult allTransactions = store.list(50, 0, null, null, null, null, null);
+
+		assertEquals(2, firstBatch.importedRecords());
+		assertEquals(0, secondBatch.importedRecords());
+		assertEquals(2, allTransactions.total());
 	}
 
 	@Test

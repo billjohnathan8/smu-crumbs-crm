@@ -742,6 +742,7 @@ end_phase
 start_phase "Phase 4: Cross-service HTTP smoke"
 
 AGENT_TOKEN="$(mint_jwt "ci_agent" "agent")"
+ADMIN_TOKEN="$(mint_jwt "ci_admin" "admin")"
 
 CREATE_BODY='{
   "firstName": "Jordan",
@@ -812,6 +813,53 @@ p = json.loads(os.environ["TX_RESPONSE_JSON"])
 if "data" not in p or "pagination" not in p:
     raise SystemExit("transaction response missing expected keys")
 print("  [OK] transaction-service -> client-service")
+PY
+
+echo "  Smoke: transaction-service imports from LocalStack S3 source"
+TX_IMPORT_CLIENT_ID="clt_s3_ci_import"
+TX_IMPORT_KEY="incoming/ci-s3-import.csv"
+TX_IMPORT_FILE="${LOG_DIR}/ci-s3-import.csv"
+cat > "${TX_IMPORT_FILE}" <<'CSV'
+clientId,transaction,amount,date,status
+clt_s3_ci_import,D,100.00,2026-01-01,Completed
+clt_s3_ci_import,W,40.00,2026-01-02,Pending
+CSV
+
+aws_local s3api put-object \
+  --bucket scroogebank-crm-dev-transaction-sftp \
+  --key "${TX_IMPORT_KEY}" \
+  --body "${TX_IMPORT_FILE}" \
+  >/dev/null
+
+IMPORT_RESPONSE="$(
+  curl --silent --show-error --fail \
+    --request POST "http://127.0.0.1:18083/api/transactions/import" \
+    --header "Authorization: Bearer ${ADMIN_TOKEN}" \
+    --header "Content-Type: application/json" \
+    --data "{\"sourcePath\":\"s3://scroogebank-crm-dev-transaction-sftp/${TX_IMPORT_KEY}\"}"
+)"
+IMPORT_RESPONSE_JSON="${IMPORT_RESPONSE}" ${PYTHON_CMD} - <<'PY'
+import json, os
+payload = json.loads(os.environ["IMPORT_RESPONSE_JSON"])
+if payload.get("status") not in ("completed", "running"):
+    raise SystemExit("transaction import status was not completed/running")
+if int(payload.get("importedRecords", 0)) < 1:
+    raise SystemExit("transaction import did not ingest any rows")
+print("  [OK] transaction-service imported rows from S3 source")
+PY
+
+TX_S3_LIST_RESPONSE="$(
+  curl --silent --show-error --fail \
+    "http://127.0.0.1:18083/api/transactions?clientId=${TX_IMPORT_CLIENT_ID}" \
+    --header "Authorization: Bearer ${ADMIN_TOKEN}"
+)"
+TX_S3_LIST_RESPONSE_JSON="${TX_S3_LIST_RESPONSE}" ${PYTHON_CMD} - <<'PY'
+import json, os
+payload = json.loads(os.environ["TX_S3_LIST_RESPONSE_JSON"])
+rows = payload.get("data", [])
+if len(rows) < 2:
+    raise SystemExit("expected at least 2 imported S3 transactions")
+print("  [OK] imported S3 transactions are queryable")
 PY
 
 echo "  Smoke: AML alerts -> log-service-lambda (CREATE + REVIEW)"

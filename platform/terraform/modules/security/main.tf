@@ -284,6 +284,70 @@ resource "aws_iam_role_policy" "aml_lambda_secrets" {
   policy = data.aws_iam_policy_document.aml_lambda_secrets.json
 }
 
+# --- Transaction ingestion Lambda role ---
+
+resource "aws_iam_role" "transaction_ingestion_lambda" {
+  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+
+  name               = "${var.name_prefix}-transaction-ingestion-lambda"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
+}
+
+resource "aws_iam_role_policy_attachment" "transaction_ingestion_lambda_basic" {
+  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+
+  role       = aws_iam_role.transaction_ingestion_lambda[0].name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+data "aws_iam_policy_document" "transaction_ingestion_lambda_s3" {
+  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+
+  statement {
+    sid    = "ReadTransactionSftpBucket"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:ListBucket",
+    ]
+    resources = compact([
+      var.transaction_sftp_bucket_arn,
+      "${var.transaction_sftp_bucket_arn}/*",
+    ])
+  }
+}
+
+resource "aws_iam_role_policy" "transaction_ingestion_lambda_s3" {
+  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+
+  name   = "${var.name_prefix}-transaction-ingestion-lambda-s3"
+  role   = aws_iam_role.transaction_ingestion_lambda[0].id
+  policy = data.aws_iam_policy_document.transaction_ingestion_lambda_s3[0].json
+}
+
+data "aws_iam_policy_document" "transaction_ingestion_lambda_secrets" {
+  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+
+  statement {
+    sid    = "ReadTransactionIngestionJwtSecret"
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue",
+    ]
+    resources = [
+      aws_secretsmanager_secret.jwt_hmac.arn,
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "transaction_ingestion_lambda_secrets" {
+  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+
+  name   = "${var.name_prefix}-transaction-ingestion-lambda-secrets"
+  role   = aws_iam_role.transaction_ingestion_lambda[0].id
+  policy = data.aws_iam_policy_document.transaction_ingestion_lambda_secrets[0].json
+}
+
 # --- Audit consumer Lambda role ---
 
 resource "aws_iam_role" "audit_consumer_lambda" {
@@ -461,6 +525,31 @@ resource "aws_iam_role_policy" "ecs_task_sqs" {
   name   = "${var.name_prefix}-ecs-task-${each.key}-sqs"
   role   = aws_iam_role.ecs_task[each.key].id
   policy = data.aws_iam_policy_document.ecs_sqs_send[0].json
+}
+
+data "aws_iam_policy_document" "ecs_transaction_s3_read" {
+  count = var.enable_transaction_ingestion_lambda && var.transaction_sftp_bucket_arn != "" ? 1 : 0
+
+  statement {
+    sid    = "ReadTransactionIngestionS3Source"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:ListBucket",
+    ]
+    resources = [
+      var.transaction_sftp_bucket_arn,
+      "${var.transaction_sftp_bucket_arn}/*",
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "ecs_task_transaction_s3_read" {
+  count = var.enable_transaction_ingestion_lambda && var.transaction_sftp_bucket_arn != "" ? 1 : 0
+
+  name   = "${var.name_prefix}-ecs-task-transaction-s3-read"
+  role   = aws_iam_role.ecs_task["transaction"].id
+  policy = data.aws_iam_policy_document.ecs_transaction_s3_read[0].json
 }
 
 data "aws_iam_policy_document" "terraform_backend_access" {

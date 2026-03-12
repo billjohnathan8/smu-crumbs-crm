@@ -68,6 +68,12 @@ services:
     environment:
       CLIENT_SERVICE_URL: http://client-service:8080
       JWT_HMAC_SECRET: dev-only-insecure-secret
+      TRANSACTION_IMPORT_S3_BUCKET: scroogebank-crm-dev-transaction-sftp
+      TRANSACTION_IMPORT_S3_REGION: ap-southeast-1
+      TRANSACTION_IMPORT_S3_ENDPOINT: http://localstack:4566
+      TRANSACTION_IMPORT_S3_PATH_STYLE_ACCESS_ENABLED: "true"
+      TRANSACTION_IMPORT_S3_ACCESS_KEY_ID: test
+      TRANSACTION_IMPORT_S3_SECRET_ACCESS_KEY: test
     depends_on:
       client-service:
         condition: service_started

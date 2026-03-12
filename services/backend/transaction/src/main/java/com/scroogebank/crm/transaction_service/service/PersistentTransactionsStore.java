@@ -13,21 +13,21 @@ import com.scroogebank.crm.transaction_service.exception.ImportBatchNotFoundExce
 import com.scroogebank.crm.transaction_service.exception.TransactionNotFoundException;
 import com.scroogebank.crm.transaction_service.repository.TransactionImportBatchRepository;
 import com.scroogebank.crm.transaction_service.repository.TransactionRecordRepository;
+import com.scroogebank.crm.transaction_service.service.imports.SftpClient;
+import com.scroogebank.crm.transaction_service.service.imports.TransactionCsvParser;
+import com.scroogebank.crm.transaction_service.service.imports.TransactionCsvParser.ParseResult;
+import com.scroogebank.crm.transaction_service.service.imports.TransactionCsvParser.ParsedTransactionRow;
 import com.scroogebank.crm.transaction_service.util.IdCodec;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Locale;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.domain.Sort;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,20 +39,25 @@ import org.springframework.transaction.annotation.Transactional;
 public class PersistentTransactionsStore implements TransactionsStore {
 	private static final String TXN_PREFIX = "txn_";
 	private static final String BATCH_PREFIX = "imp_";
+	private static final String DEFAULT_SOURCE_PATH = "transactions.csv";
+	private static final Logger logger = LoggerFactory.getLogger(PersistentTransactionsStore.class);
 
 	private final Clock clock;
-	private final Path mockSftpRoot;
+	private final SftpClient sftpClient;
+	private final TransactionCsvParser csvParser;
 	private final TransactionRecordRepository transactionRepository;
 	private final TransactionImportBatchRepository batchRepository;
 
 	public PersistentTransactionsStore(
 		Clock clock,
-		@Value("${app.mock-sftp.root}") String mockSftpRoot,
+		SftpClient sftpClient,
+		TransactionCsvParser csvParser,
 		TransactionRecordRepository transactionRepository,
 		TransactionImportBatchRepository batchRepository
 	) {
 		this.clock = clock;
-		this.mockSftpRoot = Path.of(mockSftpRoot);
+		this.sftpClient = sftpClient;
+		this.csvParser = csvParser;
 		this.transactionRepository = transactionRepository;
 		this.batchRepository = batchRepository;
 	}
@@ -134,8 +139,7 @@ public class PersistentTransactionsStore implements TransactionsStore {
 	@Override
 	public ImportBatchDto importFromMockSftp(ImportTransactionsRequest request) {
 		String requestedClientId = request == null ? null : request.clientId();
-		String sourcePath = request == null ? null : request.sourcePath();
-		Path file = resolveSource(sourcePath);
+		String sourcePath = request == null ? DEFAULT_SOURCE_PATH : normalizeSourcePath(request.sourcePath());
 
 		Instant requestedAt = clock.instant();
 		TransactionImportBatchEntity batch = new TransactionImportBatchEntity();
@@ -154,32 +158,31 @@ public class PersistentTransactionsStore implements TransactionsStore {
 		int imported = 0;
 		int failed = 0;
 		String errorMessage = null;
-		try (BufferedReader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
-			String line;
-			while ((line = reader.readLine()) != null) {
-				String trimmed = line.trim();
-				if (trimmed.isBlank()) {
+		try (var reader = sftpClient.openCsvFile(sourcePath)) {
+			ParseResult parseResult = csvParser.parse(reader, requestedClientId);
+			total = parseResult.totalRecords();
+			failed = parseResult.failedRecords();
+			for (ParsedTransactionRow row : parseResult.rows()) {
+				if (transactionRepository.existsByImportDedupeKey(row.dedupeKey())) {
 					continue;
 				}
-				if (trimmed.toLowerCase(Locale.ROOT).startsWith("clientid,")) {
-					continue;
-				}
-				total++;
 				try {
-					TransactionRecordEntity entity = parseCsv(trimmed, savedBatch, requestedClientId);
-					if (entity == null) {
-						continue;
-					}
+					TransactionRecordEntity entity = toEntity(row, savedBatch);
 					transactionRepository.save(entity);
 					imported++;
 				}
+				catch (DataIntegrityViolationException ex) {
+					logger.debug("Skipping duplicate imported transaction row with dedupe key {}", row.dedupeKey());
+				}
 				catch (Exception ex) {
 					failed++;
+					logger.warn("Failed to import a parsed transaction row from '{}'", sourcePath, ex);
 				}
 			}
 		}
 		catch (IOException ex) {
 			errorMessage = "failed to read source";
+			logger.warn("Failed to read transaction source '{}': {}", sourcePath, ex.getMessage());
 		}
 
 		savedBatch.setStatus(errorMessage == null ? ImportBatchStatus.completed : ImportBatchStatus.failed);
@@ -202,35 +205,23 @@ public class PersistentTransactionsStore implements TransactionsStore {
 		return toDto(batch);
 	}
 
-	private Path resolveSource(String sourcePath) {
+	private static String normalizeSourcePath(String sourcePath) {
 		if (sourcePath == null || sourcePath.isBlank()) {
-			return mockSftpRoot.resolve("transactions.csv").normalize();
+			return DEFAULT_SOURCE_PATH;
 		}
-		Path candidate = Path.of(sourcePath).normalize();
-		if (candidate.isAbsolute()) {
-			return candidate;
-		}
-		return mockSftpRoot.resolve(candidate).normalize();
+		return sourcePath.trim();
 	}
 
-	private TransactionRecordEntity parseCsv(String line, TransactionImportBatchEntity batch, String requestedClientId) {
-		String[] parts = line.split(",");
-		if (parts.length < 5) {
-			throw new IllegalArgumentException("invalid csv");
-		}
-		String clientId = parts[0].trim();
-		if (requestedClientId != null && !requestedClientId.isBlank() && !requestedClientId.equals(clientId)) {
-			return null;
-		}
-
+	private TransactionRecordEntity toEntity(ParsedTransactionRow row, TransactionImportBatchEntity batch) {
 		TransactionRecordEntity entity = new TransactionRecordEntity();
-		entity.setClientId(clientId);
-		entity.setKind(TransactionKind.fromWireValue(parts[1].trim()));
-		entity.setAmount(new BigDecimal(parts[2].trim()));
-		entity.setDate(LocalDate.parse(parts[3].trim()));
-		entity.setStatus(TransactionStatus.fromWireValue(parts[4].trim()));
+		entity.setClientId(row.clientId());
+		entity.setKind(row.kind());
+		entity.setAmount(row.amount());
+		entity.setDate(row.date());
+		entity.setStatus(row.status());
 		entity.setImportedAt(clock.instant());
 		entity.setImportBatch(batch);
+		entity.setImportDedupeKey(row.dedupeKey());
 		return entity;
 	}
 

@@ -316,6 +316,24 @@ variable "transaction_mock_sftp_root" {
   default     = "./mock-sftp"
 }
 
+variable "transaction_sftp_bucket_name" {
+  description = "S3 bucket name used as mocked SFTP source for transaction ingestion Lambda. Leave empty to auto-generate."
+  type        = string
+  default     = ""
+}
+
+variable "transaction_import_s3_endpoint" {
+  description = "Optional S3 endpoint override used by transaction service when importing from S3."
+  type        = string
+  default     = ""
+}
+
+variable "transaction_import_s3_path_style_access_enabled" {
+  description = "Enable S3 path-style access for transaction service S3 imports."
+  type        = bool
+  default     = false
+}
+
 #--------------------------------------------------------------
 # Lambda Functions Configuration
 #--------------------------------------------------------------
@@ -359,6 +377,63 @@ variable "enable_aml_lambda" {
   description = "Create the scheduled AML ingestion Lambda and EventBridge schedule."
   type        = bool
   default     = false
+}
+
+variable "enable_transaction_ingestion_lambda" {
+  description = "Create the scheduled transaction ingestion Lambda and EventBridge schedule."
+  type        = bool
+  default     = false
+}
+
+variable "transaction_ingestion_lambda_zip_path" {
+  description = "Path to the packaged transaction ingestion Lambda zip artifact."
+  type        = string
+  default     = "../../services/backend/transaction-ingestion-lambda/transaction-ingestion-lambda.zip"
+
+  validation {
+    condition = !var.enable_transaction_ingestion_lambda || (
+      trimspace(var.transaction_ingestion_lambda_zip_path) != "" &&
+      fileexists(var.transaction_ingestion_lambda_zip_path) &&
+      filesize(var.transaction_ingestion_lambda_zip_path) > 0
+    )
+    error_message = "When enable_transaction_ingestion_lambda is true, transaction_ingestion_lambda_zip_path must point to an existing, non-empty zip file."
+  }
+}
+
+variable "transaction_ingestion_lambda_memory_size" {
+  description = "Memory size (MB) for transaction ingestion Lambda."
+  type        = number
+  default     = 512
+}
+
+variable "transaction_ingestion_lambda_timeout_seconds" {
+  description = "Timeout (seconds) for transaction ingestion Lambda."
+  type        = number
+  default     = 60
+}
+
+variable "transaction_ingestion_schedule_expression" {
+  description = "EventBridge schedule expression for transaction ingestion Lambda."
+  type        = string
+  default     = "rate(1 hour)"
+}
+
+variable "transaction_sftp_remote_prefix" {
+  description = "S3 object prefix scanned by transaction ingestion Lambda."
+  type        = string
+  default     = "incoming/"
+}
+
+variable "transaction_import_api_base_url" {
+  description = "Override base URL for transaction import API. Leave empty to use ALB-derived CRM base URL."
+  type        = string
+  default     = ""
+}
+
+variable "transaction_import_api_path" {
+  description = "HTTP path called by transaction ingestion Lambda to trigger transaction import."
+  type        = string
+  default     = "/api/transactions/import"
 }
 
 variable "aml_lambda_zip_path" {

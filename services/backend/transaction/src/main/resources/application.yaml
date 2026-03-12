@@ -31,5 +31,23 @@ app:
   client-service-url: ${CLIENT_SERVICE_URL:http://localhost:8080}
   mock-sftp:
     root: ${MOCK_SFTP_ROOT:./mock-sftp}
+  sftp:
+    host: ${TRANSACTION_SFTP_HOST:localhost}
+    port: ${TRANSACTION_SFTP_PORT:22}
+    username: ${TRANSACTION_SFTP_USERNAME:mock_user}
+    password: ${TRANSACTION_SFTP_PASSWORD:mock_password}
+    private-key-path: ${TRANSACTION_SFTP_PRIVATE_KEY_PATH:}
+    remote-dir: ${TRANSACTION_SFTP_REMOTE_DIR:.}
+    poll:
+      enabled: ${TRANSACTION_SFTP_POLL_ENABLED:false}
+      fixed-delay-ms: ${TRANSACTION_SFTP_POLL_FIXED_DELAY_MS:300000}
+      initial-delay-ms: ${TRANSACTION_SFTP_POLL_INITIAL_DELAY_MS:10000}
+  import-s3:
+    bucket: ${TRANSACTION_IMPORT_S3_BUCKET:}
+    region: ${TRANSACTION_IMPORT_S3_REGION:ap-southeast-1}
+    endpoint: ${TRANSACTION_IMPORT_S3_ENDPOINT:}
+    path-style-access-enabled: ${TRANSACTION_IMPORT_S3_PATH_STYLE_ACCESS_ENABLED:false}
+    access-key-id: ${TRANSACTION_IMPORT_S3_ACCESS_KEY_ID:}
+    secret-access-key: ${TRANSACTION_IMPORT_S3_SECRET_ACCESS_KEY:}
   transactions-store:
     type: ${APP_TRANSACTIONS_STORE_TYPE:in-memory}

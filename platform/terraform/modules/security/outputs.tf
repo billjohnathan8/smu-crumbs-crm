@@ -87,3 +87,8 @@ output "verification_lambda_role_arn" {
   description = "Verification Lambda IAM role ARN."
   value       = var.enable_verification_pipeline ? aws_iam_role.verification_lambda[0].arn : null
 }
+
+output "transaction_ingestion_lambda_role_arn" {
+  description = "Transaction ingestion Lambda IAM role ARN."
+  value       = var.enable_transaction_ingestion_lambda ? aws_iam_role.transaction_ingestion_lambda[0].arn : null
+}

@@ -6,4 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 /**
  * Repository for transactions.
  */
-public interface TransactionRecordRepository extends JpaRepository<TransactionRecordEntity, Long> {}
+public interface TransactionRecordRepository extends JpaRepository<TransactionRecordEntity, Long> {
+	boolean existsByImportDedupeKey(String importDedupeKey);
+}
