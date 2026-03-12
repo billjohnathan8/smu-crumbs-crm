@@ -25,6 +25,7 @@ from .schemas import (
     HealthResponse,
     LogEntry,
     Pagination,
+    UpdateCommunicationStatusRequest,
     UpdateAmlAlertReviewRequest,
     UpdateLogRequest,
 )
@@ -196,6 +197,28 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
             description=row["description"],
             detectedAt=row["detected_at"],
             reviewStatus=row["review_status"],
+            createdAt=row["created_at"],
+            updatedAt=row["updated_at"],
+        )
+
+    def to_communication(row: dict) -> Communication:
+        """Convert communication persistence row to API response model."""
+        return Communication(
+            communicationId=encode_prefixed_id("com_", int(row["id"])),
+            clientId=row["client_id"],
+            agentId=row["agent_id"],
+            channel=row["channel"],
+            toEmail=row["to_email"],
+            subject=row["subject"],
+            body=row["body"],
+            status=row["status"],
+            providerMessageId=row["provider_message_id"],
+            errorMessage=row["error_message"],
+            idempotencyKey=row.get("idempotency_key"),
+            retryCount=row.get("retry_count", 0),
+            nextAttemptAt=row.get("next_attempt_at"),
+            lastAttemptAt=row.get("last_attempt_at"),
+            deliveryEvent=row.get("delivery_event"),
             createdAt=row["created_at"],
             updatedAt=row["updated_at"],
         )
@@ -536,20 +559,22 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
                 "internal_error",
                 "Internal error",
             )
-        return Communication(
-            communicationId=encode_prefixed_id("com_", int(row["id"])),
-            clientId=row["client_id"],
-            agentId=row["agent_id"],
-            channel=row["channel"],
-            toEmail=row["to_email"],
-            subject=row["subject"],
-            body=row["body"],
-            status=row["status"],
-            providerMessageId=row["provider_message_id"],
-            errorMessage=row["error_message"],
-            createdAt=row["created_at"],
-            updatedAt=row["updated_at"],
-        )
+        return to_communication(row)
+
+    @app.get("/api/communications/queued")
+    def list_queued_communications(
+        user=Depends(get_user),
+        service: LogService = Depends(get_log_service),
+        limit: int = 50,
+    ):
+        require_roles(user, {"admin"})
+        rows = service.list_queued_communications(limit=min(max(limit, 1), 200))
+        return {
+            "data": [to_communication(r).model_dump(exclude_none=True) for r in rows],
+            "pagination": Pagination(
+                limit=min(max(limit, 1), 200), offset=0, total=len(rows)
+            ).model_dump(),
+        }
 
     @app.get("/api/communications/{communicationId}")
     def get_communication(
@@ -570,20 +595,7 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
             return _error(request, status.HTTP_404_NOT_FOUND, "not_found", "Not found")
         if user.role == "agent" and row["agent_id"] != user.user_id:
             return _error(request, status.HTTP_404_NOT_FOUND, "not_found", "Not found")
-        return Communication(
-            communicationId=encode_prefixed_id("com_", int(row["id"])),
-            clientId=row["client_id"],
-            agentId=row["agent_id"],
-            channel=row["channel"],
-            toEmail=row["to_email"],
-            subject=row["subject"],
-            body=row["body"],
-            status=row["status"],
-            providerMessageId=row["provider_message_id"],
-            errorMessage=row["error_message"],
-            createdAt=row["created_at"],
-            updatedAt=row["updated_at"],
-        )
+        return to_communication(row)
 
     @app.get("/api/clients/{clientId}/communications")
     def list_communications(
@@ -602,29 +614,49 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
             client_id=clientId,
             agent_id=effective_agent,
         )
-        data = [
-            Communication(
-                communicationId=encode_prefixed_id("com_", int(r["id"])),
-                clientId=r["client_id"],
-                agentId=r["agent_id"],
-                channel=r["channel"],
-                toEmail=r["to_email"],
-                subject=r["subject"],
-                body=r["body"],
-                status=r["status"],
-                providerMessageId=r["provider_message_id"],
-                errorMessage=r["error_message"],
-                createdAt=r["created_at"],
-                updatedAt=r["updated_at"],
-            ).model_dump(exclude_none=True)
-            for r in rows
-        ]
+        data = [to_communication(r).model_dump(exclude_none=True) for r in rows]
         return {
             "data": data,
             "pagination": Pagination(
                 limit=min(max(limit, 1), 200), offset=max(offset, 0), total=total
             ).model_dump(),
         }
+
+    @app.patch("/api/communications/{communicationId}/status")
+    def update_communication_status(
+        request: Request,
+        communicationId: str,
+        body: UpdateCommunicationStatusRequest,
+        user=Depends(get_user),
+        service: LogService = Depends(get_log_service),
+    ):
+        require_roles(user, {"admin"})
+        try:
+            db_id = decode_prefixed_id("com_", communicationId)
+        except ValueError as exc:
+            return _error(
+                request, status.HTTP_400_BAD_REQUEST, "validation_error", str(exc)
+            )
+        row = service.update_communication_status(db_id, body)
+        if row is None:
+            return _error(request, status.HTTP_404_NOT_FOUND, "not_found", "Not found")
+        return to_communication(row)
+
+    @app.patch("/api/communications/provider/{providerMessageId}/status")
+    def update_communication_status_by_provider_message_id(
+        request: Request,
+        providerMessageId: str,
+        body: UpdateCommunicationStatusRequest,
+        user=Depends(get_user),
+        service: LogService = Depends(get_log_service),
+    ):
+        require_roles(user, {"admin"})
+        row = service.update_communication_status_by_provider_message_id(
+            providerMessageId, body
+        )
+        if row is None:
+            return _error(request, status.HTTP_404_NOT_FOUND, "not_found", "Not found")
+        return to_communication(row)
 
     return app
 

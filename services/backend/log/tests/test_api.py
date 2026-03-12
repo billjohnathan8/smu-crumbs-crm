@@ -115,6 +115,10 @@ class FakeLogService:
         return len(self.logs) != before
 
     def create_communication(self, request: CreateCommunicationRequest) -> int:
+        if request.idempotencyKey:
+            for row in self.communications:
+                if row.get("idempotency_key") == request.idempotencyKey:
+                    return row["id"]
         next_id = len(self.communications) + 1
         now = datetime.now(timezone.utc)
         self.communications.append(
@@ -129,6 +133,11 @@ class FakeLogService:
                 "status": "queued",
                 "provider_message_id": None,
                 "error_message": None,
+                "idempotency_key": request.idempotencyKey,
+                "retry_count": 0,
+                "next_attempt_at": None,
+                "last_attempt_at": None,
+                "delivery_event": None,
                 "created_at": now,
                 "updated_at": now,
             }
@@ -149,6 +158,40 @@ class FakeLogService:
             rows = [r for r in rows if r["agent_id"] == agent_id]
         total = len(rows)
         return rows[offset : offset + limit], total
+
+    def list_queued_communications(self, limit: int):
+        rows = [r for r in self.communications if r["status"] == "queued"]
+        return rows[:limit]
+
+    def update_communication_status(self, communication_id: int, patch) -> dict | None:
+        row = self.get_communication(communication_id)
+        if row is None:
+            return None
+        update = patch.model_dump(exclude_unset=True)
+        if "status" in update and update["status"] is not None:
+            row["status"] = update["status"].value
+        if "providerMessageId" in update:
+            row["provider_message_id"] = update["providerMessageId"]
+        if "errorMessage" in update:
+            row["error_message"] = update["errorMessage"]
+        if "retryCount" in update:
+            row["retry_count"] = update["retryCount"]
+        if "nextAttemptAt" in update:
+            row["next_attempt_at"] = update["nextAttemptAt"]
+        if "lastAttemptAt" in update:
+            row["last_attempt_at"] = update["lastAttemptAt"]
+        if "deliveryEvent" in update:
+            row["delivery_event"] = update["deliveryEvent"]
+        row["updated_at"] = datetime.now(timezone.utc)
+        return row
+
+    def update_communication_status_by_provider_message_id(
+        self, provider_message_id: str, patch
+    ) -> dict | None:
+        for row in self.communications:
+            if row.get("provider_message_id") == provider_message_id:
+                return self.update_communication_status(row["id"], patch)
+        return None
 
     def create_aml_alert(self, request: CreateAmlAlertRequest) -> dict:
         now = datetime.now(timezone.utc)
@@ -760,6 +803,115 @@ def test_list_communications_admin_sees_all_agent_scoped() -> None:
     assert agent_response.status_code == 200
     assert len(agent_response.json()["data"]) == 1
     assert agent_response.json()["data"][0]["agentId"] == "usr_1"
+
+
+def test_list_queued_communications_admin_only() -> None:
+    secret = "test-secret"
+    os.environ["JWT_HMAC_SECRET"] = secret
+    service = FakeLogService()
+    service.create_communication(
+        CreateCommunicationRequest(
+            clientId="clt_1",
+            agentId="usr_1",
+            toEmail="to@example.com",
+            subject="Hello",
+            body="Body",
+            channel=None,
+            idempotencyKey=None,
+        )
+    )
+    app = create_app(service)
+    client = TestClient(app)
+
+    agent_token = mint_token("usr_1", "agent", secret)
+    admin_token = mint_token("usr_admin", "admin", secret)
+
+    forbidden = client.get(
+        "/api/communications/queued",
+        headers={"Authorization": f"Bearer {agent_token}"},
+    )
+    ok = client.get(
+        "/api/communications/queued",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert forbidden.status_code == 403
+    assert ok.status_code == 200
+    assert len(ok.json()["data"]) == 1
+
+
+def test_update_communication_status_by_id_and_provider_message_id() -> None:
+    secret = "test-secret"
+    os.environ["JWT_HMAC_SECRET"] = secret
+    service = FakeLogService()
+    communication_id = service.create_communication(
+        CreateCommunicationRequest(
+            clientId="clt_1",
+            agentId="usr_1",
+            toEmail="to@example.com",
+            subject="Hello",
+            body="Body",
+            channel=None,
+            idempotencyKey="verify:clt_1",
+        )
+    )
+    service.communications[0]["provider_message_id"] = "ses-message-1"
+
+    app = create_app(service)
+    client = TestClient(app)
+    admin_token = mint_token("usr_admin", "admin", secret)
+
+    by_id = client.patch(
+        f"/api/communications/com_{communication_id}/status",
+        json={"status": "sent", "providerMessageId": "ses-message-1"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    by_provider = client.patch(
+        "/api/communications/provider/ses-message-1/status",
+        json={
+            "status": "failed",
+            "deliveryEvent": "BOUNCE",
+            "errorMessage": "mailbox full",
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert by_id.status_code == 200
+    assert by_id.json()["status"] == "sent"
+    assert by_provider.status_code == 200
+    assert by_provider.json()["status"] == "failed"
+    assert by_provider.json()["deliveryEvent"] == "BOUNCE"
+
+
+def test_create_communication_idempotency_key_returns_existing_record() -> None:
+    secret = "test-secret"
+    os.environ["JWT_HMAC_SECRET"] = secret
+    app = create_app(FakeLogService())
+    client = TestClient(app)
+    admin_token = mint_token("usr_admin", "admin", secret)
+
+    payload = {
+        "clientId": "clt_1",
+        "agentId": "usr_1",
+        "toEmail": "to@example.com",
+        "subject": "Hello",
+        "body": "Body",
+        "idempotencyKey": "verify:clt_1",
+    }
+    first = client.post(
+        "/api/communications",
+        json=payload,
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    second = client.post(
+        "/api/communications",
+        json=payload,
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert first.status_code == 202
+    assert second.status_code == 202
+    assert first.json()["communicationId"] == second.json()["communicationId"]
 
 
 def test_create_and_review_aml_alert_flow() -> None:

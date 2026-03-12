@@ -9,6 +9,7 @@ from .schemas import (
     CreateAmlAlertRequest,
     CreateCommunicationRequest,
     CreateLogRequest,
+    UpdateCommunicationStatusRequest,
     UpdateLogRequest,
 )
 
@@ -72,6 +73,10 @@ class LogService:
         payload["status"] = "queued"
         payload["providerMessageId"] = None
         payload["errorMessage"] = None
+        payload["retryCount"] = 0
+        payload["nextAttemptAt"] = None
+        payload["lastAttemptAt"] = None
+        payload["deliveryEvent"] = None
         return self._repository.insert_communication(payload)
 
     def create_aml_alert(self, request: CreateAmlAlertRequest) -> dict:
@@ -107,12 +112,46 @@ class LogService:
         """Fetch a single communication record by id."""
         return self._repository.get_communication(communication_id)
 
+    def get_communication_by_provider_message_id(
+        self, provider_message_id: str
+    ) -> dict | None:
+        """Fetch a single communication record by provider message id."""
+        return self._repository.get_communication_by_provider_message_id(
+            provider_message_id
+        )
+
     def list_communications(
         self, limit: int, offset: int, client_id: str, agent_id: str | None = None
     ):
         """List communications for a client, optionally scoped to an agent."""
         return self._repository.list_communications(
             limit=limit, offset=offset, client_id=client_id, agent_id=agent_id
+        )
+
+    def list_queued_communications(self, limit: int) -> list[dict]:
+        """List queued communications due for dispatch."""
+        return self._repository.list_queued_communications(limit=limit)
+
+    def update_communication_status(
+        self, communication_id: int, patch: UpdateCommunicationStatusRequest
+    ) -> dict | None:
+        """Update communication delivery fields by communication id."""
+        payload = patch.model_dump(exclude_unset=True)
+        if not payload:
+            return self._repository.get_communication(communication_id)
+        return self._repository.update_communication_status(communication_id, payload)
+
+    def update_communication_status_by_provider_message_id(
+        self, provider_message_id: str, patch: UpdateCommunicationStatusRequest
+    ) -> dict | None:
+        """Update communication delivery fields by provider message id."""
+        payload = patch.model_dump(exclude_unset=True)
+        if not payload:
+            return self._repository.get_communication_by_provider_message_id(
+                provider_message_id
+            )
+        return self._repository.update_communication_status_by_provider_message_id(
+            provider_message_id, payload
         )
 
     def bootstrap(self) -> None:
