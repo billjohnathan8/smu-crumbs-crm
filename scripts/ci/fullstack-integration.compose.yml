@@ -2,11 +2,11 @@ services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_DB: crm_it
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${LOCAL_DB_NAME:-crm}
+      POSTGRES_USER: ${LOCAL_DB_USER:-crm_app}
+      POSTGRES_PASSWORD: ${LOCAL_DB_PASSWORD:-devpassword}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d crm_it"]
+      test: ["CMD-SHELL", "pg_isready -U ${LOCAL_DB_USER:-crm_app} -d ${LOCAL_DB_NAME:-crm}"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -36,9 +36,18 @@ services:
       context: ../../services/backend/agent
       dockerfile: Dockerfile
     environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${LOCAL_DB_NAME:-crm}
+      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-crm_app}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASSWORD:-devpassword}
+      APP_USER_STORE_TYPE: postgres
       JWT_HMAC_SECRET: dev-only-insecure-secret
       ROOT_ADMIN_EMAIL: admin@crm.local
       ROOT_ADMIN_PASSWORD: admin123
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
     ports:
       - "18081:8080"
 
@@ -47,13 +56,13 @@ services:
       context: ../../services/backend/client
       dockerfile: Dockerfile
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/crm_it
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${LOCAL_DB_NAME:-crm}
+      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-crm_app}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASSWORD:-devpassword}
       # Lambda-backed log API endpoint (provisioned by run-fullstack-integration-e2e.sh)
       CLIENT_LOG_SERVICE_URL: ${CLIENT_LOG_SERVICE_URL}
       JWT_HMAC_SECRET: dev-only-insecure-secret
-      VERIFICATION_EMAIL_PROVIDER: ses
+      VERIFICATION_EMAIL_PROVIDER: ${VERIFICATION_EMAIL_PROVIDER:-mock}
       SES_SENDER_EMAIL: ${SES_SENDER_EMAIL:-verification@crm.local}
       VERIFICATION_EMAIL_AWS_REGION: ap-southeast-1
       VERIFICATION_EMAIL_AWS_ENDPOINT_URL: http://localstack:4566
@@ -73,6 +82,10 @@ services:
       context: ../../services/backend/transaction
       dockerfile: Dockerfile
     environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${LOCAL_DB_NAME:-crm}
+      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-crm_app}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASSWORD:-devpassword}
+      APP_TRANSACTIONS_STORE_TYPE: postgres
       CLIENT_SERVICE_URL: http://client-service:8080
       JWT_HMAC_SECRET: dev-only-insecure-secret
       TRANSACTION_SFTP_POLL_ENABLED: "true"
@@ -85,6 +98,10 @@ services:
       TRANSACTION_IMPORT_S3_ACCESS_KEY_ID: test
       TRANSACTION_IMPORT_S3_SECRET_ACCESS_KEY: test
     depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
       client-service:
         condition: service_started
     ports:

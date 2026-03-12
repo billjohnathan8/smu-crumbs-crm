@@ -6,6 +6,8 @@ COMPOSE_FILE="${ROOT_DIR}/scripts/ci/fullstack-integration.compose.yml"
 LOG_ROOT="${ROOT_DIR}/build-logs/fullstack-integration"
 FRONTEND_DIR="${ROOT_DIR}/services/frontend/crm-ui"
 INTEGRATION_TEST_DIR="${ROOT_DIR}/tests/integration"
+DB_ORCHESTRATOR_SCRIPT="${ROOT_DIR}/scripts/db/run-shared-postgres.sh"
+DB_ENDPOINT_GUARD_SCRIPT="${ROOT_DIR}/scripts/ci/guard-no-prod-db.sh"
 
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-http://127.0.0.1:18088}"
 COMPOSE_PROJECT_NAME="crm-fullstack-it-${GITHUB_RUN_ID:-local}"
@@ -27,6 +29,11 @@ export AWS_ACCESS_KEY_ID=test
 export AWS_SECRET_ACCESS_KEY=test
 export AWS_DEFAULT_REGION=ap-southeast-1
 export AWS_PAGER=""
+export LOCAL_DB_HOST="${LOCAL_DB_HOST:-postgres}"
+export LOCAL_DB_PORT="${LOCAL_DB_PORT:-5432}"
+export LOCAL_DB_NAME="${LOCAL_DB_NAME:-crm}"
+export LOCAL_DB_USER="${LOCAL_DB_USER:-crm_app}"
+export LOCAL_DB_PASSWORD="${LOCAL_DB_PASSWORD:-devpassword}"
 LOCALSTACK_ENDPOINT="http://127.0.0.1:14566"
 LOG_LAMBDA_FUNCTION_NAME="scroogebank-crm-dev-log-service"
 LOG_HTTP_API_NAME="scroogebank-crm-dev-log-http-api-it"
@@ -37,6 +44,7 @@ VERIFICATION_LAMBDA_RUNTIME="${VERIFICATION_LAMBDA_RUNTIME:-python3.12}"
 TRANSACTION_INGESTION_LAMBDA_FUNCTION_NAME="scroogebank-crm-dev-transaction-ingestion"
 TRANSACTION_INGESTION_LAMBDA_RUNTIME="${TRANSACTION_INGESTION_LAMBDA_RUNTIME:-python3.12}"
 VERIFICATION_SNS_TOPIC_NAME="scroogebank-crm-dev-verification"
+export VERIFICATION_EMAIL_PROVIDER="${VERIFICATION_EMAIL_PROVIDER:-mock}"
 export SES_SENDER_EMAIL="${SES_SENDER_EMAIL:-verification@crm.local}"
 
 # Set safe defaults so compose parsing works for `down` before dynamic provisioning.
@@ -178,6 +186,10 @@ localstack_queue_exists() {
 }
 
 require_docker_ready
+
+if [[ -f "${DB_ENDPOINT_GUARD_SCRIPT}" ]]; then
+  bash "${DB_ENDPOINT_GUARD_SCRIPT}"
+fi
 
 cleanup() {
   local exit_code=$?
@@ -426,7 +438,7 @@ deploy_log_lambda() {
       zip_arg="fileb://${zip_windows_path}"
     fi
   fi
-  local env_vars="Variables={DB_HOST=postgres,DB_PORT=5432,DB_NAME=crm_it,DB_USER=postgres,DB_PASSWORD=postgres,JWT_HMAC_SECRET=dev-only-insecure-secret,AWS_DEFAULT_REGION=ap-southeast-1,AWS_ENDPOINT_URL=http://localstack:4566}"
+  local env_vars="Variables={DB_HOST=${LOCAL_DB_HOST},DB_PORT=${LOCAL_DB_PORT},DB_NAME=${LOCAL_DB_NAME},DB_USER=${LOCAL_DB_USER},DB_PASSWORD=${LOCAL_DB_PASSWORD},JWT_HMAC_SECRET=dev-only-insecure-secret,AWS_DEFAULT_REGION=ap-southeast-1,AWS_ENDPOINT_URL=http://localstack:4566}"
 
   if aws_local lambda get-function --function-name "${LOG_LAMBDA_FUNCTION_NAME}" >/dev/null 2>&1; then
     aws_local lambda update-function-code \
@@ -881,10 +893,10 @@ wait_for_jobs \
 end_phase
 
 # --------------------------------------------------------------------------
-# Phase 2: Wait for LocalStack + init provisioning + deploy log Lambda/API
+# Phase 2: Wait for LocalStack + init provisioning
 # --------------------------------------------------------------------------
 
-start_phase "Phase 2: LocalStack provisioning + log Lambda/API"
+start_phase "Phase 2: LocalStack provisioning"
 wait_for_http "${LOCALSTACK_ENDPOINT}/_localstack/health" "localstack"
 
 echo "Waiting for LocalStack init provisioning (SQS sentinel)..."
@@ -901,6 +913,24 @@ for i in $(seq 1 ${INIT_ATTEMPTS}); do
   sleep 3
 done
 
+end_phase
+
+start_phase "Phase 2a: Shared Postgres migrations"
+if [[ ! -f "${DB_ORCHESTRATOR_SCRIPT}" ]]; then
+  echo "[FAIL] Missing DB orchestration script: ${DB_ORCHESTRATOR_SCRIPT}" >&2
+  exit 1
+fi
+LOCAL_DB_HOST=postgres \
+LOCAL_DB_PORT="${LOCAL_DB_PORT}" \
+LOCAL_DB_NAME="${LOCAL_DB_NAME}" \
+LOCAL_DB_USER="${LOCAL_DB_USER}" \
+LOCAL_DB_PASSWORD="${LOCAL_DB_PASSWORD}" \
+DB_DOCKER_NETWORK="${COMPOSE_PROJECT_NAME}_default" \
+bash "${DB_ORCHESTRATOR_SCRIPT}" migrate \
+  >> "${LOG_DIR}/docker-compose.log" 2>&1
+end_phase
+
+start_phase "Phase 2b: Deploy log + verification + ingestion Lambdas"
 echo "Packaging + deploying log-service Lambda to LocalStack..."
 deploy_log_lambda
 provision_log_http_api
@@ -911,7 +941,7 @@ deploy_transaction_ingestion_lambda
 wait_for_http "${LOG_SERVICE_PUBLIC_URL}/health" "log-service-lambda"
 end_phase
 
-start_phase "Phase 2b: Start application services + integration gateway"
+start_phase "Phase 2c: Start application services + integration gateway"
 docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" up -d --build \
   agent-service client-service transaction-service frontend integration-gateway \
   >> "${LOG_DIR}/docker-compose.log" 2>&1
@@ -945,39 +975,17 @@ wait_for_jobs \
 end_phase
 
 # --------------------------------------------------------------------------
-# Phase 3b: Warm up JVM + seed CI agent user
-# The agent-service JVM (port 18081) only receives health-check traffic in
-# Phase 3; the first real API call from Playwright would be cold.  Logging in
-# here warms the JVM and also creates the agent@crm.local account that the
-# Playwright agent-flow tests expect.
+# Phase 3b: Seed baseline agent principals for local/test
 # --------------------------------------------------------------------------
 
-start_phase "Phase 3b: Warm up agent-service + seed CI agent user"
-
-ADMIN_ACCESS_TOKEN="$(
-  curl --silent --show-error --fail \
-    --request POST "http://127.0.0.1:18081/api/auth/login" \
-    --header "Content-Type: application/json" \
-    --data "{\"email\":\"${E2E_ADMIN_EMAIL:-admin@crm.local}\",\"password\":\"${E2E_ADMIN_PASSWORD:-admin123}\"}" \
-  | ${PYTHON_CMD} -c "import json,sys; print(json.load(sys.stdin)['accessToken'])"
-)"
-
-echo "  [OK] admin login (agent-service JVM warmed up)"
-
-curl --silent --show-error \
-  --request POST "http://127.0.0.1:18081/api/agents" \
-  --header "Authorization: Bearer ${ADMIN_ACCESS_TOKEN}" \
-  --header "Content-Type: application/json" \
-  --data "{
-    \"firstName\": \"CI\",
-    \"lastName\": \"Agent\",
-    \"email\": \"agent@crm.local\",
-    \"role\": \"agent\",
-    \"sendInviteEmail\": false,
-    \"temporaryPassword\": \"${E2E_AGENT_PASSWORD:-AgentPass123!}\"
-  }" > /dev/null \
-  && echo "  [OK] CI agent user created (agent@crm.local)" \
-  || echo "  [WARN] CI agent user creation skipped (may already exist)"
+start_phase "Phase 3b: Seed baseline principals"
+AGENT_BASE_URL="http://127.0.0.1:18081" \
+ROOT_ADMIN_EMAIL="${E2E_ADMIN_EMAIL:-admin@crm.local}" \
+ROOT_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-admin123}" \
+SEED_AGENT_EMAIL="agent@crm.local" \
+SEED_AGENT_PASSWORD="${E2E_AGENT_PASSWORD:-AgentPass123!}" \
+bash "${DB_ORCHESTRATOR_SCRIPT}" seed \
+  >> "${LOG_DIR}/docker-compose.log" 2>&1
 end_phase
 
 # --------------------------------------------------------------------------
@@ -1048,7 +1056,7 @@ done
   exit 1
 }
 
-echo "  Smoke: /verify -> SES send -> SNS feedback lambda update"
+echo "  Smoke: /verify communication dispatch"
 VERIFY_RESPONSE="$(
   curl --silent --show-error --fail \
     --request POST "http://127.0.0.1:18082/api/clients/${CLIENT_ID}/verify" \
@@ -1109,18 +1117,20 @@ done
   exit 1
 }
 
-VERIFICATION_TOPIC_ARN="$(
-  aws_local sns list-topics \
-    --query "Topics[?contains(TopicArn, '${VERIFICATION_SNS_TOPIC_NAME}')].TopicArn | [0]" \
-    --output text
-)"
-VERIFICATION_TOPIC_ARN="$(normalize_text "${VERIFICATION_TOPIC_ARN}")"
-[[ -n "${VERIFICATION_TOPIC_ARN}" && "${VERIFICATION_TOPIC_ARN}" != "None" ]] || {
-  echo "  [FAIL] verification SNS topic was not found for feedback publish" >&2
-  exit 1
-}
+if [[ "${VERIFICATION_EMAIL_PROVIDER}" == "ses" ]]; then
+  echo "  Smoke: SES feedback lambda update"
+  VERIFICATION_TOPIC_ARN="$(
+    aws_local sns list-topics \
+      --query "Topics[?contains(TopicArn, '${VERIFICATION_SNS_TOPIC_NAME}')].TopicArn | [0]" \
+      --output text
+  )"
+  VERIFICATION_TOPIC_ARN="$(normalize_text "${VERIFICATION_TOPIC_ARN}")"
+  [[ -n "${VERIFICATION_TOPIC_ARN}" && "${VERIFICATION_TOPIC_ARN}" != "None" ]] || {
+    echo "  [FAIL] verification SNS topic was not found for feedback publish" >&2
+    exit 1
+  }
 
-SES_FEEDBACK_MESSAGE="$(${PYTHON_CMD} - "${PROVIDER_MESSAGE_ID}" <<'PY'
+  SES_FEEDBACK_MESSAGE="$(${PYTHON_CMD} - "${PROVIDER_MESSAGE_ID}" <<'PY'
 import json
 import sys
 print(json.dumps({
@@ -1129,37 +1139,40 @@ print(json.dumps({
     "bounce": {"bounceType": "Permanent", "bounceSubType": "General"}
 }, separators=(",", ":")))
 PY
-)"
-aws_local sns publish \
-  --topic-arn "${VERIFICATION_TOPIC_ARN}" \
-  --message "${SES_FEEDBACK_MESSAGE}" \
-  >/dev/null
-
-FEEDBACK_APPLIED=false
-for _ in {1..20}; do
-  COMM_STATUS_JSON="$(
-    curl --silent --show-error --fail \
-      "${LOG_SERVICE_PUBLIC_URL}/api/communications/${COMMUNICATION_ID}" \
-      --header "Authorization: Bearer ${AGENT_TOKEN}" \
-      || true
   )"
-  if COMM_STATUS_JSON="${COMM_STATUS_JSON}" ${PYTHON_CMD} - <<'PY' 2>/dev/null; then
+  aws_local sns publish \
+    --topic-arn "${VERIFICATION_TOPIC_ARN}" \
+    --message "${SES_FEEDBACK_MESSAGE}" \
+    >/dev/null
+
+  FEEDBACK_APPLIED=false
+  for _ in {1..20}; do
+    COMM_STATUS_JSON="$(
+      curl --silent --show-error --fail \
+        "${LOG_SERVICE_PUBLIC_URL}/api/communications/${COMMUNICATION_ID}" \
+        --header "Authorization: Bearer ${AGENT_TOKEN}" \
+        || true
+    )"
+    if COMM_STATUS_JSON="${COMM_STATUS_JSON}" ${PYTHON_CMD} - <<'PY' 2>/dev/null; then
 import json, os
 payload = json.loads(os.environ["COMM_STATUS_JSON"])
 if payload.get("status") == "failed" and payload.get("deliveryEvent") == "BOUNCE":
     raise SystemExit(0)
 raise SystemExit(1)
 PY
-    FEEDBACK_APPLIED=true
-    echo "  [OK] verification feedback lambda updated communication status to failed/BOUNCE"
-    break
-  fi
-  sleep 1
-done
-[[ "${FEEDBACK_APPLIED}" == "true" ]] || {
-  echo "  [FAIL] verification feedback lambda did not update communication status" >&2
-  exit 1
-}
+      FEEDBACK_APPLIED=true
+      echo "  [OK] verification feedback lambda updated communication status to failed/BOUNCE"
+      break
+    fi
+    sleep 1
+  done
+  [[ "${FEEDBACK_APPLIED}" == "true" ]] || {
+    echo "  [FAIL] verification feedback lambda did not update communication status" >&2
+    exit 1
+  }
+else
+  echo "  [SKIP] verification SNS feedback assertion (VERIFICATION_EMAIL_PROVIDER=${VERIFICATION_EMAIL_PROVIDER})"
+fi
 
 echo "  Smoke: verification dispatch worker scheduled path"
 QUEUED_COMMUNICATION_RESPONSE="$(

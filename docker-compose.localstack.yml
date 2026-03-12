@@ -44,13 +44,13 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_DB: crm
-      POSTGRES_USER: crm_app
-      POSTGRES_PASSWORD: devpassword
+      POSTGRES_DB: ${LOCAL_DB_NAME:-crm}
+      POSTGRES_USER: ${LOCAL_DB_USER:-crm_app}
+      POSTGRES_PASSWORD: ${LOCAL_DB_PASSWORD:-devpassword}
     volumes:
       - crm-pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U crm_app -d crm"]
+      test: ["CMD-SHELL", "pg_isready -U ${LOCAL_DB_USER:-crm_app} -d ${LOCAL_DB_NAME:-crm}"]
       interval: 5s
       timeout: 5s
       retries: 10
