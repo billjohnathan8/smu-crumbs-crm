@@ -3,7 +3,7 @@ package com.scroogebank.crm.client_service.logging;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
 /**
@@ -13,8 +13,8 @@ import org.springframework.web.client.RestClient;
 public class LogServiceClientConfig {
 	/**
 	 * Builds a {@link RestClient} with the configured base URL.
-	 * Uses SimpleClientHttpRequestFactory (HTTP/1.1) for compatibility with
-	 * LocalStack/API Gateway style HTTP endpoints in local and CI flows.
+	 * Uses JDK HttpClient request factory so PATCH requests are supported when
+	 * communicating with the Lambda-backed log API.
 	 *
 	 * @param logServiceUrl base URL for the log API endpoint
 	 * @return RestClient instance
@@ -24,7 +24,7 @@ public class LogServiceClientConfig {
 		@Value("${app.log-service-url}") String logServiceUrl
 	) {
 		return RestClient.builder()
-			.requestFactory(new SimpleClientHttpRequestFactory())
+			.requestFactory(new JdkClientHttpRequestFactory())
 			.baseUrl(logServiceUrl)
 			.build();
 	}

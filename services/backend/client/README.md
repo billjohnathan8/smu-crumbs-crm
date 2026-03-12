@@ -71,7 +71,7 @@ After running tests, find reports in `build/reports/`:
 
 ### Running Locally (Standalone)
 
-Start the service locally with an in-memory or local PostgreSQL database:
+Start the service locally with PostgreSQL (default local runtime contract):
 
 ```bash
 # Use the explicit dev profile for local convenience defaults
@@ -82,22 +82,23 @@ Start the service locally with an in-memory or local PostgreSQL database:
 java -jar build/libs/client-*.jar
 ```
 
-**Service will start on:** `http://localhost:8081`
+**Service will start on:** `http://localhost:8080`
 
 **Health check:** `curl http://localhost:8081/health`
 
 ### Configuration
 
 See [Configuration Guide](../../../docs/configuration.md) for full details.
+Use `services/backend/client/.env.example` as the baseline local/dev template.
 
 **Key environment variables:**
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SERVER_PORT` | `8081` | HTTP server port |
-| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/crm_db` | Database URL |
-| `SPRING_DATASOURCE_USERNAME` | `postgres` | Database username |
-| `SPRING_DATASOURCE_PASSWORD` | `postgres` | Database password |
+| `SERVER_PORT` | `8080` | HTTP server port |
+| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/crm` | Database URL |
+| `SPRING_DATASOURCE_USERNAME` | `crm_app` | Database username |
+| `SPRING_DATASOURCE_PASSWORD` | `devpassword` | Database password |
 | `CLIENT_LOG_SERVICE_URL` | `http://localhost:4566/restapis/<api-id>/local/_user_request_` | Canonical Lambda-backed log API URL for audit and communication APIs |
 | `LOG_SERVICE_URL` | same as above | Backward-compatible fallback for `CLIENT_LOG_SERVICE_URL` |
 | `VERIFICATION_EMAIL_PROVIDER` | `mock` | Email provider for verification notifications (`mock` or `ses`) |
@@ -114,8 +115,6 @@ See [Configuration Guide](../../../docs/configuration.md) for full details.
 | `VERIFICATION_EMAIL_DISPATCH_SERVICE_USER_ID` | `usr_system_verification` | Subject claim for internal service JWT |
 
 Security note:
-- `application.yaml` no longer contains hardcoded fallback secrets/passwords for runtime safety.
-- Dev-only fallback secrets now live in `application-dev.yaml`.
 - Production must provide `JWT_HMAC_SECRET` and database credentials via environment/secrets.
 
 ## Verification Email Implementation

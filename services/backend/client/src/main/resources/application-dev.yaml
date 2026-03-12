@@ -1,6 +1,6 @@
 spring:
   datasource:
-    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:devpassword}}
 
 app:
   verification-email:

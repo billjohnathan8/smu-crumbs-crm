@@ -32,7 +32,7 @@ import org.springframework.stereotype.Component;
  * single-replica in production.
  */
 @Component
-@ConditionalOnProperty(name = "app.user-store.type", havingValue = "in-memory", matchIfMissing = true)
+@ConditionalOnProperty(name = "app.user-store.type", havingValue = "in-memory")
 public class InMemoryUserStore implements UserStore {
 	private static final String USER_ID_PREFIX = "usr_";
 	private static final long ROOT_ADMIN_DB_ID = 1L;

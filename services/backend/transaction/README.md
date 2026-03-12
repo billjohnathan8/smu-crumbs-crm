@@ -60,6 +60,10 @@ Use the explicit dev profile for local convenience defaults:
 Sample env config:
 
 ```bash
+export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/crm
+export SPRING_DATASOURCE_USERNAME=crm_app
+export SPRING_DATASOURCE_PASSWORD=devpassword
+export APP_TRANSACTIONS_STORE_TYPE=postgres
 export MOCK_SFTP_ROOT=./mock-sftp
 export TRANSACTION_SFTP_REMOTE_DIR=.
 export TRANSACTION_SFTP_POLL_ENABLED=true
@@ -73,7 +77,8 @@ export TRANSACTION_IMPORT_S3_ACCESS_KEY_ID=
 export TRANSACTION_IMPORT_S3_SECRET_ACCESS_KEY=
 ```
 
-Or copy values from `.env.example`.
+Or copy values from `.env.example` (`services/backend/transaction/.env.example`).
+For environment boundaries across local/test/CI/prod, see [Configuration Guide](../../../docs/configuration.md).
 
 Start local infra (including mock SFTP):
 
@@ -91,8 +96,6 @@ Trigger and verify ingestion:
    - or `GET /api/clients/{clientId}/transactions`
 
 Security note:
-- `application.yaml` no longer contains hardcoded fallback secrets/passwords for runtime safety.
-- Dev-only fallback secrets now live in `application-dev.yaml`.
 - Production must provide `JWT_HMAC_SECRET` via environment/secrets.
 
 ## Known limitations

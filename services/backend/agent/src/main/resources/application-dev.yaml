@@ -5,4 +5,4 @@ app:
     email: ${ROOT_ADMIN_EMAIL:admin@crm.local}
     password: ${ROOT_ADMIN_PASSWORD:admin123}
   user-store:
-    type: ${APP_USER_STORE_TYPE:in-memory}
+    type: ${APP_USER_STORE_TYPE:postgres}

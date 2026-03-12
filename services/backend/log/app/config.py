@@ -64,19 +64,19 @@ class Settings:
     environment: str = field(default_factory=_runtime_environment)
     db_host: str = field(default_factory=lambda: os.getenv("DB_HOST", "localhost"))
     db_port: int = field(default_factory=lambda: int(os.getenv("DB_PORT", "5432")))
-    db_name: str = field(default_factory=lambda: os.getenv("DB_NAME", "cs301"))
+    db_name: str = field(default_factory=lambda: os.getenv("DB_NAME", "crm"))
     db_user: str = field(
         default_factory=lambda: _env_or_secret(
             "DB_USER",
             "DB_USER_SECRET_ARN",
-            "cs301" if _is_dev_environment() else None,
+            "crm_app" if _is_dev_environment() else None,
         )
     )
     db_password: str = field(
         default_factory=lambda: _env_or_secret(
             "DB_PASSWORD",
             "DB_PASSWORD_SECRET_ARN",
-            "cs301pass" if _is_dev_environment() else None,
+            "devpassword" if _is_dev_environment() else None,
         )
     )
     jwt_hmac_secret: str = field(

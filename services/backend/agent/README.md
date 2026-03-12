@@ -72,7 +72,7 @@ After running tests, find reports in `build/reports/`:
 
 ### Running Locally (Standalone)
 
-Start the service locally with an in-memory or local PostgreSQL database:
+Start the service locally with PostgreSQL (default local runtime contract):
 
 ```bash
 # Use the explicit dev profile for local convenience defaults
@@ -90,20 +90,20 @@ java -jar build/libs/agent-*.jar
 ### Configuration
 
 See [Configuration Guide](../../../docs/configuration.md) for full details.
+Use `services/backend/agent/.env.example` as the baseline local/dev template.
 
 **Key environment variables:**
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SERVER_PORT` | `8080` | HTTP server port |
-| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/crm_db` | Database URL |
-| `SPRING_DATASOURCE_USERNAME` | `postgres` | Database username |
-| `SPRING_DATASOURCE_PASSWORD` | `postgres` | Database password |
+| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/crm` | Database URL |
+| `SPRING_DATASOURCE_USERNAME` | `crm_app` | Database username |
+| `SPRING_DATASOURCE_PASSWORD` | `devpassword` | Database password |
+| `APP_USER_STORE_TYPE` | `postgres` | User store backend (`postgres` for local/integration runtime) |
 | `LOG_SERVICE_URL` | `http://localhost:4566/restapis/<api-id>/local/_user_request_` | Lambda-backed log API URL for audit events |
 
 Security note:
-- `application.yaml` no longer contains hardcoded fallback secrets/passwords for runtime safety.
-- Dev-only fallback secrets now live in `application-dev.yaml`.
 - Production must provide `JWT_HMAC_SECRET` and `ROOT_ADMIN_PASSWORD` via environment/secrets.
 
 **Example override:**
@@ -192,7 +192,7 @@ class AgentServiceTest {
 
 **Issue: Tests fail with database connection error**
 
-Solution: Use H2 in-memory database for tests or mock the repository layer:
+Solution: unit tests use `src/test/resources/application.yaml` (H2 + in-memory store). If needed, mock repository dependencies:
 
 ```java
 @DataJpaTest  // Uses H2 by default

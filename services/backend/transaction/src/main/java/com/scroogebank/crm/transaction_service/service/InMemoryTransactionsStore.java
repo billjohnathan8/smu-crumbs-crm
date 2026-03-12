@@ -38,7 +38,7 @@ import org.springframework.stereotype.Component;
  * single-replica in production.
  */
 @Component
-@ConditionalOnProperty(name = "app.transactions-store.type", havingValue = "in-memory", matchIfMissing = true)
+@ConditionalOnProperty(name = "app.transactions-store.type", havingValue = "in-memory")
 public class InMemoryTransactionsStore implements TransactionsStore {
 	private static final String TXN_PREFIX = "txn_";
 	private static final String BATCH_PREFIX = "imp_";

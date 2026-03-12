@@ -16,6 +16,15 @@
 
 - Dev/local/test convenience defaults are available when `APP_ENV` (or `ENVIRONMENT`) is `dev`, `local`, or `test`.
 - For `APP_ENV=prod`, the service requires explicit DB and JWT secrets via direct env vars or `*_SECRET_ARN` inputs.
+- Use `services/backend/log/.env.example` as the baseline local/dev template.
+- Cross-environment contract is documented in [Configuration Guide](../../../docs/configuration.md).
+
+Local DB defaults used by the Lambda runtime:
+- `DB_HOST=localhost` (or `postgres` in compose network)
+- `DB_PORT=5432`
+- `DB_NAME=crm`
+- `DB_USER=crm_app`
+- `DB_PASSWORD=devpassword`
 
 ## Local test pipeline (service root)
 
