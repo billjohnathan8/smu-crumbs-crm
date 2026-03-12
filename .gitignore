@@ -98,6 +98,9 @@ id_rsa
 .DS_Store
 .env
 
+# Developer Setup - Portable Tools
+.devtools/
+
 # Ignore IDE Configs
 .vscode/
 .VSCodeCounter/
@@ -112,25 +115,17 @@ fail-logs/*
 # Debug Screenshots
 services/frontend/crm-ui/debug-*.png
 
-# Pipeline Migration: Legacy script logs (archived)
+# Pipeline & Build-Logs 
 scripts/legacy/**/build-logs/
-
-# Pipeline Migration: Validation logs (temporary)
 build-logs/migration-validation/
 **/new-*.log
 **/old-*.log
-
-# Build Logs
 /build-logs/
 
 # Local CI-generated Terraform artifact zips
 .ci-artifacts/
 
-# Developer Setup - Portable Tools
-.devtools/
-
 # Ignore Test Directories
-
 node_modules/
 
 # Hypothesis (property-based testing) local cache
