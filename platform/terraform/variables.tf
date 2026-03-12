@@ -98,10 +98,21 @@ variable "transaction_image_tag" {
 #--------------------------------------------------------------
 # ECS Service Task Counts
 #--------------------------------------------------------------
+variable "enable_stateful_service_scale_out" {
+  description = "Allow agent and transaction services to scale beyond one task. Enable only after Phase B persistence is fully deployed and verified."
+  type        = bool
+  default     = false
+}
+
 variable "agent_desired_count" {
-  description = "Desired ECS task count for agent service."
+  description = "Desired ECS task count for agent service. Must remain 1 unless enable_stateful_service_scale_out is true."
   type        = number
-  default     = 2
+  default     = 1
+
+  validation {
+    condition     = var.enable_stateful_service_scale_out || var.agent_desired_count == 1
+    error_message = "agent_desired_count must be 1 unless enable_stateful_service_scale_out is true."
+  }
 }
 
 variable "client_desired_count" {
@@ -111,9 +122,14 @@ variable "client_desired_count" {
 }
 
 variable "transaction_desired_count" {
-  description = "Desired ECS task count for transaction service."
+  description = "Desired ECS task count for transaction service. Must remain 1 unless enable_stateful_service_scale_out is true."
   type        = number
-  default     = 2
+  default     = 1
+
+  validation {
+    condition     = var.enable_stateful_service_scale_out || var.transaction_desired_count == 1
+    error_message = "transaction_desired_count must be 1 unless enable_stateful_service_scale_out is true."
+  }
 }
 
 #--------------------------------------------------------------
@@ -132,13 +148,13 @@ variable "ecs_task_memory" {
 }
 
 variable "ecs_min_capacity" {
-  description = "Minimum task count for ECS autoscaling."
+  description = "Minimum task count for ECS autoscaling (applies to stateless services only)."
   type        = number
   default     = 1
 }
 
 variable "ecs_max_capacity" {
-  description = "Maximum task count for ECS autoscaling."
+  description = "Maximum task count for ECS autoscaling (applies to stateless services only)."
   type        = number
   default     = 4
 }

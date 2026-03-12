@@ -27,13 +27,19 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
  * In-memory transaction store with simple filtering and mock SFTP import support.
+ *
+ * <p>This store is process-local and not shared across replicas. Transaction/import records are lost on
+ * task restart and are invisible to other tasks. When this store is selected, keep the service
+ * single-replica in production.
  */
 @Component
-public class InMemoryTransactionsStore {
+@ConditionalOnProperty(name = "app.transactions-store.type", havingValue = "in-memory", matchIfMissing = true)
+public class InMemoryTransactionsStore implements TransactionsStore {
 	private static final String TXN_PREFIX = "txn_";
 	private static final String BATCH_PREFIX = "imp_";
 

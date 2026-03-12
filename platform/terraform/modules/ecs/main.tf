@@ -6,14 +6,39 @@
 # Service-specific configurations including desired count, image tags,
 # environment variables, and secrets
 locals {
+  # Services that require strict single-replica safety when stateful scale-out
+  # is disabled. Toggle via enable_stateful_service_scale_out.
+  in_memory_stateful_services = toset(["agent", "transaction"])
+
+  requested_desired_counts = {
+    agent       = var.desired_counts.agent
+    client      = var.desired_counts.client
+    transaction = var.desired_counts.transaction
+  }
+
+  effective_desired_counts = merge(
+    local.requested_desired_counts,
+    var.enable_stateful_service_scale_out ? {} : {
+      for service_name in local.in_memory_stateful_services : service_name => 1
+    }
+  )
+
   service_configs = {
     agent = {
-      desired_count = var.desired_counts.agent
+      desired_count = local.effective_desired_counts.agent
       image_tag     = var.image_tags.agent
       environment = [
         {
           name  = "ROOT_ADMIN_EMAIL"
           value = var.root_admin_email
+        },
+        {
+          name  = "SPRING_DATASOURCE_URL"
+          value = var.db_jdbc_url
+        },
+        {
+          name  = "APP_USER_STORE_TYPE"
+          value = "postgres"
         }
       ]
       secrets = [
@@ -24,11 +49,19 @@ locals {
         {
           name      = "JWT_HMAC_SECRET"
           valueFrom = var.jwt_hmac_secret_arn
+        },
+        {
+          name      = "SPRING_DATASOURCE_USERNAME"
+          valueFrom = var.db_username_secret_arn
+        },
+        {
+          name      = "SPRING_DATASOURCE_PASSWORD"
+          valueFrom = var.db_password_secret_arn
         }
       ]
     }
     client = {
-      desired_count = var.desired_counts.client
+      desired_count = local.effective_desired_counts.client
       image_tag     = var.image_tags.client
       environment = [
         {
@@ -56,7 +89,7 @@ locals {
       ]
     }
     transaction = {
-      desired_count = var.desired_counts.transaction
+      desired_count = local.effective_desired_counts.transaction
       image_tag     = var.image_tags.transaction
       environment = [
         {
@@ -66,15 +99,37 @@ locals {
         {
           name  = "MOCK_SFTP_ROOT"
           value = var.transaction_mock_sftp_root
+        },
+        {
+          name  = "SPRING_DATASOURCE_URL"
+          value = var.db_jdbc_url
+        },
+        {
+          name  = "APP_TRANSACTIONS_STORE_TYPE"
+          value = "postgres"
         }
       ]
       secrets = [
         {
           name      = "JWT_HMAC_SECRET"
           valueFrom = var.jwt_hmac_secret_arn
+        },
+        {
+          name      = "SPRING_DATASOURCE_USERNAME"
+          valueFrom = var.db_username_secret_arn
+        },
+        {
+          name      = "SPRING_DATASOURCE_PASSWORD"
+          valueFrom = var.db_password_secret_arn
         }
       ]
     }
+  }
+
+  autoscaled_service_configs = {
+    for service_name, config in local.service_configs :
+    service_name => config
+    if var.enable_stateful_service_scale_out || !contains(local.in_memory_stateful_services, service_name)
   }
 
   # CloudMap namespace for service discovery

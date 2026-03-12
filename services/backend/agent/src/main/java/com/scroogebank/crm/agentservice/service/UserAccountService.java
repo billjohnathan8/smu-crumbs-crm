@@ -16,9 +16,9 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class UserAccountService {
-	private final InMemoryUserStore store;
+	private final UserStore store;
 
-	public UserAccountService(InMemoryUserStore store) {
+	public UserAccountService(UserStore store) {
 		this.store = store;
 	}
 

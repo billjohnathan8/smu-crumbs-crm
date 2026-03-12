@@ -8,6 +8,7 @@ Documentation for the AWS infrastructure managed under `platform/terraform/`.
 |----------|-------------|
 | [terraform-overview.md](terraform-overview.md) | Architecture overview - modules, design decisions, naming conventions, and service flows |
 | [terraform-resource-inventory.md](terraform-resource-inventory.md) | Complete inventory of all Terraform modules and AWS resources |
+| [stateful-services-scaling.md](stateful-services-scaling.md) | Scaling guardrails for in-memory stateful ECS services (`agent`, `transaction`) |
 | [backend-setup.md](backend-setup.md) | Guide for configuring the S3 + DynamoDB remote state backend |
 | [inframap-setup.md](inframap-setup.md) | Local setup for generating infrastructure diagrams with InfraMap and `terraform graph` |
 | [architecture-conformance.md](architecture-conformance.md) | Conformance summary against the reference architecture diagram, with identified gaps and remediation plan |

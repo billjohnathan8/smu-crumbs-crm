@@ -18,11 +18,11 @@ import org.springframework.stereotype.Service;
 public class AuthService {
 	private static final Duration ACCESS_TTL = Duration.ofHours(1);
 
-	private final InMemoryUserStore store;
+	private final UserStore store;
 	private final JwtService jwtService;
 	private final Clock clock;
 
-	public AuthService(InMemoryUserStore store, JwtService jwtService, Clock clock) {
+	public AuthService(UserStore store, JwtService jwtService, Clock clock) {
 		this.store = store;
 		this.jwtService = jwtService;
 		this.clock = clock;

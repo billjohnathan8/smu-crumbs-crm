@@ -14,9 +14,9 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class TransactionsService {
-	private final InMemoryTransactionsStore store;
+	private final TransactionsStore store;
 
-	public TransactionsService(InMemoryTransactionsStore store) {
+	public TransactionsService(TransactionsStore store) {
 		this.store = store;
 	}
 

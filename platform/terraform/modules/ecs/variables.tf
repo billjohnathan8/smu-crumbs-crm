@@ -68,12 +68,17 @@ variable "image_tags" {
 }
 
 variable "desired_counts" {
-  description = "Desired ECS service counts per service."
+  description = "Requested ECS service counts per service. When enable_stateful_service_scale_out is false, agent and transaction are pinned to 1 task."
   type = object({
     agent       = number
     client      = number
     transaction = number
   })
+}
+
+variable "enable_stateful_service_scale_out" {
+  description = "Allow agent and transaction services to scale beyond one task once persistent shared storage is in place."
+  type        = bool
 }
 
 variable "ecs_task_cpu" {

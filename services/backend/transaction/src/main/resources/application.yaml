@@ -6,11 +6,31 @@ spring:
     deserialization:
       fail-on-unknown-properties: true
 
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:transaction;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE}
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        "[format_sql]": true
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    table: transaction_flyway_schema_history
+    locations: classpath:db/migration
+
 app:
   jwt:
     hmac-secret: ${JWT_HMAC_SECRET:dev-only-insecure-secret}
   client-service-url: ${CLIENT_SERVICE_URL:http://localhost:8080}
   mock-sftp:
     root: ${MOCK_SFTP_ROOT:./mock-sftp}
-
+  transactions-store:
+    type: ${APP_TRANSACTIONS_STORE_TYPE:in-memory}
 

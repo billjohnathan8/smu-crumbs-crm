@@ -6,9 +6,30 @@ spring:
     deserialization:
       fail-on-unknown-properties: true
 
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:agent;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE}
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        "[format_sql]": true
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    table: agent_flyway_schema_history
+    locations: classpath:db/migration
+
 app:
   jwt:
     hmac-secret: ${JWT_HMAC_SECRET:dev-only-insecure-secret}
   root-admin:
     email: ${ROOT_ADMIN_EMAIL:admin@crm.local}
     password: ${ROOT_ADMIN_PASSWORD:admin123}
+  user-store:
+    type: ${APP_USER_STORE_TYPE:in-memory}

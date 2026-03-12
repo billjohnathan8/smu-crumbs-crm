@@ -218,7 +218,9 @@ module "apigateway" {
 #--------------------------------------------------------------
 # ECS Module
 # Fargate cluster with agent, client, and transaction services,
-# autoscaling, service discovery, and CloudWatch logging
+# service discovery, and CloudWatch logging.
+# Note: by default only stateless services are autoscaled; stateful
+# service scale-out is feature-gated by enable_stateful_service_scale_out.
 #--------------------------------------------------------------
 module "ecs" {
   source = "./modules/ecs"
@@ -228,29 +230,30 @@ module "ecs" {
   name_prefix  = local.name_prefix
   aws_region   = var.aws_region
 
-  vpc_id                         = module.network.vpc_id
-  private_subnet_ids             = module.network.private_subnet_ids
-  ecs_service_security_group_id  = module.security.ecs_service_security_group_id
-  cloudwatch_log_retention_days  = var.cloudwatch_log_retention_days
-  target_group_arns              = module.alb.target_group_arns
-  service_health_check_path      = "/health"
-  ecr_repository_url             = module.ecr.repository_url
-  ecs_task_execution_role_arn    = module.security.ecs_task_execution_role_arn
-  ecs_task_role_arns             = module.security.ecs_task_role_arns
-  root_admin_email               = var.root_admin_email
-  transaction_mock_sftp_root     = var.transaction_mock_sftp_root
-  db_jdbc_url                    = module.rds.db_jdbc_url
-  log_api_base_url               = module.apigateway.log_api_base_url
-  root_admin_password_secret_arn = module.security.root_admin_password_secret_arn
-  jwt_hmac_secret_arn            = module.security.jwt_hmac_secret_arn
-  db_username_secret_arn         = module.security.db_username_secret_arn
-  db_password_secret_arn         = module.security.db_password_secret_arn
-  ecs_task_cpu                   = var.ecs_task_cpu
-  ecs_task_memory                = var.ecs_task_memory
-  ecs_min_capacity               = var.ecs_min_capacity
-  ecs_max_capacity               = var.ecs_max_capacity
-  ecs_target_cpu_utilization     = var.ecs_target_cpu_utilization
-  ecs_target_memory_utilization  = var.ecs_target_memory_utilization
+  vpc_id                            = module.network.vpc_id
+  private_subnet_ids                = module.network.private_subnet_ids
+  ecs_service_security_group_id     = module.security.ecs_service_security_group_id
+  cloudwatch_log_retention_days     = var.cloudwatch_log_retention_days
+  target_group_arns                 = module.alb.target_group_arns
+  service_health_check_path         = "/health"
+  ecr_repository_url                = module.ecr.repository_url
+  ecs_task_execution_role_arn       = module.security.ecs_task_execution_role_arn
+  ecs_task_role_arns                = module.security.ecs_task_role_arns
+  root_admin_email                  = var.root_admin_email
+  transaction_mock_sftp_root        = var.transaction_mock_sftp_root
+  db_jdbc_url                       = module.rds.db_jdbc_url
+  log_api_base_url                  = module.apigateway.log_api_base_url
+  root_admin_password_secret_arn    = module.security.root_admin_password_secret_arn
+  jwt_hmac_secret_arn               = module.security.jwt_hmac_secret_arn
+  db_username_secret_arn            = module.security.db_username_secret_arn
+  db_password_secret_arn            = module.security.db_password_secret_arn
+  ecs_task_cpu                      = var.ecs_task_cpu
+  ecs_task_memory                   = var.ecs_task_memory
+  ecs_min_capacity                  = var.ecs_min_capacity
+  ecs_max_capacity                  = var.ecs_max_capacity
+  ecs_target_cpu_utilization        = var.ecs_target_cpu_utilization
+  ecs_target_memory_utilization     = var.ecs_target_memory_utilization
+  enable_stateful_service_scale_out = var.enable_stateful_service_scale_out
 
   image_tags = {
     agent       = var.agent_image_tag
