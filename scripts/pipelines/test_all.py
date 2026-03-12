@@ -109,6 +109,10 @@ def gradle_command(service_dir: Path, *args: str) -> List[str]:
     return ["./gradlew", *args]
 
 
+def gradle_env(service_dir: Path) -> Dict[str, str]:
+    return {"GRADLE_USER_HOME": str(service_dir / ".gradle-local")}
+
+
 def resolve_windows_command(command: List[str]) -> List[str]:
     if not is_windows() or not command:
         return command
@@ -157,6 +161,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                         "--no-daemon",
                         "--console=plain",
                     ),
+                    env=gradle_env(svc_dir),
                 )
             )
 
@@ -523,6 +528,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                         "--no-daemon",
                         "--console=plain",
                     ),
+                    env=gradle_env(svc_dir),
                     parallel_group=backend_parallel_group,
                 )
             )
@@ -537,6 +543,8 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                     "-m",
                     "pytest",
                     "tests",
+                    "-o",
+                    "cache_dir=build/.pytest_cache",
                     "--junitxml=build/reports/tests/junit.xml",
                     "--cov=app",
                     "--cov-branch",
@@ -558,6 +566,8 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                     "-m",
                     "pytest",
                     "tests",
+                    "-o",
+                    "cache_dir=build/.pytest_cache",
                     "--junitxml=build/reports/tests/junit.xml",
                     "--cov=lambda_function",
                     "--cov-branch",
@@ -578,6 +588,8 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                     "-m",
                     "pytest",
                     "tests",
+                    "-o",
+                    "cache_dir=build/.pytest_cache",
                     "--junitxml=build/reports/tests/junit.xml",
                     "--cov=lambda_function",
                     "--cov-branch",

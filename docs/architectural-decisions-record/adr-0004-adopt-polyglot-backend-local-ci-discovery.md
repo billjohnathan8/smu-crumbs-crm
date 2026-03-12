@@ -74,4 +74,4 @@ the implementation technology changed (PowerShell/Bash -> Python).
   - Place service under `services/backend/<service-name>`.
   - Include either Gradle wrapper or Python requirements/tests as detection signals.
   - Include a reachable health endpoint; Dockerfile is optional for Lambda-only services.
-- Keep `.gitignore` rules aligned with local CI artifacts (`.gradle-user-home`, Python virtual envs, caches).
+- Keep `.gitignore` rules aligned with local CI artifacts (service-local `.gradle-local`, Python virtual envs, caches).

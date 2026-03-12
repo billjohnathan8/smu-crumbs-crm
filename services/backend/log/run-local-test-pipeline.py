@@ -120,6 +120,8 @@ def main() -> int:
             "-m",
             "pytest",
             "tests",
+            "-o",
+            "cache_dir=build/.pytest_cache",
             "--junitxml=build/reports/tests/junit.xml",
             "--cov=app",
             "--cov=lambda_function",

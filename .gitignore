@@ -58,7 +58,9 @@ docs/infrastructure/generated/*
 .gradle/
 .gradle-local/
 **/.gradle/
+**/.gradle-local/
 .gradle-user-home/
+**/.gradle-user-home/
 **/.gradle-test-home/
 
 # Python / pytest cache
@@ -77,9 +79,13 @@ __pycache__/
 .pytest_cache/
 **/.pytest_cache/
 pytest-cache-files-*/
+**/pytest-cache-files-*/
+**/.hypothesis/
 **/build/reports/tests/
 **/build/reports/coverage/
 **/.cache/black/
+**/.ruff_cache/
+**/.mypy_cache/
 
 # Private Keys - do not commit any secrets
 *.pem
@@ -127,4 +133,4 @@ build-logs/migration-validation/
 node_modules/
 
 # Hypothesis (property-based testing) local cache
-services/backend/verification/.hypothesis/
+.hypothesis/

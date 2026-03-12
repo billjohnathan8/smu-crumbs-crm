@@ -240,6 +240,7 @@ start_base_infra() {
 build_java_jar() {
   local service_dir="$1"
   local service_name="$2"
+  local gradle_user_home="${service_dir}/.gradle-local"
 
   # On WSL, 'java' may not be on PATH while a Windows JDK is installed.
   # Probe known Windows install locations using globbing (safe for spaces).
@@ -266,7 +267,7 @@ build_java_jar() {
   pushd "${service_dir}" >/dev/null
   chmod +x gradlew
   local gradle_log="${LOG_DIR}/${service_name}-bootjar.log"
-  if ! ./gradlew bootJar --no-daemon --console=plain > "${gradle_log}" 2>&1; then
+  if ! GRADLE_USER_HOME="${gradle_user_home}" ./gradlew bootJar --no-daemon --console=plain > "${gradle_log}" 2>&1; then
     # WSL can fail to execute Windows-discovered JAVA_HOME (java.exe only).
     # Retry with Gradle Windows wrapper when available.
     if grep -q "JAVA_HOME" "${gradle_log}" \
@@ -274,8 +275,10 @@ build_java_jar() {
       && [ -f "./gradlew.bat" ] \
       && command -v wslpath >/dev/null 2>&1; then
       local win_gradlew
+      local win_gradle_user_home
       win_gradlew="$(wslpath -w "${service_dir}/gradlew.bat")"
-      cmd.exe /c "${win_gradlew} bootJar --no-daemon --console=plain" \
+      win_gradle_user_home="$(wslpath -w "${gradle_user_home}")"
+      cmd.exe /c "set \"GRADLE_USER_HOME=${win_gradle_user_home}\" && \"${win_gradlew}\" bootJar --no-daemon --console=plain" \
         > "${gradle_log}" 2>&1
     else
       popd >/dev/null
