@@ -8,6 +8,9 @@ import com.scroogebank.crm.client_service.dto.ClientUpdateRequest;
 import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
 import com.scroogebank.crm.client_service.dto.VerifyClientRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
+import com.scroogebank.crm.client_service.email.VerificationEmail;
+import com.scroogebank.crm.client_service.email.VerificationEmailDispatchService;
+import com.scroogebank.crm.client_service.email.VerificationEmailTemplateRenderer;
 import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
 import com.scroogebank.crm.client_service.exception.DuplicateClientException;
@@ -35,10 +38,19 @@ public class ClientServiceImpl implements ClientService {
 
 	private final ClientRepository clientRepository;
 	private final ClientAuditLogger clientAuditLogger;
+	private final VerificationEmailTemplateRenderer verificationEmailTemplateRenderer;
+	private final VerificationEmailDispatchService verificationEmailDispatchService;
 
-	public ClientServiceImpl(ClientRepository clientRepository, ClientAuditLogger clientAuditLogger) {
+	public ClientServiceImpl(
+		ClientRepository clientRepository,
+		ClientAuditLogger clientAuditLogger,
+		VerificationEmailTemplateRenderer verificationEmailTemplateRenderer,
+		VerificationEmailDispatchService verificationEmailDispatchService
+	) {
 		this.clientRepository = clientRepository;
 		this.clientAuditLogger = clientAuditLogger;
+		this.verificationEmailTemplateRenderer = verificationEmailTemplateRenderer;
+		this.verificationEmailDispatchService = verificationEmailDispatchService;
 	}
 
 	/**
@@ -270,6 +282,14 @@ public class ClientServiceImpl implements ClientService {
 			authorizationHeader
 		);
 
+		sendVerificationEmailSafe(
+			saved,
+			clientId(saved.getId()),
+			user.userId(),
+			authorizationHeader,
+			requestId
+		);
+
 		return new VerifyClientResponse(clientId(saved.getId()), saved.getIdentityVerificationStatus());
 	}
 
@@ -474,6 +494,51 @@ public class ClientServiceImpl implements ClientService {
 		}
 		catch (Exception ex) {
 			LOGGER.warn("Client operation completed but audit logging failed. action={} clientId={}", action, clientId, ex);
+		}
+	}
+
+	/**
+	 * Sends verification confirmation email and keeps verification flow non-blocking.
+	 *
+	 * @param client verified client entity
+	 * @param clientId public client identifier
+	 * @param agentId authenticated agent id
+	 * @param authorizationHeader inbound authorization header
+	 * @param requestId request correlation id
+	 */
+	private void sendVerificationEmailSafe(
+		ClientEntity client,
+		String clientId,
+		String agentId,
+		String authorizationHeader,
+		String requestId
+	) {
+		try {
+			VerificationEmail email = verificationEmailTemplateRenderer.render(
+				client.getEmailAddress(),
+				client.getFirstName(),
+				clientId
+			);
+			verificationEmailDispatchService.queueAndDispatchVerificationEmail(
+				clientId,
+				agentId,
+				email,
+				authorizationHeader,
+				requestId
+			);
+			LOGGER.info(
+				"Verification email dispatch triggered for clientId={} requestId={}",
+				clientId,
+				requestId
+			);
+		}
+		catch (Exception ex) {
+			LOGGER.warn(
+				"Client verification completed but verification email failed. clientId={} requestId={}",
+				clientId,
+				requestId,
+				ex
+			);
 		}
 	}
 }

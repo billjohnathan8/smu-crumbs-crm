@@ -9,6 +9,16 @@
       "name": "app.jwt",
       "type": "com.scroogebank.crm.client_service.config.AppProperties$Jwt",
       "sourceType": "com.scroogebank.crm.client_service.config.AppProperties"
+    },
+    {
+      "name": "app.verification-email",
+      "type": "com.scroogebank.crm.client_service.config.AppProperties$VerificationEmail",
+      "sourceType": "com.scroogebank.crm.client_service.config.AppProperties"
+    },
+    {
+      "name": "app.verification-email.dispatch",
+      "type": "com.scroogebank.crm.client_service.config.AppProperties$Dispatch",
+      "sourceType": "com.scroogebank.crm.client_service.config.AppProperties$VerificationEmail"
     }
   ],
   "properties": [
@@ -23,6 +33,72 @@
       "type": "java.lang.String",
       "sourceType": "com.scroogebank.crm.client_service.config.AppProperties$Jwt",
       "description": "HMAC secret for JWT token signing and validation"
+    },
+    {
+      "name": "app.verification-email.provider",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.client_service.config.AppProperties$VerificationEmail",
+      "description": "Verification email provider. Supported values: mock, ses."
+    },
+    {
+      "name": "app.verification-email.sender-email",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.client_service.config.AppProperties$VerificationEmail",
+      "description": "Sender email address for SES verification emails."
+    },
+    {
+      "name": "app.verification-email.aws-region",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.client_service.config.AppProperties$VerificationEmail",
+      "description": "Optional AWS region override for SES client."
+    },
+    {
+      "name": "app.verification-email.aws-endpoint-url",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.client_service.config.AppProperties$VerificationEmail",
+      "description": "Optional AWS endpoint override for SES client (for example LocalStack)."
+    },
+    {
+      "name": "app.verification-email.dispatch.enabled",
+      "type": "java.lang.Boolean",
+      "sourceType": "com.scroogebank.crm.client_service.config.AppProperties$Dispatch",
+      "description": "Enable scheduled dispatch worker for queued verification communications."
+    },
+    {
+      "name": "app.verification-email.dispatch.poll-interval-ms",
+      "type": "java.lang.Long",
+      "sourceType": "com.scroogebank.crm.client_service.config.AppProperties$Dispatch",
+      "description": "Dispatch worker poll interval in milliseconds."
+    },
+    {
+      "name": "app.verification-email.dispatch.max-batch-size",
+      "type": "java.lang.Integer",
+      "sourceType": "com.scroogebank.crm.client_service.config.AppProperties$Dispatch",
+      "description": "Maximum queued communications to process per worker poll."
+    },
+    {
+      "name": "app.verification-email.dispatch.max-attempts",
+      "type": "java.lang.Integer",
+      "sourceType": "com.scroogebank.crm.client_service.config.AppProperties$Dispatch",
+      "description": "Maximum dispatch attempts before marking communication failed."
+    },
+    {
+      "name": "app.verification-email.dispatch.base-backoff-seconds",
+      "type": "java.lang.Long",
+      "sourceType": "com.scroogebank.crm.client_service.config.AppProperties$Dispatch",
+      "description": "Base exponential backoff in seconds for queued retries."
+    },
+    {
+      "name": "app.verification-email.dispatch.service-token-ttl-seconds",
+      "type": "java.lang.Long",
+      "sourceType": "com.scroogebank.crm.client_service.config.AppProperties$Dispatch",
+      "description": "TTL in seconds for internally minted JWT used by dispatch worker."
+    },
+    {
+      "name": "app.verification-email.dispatch.service-user-id",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.client_service.config.AppProperties$Dispatch",
+      "description": "Subject claim for internally minted dispatch worker JWT."
     }
   ]
 }

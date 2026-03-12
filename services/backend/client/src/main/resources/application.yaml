@@ -31,5 +31,18 @@ server:
 
 app:
   log-service-url: ${LOG_SERVICE_URL:http://localhost:4566/restapis/local/local/_user_request_}
+  verification-email:
+    provider: ${VERIFICATION_EMAIL_PROVIDER:mock}
+    sender-email: ${SES_SENDER_EMAIL:}
+    aws-region: ${AWS_REGION:}
+    aws-endpoint-url: ${AWS_ENDPOINT_URL:}
+    dispatch:
+      enabled: ${VERIFICATION_EMAIL_DISPATCH_ENABLED:true}
+      poll-interval-ms: ${VERIFICATION_EMAIL_DISPATCH_POLL_INTERVAL_MS:30000}
+      max-batch-size: ${VERIFICATION_EMAIL_DISPATCH_MAX_BATCH_SIZE:50}
+      max-attempts: ${VERIFICATION_EMAIL_DISPATCH_MAX_ATTEMPTS:5}
+      base-backoff-seconds: ${VERIFICATION_EMAIL_DISPATCH_BASE_BACKOFF_SECONDS:30}
+      service-token-ttl-seconds: ${VERIFICATION_EMAIL_DISPATCH_SERVICE_TOKEN_TTL_SECONDS:300}
+      service-user-id: ${VERIFICATION_EMAIL_DISPATCH_SERVICE_USER_ID:usr_system_verification}
   jwt:
     hmac-secret: ${JWT_HMAC_SECRET:}

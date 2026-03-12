@@ -5,6 +5,9 @@ import com.scroogebank.crm.client_service.dto.ClientPayload;
 import com.scroogebank.crm.client_service.dto.ClientUpdateRequest;
 import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
 import com.scroogebank.crm.client_service.dto.VerifyClientRequest;
+import com.scroogebank.crm.client_service.email.VerificationEmail;
+import com.scroogebank.crm.client_service.email.VerificationEmailDispatchService;
+import com.scroogebank.crm.client_service.email.VerificationEmailTemplateRenderer;
 import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.entity.Gender;
 import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
@@ -39,6 +42,8 @@ class ClientServiceImplTest {
 
 	private ClientRepository clientRepository;
 	private ClientAuditLogger clientAuditLogger;
+	private VerificationEmailTemplateRenderer verificationEmailTemplateRenderer;
+	private VerificationEmailDispatchService verificationEmailDispatchService;
 	private ClientServiceImpl clientService;
 
 	private static ClientPayload samplePayload() {
@@ -80,7 +85,14 @@ class ClientServiceImplTest {
 	void setUp() {
 		clientRepository = org.mockito.Mockito.mock(ClientRepository.class);
 		clientAuditLogger = org.mockito.Mockito.mock(ClientAuditLogger.class);
-		clientService = new ClientServiceImpl(clientRepository, clientAuditLogger);
+		verificationEmailTemplateRenderer = org.mockito.Mockito.mock(VerificationEmailTemplateRenderer.class);
+		verificationEmailDispatchService = org.mockito.Mockito.mock(VerificationEmailDispatchService.class);
+		clientService = new ClientServiceImpl(
+			clientRepository,
+			clientAuditLogger,
+			verificationEmailTemplateRenderer,
+			verificationEmailDispatchService
+		);
 	}
 
 	/** Verifies that listClients() returns all entities from the repository mapped to DTOs. */
@@ -553,6 +565,12 @@ class ClientServiceImplTest {
 		entity.setIdentityVerificationStatus(null);
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
 		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+		when(verificationEmailTemplateRenderer.render("jordan.taylor@example.com", "Jordan", "clt_7"))
+			.thenReturn(new VerificationEmail(
+				"jordan.taylor@example.com",
+				"Verification complete",
+				"Body"
+			));
 
 		var response = clientService.verifyClient(
 			agent,
@@ -573,6 +591,60 @@ class ClientServiceImplTest {
 			eq("clt_7"),
 			eq("req-1"),
 			eq("Bearer x")
+		);
+		verify(verificationEmailTemplateRenderer).render("jordan.taylor@example.com", "Jordan", "clt_7");
+		verify(verificationEmailDispatchService).queueAndDispatchVerificationEmail(
+			eq("clt_7"),
+			eq("usr_1"),
+			any(VerificationEmail.class),
+			eq("Bearer x"),
+			eq("req-1")
+		);
+	}
+
+	@Test
+	void verifyClient_emailSenderFails_stillReturnsVerifiedResponse() {
+		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		ClientPayload payload = samplePayload();
+		ClientEntity entity = entityFromPayload(7L, "usr_1", payload);
+		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
+		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+		when(verificationEmailTemplateRenderer.render("jordan.taylor@example.com", "Jordan", "clt_7"))
+			.thenReturn(new VerificationEmail(
+				"jordan.taylor@example.com",
+				"Verification complete",
+				"Body"
+			));
+		doThrow(new RuntimeException("dispatch unavailable"))
+			.when(verificationEmailDispatchService)
+			.queueAndDispatchVerificationEmail(any(), any(), any(), any(), any());
+
+		var response = clientService.verifyClient(
+			agent,
+			"clt_7",
+			new VerifyClientRequest("S1234567A", "NRIC", null),
+			"Bearer x",
+			"req-1"
+		);
+
+		assertThat(response.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.verified);
+		verify(clientRepository).save(any());
+		verify(clientAuditLogger).logAuditEvent(
+			eq("UPDATE"),
+			eq("identityVerificationStatus"),
+			eq("unverified"),
+			eq("verified"),
+			eq("usr_1"),
+			eq("clt_7"),
+			eq("req-1"),
+			eq("Bearer x")
+		);
+		verify(verificationEmailDispatchService).queueAndDispatchVerificationEmail(
+			eq("clt_7"),
+			eq("usr_1"),
+			any(VerificationEmail.class),
+			eq("Bearer x"),
+			eq("req-1")
 		);
 	}
 }
