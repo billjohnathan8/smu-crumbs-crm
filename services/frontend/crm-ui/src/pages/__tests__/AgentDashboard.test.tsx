@@ -234,10 +234,11 @@ describe('AgentDashboard', () => {
     renderAgentDashboard()
 
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: /Create Client/i })).toHaveAttribute(
-        'href',
-        '/agent/clients/new'
-      )
+      const createClientLinks = screen.getAllByRole('link', { name: /Create Client/i })
+      expect(createClientLinks.length).toBeGreaterThan(0)
+      createClientLinks.forEach(link => {
+        expect(link).toHaveAttribute('href', '/agent/clients/new')
+      })
       expect(screen.getByRole('link', { name: /View Transactions/i })).toHaveAttribute(
         'href',
         '/agent/transactions'

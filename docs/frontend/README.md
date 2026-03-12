@@ -108,12 +108,12 @@ Use these credentials for manual testing:
 **Admin Account:**
 - Email: `admin@example.com`
 - Password: `password123`
-- Access: Admin Dashboard (`/admin`), Manage Accounts (`/admin/accounts`)
+- Access: Admin Dashboard (`/admin`), Manage Accounts (`/admin/accounts`), AML Alerts (`/admin/aml-alerts`)
 
 **Agent Account:**
 - Email: `agent@example.com`
 - Password: `password123`
-- Access: Agent Dashboard (`/agent`), Create Client (`/agent/clients/new`), View Transactions (`/agent/transactions`)
+- Access: Agent Dashboard (`/agent`), Create Client (`/agent/clients/new`), View Transactions (`/agent/transactions`), AML Alerts (`/agent/aml-alerts`)
 
 ### Manual Test Scenarios
 
@@ -284,8 +284,8 @@ const response = await listClients({ limit: 10, offset: 0 })
 
 ## Role-Based Access
 
-- **Admin Routes**: `/admin`, `/admin/accounts` (role: `admin`)
-- **Agent Routes**: `/agent`, `/agent/clients/new`, `/agent/transactions` (role: `agent`)
+- **Admin Routes**: `/admin`, `/admin/accounts`, `/admin/aml-alerts` (role: `admin`)
+- **Agent Routes**: `/agent`, `/agent/clients/new`, `/agent/transactions`, `/agent/aml-alerts` (role: `agent`)
 - Unauthenticated users redirected to `/login`
 - Wrong role shows 403 Access Denied
 
