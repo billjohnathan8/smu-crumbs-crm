@@ -75,10 +75,7 @@ After running tests, find reports in `build/reports/`:
 Start the service locally with an in-memory or local PostgreSQL database:
 
 ```bash
-# Using default application.yml config (connects to localhost:5432)
-./gradlew bootRun
-
-# Or with custom config
+# Use the explicit dev profile for local convenience defaults
 ./gradlew bootRun --args='--spring.profiles.active=dev'
 
 # Or build and run JAR
@@ -103,6 +100,11 @@ See [Configuration Guide](../../../docs/configuration.md) for full details.
 | `SPRING_DATASOURCE_USERNAME` | `postgres` | Database username |
 | `SPRING_DATASOURCE_PASSWORD` | `postgres` | Database password |
 | `LOG_SERVICE_URL` | `http://localhost:4566/restapis/<api-id>/local/_user_request_` | Lambda-backed log API URL for audit events |
+
+Security note:
+- `application.yaml` no longer contains hardcoded fallback secrets/passwords for runtime safety.
+- Dev-only fallback secrets now live in `application-dev.yaml`.
+- Production must provide `JWT_HMAC_SECRET` and `ROOT_ADMIN_PASSWORD` via environment/secrets.
 
 **Example override:**
 ```bash

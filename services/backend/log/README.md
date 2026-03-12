@@ -12,6 +12,11 @@
   LocalStack API Gateway -> Lambda.
 - Includes AML alert endpoints at `/api/aml/alerts` for Feature 5 persistence/review.
 
+## Configuration safety
+
+- Dev/local/test convenience defaults are available when `APP_ENV` (or `ENVIRONMENT`) is `dev`, `local`, or `test`.
+- For `APP_ENV=prod`, the service requires explicit DB and JWT secrets via direct env vars or `*_SECRET_ARN` inputs.
+
 ## Local test pipeline (service root)
 
 Windows:

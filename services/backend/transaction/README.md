@@ -8,6 +8,19 @@
 - The service reads mock CSV files from `/app/mock-sftp` via the `MOCK_SFTP_ROOT` environment variable.
 - Local mock SFTP data lives at `mock-sftp/transactions.csv`.
 
+## Running Locally
+
+Use the explicit dev profile for local convenience defaults:
+
+```bash
+./gradlew bootRun --args='--spring.profiles.active=dev'
+```
+
+Security note:
+- `application.yaml` no longer contains hardcoded fallback secrets/passwords for runtime safety.
+- Dev-only fallback secrets now live in `application-dev.yaml`.
+- Production must provide `JWT_HMAC_SECRET` via environment/secrets.
+
 ## OpenAPI contract
 - `../../../docs/api-contracts/openapi/transaction.yaml`
 

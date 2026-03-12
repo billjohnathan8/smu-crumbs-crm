@@ -82,3 +82,24 @@ terraform -chdir=platform/terraform plan \
   -var='enable_verification_pipeline=true' \
   -var='verification_zip_path=../../services/backend/verification/verification-lambda.zip'
 ```
+
+## Local Dev vs Production
+
+Use `environment=dev` for local/non-production workflows. Dev defaults are intentionally convenience-oriented.
+
+For `environment=prod` Terraform now enforces:
+
+- Strong explicit `jwt_hmac_secret` and `root_admin_password` inputs.
+- `db_skip_final_snapshot=false` and `db_deletion_protection=true`.
+- `db_multi_az=true` and backup retention of at least 7 days.
+- `enable_multi_az_nat=true` to avoid single-AZ NAT dependency.
+
+For local cost-saving/non-production teardown workflows, you can still override dev/staging values explicitly in `terraform.tfvars` or `TF_VAR_*` environment variables.
+
+## Prod Readiness Checklist
+
+- Set `environment = "prod"` (or `"production"`).
+- Provide strong secret inputs via environment variables (`TF_VAR_jwt_hmac_secret`, `TF_VAR_root_admin_password`), not committed files.
+- Confirm DB safety controls: final snapshot enabled, deletion protection enabled, Multi-AZ enabled.
+- Confirm network HA: `enable_multi_az_nat = true`.
+- Run `terraform -chdir=platform/terraform init -backend=false` and `terraform -chdir=platform/terraform validate` before `plan/apply`.

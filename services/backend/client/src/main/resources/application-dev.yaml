@@ -1,0 +1,7 @@
+spring:
+  datasource:
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+
+app:
+  jwt:
+    hmac-secret: ${JWT_HMAC_SECRET:dev-only-insecure-secret}

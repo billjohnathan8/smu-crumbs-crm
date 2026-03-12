@@ -19,6 +19,11 @@ variable "environment" {
   description = "Environment name (for example: dev, staging, prod)."
   type        = string
   default     = "dev"
+
+  validation {
+    condition     = trimspace(var.environment) != ""
+    error_message = "environment must not be empty."
+  }
 }
 
 variable "aws_region" {
@@ -217,38 +222,67 @@ variable "db_max_allocated_storage" {
 }
 
 variable "db_multi_az" {
-  description = "Whether to enable Multi-AZ for the RDS instance."
+  description = "Whether to enable Multi-AZ for the RDS instance. Must be true for prod."
   type        = bool
   default     = true
+
+  validation {
+    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || var.db_multi_az
+    error_message = "For environment=prod, db_multi_az must be true."
+  }
 }
 
 variable "db_backup_retention_days" {
-  description = "RDS automated backup retention period in days."
+  description = "RDS automated backup retention period in days (minimum 7 for prod)."
   type        = number
   default     = 7
+
+  validation {
+    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || var.db_backup_retention_days >= 7
+    error_message = "For environment=prod, db_backup_retention_days must be at least 7."
+  }
 }
 
 variable "db_skip_final_snapshot" {
-  description = "Skip final snapshot when destroying the DB instance."
+  description = "Skip final snapshot when destroying the DB instance. Safer default is false."
   type        = bool
-  default     = true
+  default     = false
+
+  validation {
+    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || !var.db_skip_final_snapshot
+    error_message = "For environment=prod, db_skip_final_snapshot must be false."
+  }
 }
 
 variable "db_deletion_protection" {
-  description = "Enable deletion protection on the DB instance."
+  description = "Enable deletion protection on the DB instance. Safer default is true."
   type        = bool
-  default     = false
+  default     = true
+
+  validation {
+    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || var.db_deletion_protection
+    error_message = "For environment=prod, db_deletion_protection must be true."
+  }
 }
 
 #--------------------------------------------------------------
 # Secrets and Credentials
-# Leave values empty to auto-generate via Secrets Manager
+# Dev/staging may leave values empty for auto-generation via Secrets Manager.
+# Prod must pass explicit strong values (validated below).
 #--------------------------------------------------------------
 variable "jwt_hmac_secret" {
-  description = "JWT HMAC secret. Leave empty to auto-generate."
+  description = "JWT HMAC secret. For prod, provide a strong explicit value (>=32 chars) via TF_VAR_jwt_hmac_secret."
   type        = string
   default     = ""
   sensitive   = true
+
+  validation {
+    condition = !contains(["prod", "production"], lower(trimspace(var.environment))) || (
+      length(trimspace(var.jwt_hmac_secret)) >= 32 &&
+      trimspace(var.jwt_hmac_secret) != "dev-only-insecure-secret"
+    )
+    error_message = "For environment=prod, jwt_hmac_secret must be explicitly set and at least 32 characters."
+  }
 }
 
 variable "root_admin_email" {
@@ -258,10 +292,22 @@ variable "root_admin_email" {
 }
 
 variable "root_admin_password" {
-  description = "Initial root admin password. Leave empty to auto-generate."
+  description = "Initial root admin password. For prod, provide a strong explicit value via TF_VAR_root_admin_password."
   type        = string
   default     = ""
   sensitive   = true
+
+  validation {
+    condition = !contains(["prod", "production"], lower(trimspace(var.environment))) || (
+      length(trimspace(var.root_admin_password)) >= 16 &&
+      can(regex("[A-Z]", var.root_admin_password)) &&
+      can(regex("[a-z]", var.root_admin_password)) &&
+      can(regex("[0-9]", var.root_admin_password)) &&
+      can(regex("[^A-Za-z0-9]", var.root_admin_password)) &&
+      trimspace(var.root_admin_password) != "admin123"
+    )
+    error_message = "For environment=prod, root_admin_password must be >=16 chars and include upper, lower, number, and symbol."
+  }
 }
 
 variable "transaction_mock_sftp_root" {
@@ -492,9 +538,14 @@ variable "enable_vpc_flow_logs" {
 }
 
 variable "enable_multi_az_nat" {
-  description = "Enable NAT Gateway in each AZ for high availability. Increases cost (one NAT Gateway per AZ) but eliminates single-AZ dependency for private workloads."
+  description = "Enable NAT Gateway in each AZ for high availability. Increases cost (one NAT Gateway per AZ). Must be true for prod."
   type        = bool
   default     = false
+
+  validation {
+    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || var.enable_multi_az_nat
+    error_message = "For environment=prod, enable_multi_az_nat must be true to avoid single-AZ NAT dependency."
+  }
 }
 
 #--------------------------------------------------------------

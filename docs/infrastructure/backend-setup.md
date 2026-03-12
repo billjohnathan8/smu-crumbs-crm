@@ -193,6 +193,8 @@ export TF_VAR_db_username="your-db-username"
 terraform apply
 ```
 
+For `environment=prod`, `TF_VAR_jwt_hmac_secret` and `TF_VAR_root_admin_password` are required and must be strong values.
+
 #### Option 2: AWS Secrets Manager / SSM Parameter Store
 
 Store secrets in AWS and reference in your code:
@@ -232,6 +234,15 @@ The IAM user or role running Terraform needs:
 # In backend.hcl
 kms_key_id = "arn:aws:kms:REGION:ACCOUNT:key/KEY-ID"
 ```
+
+### Local Dev vs Prod Defaults
+
+- `environment=dev` can use cost-saving overrides when needed (for example, single NAT gateway).
+- `environment=prod` enforces:
+- `db_skip_final_snapshot = false`
+- `db_deletion_protection = true`
+- `db_multi_az = true`
+- `enable_multi_az_nat = true`
 
 ## Migrating to Remote Backend
 

@@ -61,6 +61,8 @@ Docs:
 - Shared DB/User (project-wide): `crm` / `crm_app` / `crm_local_dev_pw`
 
 # Testing Credentials
+Local development/testing only. Do not use these values for production deployments.
+
 ## Frontend
 Root admin Email: admin@crm.local
 Password: admin123
