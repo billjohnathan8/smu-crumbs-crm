@@ -3,7 +3,7 @@
 # Local development stack for the ScroogeBank CRM event-driven pipeline.
 #
 # What runs here:
-#   - LocalStack  — emulates SQS, DynamoDB, S3, Lambda, SNS, Secrets Manager
+#   - LocalStack  — emulates SQS, DynamoDB, S3, Lambda, SNS, SES, Secrets Manager
 #   - PostgreSQL  — local DB for the Spring Boot services
 #
 # What is NOT replicated locally (see docs/infrastructure/localstack-setup.md):
@@ -20,7 +20,7 @@ services:
     ports:
       - "4566:4566" # All LocalStack services share one gateway port
     environment:
-      - SERVICES=sqs,dynamodb,s3,lambda,sns,secretsmanager
+      - SERVICES=sqs,dynamodb,s3,lambda,sns,ses,secretsmanager
       - DEFAULT_REGION=ap-southeast-1
       - AWS_DEFAULT_REGION=ap-southeast-1
       # LAMBDA_EXECUTOR=local runs Lambda invocations as subprocesses inside

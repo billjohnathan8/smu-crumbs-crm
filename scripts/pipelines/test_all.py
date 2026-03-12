@@ -293,6 +293,40 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                     command=["terraform", "validate"],
                 )
             )
+            steps.append(
+                Step(
+                    phase=phase,
+                    name="Prepare lambda zip artifacts (Terraform feature-gated validate)",
+                    cwd=terraform_dir,
+                    command=[
+                        py,
+                        "-c",
+                        (
+                            "import pathlib, zipfile\n"
+                            "out = pathlib.Path('.ci-artifacts')\n"
+                            "out.mkdir(exist_ok=True)\n"
+                            "for name in ('verification-lambda.zip', 'log-lambda.zip'):\n"
+                            "    with zipfile.ZipFile(out / name, 'w', zipfile.ZIP_DEFLATED) as zf:\n"
+                            "        zf.writestr('README.txt', 'temporary local artifact for terraform validate')\n"
+                        ),
+                    ],
+                )
+            )
+            steps.append(
+                Step(
+                    phase=phase,
+                    name="Terraform validate (verification + ses path)",
+                    cwd=terraform_dir,
+                    command=["terraform", "validate"],
+                    env={
+                        "TF_VAR_enable_log_lambda": "true",
+                        "TF_VAR_log_lambda_zip_path": ".ci-artifacts/log-lambda.zip",
+                        "TF_VAR_enable_verification_pipeline": "true",
+                        "TF_VAR_verification_zip_path": ".ci-artifacts/verification-lambda.zip",
+                        "TF_VAR_ses_sender_email": "verification@crm.local",
+                    },
+                )
+            )
             if tflint_available:
                 steps.append(
                     Step(

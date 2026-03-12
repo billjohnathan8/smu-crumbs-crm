@@ -4,7 +4,7 @@
 #
 # Starts LocalStack via docker compose, waits for the init scripts to finish
 # provisioning all AWS resources, then asserts that every expected resource
-# exists and runs a basic SQS round-trip to confirm the service is functional.
+# exists (including SES sender identity) and runs smoke checks.
 #
 # Used by .github/workflows/reusable-localstack-smoke.yml.
 # Can also be run locally:
@@ -52,6 +52,7 @@ export AWS_DEFAULT_REGION=ap-southeast-1
 
 REGION="ap-southeast-1"
 ENDPOINT="http://localhost:4566"
+SES_SENDER_EMAIL="${SES_SENDER_EMAIL:-verification@crm.local}"
 
 # --------------------------------------------------------------------------
 # Helpers
@@ -101,6 +102,28 @@ assert_secret() {
   local name="$1"
   echo -n "    Secret '${name}'... "
   aws_local secretsmanager describe-secret --secret-id "${name}" >/dev/null
+  echo "OK"
+}
+
+assert_ses_identity() {
+  local email="$1"
+  echo -n "    SES identity '${email}'... "
+  if aws_local sesv2 get-email-identity --email-identity "${email}" >/dev/null 2>&1; then
+    echo "OK"
+    return 0
+  fi
+  aws_local ses get-identity-verification-attributes --identities "${email}" >/dev/null
+  echo "OK"
+}
+
+assert_ses_send() {
+  local email="$1"
+  echo -n "    SES send-email path... "
+  aws_local ses send-email \
+    --source "${email}" \
+    --destination "ToAddresses=${email}" \
+    --message "Subject={Data=LocalStack smoke},Body={Text={Data=SES smoke message}}" \
+    >/dev/null
   echo "OK"
 }
 
@@ -193,6 +216,11 @@ assert_s3_bucket "scroogebank-crm-dev-transaction-sftp"
 echo ""
 echo "==> Asserting SNS topics..."
 assert_sns_topic "scroogebank-crm-dev-verification"
+
+echo ""
+echo "==> Asserting SES identities..."
+assert_ses_identity "${SES_SENDER_EMAIL}"
+assert_ses_send "${SES_SENDER_EMAIL}"
 
 echo ""
 echo "==> Asserting Secrets Manager secrets..."

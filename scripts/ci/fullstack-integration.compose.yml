@@ -16,7 +16,7 @@ services:
     ports:
       - "14566:4566"
     environment:
-      - SERVICES=sqs,dynamodb,s3,lambda,sns,secretsmanager,apigateway,apigatewayv2
+      - SERVICES=sqs,dynamodb,s3,lambda,sns,ses,secretsmanager,apigateway,apigatewayv2
       - DEFAULT_REGION=ap-southeast-1
       - AWS_DEFAULT_REGION=ap-southeast-1
       # local executor: simpler, no Docker-in-Docker needed in CI
@@ -53,6 +53,12 @@ services:
       # Lambda-backed log API endpoint (provisioned by run-fullstack-integration-e2e.sh)
       LOG_SERVICE_URL: ${LOG_SERVICE_URL}
       JWT_HMAC_SECRET: dev-only-insecure-secret
+      VERIFICATION_EMAIL_PROVIDER: ses
+      SES_SENDER_EMAIL: ${SES_SENDER_EMAIL:-verification@crm.local}
+      AWS_REGION: ap-southeast-1
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
     depends_on:
       postgres:
         condition: service_healthy

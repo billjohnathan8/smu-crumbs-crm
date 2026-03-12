@@ -193,6 +193,30 @@ jobs:
         timeout-minutes: 2
         run: terraform validate
 
+      - name: Prepare lambda zip artifacts for feature-gated validate
+        timeout-minutes: 1
+        run: |
+          python - <<'PY'
+          import pathlib
+          import zipfile
+
+          out = pathlib.Path(".ci-artifacts")
+          out.mkdir(exist_ok=True)
+          for name in ("verification-lambda.zip", "log-lambda.zip"):
+              with zipfile.ZipFile(out / name, "w", zipfile.ZIP_DEFLATED) as zf:
+                  zf.writestr("README.txt", "temporary CI artifact for terraform validate")
+          PY
+
+      - name: terraform validate (verification + ses path)
+        timeout-minutes: 2
+        env:
+          TF_VAR_enable_log_lambda: "true"
+          TF_VAR_log_lambda_zip_path: ".ci-artifacts/log-lambda.zip"
+          TF_VAR_enable_verification_pipeline: "true"
+          TF_VAR_verification_zip_path: ".ci-artifacts/verification-lambda.zip"
+          TF_VAR_ses_sender_email: "verification@crm.local"
+        run: terraform validate
+
       - name: Set up TFLint
         uses: terraform-linters/setup-tflint@v4
         timeout-minutes: 3

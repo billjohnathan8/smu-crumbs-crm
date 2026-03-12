@@ -32,6 +32,10 @@ LOG_LAMBDA_FUNCTION_NAME="scroogebank-crm-dev-log-service"
 LOG_HTTP_API_NAME="scroogebank-crm-dev-log-http-api-it"
 LOG_HTTP_API_STAGE="local"
 LOG_LAMBDA_RUNTIME="${LOG_LAMBDA_RUNTIME:-python3.12}"
+VERIFICATION_LAMBDA_FUNCTION_NAME="scroogebank-crm-dev-verification"
+VERIFICATION_LAMBDA_RUNTIME="${VERIFICATION_LAMBDA_RUNTIME:-python3.12}"
+VERIFICATION_SNS_TOPIC_NAME="scroogebank-crm-dev-verification"
+export SES_SENDER_EMAIL="${SES_SENDER_EMAIL:-verification@crm.local}"
 
 # Set safe defaults so compose parsing works for `down` before dynamic provisioning.
 export LOG_SERVICE_URL="${LOG_SERVICE_URL:-http://localstack:4566}"
@@ -340,6 +344,37 @@ PY
   fi
 }
 
+package_verification_lambda() {
+  local package_dir="${LOG_DIR}/verification-lambda-package"
+  local zip_path="${LOG_DIR}/verification-lambda.zip"
+
+  rm -rf "${package_dir}" "${zip_path}"
+  mkdir -p "${package_dir}"
+
+  cp "${ROOT_DIR}/services/backend/verification/lambda_function.py" "${package_dir}/"
+
+  if command -v zip >/dev/null 2>&1; then
+    (
+      cd "${package_dir}"
+      zip -rq "${zip_path}" .
+    )
+  else
+    ${PYTHON_CMD} - "${package_dir}" "${zip_path}" <<'PY'
+import pathlib
+import sys
+import zipfile
+
+src_dir = pathlib.Path(sys.argv[1])
+zip_path = pathlib.Path(sys.argv[2])
+
+with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+    for path in src_dir.rglob("*"):
+        if path.is_file():
+            zf.write(path, path.relative_to(src_dir))
+PY
+  fi
+}
+
 deploy_log_lambda() {
   local zip_path="${LOG_DIR}/log-lambda.zip"
   local zip_arg="fileb://${zip_path}"
@@ -428,6 +463,107 @@ deploy_log_lambda() {
     }
     sleep 1
   done
+}
+
+deploy_verification_feedback_lambda() {
+  local zip_path="${LOG_DIR}/verification-lambda.zip"
+  local zip_arg="fileb://${zip_path}"
+  local topic_arn=""
+  local lambda_arn=""
+  local lambda_internal_log_url=""
+
+  if [[ "${AWS_IS_WINDOWS}" == "true" ]]; then
+    if command -v cygpath >/dev/null 2>&1; then
+      local zip_windows_path
+      zip_windows_path="$(cygpath -w "${zip_path}")"
+      zip_arg="fileb://${zip_windows_path}"
+    elif command -v wslpath >/dev/null 2>&1; then
+      local zip_windows_path
+      zip_windows_path="$(wslpath -w "${zip_path}")"
+      zip_arg="fileb://${zip_windows_path}"
+    fi
+  fi
+
+  topic_arn="$(
+    aws_local sns list-topics \
+      --query "Topics[?contains(TopicArn, '${VERIFICATION_SNS_TOPIC_NAME}')].TopicArn | [0]" \
+      --output text
+  )"
+  topic_arn="$(normalize_text "${topic_arn}")"
+  if [[ -z "${topic_arn}" || "${topic_arn}" == "None" ]]; then
+    echo "[FAIL] Verification SNS topic was not found in LocalStack." >&2
+    exit 1
+  fi
+
+  lambda_internal_log_url="$(echo "${LOG_SERVICE_URL}" | sed 's#localstack:4566#localhost:4566#g')"
+  local env_vars="Variables={LOG_API_BASE_URL=${lambda_internal_log_url},VERIFICATION_JWT_HMAC_SECRET=dev-only-insecure-secret,VERIFICATION_JWT_SUB=SYSTEM_VERIFICATION_FEEDBACK,VERIFICATION_JWT_ROLE=admin,VERIFICATION_JWT_TTL_SECONDS=300}"
+
+  if aws_local lambda get-function --function-name "${VERIFICATION_LAMBDA_FUNCTION_NAME}" >/dev/null 2>&1; then
+    aws_local lambda update-function-code \
+      --function-name "${VERIFICATION_LAMBDA_FUNCTION_NAME}" \
+      --zip-file "${zip_arg}" \
+      >/dev/null
+    aws_local lambda update-function-configuration \
+      --function-name "${VERIFICATION_LAMBDA_FUNCTION_NAME}" \
+      --handler lambda_function.lambda_handler \
+      --runtime "${VERIFICATION_LAMBDA_RUNTIME}" \
+      --timeout 30 \
+      --memory-size 256 \
+      --environment "${env_vars}" \
+      >/dev/null
+  else
+    aws_local lambda create-function \
+      --function-name "${VERIFICATION_LAMBDA_FUNCTION_NAME}" \
+      --runtime "${VERIFICATION_LAMBDA_RUNTIME}" \
+      --handler lambda_function.lambda_handler \
+      --zip-file "${zip_arg}" \
+      --role arn:aws:iam::000000000000:role/lambda-role \
+      --timeout 30 \
+      --memory-size 256 \
+      --environment "${env_vars}" \
+      >/dev/null
+  fi
+
+  for i in $(seq 1 40); do
+    local state
+    state="$(
+      aws_local lambda get-function-configuration \
+        --function-name "${VERIFICATION_LAMBDA_FUNCTION_NAME}" \
+        --query "State" \
+        --output text 2>/dev/null || true
+    )"
+    state="$(echo "${state}" | tr -d '\r')"
+    if [[ "${state}" == "Active" ]]; then
+      break
+    fi
+    [[ ${i} -eq 40 ]] && {
+      echo "[FAIL] Verification Lambda did not become Active in time (state=${state})." >&2
+      exit 1
+    }
+    sleep 1
+  done
+
+  aws_local lambda add-permission \
+    --function-name "${VERIFICATION_LAMBDA_FUNCTION_NAME}" \
+    --statement-id "allow-sns-verification-feedback" \
+    --action lambda:InvokeFunction \
+    --principal sns.amazonaws.com \
+    --source-arn "${topic_arn}" \
+    >/dev/null 2>&1 || true
+
+  lambda_arn="$(
+    aws_local lambda get-function \
+      --function-name "${VERIFICATION_LAMBDA_FUNCTION_NAME}" \
+      --query "Configuration.FunctionArn" \
+      --output text
+  )"
+  lambda_arn="$(normalize_text "${lambda_arn}")"
+
+  aws_local sns subscribe \
+    --topic-arn "${topic_arn}" \
+    --protocol lambda \
+    --notification-endpoint "${lambda_arn}" \
+    >/dev/null 2>&1 || true
 }
 
 provision_log_http_api() {
@@ -628,13 +764,16 @@ transaction_build_pid=$!
 
 package_log_lambda &
 lambda_package_pid=$!
+package_verification_lambda &
+verification_lambda_package_pid=$!
 
 wait_for_jobs \
   "${infra_pid}" "base-infra-up (postgres + localstack)" \
   "${agent_build_pid}" "bootJar-agent" \
   "${client_build_pid}" "bootJar-client" \
   "${transaction_build_pid}" "bootJar-transaction" \
-  "${lambda_package_pid}" "package-log-lambda"
+  "${lambda_package_pid}" "package-log-lambda" \
+  "${verification_lambda_package_pid}" "package-verification-lambda"
 end_phase
 
 # --------------------------------------------------------------------------
@@ -661,6 +800,8 @@ done
 echo "Packaging + deploying log-service Lambda to LocalStack..."
 deploy_log_lambda
 provision_log_http_api
+echo "Deploying verification feedback Lambda + SNS subscription..."
+deploy_verification_feedback_lambda
 wait_for_http "${LOG_SERVICE_PUBLIC_URL}/health" "log-service-lambda"
 end_phase
 
@@ -798,6 +939,119 @@ PY
 done
 [[ "${LOG_FOUND}" == "true" ]] || {
   echo "  [FAIL] Expected CREATE audit log entry not found for clientId=${CLIENT_ID}" >&2
+  exit 1
+}
+
+echo "  Smoke: /verify -> SES send -> SNS feedback lambda update"
+VERIFY_RESPONSE="$(
+  curl --silent --show-error --fail \
+    --request POST "http://127.0.0.1:18082/api/clients/${CLIENT_ID}/verify" \
+    --header "Authorization: Bearer ${AGENT_TOKEN}" \
+    --header "Content-Type: application/json" \
+    --header "X-Request-Id: ci-fullstack-smoke-verify-001" \
+    --data '{"nric":"S1234567D","documentType":"NRIC","documentRef":"localstack-smoke"}'
+)"
+VERIFY_RESPONSE_JSON="${VERIFY_RESPONSE}" ${PYTHON_CMD} - <<'PY'
+import json, os
+payload = json.loads(os.environ["VERIFY_RESPONSE_JSON"])
+if payload.get("identityVerificationStatus") != "verified":
+    raise SystemExit("verify endpoint did not return identityVerificationStatus=verified")
+print("  [OK] verify endpoint returned verified status")
+PY
+
+COMMUNICATION_ID=""
+PROVIDER_MESSAGE_ID=""
+for _ in {1..20}; do
+  COMMS_JSON="$(
+    curl --silent --show-error --fail \
+      "${LOG_SERVICE_PUBLIC_URL}/api/clients/${CLIENT_ID}/communications?limit=10&offset=0" \
+      --header "Authorization: Bearer ${AGENT_TOKEN}" \
+      || true
+  )"
+  COMM_EXTRACT="$(
+    COMMS_JSON="${COMMS_JSON}" ${PYTHON_CMD} - <<'PY'
+import json, os
+try:
+    payload = json.loads(os.environ["COMMS_JSON"])
+except Exception:
+    print("|")
+    raise SystemExit(0)
+rows = payload.get("data", [])
+if not rows:
+    print("|")
+    raise SystemExit(0)
+row = rows[0]
+communication_id = row.get("communicationId", "")
+provider_message_id = row.get("providerMessageId", "") or ""
+status = row.get("status", "")
+if communication_id and provider_message_id and status == "sent":
+    print(f"{communication_id}|{provider_message_id}")
+else:
+    print("|")
+PY
+  )"
+  COMMUNICATION_ID="${COMM_EXTRACT%%|*}"
+  PROVIDER_MESSAGE_ID="${COMM_EXTRACT#*|}"
+  if [[ -n "${COMMUNICATION_ID}" && -n "${PROVIDER_MESSAGE_ID}" ]]; then
+    echo "  [OK] verification communication sent (id=${COMMUNICATION_ID}, providerMessageId=${PROVIDER_MESSAGE_ID})"
+    break
+  fi
+  sleep 1
+done
+[[ -n "${COMMUNICATION_ID}" && -n "${PROVIDER_MESSAGE_ID}" ]] || {
+  echo "  [FAIL] verification communication was not sent with providerMessageId" >&2
+  exit 1
+}
+
+VERIFICATION_TOPIC_ARN="$(
+  aws_local sns list-topics \
+    --query "Topics[?contains(TopicArn, '${VERIFICATION_SNS_TOPIC_NAME}')].TopicArn | [0]" \
+    --output text
+)"
+VERIFICATION_TOPIC_ARN="$(normalize_text "${VERIFICATION_TOPIC_ARN}")"
+[[ -n "${VERIFICATION_TOPIC_ARN}" && "${VERIFICATION_TOPIC_ARN}" != "None" ]] || {
+  echo "  [FAIL] verification SNS topic was not found for feedback publish" >&2
+  exit 1
+}
+
+SES_FEEDBACK_MESSAGE="$(${PYTHON_CMD} - "${PROVIDER_MESSAGE_ID}" <<'PY'
+import json
+import sys
+print(json.dumps({
+    "eventType": "Bounce",
+    "mail": {"messageId": sys.argv[1]},
+    "bounce": {"bounceType": "Permanent", "bounceSubType": "General"}
+}, separators=(",", ":")))
+PY
+)"
+aws_local sns publish \
+  --topic-arn "${VERIFICATION_TOPIC_ARN}" \
+  --message "${SES_FEEDBACK_MESSAGE}" \
+  >/dev/null
+
+FEEDBACK_APPLIED=false
+for _ in {1..20}; do
+  COMM_STATUS_JSON="$(
+    curl --silent --show-error --fail \
+      "${LOG_SERVICE_PUBLIC_URL}/api/communications/${COMMUNICATION_ID}" \
+      --header "Authorization: Bearer ${AGENT_TOKEN}" \
+      || true
+  )"
+  if COMM_STATUS_JSON="${COMM_STATUS_JSON}" ${PYTHON_CMD} - <<'PY' 2>/dev/null; then
+import json, os
+payload = json.loads(os.environ["COMM_STATUS_JSON"])
+if payload.get("status") == "failed" and payload.get("deliveryEvent") == "BOUNCE":
+    raise SystemExit(0)
+raise SystemExit(1)
+PY
+    FEEDBACK_APPLIED=true
+    echo "  [OK] verification feedback lambda updated communication status to failed/BOUNCE"
+    break
+  fi
+  sleep 1
+done
+[[ "${FEEDBACK_APPLIED}" == "true" ]] || {
+  echo "  [FAIL] verification feedback lambda did not update communication status" >&2
   exit 1
 }
 
