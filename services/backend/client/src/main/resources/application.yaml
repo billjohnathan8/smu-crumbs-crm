@@ -7,10 +7,13 @@ spring:
       fail-on-unknown-properties: true
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/clients}
-    username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:crm}}
+    username: ${SPRING_DATASOURCE_USERNAME:${DB_USER:crm_app}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:devpassword}}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      initialization-fail-timeout: ${SPRING_DATASOURCE_HIKARI_INITIALIZATION_FAIL_TIMEOUT:5000}
+      connection-timeout: ${SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT:5000}
 
   jpa:
     hibernate:
@@ -24,6 +27,7 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true   # REQUIRED: initializes schema history if schema is non-empty
+    baseline-version: 0
     locations: classpath:db/migration  # default location for migration scripts
 
 server:
