@@ -28,6 +28,7 @@ from typing import Dict, List, Optional, Sequence
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 LOG_ROOT = REPO_ROOT / "build-logs" / "test-all"
+LOG_RETENTION_RUNS = 3
 
 
 @dataclass
@@ -500,9 +501,31 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
 
 def ensure_log_dirs() -> Path:
     LOG_ROOT.mkdir(parents=True, exist_ok=True)
-    run_dir = LOG_ROOT / datetime.now().strftime("%Y%m%d_%H%M%S")
+    prune_old_runs(keep=max(0, LOG_RETENTION_RUNS - 1))
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_dir = LOG_ROOT / timestamp
+    collision_idx = 1
+    while run_dir.exists():
+        run_dir = LOG_ROOT / f"{timestamp}_{collision_idx:02d}"
+        collision_idx += 1
+
     run_dir.mkdir(parents=True, exist_ok=True)
     return run_dir
+
+
+def prune_old_runs(keep: int = LOG_RETENTION_RUNS) -> None:
+    if not LOG_ROOT.exists():
+        return
+
+    run_dirs = sorted(
+        (path for path in LOG_ROOT.iterdir() if path.is_dir()),
+        key=lambda p: p.name,
+        reverse=True,
+    )
+
+    for old_run in run_dirs[keep:]:
+        shutil.rmtree(old_run, ignore_errors=True)
 
 
 def run_step(step: Step, run_dir: Path, index: int, dry_run: bool) -> StepResult:
@@ -746,6 +769,7 @@ def main() -> int:
             break
 
     write_summary(results, run_dir, started_at, args)
+    prune_old_runs(keep=LOG_RETENTION_RUNS)
     print_summary(results, started_at)
 
     failed = any(r.status == "FAIL" for r in results)

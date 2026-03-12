@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE_FILE="${ROOT_DIR}/scripts/ci/fullstack-integration.compose.yml"
-LOG_DIR="${ROOT_DIR}/build-logs/fullstack-integration"
+LOG_ROOT="${ROOT_DIR}/build-logs/fullstack-integration"
 FRONTEND_DIR="${ROOT_DIR}/services/frontend/crm-ui"
 INTEGRATION_TEST_DIR="${ROOT_DIR}/tests/integration"
 
@@ -37,6 +37,33 @@ LOG_LAMBDA_RUNTIME="${LOG_LAMBDA_RUNTIME:-python3.12}"
 export LOG_SERVICE_URL="${LOG_SERVICE_URL:-http://localstack:4566}"
 export LOG_API_UPSTREAM="${LOG_API_UPSTREAM:-http://localstack:4566}"
 
+prune_old_log_runs() {
+  local keep="$1"
+  local entries=()
+
+  mkdir -p "${LOG_ROOT}"
+  find "${LOG_ROOT}" -mindepth 1 -maxdepth 1 ! -type d -exec rm -f {} +
+
+  while IFS= read -r entry; do
+    if [[ "${entry}" =~ ^[0-9]{8}_[0-9]{6}-[0-9]+$ ]]; then
+      entries+=("${entry}")
+    else
+      rm -rf "${LOG_ROOT}/${entry}"
+    fi
+  done < <(find "${LOG_ROOT}" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -r)
+
+  if [[ "${#entries[@]}" -le "${keep}" ]]; then
+    return
+  fi
+
+  for old_entry in "${entries[@]:${keep}}"; do
+    rm -rf "${LOG_ROOT}/${old_entry}"
+  done
+}
+
+prune_old_log_runs 2
+RUN_ID="$(date +%Y%m%d_%H%M%S)-$$"
+LOG_DIR="${LOG_ROOT}/${RUN_ID}"
 mkdir -p "${LOG_DIR}"
 
 start_phase() {

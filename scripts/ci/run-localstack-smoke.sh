@@ -14,8 +14,35 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE_FILE="${ROOT_DIR}/docker-compose.localstack.yml"
-LOG_DIR="${ROOT_DIR}/build-logs/localstack-smoke"
+LOG_ROOT="${ROOT_DIR}/build-logs/localstack-smoke"
 
+prune_old_log_runs() {
+  local keep="$1"
+  local entries=()
+
+  mkdir -p "${LOG_ROOT}"
+  find "${LOG_ROOT}" -mindepth 1 -maxdepth 1 ! -type d -exec rm -f {} +
+
+  while IFS= read -r entry; do
+    if [[ "${entry}" =~ ^[0-9]{8}_[0-9]{6}-[0-9]+$ ]]; then
+      entries+=("${entry}")
+    else
+      rm -rf "${LOG_ROOT}/${entry}"
+    fi
+  done < <(find "${LOG_ROOT}" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -r)
+
+  if [[ "${#entries[@]}" -le "${keep}" ]]; then
+    return
+  fi
+
+  for old_entry in "${entries[@]:${keep}}"; do
+    rm -rf "${LOG_ROOT}/${old_entry}"
+  done
+}
+
+prune_old_log_runs 2
+RUN_ID="$(date +%Y%m%d_%H%M%S)-$$"
+LOG_DIR="${LOG_ROOT}/${RUN_ID}"
 mkdir -p "${LOG_DIR}"
 
 # Fake credentials — LocalStack accepts any non-empty value.
