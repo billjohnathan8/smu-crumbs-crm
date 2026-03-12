@@ -77,7 +77,6 @@ public class InMemoryTransactionsStore implements TransactionsStore {
 			request.date(),
 			request.status(),
 			null,
-			null,
 			null
 		);
 		transactions.put(id, record);
@@ -192,8 +191,7 @@ public class InMemoryTransactionsStore implements TransactionsStore {
 						row.date(),
 						row.status(),
 						now,
-						encodeBatchId(batchId),
-						row.dedupeKey()
+						encodeBatchId(batchId)
 					);
 					transactions.put(id, record);
 					importedDedupeKeys.put(row.dedupeKey(), id);
@@ -305,7 +303,6 @@ public class InMemoryTransactionsStore implements TransactionsStore {
 		private final TransactionStatus status;
 		private final Instant importedAt;
 		private final String importBatchId;
-		private final String dedupeKey;
 
 		private TxnRecord(
 			long id,
@@ -315,8 +312,7 @@ public class InMemoryTransactionsStore implements TransactionsStore {
 			LocalDate date,
 			TransactionStatus status,
 			Instant importedAt,
-			String importBatchId,
-			String dedupeKey
+			String importBatchId
 		) {
 			this.id = id;
 			this.clientId = clientId;
@@ -326,7 +322,6 @@ public class InMemoryTransactionsStore implements TransactionsStore {
 			this.status = status;
 			this.importedAt = importedAt;
 			this.importBatchId = importBatchId;
-			this.dedupeKey = dedupeKey;
 		}
 	}
 

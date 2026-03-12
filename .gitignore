@@ -56,10 +56,11 @@ docs/infrastructure/generated/*
 
 # Gradle
 .gradle/
+.gradle-home/
 .gradle-local/
+.gradle-user-home/
 **/.gradle/
 **/.gradle-local/
-.gradle-user-home/
 **/.gradle-user-home/
 **/.gradle-test-home/
 

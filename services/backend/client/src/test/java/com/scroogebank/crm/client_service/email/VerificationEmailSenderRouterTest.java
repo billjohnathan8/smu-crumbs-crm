@@ -25,8 +25,13 @@ class VerificationEmailSenderRouterTest {
 	void setUp() {
 		appProperties = new AppProperties();
 		mockSender = mock(MockVerificationEmailSender.class);
-		sesSenderProvider = mock(ObjectProvider.class);
+		sesSenderProvider = mockSesSenderProvider();
 		router = new VerificationEmailSenderRouter(appProperties, mockSender, sesSenderProvider);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static ObjectProvider<SesVerificationEmailSender> mockSesSenderProvider() {
+		return (ObjectProvider<SesVerificationEmailSender>) mock(ObjectProvider.class);
 	}
 
 	@Test
