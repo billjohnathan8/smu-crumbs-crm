@@ -34,11 +34,14 @@ LOG_HTTP_API_STAGE="local"
 LOG_LAMBDA_RUNTIME="${LOG_LAMBDA_RUNTIME:-python3.12}"
 VERIFICATION_LAMBDA_FUNCTION_NAME="scroogebank-crm-dev-verification"
 VERIFICATION_LAMBDA_RUNTIME="${VERIFICATION_LAMBDA_RUNTIME:-python3.12}"
+TRANSACTION_INGESTION_LAMBDA_FUNCTION_NAME="scroogebank-crm-dev-transaction-ingestion"
+TRANSACTION_INGESTION_LAMBDA_RUNTIME="${TRANSACTION_INGESTION_LAMBDA_RUNTIME:-python3.12}"
 VERIFICATION_SNS_TOPIC_NAME="scroogebank-crm-dev-verification"
 export SES_SENDER_EMAIL="${SES_SENDER_EMAIL:-verification@crm.local}"
 
 # Set safe defaults so compose parsing works for `down` before dynamic provisioning.
 export LOG_SERVICE_URL="${LOG_SERVICE_URL:-http://localstack:4566}"
+export CLIENT_LOG_SERVICE_URL="${CLIENT_LOG_SERVICE_URL:-${LOG_SERVICE_URL}}"
 export LOG_API_UPSTREAM="${LOG_API_UPSTREAM:-http://localstack:4566}"
 
 prune_old_log_runs() {
@@ -375,6 +378,37 @@ PY
   fi
 }
 
+package_transaction_ingestion_lambda() {
+  local package_dir="${LOG_DIR}/transaction-ingestion-lambda-package"
+  local zip_path="${LOG_DIR}/transaction-ingestion-lambda.zip"
+
+  rm -rf "${package_dir}" "${zip_path}"
+  mkdir -p "${package_dir}"
+
+  cp "${ROOT_DIR}/services/backend/transaction-ingestion-lambda/lambda_function.py" "${package_dir}/"
+
+  if command -v zip >/dev/null 2>&1; then
+    (
+      cd "${package_dir}"
+      zip -rq "${zip_path}" .
+    )
+  else
+    ${PYTHON_CMD} - "${package_dir}" "${zip_path}" <<'PY'
+import pathlib
+import sys
+import zipfile
+
+src_dir = pathlib.Path(sys.argv[1])
+zip_path = pathlib.Path(sys.argv[2])
+
+with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+    for path in src_dir.rglob("*"):
+        if path.is_file():
+            zf.write(path, path.relative_to(src_dir))
+PY
+  fi
+}
+
 deploy_log_lambda() {
   local zip_path="${LOG_DIR}/log-lambda.zip"
   local zip_arg="fileb://${zip_path}"
@@ -566,6 +600,69 @@ deploy_verification_feedback_lambda() {
     >/dev/null 2>&1 || true
 }
 
+deploy_transaction_ingestion_lambda() {
+  local zip_path="${LOG_DIR}/transaction-ingestion-lambda.zip"
+  local zip_arg="fileb://${zip_path}"
+  local env_vars="Variables={TRANSACTION_SFTP_BUCKET=scroogebank-crm-dev-transaction-sftp,TRANSACTION_SFTP_PREFIX=incoming/,TRANSACTION_IMPORT_URL=http://transaction-service:8080/api/transactions/import,TRANSACTION_IMPORT_JWT_HMAC_SECRET=dev-only-insecure-secret,TRANSACTION_IMPORT_JWT_SUB=SYSTEM_TRANSACTION_INGESTION,TRANSACTION_IMPORT_JWT_ROLE=admin,TRANSACTION_IMPORT_JWT_TTL_SECONDS=300}"
+
+  if [[ "${AWS_IS_WINDOWS}" == "true" ]]; then
+    if command -v cygpath >/dev/null 2>&1; then
+      local zip_windows_path
+      zip_windows_path="$(cygpath -w "${zip_path}")"
+      zip_arg="fileb://${zip_windows_path}"
+    elif command -v wslpath >/dev/null 2>&1; then
+      local zip_windows_path
+      zip_windows_path="$(wslpath -w "${zip_path}")"
+      zip_arg="fileb://${zip_windows_path}"
+    fi
+  fi
+
+  if aws_local lambda get-function --function-name "${TRANSACTION_INGESTION_LAMBDA_FUNCTION_NAME}" >/dev/null 2>&1; then
+    aws_local lambda update-function-code \
+      --function-name "${TRANSACTION_INGESTION_LAMBDA_FUNCTION_NAME}" \
+      --zip-file "${zip_arg}" \
+      >/dev/null
+    aws_local lambda update-function-configuration \
+      --function-name "${TRANSACTION_INGESTION_LAMBDA_FUNCTION_NAME}" \
+      --handler lambda_function.lambda_handler \
+      --runtime "${TRANSACTION_INGESTION_LAMBDA_RUNTIME}" \
+      --timeout 30 \
+      --memory-size 256 \
+      --environment "${env_vars}" \
+      >/dev/null
+  else
+    aws_local lambda create-function \
+      --function-name "${TRANSACTION_INGESTION_LAMBDA_FUNCTION_NAME}" \
+      --runtime "${TRANSACTION_INGESTION_LAMBDA_RUNTIME}" \
+      --handler lambda_function.lambda_handler \
+      --zip-file "${zip_arg}" \
+      --role arn:aws:iam::000000000000:role/lambda-role \
+      --timeout 30 \
+      --memory-size 256 \
+      --environment "${env_vars}" \
+      >/dev/null
+  fi
+
+  for i in $(seq 1 40); do
+    local state
+    state="$(
+      aws_local lambda get-function-configuration \
+        --function-name "${TRANSACTION_INGESTION_LAMBDA_FUNCTION_NAME}" \
+        --query "State" \
+        --output text 2>/dev/null || true
+    )"
+    state="$(echo "${state}" | tr -d '\r')"
+    if [[ "${state}" == "Active" ]]; then
+      return 0
+    fi
+    [[ ${i} -eq 40 ]] && {
+      echo "[FAIL] Transaction ingestion Lambda did not become Active in time (state=${state})." >&2
+      exit 1
+    }
+    sleep 1
+  done
+}
+
 provision_log_http_api() {
   local fallback_note_file="${LOG_DIR}/log-http-api-v2.err"
   local existing_ids
@@ -715,6 +812,7 @@ provision_log_http_api() {
     >/dev/null 2>&1 || true
 
   export LOG_SERVICE_URL="http://localstack:4566/restapis/${api_id}/${LOG_HTTP_API_STAGE}/_user_request_"
+  export CLIENT_LOG_SERVICE_URL="${LOG_SERVICE_URL}"
   export LOG_API_UPSTREAM="${LOG_SERVICE_URL}"
   export LOG_SERVICE_PUBLIC_URL="${LOCALSTACK_ENDPOINT}/restapis/${api_id}/${LOG_HTTP_API_STAGE}/_user_request_"
 }
@@ -766,6 +864,8 @@ package_log_lambda &
 lambda_package_pid=$!
 package_verification_lambda &
 verification_lambda_package_pid=$!
+package_transaction_ingestion_lambda &
+transaction_ingestion_lambda_package_pid=$!
 
 wait_for_jobs \
   "${infra_pid}" "base-infra-up (postgres + localstack)" \
@@ -773,7 +873,8 @@ wait_for_jobs \
   "${client_build_pid}" "bootJar-client" \
   "${transaction_build_pid}" "bootJar-transaction" \
   "${lambda_package_pid}" "package-log-lambda" \
-  "${verification_lambda_package_pid}" "package-verification-lambda"
+  "${verification_lambda_package_pid}" "package-verification-lambda" \
+  "${transaction_ingestion_lambda_package_pid}" "package-transaction-ingestion-lambda"
 end_phase
 
 # --------------------------------------------------------------------------
@@ -802,6 +903,8 @@ deploy_log_lambda
 provision_log_http_api
 echo "Deploying verification feedback Lambda + SNS subscription..."
 deploy_verification_feedback_lambda
+echo "Deploying transaction ingestion Lambda..."
+deploy_transaction_ingestion_lambda
 wait_for_http "${LOG_SERVICE_PUBLIC_URL}/health" "log-service-lambda"
 end_phase
 
@@ -1055,6 +1158,58 @@ done
   exit 1
 }
 
+echo "  Smoke: verification dispatch worker scheduled path"
+QUEUED_COMMUNICATION_RESPONSE="$(
+  curl --silent --show-error --fail \
+    --request POST "${LOG_SERVICE_PUBLIC_URL}/api/communications" \
+    --header "Authorization: Bearer ${AGENT_TOKEN}" \
+    --header "Content-Type: application/json" \
+    --data "{
+      \"clientId\": \"${CLIENT_ID}\",
+      \"agentId\": \"ci_agent\",
+      \"channel\": \"email\",
+      \"toEmail\": \"queued.${CLIENT_ID}@example.com\",
+      \"subject\": \"Scheduled dispatch smoke\",
+      \"body\": \"Queued communication for scheduled worker path\",
+      \"idempotencyKey\": \"scheduled-dispatch-${RUN_ID}\"
+    }"
+)"
+QUEUED_COMMUNICATION_ID="$(
+  QUEUED_COMMUNICATION_RESPONSE_JSON="${QUEUED_COMMUNICATION_RESPONSE}" ${PYTHON_CMD} - <<'PY'
+import json, os
+payload = json.loads(os.environ["QUEUED_COMMUNICATION_RESPONSE_JSON"])
+if payload.get("status") != "queued":
+    raise SystemExit("new communication did not start in queued state")
+print(payload["communicationId"])
+PY
+)"
+
+SCHEDULED_DISPATCH_APPLIED=false
+for _ in {1..30}; do
+  SCHEDULED_COMM_STATUS_JSON="$(
+    curl --silent --show-error --fail \
+      "${LOG_SERVICE_PUBLIC_URL}/api/communications/${QUEUED_COMMUNICATION_ID}" \
+      --header "Authorization: Bearer ${AGENT_TOKEN}" \
+      || true
+  )"
+  if SCHEDULED_COMM_STATUS_JSON="${SCHEDULED_COMM_STATUS_JSON}" ${PYTHON_CMD} - <<'PY' 2>/dev/null; then
+import json, os
+payload = json.loads(os.environ["SCHEDULED_COMM_STATUS_JSON"])
+if payload.get("status") == "sent" and payload.get("providerMessageId"):
+    raise SystemExit(0)
+raise SystemExit(1)
+PY
+    SCHEDULED_DISPATCH_APPLIED=true
+    echo "  [OK] verification scheduled worker dispatched queued communication"
+    break
+  fi
+  sleep 2
+done
+[[ "${SCHEDULED_DISPATCH_APPLIED}" == "true" ]] || {
+  echo "  [FAIL] verification scheduled worker did not dispatch queued communication" >&2
+  exit 1
+}
+
 echo "  Smoke: transaction-service -> client-service (GET transactions)"
 TX_RESPONSE="$(
   curl --silent --show-error --fail \
@@ -1115,6 +1270,108 @@ if len(rows) < 2:
     raise SystemExit("expected at least 2 imported S3 transactions")
 print("  [OK] imported S3 transactions are queryable")
 PY
+
+echo "  Smoke: transaction-service scheduled poll path (time-triggered)"
+TX_SCHEDULED_CLIENT_ID="clt_s3_ci_scheduler"
+TX_SCHEDULED_KEY="incoming/ci-scheduled-${RUN_ID}.csv"
+TX_SCHEDULED_FILE="${LOG_DIR}/ci-scheduled-import.csv"
+cat > "${TX_SCHEDULED_FILE}" <<'CSV'
+clientId,transaction,amount,date,status
+clt_s3_ci_scheduler,D,215.00,2026-02-10,Completed
+CSV
+
+aws_local s3api put-object \
+  --bucket scroogebank-crm-dev-transaction-sftp \
+  --key "${TX_SCHEDULED_KEY}" \
+  --body "${TX_SCHEDULED_FILE}" \
+  >/dev/null
+
+SCHEDULED_IMPORT_APPLIED=false
+for _ in {1..30}; do
+  TX_SCHEDULED_LIST_RESPONSE="$(
+    curl --silent --show-error --fail \
+      "http://127.0.0.1:18083/api/transactions?clientId=${TX_SCHEDULED_CLIENT_ID}" \
+      --header "Authorization: Bearer ${ADMIN_TOKEN}" \
+      || true
+  )"
+  if TX_SCHEDULED_LIST_RESPONSE_JSON="${TX_SCHEDULED_LIST_RESPONSE}" ${PYTHON_CMD} - <<'PY' 2>/dev/null; then
+import json, os
+payload = json.loads(os.environ["TX_SCHEDULED_LIST_RESPONSE_JSON"])
+rows = payload.get("data", [])
+if len(rows) >= 1:
+    raise SystemExit(0)
+raise SystemExit(1)
+PY
+    SCHEDULED_IMPORT_APPLIED=true
+    echo "  [OK] transaction scheduled poll imported S3 object"
+    break
+  fi
+  sleep 2
+done
+[[ "${SCHEDULED_IMPORT_APPLIED}" == "true" ]] || {
+  echo "  [FAIL] transaction scheduled poll did not import queued S3 object" >&2
+  exit 1
+}
+
+echo "  Smoke: transaction-ingestion Lambda -> transaction-service import API"
+TX_INGESTION_LAMBDA_CLIENT_ID="clt_s3_ci_ingestion_lambda"
+TX_INGESTION_LAMBDA_KEY="incoming/ci-ingestion-lambda-${RUN_ID}.csv"
+TX_INGESTION_LAMBDA_FILE="${LOG_DIR}/ci-ingestion-lambda.csv"
+cat > "${TX_INGESTION_LAMBDA_FILE}" <<'CSV'
+clientId,transaction,amount,date,status
+clt_s3_ci_ingestion_lambda,D,500.00,2026-02-11,Completed
+CSV
+
+aws_local s3api put-object \
+  --bucket scroogebank-crm-dev-transaction-sftp \
+  --key "${TX_INGESTION_LAMBDA_KEY}" \
+  --body "${TX_INGESTION_LAMBDA_FILE}" \
+  >/dev/null
+
+TX_INGESTION_LAMBDA_INVOKE_OUTPUT="${LOG_DIR}/transaction-ingestion-lambda-invoke.json"
+aws_local lambda invoke \
+  --function-name "${TRANSACTION_INGESTION_LAMBDA_FUNCTION_NAME}" \
+  --cli-binary-format raw-in-base64-out \
+  --payload '{}' \
+  "${TX_INGESTION_LAMBDA_INVOKE_OUTPUT}" \
+  >/dev/null
+
+TX_INGESTION_LAMBDA_INVOKE_JSON="$(cat "${TX_INGESTION_LAMBDA_INVOKE_OUTPUT}")"
+TX_INGESTION_LAMBDA_INVOKE_JSON="${TX_INGESTION_LAMBDA_INVOKE_JSON}" ${PYTHON_CMD} - <<'PY'
+import json, os
+payload = json.loads(os.environ["TX_INGESTION_LAMBDA_INVOKE_JSON"])
+status_code = int(payload.get("statusCode", 0))
+if status_code not in (200, 202):
+    raise SystemExit(f"transaction-ingestion lambda returned unexpected statusCode={status_code}")
+print("  [OK] transaction-ingestion lambda invoked transaction import API")
+PY
+
+LAMBDA_IMPORT_APPLIED=false
+for _ in {1..20}; do
+  TX_INGESTION_LIST_RESPONSE="$(
+    curl --silent --show-error --fail \
+      "http://127.0.0.1:18083/api/transactions?clientId=${TX_INGESTION_LAMBDA_CLIENT_ID}" \
+      --header "Authorization: Bearer ${ADMIN_TOKEN}" \
+      || true
+  )"
+  if TX_INGESTION_LIST_RESPONSE_JSON="${TX_INGESTION_LIST_RESPONSE}" ${PYTHON_CMD} - <<'PY' 2>/dev/null; then
+import json, os
+payload = json.loads(os.environ["TX_INGESTION_LIST_RESPONSE_JSON"])
+rows = payload.get("data", [])
+if len(rows) >= 1:
+    raise SystemExit(0)
+raise SystemExit(1)
+PY
+    LAMBDA_IMPORT_APPLIED=true
+    echo "  [OK] transaction-ingestion lambda path imported transaction rows"
+    break
+  fi
+  sleep 2
+done
+[[ "${LAMBDA_IMPORT_APPLIED}" == "true" ]] || {
+  echo "  [FAIL] transaction-ingestion lambda did not import transaction rows" >&2
+  exit 1
+}
 
 echo "  Smoke: AML alerts -> log-service-lambda (CREATE + REVIEW)"
 ALERT_ID="aml-smoke-$(date +%s)"

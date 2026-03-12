@@ -51,12 +51,13 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       # Lambda-backed log API endpoint (provisioned by run-fullstack-integration-e2e.sh)
-      LOG_SERVICE_URL: ${LOG_SERVICE_URL}
+      CLIENT_LOG_SERVICE_URL: ${CLIENT_LOG_SERVICE_URL}
       JWT_HMAC_SECRET: dev-only-insecure-secret
       VERIFICATION_EMAIL_PROVIDER: ses
       SES_SENDER_EMAIL: ${SES_SENDER_EMAIL:-verification@crm.local}
-      AWS_REGION: ap-southeast-1
-      AWS_ENDPOINT_URL: http://localstack:4566
+      VERIFICATION_EMAIL_AWS_REGION: ap-southeast-1
+      VERIFICATION_EMAIL_AWS_ENDPOINT_URL: http://localstack:4566
+      VERIFICATION_EMAIL_DISPATCH_POLL_INTERVAL_MS: "5000"
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
     depends_on:
@@ -74,6 +75,9 @@ services:
     environment:
       CLIENT_SERVICE_URL: http://client-service:8080
       JWT_HMAC_SECRET: dev-only-insecure-secret
+      TRANSACTION_SFTP_POLL_ENABLED: "true"
+      TRANSACTION_SFTP_POLL_FIXED_DELAY_MS: "5000"
+      TRANSACTION_SFTP_POLL_INITIAL_DELAY_MS: "2000"
       TRANSACTION_IMPORT_S3_BUCKET: scroogebank-crm-dev-transaction-sftp
       TRANSACTION_IMPORT_S3_REGION: ap-southeast-1
       TRANSACTION_IMPORT_S3_ENDPOINT: http://localstack:4566
