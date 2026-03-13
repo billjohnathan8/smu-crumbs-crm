@@ -40,12 +40,13 @@ export function AdminDashboard() {
       setError('')
 
       try {
-        const [usersResponse, clientsResponse, logsResponse, allClientsResponse] = await Promise.all([
-          listUsers({ limit: 1 }),
-          listClients({ limit: 1 }),
-          listLogs({ limit: 10 }),
-          listClients({ limit: 100 }),
-        ])
+        const [usersResponse, clientsResponse, logsResponse, allClientsResponse] =
+          await Promise.all([
+            listUsers({ limit: 1 }),
+            listClients({ limit: 1 }),
+            listLogs({ limit: 10 }),
+            listClients({ limit: 100 }),
+          ])
 
         setStats({
           totalAgents: usersResponse.pagination?.total || 0,
@@ -161,19 +162,28 @@ export function AdminDashboard() {
                   <table className="w-full">
                     <thead className="bg-background-light">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Client</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Email</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Action</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                          Client
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                          Email
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                          Action
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {pendingClients.map((c) => (
-                        <tr key={c.clientId} className="hover:bg-background-light transition-colors">
+                      {pendingClients.map(c => (
+                        <tr
+                          key={c.clientId}
+                          className="hover:bg-background-light transition-colors"
+                        >
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-text">
                             {c.firstName} {c.lastName}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-text-muted">
-                            {c.email}
+                            {c.emailAddress}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
                             <button
