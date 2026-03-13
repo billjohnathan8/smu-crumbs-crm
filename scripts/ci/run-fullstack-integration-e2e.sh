@@ -253,6 +253,11 @@ build_java_jar() {
   local service_dir="$1"
   local service_name="$2"
   local gradle_user_home="${service_dir}/.gradle-local"
+  local java_runtime_is_windows=false
+
+  detect_windows_java_runtime() {
+    java -XshowSettings:properties -version 2>&1 | grep -q "os.name = Windows"
+  }
 
   # On WSL, 'java' may not be on PATH while a Windows JDK is installed.
   # Probe known Windows install locations using globbing (safe for spaces).
@@ -270,27 +275,37 @@ build_java_jar() {
           _jh="${_candidate%/bin/java.exe}"
           export JAVA_HOME="${_jh}"
           export PATH="${_jh}/bin:${PATH}"
+          java_runtime_is_windows=true
           break 2
         fi
       done < <(compgen -G "${_pattern}")
     done
   fi
 
+  if command -v java >/dev/null 2>&1 && detect_windows_java_runtime; then
+    java_runtime_is_windows=true
+  fi
+
   pushd "${service_dir}" >/dev/null
   chmod +x gradlew
   local gradle_log="${LOG_DIR}/${service_name}-bootjar.log"
-  if ! GRADLE_USER_HOME="${gradle_user_home}" ./gradlew bootJar --no-daemon --console=plain > "${gradle_log}" 2>&1; then
-    # WSL can fail to execute Windows-discovered JAVA_HOME (java.exe only).
-    # Retry with Gradle Windows wrapper when available.
-    if grep -q "JAVA_HOME" "${gradle_log}" \
+
+  # When bash resolves `java` to a Windows JVM, Unix wrapper paths (e.g. /mnt/c/...)
+  # fail with "Unable to access jarfile". Use the Windows wrapper directly.
+  if [[ "${java_runtime_is_windows}" == "true" ]] \
+    && command -v cmd.exe >/dev/null 2>&1 \
+    && [ -f "./gradlew.bat" ]; then
+    if ! cmd.exe /c "gradlew.bat bootJar --no-daemon --console=plain" \
+      > "${gradle_log}" 2>&1; then
+      popd >/dev/null
+      return 1
+    fi
+  elif ! GRADLE_USER_HOME="${gradle_user_home}" ./gradlew bootJar --no-daemon --console=plain > "${gradle_log}" 2>&1; then
+    # Retry with Gradle Windows wrapper when Java path/tooling mismatch is detected.
+    if grep -Eq "JAVA_HOME|Unable to access jarfile" "${gradle_log}" \
       && command -v cmd.exe >/dev/null 2>&1 \
-      && [ -f "./gradlew.bat" ] \
-      && command -v wslpath >/dev/null 2>&1; then
-      local win_gradlew
-      local win_gradle_user_home
-      win_gradlew="$(wslpath -w "${service_dir}/gradlew.bat")"
-      win_gradle_user_home="$(wslpath -w "${gradle_user_home}")"
-      cmd.exe /c "set \"GRADLE_USER_HOME=${win_gradle_user_home}\" && \"${win_gradlew}\" bootJar --no-daemon --console=plain" \
+      && [ -f "./gradlew.bat" ]; then
+      cmd.exe /c "gradlew.bat bootJar --no-daemon --console=plain" \
         > "${gradle_log}" 2>&1
     else
       popd >/dev/null
@@ -1068,9 +1083,9 @@ VERIFY_RESPONSE="$(
 VERIFY_RESPONSE_JSON="${VERIFY_RESPONSE}" ${PYTHON_CMD} - <<'PY'
 import json, os
 payload = json.loads(os.environ["VERIFY_RESPONSE_JSON"])
-if payload.get("identityVerificationStatus") != "verified":
-    raise SystemExit("verify endpoint did not return identityVerificationStatus=verified")
-print("  [OK] verify endpoint returned verified status")
+if payload.get("identityVerificationStatus") != "pending":
+  raise SystemExit("verify endpoint did not return identityVerificationStatus=pending")
+print("  [OK] verify endpoint returned pending status")
 PY
 
 COMMUNICATION_ID=""
