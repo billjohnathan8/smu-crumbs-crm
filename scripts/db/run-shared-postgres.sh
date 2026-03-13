@@ -112,15 +112,19 @@ docker_run_with_retry() {
 }
 
 detect_python() {
-  if command -v python3 >/dev/null 2>&1; then
+  if command -v python3 >/dev/null 2>&1 \
+    && python3 -c "import sys; sys.exit(0)" 2>/dev/null \
+    && python3 -m pip --version >/dev/null 2>&1; then
     echo "python3"
     return
   fi
-  if command -v python >/dev/null 2>&1; then
+  if command -v python >/dev/null 2>&1 \
+    && python -c "import sys; sys.exit(0)" 2>/dev/null \
+    && python -m pip --version >/dev/null 2>&1; then
     echo "python"
     return
   fi
-  echo "[FAIL] Python interpreter not found (python3 or python)." >&2
+  echo "[FAIL] No working Python interpreter with pip found (python3 or python)." >&2
   exit 1
 }
 
