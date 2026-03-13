@@ -1,8 +1,9 @@
 # Transaction Ingestion Lambda
 
-Scheduled Lambda that supports the Terraform pipeline:
+Scheduled Lambda that implements S3-backed mock SFTP ingestion for the Terraform pipeline.
+No real SFTP network client is used — the S3 bucket serves as the file-drop transport.
 
-EventBridge schedule -> Lambda -> mocked SFTP S3 bucket scan -> transaction import API call.
+EventBridge schedule → Lambda → S3 bucket scan → transaction import API call.
 
 ## Package artifact
 - Terraform expects: `transaction-ingestion-lambda.zip`
@@ -10,7 +11,7 @@ EventBridge schedule -> Lambda -> mocked SFTP S3 bucket scan -> transaction impo
   - `transaction_ingestion_lambda_zip_path = ../../services/backend/transaction-ingestion-lambda/transaction-ingestion-lambda.zip`
 
 ## Required environment variables
-- `TRANSACTION_SFTP_BUCKET`
+- `TRANSACTION_SFTP_BUCKET` — S3 bucket name used as the mock SFTP file source
 - `TRANSACTION_IMPORT_URL`
 
 ## Optional environment variables

@@ -1,17 +1,19 @@
 package com.scroogebank.crm.transaction_service.service.imports;
 
-import com.scroogebank.crm.transaction_service.config.AppProperties;
-import com.scroogebank.crm.transaction_service.dto.ImportBatchDto;
-import com.scroogebank.crm.transaction_service.dto.ImportTransactionsRequest;
-import com.scroogebank.crm.transaction_service.service.TransactionsService;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+
+import com.scroogebank.crm.transaction_service.config.AppProperties;
+import com.scroogebank.crm.transaction_service.dto.ImportBatchDto;
+import com.scroogebank.crm.transaction_service.dto.ImportTransactionsRequest;
+import com.scroogebank.crm.transaction_service.service.TransactionsService;
 
 /**
  * Periodically polls the configured S3-backed source and imports all visible CSV files.
