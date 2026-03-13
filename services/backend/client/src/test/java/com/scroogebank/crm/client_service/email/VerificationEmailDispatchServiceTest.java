@@ -1,25 +1,26 @@
 package com.scroogebank.crm.client_service.email;
 
-import com.scroogebank.crm.client_service.communication.CommunicationRecord;
-import com.scroogebank.crm.client_service.communication.CommunicationStatus;
-import com.scroogebank.crm.client_service.communication.LogServiceCommunicationClient;
-import com.scroogebank.crm.client_service.config.AppProperties;
-import com.scroogebank.crm.client_service.security.JwtService;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import com.scroogebank.crm.client_service.communication.CommunicationRecord;
+import com.scroogebank.crm.client_service.communication.CommunicationStatus;
+import com.scroogebank.crm.client_service.communication.LogServiceCommunicationClient;
+import com.scroogebank.crm.client_service.config.AppProperties;
+import com.scroogebank.crm.client_service.security.JwtService;
 
 /**
  * Unit tests for {@link VerificationEmailDispatchService}.

@@ -1,11 +1,14 @@
 package com.scroogebank.crm.client_service.email;
 
-import com.scroogebank.crm.client_service.config.AppProperties;
 import java.net.URI;
+
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import com.scroogebank.crm.client_service.config.AppProperties;
+
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sesv2.SesV2Client;
 import software.amazon.awssdk.services.sesv2.SesV2ClientBuilder;
