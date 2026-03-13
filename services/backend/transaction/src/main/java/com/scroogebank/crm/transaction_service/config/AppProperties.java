@@ -77,54 +77,13 @@ public class AppProperties {
 		}
 	}
 
+	/**
+	 * Ingestion polling config. The {@code app.sftp.*} config prefix is retained
+	 * for deployment compatibility; the actual transport is S3-backed (not real SFTP).
+	 */
 	public static class Sftp {
-		private String host;
-		private int port = 22;
-		private String username;
-		private String password;
-		private String privateKeyPath;
 		private String remoteDir = ".";
 		private Poll poll = new Poll();
-
-		public String getHost() {
-			return host;
-		}
-
-		public void setHost(String host) {
-			this.host = host;
-		}
-
-		public int getPort() {
-			return port;
-		}
-
-		public void setPort(int port) {
-			this.port = port;
-		}
-
-		public String getUsername() {
-			return username;
-		}
-
-		public void setUsername(String username) {
-			this.username = username;
-		}
-
-		public String getPassword() {
-			return password;
-		}
-
-		public void setPassword(String password) {
-			this.password = password;
-		}
-
-		public String getPrivateKeyPath() {
-			return privateKeyPath;
-		}
-
-		public void setPrivateKeyPath(String privateKeyPath) {
-			this.privateKeyPath = privateKeyPath;
-		}
 
 		public String getRemoteDir() {
 			return remoteDir;

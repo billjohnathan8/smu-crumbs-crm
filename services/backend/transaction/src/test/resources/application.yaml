@@ -6,5 +6,10 @@ spring:
     driver-class-name: org.h2.Driver
 
 app:
+  client-service-url: http://localhost:8080
+  jwt:
+    hmac-secret: test-only-secret
+  mock-sftp:
+    root: ./mock-sftp
   transactions-store:
     type: in-memory
