@@ -13,7 +13,7 @@ import com.scroogebank.crm.transaction_service.exception.ImportBatchNotFoundExce
 import com.scroogebank.crm.transaction_service.exception.TransactionNotFoundException;
 import com.scroogebank.crm.transaction_service.repository.TransactionImportBatchRepository;
 import com.scroogebank.crm.transaction_service.repository.TransactionRecordRepository;
-import com.scroogebank.crm.transaction_service.service.imports.SftpClient;
+import com.scroogebank.crm.transaction_service.service.imports.TransactionFileSource;
 import com.scroogebank.crm.transaction_service.service.imports.TransactionCsvParser;
 import com.scroogebank.crm.transaction_service.service.imports.TransactionCsvParser.ParseResult;
 import com.scroogebank.crm.transaction_service.service.imports.TransactionCsvParser.ParsedTransactionRow;
@@ -43,20 +43,20 @@ public class PersistentTransactionsStore implements TransactionsStore {
 	private static final Logger logger = LoggerFactory.getLogger(PersistentTransactionsStore.class);
 
 	private final Clock clock;
-	private final SftpClient sftpClient;
+	private final TransactionFileSource fileSource;
 	private final TransactionCsvParser csvParser;
 	private final TransactionRecordRepository transactionRepository;
 	private final TransactionImportBatchRepository batchRepository;
 
 	public PersistentTransactionsStore(
 		Clock clock,
-		SftpClient sftpClient,
+		TransactionFileSource fileSource,
 		TransactionCsvParser csvParser,
 		TransactionRecordRepository transactionRepository,
 		TransactionImportBatchRepository batchRepository
 	) {
 		this.clock = clock;
-		this.sftpClient = sftpClient;
+		this.fileSource = fileSource;
 		this.csvParser = csvParser;
 		this.transactionRepository = transactionRepository;
 		this.batchRepository = batchRepository;
@@ -137,7 +137,7 @@ public class PersistentTransactionsStore implements TransactionsStore {
 
 	@Transactional
 	@Override
-	public ImportBatchDto importFromMockSftp(ImportTransactionsRequest request) {
+	public ImportBatchDto importTransactions(ImportTransactionsRequest request) {
 		String requestedClientId = request == null ? null : request.clientId();
 		String sourcePath = request == null ? DEFAULT_SOURCE_PATH : normalizeSourcePath(request.sourcePath());
 
@@ -158,7 +158,7 @@ public class PersistentTransactionsStore implements TransactionsStore {
 		int imported = 0;
 		int failed = 0;
 		String errorMessage = null;
-		try (var reader = sftpClient.openCsvFile(sourcePath)) {
+		try (var reader = fileSource.openCsvFile(sourcePath)) {
 			ParseResult parseResult = csvParser.parse(reader, requestedClientId);
 			total = parseResult.totalRecords();
 			failed = parseResult.failedRecords();

@@ -24,12 +24,12 @@ class TransactionImportSchedulerTest {
 	@Test
 	void pollAndImport_importsAllListedCsvFiles() throws Exception {
 		TransactionsService transactionsService = Mockito.mock(TransactionsService.class);
-		SftpClient sftpClient = Mockito.mock(SftpClient.class);
+		TransactionFileSource fileSource = Mockito.mock(TransactionFileSource.class);
 		AppProperties appProperties = new AppProperties();
 		appProperties.getSftp().setRemoteDir("incoming");
 
-		when(sftpClient.listCsvFiles("incoming")).thenReturn(List.of("incoming/a.csv", "incoming/b.csv"));
-		when(transactionsService.importFromSftp(any())).thenReturn(new ImportBatchDto(
+		when(fileSource.listCsvFiles("incoming")).thenReturn(List.of("incoming/a.csv", "incoming/b.csv"));
+		when(transactionsService.importTransactions(any())).thenReturn(new ImportBatchDto(
 			"imp_1",
 			ImportBatchStatus.completed,
 			null,
@@ -44,13 +44,13 @@ class TransactionImportSchedulerTest {
 
 		TransactionImportScheduler scheduler = new TransactionImportScheduler(
 			transactionsService,
-			sftpClient,
+			fileSource,
 			appProperties
 		);
 		scheduler.pollAndImport();
 
 		ArgumentCaptor<ImportTransactionsRequest> captor = ArgumentCaptor.forClass(ImportTransactionsRequest.class);
-		verify(transactionsService, times(2)).importFromSftp(captor.capture());
+		verify(transactionsService, times(2)).importTransactions(captor.capture());
 		List<ImportTransactionsRequest> requests = captor.getAllValues();
 		assertEquals("incoming/a.csv", requests.get(0).sourcePath());
 		assertEquals("incoming/b.csv", requests.get(1).sourcePath());

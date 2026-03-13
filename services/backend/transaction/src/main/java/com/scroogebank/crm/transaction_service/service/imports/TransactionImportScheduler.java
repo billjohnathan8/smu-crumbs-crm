@@ -14,24 +14,27 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Periodically polls the configured SFTP source and imports all visible CSV files.
+ * Periodically polls the configured S3-backed source and imports all visible CSV files.
+ *
+ * <p>The SFTP requirement is satisfied by reading from an S3 bucket (or local
+ * filesystem fallback) — no real SFTP network connection is used.
  */
 @Component
 @ConditionalOnProperty(name = "app.sftp.poll.enabled", havingValue = "true")
 public class TransactionImportScheduler {
 	private static final Logger logger = LoggerFactory.getLogger(TransactionImportScheduler.class);
 	private final TransactionsService transactionsService;
-	private final SftpClient sftpClient;
+	private final TransactionFileSource fileSource;
 	private final AppProperties appProperties;
 	private final AtomicBoolean inProgress = new AtomicBoolean(false);
 
 	public TransactionImportScheduler(
 		TransactionsService transactionsService,
-		SftpClient sftpClient,
+		TransactionFileSource fileSource,
 		AppProperties appProperties
 	) {
 		this.transactionsService = transactionsService;
-		this.sftpClient = sftpClient;
+		this.fileSource = fileSource;
 		this.appProperties = appProperties;
 	}
 
@@ -46,13 +49,13 @@ public class TransactionImportScheduler {
 		}
 
 		try {
-			List<String> files = sftpClient.listCsvFiles(appProperties.getSftp().getRemoteDir());
+			List<String> files = fileSource.listCsvFiles(appProperties.getSftp().getRemoteDir());
 			if (files.isEmpty()) {
-				logger.debug("No CSV files found in remote dir '{}'", appProperties.getSftp().getRemoteDir());
+				logger.debug("No CSV files found in source dir '{}'", appProperties.getSftp().getRemoteDir());
 				return;
 			}
 			for (String file : files) {
-				ImportBatchDto batch = transactionsService.importFromSftp(new ImportTransactionsRequest(null, file));
+				ImportBatchDto batch = transactionsService.importTransactions(new ImportTransactionsRequest(null, file));
 				logger.info(
 					"Imported '{}' into batch {} (total={}, imported={}, failed={})",
 					file,
@@ -64,7 +67,7 @@ public class TransactionImportScheduler {
 			}
 		}
 		catch (IOException ex) {
-			logger.error("Failed to list transaction CSV files from mock SFTP source", ex);
+			logger.error("Failed to list transaction CSV files from S3-backed source", ex);
 		}
 		catch (Exception ex) {
 			logger.error("Scheduled transaction import failed", ex);

@@ -176,7 +176,7 @@ public class TransactionsController {
 	}
 
 	/**
-	 * Starts an async-style import from the configured mock SFTP source. Admin-only.
+	 * Starts an import from the configured S3-backed transaction source. Admin-only.
 	 */
 	@PostMapping("/transactions/import")
 	public ResponseEntity<ImportBatchDto> importTransactions(
@@ -185,7 +185,7 @@ public class TransactionsController {
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		requireAnyRole(user, "admin");
-		return ResponseEntity.status(HttpStatus.ACCEPTED).body(transactionsService.importFromSftp(body));
+		return ResponseEntity.status(HttpStatus.ACCEPTED).body(transactionsService.importTransactions(body));
 	}
 
 	/**

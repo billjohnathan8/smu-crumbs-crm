@@ -28,7 +28,7 @@ public interface TransactionsStore {
 		LocalDate toDate
 	);
 
-	ImportBatchDto importFromMockSftp(ImportTransactionsRequest request);
+	ImportBatchDto importTransactions(ImportTransactionsRequest request);
 
 	ImportBatchDto getBatch(String importBatchId);
 }

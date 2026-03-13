@@ -9,7 +9,7 @@ import com.scroogebank.crm.transaction_service.dto.TransactionKind;
 import com.scroogebank.crm.transaction_service.dto.TransactionStatus;
 import com.scroogebank.crm.transaction_service.exception.ImportBatchNotFoundException;
 import com.scroogebank.crm.transaction_service.exception.TransactionNotFoundException;
-import com.scroogebank.crm.transaction_service.service.imports.SftpClient;
+import com.scroogebank.crm.transaction_service.service.imports.TransactionFileSource;
 import com.scroogebank.crm.transaction_service.service.imports.TransactionCsvParser;
 import com.scroogebank.crm.transaction_service.service.imports.TransactionCsvParser.ParseResult;
 import com.scroogebank.crm.transaction_service.service.imports.TransactionCsvParser.ParsedTransactionRow;
@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * In-memory transaction store with simple filtering and mock SFTP import support.
+ * In-memory transaction store with simple filtering and S3-backed mock import support.
  *
  * <p>This store is process-local and not shared across replicas. Transaction/import records are lost on
  * task restart and are invisible to other tasks. When this store is selected, keep the service
@@ -46,7 +46,7 @@ public class InMemoryTransactionsStore implements TransactionsStore {
 	private static final Logger logger = LoggerFactory.getLogger(InMemoryTransactionsStore.class);
 
 	private final Clock clock;
-	private final SftpClient sftpClient;
+	private final TransactionFileSource fileSource;
 	private final TransactionCsvParser csvParser;
 	private final AtomicLong txnSeq = new AtomicLong(1L);
 	private final AtomicLong batchSeq = new AtomicLong(1L);
@@ -56,17 +56,18 @@ public class InMemoryTransactionsStore implements TransactionsStore {
 
 	public InMemoryTransactionsStore(
 		Clock clock,
-		SftpClient sftpClient,
+		TransactionFileSource fileSource,
 		TransactionCsvParser csvParser
 	) {
 		this.clock = clock;
-		this.sftpClient = sftpClient;
+		this.fileSource = fileSource;
 		this.csvParser = csvParser;
 	}
 
 	/**
 	 * Creates a new transaction record.
 	 */
+	@Override
 	public TransactionDto create(CreateTransactionRequest request) {
 		long id = txnSeq.getAndIncrement();
 		TxnRecord record = new TxnRecord(
@@ -86,6 +87,7 @@ public class InMemoryTransactionsStore implements TransactionsStore {
 	/**
 	 * Retrieves a transaction by external id.
 	 */
+	@Override
 	public TransactionDto get(String transactionId) {
 		long dbId = decodeTxnId(transactionId);
 		TxnRecord record = transactions.get(dbId);
@@ -98,6 +100,7 @@ public class InMemoryTransactionsStore implements TransactionsStore {
 	/**
 	 * Deletes a transaction by external id.
 	 */
+	@Override
 	public void delete(String transactionId) {
 		long dbId = decodeTxnId(transactionId);
 		if (transactions.remove(dbId) == null) {
@@ -108,6 +111,7 @@ public class InMemoryTransactionsStore implements TransactionsStore {
 	/**
 	 * Lists transactions with optional filters and pagination.
 	 */
+	@Override
 	public ListResult list(
 		int limit,
 		int offset,
@@ -145,9 +149,10 @@ public class InMemoryTransactionsStore implements TransactionsStore {
 	}
 
 	/**
-	 * Imports transactions from a mock SFTP CSV file into memory.
+	 * Imports transactions from a CSV source (S3 bucket or local filesystem) into memory.
 	 */
-	public ImportBatchDto importFromMockSftp(ImportTransactionsRequest request) {
+	@Override
+	public ImportBatchDto importTransactions(ImportTransactionsRequest request) {
 		String requestedClientId = request == null ? null : request.clientId();
 		String sourcePath = request == null ? DEFAULT_SOURCE_PATH : normalizeSourcePath(request.sourcePath());
 
@@ -171,7 +176,7 @@ public class InMemoryTransactionsStore implements TransactionsStore {
 		int imported = 0;
 		int failed = 0;
 		String errorMessage = null;
-		try (var reader = sftpClient.openCsvFile(sourcePath)) {
+		try (var reader = fileSource.openCsvFile(sourcePath)) {
 			ParseResult parseResult = csvParser.parse(reader, requestedClientId);
 			total = parseResult.totalRecords();
 			failed = parseResult.failedRecords();
@@ -229,6 +234,7 @@ public class InMemoryTransactionsStore implements TransactionsStore {
 	/**
 	 * Loads a previously created import batch by id.
 	 */
+	@Override
 	public ImportBatchDto getBatch(String importBatchId) {
 		long dbId = decodeBatchId(importBatchId);
 		BatchRecord record = batches.get(dbId);
