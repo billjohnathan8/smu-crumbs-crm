@@ -223,6 +223,16 @@ export interface Communication {
   updatedAt: string
 }
 
+export interface UpdateCommunicationStatusRequest {
+  status?: CommunicationStatus
+  providerMessageId?: string | null
+  errorMessage?: string | null
+  retryCount?: number | null
+  nextAttemptAt?: string | null
+  lastAttemptAt?: string | null
+  deliveryEvent?: string | null
+}
+
 // AML alert types (log-service AML endpoints)
 export type AmlAlertType = 'STATISTICAL_OUTLIER' | 'STRUCTURING' | 'PASSTHROUGH' | 'INCEPTION_SPIKE'
 export type AmlReviewStatus = 'Pending' | 'Confirmed' | 'Dismissed'

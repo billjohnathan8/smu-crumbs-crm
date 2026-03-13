@@ -4,10 +4,13 @@ import { ProtectedRoute } from './ProtectedRoute'
 import { LoginPage } from '@/pages/LoginPage'
 import { AdminDashboard } from '@/pages/AdminDashboard'
 import { AdminManageAccounts } from '@/pages/AdminManageAccounts'
+import { AdminCommunications } from '@/pages/AdminCommunications'
 import { AgentDashboard } from '@/pages/AgentDashboard'
 import { AgentClientList } from '@/pages/AgentClientList'
 import { AgentClientDetail } from '@/pages/AgentClientDetail'
 import { AgentCreateClient } from '@/pages/AgentCreateClient'
+import { AgentEditClient } from '@/pages/AgentEditClient'
+import { AgentClientAccounts } from '@/pages/AgentClientAccounts'
 import { AgentViewTransactions } from '@/pages/AgentViewTransactions'
 import { AmlAlertsPage } from '@/pages/AmlAlertsPage'
 
@@ -43,6 +46,7 @@ export function App() {
           <Route element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} />}>
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/accounts" element={<AdminManageAccounts />} />
+            <Route path="/admin/communications" element={<AdminCommunications />} />
             <Route path="/admin/aml-alerts" element={<AmlAlertsPage />} />
           </Route>
 
@@ -51,6 +55,8 @@ export function App() {
             <Route path="/agent/clients" element={<AgentClientList />} />
             <Route path="/agent/clients/new" element={<AgentCreateClient />} />
             <Route path="/agent/clients/:clientId" element={<AgentClientDetail />} />
+            <Route path="/agent/clients/:clientId/edit" element={<AgentEditClient />} />
+            <Route path="/agent/clients/:clientId/accounts" element={<AgentClientAccounts />} />
             <Route path="/agent/transactions" element={<AgentViewTransactions />} />
             <Route path="/agent/aml-alerts" element={<AmlAlertsPage />} />
           </Route>

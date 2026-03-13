@@ -10,6 +10,7 @@ const ITEMS_PER_PAGE = 10
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
   { label: 'Manage Accounts', to: '/admin/accounts' },
+  { label: 'Communications', to: '/admin/communications' },
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
 ]
 
