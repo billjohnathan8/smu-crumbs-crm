@@ -95,7 +95,7 @@ public class JwtService {
 		this.httpClient = httpClient;
 	}
 
-	JwtService(ObjectMapper objectMapper, Clock clock, String hmacSecret) {
+	public JwtService(ObjectMapper objectMapper, Clock clock, String hmacSecret) {
 		this(
 			objectMapper,
 			clock,
