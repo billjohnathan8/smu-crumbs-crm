@@ -8,20 +8,18 @@ on:
     branches:
       - dev
       - main
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
     paths:
       - 'platform/terraform/**'
+      - '!**/*.md'
+      - '!docs/**'
   push:
     branches:
       - dev
       - main
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
     paths:
       - 'platform/terraform/**'
+      - '!**/*.md'
+      - '!docs/**'
   workflow_dispatch:
   workflow_call:
     secrets:
@@ -40,6 +38,8 @@ jobs:
     name: Terraform Static Analysis
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
     defaults:
       run:
         working-directory: platform/terraform
@@ -66,6 +66,26 @@ jobs:
         timeout-minutes: 2
         run: terraform validate
 
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        timeout-minutes: 2
+        with:
+          python-version: '3.13'
+
+      - name: Build operable lambda artifacts
+        timeout-minutes: 6
+        run: bash ../../scripts/ci/build-lambda-artifacts.sh
+
+      - name: terraform validate (operable lambda feature flags)
+        timeout-minutes: 2
+        env:
+          TF_VAR_enable_log_lambda: "true"
+          TF_VAR_enable_aml_lambda: "true"
+          TF_VAR_enable_transaction_ingestion_lambda: "true"
+          TF_VAR_enable_verification_pipeline: "true"
+          TF_VAR_ses_sender_email: "verification@crm.local"
+        run: terraform validate
+
       - name: Set up TFLint
         uses: terraform-linters/setup-tflint@v4
         timeout-minutes: 3
@@ -85,21 +105,21 @@ jobs:
         run: mkdir -p .infracost
 
       - name: Set up Infracost
-        if: ${{ secrets.INFRACOST_API_KEY != '' }}
+        if: ${{ env.INFRACOST_API_KEY != '' }}
         uses: infracost/actions/setup@v3
         timeout-minutes: 2
         with:
-          api-key: ${{ secrets.INFRACOST_API_KEY }}
+          api-key: ${{ env.INFRACOST_API_KEY }}
 
       - name: Generate Infracost report
-        if: ${{ secrets.INFRACOST_API_KEY != '' }}
+        if: ${{ env.INFRACOST_API_KEY != '' }}
         timeout-minutes: 5
         run: |
           infracost breakdown --path=. --format=json --out-file=.infracost/infracost-report.json
           infracost breakdown --path=. --format=table --out-file=.infracost/infracost-report.txt
 
       - name: Record skipped Infracost reason
-        if: ${{ secrets.INFRACOST_API_KEY == '' }}
+        if: ${{ env.INFRACOST_API_KEY == '' }}
         timeout-minutes: 1
         run: echo "INFRACOST_API_KEY is not configured; Infracost cost report was skipped." > .infracost/README.txt
 
@@ -110,12 +130,6 @@ jobs:
           name: infracost-terraform-${{ github.run_id }}-${{ github.run_attempt }}
           path: platform/terraform/.infracost/
           retention-days: 7
-
-      - name: Set up Python for Checkov
-        uses: actions/setup-python@v5
-        timeout-minutes: 2
-        with:
-          python-version: '3.13'
 
       - name: Install Checkov
         timeout-minutes: 3

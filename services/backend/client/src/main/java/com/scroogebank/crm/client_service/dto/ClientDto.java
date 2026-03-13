@@ -1,8 +1,9 @@
 package com.scroogebank.crm.client_service.dto;
 
-import com.scroogebank.crm.client_service.entity.Gender;
-import java.time.LocalDate;
 import java.time.Instant;
+import java.time.LocalDate;
+
+import com.scroogebank.crm.client_service.entity.Gender;
 
 /**
  * API representation of a client record.
@@ -22,6 +23,9 @@ public record ClientDto(
 	String postalCode,
 	IdentityVerificationStatus identityVerificationStatus,
 	String assignedAgentId,
+	String verificationDocumentType,
+	String verificationDocumentRef,
+	Instant verificationVerifiedAt,
 	Instant createdAt,
 	Instant updatedAt
 ) {}

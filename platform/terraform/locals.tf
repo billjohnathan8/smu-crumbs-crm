@@ -30,12 +30,16 @@ locals {
     local.use_custom_domain ? "https://${local.alb_origin_domain_name}" : "http://${module.alb.alb_dns_name}"
   )
 
+  transaction_import_api_base_url = var.transaction_import_api_base_url != "" ? var.transaction_import_api_base_url : local.crm_api_base_url
+
   #--------------------------------------------------------------
   # S3 Bucket Names
   #--------------------------------------------------------------
   frontend_bucket_name = var.frontend_bucket_name != "" ? lower(var.frontend_bucket_name) : lower("${local.name_prefix}-frontend-${data.aws_caller_identity.current.account_id}")
 
   verification_bucket_name = var.verification_bucket_name != "" ? var.verification_bucket_name : "${local.name_prefix}-verification-${data.aws_caller_identity.current.account_id}"
+
+  transaction_sftp_bucket_name = var.transaction_sftp_bucket_name != "" ? var.transaction_sftp_bucket_name : "${local.name_prefix}-transaction-sftp-${data.aws_caller_identity.current.account_id}"
 
   #--------------------------------------------------------------
   # Subnet Selection

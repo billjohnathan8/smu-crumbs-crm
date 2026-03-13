@@ -135,7 +135,8 @@ describe('AgentViewTransactions', () => {
     renderComponent()
 
     expect(screen.getByText('Filters')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Client ID or Transaction ID')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Filter by client ID')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Transaction ID')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Reset Filters/ })).toBeInTheDocument()
 
     await waitFor(() => {
@@ -392,7 +393,7 @@ describe('AgentViewTransactions', () => {
       expect(screen.getByText('Transaction List')).toBeInTheDocument()
     })
 
-    const searchInput = screen.getByPlaceholderText('Client ID or Transaction ID')
+    const searchInput = screen.getByPlaceholderText('Transaction ID')
     await user.type(searchInput, 'txn-1')
 
     await waitFor(() => {
@@ -421,7 +422,7 @@ describe('AgentViewTransactions', () => {
     })
 
     // Add a search filter
-    const searchInput = screen.getByPlaceholderText('Client ID or Transaction ID')
+    const searchInput = screen.getByPlaceholderText('Transaction ID')
     await user.type(searchInput, 'test')
 
     expect(searchInput).toHaveValue('test')

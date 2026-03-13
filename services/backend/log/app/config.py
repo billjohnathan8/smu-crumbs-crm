@@ -27,8 +27,18 @@ def _read_secret(secret_id: str) -> str:
     return base64.b64decode(secret_binary).decode("utf-8")
 
 
-def _env_or_secret(env_var: str, secret_arn_var: str, default: str) -> str:
-    """Prefer direct env values, otherwise resolve via secret ARN env var."""
+def _runtime_environment() -> str:
+    """Resolve the runtime environment name used for safety guardrails."""
+    return os.getenv("APP_ENV", os.getenv("ENVIRONMENT", "dev")).strip().lower()
+
+
+def _is_dev_environment() -> bool:
+    """Return True when running in a local/dev/test style environment."""
+    return _runtime_environment() in {"dev", "local", "test"}
+
+
+def _env_or_secret(env_var: str, secret_arn_var: str, default: str | None) -> str:
+    """Prefer direct env values, then secret ARN, then optional default."""
     direct_value = os.getenv(env_var)
     if direct_value:
         return direct_value
@@ -36,33 +46,59 @@ def _env_or_secret(env_var: str, secret_arn_var: str, default: str) -> str:
     secret_id = os.getenv(secret_arn_var, "").strip()
     if secret_id:
         return _read_secret(secret_id)
-    return default
+
+    if default is not None:
+        return default
+    raise RuntimeError(
+        f"{env_var} or {secret_arn_var} must be set for non-dev environments"
+    )
 
 
 @dataclass(frozen=True)
 class Settings:
-    """Log service settings with environment-based defaults."""
+    """Log service settings with dev-only convenience defaults."""
 
     # Use default_factory so env vars are read at instantiation time (not import
     # time). This keeps tests and local runs predictable when env vars are set
     # just before creating the app.
+    environment: str = field(default_factory=_runtime_environment)
     db_host: str = field(default_factory=lambda: os.getenv("DB_HOST", "localhost"))
     db_port: int = field(default_factory=lambda: int(os.getenv("DB_PORT", "5432")))
-    db_name: str = field(default_factory=lambda: os.getenv("DB_NAME", "cs301"))
+    db_name: str = field(default_factory=lambda: os.getenv("DB_NAME", "crm"))
     db_user: str = field(
-        default_factory=lambda: _env_or_secret("DB_USER", "DB_USER_SECRET_ARN", "cs301")
+        default_factory=lambda: _env_or_secret(
+            "DB_USER",
+            "DB_USER_SECRET_ARN",
+            "crm_app" if _is_dev_environment() else None,
+        )
     )
     db_password: str = field(
         default_factory=lambda: _env_or_secret(
-            "DB_PASSWORD", "DB_PASSWORD_SECRET_ARN", "cs301pass"
+            "DB_PASSWORD",
+            "DB_PASSWORD_SECRET_ARN",
+            "devpassword" if _is_dev_environment() else None,
         )
     )
     jwt_hmac_secret: str = field(
         default_factory=lambda: _env_or_secret(
             "JWT_HMAC_SECRET",
             "JWT_HMAC_SECRET_ARN",
-            "dev-only-insecure-secret",
+            "dev-only-insecure-secret" if _is_dev_environment() else None,
         )
+    )
+    # Authentication mode: "local" (HS256 only), "cognito" (RS256 only), "hybrid" (both)
+    auth_mode: str = field(
+        default_factory=lambda: os.getenv("AUTH_MODE", "hybrid").strip().lower()
+    )
+    # Cognito JWKS endpoint — required when auth_mode is "cognito" or "hybrid"
+    cognito_jwks_url: str = field(
+        default_factory=lambda: os.getenv("COGNITO_JWKS_URL", "")
+    )
+    # Expected issuer in Cognito tokens (https://cognito-idp.<region>.amazonaws.com/<pool_id>)
+    cognito_issuer: str = field(default_factory=lambda: os.getenv("COGNITO_ISSUER", ""))
+    # Cognito App Client ID used as the audience claim
+    cognito_audience: str = field(
+        default_factory=lambda: os.getenv("COGNITO_CLIENT_ID", "")
     )
 
     @property

@@ -6,9 +6,41 @@ spring:
     deserialization:
       fail-on-unknown-properties: true
 
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:crm}}
+    username: ${SPRING_DATASOURCE_USERNAME:${DB_USER:crm_app}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:devpassword}}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      initialization-fail-timeout: ${SPRING_DATASOURCE_HIKARI_INITIALIZATION_FAIL_TIMEOUT:5000}
+      connection-timeout: ${SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT:5000}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        "[format_sql]": true
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+    table: agent_flyway_schema_history
+    locations: classpath:db/migration
+
 app:
   jwt:
-    hmac-secret: ${JWT_HMAC_SECRET:dev-only-insecure-secret}
+    hmac-secret: ${JWT_HMAC_SECRET:}
+    auth-mode: ${AUTH_MODE:hybrid}
+    cognito:
+      issuer: ${COGNITO_ISSUER:}
+      audience: ${COGNITO_AUDIENCE:}
+      jwks-url: ${COGNITO_JWKS_URL:}
+      jwks-cache-ttl-seconds: ${COGNITO_JWKS_CACHE_TTL_SECONDS:300}
   root-admin:
     email: ${ROOT_ADMIN_EMAIL:admin@crm.local}
-    password: ${ROOT_ADMIN_PASSWORD:admin}
+    password: ${ROOT_ADMIN_PASSWORD:}
+  user-store:
+    type: ${APP_USER_STORE_TYPE:postgres}

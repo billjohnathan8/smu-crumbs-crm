@@ -21,13 +21,19 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
- * In-memory user store used for CRUD operations and token tracking.
+ * In-memory user store used for CRUD operations and refresh token tracking.
+ *
+ * <p>This store is process-local and not shared across replicas. User mutations and refresh tokens are
+ * lost on task restart and are invisible to other tasks. When this store is selected, keep the service
+ * single-replica in production.
  */
 @Component
-public class InMemoryUserStore {
+@ConditionalOnProperty(name = "app.user-store.type", havingValue = "in-memory")
+public class InMemoryUserStore implements UserStore {
 	private static final String USER_ID_PREFIX = "usr_";
 	private static final long ROOT_ADMIN_DB_ID = 1L;
 	private static final Duration REFRESH_TTL = Duration.ofDays(7);

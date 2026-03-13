@@ -68,12 +68,17 @@ variable "image_tags" {
 }
 
 variable "desired_counts" {
-  description = "Desired ECS service counts per service."
+  description = "Requested ECS service counts per service. When enable_stateful_service_scale_out is false, agent and transaction are pinned to 1 task."
   type = object({
     agent       = number
     client      = number
     transaction = number
   })
+}
+
+variable "enable_stateful_service_scale_out" {
+  description = "Allow agent and transaction services to scale beyond one task once persistent shared storage is in place."
+  type        = bool
 }
 
 variable "ecs_task_cpu" {
@@ -121,9 +126,57 @@ variable "root_admin_email" {
   type        = string
 }
 
+variable "auth_mode" {
+  description = "Runtime auth mode exposed to backend services (local, hybrid, cognito)."
+  type        = string
+  default     = "hybrid"
+}
+
+variable "cognito_issuer_url" {
+  description = "Cognito issuer URL exposed to backend services."
+  type        = string
+  default     = ""
+}
+
+variable "cognito_jwks_url" {
+  description = "Cognito JWKS URL exposed to backend services."
+  type        = string
+  default     = ""
+}
+
+variable "cognito_audience" {
+  description = "Cognito audience/client ID exposed to backend services."
+  type        = string
+  default     = ""
+}
+
 variable "transaction_mock_sftp_root" {
   description = "MOCK_SFTP_ROOT value for transaction service."
   type        = string
+}
+
+variable "transaction_import_s3_bucket" {
+  description = "Optional S3 bucket used by transaction service for import source files."
+  type        = string
+  default     = ""
+}
+
+variable "transaction_import_s3_region" {
+  description = "AWS region used by transaction service S3 import client."
+  type        = string
+  default     = "ap-southeast-1"
+}
+
+variable "transaction_import_s3_endpoint" {
+  description = "Optional endpoint override for transaction service S3 import client."
+  type        = string
+  default     = ""
+}
+
+variable "transaction_import_s3_path_style_access_enabled" {
+  description = "Enable path-style addressing for transaction service S3 import client."
+  type        = bool
+  default     = false
 }
 
 variable "db_jdbc_url" {
@@ -134,6 +187,18 @@ variable "db_jdbc_url" {
 variable "log_api_base_url" {
   description = "Log API base URL consumed by client service."
   type        = string
+}
+
+variable "verification_email_provider" {
+  description = "Verification email provider for client service (mock or ses)."
+  type        = string
+  default     = "mock"
+}
+
+variable "ses_sender_email" {
+  description = "SES sender email passed to client service for verification notifications."
+  type        = string
+  default     = ""
 }
 
 variable "root_admin_password_secret_arn" {

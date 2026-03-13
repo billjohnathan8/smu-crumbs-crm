@@ -23,6 +23,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * In-memory user store handling CRUD, roles, and refresh tokens.
+ *
+ * <p>This store is process-local and not shared across replicas. User mutations and refresh tokens are
+ * lost on task restart and are invisible to other tasks. When this store is selected, keep the service
+ * single-replica in production.
  */
 public class InMemoryUserStore {
 	private static final String USER_ID_PREFIX = "usr_";

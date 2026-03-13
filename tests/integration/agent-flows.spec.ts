@@ -14,8 +14,8 @@
 
 import { test, expect } from "@playwright/test";
 
-const AGENT_EMAIL = process.env.E2E_AGENT_EMAIL ?? "agent@crm.local";
-const AGENT_PASSWORD = process.env.E2E_AGENT_PASSWORD ?? "AgentPass123!";
+const AGENT_EMAIL = (process.env.E2E_AGENT_EMAIL ?? "agent@crm.local").trim();
+const AGENT_PASSWORD = (process.env.E2E_AGENT_PASSWORD ?? "AgentPass123!").trim();
 
 test.describe("Agent Flow (Integration)", () => {
   test.beforeEach(async ({ page, context }) => {

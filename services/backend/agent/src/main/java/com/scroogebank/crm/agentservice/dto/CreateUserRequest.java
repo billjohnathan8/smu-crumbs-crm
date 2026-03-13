@@ -33,5 +33,6 @@ public record CreateUserRequest(
 
 	Boolean sendInviteEmail,
 
+	@Size(min = 8, max = 128)
 	String temporaryPassword
 ) {}

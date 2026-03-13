@@ -25,6 +25,8 @@ jobs:
       aml-backend: ${{ steps.filter.outputs.aml-backend }}
       client-backend: ${{ steps.filter.outputs.client-backend }}
       log-backend: ${{ steps.filter.outputs.log-backend }}
+      verification-backend: ${{ steps.filter.outputs.verification-backend }}
+      transaction-ingestion-lambda-backend: ${{ steps.filter.outputs.transaction-ingestion-lambda-backend }}
       transaction-backend: ${{ steps.filter.outputs.transaction-backend }}
       platform: ${{ steps.filter.outputs.platform }}
     steps:
@@ -48,12 +50,18 @@ jobs:
               - 'services/backend/client/**'
             log-backend:
               - 'services/backend/log/**'
+            verification-backend:
+              - 'services/backend/verification/**'
+            transaction-ingestion-lambda-backend:
+              - 'services/backend/transaction-ingestion-lambda/**'
             transaction-backend:
               - 'services/backend/transaction/**'
             platform:
               - 'platform/**'
 
   # Conditional CI jobs based on changed services
+  # Stateful backend component workflows (agent/client/transaction/log) include
+  # both fast unit tests and a separate DB-backed Postgres gate.
   ci-frontend:
     name: CI - Frontend
     needs: [detect-changes]
@@ -84,6 +92,18 @@ jobs:
     if: needs.detect-changes.outputs.log-backend == 'true'
     uses: ./.github/workflows/ci-log-backend.yml
 
+  ci-verification-backend:
+    name: CI - Verification Backend
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.verification-backend == 'true'
+    uses: ./.github/workflows/ci-verification-backend.yml
+
+  ci-transaction-ingestion-lambda-backend:
+    name: CI - Transaction Ingestion Lambda Backend
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.transaction-ingestion-lambda-backend == 'true'
+    uses: ./.github/workflows/ci-transaction-ingestion-lambda-backend.yml
+
   ci-transaction-backend:
     name: CI - Transaction Backend
     needs: [detect-changes]
@@ -96,6 +116,13 @@ jobs:
     if: needs.detect-changes.outputs.platform == 'true'
     uses: ./.github/workflows/ci-terraform.yml
     secrets: inherit
+
+  # OpenAPI contract linting runs unconditionally (fast, ~5s).
+  openapi-lint:
+    name: CI - OpenAPI Lint
+    uses: ./.github/workflows/reusable-lint.yml
+    with:
+      run-openapi: true
 
   # Secret scanning runs unconditionally on every push/PR regardless of what changed.
   secrets-scan:
@@ -114,8 +141,11 @@ jobs:
       - ci-aml-backend
       - ci-client-backend
       - ci-log-backend
+      - ci-verification-backend
+      - ci-transaction-ingestion-lambda-backend
       - ci-transaction-backend
       - ci-terraform
+      - openapi-lint
       - secrets-scan
     if: always()
     steps:

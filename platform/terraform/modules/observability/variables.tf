@@ -92,3 +92,29 @@ variable "alb_5xx_alarm_threshold" {
   type        = number
   default     = 10
 }
+
+# --- SES Alarms ---
+
+variable "enable_ses_alarms" {
+  description = "Create CloudWatch alarms for SES sender reputation."
+  type        = bool
+  default     = false
+}
+
+variable "ses_identity" {
+  description = "SES identity dimension value (sender email or domain)."
+  type        = string
+  default     = ""
+}
+
+variable "ses_bounce_rate_alarm_threshold" {
+  description = "Bounce rate threshold for SES reputation alarm."
+  type        = number
+  default     = 0.05
+}
+
+variable "ses_complaint_rate_alarm_threshold" {
+  description = "Complaint rate threshold for SES reputation alarm."
+  type        = number
+  default     = 0.001
+}

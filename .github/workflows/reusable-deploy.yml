@@ -1,0 +1,131 @@
+name: Reusable - Deploy to AWS
+
+# Reusable deploy workflow.
+# Builds and pushes Docker images to ECR then triggers an ECS rolling update
+# for all services that changed. Requires the calling workflow to supply
+# AWS credentials via environment secrets.
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: Deployment environment (e.g. production, staging)
+        type: string
+        default: production
+      services:
+        description: Space-separated list of ECS service names to redeploy
+        type: string
+        default: agent client transaction log
+    secrets:
+      AWS_ROLE_ARN:
+        required: true
+      AWS_REGION:
+        required: true
+      ECR_REGISTRY:
+        required: true
+      ECS_CLUSTER:
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy — ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        timeout-minutes: 2
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push — agent
+        uses: docker/build-push-action@v5
+        with:
+          context: services/backend/agent
+          push: true
+          tags: ${{ secrets.ECR_REGISTRY }}/crm-agent:${{ github.sha }},${{ secrets.ECR_REGISTRY }}/crm-agent:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push — client
+        uses: docker/build-push-action@v5
+        with:
+          context: services/backend/client
+          push: true
+          tags: ${{ secrets.ECR_REGISTRY }}/crm-client:${{ github.sha }},${{ secrets.ECR_REGISTRY }}/crm-client:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push — transaction
+        uses: docker/build-push-action@v5
+        with:
+          context: services/backend/transaction
+          push: true
+          tags: ${{ secrets.ECR_REGISTRY }}/crm-transaction:${{ github.sha }},${{ secrets.ECR_REGISTRY }}/crm-transaction:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push — frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: services/frontend/crm-ui
+          push: true
+          tags: ${{ secrets.ECR_REGISTRY }}/crm-frontend:${{ github.sha }},${{ secrets.ECR_REGISTRY }}/crm-frontend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Force ECS rolling deployment — agent
+        run: |
+          aws ecs update-service \
+            --cluster ${{ secrets.ECS_CLUSTER }} \
+            --service crm-agent \
+            --force-new-deployment \
+            --region ${{ secrets.AWS_REGION }}
+
+      - name: Force ECS rolling deployment — client
+        run: |
+          aws ecs update-service \
+            --cluster ${{ secrets.ECS_CLUSTER }} \
+            --service crm-client \
+            --force-new-deployment \
+            --region ${{ secrets.AWS_REGION }}
+
+      - name: Force ECS rolling deployment — transaction
+        run: |
+          aws ecs update-service \
+            --cluster ${{ secrets.ECS_CLUSTER }} \
+            --service crm-transaction \
+            --force-new-deployment \
+            --region ${{ secrets.AWS_REGION }}
+
+      - name: Wait for ECS services to stabilise
+        run: |
+          for svc in crm-agent crm-client crm-transaction; do
+            echo "Waiting for $svc..."
+            aws ecs wait services-stable \
+              --cluster ${{ secrets.ECS_CLUSTER }} \
+              --services "$svc" \
+              --region ${{ secrets.AWS_REGION }}
+          done
+
+      - name: Deploy frontend static assets (if CloudFront/S3 is used)
+        run: |
+          echo "Frontend deployed via ECR → ECS task; no S3 step needed in this configuration."
+          echo "If static hosting is added, add: aws s3 sync dist/ s3://<bucket> --delete"

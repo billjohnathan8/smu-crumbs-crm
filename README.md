@@ -18,9 +18,18 @@
 - PostgreSQL, Docker
 
 # Quickstart
+```powershell
+.\scripts\setup\setup-dev.ps1
+```
+
+Alternative:
+
 ```bash
 python scripts/pipelines/setup_dev_env.py
 ```
+
+If Python is not installed yet, start with [docs/onboarding/new-dev-setup.md](docs/onboarding/new-dev-setup.md).
+On Linux/macOS/WSL, use `python3` if `python` is not available.
 
 Note: `setup_dev_env.py` can install `inframap` without Docker (portable binary download). Docker Desktop is still required for container-based workflows and Docker fallback paths.
 
@@ -45,13 +54,30 @@ Docs:
 - Python 3.12+
 - Make
 
+# Local/CI Runtime Snapshot (2026-03-13)
+Measured on this repository's latest local runs. Use as planning guidance, not an SLA.
+
+| Command | Observed runtime | Source log |
+|---|---:|---|
+| `python scripts/pipelines/test_all.py` | `656.1s` (~10m 56s) | `build-logs/test-all/last-run-summary.md` |
+| `bash scripts/ci/run-fullstack-integration-e2e.sh` | `407s` (~6m 47s) | `build-logs/fullstack-integration/20260313_224929-18799/docker-compose.log` |
+
+Notes:
+- The latest `test_all.py` run reached Layer 4 and failed in fullstack (`175.8s`) after earlier layers passed.
+- Runtime varies with Docker cache, dependency cache, and LocalStack/container startup conditions.
+
 # Database (Local Postgres)
-- Database: `cs301`
-- User: `cs301`
-- Password: `cs301_local_dev_pw`
-- Shared DB/User (project-wide): `crm` / `crm_app` / `crm_local_dev_pw`
+- Host: `localhost` (or `postgres` inside Docker Compose network)
+- Port: `5432`
+- Database: `crm`
+- User: `crm_app`
+- Password: `devpassword`
+- Runtime override vars (optional): `LOCAL_DB_NAME`, `LOCAL_DB_USER`, `LOCAL_DB_PASSWORD`
+- Full environment matrix and variable contract: [docs/configuration.md](docs/configuration.md)
 
 # Testing Credentials
+Local development/testing only. Do not use these values for production deployments.
+
 ## Frontend
 Root admin Email: admin@crm.local
 Password: admin123
@@ -63,9 +89,9 @@ Password: client123
 Created shared DB + user in Postgres:
 DB: crm
 User: crm_app
-Password: crm_local_dev_pw
+Password: devpassword
 
-Existing service DB is still:
-DB: cs301
-User: cs301
-Password: cs301_local_dev_pw
+## Configuration Reference
+- Central config contract: [docs/configuration.md](docs/configuration.md)
+- LocalStack + local DB flow: [docs/infrastructure/localstack-setup.md](docs/infrastructure/localstack-setup.md)
+- New developer setup: [docs/onboarding/new-dev-setup.md](docs/onboarding/new-dev-setup.md)

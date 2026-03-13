@@ -1,0 +1,171 @@
+name: Test Component (Postgres)
+
+# Generic reusable workflow for DB-backed component tests against an ephemeral
+# PostgreSQL service container. Keeps unit tests separate while enforcing real
+# database coverage for stateful services.
+
+on:
+  workflow_call:
+    inputs:
+      component:
+        description: 'Component name (used in artifact names and display)'
+        required: true
+        type: string
+      runtime:
+        description: 'Runtime type: java or python'
+        required: true
+        type: string
+      working-directory:
+        description: 'Working directory for the component (relative to repo root)'
+        required: true
+        type: string
+      test-command:
+        description: 'Command to run DB-backed tests (executed in working-directory)'
+        required: true
+        type: string
+      timeout-minutes:
+        description: 'Job timeout in minutes'
+        required: false
+        type: number
+        default: 12
+      artifact-paths:
+        description: 'Glob paths for test reports/coverage to upload on failure (newline-separated)'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  GRADLE_USER_HOME: ${{ github.workspace }}/.gradle-user-home
+
+jobs:
+  test-db:
+    name: Test DB - ${{ inputs.component }}
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: crm_ci
+          POSTGRES_USER: crm_app
+          POSTGRES_PASSWORD: devpassword
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U crm_app -d crm_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: '5432'
+      DB_NAME: crm_ci
+      DB_USER: crm_app
+      DB_PASSWORD: devpassword
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGDATABASE: crm_ci
+      PGUSER: crm_app
+      PGPASSWORD: devpassword
+      APP_ENV: test
+      APP_JWT_HMAC_SECRET: dev-only-insecure-secret
+      APP_MOCK_SFTP_ROOT: build/mock-sftp
+      APP_CLIENT_SERVICE_URL: http://localhost:8080
+      SPRING_DATASOURCE_URL: jdbc:postgresql://127.0.0.1:5432/crm_ci
+      SPRING_DATASOURCE_USERNAME: crm_app
+      SPRING_DATASOURCE_PASSWORD: devpassword
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        timeout-minutes: 2
+
+      - name: Guard local/CI config files against production DB endpoints
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: bash scripts/ci/guard-no-prod-db.sh
+
+      # ---- CI safety guardrails ----
+      - name: Guard runtime DB endpoint values
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for value in "$DB_HOST" "$SPRING_DATASOURCE_URL" "$PGHOST"; do
+            if [[ "$value" == *"rds.amazonaws.com"* ]] || [[ "$value" == *"amazonaws.com"* ]]; then
+              echo "Unsafe database endpoint detected in CI: $value"
+              exit 1
+            fi
+          done
+
+          if [[ "$DB_HOST" != "localhost" && "$DB_HOST" != "127.0.0.1" && "$DB_HOST" != "postgres" ]]; then
+            echo "DB_HOST must point to an ephemeral local service in CI. Got: $DB_HOST"
+            exit 1
+          fi
+
+          if [[ "$SPRING_DATASOURCE_URL" != *"localhost"* && "$SPRING_DATASOURCE_URL" != *"127.0.0.1"* && "$SPRING_DATASOURCE_URL" != *"postgres"* ]]; then
+            echo "SPRING_DATASOURCE_URL must target an ephemeral local service in CI. Got: $SPRING_DATASOURCE_URL"
+            exit 1
+          fi
+
+      - name: Verify ephemeral PostgreSQL service
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Postgres container ID: ${{ job.services.postgres.id }}"
+          docker exec "${{ job.services.postgres.id }}" psql -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1;"
+
+      # ---- Java setup ----
+      - name: Set up JDK 21
+        if: inputs.runtime == 'java'
+        uses: actions/setup-java@v4
+        timeout-minutes: 2
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      # ---- Python setup ----
+      - name: Set up Python 3.13
+        if: inputs.runtime == 'python'
+        uses: actions/setup-python@v5
+        timeout-minutes: 2
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: ${{ inputs.working-directory }}/requirements.txt
+
+      - name: Install Python dependencies
+        if: inputs.runtime == 'python'
+        timeout-minutes: 2
+        run: pip install -r requirements.txt
+
+      # ---- Run DB-backed tests ----
+      - name: Run DB-backed tests
+        timeout-minutes: ${{ inputs.timeout-minutes }}
+        run: ${{ inputs.test-command }}
+
+      - name: Capture PostgreSQL logs on failure
+        if: failure()
+        shell: bash
+        run: |
+          docker logs "${{ job.services.postgres.id }}" > postgres-service.log 2>&1 || true
+
+      - name: Upload DB test reports on failure
+        if: failure() && inputs.artifact-paths != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-db-${{ inputs.component }}
+          path: |
+            ${{ inputs.artifact-paths }}
+            ${{ inputs.working-directory }}/postgres-service.log
+          retention-days: 7

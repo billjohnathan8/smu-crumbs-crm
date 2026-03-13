@@ -7,10 +7,11 @@ Thank you for contributing to the project! This guide will help you understand o
 ## 🎯 Quick Start for Contributors
 
 1. **Setup your environment:** [New Developer Setup](docs/onboarding/new-dev-setup.md)
-2. **Read the coding standards:** [Coding Standards](docs/coding-standards/coding-standards.md)
-3. **Understand the architecture:** [System Architecture](docs/architecture.md)
-4. **Run tests locally:** [Testing Guide](docs/testing/TESTING-GUIDE.md)
-5. **Follow the PR process:** [Pull Request Process](#pull-request-process)
+2. **Confirm Python prerequisite:** [Python Requirement Guide](docs/prerequisites/PYTHON-REQUIREMENT.md)
+3. **Read the coding standards:** [Coding Standards](docs/coding-standards/coding-standards.md)
+4. **Understand the architecture:** [System Architecture](docs/README.md#architecture-overview)
+5. **Run tests locally:** [Testing Guide](docs/testing/TESTING-GUIDE.md)
+6. **Follow the PR process:** [Pull Request Process](#pull-request-process)
 
 ---
 
@@ -67,6 +68,9 @@ python scripts/pipelines/test_all.py
 python scripts/pipelines/test_backend.py    # Backend only
 python scripts/pipelines/test_frontend.py   # Frontend only
 ```
+
+On Linux/macOS/WSL, if `python` is not available, use `python3` for the same commands.
+
 
 ### 4. Commit Your Changes
 
@@ -261,6 +265,8 @@ export function AgentList({ onAgentSelect }: AgentListProps) {
 python scripts/pipelines/test_all.py
 ```
 
+On Linux/macOS/WSL, run `python3 scripts/pipelines/test_all.py` when `python` is unavailable.
+
 **Expected output:**
 - ✅ All backend tests pass
 - ✅ All frontend tests pass
@@ -447,7 +453,7 @@ Update docs when you:
 
 | Type | Location |
 |------|----------|
-| **Architecture** | `docs/architecture.md` |
+| **Architecture** | `docs/README.md#architecture-overview` |
 | **API specs** | `docs/api-contracts/openapi/*.yaml` |
 | **Service README** | `services/<backend|frontend>/<service>/README.md` |
 | **User guide** | `docs/` with appropriate subdirectory |
@@ -519,3 +525,4 @@ code example
 Your contributions make this project better. Thank you for following these guidelines and maintaining high standards!
 
 **Happy coding! 🚀**
+

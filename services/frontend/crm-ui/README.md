@@ -63,6 +63,13 @@ From `services/frontend/crm-ui/`:
 - `npm run test -- <pattern>` - Run specific tests
 - `npm run e2e` - Run E2E tests with Playwright (manual only)
 
+### API Routing Configuration
+
+Frontend code keeps relative API paths (`/api/...`), and routing is environment-driven:
+
+- Local Vite dev: `/api/*` proxies to `VITE_API_PROXY_TARGET` (default `http://localhost:8080`) when `VITE_API_PROXY_ENABLED` is not `false`.
+- Container runtime: nginx proxies `/api/*` only when `FRONTEND_API_UPSTREAM` is set. Default is empty, so external gateway/ingress owns `/api/*`.
+
 ### Prerequisites
 
 - Node.js 18+

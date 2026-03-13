@@ -58,6 +58,16 @@ repos:
         pass_filenames: false
         stages: [pre-commit]
 
+  # --- OpenAPI: Spectral ---
+  - repo: local
+    hooks:
+      - id: spectral-openapi
+        name: Spectral (OpenAPI)
+        entry: npx --yes @stoplight/spectral-cli lint --fail-severity error
+        language: system
+        files: ^docs/api-contracts/openapi/.*\.yaml$
+        stages: [pre-commit]
+
   # --- Java: Checkstyle (all services) ---
   - repo: local
     hooks:

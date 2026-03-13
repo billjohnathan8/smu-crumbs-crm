@@ -19,6 +19,11 @@ variable "environment" {
   description = "Environment name (for example: dev, staging, prod)."
   type        = string
   default     = "dev"
+
+  validation {
+    condition     = trimspace(var.environment) != ""
+    error_message = "environment must not be empty."
+  }
 }
 
 variable "aws_region" {
@@ -98,10 +103,16 @@ variable "transaction_image_tag" {
 #--------------------------------------------------------------
 # ECS Service Task Counts
 #--------------------------------------------------------------
+variable "enable_stateful_service_scale_out" {
+  description = "Allow agent and transaction services to scale beyond one task. Enable only after Phase B persistence is fully deployed and verified."
+  type        = bool
+  default     = false
+}
+
 variable "agent_desired_count" {
-  description = "Desired ECS task count for agent service."
+  description = "Desired ECS task count for agent service. Must remain 1 unless enable_stateful_service_scale_out is true."
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "client_desired_count" {
@@ -111,9 +122,9 @@ variable "client_desired_count" {
 }
 
 variable "transaction_desired_count" {
-  description = "Desired ECS task count for transaction service."
+  description = "Desired ECS task count for transaction service. Must remain 1 unless enable_stateful_service_scale_out is true."
   type        = number
-  default     = 2
+  default     = 1
 }
 
 #--------------------------------------------------------------
@@ -132,13 +143,13 @@ variable "ecs_task_memory" {
 }
 
 variable "ecs_min_capacity" {
-  description = "Minimum task count for ECS autoscaling."
+  description = "Minimum task count for ECS autoscaling (applies to stateless services only)."
   type        = number
   default     = 1
 }
 
 variable "ecs_max_capacity" {
-  description = "Maximum task count for ECS autoscaling."
+  description = "Maximum task count for ECS autoscaling (applies to stateless services only)."
   type        = number
   default     = 4
 }
@@ -201,35 +212,36 @@ variable "db_max_allocated_storage" {
 }
 
 variable "db_multi_az" {
-  description = "Whether to enable Multi-AZ for the RDS instance."
+  description = "Whether to enable Multi-AZ for the RDS instance. Must be true for prod."
   type        = bool
   default     = true
 }
 
 variable "db_backup_retention_days" {
-  description = "RDS automated backup retention period in days."
+  description = "RDS automated backup retention period in days (minimum 7 for prod)."
   type        = number
   default     = 7
 }
 
 variable "db_skip_final_snapshot" {
-  description = "Skip final snapshot when destroying the DB instance."
-  type        = bool
-  default     = true
-}
-
-variable "db_deletion_protection" {
-  description = "Enable deletion protection on the DB instance."
+  description = "Skip final snapshot when destroying the DB instance. Safer default is false."
   type        = bool
   default     = false
 }
 
+variable "db_deletion_protection" {
+  description = "Enable deletion protection on the DB instance. Safer default is true."
+  type        = bool
+  default     = true
+}
+
 #--------------------------------------------------------------
 # Secrets and Credentials
-# Leave values empty to auto-generate via Secrets Manager
+# Dev/staging may leave values empty for auto-generation via Secrets Manager.
+# Prod must pass explicit strong values (validated below).
 #--------------------------------------------------------------
 variable "jwt_hmac_secret" {
-  description = "JWT HMAC secret. Leave empty to auto-generate."
+  description = "JWT HMAC secret. For prod, provide a strong explicit value (>=32 chars) via TF_VAR_jwt_hmac_secret."
   type        = string
   default     = ""
   sensitive   = true
@@ -242,7 +254,7 @@ variable "root_admin_email" {
 }
 
 variable "root_admin_password" {
-  description = "Initial root admin password. Leave empty to auto-generate."
+  description = "Initial root admin password. For prod, provide a strong explicit value via TF_VAR_root_admin_password."
   type        = string
   default     = ""
   sensitive   = true
@@ -254,9 +266,33 @@ variable "transaction_mock_sftp_root" {
   default     = "./mock-sftp"
 }
 
+variable "transaction_sftp_bucket_name" {
+  description = "S3 bucket name used as mocked SFTP source for transaction ingestion Lambda. Leave empty to auto-generate."
+  type        = string
+  default     = ""
+}
+
+variable "transaction_import_s3_endpoint" {
+  description = "Optional S3 endpoint override used by transaction service when importing from S3."
+  type        = string
+  default     = ""
+}
+
+variable "transaction_import_s3_path_style_access_enabled" {
+  description = "Enable S3 path-style access for transaction service S3 imports."
+  type        = bool
+  default     = false
+}
+
 #--------------------------------------------------------------
 # Lambda Functions Configuration
 #--------------------------------------------------------------
+variable "enable_log_lambda" {
+  description = "Create the log service Lambda and its API Gateway integration."
+  type        = bool
+  default     = false
+}
+
 variable "log_lambda_zip_path" {
   description = "Path to the packaged log Lambda zip artifact."
   type        = string
@@ -278,6 +314,60 @@ variable "log_lambda_timeout_seconds" {
 #--------------------------------------------------------------
 # AML / SFTP Ingestion Configuration
 #--------------------------------------------------------------
+variable "enable_aml_lambda" {
+  description = "Create the scheduled AML ingestion Lambda and EventBridge schedule."
+  type        = bool
+  default     = false
+}
+
+variable "enable_transaction_ingestion_lambda" {
+  description = "Create the scheduled transaction ingestion Lambda and EventBridge schedule."
+  type        = bool
+  default     = false
+}
+
+variable "transaction_ingestion_lambda_zip_path" {
+  description = "Path to the packaged transaction ingestion Lambda zip artifact."
+  type        = string
+  default     = "../../services/backend/transaction-ingestion-lambda/transaction-ingestion-lambda.zip"
+}
+
+variable "transaction_ingestion_lambda_memory_size" {
+  description = "Memory size (MB) for transaction ingestion Lambda."
+  type        = number
+  default     = 512
+}
+
+variable "transaction_ingestion_lambda_timeout_seconds" {
+  description = "Timeout (seconds) for transaction ingestion Lambda."
+  type        = number
+  default     = 60
+}
+
+variable "transaction_ingestion_schedule_expression" {
+  description = "EventBridge schedule expression for transaction ingestion Lambda."
+  type        = string
+  default     = "rate(1 hour)"
+}
+
+variable "transaction_sftp_remote_prefix" {
+  description = "S3 object prefix scanned by transaction ingestion Lambda."
+  type        = string
+  default     = "incoming/"
+}
+
+variable "transaction_import_api_base_url" {
+  description = "Override base URL for transaction import API. Leave empty to use ALB-derived CRM base URL."
+  type        = string
+  default     = ""
+}
+
+variable "transaction_import_api_path" {
+  description = "HTTP path called by transaction ingestion Lambda to trigger transaction import."
+  type        = string
+  default     = "/api/transactions/import"
+}
+
 variable "aml_lambda_zip_path" {
   description = "Path to the packaged AML Lambda zip artifact."
   type        = string
@@ -446,7 +536,7 @@ variable "enable_vpc_flow_logs" {
 }
 
 variable "enable_multi_az_nat" {
-  description = "Enable NAT Gateway in each AZ for high availability. Increases cost (one NAT Gateway per AZ) but eliminates single-AZ dependency for private workloads."
+  description = "Enable NAT Gateway in each AZ for high availability. Increases cost (one NAT Gateway per AZ). Must be true for prod."
   type        = bool
   default     = false
 }
@@ -478,35 +568,64 @@ variable "cognito_logout_urls" {
   default     = []
 }
 
+variable "auth_mode" {
+  description = "Runtime auth mode for backend services. Supported values: local, hybrid, cognito."
+  type        = string
+  default     = "hybrid"
+
+  validation {
+    condition     = contains(["local", "hybrid", "cognito"], lower(trimspace(var.auth_mode)))
+    error_message = "auth_mode must be one of: local, hybrid, cognito."
+  }
+}
+
+variable "cognito_issuer_url" {
+  description = "Optional Cognito issuer URL override. Leave empty to derive from the Cognito module output."
+  type        = string
+  default     = ""
+}
+
+variable "cognito_jwks_url" {
+  description = "Optional Cognito JWKS URL override. Leave empty to derive from the Cognito module output."
+  type        = string
+  default     = ""
+}
+
+variable "cognito_audience" {
+  description = "Optional Cognito audience/client ID override. Leave empty to derive from the Cognito app client ID."
+  type        = string
+  default     = ""
+}
+
 #--------------------------------------------------------------
 # Messaging Pipelines (Audit, AML, Verification)
 #--------------------------------------------------------------
 variable "enable_audit_pipeline" {
-  description = "Create audit SQS queue, consumer Lambda, and DynamoDB table."
+  description = "Create audit SQS queue, consumer Lambda, and DynamoDB table. Keep disabled until the audit-consumer runtime artifact is implemented in this repository."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "enable_aml_pipeline" {
-  description = "Create AML SQS queue, consumer Lambda, and DynamoDB table."
+  description = "Create AML SQS queue, consumer Lambda, and DynamoDB table. Keep disabled until the aml-consumer runtime artifact is implemented in this repository."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "enable_verification_pipeline" {
   description = "Create verification Lambda, SNS topic, SES identity, and S3 bucket."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "audit_consumer_zip_path" {
-  description = "Path to audit consumer Lambda zip."
+  description = "Path to audit consumer Lambda zip (reserved scaffold; runtime package not yet present in this repository)."
   type        = string
   default     = "../../services/backend/audit-consumer/audit-consumer-lambda.zip"
 }
 
 variable "aml_consumer_zip_path" {
-  description = "Path to AML consumer Lambda zip."
+  description = "Path to AML consumer Lambda zip (reserved scaffold; runtime package not yet present in this repository)."
   type        = string
   default     = "../../services/backend/aml-consumer/aml-consumer-lambda.zip"
 }
@@ -578,5 +697,129 @@ variable "backup_retention_days" {
   description = "Number of days to retain backups."
   type        = number
   default     = 30
+}
+
+check "stateful_service_scale_out_guardrails" {
+  assert {
+    condition     = var.enable_stateful_service_scale_out || var.agent_desired_count == 1
+    error_message = "agent_desired_count must be 1 unless enable_stateful_service_scale_out is true."
+  }
+
+  assert {
+    condition     = var.enable_stateful_service_scale_out || var.transaction_desired_count == 1
+    error_message = "transaction_desired_count must be 1 unless enable_stateful_service_scale_out is true."
+  }
+}
+
+check "prod_database_guardrails" {
+  assert {
+    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || var.db_multi_az
+    error_message = "For environment=prod, db_multi_az must be true."
+  }
+
+  assert {
+    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || var.db_backup_retention_days >= 7
+    error_message = "For environment=prod, db_backup_retention_days must be at least 7."
+  }
+
+  assert {
+    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || !var.db_skip_final_snapshot
+    error_message = "For environment=prod, db_skip_final_snapshot must be false."
+  }
+
+  assert {
+    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || var.db_deletion_protection
+    error_message = "For environment=prod, db_deletion_protection must be true."
+  }
+}
+
+check "prod_secret_strength_guardrails" {
+  assert {
+    condition = !contains(["prod", "production"], lower(trimspace(var.environment))) || (
+      length(trimspace(var.jwt_hmac_secret)) >= 32 &&
+      trimspace(var.jwt_hmac_secret) != "dev-only-insecure-secret"
+    )
+    error_message = "For environment=prod, jwt_hmac_secret must be explicitly set and at least 32 characters."
+  }
+
+  assert {
+    condition = !contains(["prod", "production"], lower(trimspace(var.environment))) || (
+      length(trimspace(var.root_admin_password)) >= 16 &&
+      can(regex("[A-Z]", var.root_admin_password)) &&
+      can(regex("[a-z]", var.root_admin_password)) &&
+      can(regex("[0-9]", var.root_admin_password)) &&
+      can(regex("[^A-Za-z0-9]", var.root_admin_password)) &&
+      trimspace(var.root_admin_password) != "admin123"
+    )
+    error_message = "For environment=prod, root_admin_password must be >=16 chars and include upper, lower, number, and symbol."
+  }
+}
+
+check "lambda_artifact_paths_root" {
+  assert {
+    condition = !var.enable_log_lambda || (
+      trimspace(var.log_lambda_zip_path) != "" &&
+      fileexists(var.log_lambda_zip_path) &&
+      filesize(var.log_lambda_zip_path) > 0
+    )
+    error_message = "When enable_log_lambda is true, log_lambda_zip_path must point to an existing, non-empty zip file."
+  }
+
+  assert {
+    condition = !var.enable_transaction_ingestion_lambda || (
+      trimspace(var.transaction_ingestion_lambda_zip_path) != "" &&
+      fileexists(var.transaction_ingestion_lambda_zip_path) &&
+      filesize(var.transaction_ingestion_lambda_zip_path) > 0
+    )
+    error_message = "When enable_transaction_ingestion_lambda is true, transaction_ingestion_lambda_zip_path must point to an existing, non-empty zip file."
+  }
+
+  assert {
+    condition = !var.enable_aml_lambda || (
+      trimspace(var.aml_lambda_zip_path) != "" &&
+      fileexists(var.aml_lambda_zip_path) &&
+      filesize(var.aml_lambda_zip_path) > 0
+    )
+    error_message = "When enable_aml_lambda is true, aml_lambda_zip_path must point to an existing, non-empty zip file."
+  }
+
+  assert {
+    condition = !var.enable_audit_pipeline || (
+      trimspace(var.audit_consumer_zip_path) != "" &&
+      fileexists(var.audit_consumer_zip_path) &&
+      filesize(var.audit_consumer_zip_path) > 0
+    )
+    error_message = "When enable_audit_pipeline is true, audit_consumer_zip_path must point to an existing, non-empty zip file."
+  }
+
+  assert {
+    condition = !var.enable_aml_pipeline || (
+      trimspace(var.aml_consumer_zip_path) != "" &&
+      fileexists(var.aml_consumer_zip_path) &&
+      filesize(var.aml_consumer_zip_path) > 0
+    )
+    error_message = "When enable_aml_pipeline is true, aml_consumer_zip_path must point to an existing, non-empty zip file."
+  }
+
+  assert {
+    condition = !var.enable_verification_pipeline || (
+      trimspace(var.verification_zip_path) != "" &&
+      fileexists(var.verification_zip_path) &&
+      filesize(var.verification_zip_path) > 0
+    )
+    error_message = "When enable_verification_pipeline is true, verification_zip_path must point to an existing, non-empty zip file."
+  }
+}
+
+check "prod_network_and_pipeline_guardrails" {
+  assert {
+    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || var.enable_multi_az_nat
+    error_message = "For environment=prod, enable_multi_az_nat must be true to avoid single-AZ NAT dependency."
+  }
+
+  assert {
+    condition     = !var.enable_verification_pipeline || var.enable_log_lambda
+    error_message = "enable_verification_pipeline requires enable_log_lambda=true so the verification feedback Lambda receives a non-empty LOG_API_BASE_URL."
+  }
 }
 

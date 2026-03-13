@@ -240,7 +240,12 @@ class LogRepository:
                         body,
                         status,
                         provider_message_id,
-                        error_message
+                        error_message,
+                        idempotency_key,
+                        retry_count,
+                        next_attempt_at,
+                        last_attempt_at,
+                        delivery_event
                     )
                     VALUES (
                         %(clientId)s,
@@ -251,8 +256,15 @@ class LogRepository:
                         %(body)s,
                         %(status)s,
                         %(providerMessageId)s,
-                        %(errorMessage)s
+                        %(errorMessage)s,
+                        %(idempotencyKey)s,
+                        %(retryCount)s,
+                        %(nextAttemptAt)s,
+                        %(lastAttemptAt)s,
+                        %(deliveryEvent)s
                     )
+                    ON CONFLICT (idempotency_key)
+                    DO UPDATE SET updated_at = NOW()
                     RETURNING id
                     """,
                     record,
@@ -263,6 +275,107 @@ class LogRepository:
             raise RuntimeError("failed to persist communication")
         return int(row["id"])
 
+    def insert_aml_alert(self, payload: dict) -> dict:
+        """Insert an AML alert row and return the persisted record."""
+        with psycopg.connect(self._settings.dsn, row_factory=dict_row) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO aml_alerts (
+                        alert_id,
+                        client_id,
+                        transaction_id,
+                        alert_type,
+                        description,
+                        detected_at,
+                        review_status
+                    )
+                    VALUES (
+                        %(alertId)s,
+                        %(clientId)s,
+                        %(transactionId)s,
+                        %(alertType)s,
+                        %(description)s,
+                        %(detectedAt)s,
+                        %(reviewStatus)s
+                    )
+                    RETURNING *
+                    """,
+                    payload,
+                )
+                row = cur.fetchone()
+            conn.commit()
+
+        if row is None:
+            raise RuntimeError("failed to persist aml alert")
+        return row
+
+    def get_aml_alert_by_alert_id(self, alert_id: str) -> dict | None:
+        """Fetch an AML alert by external alert id."""
+        with psycopg.connect(self._settings.dsn, row_factory=dict_row) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT * FROM aml_alerts WHERE alert_id = %s",
+                    (alert_id,),
+                )
+                row = cur.fetchone()
+        return row
+
+    def list_aml_alerts(
+        self,
+        limit: int,
+        offset: int,
+        client_id: str | None,
+        alert_type: str | None,
+        review_status: str | None,
+    ) -> tuple[list[dict], int]:
+        """List AML alerts with optional filters and return rows plus total."""
+        where = []
+        params: dict[str, object] = {"limit": limit, "offset": offset}
+        if client_id:
+            where.append("client_id = %(clientId)s")
+            params["clientId"] = client_id
+        if alert_type:
+            where.append("alert_type = %(alertType)s")
+            params["alertType"] = alert_type
+        if review_status:
+            where.append("review_status = %(reviewStatus)s")
+            params["reviewStatus"] = review_status
+
+        where_sql = (" WHERE " + " AND ".join(where)) if where else ""
+        count_sql = "SELECT COUNT(*) AS total FROM aml_alerts" + where_sql
+        list_sql = (
+            "SELECT * FROM aml_alerts"
+            + where_sql
+            + " ORDER BY detected_at DESC, id DESC LIMIT %(limit)s OFFSET %(offset)s"
+        )
+
+        with psycopg.connect(self._settings.dsn, row_factory=dict_row) as conn:
+            with conn.cursor() as cur:
+                cur.execute(count_sql, params)
+                total_row = cur.fetchone()
+                total = int(total_row["total"]) if total_row else 0
+                cur.execute(list_sql, params)
+                rows = list(cur.fetchall())
+        return rows, total
+
+    def update_aml_alert_review(self, alert_id: str, review_status: str) -> dict | None:
+        """Update review status for an AML alert and return the updated row."""
+        with psycopg.connect(self._settings.dsn, row_factory=dict_row) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE aml_alerts
+                    SET review_status = %s, updated_at = NOW()
+                    WHERE alert_id = %s
+                    RETURNING *
+                    """,
+                    (review_status, alert_id),
+                )
+                row = cur.fetchone()
+            conn.commit()
+        return row
+
     def get_communication(self, communication_id: int) -> dict | None:
         """Fetch a communication record by id."""
         with psycopg.connect(self._settings.dsn, row_factory=dict_row) as conn:
@@ -270,6 +383,24 @@ class LogRepository:
                 cur.execute(
                     "SELECT * FROM communications WHERE id = %s",
                     (communication_id,),
+                )
+                row = cur.fetchone()
+        return row
+
+    def get_communication_by_provider_message_id(
+        self, provider_message_id: str
+    ) -> dict | None:
+        """Fetch a communication record by provider message id."""
+        with psycopg.connect(self._settings.dsn, row_factory=dict_row) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT * FROM communications
+                    WHERE provider_message_id = %s
+                    ORDER BY updated_at DESC, id DESC
+                    LIMIT 1
+                    """,
+                    (provider_message_id,),
                 )
                 row = cur.fetchone()
         return row
@@ -306,3 +437,79 @@ class LogRepository:
                 )
                 rows = list(cur.fetchall())
         return rows, total
+
+    def list_queued_communications(self, limit: int) -> list[dict]:
+        """List queued communications that are eligible for immediate dispatch."""
+        with psycopg.connect(self._settings.dsn, row_factory=dict_row) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT * FROM communications
+                    WHERE status = 'queued'
+                      AND (next_attempt_at IS NULL OR next_attempt_at <= NOW())
+                    ORDER BY COALESCE(next_attempt_at, created_at) ASC, id ASC
+                    LIMIT %s
+                    """,
+                    (limit,),
+                )
+                rows = list(cur.fetchall())
+        return rows
+
+    def update_communication_status(
+        self, communication_id: int, patch: dict
+    ) -> dict | None:
+        """Update communication delivery fields by communication id."""
+        return self._update_communication_status(
+            where_clause="id = %(communicationId)s",
+            where_params={"communicationId": communication_id},
+            patch=patch,
+        )
+
+    def update_communication_status_by_provider_message_id(
+        self, provider_message_id: str, patch: dict
+    ) -> dict | None:
+        """Update communication delivery fields by provider message id."""
+        return self._update_communication_status(
+            where_clause="provider_message_id = %(providerMessageIdLookup)s",
+            where_params={"providerMessageIdLookup": provider_message_id},
+            patch=patch,
+        )
+
+    def _update_communication_status(
+        self,
+        where_clause: str,
+        where_params: dict[str, object],
+        patch: dict,
+    ) -> dict | None:
+        fields = []
+        params: dict[str, object] = {}
+        params.update(where_params)
+
+        for key, column in [
+            ("status", "status"),
+            ("providerMessageId", "provider_message_id"),
+            ("errorMessage", "error_message"),
+            ("retryCount", "retry_count"),
+            ("nextAttemptAt", "next_attempt_at"),
+            ("lastAttemptAt", "last_attempt_at"),
+            ("deliveryEvent", "delivery_event"),
+        ]:
+            if key in patch:
+                fields.append(f"{column} = %({key})s")
+                params[key] = patch.get(key)
+
+        if not fields:
+            return None
+
+        sql = f"""
+            UPDATE communications
+            SET {", ".join(fields)}, updated_at = NOW()
+            WHERE {where_clause}
+            RETURNING *
+        """
+        with psycopg.connect(self._settings.dsn, row_factory=dict_row) as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+                row = cur.fetchone()
+            conn.commit()
+        return row

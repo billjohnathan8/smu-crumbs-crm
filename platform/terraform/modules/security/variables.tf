@@ -92,6 +92,12 @@ variable "enable_verification_pipeline" {
   default     = false
 }
 
+variable "enable_transaction_ingestion_lambda" {
+  description = "Create IAM role and policies for scheduled transaction ingestion Lambda."
+  type        = bool
+  default     = false
+}
+
 variable "audit_sqs_arn" {
   description = "ARN of the audit SQS queue (for Lambda consumer policy)."
   type        = string
@@ -136,6 +142,12 @@ variable "verification_bucket_arn" {
 
 variable "verification_sns_topic_arn" {
   description = "ARN of the verification SNS topic."
+  type        = string
+  default     = ""
+}
+
+variable "transaction_sftp_bucket_arn" {
+  description = "ARN of the mocked transaction SFTP source S3 bucket."
   type        = string
   default     = ""
 }

@@ -1,0 +1,4 @@
+clientId,transaction,amount,date,status
+clt_3,D,800.00,2026-03-01,Completed
+clt_3,W,120.00,2026-03-02,Pending
+clt_4,D,1500.00,2026-03-03,Completed

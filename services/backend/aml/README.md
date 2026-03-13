@@ -163,13 +163,22 @@ To wire real clients, replace the four instantiation lines in `lambda_handler()`
 | `SFTP_USER` | SFTP username |
 | `SFTP_KEY_SECRET` | AWS Secrets Manager ARN for the SSH private key |
 | `SFTP_REMOTE_PATH` | Remote path to the monthly CSV (default `/transactions/latest.csv`) |
-| `CRM_API_BASE_URL` | Base URL of the CRM REST API |
-| `ENTITY_ID` | Legal entity / country instance for data segregation |
+| `CRM_API_BASE_URL` | Base URL for account/transaction read APIs |
+| `CRM_WRITE_API_BASE_URL` | Optional explicit base URL for alert/log write APIs |
+| `CRM_LOG_API_URL_PARAM` | Optional SSM parameter name that stores log API base URL |
+| `CRM_API_AUTHORIZATION_HEADER` | Full Authorization header value for outbound HTTP calls (for example `Bearer <token>`) |
+| `CRM_API_BEARER_TOKEN` | Convenience fallback token when `CRM_API_AUTHORIZATION_HEADER` is not set |
+| `CRM_API_JWT_HMAC_SECRET_ARN` | Optional secret ARN used to mint a service JWT when no auth header/token is provided |
+| `JWT_HMAC_SECRET_ARN` | Fallback JWT secret ARN used for service JWT minting |
+| `CRM_CLIENT_ACCOUNTS_PATH_TEMPLATE` | Account lookup path template (default `/api/clients/{client_id}/accounts`) |
+| `CRM_CLIENT_TRANSACTIONS_PATH_TEMPLATE` | Transaction lookup path template (default `/api/clients/{client_id}/transactions`) |
+| `CRM_AML_ALERTS_PATH` | AML alert write path (default `/api/aml/alerts`) |
+| `CRM_LOGS_PATH` | Audit log write path (default `/api/logs`) |
 
 ---
 
 ## Non-Functional Notes
 
-- **Data segregation** — the engine only processes data for the legal entity it is deployed in, controlled via `ENTITY_ID`.
+- **Data segregation** — deploy one Lambda per legal entity and point each to entity-specific upstream routes/credentials.
 - **PII security** — all client PII retrieved for reporting must be encrypted at rest (enforced at the CRM layer).
 - **Cloud-native** — the function is designed for containerized Lambda deployment (Docker image–based Lambda or zip deployment).

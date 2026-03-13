@@ -20,6 +20,17 @@ data "aws_cloudfront_origin_request_policy" "all_viewer_except_host_header" {
   name = "Managed-AllViewerExceptHostHeader"
 }
 
+locals {
+  log_api_path_patterns = toset([
+    "/api/logs*",
+    "/api/communications*",
+    "/api/aml*",
+    "/api/v1/logs*",
+    "/api/clients/*/logs*",
+    "/api/clients/*/communications*",
+  ])
+}
+
 resource "aws_cloudfront_origin_access_control" "frontend" {
   name                              = "${var.name_prefix}-frontend-oac"
   description                       = "CloudFront access control for frontend S3 bucket."
@@ -58,15 +69,18 @@ resource "aws_cloudfront_distribution" "frontend" {
     }
   }
 
-  origin {
-    domain_name = var.log_api_origin_domain_name
-    origin_id   = "log-api-gateway"
+  dynamic "origin" {
+    for_each = var.enable_log_api_origin ? [1] : []
+    content {
+      domain_name = var.log_api_origin_domain_name
+      origin_id   = "log-api-gateway"
 
-    custom_origin_config {
-      http_port              = 80
-      https_port             = 443
-      origin_protocol_policy = "https-only"
-      origin_ssl_protocols   = ["TLSv1.2"]
+      custom_origin_config {
+        http_port              = 80
+        https_port             = 443
+        origin_protocol_policy = "https-only"
+        origin_ssl_protocols   = ["TLSv1.2"]
+      }
     }
   }
 
@@ -79,59 +93,18 @@ resource "aws_cloudfront_distribution" "frontend" {
     cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
   }
 
-  ordered_cache_behavior {
-    path_pattern             = "/api/logs*"
-    target_origin_id         = "log-api-gateway"
-    viewer_protocol_policy   = "redirect-to-https"
-    allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
-    cached_methods           = ["GET", "HEAD", "OPTIONS"]
-    compress                 = true
-    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host_header.id
-  }
-
-  ordered_cache_behavior {
-    path_pattern             = "/api/communications*"
-    target_origin_id         = "log-api-gateway"
-    viewer_protocol_policy   = "redirect-to-https"
-    allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
-    cached_methods           = ["GET", "HEAD", "OPTIONS"]
-    compress                 = true
-    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host_header.id
-  }
-
-  ordered_cache_behavior {
-    path_pattern             = "/api/v1/logs*"
-    target_origin_id         = "log-api-gateway"
-    viewer_protocol_policy   = "redirect-to-https"
-    allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
-    cached_methods           = ["GET", "HEAD", "OPTIONS"]
-    compress                 = true
-    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host_header.id
-  }
-
-  ordered_cache_behavior {
-    path_pattern             = "/api/clients/*/logs*"
-    target_origin_id         = "log-api-gateway"
-    viewer_protocol_policy   = "redirect-to-https"
-    allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
-    cached_methods           = ["GET", "HEAD", "OPTIONS"]
-    compress                 = true
-    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host_header.id
-  }
-
-  ordered_cache_behavior {
-    path_pattern             = "/api/clients/*/communications*"
-    target_origin_id         = "log-api-gateway"
-    viewer_protocol_policy   = "redirect-to-https"
-    allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
-    cached_methods           = ["GET", "HEAD", "OPTIONS"]
-    compress                 = true
-    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host_header.id
+  dynamic "ordered_cache_behavior" {
+    for_each = var.enable_log_api_origin ? local.log_api_path_patterns : toset([])
+    content {
+      path_pattern             = ordered_cache_behavior.value
+      target_origin_id         = "log-api-gateway"
+      viewer_protocol_policy   = "redirect-to-https"
+      allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
+      cached_methods           = ["GET", "HEAD", "OPTIONS"]
+      compress                 = true
+      cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
+      origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host_header.id
+    }
   }
 
   ordered_cache_behavior {

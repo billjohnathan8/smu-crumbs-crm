@@ -14,10 +14,10 @@
 
 import { test, expect } from "@playwright/test";
 
-const AGENT_EMAIL = process.env.E2E_AGENT_EMAIL ?? "agent@crm.local";
-const AGENT_PASSWORD = process.env.E2E_AGENT_PASSWORD ?? "AgentPass123!";
-const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? "admin@crm.local";
-const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "AdminPass123!";
+const AGENT_EMAIL = (process.env.E2E_AGENT_EMAIL ?? "agent@crm.local").trim();
+const AGENT_PASSWORD = (process.env.E2E_AGENT_PASSWORD ?? "AgentPass123!").trim();
+const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.local").trim();
+const ADMIN_PASSWORD = (process.env.E2E_ADMIN_PASSWORD ?? "admin123").trim();
 
 test.describe("API Error Handling (Integration)", () => {
   test.beforeEach(async ({ page, context }) => {

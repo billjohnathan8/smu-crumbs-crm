@@ -490,6 +490,7 @@ def configure_backend_dependencies(logger, platform):
             result = platform.run_command(
                 [str(gradlew_path), "dependencies"],
                 cwd=service_path,
+                env={"GRADLE_USER_HOME": str(service_path / ".gradle-local")},
                 capture_output=True,
                 check=False,
                 timeout=300
@@ -508,7 +509,7 @@ def configure_backend_dependencies(logger, platform):
     if log_service.exists():
         logger.info("[log] Setting up Python virtual environment...")
         
-        venv_dir = log_service / "venv"
+        venv_dir = log_service / ".venv"
         requirements_file = log_service / "requirements.txt"
         
         if not requirements_file.exists():
@@ -781,6 +782,7 @@ Examples:
         
         logger.info("")
         logger.info("Next steps:")
+        logger.info("  - Run full local CI-equivalent checks: python scripts/pipelines/test_all.py")
         logger.info("  - Run backend tests:  python scripts/pipelines/test_backend.py")
         logger.info("  - Run frontend tests: python scripts/pipelines/test_frontend.py")
         logger.info("  - VS Code: Open workspace and install recommended extensions")

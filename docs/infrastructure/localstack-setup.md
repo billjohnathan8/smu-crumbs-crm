@@ -1,306 +1,105 @@
-# LocalStack Local Development Setup
+# LocalStack Setup
 
-This guide covers installing and wiring LocalStack for local development of the
-ScroogeBank CRM event-driven pipeline (SQS → Lambda → DynamoDB → S3 → SNS/SES).
+This project uses LocalStack for local integration workflows.
 
-**What runs in LocalStack:** SQS, DynamoDB, S3, Lambda, SNS, Secrets Manager  
-**What runs natively:** PostgreSQL (Docker), Spring Boot services (docker-compose or IDE), React frontend  
-**What is skipped locally:** VPC, NAT Gateway, ALB, CloudFront, WAF, ACM, Route53, CloudTrail, ECS Fargate
-
----
+LocalStack emulates AWS services used by the stack (SQS, DynamoDB, S3, Lambda, SNS, SES, Secrets Manager).
 
 ## Prerequisites
 
-- Docker Desktop installed and running
-- Python 3.11+ (for Lambda functions and `awslocal` CLI)
-- AWS CLI installed (`aws --version`)
-- Java 17+ and Gradle (for agent/client/transaction services)
+- Docker running
+- Python 3.12+
+- AWS CLI (optional but useful)
 
----
-
-## 1. Install LocalStack
-
-### Option A — Docker (recommended, no install needed)
+## 1. Start LocalStack + Postgres
 
 ```bash
-docker pull localstack/localstack:4
-```
-
-### Option B — LocalStack CLI
-
-```bash
-pip install localstack
-localstack --version
-```
-
-### Install `awslocal` (wrapper CLI that points to LocalStack)
-
-```bash
-pip install awscli-local
-awslocal --version
-```
-
----
-
-## 2. Start LocalStack
-
-A `docker-compose.localstack.yml` is provided at the project root:
-
-```bash
-# Start LocalStack + PostgreSQL
 docker compose -f docker-compose.localstack.yml up -d
-
-# Start only LocalStack (without PostgreSQL)
-docker compose -f docker-compose.localstack.yml up -d localstack
 ```
 
-Verify LocalStack is healthy:
+Local Postgres contract for stateful services (`agent`, `client`, `transaction`, `log`):
+- Host: `localhost` (or `postgres` from Docker network)
+- Port: `5432`
+- Database: `crm`
+- User: `crm_app`
+- Password: `devpassword`
+- Canonical environment matrix and variable contract: [../configuration.md](../configuration.md)
+
+Optional overrides when launching compose:
+
+```bash
+LOCAL_DB_NAME=crm LOCAL_DB_USER=crm_app LOCAL_DB_PASSWORD=devpassword docker compose -f docker-compose.localstack.yml up -d
+```
+
+Health check:
 
 ```bash
 curl http://localhost:4566/_localstack/health
-# Expected: {"services": {"sqs": "running", "dynamodb": "running", ...}}
+docker compose -f docker-compose.localstack.yml exec postgres pg_isready -U crm_app -d crm
 ```
 
----
+## 1b. Standardized DB Migrate / Seed / Verify
 
-## 3. Auto-provision Resources on Startup
-
-`platform/localstack/init/01-setup.sh` is mounted into the LocalStack container
-at `/etc/localstack/init/ready.d/` and runs automatically once LocalStack is
-healthy. It creates:
-
-| Resource | Type | Name |
-|---|---|---|
-| scroogebank-crm-dev-audit | SQS queue | Audit event ingestion |
-| scroogebank-crm-dev-audit-dlq | SQS queue | Audit dead-letter queue |
-| scroogebank-crm-dev-aml | SQS queue | AML event ingestion |
-| scroogebank-crm-dev-aml-dlq | SQS queue | AML dead-letter queue |
-| scroogebank-crm-dev-audit-logs | DynamoDB table | Audit log storage |
-| scroogebank-crm-dev-aml-reports | DynamoDB table | AML report storage |
-| scroogebank-crm-dev-frontend | S3 bucket | Frontend static assets |
-| scroogebank-crm-dev-verification | S3 bucket | Verification documents |
-| scroogebank-crm-dev-verification | SNS topic | Verification notifications |
-| scroogebank-crm-dev/db_username | Secret | PostgreSQL username |
-| scroogebank-crm-dev/db_password | Secret | PostgreSQL password |
-| scroogebank-crm-dev/jwt_hmac | Secret | JWT signing secret |
-| scroogebank-crm-dev/root_admin_password | Secret | Root admin password |
-
-Make the init script executable (required once after cloning):
+Apply schema migrations for all stateful services:
 
 ```bash
-# Linux/macOS
-chmod +x platform/localstack/init/01-setup.sh
-
-# Windows (Git Bash) — persists the executable bit in git
-git update-index --chmod=+x platform/localstack/init/01-setup.sh
+bash scripts/db/run-shared-postgres.sh migrate
 ```
 
----
-
-## 4. Configure AWS CLI to Point at LocalStack
-
-Add a named profile so you do not pollute your real AWS credentials:
+Seed baseline local/test principals (requires `agent-service` running):
 
 ```bash
-aws configure --profile localstack
-# AWS Access Key ID:     test
-# AWS Secret Access Key: test
-# Default region:        ap-southeast-1
-# Output format:         json
+bash scripts/db/run-shared-postgres.sh seed
 ```
 
-Use it via flag or environment variable:
+Verify schema and seed state:
 
 ```bash
-# Per-command
-aws --profile localstack --endpoint-url http://localhost:4566 sqs list-queues
+bash scripts/db/run-shared-postgres.sh verify
+bash scripts/db/run-shared-postgres.sh verify-seed
+```
 
-# Export for the session
-export AWS_PROFILE=localstack
-export AWS_ENDPOINT_URL=http://localhost:4566
+Reset and rebuild local DB when needed:
 
-# Or use awslocal (handles the endpoint automatically)
+```bash
+bash scripts/db/run-shared-postgres.sh reset
+bash scripts/db/run-shared-postgres.sh migrate
+```
+
+Notes:
+- `migrate` is deterministic and rerunnable.
+- Java services are migrated via Flyway; log service migrations use `services/backend/log/app/migrations` with `schema_migrations` tracking.
+- `seed` is idempotent and safe to run multiple times.
+- Before changing local/CI DB config, run `bash scripts/ci/guard-no-prod-db.sh`.
+
+## 2. Resource Bootstrap
+
+`platform/localstack/init/01-setup.sh` is auto-run by LocalStack on startup.
+It provisions baseline queues, tables, buckets, topic, and secrets used by local flows.
+
+## 3. Optional CLI Access
+
+Install `awslocal`:
+
+```bash
+pip install awscli-local
 awslocal sqs list-queues
 ```
 
----
-
-## 5. Configure Python Lambda Functions for LocalStack
-
-The Python Lambdas use `boto3`. Set these environment variables before running locally:
+## 4. Run Fullstack Integration (Recommended)
 
 ```bash
-export AWS_ACCESS_KEY_ID=test
-export AWS_SECRET_ACCESS_KEY=test
-export AWS_DEFAULT_REGION=ap-southeast-1
-export AWS_ENDPOINT_URL=http://localhost:4566
+bash scripts/ci/run-fullstack-integration-e2e.sh
 ```
 
-For `boto3` clients, pass `endpoint_url` via environment (backward-compatible — unset in production):
+This script handles service startup, standardized DB migrate/seed orchestration, log Lambda/API provisioning, smoke checks, and integration Playwright tests.
 
-```python
-import os, boto3
-
-endpoint = os.environ.get("AWS_ENDPOINT_URL")  # None in prod
-
-sqs = boto3.client("sqs", endpoint_url=endpoint)
-dynamodb = boto3.resource("dynamodb", endpoint_url=endpoint)
-secretsmanager = boto3.client("secretsmanager", endpoint_url=endpoint)
-```
-
----
-
-## 6. Configure Spring Boot Services for LocalStack
-
-Add `src/main/resources/application-local.yml` to each Java service:
-
-```yaml
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/crm
-    username: crm_app
-    password: devpassword
-
-cloud:
-  aws:
-    credentials:
-      access-key: test
-      secret-key: test
-    region:
-      static: ap-southeast-1
-    sqs:
-      endpoint: http://localhost:4566
-```
-
-Run services with the `local` profile:
+## 5. Teardown
 
 ```bash
-./gradlew bootRun --args='--spring.profiles.active=local'
-```
-
----
-
-## 7. Deploy a Lambda to LocalStack for Testing
-
-```bash
-cd services/backend/log
-
-# Build zip
-zip -r log-lambda.zip lambda_function.py app/ requirements.txt
-
-# Deploy to LocalStack
-awslocal lambda create-function \
-  --function-name scroogebank-crm-dev-log \
-  --runtime python3.11 \
-  --handler lambda_function.lambda_handler \
-  --zip-file fileb://log-lambda.zip \
-  --role arn:aws:iam::000000000000:role/lambda-role \
-  --environment "Variables={AWS_ENDPOINT_URL=http://localhost:4566,DB_HOST=host.docker.internal,DB_PORT=5432,DB_NAME=crm}"
-
-# Invoke it
-awslocal lambda invoke \
-  --function-name scroogebank-crm-dev-log \
-  --payload '{"test": true}' \
-  /tmp/response.json
-
-cat /tmp/response.json
-```
-
----
-
-## 8. Verify the Full Pipeline Locally
-
-```bash
-# 1. Send a message to the audit queue
-awslocal sqs send-message \
-  --queue-url http://localhost:4566/000000000000/scroogebank-crm-dev-audit \
-  --message-body '{"eventType":"LOGIN","userId":"user-123","timestamp":"2026-03-09T00:00:00Z"}'
-
-# 2. Check DynamoDB (after audit_consumer Lambda processes it)
-awslocal dynamodb scan --table-name scroogebank-crm-dev-audit-logs
-```
-
----
-
-## 9. Useful Commands
-
-```bash
-awslocal sqs list-queues
-awslocal dynamodb list-tables
-awslocal s3 ls
-awslocal secretsmanager list-secrets
-awslocal lambda list-functions
-
-# View LocalStack logs
-docker logs -f localstack
-
-# Restart LocalStack (re-runs init scripts)
-docker compose -f docker-compose.localstack.yml restart localstack
-
-# Full teardown and re-provision
 docker compose -f docker-compose.localstack.yml down -v
-docker compose -f docker-compose.localstack.yml up -d
 ```
 
----
+## Troubleshooting
 
-## 10. CI/CD Integration
-
-LocalStack is validated in CI as part of the **fullstack integration test** in
-both `ci-main.yml` and `ci-integration.yml`. It is not a separate pipeline stage.
-
-Pipeline position:
-
-```
-changes → lint → test-* (parallel) → e2e-frontend-mocked → fullstack-integration-e2e → [deploy: not yet implemented]
-```
-
-**Run the fullstack-integration-e2e tests in Git Bash (use linux instead of powershell)**
-
-The reusable workflow is at `.github/workflows/reusable-fullstack-integration.yml`.
-The CI script is at `scripts/ci/run-fullstack-integration-e2e.sh`.
-
-The fullstack integration test handles LocalStack as part of a broader test that:
-1. Builds all Java service JARs and Docker images
-2. Starts the full containerised stack (LocalStack + PostgreSQL + all services) via `scripts/ci/fullstack-integration.compose.yml`
-3. Waits for LocalStack health and for `platform/localstack/init/01-setup.sh` to finish provisioning
-4. Runs cross-service HTTP smoke assertions (client-service → log-service, transaction-service, SQS round-trip)
-5. Runs real Playwright E2E tests against the live stack
-
-### Local debugging script
-
-A standalone LocalStack-only smoke script is available for local debugging when
-you want to verify the init script provisions resources correctly without
-standing up the full service stack:
-
-```bash
-bash scripts/ci/run-localstack-smoke.sh
-```
-
-This starts only the `localstack` service from `docker-compose.localstack.yml`,
-waits for provisioning, asserts every SQS queue, DynamoDB table, S3 bucket, SNS
-topic, and Secret exists, then runs an SQS round-trip. It tears down LocalStack
-on exit. It is **not** wired into the CI pipeline.
-
----
-
-## 11. What to Skip in LocalStack
-
-| Resource | Local substitute |
-|---|---|
-| NAT Gateway / VPC | Not needed — services talk directly on localhost |
-| ALB | Run services on local ports (`localhost:8080`, `localhost:8081`, …) |
-| CloudFront | Serve frontend with `npm run dev` or `vite` |
-| WAF | Not testable locally |
-| ECS Fargate | Run containers via docker-compose |
-| ACM / Route53 | Use `localhost` or `/etc/hosts` aliases |
-| RDS (Multi-AZ) | Use `postgres:16-alpine` Docker container |
-| CloudTrail | Skip — audit covered by DynamoDB `audit-logs` table |
-
----
-
-## Reference
-
-- LocalStack docs: https://docs.localstack.cloud
-- `awslocal` CLI: https://github.com/localstack/awscli-local
-- LocalStack Docker image: https://hub.docker.com/r/localstack/localstack
+- If startup fails, inspect `docker compose logs localstack`.
+- If fullstack tests fail, inspect `build-logs/fullstack-integration/`.

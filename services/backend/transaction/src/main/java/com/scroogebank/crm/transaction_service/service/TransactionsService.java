@@ -14,9 +14,9 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class TransactionsService {
-	private final InMemoryTransactionsStore store;
+	private final TransactionsStore store;
 
-	public TransactionsService(InMemoryTransactionsStore store) {
+	public TransactionsService(TransactionsStore store) {
 		this.store = store;
 	}
 
@@ -57,10 +57,10 @@ public class TransactionsService {
 	}
 
 	/**
-	 * Imports transactions from the mock SFTP feed.
+	 * Imports transactions from the configured source (S3 bucket or local filesystem).
 	 */
-	public ImportBatchDto importFromSftp(ImportTransactionsRequest request) {
-		return store.importFromMockSftp(request);
+	public ImportBatchDto importTransactions(ImportTransactionsRequest request) {
+		return store.importTransactions(request);
 	}
 
 	/**

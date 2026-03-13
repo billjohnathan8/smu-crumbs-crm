@@ -278,6 +278,11 @@ def test_insert_communication_success_and_failure(
                 "status": "queued",
                 "providerMessageId": None,
                 "errorMessage": None,
+                "idempotencyKey": "verify:clt_1",
+                "retryCount": 0,
+                "nextAttemptAt": None,
+                "lastAttemptAt": None,
+                "deliveryEvent": None,
             }
         )
         == 7
@@ -302,6 +307,11 @@ def test_insert_communication_success_and_failure(
                 "status": "queued",
                 "providerMessageId": None,
                 "errorMessage": None,
+                "idempotencyKey": "verify:clt_1",
+                "retryCount": 0,
+                "nextAttemptAt": None,
+                "lastAttemptAt": None,
+                "deliveryEvent": None,
             }
         )
 
@@ -327,6 +337,98 @@ def test_list_communications_applies_agent_filter(
     assert total == 2
     assert rows == [{"id": 1}]
     assert "AND agent_id = %s" in cursor.executed[0][0]
+
+
+def test_list_queued_communications_filters_due_records(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cursor = FakeCursor(fetchall_values=[{"id": 2, "status": "queued"}])
+
+    def fake_connect(*_args, **_kwargs):
+        return FakeConnection(cursor)
+
+    _patch_connect(monkeypatch, fake_connect)
+    repo = LogRepository(Settings())
+
+    rows = repo.list_queued_communications(limit=25)
+
+    assert rows == [{"id": 2, "status": "queued"}]
+    sql, params = cursor.executed[0]
+    assert "status = 'queued'" in sql
+    assert "next_attempt_at <= NOW()" in sql
+    assert params == (25,)
+
+
+def test_update_communication_status_updates_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cursor = FakeCursor(fetchone_values=[{"id": 5, "status": "sent"}])
+
+    def fake_connect(*_args, **_kwargs):
+        return FakeConnection(cursor)
+
+    _patch_connect(monkeypatch, fake_connect)
+    repo = LogRepository(Settings())
+
+    row = repo.update_communication_status(
+        5,
+        {
+            "status": "sent",
+            "providerMessageId": "ses-1",
+            "errorMessage": None,
+            "retryCount": 1,
+        },
+    )
+
+    assert row == {"id": 5, "status": "sent"}
+    sql, params = cursor.executed[0]
+    assert "status = %(status)s" in sql
+    assert "provider_message_id = %(providerMessageId)s" in sql
+    assert "retry_count = %(retryCount)s" in sql
+    assert params["communicationId"] == 5
+
+
+def test_update_communication_status_by_provider_message_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cursor = FakeCursor(fetchone_values=[{"id": 9, "status": "failed"}])
+
+    def fake_connect(*_args, **_kwargs):
+        return FakeConnection(cursor)
+
+    _patch_connect(monkeypatch, fake_connect)
+    repo = LogRepository(Settings())
+
+    row = repo.update_communication_status_by_provider_message_id(
+        "ses-99",
+        {
+            "status": "failed",
+            "errorMessage": "bounce",
+            "deliveryEvent": "BOUNCE",
+        },
+    )
+
+    assert row == {"id": 9, "status": "failed"}
+    sql, params = cursor.executed[0]
+    assert "provider_message_id = %(providerMessageIdLookup)s" in sql
+    assert params["providerMessageIdLookup"] == "ses-99"
+
+
+def test_get_communication_by_provider_message_id_returns_latest_row(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cursor = FakeCursor(fetchone_values=[{"id": 7, "provider_message_id": "ses-7"}])
+
+    def fake_connect(*_args, **_kwargs):
+        return FakeConnection(cursor)
+
+    _patch_connect(monkeypatch, fake_connect)
+    repo = LogRepository(Settings())
+
+    row = repo.get_communication_by_provider_message_id("ses-7")
+
+    assert row == {"id": 7, "provider_message_id": "ses-7"}
+    assert "WHERE provider_message_id = %s" in cursor.executed[0][0]
 
 
 def test_run_migrations_skips_applied_and_applies_new(

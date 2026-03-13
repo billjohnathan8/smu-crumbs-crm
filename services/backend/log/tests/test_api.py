@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from app.main import create_app
 from app.schemas import (
+    CreateAmlAlertRequest,
     CreateCommunicationRequest,
     CreateLogRequest,
     UpdateLogRequest,
@@ -42,6 +43,7 @@ class FakeLogService:
     def __init__(self) -> None:
         self.logs: list[dict] = []
         self.communications: list[dict] = []
+        self.aml_alerts: dict[str, dict] = {}
 
     def bootstrap(self) -> None:
         return
@@ -113,6 +115,10 @@ class FakeLogService:
         return len(self.logs) != before
 
     def create_communication(self, request: CreateCommunicationRequest) -> int:
+        if request.idempotencyKey:
+            for row in self.communications:
+                if row.get("idempotency_key") == request.idempotencyKey:
+                    return row["id"]
         next_id = len(self.communications) + 1
         now = datetime.now(timezone.utc)
         self.communications.append(
@@ -127,6 +133,11 @@ class FakeLogService:
                 "status": "queued",
                 "provider_message_id": None,
                 "error_message": None,
+                "idempotency_key": request.idempotencyKey,
+                "retry_count": 0,
+                "next_attempt_at": None,
+                "last_attempt_at": None,
+                "delivery_event": None,
                 "created_at": now,
                 "updated_at": now,
             }
@@ -147,6 +158,86 @@ class FakeLogService:
             rows = [r for r in rows if r["agent_id"] == agent_id]
         total = len(rows)
         return rows[offset : offset + limit], total
+
+    def list_queued_communications(self, limit: int):
+        rows = [r for r in self.communications if r["status"] == "queued"]
+        return rows[:limit]
+
+    def update_communication_status(self, communication_id: int, patch) -> dict | None:
+        row = self.get_communication(communication_id)
+        if row is None:
+            return None
+        update = patch.model_dump(exclude_unset=True)
+        if "status" in update and update["status"] is not None:
+            row["status"] = update["status"].value
+        if "providerMessageId" in update:
+            row["provider_message_id"] = update["providerMessageId"]
+        if "errorMessage" in update:
+            row["error_message"] = update["errorMessage"]
+        if "retryCount" in update:
+            row["retry_count"] = update["retryCount"]
+        if "nextAttemptAt" in update:
+            row["next_attempt_at"] = update["nextAttemptAt"]
+        if "lastAttemptAt" in update:
+            row["last_attempt_at"] = update["lastAttemptAt"]
+        if "deliveryEvent" in update:
+            row["delivery_event"] = update["deliveryEvent"]
+        row["updated_at"] = datetime.now(timezone.utc)
+        return row
+
+    def update_communication_status_by_provider_message_id(
+        self, provider_message_id: str, patch
+    ) -> dict | None:
+        for row in self.communications:
+            if row.get("provider_message_id") == provider_message_id:
+                return self.update_communication_status(row["id"], patch)
+        return None
+
+    def create_aml_alert(self, request: CreateAmlAlertRequest) -> dict:
+        now = datetime.now(timezone.utc)
+        row = {
+            "id": len(self.aml_alerts) + 1,
+            "alert_id": request.alertId,
+            "client_id": request.clientId,
+            "transaction_id": request.transactionId,
+            "alert_type": request.alertType.value,
+            "description": request.description,
+            "detected_at": request.detectedAt,
+            "review_status": request.reviewStatus.value,
+            "created_at": now,
+            "updated_at": now,
+        }
+        self.aml_alerts[request.alertId] = row
+        return row
+
+    def get_aml_alert(self, alert_id: str) -> dict | None:
+        return self.aml_alerts.get(alert_id)
+
+    def list_aml_alerts(
+        self,
+        limit: int,
+        offset: int,
+        client_id: str | None,
+        alert_type: str | None,
+        review_status: str | None,
+    ):
+        rows = list(self.aml_alerts.values())
+        if client_id:
+            rows = [r for r in rows if r["client_id"] == client_id]
+        if alert_type:
+            rows = [r for r in rows if r["alert_type"] == alert_type]
+        if review_status:
+            rows = [r for r in rows if r["review_status"] == review_status]
+        total = len(rows)
+        return rows[offset : offset + limit], total
+
+    def update_aml_alert_review(self, alert_id: str, review_status: str) -> dict | None:
+        row = self.aml_alerts.get(alert_id)
+        if row is None:
+            return None
+        row["review_status"] = review_status
+        row["updated_at"] = datetime.now(timezone.utc)
+        return row
 
 
 class FakeUnhealthyLogService(FakeLogService):
@@ -191,6 +282,7 @@ def test_logs_health_unavailable() -> None:
     response = client.get("/api/v1/logs/health")
 
     assert response.status_code == 503
+    assert response.json()["error"] == "service_unavailable"
 
 
 def test_logs_requires_auth() -> None:
@@ -281,6 +373,28 @@ def test_create_log_validation_error_returns_400() -> None:
 
     assert response.status_code == 400
     assert response.json()["error"] == "validation_error"
+
+
+def test_create_log_body_validation_returns_400_error_shape() -> None:
+    secret = "test-secret"
+    os.environ["JWT_HMAC_SECRET"] = secret
+    app = create_app(FakeLogService())
+    client = TestClient(app)
+
+    token = mint_token("usr_admin", "admin", secret)
+    payload = {
+        "action": "CREATE",
+        "agentId": "usr_1",
+        "clientId": "clt_1",
+    }
+
+    response = client.post(
+        "/api/logs", json=payload, headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"] == "validation_error"
+    assert "attributeName" in response.json()["message"]
 
 
 def test_update_log_admin_only() -> None:
@@ -597,6 +711,30 @@ def test_create_communication_returns_500_when_missing_row() -> None:
     assert response.json()["error"] == "internal_error"
 
 
+def test_create_communication_invalid_email_returns_400() -> None:
+    secret = "test-secret"
+    os.environ["JWT_HMAC_SECRET"] = secret
+    app = create_app(FakeLogService())
+    client = TestClient(app)
+    admin_token = mint_token("usr_admin", "admin", secret)
+
+    response = client.post(
+        "/api/communications",
+        json={
+            "clientId": "clt_1",
+            "agentId": "usr_1",
+            "toEmail": "invalid-email",
+            "subject": "Hello",
+            "body": "Body",
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"] == "validation_error"
+    assert "toEmail" in response.json()["message"]
+
+
 def test_get_communication_invalid_id_and_not_found() -> None:
     secret = "test-secret"
     os.environ["JWT_HMAC_SECRET"] = secret
@@ -665,3 +803,169 @@ def test_list_communications_admin_sees_all_agent_scoped() -> None:
     assert agent_response.status_code == 200
     assert len(agent_response.json()["data"]) == 1
     assert agent_response.json()["data"][0]["agentId"] == "usr_1"
+
+
+def test_list_queued_communications_admin_only() -> None:
+    secret = "test-secret"
+    os.environ["JWT_HMAC_SECRET"] = secret
+    service = FakeLogService()
+    service.create_communication(
+        CreateCommunicationRequest(
+            clientId="clt_1",
+            agentId="usr_1",
+            toEmail="to@example.com",
+            subject="Hello",
+            body="Body",
+            channel=None,
+            idempotencyKey=None,
+        )
+    )
+    app = create_app(service)
+    client = TestClient(app)
+
+    agent_token = mint_token("usr_1", "agent", secret)
+    admin_token = mint_token("usr_admin", "admin", secret)
+
+    forbidden = client.get(
+        "/api/communications/queued",
+        headers={"Authorization": f"Bearer {agent_token}"},
+    )
+    ok = client.get(
+        "/api/communications/queued",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert forbidden.status_code == 403
+    assert ok.status_code == 200
+    assert len(ok.json()["data"]) == 1
+
+
+def test_update_communication_status_by_id_and_provider_message_id() -> None:
+    secret = "test-secret"
+    os.environ["JWT_HMAC_SECRET"] = secret
+    service = FakeLogService()
+    communication_id = service.create_communication(
+        CreateCommunicationRequest(
+            clientId="clt_1",
+            agentId="usr_1",
+            toEmail="to@example.com",
+            subject="Hello",
+            body="Body",
+            channel=None,
+            idempotencyKey="verify:clt_1",
+        )
+    )
+    service.communications[0]["provider_message_id"] = "ses-message-1"
+
+    app = create_app(service)
+    client = TestClient(app)
+    admin_token = mint_token("usr_admin", "admin", secret)
+
+    by_id = client.patch(
+        f"/api/communications/com_{communication_id}/status",
+        json={"status": "sent", "providerMessageId": "ses-message-1"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    by_provider = client.patch(
+        "/api/communications/provider/ses-message-1/status",
+        json={
+            "status": "failed",
+            "deliveryEvent": "BOUNCE",
+            "errorMessage": "mailbox full",
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert by_id.status_code == 200
+    assert by_id.json()["status"] == "sent"
+    assert by_provider.status_code == 200
+    assert by_provider.json()["status"] == "failed"
+    assert by_provider.json()["deliveryEvent"] == "BOUNCE"
+
+
+def test_create_communication_idempotency_key_returns_existing_record() -> None:
+    secret = "test-secret"
+    os.environ["JWT_HMAC_SECRET"] = secret
+    app = create_app(FakeLogService())
+    client = TestClient(app)
+    admin_token = mint_token("usr_admin", "admin", secret)
+
+    payload = {
+        "clientId": "clt_1",
+        "agentId": "usr_1",
+        "toEmail": "to@example.com",
+        "subject": "Hello",
+        "body": "Body",
+        "idempotencyKey": "verify:clt_1",
+    }
+    first = client.post(
+        "/api/communications",
+        json=payload,
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    second = client.post(
+        "/api/communications",
+        json=payload,
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert first.status_code == 202
+    assert second.status_code == 202
+    assert first.json()["communicationId"] == second.json()["communicationId"]
+
+
+def test_create_and_review_aml_alert_flow() -> None:
+    secret = "test-secret"
+    os.environ["JWT_HMAC_SECRET"] = secret
+    service = FakeLogService()
+    app = create_app(service)
+    client = TestClient(app)
+    token = mint_token("usr_admin", "admin", secret)
+
+    create_response = client.post(
+        "/api/aml/alerts",
+        json={
+            "alertId": "aml_1",
+            "clientId": "clt_1",
+            "transactionId": "txn_1",
+            "alertType": "STRUCTURING",
+            "description": "Structuring detected",
+            "detectedAt": "2026-02-01T12:00:00Z",
+            "reviewStatus": "Pending",
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert create_response.status_code == 201
+    assert create_response.json()["alertId"] == "aml_1"
+    assert create_response.json()["reviewStatus"] == "Pending"
+
+    list_response = client.get(
+        "/api/aml/alerts?clientId=clt_1",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert list_response.status_code == 200
+    assert len(list_response.json()["data"]) == 1
+
+    review_response = client.put(
+        "/api/aml/alerts/aml_1/review",
+        json={"reviewStatus": "Confirmed"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert review_response.status_code == 200
+    assert review_response.json()["reviewStatus"] == "Confirmed"
+
+
+def test_get_aml_alert_not_found() -> None:
+    secret = "test-secret"
+    os.environ["JWT_HMAC_SECRET"] = secret
+    app = create_app(FakeLogService())
+    client = TestClient(app)
+    token = mint_token("usr_admin", "admin", secret)
+
+    response = client.get(
+        "/api/aml/alerts/aml_missing",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"] == "not_found"

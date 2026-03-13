@@ -1,10 +1,16 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { login as apiLogin, getCurrentUser } from '@/api/auth'
 import { setAuthToken, clearAuthToken, getAuthToken } from '@/api/client'
+import {
+  isCognitoEnabled,
+  AUTH_MODE,
+  exchangeCodeForTokens,
+  buildCognitoLogoutUrl,
+} from '@/api/cognito'
 import type { User, LoginRequest } from '@/api/types'
 
 const DEV_BYPASS_AUTH = import.meta.env.DEV && import.meta.env.VITE_BYPASS_AUTH === 'true'
-const DEV_ROLE = (import.meta.env.VITE_BYPASS_ROLE ?? 'admin') as 'admin' | 'agent'
+const DEV_ROLE = (import.meta.env.VITE_BYPASS_ROLE ?? 'admin') as 'admin' | 'agent' | 'super_admin'
 
 const DEV_USERS = {
   admin: {
@@ -13,6 +19,14 @@ const DEV_USERS = {
     lastName: 'User',
     email: 'admin@example.com',
     role: 'admin',
+    status: 'active',
+  },
+  super_admin: {
+    id: 'super-admin-123',
+    firstName: 'Super',
+    lastName: 'Admin',
+    email: 'super-admin@example.com',
+    role: 'super_admin',
     status: 'active',
   },
   agent: {
@@ -30,6 +44,7 @@ interface AuthContextValue {
   isAuthenticated: boolean
   isLoading: boolean
   login: (credentials: LoginRequest) => Promise<void>
+  loginWithCognitoCode: (code: string) => Promise<void>
   logout: () => void
 }
 
@@ -102,9 +117,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('currentUser', JSON.stringify(user))
   }, [])
 
+  const loginWithCognitoCode = useCallback(async (code: string) => {
+    const tokens = await exchangeCodeForTokens(code)
+    // Cognito access_token is used for API calls to backend services
+    setAuthToken(tokens.access_token)
+    if (tokens.refresh_token) {
+      localStorage.setItem('refreshToken', tokens.refresh_token)
+    }
+    // Store id_token for potential client-side use
+    if (tokens.id_token) {
+      localStorage.setItem('idToken', tokens.id_token)
+    }
+
+    const user = await getCurrentUser()
+    setUser(user)
+    localStorage.setItem('currentUser', JSON.stringify(user))
+  }, [])
+
   const logout = useCallback(() => {
     clearAuthToken()
+    localStorage.removeItem('idToken')
     setUser(null)
+
+    // If Cognito is active, redirect to Cognito logout to clear SSO session
+    if (isCognitoEnabled && AUTH_MODE === 'cognito') {
+      window.location.href = buildCognitoLogoutUrl()
+    }
   }, [])
 
   return (
@@ -114,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         isLoading,
         login,
+        loginWithCognitoCode,
         logout,
       }}
     >

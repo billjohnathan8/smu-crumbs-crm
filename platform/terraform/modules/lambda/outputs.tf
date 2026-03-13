@@ -4,17 +4,22 @@
 
 output "log_lambda_name" {
   description = "Log lambda function name."
-  value       = aws_lambda_function.log.function_name
+  value       = var.enable_log_lambda ? aws_lambda_function.log[0].function_name : null
 }
 
 output "log_lambda_invoke_arn" {
   description = "Log lambda invoke ARN."
-  value       = aws_lambda_function.log.invoke_arn
+  value       = var.enable_log_lambda ? aws_lambda_function.log[0].invoke_arn : null
 }
 
 output "aml_lambda_name" {
   description = "AML lambda function name."
-  value       = aws_lambda_function.aml.function_name
+  value       = var.enable_aml_lambda ? aws_lambda_function.aml[0].function_name : null
+}
+
+output "transaction_ingestion_lambda_name" {
+  description = "Transaction ingestion Lambda function name."
+  value       = var.enable_transaction_ingestion_lambda ? aws_lambda_function.transaction_ingestion[0].function_name : null
 }
 
 output "audit_consumer_lambda_name" {

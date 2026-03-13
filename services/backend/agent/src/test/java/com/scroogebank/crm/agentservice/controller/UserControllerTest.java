@@ -2,6 +2,7 @@ package com.scroogebank.crm.agentservice.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -14,7 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import tools.jackson.databind.ObjectMapper;
 import com.scroogebank.crm.agentservice.api.Pagination;
 import com.scroogebank.crm.agentservice.dto.CreateUserRequest;
-// import com.scroogebank.crm.agentservice.dto.ResetPasswordRequest;
+import com.scroogebank.crm.agentservice.dto.ResetPasswordRequest;
 import com.scroogebank.crm.agentservice.dto.UpdateUserRequest;
 import com.scroogebank.crm.agentservice.dto.UserDto;
 import com.scroogebank.crm.agentservice.dto.UserRole;
@@ -92,6 +93,17 @@ class UserControllerTest {
             .andExpect(status().isOk());
     }
 
+    /** Invalid pagination parameters return 400 with validation error. */
+    @Test
+    void listUsers_invalidLimitBadRequest() throws Exception {
+        when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
+
+        mockMvc.perform(get("/api/agents")
+                .header("Authorization", "Bearer x")
+                .queryParam("limit", "0"))
+            .andExpect(status().isBadRequest());
+    }
+
     /** GET /api/agents/me returns the authenticated user's profile (any role); service is called with that user's ID. */
     @Test
     void me_returnsUser() throws Exception {
@@ -138,7 +150,7 @@ class UserControllerTest {
     @Test
     void createUser_adminCreated() throws Exception {
         when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
-        CreateUserRequest body = new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent, false, "temp123");
+        CreateUserRequest body = new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent, false, "temp1234");
         UserDto dto = new UserDto(
             "usr_2",
             "Ava",
@@ -162,7 +174,7 @@ class UserControllerTest {
     @Test
     void createUser_agentForbidden() throws Exception {
         when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_2", "agent"));
-        CreateUserRequest body = new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent, false, "temp123");
+        CreateUserRequest body = new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent, false, "temp1234");
 
         mockMvc.perform(post("/api/agents")
                 .header("Authorization", "Bearer x")
@@ -237,27 +249,27 @@ class UserControllerTest {
             .andExpect(status().isOk());
     }
 
-    // /** Admin can trigger password reset with optional body; controller returns 202 Accepted. */
-    // @Test
-    // void resetPassword_adminAccepted_withBody() throws Exception {
-    //     when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
-    //     ResetPasswordRequest body = new ResetPasswordRequest("ava@example.com");
-    //     doNothing().when(userAccountService).resetPassword(eq("usr_3"), any());
+    /** Admin can trigger password reset with optional body; controller returns 202 Accepted. */
+    @Test
+    void resetPassword_adminAccepted_withBody() throws Exception {
+        when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
+        ResetPasswordRequest body = new ResetPasswordRequest("ava@example.com");
+        doNothing().when(userAccountService).resetPassword(eq("usr_3"), any());
 
-    //     mockMvc.perform(post("/api/agents/usr_3/reset-password")
-    //             .header("Authorization", "Bearer x")
-    //             .contentType(MediaType.APPLICATION_JSON)
-    //             .content(objectMapper.writeValueAsString(body)))
-    //         .andExpect(status().isAccepted());
-    // }
+        mockMvc.perform(post("/api/agents/usr_3/reset-password")
+                .header("Authorization", "Bearer x")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body)))
+            .andExpect(status().isAccepted());
+    }
 
-    // /** Admin can trigger password reset without request body; controller returns 202 Accepted. */
-    // @Test
-    // void resetPassword_adminAccepted_withoutBody() throws Exception {
-    //     when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
-    //     doNothing().when(userAccountService).resetPassword(eq("usr_3"), eq(null));
+    /** Admin can trigger password reset without request body; controller returns 202 Accepted. */
+    @Test
+    void resetPassword_adminAccepted_withoutBody() throws Exception {
+        when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
+        doNothing().when(userAccountService).resetPassword(eq("usr_3"), eq(null));
 
-    //     mockMvc.perform(post("/api/agents/usr_3/reset-password").header("Authorization", "Bearer x"))
-    //         .andExpect(status().isAccepted());
-    // }
+        mockMvc.perform(post("/api/agents/usr_3/reset-password").header("Authorization", "Bearer x"))
+            .andExpect(status().isAccepted());
+    }
 }

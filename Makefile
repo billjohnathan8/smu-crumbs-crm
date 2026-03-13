@@ -23,7 +23,6 @@ build-images:
 	cd services/backend/transaction && $(GRADLEW) bootJar
 	docker build -t agent:dev services/backend/agent
 	docker build -t client:dev services/backend/client
-	docker build -t log:dev services/backend/log
 	docker build -t transaction:dev services/backend/transaction
 	docker build -t crm-ui:dev services/frontend/crm-ui
 

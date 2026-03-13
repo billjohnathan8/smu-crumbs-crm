@@ -5,6 +5,9 @@ import com.scroogebank.crm.client_service.dto.ClientPayload;
 import com.scroogebank.crm.client_service.dto.ClientUpdateRequest;
 import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
 import com.scroogebank.crm.client_service.dto.VerifyClientRequest;
+import com.scroogebank.crm.client_service.email.VerificationEmail;
+import com.scroogebank.crm.client_service.email.VerificationEmailDispatchService;
+import com.scroogebank.crm.client_service.email.VerificationEmailTemplateRenderer;
 import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.entity.Gender;
 import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
@@ -15,10 +18,11 @@ import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,8 +41,15 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ClientServiceImplTest {
 
+	@Mock
 	private ClientRepository clientRepository;
+	@Mock
 	private ClientAuditLogger clientAuditLogger;
+	@Mock
+	private VerificationEmailTemplateRenderer verificationEmailTemplateRenderer;
+	@Mock
+	private VerificationEmailDispatchService verificationEmailDispatchService;
+	@InjectMocks
 	private ClientServiceImpl clientService;
 
 	private static ClientPayload samplePayload() {
@@ -74,13 +85,6 @@ class ClientServiceImplTest {
 		e.setAssignedAgentId(assignedAgentId);
 		e.setIdentityVerificationStatus(IdentityVerificationStatus.unverified);
 		return e;
-	}
-
-	@BeforeEach
-	void setUp() {
-		clientRepository = org.mockito.Mockito.mock(ClientRepository.class);
-		clientAuditLogger = org.mockito.Mockito.mock(ClientAuditLogger.class);
-		clientService = new ClientServiceImpl(clientRepository, clientAuditLogger);
 	}
 
 	/** Verifies that listClients() returns all entities from the repository mapped to DTOs. */
@@ -546,13 +550,19 @@ class ClientServiceImplTest {
 	}
 
 	@Test
-	void verifyClient_setsStatusToVerified_andAuditsWithNullBeforeValueWhenStatusWasNull() {
+	void verifyClient_setsStatusToPending_andAuditsWithNullBeforeValueWhenStatusWasNull() {
 		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
 		ClientPayload payload = samplePayload();
 		ClientEntity entity = entityFromPayload(7L, "usr_1", payload);
 		entity.setIdentityVerificationStatus(null);
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
 		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+		when(verificationEmailTemplateRenderer.render("jordan.taylor@example.com", "Jordan", "clt_7"))
+			.thenReturn(new VerificationEmail(
+				"jordan.taylor@example.com",
+				"Verification complete",
+				"Body"
+			));
 
 		var response = clientService.verifyClient(
 			agent,
@@ -563,16 +573,70 @@ class ClientServiceImplTest {
 		);
 
 		assertThat(response.clientId()).isEqualTo("clt_7");
-		assertThat(response.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.verified);
+		assertThat(response.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.pending);
 		verify(clientAuditLogger).logAuditEvent(
 			eq("UPDATE"),
 			eq("identityVerificationStatus"),
 			eq(null),
-			eq("verified"),
+			eq("pending"),
 			eq("usr_1"),
 			eq("clt_7"),
 			eq("req-1"),
 			eq("Bearer x")
+		);
+		verify(verificationEmailTemplateRenderer).render("jordan.taylor@example.com", "Jordan", "clt_7");
+		verify(verificationEmailDispatchService).queueAndDispatchVerificationEmail(
+			eq("clt_7"),
+			eq("usr_1"),
+			any(VerificationEmail.class),
+			eq("Bearer x"),
+			eq("req-1")
+		);
+	}
+
+	@Test
+	void verifyClient_emailSenderFails_stillReturnsPendingResponse() {
+		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		ClientPayload payload = samplePayload();
+		ClientEntity entity = entityFromPayload(7L, "usr_1", payload);
+		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
+		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+		when(verificationEmailTemplateRenderer.render("jordan.taylor@example.com", "Jordan", "clt_7"))
+			.thenReturn(new VerificationEmail(
+				"jordan.taylor@example.com",
+				"Verification complete",
+				"Body"
+			));
+		doThrow(new RuntimeException("dispatch unavailable"))
+			.when(verificationEmailDispatchService)
+			.queueAndDispatchVerificationEmail(any(), any(), any(), any(), any());
+
+		var response = clientService.verifyClient(
+			agent,
+			"clt_7",
+			new VerifyClientRequest("S1234567A", "NRIC", null),
+			"Bearer x",
+			"req-1"
+		);
+
+		assertThat(response.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.pending);
+		verify(clientRepository).save(any());
+		verify(clientAuditLogger).logAuditEvent(
+			eq("UPDATE"),
+			eq("identityVerificationStatus"),
+			eq("unverified"),
+			eq("pending"),
+			eq("usr_1"),
+			eq("clt_7"),
+			eq("req-1"),
+			eq("Bearer x")
+		);
+		verify(verificationEmailDispatchService).queueAndDispatchVerificationEmail(
+			eq("clt_7"),
+			eq("usr_1"),
+			any(VerificationEmail.class),
+			eq("Bearer x"),
+			eq("req-1")
 		);
 	}
 }

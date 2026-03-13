@@ -1,42 +1,42 @@
-# Infrastructure Documentation
+# Infrastructure Guide
 
-Documentation for the AWS infrastructure managed under `platform/terraform/`.
+Scope: Terraform in `platform/terraform` and local AWS emulation with LocalStack.
 
-## Documents
+## Start Here
 
-| Document | Description |
-|----------|-------------|
-| [terraform-overview.md](terraform-overview.md) | Architecture overview - modules, design decisions, naming conventions, and service flows |
-| [terraform-resource-inventory.md](terraform-resource-inventory.md) | Complete inventory of all Terraform modules and AWS resources |
-| [backend-setup.md](backend-setup.md) | Guide for configuring the S3 + DynamoDB remote state backend |
-| [inframap-setup.md](inframap-setup.md) | Local setup for generating infrastructure diagrams with InfraMap and `terraform graph` |
-| [architecture-conformance.md](architecture-conformance.md) | Conformance summary against the reference architecture diagram, with identified gaps and remediation plan |
-| [cost-estimate.md](cost-estimate.md) | AWS cost baseline ($247.36/mo) with per-resource breakdown and guide for running Infracost locally |
+- Terraform workflow (format/validate/plan)
+- LocalStack for local integration testing
+- Optional infra diagrams via InfraMap / `terraform graph`
 
-## Core Commands for Terraform
+## Terraform Commands
 
-### Step #1
-```
-terraform fmt -recursive
+```bash
+terraform -chdir=platform/terraform fmt -recursive
+terraform -chdir=platform/terraform validate
+terraform -chdir=platform/terraform plan
 ```
 
-### Step #2
-```
-terraform validate
-```
+## Diagram Commands
 
-### Step #3
-```
-terraform plan
-```
-
-### Step #4 (Optional Visualization)
 ```bash
 make inframap
 make inframap-full
 make terraform-graph
 ```
 
-Generated outputs:
-- `docs/infrastructure/generated/inframap/` (InfraMap outputs)
-- `docs/infrastructure/generated/terraform-graph/` (Terraform dependency graph outputs)
+Outputs:
+- `docs/infrastructure/generated/inframap/`
+- `docs/infrastructure/generated/terraform-graph/`
+
+## Key Runbooks
+
+- Remote state backend setup: [backend-setup.md](backend-setup.md)
+- LocalStack setup: [localstack-setup.md](localstack-setup.md)
+- Diagram setup/troubleshooting: [inframap-setup.md](inframap-setup.md)
+- Auth migration: [auth-cognito-safe-rollout.md](auth-cognito-safe-rollout.md)
+
+## Notes
+
+- Keep `environment=dev` for local/non-production workflows.
+- Provide production secrets via `TF_VAR_*` environment variables, not committed files.
+- Snapshot reports and one-off implementation notes were removed from this folder to reduce drift.

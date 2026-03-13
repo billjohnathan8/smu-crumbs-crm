@@ -17,7 +17,7 @@ export interface PaginatedResponse<T> {
 }
 
 // Auth types (agent-service)
-export type UserRole = 'admin' | 'agent'
+export type UserRole = 'admin' | 'agent' | 'super_admin'
 export type UserStatus = 'active' | 'disabled'
 
 export interface User {
@@ -127,6 +127,12 @@ export interface VerifyClientResponse {
   identityVerificationStatus: IdentityVerificationStatus
 }
 
+export type ReviewAction = 'approve' | 'reject'
+
+export interface ReviewVerificationRequest {
+  action: ReviewAction
+}
+
 export interface Account {
   accountId: string
   clientId: string
@@ -148,6 +154,12 @@ export interface AccountCreateRequest {
   initialDeposit: number
   currency: string
   branchId: string
+}
+
+export interface AccountUpdateRequest {
+  accountType?: AccountType
+  accountStatus?: AccountStatus
+  branchId?: string
 }
 
 // Transaction types (transaction-service)
@@ -215,4 +227,44 @@ export interface Communication {
   errorMessage?: string | null
   createdAt: string
   updatedAt: string
+}
+
+export interface UpdateCommunicationStatusRequest {
+  status?: CommunicationStatus
+  providerMessageId?: string | null
+  errorMessage?: string | null
+  retryCount?: number | null
+  nextAttemptAt?: string | null
+  lastAttemptAt?: string | null
+  deliveryEvent?: string | null
+}
+
+// AML alert types (log-service AML endpoints)
+export type AmlAlertType = 'STATISTICAL_OUTLIER' | 'STRUCTURING' | 'PASSTHROUGH' | 'INCEPTION_SPIKE'
+export type AmlReviewStatus = 'Pending' | 'Confirmed' | 'Dismissed'
+
+export interface AmlAlert {
+  alertId: string
+  clientId: string
+  transactionId?: string | null
+  alertType: AmlAlertType
+  description: string
+  detectedAt: string
+  reviewStatus: AmlReviewStatus
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateAmlAlertRequest {
+  alertId: string
+  clientId: string
+  transactionId?: string | null
+  alertType: AmlAlertType
+  description: string
+  detectedAt: string
+  reviewStatus?: AmlReviewStatus
+}
+
+export interface UpdateAmlAlertReviewRequest {
+  reviewStatus: AmlReviewStatus
 }

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.config import Settings
 
 
@@ -47,3 +49,16 @@ def test_settings_resolves_secret_arn_values(monkeypatch) -> None:
     assert settings.db_user == "secret-user"
     assert settings.db_password == "secret-password"
     assert settings.jwt_hmac_secret == "secret-jwt"
+
+
+def test_settings_requires_explicit_secrets_in_prod(monkeypatch) -> None:
+    monkeypatch.setenv("APP_ENV", "prod")
+    monkeypatch.delenv("DB_USER", raising=False)
+    monkeypatch.delenv("DB_PASSWORD", raising=False)
+    monkeypatch.delenv("JWT_HMAC_SECRET", raising=False)
+    monkeypatch.delenv("DB_USER_SECRET_ARN", raising=False)
+    monkeypatch.delenv("DB_PASSWORD_SECRET_ARN", raising=False)
+    monkeypatch.delenv("JWT_HMAC_SECRET_ARN", raising=False)
+
+    with pytest.raises(RuntimeError):
+        Settings()

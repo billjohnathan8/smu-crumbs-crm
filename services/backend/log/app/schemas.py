@@ -67,15 +67,24 @@ class LogEntry(BaseModel):
     correlationId: str | None = None
 
 
+class CommunicationChannel(str, Enum):
+    email = "email"
+
+
 class CreateCommunicationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     clientId: str = Field(min_length=1, max_length=64)
     agentId: str = Field(min_length=1, max_length=64)
-    toEmail: str = Field(min_length=3, max_length=320)
+    toEmail: str = Field(
+        min_length=3,
+        max_length=320,
+        pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$",
+    )
     subject: str = Field(min_length=1, max_length=200)
     body: str = Field(min_length=1, max_length=20000)
-    channel: str | None = None
+    channel: CommunicationChannel | None = None
+    idempotencyKey: str | None = Field(default=None, min_length=1, max_length=160)
 
 
 class CommunicationStatus(str, Enum):
@@ -88,15 +97,75 @@ class Communication(BaseModel):
     communicationId: str
     clientId: str
     agentId: str
-    channel: str = "email"
+    channel: CommunicationChannel = CommunicationChannel.email
     toEmail: str
     subject: str
     body: str
     status: CommunicationStatus = CommunicationStatus.queued
     providerMessageId: str | None = None
     errorMessage: str | None = None
+    idempotencyKey: str | None = None
+    retryCount: int = Field(ge=0, default=0)
+    nextAttemptAt: datetime | None = None
+    lastAttemptAt: datetime | None = None
+    deliveryEvent: str | None = None
     createdAt: datetime
     updatedAt: datetime
+
+
+class UpdateCommunicationStatusRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: CommunicationStatus | None = None
+    providerMessageId: str | None = Field(default=None, max_length=200)
+    errorMessage: str | None = Field(default=None, max_length=2000)
+    retryCount: int | None = Field(default=None, ge=0)
+    nextAttemptAt: datetime | None = None
+    lastAttemptAt: datetime | None = None
+    deliveryEvent: str | None = Field(default=None, max_length=80)
+
+
+class AmlAlertType(str, Enum):
+    STATISTICAL_OUTLIER = "STATISTICAL_OUTLIER"
+    STRUCTURING = "STRUCTURING"
+    PASSTHROUGH = "PASSTHROUGH"
+    INCEPTION_SPIKE = "INCEPTION_SPIKE"
+
+
+class AmlReviewStatus(str, Enum):
+    Pending = "Pending"
+    Confirmed = "Confirmed"
+    Dismissed = "Dismissed"
+
+
+class CreateAmlAlertRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    alertId: str = Field(min_length=1, max_length=64)
+    clientId: str = Field(min_length=1, max_length=64)
+    transactionId: str | None = Field(default=None, max_length=255)
+    alertType: AmlAlertType
+    description: str = Field(min_length=1, max_length=2000)
+    detectedAt: datetime
+    reviewStatus: AmlReviewStatus = AmlReviewStatus.Pending
+
+
+class AmlAlert(BaseModel):
+    alertId: str
+    clientId: str
+    transactionId: str | None = None
+    alertType: AmlAlertType
+    description: str
+    detectedAt: datetime
+    reviewStatus: AmlReviewStatus
+    createdAt: datetime
+    updatedAt: datetime
+
+
+class UpdateAmlAlertReviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reviewStatus: AmlReviewStatus
 
 
 def now_utc() -> datetime:

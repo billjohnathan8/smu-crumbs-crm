@@ -12,7 +12,7 @@ on:
         type: boolean
         default: false
       run-backend-python:
-        description: 'Run Black + Flake8 for Python log service'
+        description: 'Run Black + Flake8 for Python backend services'
         required: false
         type: boolean
         default: false
@@ -23,6 +23,11 @@ on:
         default: false
       run-terraform:
         description: 'Run terraform fmt, validate, tflint, and checkov for platform/terraform'
+        required: false
+        type: boolean
+        default: false
+      run-openapi:
+        description: 'Run Spectral OpenAPI contract linting'
         required: false
         type: boolean
         default: false
@@ -87,6 +92,10 @@ jobs:
           - service: log
             source-dirs: app tests
           - service: aml
+            source-dirs: lambda_function.py tests
+          - service: transaction-ingestion-lambda
+            source-dirs: lambda_function.py tests
+          - service: verification
             source-dirs: lambda_function.py tests
     defaults:
       run:
@@ -160,6 +169,8 @@ jobs:
     if: inputs.run-terraform
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
     defaults:
       run:
         working-directory: platform/terraform
@@ -186,6 +197,30 @@ jobs:
         timeout-minutes: 2
         run: terraform validate
 
+      - name: Prepare lambda zip artifacts for feature-gated validate
+        timeout-minutes: 1
+        run: |
+          python - <<'PY'
+          import pathlib
+          import zipfile
+
+          out = pathlib.Path(".ci-artifacts")
+          out.mkdir(exist_ok=True)
+          for name in ("verification-lambda.zip", "log-lambda.zip"):
+              with zipfile.ZipFile(out / name, "w", zipfile.ZIP_DEFLATED) as zf:
+                  zf.writestr("README.txt", "temporary CI artifact for terraform validate")
+          PY
+
+      - name: terraform validate (verification + ses path)
+        timeout-minutes: 2
+        env:
+          TF_VAR_enable_log_lambda: "true"
+          TF_VAR_log_lambda_zip_path: ".ci-artifacts/log-lambda.zip"
+          TF_VAR_enable_verification_pipeline: "true"
+          TF_VAR_verification_zip_path: ".ci-artifacts/verification-lambda.zip"
+          TF_VAR_ses_sender_email: "verification@crm.local"
+        run: terraform validate
+
       - name: Set up TFLint
         uses: terraform-linters/setup-tflint@v4
         timeout-minutes: 3
@@ -205,21 +240,21 @@ jobs:
         run: mkdir -p .infracost
 
       - name: Set up Infracost
-        if: ${{ secrets.INFRACOST_API_KEY != '' }}
+        if: ${{ env.INFRACOST_API_KEY != '' }}
         uses: infracost/actions/setup@v3
         timeout-minutes: 2
         with:
-          api-key: ${{ secrets.INFRACOST_API_KEY }}
+          api-key: ${{ env.INFRACOST_API_KEY }}
 
       - name: Generate Infracost report
-        if: ${{ secrets.INFRACOST_API_KEY != '' }}
+        if: ${{ env.INFRACOST_API_KEY != '' }}
         timeout-minutes: 5
         run: |
           infracost breakdown --path=. --format=json --out-file=.infracost/infracost-report.json
           infracost breakdown --path=. --format=table --out-file=.infracost/infracost-report.txt
 
       - name: Record skipped Infracost reason
-        if: ${{ secrets.INFRACOST_API_KEY == '' }}
+        if: ${{ env.INFRACOST_API_KEY == '' }}
         timeout-minutes: 1
         run: echo "INFRACOST_API_KEY is not configured; Infracost cost report was skipped." > .infracost/README.txt
 
@@ -254,6 +289,31 @@ jobs:
             --compact \
             --quiet \
             --soft-fail
+
+  # ---- OpenAPI Spectral lint ----
+  openapi-spectral:
+    name: Spectral (OpenAPI)
+    if: inputs.run-openapi
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        timeout-minutes: 2
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        timeout-minutes: 2
+        with:
+          node-version: '20'
+
+      - name: Install Spectral
+        timeout-minutes: 1
+        run: npm install -g @stoplight/spectral-cli
+
+      - name: Lint OpenAPI specs
+        timeout-minutes: 1
+        run: spectral lint docs/api-contracts/openapi/*.yaml --fail-severity error
 
   # ---- Gitleaks secret scanner ----
   gitleaks:

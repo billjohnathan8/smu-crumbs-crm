@@ -17,9 +17,10 @@ import org.springframework.web.client.RestClient;
 class HttpClientAuditLoggerTest {
 	@Test
 	void logAuditEvent_postsToLogService() {
-		RestClient.Builder builder = RestClient.builder().baseUrl("http://log-service");
+		RestClient.Builder builder = RestClient.builder()
+			.baseUrl("http://localstack:4566/_aws/execute-api/test-api/local");
 		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-		server.expect(requestTo("http://log-service/api/logs"))
+		server.expect(requestTo("http://localstack:4566/_aws/execute-api/test-api/local/api/logs"))
 			.andExpect(method(HttpMethod.POST))
 			.andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer x"))
 			.andExpect(content().json("""

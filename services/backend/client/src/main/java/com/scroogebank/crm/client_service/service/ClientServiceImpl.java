@@ -1,13 +1,27 @@
 package com.scroogebank.crm.client_service.service;
 
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.StringJoiner;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.scroogebank.crm.client_service.api.Pagination;
 import com.scroogebank.crm.client_service.dto.ClientCreateRequest;
 import com.scroogebank.crm.client_service.dto.ClientDto;
 import com.scroogebank.crm.client_service.dto.ClientListResponse;
 import com.scroogebank.crm.client_service.dto.ClientUpdateRequest;
 import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
+import com.scroogebank.crm.client_service.dto.ReviewVerificationRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
+import com.scroogebank.crm.client_service.email.VerificationEmail;
+import com.scroogebank.crm.client_service.email.VerificationEmailDispatchService;
+import com.scroogebank.crm.client_service.email.VerificationEmailTemplateRenderer;
 import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
 import com.scroogebank.crm.client_service.exception.DuplicateClientException;
@@ -16,14 +30,6 @@ import com.scroogebank.crm.client_service.logging.PiiMasker;
 import com.scroogebank.crm.client_service.repository.ClientRepository;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 import com.scroogebank.crm.client_service.util.IdCodec;
-import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
-import java.util.StringJoiner;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Default client service implementation with ownership checks and audit logging.
@@ -35,10 +41,19 @@ public class ClientServiceImpl implements ClientService {
 
 	private final ClientRepository clientRepository;
 	private final ClientAuditLogger clientAuditLogger;
+	private final VerificationEmailTemplateRenderer verificationEmailTemplateRenderer;
+	private final VerificationEmailDispatchService verificationEmailDispatchService;
 
-	public ClientServiceImpl(ClientRepository clientRepository, ClientAuditLogger clientAuditLogger) {
+	public ClientServiceImpl(
+		ClientRepository clientRepository,
+		ClientAuditLogger clientAuditLogger,
+		VerificationEmailTemplateRenderer verificationEmailTemplateRenderer,
+		VerificationEmailDispatchService verificationEmailDispatchService
+	) {
 		this.clientRepository = clientRepository;
 		this.clientAuditLogger = clientAuditLogger;
+		this.verificationEmailTemplateRenderer = verificationEmailTemplateRenderer;
+		this.verificationEmailDispatchService = verificationEmailDispatchService;
 	}
 
 	/**
@@ -254,9 +269,17 @@ public class ClientServiceImpl implements ClientService {
 		String requestId
 	) {
 		ClientEntity entity = loadOwnedClient(user, clientId);
-		request.nric(); // validation-only; do not store raw document refs in this mock service
 		IdentityVerificationStatus before = entity.getIdentityVerificationStatus();
-		entity.setIdentityVerificationStatus(IdentityVerificationStatus.verified);
+
+		// Persist document evidence so the verification event has a traceable audit trail.
+		if (request.documentType() != null && !request.documentType().isBlank()) {
+			entity.setVerificationDocumentType(request.documentType());
+		}
+		if (request.documentRef() != null && !request.documentRef().isBlank()) {
+			entity.setVerificationDocumentRef(request.documentRef());
+		}
+		entity.setIdentityVerificationStatus(IdentityVerificationStatus.pending);
+		entity.setVerificationVerifiedAt(null);
 		ClientEntity saved = clientRepository.save(entity);
 
 		publishAuditSafe(
@@ -269,6 +292,76 @@ public class ClientServiceImpl implements ClientService {
 			requestId,
 			authorizationHeader
 		);
+
+		sendVerificationEmailSafe(
+			saved,
+			clientId(saved.getId()),
+			user.userId(),
+			authorizationHeader,
+			requestId
+		);
+
+		return new VerifyClientResponse(clientId(saved.getId()), saved.getIdentityVerificationStatus());
+	}
+
+	@Override
+	@Transactional
+	public VerifyClientResponse reviewVerification(
+		AuthenticatedUser user,
+		String clientId,
+		ReviewVerificationRequest request,
+		String authorizationHeader,
+		String requestId
+	) {
+		if (!user.isAdmin()) {
+			throw new org.springframework.security.access.AccessDeniedException(
+				"Only admins can review verifications"
+			);
+		}
+
+		long id = decodeClientId(clientId);
+		ClientEntity entity = clientRepository.findById(id)
+			.orElseThrow(() -> new ClientNotFoundException("Client not found: " + clientId));
+
+		if (entity.getIdentityVerificationStatus() != IdentityVerificationStatus.pending) {
+			throw new IllegalStateException(
+				"Client verification is not in pending state (current: "
+				+ entity.getIdentityVerificationStatus() + ")"
+			);
+		}
+
+		IdentityVerificationStatus before = entity.getIdentityVerificationStatus();
+		IdentityVerificationStatus after = switch (request.action()) {
+			case approve -> IdentityVerificationStatus.verified;
+			case reject -> IdentityVerificationStatus.rejected;
+		};
+
+		entity.setIdentityVerificationStatus(after);
+		if (after == IdentityVerificationStatus.verified) {
+			entity.setVerificationVerifiedAt(java.time.Instant.now());
+		}
+		ClientEntity saved = clientRepository.save(entity);
+
+		publishAuditSafe(
+			"UPDATE",
+			"identityVerificationStatus",
+			before.name(),
+			after.name(),
+			user.userId(),
+			clientId(saved.getId()),
+			requestId,
+			authorizationHeader
+		);
+
+		if (after == IdentityVerificationStatus.verified) {
+			sendVerificationEmailSafe(
+				saved,
+				clientId(saved.getId()),
+				user.userId(),
+				authorizationHeader,
+				requestId
+			);
+		}
 
 		return new VerifyClientResponse(clientId(saved.getId()), saved.getIdentityVerificationStatus());
 	}
@@ -391,6 +484,9 @@ public class ClientServiceImpl implements ClientService {
 			entity.getPostalCode(),
 			entity.getIdentityVerificationStatus(),
 			entity.getAssignedAgentId(),
+			entity.getVerificationDocumentType(),
+			entity.getVerificationDocumentRef(),
+			entity.getVerificationVerifiedAt(),
 			entity.getCreatedAt(),
 			entity.getUpdatedAt()
 		);
@@ -474,6 +570,51 @@ public class ClientServiceImpl implements ClientService {
 		}
 		catch (Exception ex) {
 			LOGGER.warn("Client operation completed but audit logging failed. action={} clientId={}", action, clientId, ex);
+		}
+	}
+
+	/**
+	 * Sends verification confirmation email and keeps verification flow non-blocking.
+	 *
+	 * @param client verified client entity
+	 * @param clientId public client identifier
+	 * @param agentId authenticated agent id
+	 * @param authorizationHeader inbound authorization header
+	 * @param requestId request correlation id
+	 */
+	private void sendVerificationEmailSafe(
+		ClientEntity client,
+		String clientId,
+		String agentId,
+		String authorizationHeader,
+		String requestId
+	) {
+		try {
+			VerificationEmail email = verificationEmailTemplateRenderer.render(
+				client.getEmailAddress(),
+				client.getFirstName(),
+				clientId
+			);
+			verificationEmailDispatchService.queueAndDispatchVerificationEmail(
+				clientId,
+				agentId,
+				email,
+				authorizationHeader,
+				requestId
+			);
+			LOGGER.info(
+				"Verification email dispatch triggered for clientId={} requestId={}",
+				clientId,
+				requestId
+			);
+		}
+		catch (Exception ex) {
+			LOGGER.warn(
+				"Client verification completed but verification email failed. clientId={} requestId={}",
+				clientId,
+				requestId,
+				ex
+			);
 		}
 	}
 }

@@ -131,12 +131,12 @@ class TestCreateLogEntry:
     def test_log_after_value_contains_alert_id(self, sample_alert):
         log = create_log_entry_for_alert(sample_alert)
         after = json.loads(log.after_value)
-        assert after["alert_id"] == "test-alert-uuid"
+        assert after["alertId"] == "test-alert-uuid"
 
     def test_log_after_value_contains_alert_type(self, sample_alert):
         log = create_log_entry_for_alert(sample_alert)
         after = json.loads(log.after_value)
-        assert after["alert_type"] == AlertType.STATISTICAL_OUTLIER.value
+        assert after["alertType"] == AlertType.STATISTICAL_OUTLIER.value
 
     def test_log_agent_id_is_system(self, sample_alert):
         log = create_log_entry_for_alert(sample_alert)
@@ -181,62 +181,62 @@ class TestRunAmlEngine:
 
     def test_summary_has_required_keys(self, engine_result):
         summary, _ = engine_result
-        assert "total_transactions_processed" in summary
-        assert "total_alerts_generated" in summary
-        assert "alerts_by_type" in summary
+        assert "totalTransactionsProcessed" in summary
+        assert "totalAlertsGenerated" in summary
+        assert "alertsByType" in summary
         assert "alerts" in summary
 
     def test_processed_count_matches_csv(self, engine_result):
         summary, _ = engine_result
-        assert summary["total_transactions_processed"] == 20
+        assert summary["totalTransactionsProcessed"] == 20
 
     def test_total_alerts_matches_list_length(self, engine_result):
         summary, _ = engine_result
-        assert summary["total_alerts_generated"] == len(summary["alerts"])
+        assert summary["totalAlertsGenerated"] == len(summary["alerts"])
 
     def test_alerts_by_type_sums_to_total(self, engine_result):
         summary, _ = engine_result
-        type_sum = sum(summary["alerts_by_type"].values())
-        assert type_sum == summary["total_alerts_generated"]
+        type_sum = sum(summary["alertsByType"].values())
+        assert type_sum == summary["totalAlertsGenerated"]
 
     def test_at_least_one_statistical_outlier(self, engine_result):
         summary, _ = engine_result
-        assert summary["alerts_by_type"][AlertType.STATISTICAL_OUTLIER.value] >= 1
+        assert summary["alertsByType"][AlertType.STATISTICAL_OUTLIER.value] >= 1
 
     def test_at_least_one_structuring_alert(self, engine_result):
         summary, _ = engine_result
-        assert summary["alerts_by_type"][AlertType.STRUCTURING.value] >= 1
+        assert summary["alertsByType"][AlertType.STRUCTURING.value] >= 1
 
     def test_at_least_one_passthrough_alert(self, engine_result):
         summary, _ = engine_result
-        assert summary["alerts_by_type"][AlertType.PASSTHROUGH.value] >= 1
+        assert summary["alertsByType"][AlertType.PASSTHROUGH.value] >= 1
 
     def test_at_least_one_inception_spike(self, engine_result):
         summary, _ = engine_result
-        assert summary["alerts_by_type"][AlertType.INCEPTION_SPIKE.value] >= 1
+        assert summary["alertsByType"][AlertType.INCEPTION_SPIKE.value] >= 1
 
     def test_crm_alerts_written(self, engine_result):
         summary, crm = engine_result
-        assert len(crm.written_alerts) == summary["total_alerts_generated"]
+        assert len(crm.written_alerts) == summary["totalAlertsGenerated"]
 
     def test_crm_logs_written(self, engine_result):
         """One log entry must be created per alert."""
         summary, crm = engine_result
-        assert len(crm.written_logs) == summary["total_alerts_generated"]
+        assert len(crm.written_logs) == summary["totalAlertsGenerated"]
 
     def test_alert_fields_present(self, engine_result):
         summary, _ = engine_result
         for alert in summary["alerts"]:
-            assert "alert_id" in alert
-            assert "client_id" in alert
-            assert "alert_type" in alert
+            assert "alertId" in alert
+            assert "clientId" in alert
+            assert "alertType" in alert
             assert "description" in alert
-            assert "detected_at" in alert
-            assert "review_status" in alert
+            assert "detectedAt" in alert
+            assert "reviewStatus" in alert
 
     def test_all_alerts_start_as_pending(self, engine_result):
         summary, _ = engine_result
-        assert all(a["review_status"] == "Pending" for a in summary["alerts"])
+        assert all(a["reviewStatus"] == "Pending" for a in summary["alerts"])
 
     def test_no_alerts_for_normal_clients(self, crm_client):
         """CLIENT_B and CLIENT_F in the mock CSV should produce zero alerts."""
@@ -245,7 +245,7 @@ class TestRunAmlEngine:
         accounts = MockAccountRepository().get_accounts()
         hist_repo = MockHistoricalTransactionRepository()
         summary = run_aml_engine(txns, accounts, hist_repo, crm_client, REF_DATE)
-        alert_clients = {a["client_id"] for a in summary["alerts"]}
+        alert_clients = {a["clientId"] for a in summary["alerts"]}
         assert "CLIENT_B" not in alert_clients
         assert "CLIENT_F" not in alert_clients
 
@@ -281,8 +281,8 @@ class TestLambdaHandler:
     def test_body_contains_summary_keys(self):
         result = lambda_handler({}, None)
         body = json.loads(result["body"])
-        assert "total_transactions_processed" in body
-        assert "total_alerts_generated" in body
+        assert "totalTransactionsProcessed" in body
+        assert "totalAlertsGenerated" in body
 
     def test_handler_idempotent(self):
         """Calling the handler twice should produce the same processed count."""
@@ -290,7 +290,7 @@ class TestLambdaHandler:
         r2 = lambda_handler({}, None)
         b1 = json.loads(r1["body"])
         b2 = json.loads(r2["body"])
-        assert b1["total_transactions_processed"] == b2["total_transactions_processed"]
+        assert b1["totalTransactionsProcessed"] == b2["totalTransactionsProcessed"]
 
     def test_handler_accepts_arbitrary_event(self):
         """Lambda should not crash regardless of the event payload it receives."""

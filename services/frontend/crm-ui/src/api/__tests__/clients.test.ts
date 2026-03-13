@@ -7,7 +7,9 @@ import {
   deleteClient,
   verifyClient,
   createAccount,
+  updateAccount,
   listClientAccounts,
+  listClientAccountsPaginated,
 } from '../clients'
 import * as client from '../client'
 import type {
@@ -18,6 +20,7 @@ import type {
   VerifyClientResponse,
   Account,
   AccountCreateRequest,
+  AccountUpdateRequest,
   PaginatedResponse,
 } from '../types'
 
@@ -262,6 +265,52 @@ describe('clients API', () => {
     })
   })
 
+  describe('updateAccount', () => {
+    it('should update account details', async () => {
+      const updateRequest: AccountUpdateRequest = {
+        accountStatus: 'Inactive',
+        branchId: 'branch-002',
+      }
+
+      const mockAccount: Account = {
+        accountId: 'account-1',
+        clientId: 'client-123',
+        accountType: 'Savings',
+        accountStatus: 'Inactive',
+        openingDate: '2024-01-15',
+        initialDeposit: 1000,
+        currency: 'SGD',
+        branchId: 'branch-002',
+        createdAt: '2024-01-15T00:00:00Z',
+      }
+
+      vi.spyOn(client, 'apiPut').mockResolvedValue(mockAccount)
+
+      const result = await updateAccount('account-1', updateRequest)
+
+      expect(client.apiPut).toHaveBeenCalledWith('/api/accounts/account-1', updateRequest)
+      expect(result).toEqual(mockAccount)
+    })
+  })
+
+  describe('listClientAccountsPaginated', () => {
+    it('should return paginated account response', async () => {
+      const mockResponse: PaginatedResponse<Account> = {
+        data: [],
+        pagination: { limit: 20, offset: 40, total: 0 },
+      }
+
+      vi.spyOn(client, 'apiGet').mockResolvedValue(mockResponse)
+
+      const result = await listClientAccountsPaginated('client-123', { limit: 20, offset: 40 })
+
+      expect(client.apiGet).toHaveBeenCalledWith(
+        '/api/clients/client-123/accounts?limit=20&offset=40'
+      )
+      expect(result).toEqual(mockResponse)
+    })
+  })
+
   describe('listClientAccounts', () => {
     it('should get all accounts for a client', async () => {
       const mockAccounts: Account[] = [
@@ -294,9 +343,11 @@ describe('clients API', () => {
         pagination: { limit: 50, offset: 0, total: 2 },
       })
 
-      const result = await listClientAccounts('client-123')
+      const result = await listClientAccounts('client-123', { limit: 50, offset: 0 })
 
-      expect(client.apiGet).toHaveBeenCalledWith('/api/clients/client-123/accounts')
+      expect(client.apiGet).toHaveBeenCalledWith(
+        '/api/clients/client-123/accounts?limit=50&offset=0'
+      )
       expect(result).toEqual(mockAccounts)
       expect(result).toHaveLength(2)
     })

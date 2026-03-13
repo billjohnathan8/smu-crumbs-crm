@@ -26,6 +26,8 @@ from typing import Dict, List, Optional, TextIO, Generator
 
 from scripts.core.detect import get_platform_info, is_github_actions
 
+DEFAULT_LOG_RETENTION = 3
+
 
 class LogLevel(Enum):
     """Log levels."""
@@ -457,6 +459,7 @@ def create_logger(
     name: str,
     log_dir: Optional[Path] = None,
     prefix: str = "",
+    keep_logs: int = DEFAULT_LOG_RETENTION,
 ) -> Logger:
     """
     Create logger with auto-generated file names.
@@ -465,6 +468,7 @@ def create_logger(
         name: Logger name
         log_dir: Log directory (defaults to build-logs/<name>)
         prefix: Filename prefix
+        keep_logs: Number of recent logs to keep per format
         
     Returns:
         Logger instance
@@ -486,10 +490,11 @@ def create_logger(
     
     log_file = log_dir / f"{base_name}.log"
     html_file = log_dir / f"{base_name}.html"
-    
-    # Rotate old logs (keep last 5)
-    rotate_logs(log_dir, pattern="*.log", keep=5)
-    rotate_logs(log_dir, pattern="*.html", keep=5)
+
+    # Prune before opening this run's files so total retained logs stay bounded.
+    keep_before_new_log = max(0, keep_logs - 1)
+    rotate_logs(log_dir, pattern="*.log", keep=keep_before_new_log)
+    rotate_logs(log_dir, pattern="*.html", keep=keep_before_new_log)
     
     return Logger(
         name=name,
@@ -500,7 +505,7 @@ def create_logger(
     )
 
 
-def rotate_logs(log_dir: Path, pattern: str = "*.log", keep: int = 5):
+def rotate_logs(log_dir: Path, pattern: str = "*.log", keep: int = DEFAULT_LOG_RETENTION):
     """
     Rotate log files, keeping only the most recent.
     
@@ -519,6 +524,9 @@ def rotate_logs(log_dir: Path, pattern: str = "*.log", keep: int = 5):
         reverse=True
     )
     
+    if keep < 0:
+        keep = 0
+
     # Delete old files
     for old_file in log_files[keep:]:
         try:

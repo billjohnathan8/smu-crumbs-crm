@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { listLogs } from '@/api/logs'
 import { listUsers } from '@/api/users'
 import { listClients } from '@/api/clients'
-import type { LogEntry } from '@/api/types'
+import type { LogEntry, Client } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 
@@ -16,16 +17,20 @@ interface Stats {
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
   { label: 'Manage Accounts', to: '/admin/accounts' },
+  { label: 'Communications', to: '/admin/communications' },
+  { label: 'AML Alerts', to: '/admin/aml-alerts' },
 ]
 
 export function AdminDashboard() {
   const { user, logout } = useAuth()
+  const navigate = useNavigate()
   const [stats, setStats] = useState<Stats>({
     totalAgents: 0,
     totalClients: 0,
     recentActivities: 0,
   })
   const [recentLogs, setRecentLogs] = useState<LogEntry[]>([])
+  const [pendingClients, setPendingClients] = useState<Client[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string>('')
 
@@ -35,11 +40,13 @@ export function AdminDashboard() {
       setError('')
 
       try {
-        const [usersResponse, clientsResponse, logsResponse] = await Promise.all([
-          listUsers({ limit: 1 }),
-          listClients({ limit: 1 }),
-          listLogs({ limit: 10 }),
-        ])
+        const [usersResponse, clientsResponse, logsResponse, allClientsResponse] =
+          await Promise.all([
+            listUsers({ limit: 1 }),
+            listClients({ limit: 1 }),
+            listLogs({ limit: 10 }),
+            listClients({ limit: 100 }),
+          ])
 
         setStats({
           totalAgents: usersResponse.pagination?.total || 0,
@@ -48,6 +55,12 @@ export function AdminDashboard() {
         })
 
         setRecentLogs(logsResponse.data)
+
+        // Filter for clients with pending verification
+        const pending = allClientsResponse.data.filter(
+          (c: Client) => c.identityVerificationStatus === 'pending'
+        )
+        setPendingClients(pending)
       } catch (err) {
         if (err instanceof ApiError) {
           if (err.status === 401) {
@@ -87,6 +100,12 @@ export function AdminDashboard() {
             </p>
           </div>
           <div className="flex space-x-4">
+            <a
+              href="/admin/aml-alerts"
+              className="px-4 py-2 rounded-lg bg-warning hover:bg-warning-hover text-white font-medium transition-colors"
+            >
+              AML Alerts
+            </a>
             <a
               href="/admin/accounts"
               className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white font-medium transition-colors"
@@ -130,6 +149,57 @@ export function AdminDashboard() {
                 <p className="text-4xl font-bold text-text">{stats.recentActivities}</p>
               </div>
             </div>
+
+            {/* Pending Verifications */}
+            {pendingClients.length > 0 && (
+              <div className="bg-card border border-warning rounded-lg">
+                <div className="px-6 py-4 border-b border-border">
+                  <h2 className="text-xl font-bold text-text">
+                    Pending Verifications ({pendingClients.length})
+                  </h2>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-background-light">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                          Client
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                          Email
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {pendingClients.map(c => (
+                        <tr
+                          key={c.clientId}
+                          className="hover:bg-background-light transition-colors"
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-text">
+                            {c.firstName} {c.lastName}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-text-muted">
+                            {c.emailAddress}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <button
+                              onClick={() => navigate(`/admin/clients/${c.clientId}`)}
+                              className="text-primary hover:underline font-medium"
+                            >
+                              Review →
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             <div className="bg-card border border-border rounded-lg">
               <div className="px-6 py-4 border-b border-border">

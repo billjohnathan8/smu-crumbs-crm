@@ -6,12 +6,20 @@ import {
   type Page,
 } from "@playwright/test";
 
-const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? "admin@crm.local";
-const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "admin123";
-const AGENT_PASSWORD = process.env.E2E_AGENT_PASSWORD ?? "AgentPass123!";
+const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.local").trim();
+const ADMIN_PASSWORD = (process.env.E2E_ADMIN_PASSWORD ?? "admin123").trim();
+const AGENT_PASSWORD = (process.env.E2E_AGENT_PASSWORD ?? "AgentPass123!").trim();
 
 function uniqueSuffix(): string {
   return `${Date.now()}-${Math.floor(Math.random() * 100_000)}`;
+}
+
+function normalizeBaseURL(baseURL: string | undefined): string {
+  const value = (baseURL ?? process.env.PLAYWRIGHT_BASE_URL ?? "").trim();
+  if (!value) {
+    throw new Error("Playwright baseURL is required for integration tests");
+  }
+  return value.replace(/\/+$/, "");
 }
 
 async function expectOkJson(response: APIResponse, operation: string): Promise<unknown> {
@@ -138,17 +146,15 @@ test.describe("Real Fullstack Integration", () => {
     page,
     request,
   }) => {
-    if (!baseURL) {
-      throw new Error("Playwright baseURL is required for integration tests");
-    }
+    const normalizedBaseURL = normalizeBaseURL(baseURL);
 
-    const adminToken = await loginAsAdmin(request, baseURL);
-    const agentUser = await createAgentUser(request, baseURL, adminToken);
+    const adminToken = await loginAsAdmin(request, normalizedBaseURL);
+    const agentUser = await createAgentUser(request, normalizedBaseURL, adminToken);
 
     await loginViaUi(page, agentUser.email, agentUser.password, "/agent");
     await expect(page.getByRole("heading", { name: "Agent Dashboard" })).toBeVisible();
 
-    await page.getByRole("link", { name: "Create Client" }).click();
+    await page.locator("main").getByRole("link", { name: "Create Client" }).first().click();
     await expect(page).toHaveURL(/\/agent\/clients\/new$/);
 
     const clientEmail = `integration-client-${uniqueSuffix()}@example.com`;
@@ -173,10 +179,40 @@ test.describe("Real Fullstack Integration", () => {
     const authToken = await page.evaluate(() => window.localStorage.getItem("authToken"));
     expect(authToken).toBeTruthy();
 
-    const { clientId } = await waitForClientByEmail(request, baseURL, authToken as string, clientEmail);
-    await waitForCreateAuditLog(request, baseURL, authToken as string, clientId);
+    const { clientId } = await waitForClientByEmail(request, normalizedBaseURL, authToken as string, clientEmail);
+    await waitForCreateAuditLog(request, normalizedBaseURL, authToken as string, clientId);
 
-    const txResponse = await request.get(`${baseURL}/api/clients/${clientId}/transactions?limit=20&offset=0`, {
+    const alertId = `aml-${uniqueSuffix()}`;
+    const amlCreateResponse = await request.post(`${normalizedBaseURL}/api/aml/alerts`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+      data: {
+        alertId,
+        clientId,
+        transactionId: null,
+        alertType: "STRUCTURING",
+        description: "Integration test alert",
+        detectedAt: new Date().toISOString(),
+        reviewStatus: "Pending",
+      },
+    });
+    const amlCreated = (await expectOkJson(
+      amlCreateResponse,
+      "create AML alert API request",
+    )) as { alertId: string; reviewStatus: string };
+    expect(amlCreated.alertId).toBe(alertId);
+    expect(amlCreated.reviewStatus).toBe("Pending");
+
+    const amlReviewResponse = await request.put(`${normalizedBaseURL}/api/aml/alerts/${alertId}/review`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+      data: { reviewStatus: "Confirmed" },
+    });
+    const amlReviewed = (await expectOkJson(
+      amlReviewResponse,
+      "review AML alert API request",
+    )) as { reviewStatus: string };
+    expect(amlReviewed.reviewStatus).toBe("Confirmed");
+
+    const txResponse = await request.get(`${normalizedBaseURL}/api/clients/${clientId}/transactions?limit=20&offset=0`, {
       headers: { Authorization: `Bearer ${authToken}` },
     });
     const txPayload = (await expectOkJson(

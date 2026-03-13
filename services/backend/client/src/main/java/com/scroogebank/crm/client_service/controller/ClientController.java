@@ -4,6 +4,7 @@ import com.scroogebank.crm.client_service.dto.ClientCreateRequest;
 import com.scroogebank.crm.client_service.dto.ClientDto;
 import com.scroogebank.crm.client_service.dto.ClientListResponse;
 import com.scroogebank.crm.client_service.dto.ClientUpdateRequest;
+import com.scroogebank.crm.client_service.dto.ReviewVerificationRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
@@ -14,6 +15,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -126,7 +128,7 @@ public class ClientController {
 	}
 
 	/**
-	 * Marks a client's identity verification status as verified.
+	 * Marks a client's identity verification as pending review.
 	 *
 	 * @param httpRequest HTTP request used for auth and correlation id extraction
 	 * @param clientId public client identifier
@@ -142,6 +144,25 @@ public class ClientController {
 		AuthenticatedUser user = requestAuth.requireUser(httpRequest);
 		String authorizationHeader = httpRequest.getHeader("Authorization");
 		return clientService.verifyClient(user, clientId, request, authorizationHeader, requestId(httpRequest));
+	}
+
+	/**
+	 * Reviews a pending client verification: approves or rejects it. Admin only.
+	 *
+	 * @param httpRequest HTTP request used for auth and correlation id extraction
+	 * @param clientId public client identifier
+	 * @param request review action (approve or reject)
+	 * @return verification response with updated status
+	 */
+	@PatchMapping("/{id}/verify/review")
+	public VerifyClientResponse reviewVerification(
+		HttpServletRequest httpRequest,
+		@PathVariable("id") String clientId,
+		@Valid @RequestBody ReviewVerificationRequest request
+	) {
+		AuthenticatedUser user = requestAuth.requireUser(httpRequest);
+		String authorizationHeader = httpRequest.getHeader("Authorization");
+		return clientService.reviewVerification(user, clientId, request, authorizationHeader, requestId(httpRequest));
 	}
 
 	/**

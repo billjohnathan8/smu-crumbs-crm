@@ -56,14 +56,15 @@ docs/infrastructure/generated/*
 
 # Gradle
 .gradle/
-**/.gradle/
+.gradle-home/
+.gradle-local/
 .gradle-user-home/
-.gradle-user-home-backend-pipeline/
-.gradle-user-home-user/
+**/.gradle/
+**/.gradle-local/
+**/.gradle-user-home/
 **/.gradle-test-home/
 
 # Python / pytest cache
-.python-build-test-venvs
 .venv/
 **/.venv/
 venv/
@@ -79,8 +80,13 @@ __pycache__/
 .pytest_cache/
 **/.pytest_cache/
 pytest-cache-files-*/
+**/pytest-cache-files-*/
+**/.hypothesis/
 **/build/reports/tests/
 **/build/reports/coverage/
+**/.cache/black/
+**/.ruff_cache/
+**/.mypy_cache/
 
 # Private Keys - do not commit any secrets
 *.pem
@@ -92,6 +98,9 @@ id_rsa
 .DS_Store
 .env
 
+# Developer Setup - Portable Tools
+.devtools/
+
 # Ignore IDE Configs
 .vscode/
 .VSCodeCounter/
@@ -102,24 +111,23 @@ CHANGELOG.md
 NOTES.md
 temp/*
 fail-logs/*
+docs/diff/
 
 # Debug Screenshots
 services/frontend/crm-ui/debug-*.png
 
-# Pipeline Migration: Legacy script logs (archived)
+# Pipeline & Build-Logs 
 scripts/legacy/**/build-logs/
-
-# Pipeline Migration: Validation logs (temporary)
 build-logs/migration-validation/
 **/new-*.log
 **/old-*.log
-
-# Build Logs
 /build-logs/
 
-# Developer Setup - Portable Tools
-.devtools/
+# Local CI-generated Terraform artifact zips
+.ci-artifacts/
 
 # Ignore Test Directories
-
 node_modules/
+
+# Hypothesis (property-based testing) local cache
+.hypothesis/

@@ -1,5 +1,5 @@
 import { test, expect, Route } from "@playwright/test";
-import { setAuthState } from "../helpers/auth";
+import { gotoWithNetworkRetry, setAuthState } from "../helpers/auth";
 import { setupAgentRoutes } from "../helpers/mockRoutes";
 
 test.describe("Agent View Transactions - Filters & Pagination (Flow 7)", () => {
@@ -34,7 +34,7 @@ test.describe("Agent View Transactions - Filters & Pagination (Flow 7)", () => {
     await context.clearCookies();
     // Install default API mocks before first navigation to avoid Vite proxy noise.
     await setupAgentRoutes(page);
-    await page.goto("/login");
+    await gotoWithNetworkRetry(page, "/login");
     await setAuthState(page, "agent");
   });
 
@@ -365,7 +365,7 @@ test.describe("Agent View Transactions - Filters & Pagination (Flow 7)", () => {
     });
 
     await test.step("Search for specific transaction ID", async () => {
-      await page.fill('input[placeholder*="Client ID"]', "txn-002");
+      await page.fill('input[placeholder="Transaction ID"]', "txn-002");
       await page.waitForTimeout(500); // Allow client-side filter to apply
     });
 
@@ -449,7 +449,7 @@ test.describe("Agent View Transactions - Filters & Pagination (Flow 7)", () => {
     await test.step("Apply multiple filters", async () => {
       const statusSelect = page.locator("select").nth(0);
       await statusSelect.selectOption({ label: "Completed" });
-      await page.fill('input[placeholder*="Client ID"]', "test-search");
+      await page.fill('input[placeholder="Transaction ID"]', "test-search");
       await page.waitForLoadState("networkidle");
     });
 
@@ -465,7 +465,7 @@ test.describe("Agent View Transactions - Filters & Pagination (Flow 7)", () => {
       await expect(page.getByText("txn-003")).toBeVisible();
 
       // Verify inputs are cleared
-      const searchInput = page.locator('input[placeholder*="Client ID"]');
+      const searchInput = page.locator('input[placeholder="Transaction ID"]');
       await expect(searchInput).toHaveValue("");
     });
   });

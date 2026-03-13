@@ -7,10 +7,13 @@ spring:
       fail-on-unknown-properties: true
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/clients}
-    username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:crm}}
+    username: ${SPRING_DATASOURCE_USERNAME:${DB_USER:crm_app}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:devpassword}}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      initialization-fail-timeout: ${SPRING_DATASOURCE_HIKARI_INITIALIZATION_FAIL_TIMEOUT:5000}
+      connection-timeout: ${SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT:5000}
 
   jpa:
     hibernate:
@@ -24,12 +27,32 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true   # REQUIRED: initializes schema history if schema is non-empty
+    baseline-version: 0
     locations: classpath:db/migration  # default location for migration scripts
 
 server:
   port: 8080
 
 app:
-  log-service-url: ${LOG_SERVICE_URL:http://localhost:8081}
+  log-service-url: ${CLIENT_LOG_SERVICE_URL:${LOG_SERVICE_URL:http://localhost:4566/_aws/execute-api/local/local}}
+  verification-email:
+    provider: ${VERIFICATION_EMAIL_PROVIDER:mock}
+    sender-email: ${SES_SENDER_EMAIL:}
+    aws-region: ${VERIFICATION_EMAIL_AWS_REGION:${AWS_REGION:}}
+    aws-endpoint-url: ${VERIFICATION_EMAIL_AWS_ENDPOINT_URL:${AWS_ENDPOINT_URL:}}
+    dispatch:
+      enabled: ${VERIFICATION_EMAIL_DISPATCH_ENABLED:true}
+      poll-interval-ms: ${VERIFICATION_EMAIL_DISPATCH_POLL_INTERVAL_MS:30000}
+      max-batch-size: ${VERIFICATION_EMAIL_DISPATCH_MAX_BATCH_SIZE:50}
+      max-attempts: ${VERIFICATION_EMAIL_DISPATCH_MAX_ATTEMPTS:5}
+      base-backoff-seconds: ${VERIFICATION_EMAIL_DISPATCH_BASE_BACKOFF_SECONDS:30}
+      service-token-ttl-seconds: ${VERIFICATION_EMAIL_DISPATCH_SERVICE_TOKEN_TTL_SECONDS:300}
+      service-user-id: ${VERIFICATION_EMAIL_DISPATCH_SERVICE_USER_ID:usr_system_verification}
   jwt:
-    hmac-secret: ${JWT_HMAC_SECRET:dev-only-insecure-secret}
+    hmac-secret: ${JWT_HMAC_SECRET:}
+    auth-mode: ${AUTH_MODE:hybrid}
+    cognito:
+      issuer: ${COGNITO_ISSUER:}
+      audience: ${COGNITO_AUDIENCE:}
+      jwks-url: ${COGNITO_JWKS_URL:}
+      jwks-cache-ttl-seconds: ${COGNITO_JWKS_CACHE_TTL_SECONDS:300}

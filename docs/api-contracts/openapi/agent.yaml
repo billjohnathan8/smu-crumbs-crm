@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: agent
-  version: 0.2.0
+  version: 0.3.0
   description: 'Feature 1: CRM User Management.
 
     Manages Admin/Agent users and supports authentication flows for the frontend.
@@ -37,6 +37,7 @@ paths:
                     example: agent
                 required:
                 - status
+                - service
   /api/v1/health:
     get:
       deprecated: true
@@ -60,11 +61,12 @@ paths:
       tags:
       - users
       summary: List users
-      description: Admin-only. Lists all admin/agent users.
+      description: Admin/super-admin only. Lists all users.
       security:
       - BearerAuth: []
       x-required-roles:
       - admin
+      - super_admin
       parameters:
       - name: limit
         in: query
@@ -99,6 +101,12 @@ paths:
                     $ref: '#/components/schemas/Pagination'
                 required:
                 - data
+        '400':
+          description: Validation error (for example invalid query params).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
           content:
@@ -115,11 +123,12 @@ paths:
       tags:
       - users
       summary: Create user
-      description: Admin-only. Creates an admin or agent user.
+      description: Admin/super-admin only. Creates an admin or agent user.
       security:
       - BearerAuth: []
       x-required-roles:
       - admin
+      - super_admin
       requestBody:
         required: true
         content:
@@ -167,6 +176,7 @@ paths:
       x-required-roles:
       - admin
       - agent
+      - super_admin
       responses:
         '200':
           description: Current user.
@@ -195,6 +205,7 @@ paths:
       - BearerAuth: []
       x-required-roles:
       - admin
+      - super_admin
       parameters:
       - name: userId
         in: path
@@ -208,6 +219,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+        '400':
+          description: Validation error (for example invalid userId).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found.
           content:
@@ -230,11 +247,13 @@ paths:
       tags:
       - users
       summary: Update user
-      description: Admin-only. Updates user profile fields and/or role.
+      description: User update endpoint. Admin/super-admin can update any user; agents can only update themselves with role restrictions.
       security:
       - BearerAuth: []
       x-required-roles:
       - admin
+      - agent
+      - super_admin
       parameters:
       - name: userId
         in: path
@@ -256,6 +275,12 @@ paths:
                 $ref: '#/components/schemas/User'
         '400':
           description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict (e.g., email already exists).
           content:
             application/json:
               schema:
@@ -282,11 +307,12 @@ paths:
       tags:
       - users
       summary: Delete user
-      description: Admin-only. Deletes a user. Root administrator cannot be deleted.
+      description: Admin/super-admin only. Deletes a user. Root administrator cannot be deleted.
       security:
       - BearerAuth: []
       x-required-roles:
       - admin
+      - super_admin
       parameters:
       - name: userId
         in: path
@@ -296,6 +322,12 @@ paths:
       responses:
         '204':
           description: User deleted.
+        '400':
+          description: Validation error (for example invalid userId).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
           description: Forbidden (e.g., root admin).
           content:
@@ -319,11 +351,12 @@ paths:
       tags:
       - users
       summary: Disable user
-      description: Admin-only. Disables an account (user can no longer log in).
+      description: Admin/super-admin only. Disables an account (user can no longer log in).
       security:
       - BearerAuth: []
       x-required-roles:
       - admin
+      - super_admin
       parameters:
       - name: userId
         in: path
@@ -337,6 +370,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+        '400':
+          description: Validation error (for example invalid userId).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found.
           content:
@@ -360,11 +399,12 @@ paths:
       tags:
       - users
       summary: Reset password
-      description: Admin-only. Triggers a password reset (e.g., sends reset link).
+      description: Admin/super-admin only. Triggers a password reset and revokes active refresh tokens.
       security:
       - BearerAuth: []
       x-required-roles:
       - admin
+      - super_admin
       parameters:
       - name: userId
         in: path
@@ -380,6 +420,12 @@ paths:
       responses:
         '202':
           description: Reset initiated.
+        '400':
+          description: Validation error (for example invalid userId or malformed body).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found.
           content:
@@ -418,6 +464,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Invalid credentials.
           content:
@@ -442,6 +494,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Invalid refresh token.
           content:
@@ -490,12 +548,13 @@ components:
     UserId:
       type: string
       description: Unique user id
-      example: usr_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+      example: usr_42
     UserRole:
       type: string
       enum:
       - admin
       - agent
+      - super_admin
       description: User role
     UserStatus:
       type: string
@@ -541,6 +600,7 @@ components:
       - status
     CreateUserRequest:
       type: object
+      additionalProperties: false
       properties:
         firstName:
           type: string
@@ -588,6 +648,7 @@ components:
       additionalProperties: false
     LoginRequest:
       type: object
+      additionalProperties: false
       properties:
         email:
           type: string
@@ -621,6 +682,7 @@ components:
       - tokenType
     RefreshRequest:
       type: object
+      additionalProperties: false
       properties:
         refreshToken:
           type: string
@@ -628,12 +690,12 @@ components:
       - refreshToken
     ResetPasswordRequest:
       type: object
+      additionalProperties: false
       properties:
         email:
           type: string
           format: email
-          description: Email of the user requesting reset. (Admin may reset any user;
-            agent typically resets self.)
+          description: Email of the user whose password is being reset.
       required:
       - email
   responses: {}

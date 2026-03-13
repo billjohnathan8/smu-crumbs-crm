@@ -46,7 +46,7 @@ output "alb_dns_name" {
 
 output "log_api_invoke_url" {
   description = "API Gateway invoke URL for log Lambda routes."
-  value       = module.apigateway.log_api_base_url
+  value       = var.enable_log_lambda ? module.apigateway[0].log_api_base_url : null
 }
 
 #--------------------------------------------------------------
@@ -114,6 +114,11 @@ output "frontend_bucket_name" {
   value       = module.s3.frontend_bucket_name
 }
 
+output "transaction_sftp_bucket_name" {
+  description = "Mocked transaction SFTP source S3 bucket name."
+  value       = module.s3.transaction_sftp_bucket_name
+}
+
 #--------------------------------------------------------------
 # Secrets Manager Outputs
 #--------------------------------------------------------------
@@ -148,6 +153,11 @@ output "log_lambda_name" {
 output "aml_lambda_name" {
   description = "AML Lambda function name."
   value       = module.lambda.aml_lambda_name
+}
+
+output "transaction_ingestion_lambda_name" {
+  description = "Scheduled transaction ingestion Lambda function name."
+  value       = module.lambda.transaction_ingestion_lambda_name
 }
 
 #--------------------------------------------------------------
@@ -187,6 +197,16 @@ output "cognito_app_client_id" {
 output "cognito_user_pool_endpoint" {
   description = "Cognito User Pool endpoint."
   value       = var.enable_cognito ? module.cognito[0].user_pool_endpoint : null
+}
+
+output "cognito_issuer_url" {
+  description = "Cognito issuer URL used for JWT verification."
+  value       = var.enable_cognito ? module.cognito[0].issuer_url : null
+}
+
+output "cognito_jwks_url" {
+  description = "Cognito JWKS URL used for JWT verification."
+  value       = var.enable_cognito ? module.cognito[0].jwks_url : null
 }
 
 #--------------------------------------------------------------

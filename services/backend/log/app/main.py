@@ -9,24 +9,62 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from .auth import ForbiddenError, UnauthorizedError, require_bearer_user, require_roles
 from .config import Settings
 from .repository import LogRepository
 from .schemas import (
+    AmlAlert,
     Communication,
+    CreateAmlAlertRequest,
     CreateCommunicationRequest,
     CreateLogRequest,
     ErrorResponse,
     HealthResponse,
     LogEntry,
     Pagination,
+    UpdateCommunicationStatusRequest,
+    UpdateAmlAlertReviewRequest,
     UpdateLogRequest,
 )
 from .service import LogService
 
 LOGGER = logging.getLogger("log")
+
+
+def _error_name_for_status(status_code: int) -> str:
+    if status_code == status.HTTP_400_BAD_REQUEST:
+        return "validation_error"
+    if status_code == status.HTTP_401_UNAUTHORIZED:
+        return "unauthorized"
+    if status_code == status.HTTP_403_FORBIDDEN:
+        return "forbidden"
+    if status_code == status.HTTP_404_NOT_FOUND:
+        return "not_found"
+    if status_code == status.HTTP_409_CONFLICT:
+        return "conflict"
+    if status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
+        return "service_unavailable"
+    if status_code >= status.HTTP_500_INTERNAL_SERVER_ERROR:
+        return "internal_error"
+    return "request_error"
+
+
+def _validation_message(exc: RequestValidationError) -> str:
+    errors = exc.errors()
+    if not errors:
+        return "Invalid request"
+    first = errors[0]
+    location = [
+        str(segment)
+        for segment in first.get("loc", ())
+        if segment not in {"body", "query", "path"}
+    ]
+    prefix = ".".join(location)
+    detail = first.get("msg", "Invalid value")
+    return f"{prefix}: {detail}" if prefix else str(detail)
 
 
 def _default_service() -> LogService:
@@ -84,6 +122,41 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
     async def forbidden_handler(request: Request, _exc: ForbiddenError):
         return _error(request, status.HTTP_403_FORBIDDEN, "forbidden", "Forbidden")
 
+    @app.exception_handler(RequestValidationError)
+    async def request_validation_handler(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        return _error(
+            request,
+            status.HTTP_400_BAD_REQUEST,
+            "validation_error",
+            _validation_message(exc),
+        )
+
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(
+        request: Request, exc: HTTPException
+    ) -> JSONResponse:
+        detail = exc.detail if isinstance(exc.detail, str) else "Request failed"
+        return _error(
+            request,
+            exc.status_code,
+            _error_name_for_status(exc.status_code),
+            detail,
+        )
+
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(
+        request: Request, exc: Exception
+    ) -> JSONResponse:
+        LOGGER.error("Unhandled exception: %s", exc, exc_info=True)
+        return _error(
+            request,
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "internal_error",
+            "Internal error",
+        )
+
     def get_log_service(request: Request) -> LogService:
         """Provide the configured LogService from application state."""
         return request.app.state.log_service
@@ -98,18 +171,62 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
     ):
         """Resolve the authenticated user from the bearer token."""
         return require_bearer_user(
-            request.headers.get("Authorization"), settings.jwt_hmac_secret
+            request.headers.get("Authorization"),
+            settings.jwt_hmac_secret,
+            auth_mode=settings.auth_mode,
+            cognito_jwks_url=settings.cognito_jwks_url,
+            cognito_issuer=settings.cognito_issuer,
+            cognito_audience=settings.cognito_audience,
         )
 
     def decode_prefixed_id(prefix: str, value: str) -> int:
         """Validate an id prefix and return the raw numeric id."""
         if not value.startswith(prefix):
             raise ValueError("invalid id")
-        return int(value.removeprefix(prefix))
+        try:
+            return int(value.removeprefix(prefix))
+        except ValueError as exc:
+            raise ValueError("invalid id") from exc
 
     def encode_prefixed_id(prefix: str, value: int) -> str:
         """Attach an API prefix to a numeric id."""
         return f"{prefix}{value}"
+
+    def to_aml_alert(row: dict) -> AmlAlert:
+        """Convert AML alert persistence row to API response model."""
+        return AmlAlert(
+            alertId=row["alert_id"],
+            clientId=row["client_id"],
+            transactionId=row["transaction_id"],
+            alertType=row["alert_type"],
+            description=row["description"],
+            detectedAt=row["detected_at"],
+            reviewStatus=row["review_status"],
+            createdAt=row["created_at"],
+            updatedAt=row["updated_at"],
+        )
+
+    def to_communication(row: dict) -> Communication:
+        """Convert communication persistence row to API response model."""
+        return Communication(
+            communicationId=encode_prefixed_id("com_", int(row["id"])),
+            clientId=row["client_id"],
+            agentId=row["agent_id"],
+            channel=row["channel"],
+            toEmail=row["to_email"],
+            subject=row["subject"],
+            body=row["body"],
+            status=row["status"],
+            providerMessageId=row["provider_message_id"],
+            errorMessage=row["error_message"],
+            idempotencyKey=row.get("idempotency_key"),
+            retryCount=row.get("retry_count", 0),
+            nextAttemptAt=row.get("next_attempt_at"),
+            lastAttemptAt=row.get("last_attempt_at"),
+            deliveryEvent=row.get("delivery_event"),
+            createdAt=row["created_at"],
+            updatedAt=row["updated_at"],
+        )
 
     @app.get("/health", response_model=HealthResponse)
     def health(service: LogService = Depends(get_log_service)) -> HealthResponse:
@@ -340,6 +457,94 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
             ).model_dump(),
         }
 
+    @app.post(
+        "/api/aml/alerts",
+        status_code=status.HTTP_201_CREATED,
+        response_model=AmlAlert,
+    )
+    def create_aml_alert(
+        request: Request,
+        body: CreateAmlAlertRequest,
+        user=Depends(get_user),
+        service: LogService = Depends(get_log_service),
+    ):
+        require_roles(user, {"admin", "agent"})
+        try:
+            row = service.create_aml_alert(body)
+        except ValueError as exc:
+            return _error(
+                request, status.HTTP_400_BAD_REQUEST, "validation_error", str(exc)
+            )
+        except Exception as exc:  # pragma: no cover
+            if "duplicate key value" in str(exc):
+                return _error(
+                    request,
+                    status.HTTP_409_CONFLICT,
+                    "conflict",
+                    "Alert already exists",
+                )
+            LOGGER.exception("failed to create aml alert")
+            return _error(
+                request,
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                "internal_error",
+                "Internal error",
+            )
+        return to_aml_alert(row)
+
+    @app.get("/api/aml/alerts")
+    def list_aml_alerts(
+        request: Request,
+        user=Depends(get_user),
+        service: LogService = Depends(get_log_service),
+        limit: int = 50,
+        offset: int = 0,
+        clientId: str | None = None,
+        alertType: str | None = None,
+        reviewStatus: str | None = None,
+    ):
+        require_roles(user, {"admin", "agent"})
+        rows, total = service.list_aml_alerts(
+            limit=min(max(limit, 1), 200),
+            offset=max(offset, 0),
+            client_id=clientId,
+            alert_type=alertType,
+            review_status=reviewStatus,
+        )
+        return {
+            "data": [to_aml_alert(row).model_dump(exclude_none=True) for row in rows],
+            "pagination": Pagination(
+                limit=min(max(limit, 1), 200), offset=max(offset, 0), total=total
+            ).model_dump(),
+        }
+
+    @app.get("/api/aml/alerts/{alertId}", response_model=AmlAlert)
+    def get_aml_alert(
+        request: Request,
+        alertId: str,
+        user=Depends(get_user),
+        service: LogService = Depends(get_log_service),
+    ):
+        require_roles(user, {"admin", "agent"})
+        row = service.get_aml_alert(alertId)
+        if row is None:
+            return _error(request, status.HTTP_404_NOT_FOUND, "not_found", "Not found")
+        return to_aml_alert(row)
+
+    @app.put("/api/aml/alerts/{alertId}/review", response_model=AmlAlert)
+    def review_aml_alert(
+        request: Request,
+        alertId: str,
+        body: UpdateAmlAlertReviewRequest,
+        user=Depends(get_user),
+        service: LogService = Depends(get_log_service),
+    ):
+        require_roles(user, {"admin", "agent"})
+        row = service.update_aml_alert_review(alertId, body.reviewStatus.value)
+        if row is None:
+            return _error(request, status.HTTP_404_NOT_FOUND, "not_found", "Not found")
+        return to_aml_alert(row)
+
     @app.post("/api/communications", status_code=status.HTTP_202_ACCEPTED)
     def create_communication(
         request: Request,
@@ -359,20 +564,22 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
                 "internal_error",
                 "Internal error",
             )
-        return Communication(
-            communicationId=encode_prefixed_id("com_", int(row["id"])),
-            clientId=row["client_id"],
-            agentId=row["agent_id"],
-            channel=row["channel"],
-            toEmail=row["to_email"],
-            subject=row["subject"],
-            body=row["body"],
-            status=row["status"],
-            providerMessageId=row["provider_message_id"],
-            errorMessage=row["error_message"],
-            createdAt=row["created_at"],
-            updatedAt=row["updated_at"],
-        )
+        return to_communication(row)
+
+    @app.get("/api/communications/queued")
+    def list_queued_communications(
+        user=Depends(get_user),
+        service: LogService = Depends(get_log_service),
+        limit: int = 50,
+    ):
+        require_roles(user, {"admin"})
+        rows = service.list_queued_communications(limit=min(max(limit, 1), 200))
+        return {
+            "data": [to_communication(r).model_dump(exclude_none=True) for r in rows],
+            "pagination": Pagination(
+                limit=min(max(limit, 1), 200), offset=0, total=len(rows)
+            ).model_dump(),
+        }
 
     @app.get("/api/communications/{communicationId}")
     def get_communication(
@@ -393,20 +600,7 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
             return _error(request, status.HTTP_404_NOT_FOUND, "not_found", "Not found")
         if user.role == "agent" and row["agent_id"] != user.user_id:
             return _error(request, status.HTTP_404_NOT_FOUND, "not_found", "Not found")
-        return Communication(
-            communicationId=encode_prefixed_id("com_", int(row["id"])),
-            clientId=row["client_id"],
-            agentId=row["agent_id"],
-            channel=row["channel"],
-            toEmail=row["to_email"],
-            subject=row["subject"],
-            body=row["body"],
-            status=row["status"],
-            providerMessageId=row["provider_message_id"],
-            errorMessage=row["error_message"],
-            createdAt=row["created_at"],
-            updatedAt=row["updated_at"],
-        )
+        return to_communication(row)
 
     @app.get("/api/clients/{clientId}/communications")
     def list_communications(
@@ -425,29 +619,49 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
             client_id=clientId,
             agent_id=effective_agent,
         )
-        data = [
-            Communication(
-                communicationId=encode_prefixed_id("com_", int(r["id"])),
-                clientId=r["client_id"],
-                agentId=r["agent_id"],
-                channel=r["channel"],
-                toEmail=r["to_email"],
-                subject=r["subject"],
-                body=r["body"],
-                status=r["status"],
-                providerMessageId=r["provider_message_id"],
-                errorMessage=r["error_message"],
-                createdAt=r["created_at"],
-                updatedAt=r["updated_at"],
-            ).model_dump(exclude_none=True)
-            for r in rows
-        ]
+        data = [to_communication(r).model_dump(exclude_none=True) for r in rows]
         return {
             "data": data,
             "pagination": Pagination(
                 limit=min(max(limit, 1), 200), offset=max(offset, 0), total=total
             ).model_dump(),
         }
+
+    @app.patch("/api/communications/{communicationId}/status")
+    def update_communication_status(
+        request: Request,
+        communicationId: str,
+        body: UpdateCommunicationStatusRequest,
+        user=Depends(get_user),
+        service: LogService = Depends(get_log_service),
+    ):
+        require_roles(user, {"admin"})
+        try:
+            db_id = decode_prefixed_id("com_", communicationId)
+        except ValueError as exc:
+            return _error(
+                request, status.HTTP_400_BAD_REQUEST, "validation_error", str(exc)
+            )
+        row = service.update_communication_status(db_id, body)
+        if row is None:
+            return _error(request, status.HTTP_404_NOT_FOUND, "not_found", "Not found")
+        return to_communication(row)
+
+    @app.patch("/api/communications/provider/{providerMessageId}/status")
+    def update_communication_status_by_provider_message_id(
+        request: Request,
+        providerMessageId: str,
+        body: UpdateCommunicationStatusRequest,
+        user=Depends(get_user),
+        service: LogService = Depends(get_log_service),
+    ):
+        require_roles(user, {"admin"})
+        row = service.update_communication_status_by_provider_message_id(
+            providerMessageId, body
+        )
+        if row is None:
+            return _error(request, status.HTTP_404_NOT_FOUND, "not_found", "Not found")
+        return to_communication(row)
 
     return app
 

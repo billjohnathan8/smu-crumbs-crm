@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import type { LoginRequest } from '@/api/types'
 import { ApiError } from '@/api/client'
+import { isCognitoEnabled, AUTH_MODE, buildCognitoLoginUrl } from '@/api/cognito'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -151,6 +152,31 @@ export function LoginPage() {
               {isLoading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
+
+          {isCognitoEnabled && (
+            <>
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="bg-card px-4 text-text-muted">
+                    {AUTH_MODE === 'cognito' ? 'or' : 'or sign in with SSO'}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = buildCognitoLoginUrl()
+                }}
+                className="w-full py-3 px-4 rounded-lg font-semibold transition-colors bg-background-light hover:bg-background-lighter text-text border border-border"
+              >
+                Sign in with Cognito SSO
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
