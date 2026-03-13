@@ -10,7 +10,7 @@ import com.scroogebank.crm.transaction_service.dto.TransactionKind;
 import com.scroogebank.crm.transaction_service.dto.TransactionStatus;
 import com.scroogebank.crm.transaction_service.repository.TransactionImportBatchRepository;
 import com.scroogebank.crm.transaction_service.repository.TransactionRecordRepository;
-import com.scroogebank.crm.transaction_service.service.imports.MockFilesystemSftpClient;
+import com.scroogebank.crm.transaction_service.service.imports.S3BackedTransactionFileSource;
 import com.scroogebank.crm.transaction_service.service.imports.TransactionCsvParser;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -18,7 +18,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.LocalDate;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,7 +43,6 @@ class PersistentTransactionsStoreTest {
 	@Autowired
 	private Clock clock;
 
-	@BeforeEach
 	void setUp() {
 		transactionRepository.deleteAll();
 		batchRepository.deleteAll();
@@ -52,6 +50,7 @@ class PersistentTransactionsStoreTest {
 
 	@Test
 	void transactionPersistsAcrossStoreInstance() {
+		setUp();
 		TransactionDto created = store.create(
 			new CreateTransactionRequest(
 				"clt_123",
@@ -64,7 +63,7 @@ class PersistentTransactionsStoreTest {
 
 		PersistentTransactionsStore recreated = new PersistentTransactionsStore(
 			clock,
-			new MockFilesystemSftpClient(tempDir),
+			new S3BackedTransactionFileSource(tempDir),
 			new TransactionCsvParser(),
 			transactionRepository,
 			batchRepository
@@ -80,7 +79,8 @@ class PersistentTransactionsStoreTest {
 	}
 
 	@Test
-	void importFromMockSftp_reImportDoesNotDuplicateRows() throws IOException {
+	void importTransactions_reImportDoesNotDuplicateRows() throws IOException {
+		setUp();
 		Path csv = tempDir.resolve("transactions.csv");
 		Files.writeString(csv, """
 			clientId,transaction,amount,date,status
@@ -90,14 +90,14 @@ class PersistentTransactionsStoreTest {
 
 		PersistentTransactionsStore localStore = new PersistentTransactionsStore(
 			clock,
-			new MockFilesystemSftpClient(tempDir),
+			new S3BackedTransactionFileSource(tempDir),
 			new TransactionCsvParser(),
 			transactionRepository,
 			batchRepository
 		);
 
-		ImportBatchDto first = localStore.importFromMockSftp(new ImportTransactionsRequest(null, "transactions.csv"));
-		ImportBatchDto second = localStore.importFromMockSftp(new ImportTransactionsRequest(null, "transactions.csv"));
+		ImportBatchDto first = localStore.importTransactions(new ImportTransactionsRequest(null, "transactions.csv"));
+		ImportBatchDto second = localStore.importTransactions(new ImportTransactionsRequest(null, "transactions.csv"));
 		InMemoryTransactionsStore.ListResult listResult = localStore.list(50, 0, null, null, null, null, null);
 
 		assertEquals(2, first.importedRecords());

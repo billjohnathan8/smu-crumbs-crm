@@ -5,7 +5,6 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
@@ -51,7 +50,6 @@ class ClientControllerTest {
 	private ClientService clientService;
 	private RequestAuth requestAuth;
 
-	@BeforeEach
 	void setUp() {
 		clientService = mock(ClientService.class);
 		requestAuth = mock(RequestAuth.class);
@@ -119,6 +117,7 @@ class ClientControllerTest {
 
 	@Test
 	void listClients_returnsPaginatedShape() throws Exception {
+		setUp();
 		when(clientService.listClients(any(), eq(50), eq(0), eq(null))).thenReturn(
 			new ClientListResponse(List.of(sampleDto("clt_1")), new Pagination(50, 0, 1))
 		);
@@ -131,6 +130,7 @@ class ClientControllerTest {
 
 	@Test
 	void createClient_returnsCreatedClient() throws Exception {
+		setUp();
 		when(clientService.createClient(any(), any(), any(), any())).thenReturn(sampleDto("clt_10"));
 
 		mockMvc.perform(post("/api/clients")
@@ -147,6 +147,7 @@ class ClientControllerTest {
 
 	@Test
 	void createClient_duplicate_returnsConflict() throws Exception {
+		setUp();
 		when(clientService.createClient(any(), any(), any(), any()))
 			.thenThrow(new DuplicateClientException("Email address already exists."));
 
@@ -160,6 +161,7 @@ class ClientControllerTest {
 
 	@Test
 	void createClient_unknownField_returnsBadRequest() throws Exception {
+		setUp();
 		String payloadWithUnknownField = """
 			{
 			  "firstName": "Jordan",
@@ -188,6 +190,7 @@ class ClientControllerTest {
 
 	@Test
 	void getClient_returnsClient() throws Exception {
+		setUp();
 		when(clientService.getClient(any(), eq("clt_7"), any(), any())).thenReturn(sampleDto("clt_7"));
 
 		mockMvc.perform(get("/api/clients/clt_7").header("Authorization", AUTH_HEADER))
@@ -197,6 +200,7 @@ class ClientControllerTest {
 
 	@Test
 	void getClient_notFound_returns404() throws Exception {
+		setUp();
 		when(clientService.getClient(any(), eq("clt_404"), any(), any())).thenThrow(new ClientNotFoundException("clt_404"));
 
 		mockMvc.perform(get("/api/clients/clt_404").header("Authorization", AUTH_HEADER))
@@ -206,6 +210,7 @@ class ClientControllerTest {
 
 	@Test
 	void updateClient_returnsUpdatedClient() throws Exception {
+		setUp();
 		when(clientService.updateClient(any(), eq("clt_12"), any(), any(), any())).thenReturn(sampleDto("clt_12"));
 
 		mockMvc.perform(put("/api/clients/clt_12")
@@ -218,6 +223,7 @@ class ClientControllerTest {
 
 	@Test
 	void deleteClient_returnsNoContent() throws Exception {
+		setUp();
 		doNothing().when(clientService).deleteClient(any(), eq("clt_55"), any(), any());
 
 		mockMvc.perform(delete("/api/clients/clt_55").header("Authorization", AUTH_HEADER))
@@ -226,6 +232,7 @@ class ClientControllerTest {
 
 	@Test
 	void listClients_invalidLimitType_returnsBadRequest() throws Exception {
+		setUp();
 		mockMvc.perform(get("/api/clients?limit=abc").header("Authorization", AUTH_HEADER))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.error").value("validation_error"))
