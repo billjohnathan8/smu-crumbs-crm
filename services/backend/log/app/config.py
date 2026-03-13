@@ -86,6 +86,22 @@ class Settings:
             "dev-only-insecure-secret" if _is_dev_environment() else None,
         )
     )
+    # Authentication mode: "local" (HS256 only), "cognito" (RS256 only), "hybrid" (both)
+    auth_mode: str = field(
+        default_factory=lambda: os.getenv("AUTH_MODE", "local").strip().lower()
+    )
+    # Cognito JWKS endpoint — required when auth_mode is "cognito" or "hybrid"
+    cognito_jwks_url: str = field(
+        default_factory=lambda: os.getenv("COGNITO_JWKS_URL", "")
+    )
+    # Expected issuer in Cognito tokens (https://cognito-idp.<region>.amazonaws.com/<pool_id>)
+    cognito_issuer: str = field(
+        default_factory=lambda: os.getenv("COGNITO_ISSUER", "")
+    )
+    # Cognito App Client ID used as the audience claim
+    cognito_audience: str = field(
+        default_factory=lambda: os.getenv("COGNITO_CLIENT_ID", "")
+    )
 
     @property
     def dsn(self) -> str:

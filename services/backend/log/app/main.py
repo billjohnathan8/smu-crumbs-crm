@@ -171,7 +171,12 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
     ):
         """Resolve the authenticated user from the bearer token."""
         return require_bearer_user(
-            request.headers.get("Authorization"), settings.jwt_hmac_secret
+            request.headers.get("Authorization"),
+            settings.jwt_hmac_secret,
+            auth_mode=settings.auth_mode,
+            cognito_jwks_url=settings.cognito_jwks_url,
+            cognito_issuer=settings.cognito_issuer,
+            cognito_audience=settings.cognito_audience,
         )
 
     def decode_prefixed_id(prefix: str, value: str) -> int:
