@@ -129,7 +129,7 @@ variable "root_admin_email" {
 variable "auth_mode" {
   description = "Runtime auth mode exposed to backend services (local, hybrid, cognito)."
   type        = string
-  default     = "local"
+  default     = "hybrid"
 }
 
 variable "cognito_issuer_url" {

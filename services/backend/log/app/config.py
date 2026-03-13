@@ -88,7 +88,7 @@ class Settings:
     )
     # Authentication mode: "local" (HS256 only), "cognito" (RS256 only), "hybrid" (both)
     auth_mode: str = field(
-        default_factory=lambda: os.getenv("AUTH_MODE", "local").strip().lower()
+        default_factory=lambda: os.getenv("AUTH_MODE", "hybrid").strip().lower()
     )
     # Cognito JWKS endpoint — required when auth_mode is "cognito" or "hybrid"
     cognito_jwks_url: str = field(

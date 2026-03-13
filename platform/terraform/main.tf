@@ -164,6 +164,10 @@ module "lambda" {
   db_username_secret_arn                       = module.security.db_username_secret_arn
   db_password_secret_arn                       = module.security.db_password_secret_arn
   jwt_hmac_secret_arn                          = module.security.jwt_hmac_secret_arn
+  auth_mode                                    = lower(trimspace(var.auth_mode))
+  cognito_issuer_url                           = var.cognito_issuer_url != "" ? var.cognito_issuer_url : (var.enable_cognito ? module.cognito[0].issuer_url : "")
+  cognito_jwks_url                             = var.cognito_jwks_url != "" ? var.cognito_jwks_url : (var.enable_cognito ? module.cognito[0].jwks_url : "")
+  cognito_audience                             = var.cognito_audience != "" ? var.cognito_audience : (var.enable_cognito ? module.cognito[0].app_client_id : "")
   enable_aml_lambda                            = var.enable_aml_lambda
   aml_lambda_zip_path                          = var.aml_lambda_zip_path
   aml_lambda_memory_size                       = var.aml_lambda_memory_size

@@ -653,7 +653,7 @@ variable "cognito_logout_urls" {
 variable "auth_mode" {
   description = "Runtime auth mode for backend services. Supported values: local, hybrid, cognito."
   type        = string
-  default     = "local"
+  default     = "hybrid"
 
   validation {
     condition     = contains(["local", "hybrid", "cognito"], lower(trimspace(var.auth_mode)))

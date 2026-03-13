@@ -36,6 +36,10 @@ resource "aws_lambda_function" "log" {
       DB_USER_SECRET_ARN     = var.db_username_secret_arn
       DB_PASSWORD_SECRET_ARN = var.db_password_secret_arn
       JWT_HMAC_SECRET_ARN    = var.jwt_hmac_secret_arn
+      AUTH_MODE              = var.auth_mode
+      COGNITO_ISSUER         = var.cognito_issuer_url
+      COGNITO_JWKS_URL       = var.cognito_jwks_url
+      COGNITO_CLIENT_ID      = var.cognito_audience
     }
   }
 

@@ -97,6 +97,30 @@ variable "jwt_hmac_secret_arn" {
   type        = string
 }
 
+variable "auth_mode" {
+  description = "Runtime auth mode for the log Lambda (local, hybrid, cognito)."
+  type        = string
+  default     = "hybrid"
+}
+
+variable "cognito_issuer_url" {
+  description = "Cognito issuer URL for RS256 token validation."
+  type        = string
+  default     = ""
+}
+
+variable "cognito_jwks_url" {
+  description = "Cognito JWKS endpoint URL for RS256 token validation."
+  type        = string
+  default     = ""
+}
+
+variable "cognito_audience" {
+  description = "Cognito App Client ID used as the audience claim."
+  type        = string
+  default     = ""
+}
+
 variable "enable_aml_lambda" {
   description = "Create the AML ingestion Lambda and schedule."
   type        = bool
