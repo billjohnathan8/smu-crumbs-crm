@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext'
 import { ProtectedRoute } from './ProtectedRoute'
 import { LoginPage } from '@/pages/LoginPage'
+import { CognitoCallback } from '@/pages/CognitoCallback'
 import { AdminDashboard } from '@/pages/AdminDashboard'
 import { AdminManageAccounts } from '@/pages/AdminManageAccounts'
 import { AdminCommunications } from '@/pages/AdminCommunications'
@@ -42,11 +43,13 @@ export function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/auth/callback" element={<CognitoCallback />} />
 
           <Route element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} />}>
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/accounts" element={<AdminManageAccounts />} />
             <Route path="/admin/communications" element={<AdminCommunications />} />
+            <Route path="/admin/clients/:clientId" element={<AgentClientDetail />} />
             <Route path="/admin/aml-alerts" element={<AmlAlertsPage />} />
           </Route>
 

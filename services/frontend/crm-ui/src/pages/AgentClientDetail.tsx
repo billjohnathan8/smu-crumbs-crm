@@ -1,10 +1,10 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
-import { getClientById, verifyClient, deleteClient, listClientAccounts } from '@/api/clients'
+import { getClientById, verifyClient, reviewVerification, deleteClient, listClientAccounts } from '@/api/clients'
 import { listClientTransactions } from '@/api/transactions'
 import { listClientCommunications, sendCommunication } from '@/api/communications'
-import type { Client, Transaction, VerifyClientRequest, Account, Communication } from '@/api/types'
+import type { Client, Transaction, VerifyClientRequest, Account, Communication, ReviewAction } from '@/api/types'
 import type { SendCommunicationRequest } from '@/api/communications'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
@@ -17,6 +17,13 @@ const agentNav: NavItem[] = [
   { label: 'AML Alerts', to: '/agent/aml-alerts' },
 ]
 
+const adminNav: NavItem[] = [
+  { label: 'Home', to: '/admin', end: true },
+  { label: 'Manage Accounts', to: '/admin/accounts' },
+  { label: 'Communications', to: '/admin/communications' },
+  { label: 'AML Alerts', to: '/admin/aml-alerts' },
+]
+
 const statusColors: Record<string, string> = {
   unverified: 'bg-background-light text-text-muted',
   pending: 'bg-warning/20 text-warning',
@@ -26,7 +33,7 @@ const statusColors: Record<string, string> = {
 
 export function AgentClientDetail() {
   const { clientId } = useParams<{ clientId: string }>()
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -66,6 +73,39 @@ export function AgentClientDetail() {
   const [composeError, setComposeError] = useState('')
   const [isSending, setIsSending] = useState(false)
   const [composeSuccess, setComposeSuccess] = useState('')
+
+  // Admin verification review state
+  const [isReviewing, setIsReviewing] = useState(false)
+  const [reviewError, setReviewError] = useState('')
+
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
+  const sidebarNav = isAdmin ? adminNav : agentNav
+
+  const handleReviewVerification = async (action: ReviewAction) => {
+    if (!clientId) return
+    setIsReviewing(true)
+    setReviewError('')
+    setVerifySuccess('')
+    try {
+      const result = await reviewVerification(clientId, { action })
+      setVerifySuccess(
+        action === 'approve'
+          ? `Verification approved (status: ${result.identityVerificationStatus})`
+          : `Verification rejected (status: ${result.identityVerificationStatus})`
+      )
+      const updated = await getClientById(clientId)
+      setClient(updated)
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 401) logout()
+        else setReviewError(err.message || 'Review failed')
+      } else {
+        setReviewError('An unexpected error occurred')
+      }
+    } finally {
+      setIsReviewing(false)
+    }
+  }
 
   useEffect(() => {
     if (!clientId) return
@@ -114,7 +154,7 @@ export function AgentClientDetail() {
     setVerifySuccess('')
     try {
       const result = await verifyClient(clientId, verifyData)
-      setVerifySuccess(`Client successfully verified (status: ${result.identityVerificationStatus})`)
+      setVerifySuccess(`Verification submitted for review (status: ${result.identityVerificationStatus})`)
       setShowVerifyForm(false)
       // Refresh client data
       const updated = await getClientById(clientId)
@@ -206,7 +246,7 @@ export function AgentClientDetail() {
 
   if (isLoading) {
     return (
-      <SidebarLayout items={agentNav}>
+      <SidebarLayout items={sidebarNav}>
         <div className="flex items-center justify-center h-64">
           <div
             data-testid="loading-spinner"
@@ -219,12 +259,12 @@ export function AgentClientDetail() {
 
   if (error || !client) {
     return (
-      <SidebarLayout items={agentNav}>
+      <SidebarLayout items={sidebarNav}>
         <div className="bg-danger/10 border border-danger rounded-lg p-4 mt-6">
           <p className="text-danger">{error || 'Client not found'}</p>
         </div>
         <button
-          onClick={() => navigate('/agent/clients')}
+          onClick={() => navigate(isAdmin ? '/admin' : '/agent/clients')}
           className="mt-4 px-4 py-2 rounded bg-primary hover:bg-primary-hover text-white text-sm"
         >
           Back to Clients
@@ -234,7 +274,7 @@ export function AgentClientDetail() {
   }
 
   return (
-    <SidebarLayout items={agentNav}>
+    <SidebarLayout items={sidebarNav}>
       <nav>
         <div className="flex justify-between h-16 items-center px-4">
           <div className="flex items-center space-x-4">
@@ -289,12 +329,12 @@ export function AgentClientDetail() {
               >
                 Delete Client
               </button>
-              {client.identityVerificationStatus !== 'verified' && (
+              {client.identityVerificationStatus === 'unverified' && (
                 <button
                   onClick={() => setShowVerifyForm(v => !v)}
                   className="px-4 py-2 rounded bg-success hover:bg-success-hover text-white text-sm font-medium"
                 >
-                  {showVerifyForm ? 'Cancel Verification' : 'Verify Client (KYC)'}
+                  {showVerifyForm ? 'Cancel Verification' : 'Submit for KYC Verification'}
                 </button>
               )}
             </div>
@@ -365,7 +405,7 @@ export function AgentClientDetail() {
                   disabled={isVerifying}
                   className="px-6 py-2 bg-success hover:bg-success-hover text-white rounded-lg text-sm font-medium disabled:opacity-50"
                 >
-                  {isVerifying ? 'Verifying...' : 'Confirm Verification'}
+                  {isVerifying ? 'Submitting...' : 'Submit for Review'}
                 </button>
                 <button
                   type="button"
@@ -376,6 +416,37 @@ export function AgentClientDetail() {
                 </button>
               </div>
             </form>
+          </div>
+        )}
+
+        {/* Admin Verification Review Panel */}
+        {isAdmin && client.identityVerificationStatus === 'pending' && (
+          <div className="bg-card border border-warning rounded-lg p-6">
+            <h2 className="text-lg font-bold text-text mb-2">Pending Verification Review</h2>
+            <p className="text-sm text-text-muted mb-4">
+              This client has submitted identity documents for KYC verification. Review and approve or reject.
+            </p>
+            {reviewError && (
+              <div className="bg-danger/10 border border-danger rounded-lg p-3 mb-4">
+                <p className="text-danger text-sm">{reviewError}</p>
+              </div>
+            )}
+            <div className="flex space-x-3">
+              <button
+                onClick={() => handleReviewVerification('approve')}
+                disabled={isReviewing}
+                className="px-6 py-2 bg-success hover:bg-success-hover text-white rounded-lg text-sm font-medium disabled:opacity-50"
+              >
+                {isReviewing ? 'Processing...' : 'Approve'}
+              </button>
+              <button
+                onClick={() => handleReviewVerification('reject')}
+                disabled={isReviewing}
+                className="px-6 py-2 bg-danger hover:bg-danger-hover text-white rounded-lg text-sm font-medium disabled:opacity-50"
+              >
+                {isReviewing ? 'Processing...' : 'Reject'}
+              </button>
+            </div>
           </div>
         )}
 

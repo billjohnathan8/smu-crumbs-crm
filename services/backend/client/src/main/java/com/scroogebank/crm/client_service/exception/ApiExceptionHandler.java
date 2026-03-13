@@ -74,6 +74,16 @@ public class ApiExceptionHandler {
 		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error(request, "unauthorized", "Unauthorized"));
 	}
 
+	@ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+	public ResponseEntity<ErrorResponse> handleForbidden(HttpServletRequest request, org.springframework.security.access.AccessDeniedException ex) {
+		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error(request, "forbidden", ex.getMessage()));
+	}
+
+	@ExceptionHandler(IllegalStateException.class)
+	public ResponseEntity<ErrorResponse> handleIllegalState(HttpServletRequest request, IllegalStateException ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(error(request, "conflict", ex.getMessage()));
+	}
+
 	@ExceptionHandler(IllegalArgumentException.class)
 	public ResponseEntity<ErrorResponse> handleBadRequest(HttpServletRequest request, IllegalArgumentException ex) {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(request, "validation_error", "Invalid request"));

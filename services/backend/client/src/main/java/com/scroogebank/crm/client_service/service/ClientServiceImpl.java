@@ -16,6 +16,7 @@ import com.scroogebank.crm.client_service.dto.ClientDto;
 import com.scroogebank.crm.client_service.dto.ClientListResponse;
 import com.scroogebank.crm.client_service.dto.ClientUpdateRequest;
 import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
+import com.scroogebank.crm.client_service.dto.ReviewVerificationRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
 import com.scroogebank.crm.client_service.email.VerificationEmail;
@@ -277,8 +278,8 @@ public class ClientServiceImpl implements ClientService {
 		if (request.documentRef() != null && !request.documentRef().isBlank()) {
 			entity.setVerificationDocumentRef(request.documentRef());
 		}
-		entity.setIdentityVerificationStatus(IdentityVerificationStatus.verified);
-		entity.setVerificationVerifiedAt(java.time.Instant.now());
+		entity.setIdentityVerificationStatus(IdentityVerificationStatus.pending);
+		entity.setVerificationVerifiedAt(null);
 		ClientEntity saved = clientRepository.save(entity);
 
 		publishAuditSafe(
@@ -299,6 +300,68 @@ public class ClientServiceImpl implements ClientService {
 			authorizationHeader,
 			requestId
 		);
+
+		return new VerifyClientResponse(clientId(saved.getId()), saved.getIdentityVerificationStatus());
+	}
+
+	@Override
+	@Transactional
+	public VerifyClientResponse reviewVerification(
+		AuthenticatedUser user,
+		String clientId,
+		ReviewVerificationRequest request,
+		String authorizationHeader,
+		String requestId
+	) {
+		if (!user.isAdmin()) {
+			throw new org.springframework.security.access.AccessDeniedException(
+				"Only admins can review verifications"
+			);
+		}
+
+		long id = decodeClientId(clientId);
+		ClientEntity entity = clientRepository.findById(id)
+			.orElseThrow(() -> new ClientNotFoundException("Client not found: " + clientId));
+
+		if (entity.getIdentityVerificationStatus() != IdentityVerificationStatus.pending) {
+			throw new IllegalStateException(
+				"Client verification is not in pending state (current: "
+				+ entity.getIdentityVerificationStatus() + ")"
+			);
+		}
+
+		IdentityVerificationStatus before = entity.getIdentityVerificationStatus();
+		IdentityVerificationStatus after = switch (request.action()) {
+			case approve -> IdentityVerificationStatus.verified;
+			case reject -> IdentityVerificationStatus.rejected;
+		};
+
+		entity.setIdentityVerificationStatus(after);
+		if (after == IdentityVerificationStatus.verified) {
+			entity.setVerificationVerifiedAt(java.time.Instant.now());
+		}
+		ClientEntity saved = clientRepository.save(entity);
+
+		publishAuditSafe(
+			"UPDATE",
+			"identityVerificationStatus",
+			before.name(),
+			after.name(),
+			user.userId(),
+			clientId(saved.getId()),
+			requestId,
+			authorizationHeader
+		);
+
+		if (after == IdentityVerificationStatus.verified) {
+			sendVerificationEmailSafe(
+				saved,
+				clientId(saved.getId()),
+				user.userId(),
+				authorizationHeader,
+				requestId
+			);
+		}
 
 		return new VerifyClientResponse(clientId(saved.getId()), saved.getIdentityVerificationStatus());
 	}

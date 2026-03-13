@@ -127,6 +127,12 @@ export interface VerifyClientResponse {
   identityVerificationStatus: IdentityVerificationStatus
 }
 
+export type ReviewAction = 'approve' | 'reject'
+
+export interface ReviewVerificationRequest {
+  action: ReviewAction
+}
+
 export interface Account {
   accountId: string
   clientId: string

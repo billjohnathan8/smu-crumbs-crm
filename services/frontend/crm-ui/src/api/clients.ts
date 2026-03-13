@@ -1,10 +1,11 @@
-import { apiGet, apiPost, apiPut, apiDelete } from './client'
+import { apiGet, apiPost, apiPut, apiPatch, apiDelete } from './client'
 import type {
   Client,
   ClientCreateRequest,
   ClientUpdateRequest,
   VerifyClientRequest,
   VerifyClientResponse,
+  ReviewVerificationRequest,
   Account,
   AccountCreateRequest,
   AccountUpdateRequest,
@@ -67,7 +68,7 @@ export async function deleteClient(clientId: string): Promise<void> {
 }
 
 /**
- * Verify client identity
+ * Verify client identity (submits for review — sets status to pending)
  */
 export async function verifyClient(
   clientId: string,
@@ -75,6 +76,19 @@ export async function verifyClient(
 ): Promise<VerifyClientResponse> {
   return apiPost<VerifyClientResponse, VerifyClientRequest>(
     `${CLIENTS_BASE}/${clientId}/verify`,
+    data
+  )
+}
+
+/**
+ * Review a pending verification (admin only — approve or reject)
+ */
+export async function reviewVerification(
+  clientId: string,
+  data: ReviewVerificationRequest
+): Promise<VerifyClientResponse> {
+  return apiPatch<VerifyClientResponse, ReviewVerificationRequest>(
+    `${CLIENTS_BASE}/${clientId}/verify/review`,
     data
   )
 }
