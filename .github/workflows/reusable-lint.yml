@@ -169,6 +169,8 @@ jobs:
     if: inputs.run-terraform
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
     defaults:
       run:
         working-directory: platform/terraform
@@ -238,21 +240,21 @@ jobs:
         run: mkdir -p .infracost
 
       - name: Set up Infracost
-        if: ${{ secrets.INFRACOST_API_KEY != '' }}
+        if: ${{ env.INFRACOST_API_KEY != '' }}
         uses: infracost/actions/setup@v3
         timeout-minutes: 2
         with:
-          api-key: ${{ secrets.INFRACOST_API_KEY }}
+          api-key: ${{ env.INFRACOST_API_KEY }}
 
       - name: Generate Infracost report
-        if: ${{ secrets.INFRACOST_API_KEY != '' }}
+        if: ${{ env.INFRACOST_API_KEY != '' }}
         timeout-minutes: 5
         run: |
           infracost breakdown --path=. --format=json --out-file=.infracost/infracost-report.json
           infracost breakdown --path=. --format=table --out-file=.infracost/infracost-report.txt
 
       - name: Record skipped Infracost reason
-        if: ${{ secrets.INFRACOST_API_KEY == '' }}
+        if: ${{ env.INFRACOST_API_KEY == '' }}
         timeout-minutes: 1
         run: echo "INFRACOST_API_KEY is not configured; Infracost cost report was skipped." > .infracost/README.txt
 
