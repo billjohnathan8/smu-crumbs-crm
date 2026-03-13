@@ -67,16 +67,16 @@ resource "aws_lambda_function" "aml" {
 
   environment {
     variables = {
-      SFTP_HOST             = var.aml_sftp_host
-      SFTP_PORT             = tostring(var.aml_sftp_port)
-      SFTP_USER             = var.aml_sftp_user
-      SFTP_KEY_SECRET       = var.aml_sftp_key_secret_arn
-      SFTP_REMOTE_PATH      = var.aml_sftp_remote_path
-      CRM_API_BASE_URL      = var.crm_api_base_url
-      CRM_LOG_API_URL_PARAM = "/${var.project_name}/${var.environment}/service/log/url"
+      SFTP_HOST                   = var.aml_sftp_host
+      SFTP_PORT                   = tostring(var.aml_sftp_port)
+      SFTP_USER                   = var.aml_sftp_user
+      SFTP_KEY_SECRET             = var.aml_sftp_key_secret_arn
+      SFTP_REMOTE_PATH            = var.aml_sftp_remote_path
+      CRM_API_BASE_URL            = var.crm_api_base_url
+      CRM_LOG_API_URL_PARAM       = "/${var.project_name}/${var.environment}/service/log/url"
       CRM_API_JWT_HMAC_SECRET_ARN = var.jwt_hmac_secret_arn
-      JWT_HMAC_SECRET_ARN   = var.jwt_hmac_secret_arn
-      ENTITY_ID             = var.aml_entity_id
+      JWT_HMAC_SECRET_ARN         = var.jwt_hmac_secret_arn
+      ENTITY_ID                   = var.aml_entity_id
     }
   }
 
@@ -134,11 +134,11 @@ resource "aws_lambda_function" "transaction_ingestion" {
 
   environment {
     variables = {
-      TRANSACTION_SFTP_BUCKET = var.transaction_sftp_bucket_id
-      TRANSACTION_SFTP_PREFIX = var.transaction_sftp_remote_prefix
-      TRANSACTION_IMPORT_URL  = var.transaction_import_api_url
+      TRANSACTION_SFTP_BUCKET                = var.transaction_sftp_bucket_id
+      TRANSACTION_SFTP_PREFIX                = var.transaction_sftp_remote_prefix
+      TRANSACTION_IMPORT_URL                 = var.transaction_import_api_url
       TRANSACTION_IMPORT_JWT_HMAC_SECRET_ARN = var.jwt_hmac_secret_arn
-      JWT_HMAC_SECRET_ARN     = var.jwt_hmac_secret_arn
+      JWT_HMAC_SECRET_ARN                    = var.jwt_hmac_secret_arn
     }
   }
 
