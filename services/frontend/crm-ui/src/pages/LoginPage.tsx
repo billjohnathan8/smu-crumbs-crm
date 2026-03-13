@@ -168,7 +168,9 @@ export function LoginPage() {
 
               <button
                 type="button"
-                onClick={() => { window.location.href = buildCognitoLoginUrl() }}
+                onClick={() => {
+                  window.location.href = buildCognitoLoginUrl()
+                }}
                 className="w-full py-3 px-4 rounded-lg font-semibold transition-colors bg-background-light hover:bg-background-lighter text-text border border-border"
               >
                 Sign in with Cognito SSO

@@ -19,9 +19,7 @@ export interface ListClientCommunicationsParams {
 /**
  * Send a communication (email) to a client.
  */
-export async function sendCommunication(
-  data: SendCommunicationRequest
-): Promise<Communication> {
+export async function sendCommunication(data: SendCommunicationRequest): Promise<Communication> {
   return apiPost<Communication, SendCommunicationRequest>(BASE, data)
 }
 

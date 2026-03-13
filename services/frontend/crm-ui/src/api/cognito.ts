@@ -28,7 +28,8 @@ export const COGNITO_REDIRECT_URI =
 export const COGNITO_SCOPES = 'openid email profile'
 
 /** True when Cognito SSO login should be available in the UI. */
-export const isCognitoEnabled = (AUTH_MODE === 'cognito' || AUTH_MODE === 'hybrid') && !!COGNITO_DOMAIN && !!COGNITO_CLIENT_ID
+export const isCognitoEnabled =
+  (AUTH_MODE === 'cognito' || AUTH_MODE === 'hybrid') && !!COGNITO_DOMAIN && !!COGNITO_CLIENT_ID
 
 /** Build the Cognito Hosted UI authorization URL (PKCE code flow). */
 export function buildCognitoLoginUrl(): string {

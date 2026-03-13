@@ -114,7 +114,8 @@ export function AgentEditClient() {
       if (err instanceof ApiError) {
         if (err.status === 401) logout()
         else if (err.status === 409) setGeneralError('A client with this email already exists')
-        else if (err.status === 422) setGeneralError('Invalid data provided. Please check your inputs.')
+        else if (err.status === 422)
+          setGeneralError('Invalid data provided. Please check your inputs.')
         else setGeneralError(err.message || 'Failed to update client')
       } else {
         setGeneralError('An unexpected error occurred')
@@ -133,7 +134,10 @@ export function AgentEditClient() {
     return (
       <SidebarLayout items={agentNav}>
         <div className="flex items-center justify-center h-64">
-          <div data-testid="loading-spinner" className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+          <div
+            data-testid="loading-spinner"
+            className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"
+          />
         </div>
       </SidebarLayout>
     )
@@ -145,7 +149,10 @@ export function AgentEditClient() {
         <div className="bg-danger/10 border border-danger rounded-lg p-4 mt-6">
           <p className="text-danger">{loadError}</p>
         </div>
-        <button onClick={() => navigate(`/agent/clients/${clientId}`)} className="mt-4 px-4 py-2 rounded bg-primary hover:bg-primary-hover text-white text-sm">
+        <button
+          onClick={() => navigate(`/agent/clients/${clientId}`)}
+          className="mt-4 px-4 py-2 rounded bg-primary hover:bg-primary-hover text-white text-sm"
+        >
           Back to Client
         </button>
       </SidebarLayout>
@@ -160,13 +167,19 @@ export function AgentEditClient() {
       <nav>
         <div className="flex justify-between h-16 items-center px-4">
           <div className="flex items-center space-x-4">
-            <button onClick={() => navigate(`/agent/clients/${clientId}`)} className="text-text-muted hover:text-text text-sm">
+            <button
+              onClick={() => navigate(`/agent/clients/${clientId}`)}
+              className="text-text-muted hover:text-text text-sm"
+            >
               ← Back to Client
             </button>
             <span className="text-text-muted">/</span>
             <h1 className="text-xl font-bold text-text">Edit Client</h1>
           </div>
-          <button onClick={logout} className="px-4 py-2 rounded-lg bg-danger hover:bg-danger-hover text-white font-medium transition-colors">
+          <button
+            onClick={logout}
+            className="px-4 py-2 rounded-lg bg-danger hover:bg-danger-hover text-white font-medium transition-colors"
+          >
             Logout
           </button>
         </div>
@@ -183,23 +196,61 @@ export function AgentEditClient() {
           <form onSubmit={handleSubmit} noValidate className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-text mb-2">First Name <span className="text-danger">*</span></label>
-                <input type="text" name="firstName" value={formData.firstName || ''} onChange={e => updateField('firstName', e.target.value)} className={inputCls('firstName')} disabled={isSubmitting} />
+                <label className="block text-sm font-medium text-text mb-2">
+                  First Name <span className="text-danger">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="firstName"
+                  value={formData.firstName || ''}
+                  onChange={e => updateField('firstName', e.target.value)}
+                  className={inputCls('firstName')}
+                  disabled={isSubmitting}
+                />
                 {errors.firstName && <p className="text-danger text-xs mt-1">{errors.firstName}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-text mb-2">Last Name <span className="text-danger">*</span></label>
-                <input type="text" name="lastName" value={formData.lastName || ''} onChange={e => updateField('lastName', e.target.value)} className={inputCls('lastName')} disabled={isSubmitting} />
+                <label className="block text-sm font-medium text-text mb-2">
+                  Last Name <span className="text-danger">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="lastName"
+                  value={formData.lastName || ''}
+                  onChange={e => updateField('lastName', e.target.value)}
+                  className={inputCls('lastName')}
+                  disabled={isSubmitting}
+                />
                 {errors.lastName && <p className="text-danger text-xs mt-1">{errors.lastName}</p>}
               </div>
               <div>
-                <label htmlFor="dateOfBirth" className="block text-sm font-medium text-text mb-2">Date of Birth <span className="text-danger">*</span></label>
-                <input id="dateOfBirth" name="dateOfBirth" type="date" value={formData.dateOfBirth || ''} onChange={e => updateField('dateOfBirth', e.target.value)} className={inputCls('dateOfBirth')} disabled={isSubmitting} />
-                {errors.dateOfBirth && <p className="text-danger text-xs mt-1">{errors.dateOfBirth}</p>}
+                <label htmlFor="dateOfBirth" className="block text-sm font-medium text-text mb-2">
+                  Date of Birth <span className="text-danger">*</span>
+                </label>
+                <input
+                  id="dateOfBirth"
+                  name="dateOfBirth"
+                  type="date"
+                  value={formData.dateOfBirth || ''}
+                  onChange={e => updateField('dateOfBirth', e.target.value)}
+                  className={inputCls('dateOfBirth')}
+                  disabled={isSubmitting}
+                />
+                {errors.dateOfBirth && (
+                  <p className="text-danger text-xs mt-1">{errors.dateOfBirth}</p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-text mb-2">Gender <span className="text-danger">*</span></label>
-                <select name="gender" value={formData.gender || 'Prefer not to say'} onChange={e => updateField('gender', e.target.value as Gender)} className="w-full px-4 py-2 bg-background-light border border-border rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" disabled={isSubmitting}>
+                <label className="block text-sm font-medium text-text mb-2">
+                  Gender <span className="text-danger">*</span>
+                </label>
+                <select
+                  name="gender"
+                  value={formData.gender || 'Prefer not to say'}
+                  onChange={e => updateField('gender', e.target.value as Gender)}
+                  className="w-full px-4 py-2 bg-background-light border border-border rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  disabled={isSubmitting}
+                >
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
                   <option value="Non-binary">Non-binary</option>
@@ -207,51 +258,130 @@ export function AgentEditClient() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-text mb-2">Email <span className="text-danger">*</span></label>
-                <input type="email" name="emailAddress" value={formData.emailAddress || ''} onChange={e => updateField('emailAddress', e.target.value)} className={inputCls('emailAddress')} disabled={isSubmitting} />
-                {errors.emailAddress && <p className="text-danger text-xs mt-1">{errors.emailAddress}</p>}
+                <label className="block text-sm font-medium text-text mb-2">
+                  Email <span className="text-danger">*</span>
+                </label>
+                <input
+                  type="email"
+                  name="emailAddress"
+                  value={formData.emailAddress || ''}
+                  onChange={e => updateField('emailAddress', e.target.value)}
+                  className={inputCls('emailAddress')}
+                  disabled={isSubmitting}
+                />
+                {errors.emailAddress && (
+                  <p className="text-danger text-xs mt-1">{errors.emailAddress}</p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-text mb-2">Phone Number <span className="text-danger">*</span></label>
-                <input type="tel" name="phoneNumber" value={formData.phoneNumber || ''} onChange={e => updateField('phoneNumber', e.target.value)} placeholder="+65 1234 5678" className={inputCls('phoneNumber')} disabled={isSubmitting} />
-                {errors.phoneNumber && <p className="text-danger text-xs mt-1">{errors.phoneNumber}</p>}
+                <label className="block text-sm font-medium text-text mb-2">
+                  Phone Number <span className="text-danger">*</span>
+                </label>
+                <input
+                  type="tel"
+                  name="phoneNumber"
+                  value={formData.phoneNumber || ''}
+                  onChange={e => updateField('phoneNumber', e.target.value)}
+                  placeholder="+65 1234 5678"
+                  className={inputCls('phoneNumber')}
+                  disabled={isSubmitting}
+                />
+                {errors.phoneNumber && (
+                  <p className="text-danger text-xs mt-1">{errors.phoneNumber}</p>
+                )}
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-text mb-2">Address <span className="text-danger">*</span></label>
-              <input type="text" name="address" value={formData.address || ''} onChange={e => updateField('address', e.target.value)} className={inputCls('address')} disabled={isSubmitting} />
+              <label className="block text-sm font-medium text-text mb-2">
+                Address <span className="text-danger">*</span>
+              </label>
+              <input
+                type="text"
+                name="address"
+                value={formData.address || ''}
+                onChange={e => updateField('address', e.target.value)}
+                className={inputCls('address')}
+                disabled={isSubmitting}
+              />
               {errors.address && <p className="text-danger text-xs mt-1">{errors.address}</p>}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-text mb-2">City <span className="text-danger">*</span></label>
-                <input type="text" name="city" value={formData.city || ''} onChange={e => updateField('city', e.target.value)} className={inputCls('city')} disabled={isSubmitting} />
+                <label className="block text-sm font-medium text-text mb-2">
+                  City <span className="text-danger">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="city"
+                  value={formData.city || ''}
+                  onChange={e => updateField('city', e.target.value)}
+                  className={inputCls('city')}
+                  disabled={isSubmitting}
+                />
                 {errors.city && <p className="text-danger text-xs mt-1">{errors.city}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-text mb-2">State <span className="text-danger">*</span></label>
-                <input type="text" name="state" value={formData.state || ''} onChange={e => updateField('state', e.target.value)} className={inputCls('state')} disabled={isSubmitting} />
+                <label className="block text-sm font-medium text-text mb-2">
+                  State <span className="text-danger">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="state"
+                  value={formData.state || ''}
+                  onChange={e => updateField('state', e.target.value)}
+                  className={inputCls('state')}
+                  disabled={isSubmitting}
+                />
                 {errors.state && <p className="text-danger text-xs mt-1">{errors.state}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-text mb-2">Country <span className="text-danger">*</span></label>
-                <input type="text" name="country" value={formData.country || ''} onChange={e => updateField('country', e.target.value)} className={inputCls('country')} disabled={isSubmitting} />
+                <label className="block text-sm font-medium text-text mb-2">
+                  Country <span className="text-danger">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="country"
+                  value={formData.country || ''}
+                  onChange={e => updateField('country', e.target.value)}
+                  className={inputCls('country')}
+                  disabled={isSubmitting}
+                />
                 {errors.country && <p className="text-danger text-xs mt-1">{errors.country}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-text mb-2">Postal Code <span className="text-danger">*</span></label>
-                <input type="text" name="postalCode" value={formData.postalCode || ''} onChange={e => updateField('postalCode', e.target.value)} className={inputCls('postalCode')} disabled={isSubmitting} />
-                {errors.postalCode && <p className="text-danger text-xs mt-1">{errors.postalCode}</p>}
+                <label className="block text-sm font-medium text-text mb-2">
+                  Postal Code <span className="text-danger">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="postalCode"
+                  value={formData.postalCode || ''}
+                  onChange={e => updateField('postalCode', e.target.value)}
+                  className={inputCls('postalCode')}
+                  disabled={isSubmitting}
+                />
+                {errors.postalCode && (
+                  <p className="text-danger text-xs mt-1">{errors.postalCode}</p>
+                )}
               </div>
             </div>
 
             <div className="flex justify-end space-x-4 pt-4">
-              <button type="button" onClick={() => navigate(`/agent/clients/${clientId}`)} className="px-6 py-3 rounded-lg bg-background-light text-text hover:bg-background-lighter font-medium transition-colors" disabled={isSubmitting}>
+              <button
+                type="button"
+                onClick={() => navigate(`/agent/clients/${clientId}`)}
+                className="px-6 py-3 rounded-lg bg-background-light text-text hover:bg-background-lighter font-medium transition-colors"
+                disabled={isSubmitting}
+              >
                 Cancel
               </button>
-              <button type="submit" disabled={isSubmitting} className={`px-6 py-3 rounded-lg font-medium transition-colors ${isSubmitting ? 'bg-primary/50 cursor-not-allowed text-white' : 'bg-primary hover:bg-primary-hover text-white'}`}>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className={`px-6 py-3 rounded-lg font-medium transition-colors ${isSubmitting ? 'bg-primary/50 cursor-not-allowed text-white' : 'bg-primary hover:bg-primary-hover text-white'}`}
+              >
                 {isSubmitting ? 'Saving...' : 'Save Changes'}
               </button>
             </div>

@@ -1,10 +1,23 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
-import { getClientById, verifyClient, reviewVerification, deleteClient, listClientAccounts } from '@/api/clients'
+import {
+  getClientById,
+  verifyClient,
+  reviewVerification,
+  deleteClient,
+  listClientAccounts,
+} from '@/api/clients'
 import { listClientTransactions } from '@/api/transactions'
 import { listClientCommunications, sendCommunication } from '@/api/communications'
-import type { Client, Transaction, VerifyClientRequest, Account, Communication, ReviewAction } from '@/api/types'
+import type {
+  Client,
+  Transaction,
+  VerifyClientRequest,
+  Account,
+  Communication,
+  ReviewAction,
+} from '@/api/types'
 import type { SendCommunicationRequest } from '@/api/communications'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
@@ -45,7 +58,8 @@ export function AgentClientDetail() {
   const [error, setError] = useState<string>('')
 
   // Success message from navigation state (e.g. after edit)
-  const navSuccessMessage = (location.state as { successMessage?: string } | null)?.successMessage || ''
+  const navSuccessMessage =
+    (location.state as { successMessage?: string } | null)?.successMessage || ''
 
   // Verify form state
   const [showVerifyForm, setShowVerifyForm] = useState(false)
@@ -65,7 +79,9 @@ export function AgentClientDetail() {
 
   // Communications compose state
   const [showComposeForm, setShowComposeForm] = useState(false)
-  const [composeData, setComposeData] = useState<Omit<SendCommunicationRequest, 'clientId' | 'channel'>>({
+  const [composeData, setComposeData] = useState<
+    Omit<SendCommunicationRequest, 'clientId' | 'channel'>
+  >({
     toEmail: '',
     subject: '',
     body: '',
@@ -117,7 +133,9 @@ export function AgentClientDetail() {
           getClientById(clientId),
           listClientTransactions(clientId, { limit: 10 }),
           listClientAccounts(clientId).catch(() => [] as Account[]),
-          listClientCommunications(clientId, { limit: 10 }).catch(() => ({ data: [] as Communication[] })),
+          listClientCommunications(clientId, { limit: 10 }).catch(() => ({
+            data: [] as Communication[],
+          })),
         ])
         setClient(clientData)
         setTransactions(txResponse.data)
@@ -154,7 +172,9 @@ export function AgentClientDetail() {
     setVerifySuccess('')
     try {
       const result = await verifyClient(clientId, verifyData)
-      setVerifySuccess(`Verification submitted for review (status: ${result.identityVerificationStatus})`)
+      setVerifySuccess(
+        `Verification submitted for review (status: ${result.identityVerificationStatus})`
+      )
       setShowVerifyForm(false)
       // Refresh client data
       const updated = await getClientById(clientId)
@@ -290,7 +310,8 @@ export function AgentClientDetail() {
             </h1>
             <span
               className={`px-2 py-1 rounded text-xs font-medium ${
-                statusColors[client.identityVerificationStatus] ?? 'bg-background-light text-text-muted'
+                statusColors[client.identityVerificationStatus] ??
+                'bg-background-light text-text-muted'
               }`}
             >
               {client.identityVerificationStatus}
@@ -355,7 +376,9 @@ export function AgentClientDetail() {
               ['Postal Code', client.postalCode],
             ].map(([label, value]) => (
               <div key={label}>
-                <dt className="text-xs text-text-muted font-medium uppercase tracking-wider">{label}</dt>
+                <dt className="text-xs text-text-muted font-medium uppercase tracking-wider">
+                  {label}
+                </dt>
                 <dd className="text-sm text-text mt-1">{value || '-'}</dd>
               </div>
             ))}
@@ -380,15 +403,21 @@ export function AgentClientDetail() {
                   type="text"
                   placeholder="e.g. S1234567D"
                   value={verifyData.nric}
-                  onChange={e => setVerifyData({ ...verifyData, nric: e.target.value.toUpperCase() })}
+                  onChange={e =>
+                    setVerifyData({ ...verifyData, nric: e.target.value.toUpperCase() })
+                  }
                   className="w-full px-4 py-2 bg-background-light border border-border rounded-lg text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   disabled={isVerifying}
                 />
-                <p className="text-xs text-text-muted mt-1">Singapore NRIC format: S/T/F/G/M + 7 digits + letter</p>
+                <p className="text-xs text-text-muted mt-1">
+                  Singapore NRIC format: S/T/F/G/M + 7 digits + letter
+                </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-text mb-1">Document Reference</label>
+                <label className="block text-sm font-medium text-text mb-1">
+                  Document Reference
+                </label>
                 <input
                   type="text"
                   placeholder="Optional scan/document reference ID"
@@ -424,7 +453,8 @@ export function AgentClientDetail() {
           <div className="bg-card border border-warning rounded-lg p-6">
             <h2 className="text-lg font-bold text-text mb-2">Pending Verification Review</h2>
             <p className="text-sm text-text-muted mb-4">
-              This client has submitted identity documents for KYC verification. Review and approve or reject.
+              This client has submitted identity documents for KYC verification. Review and approve
+              or reject.
             </p>
             {reviewError && (
               <div className="bg-danger/10 border border-danger rounded-lg p-3 mb-4">
@@ -469,10 +499,18 @@ export function AgentClientDetail() {
               <table className="w-full">
                 <thead className="bg-background-light">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Type</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-text-muted uppercase tracking-wider">Amount</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-text-muted uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                      Status
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -484,7 +522,9 @@ export function AgentClientDetail() {
                       <td className="px-6 py-3">
                         <span
                           className={`px-2 py-1 rounded text-xs font-medium ${
-                            tx.transaction === 'D' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'
+                            tx.transaction === 'D'
+                              ? 'bg-success/20 text-success'
+                              : 'bg-warning/20 text-warning'
                           }`}
                         >
                           {tx.transaction === 'D' ? 'Deposit' : 'Withdrawal'}
@@ -533,27 +573,43 @@ export function AgentClientDetail() {
               <table className="w-full">
                 <thead className="bg-background-light">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Account ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Type</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-text-muted uppercase tracking-wider">Initial Deposit</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                      Account ID
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-text-muted uppercase tracking-wider">
+                      Initial Deposit
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {accounts.map(acct => (
                     <tr key={acct.accountId} className="hover:bg-background-light">
-                      <td className="px-6 py-3 text-sm text-text font-mono">{acct.accountId.slice(0, 8)}…</td>
+                      <td className="px-6 py-3 text-sm text-text font-mono">
+                        {acct.accountId.slice(0, 8)}…
+                      </td>
                       <td className="px-6 py-3 text-sm text-text">{acct.accountType}</td>
                       <td className="px-6 py-3">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          acct.accountStatus === 'Active' ? 'bg-success/20 text-success'
-                            : acct.accountStatus === 'Pending' ? 'bg-warning/20 text-warning'
-                            : 'bg-background-light text-text-muted'
-                        }`}>
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-medium ${
+                            acct.accountStatus === 'Active'
+                              ? 'bg-success/20 text-success'
+                              : acct.accountStatus === 'Pending'
+                                ? 'bg-warning/20 text-warning'
+                                : 'bg-background-light text-text-muted'
+                          }`}
+                        >
                           {acct.accountStatus}
                         </span>
                       </td>
-                      <td className="px-6 py-3 text-sm text-text text-right font-medium">{formatAmount(acct.initialDeposit)}</td>
+                      <td className="px-6 py-3 text-sm text-text text-right font-medium">
+                        {formatAmount(acct.initialDeposit)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -594,7 +650,9 @@ export function AgentClientDetail() {
               )}
               <form onSubmit={handleSendCommunication} className="space-y-4 max-w-lg">
                 <div>
-                  <label className="block text-sm font-medium text-text mb-1">To Email <span className="text-danger">*</span></label>
+                  <label className="block text-sm font-medium text-text mb-1">
+                    To Email <span className="text-danger">*</span>
+                  </label>
                   <input
                     type="email"
                     value={composeData.toEmail}
@@ -604,7 +662,9 @@ export function AgentClientDetail() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-text mb-1">Subject <span className="text-danger">*</span></label>
+                  <label className="block text-sm font-medium text-text mb-1">
+                    Subject <span className="text-danger">*</span>
+                  </label>
                   <input
                     type="text"
                     value={composeData.subject}
@@ -614,7 +674,9 @@ export function AgentClientDetail() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-text mb-1">Body <span className="text-danger">*</span></label>
+                  <label className="block text-sm font-medium text-text mb-1">
+                    Body <span className="text-danger">*</span>
+                  </label>
                   <textarea
                     rows={4}
                     value={composeData.body}
@@ -624,10 +686,18 @@ export function AgentClientDetail() {
                   />
                 </div>
                 <div className="flex space-x-3">
-                  <button type="submit" disabled={isSending} className="px-6 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-medium disabled:opacity-50">
+                  <button
+                    type="submit"
+                    disabled={isSending}
+                    className="px-6 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-medium disabled:opacity-50"
+                  >
                     {isSending ? 'Sending...' : 'Send Email'}
                   </button>
-                  <button type="button" onClick={() => setShowComposeForm(false)} className="px-6 py-2 bg-background-light hover:bg-background-lighter text-text rounded-lg text-sm font-medium">
+                  <button
+                    type="button"
+                    onClick={() => setShowComposeForm(false)}
+                    className="px-6 py-2 bg-background-light hover:bg-background-lighter text-text rounded-lg text-sm font-medium"
+                  >
                     Cancel
                   </button>
                 </div>
@@ -643,15 +713,21 @@ export function AgentClientDetail() {
                 <div key={comm.communicationId} className="px-6 py-4 hover:bg-background-light">
                   <div className="flex items-center justify-between mb-1">
                     <p className="text-sm font-medium text-text">{comm.subject}</p>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      comm.status === 'sent' ? 'bg-success/20 text-success'
-                        : comm.status === 'queued' ? 'bg-warning/20 text-warning'
-                        : 'bg-danger/20 text-danger'
-                    }`}>
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-medium ${
+                        comm.status === 'sent'
+                          ? 'bg-success/20 text-success'
+                          : comm.status === 'queued'
+                            ? 'bg-warning/20 text-warning'
+                            : 'bg-danger/20 text-danger'
+                      }`}
+                    >
                       {comm.status}
                     </span>
                   </div>
-                  <p className="text-xs text-text-muted">To: {comm.toEmail} · {formatDate(comm.createdAt)}</p>
+                  <p className="text-xs text-text-muted">
+                    To: {comm.toEmail} · {formatDate(comm.createdAt)}
+                  </p>
                 </div>
               ))}
             </div>
@@ -660,11 +736,18 @@ export function AgentClientDetail() {
 
         {/* Delete Client Confirmation Modal */}
         {showDeleteConfirm && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" data-testid="delete-client-modal">
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            data-testid="delete-client-modal"
+          >
             <div className="bg-card border border-border rounded-lg p-6 w-full max-w-md mx-4">
               <h2 className="text-lg font-bold text-text mb-2">Delete Client</h2>
               <p className="text-text-muted text-sm mb-4">
-                Are you sure you want to delete <strong>{client.firstName} {client.lastName}</strong>? This action cannot be undone.
+                Are you sure you want to delete{' '}
+                <strong>
+                  {client.firstName} {client.lastName}
+                </strong>
+                ? This action cannot be undone.
               </p>
               {deleteError && (
                 <div className="bg-danger/10 border border-danger rounded-lg p-3 mb-4">
@@ -672,10 +755,21 @@ export function AgentClientDetail() {
                 </div>
               )}
               <div className="flex justify-end space-x-3">
-                <button onClick={() => { setShowDeleteConfirm(false); setDeleteError('') }} className="px-4 py-2 bg-background-light hover:bg-background-lighter text-text rounded-lg text-sm font-medium" disabled={isDeleting}>
+                <button
+                  onClick={() => {
+                    setShowDeleteConfirm(false)
+                    setDeleteError('')
+                  }}
+                  className="px-4 py-2 bg-background-light hover:bg-background-lighter text-text rounded-lg text-sm font-medium"
+                  disabled={isDeleting}
+                >
                   Cancel
                 </button>
-                <button onClick={handleDeleteClient} disabled={isDeleting} className="px-4 py-2 bg-danger hover:bg-danger-hover text-white rounded-lg text-sm font-medium disabled:opacity-50">
+                <button
+                  onClick={handleDeleteClient}
+                  disabled={isDeleting}
+                  className="px-4 py-2 bg-danger hover:bg-danger-hover text-white rounded-lg text-sm font-medium disabled:opacity-50"
+                >
                   {isDeleting ? 'Deleting...' : 'Delete Client'}
                 </button>
               </div>

@@ -6,7 +6,11 @@ import {
   updateCommunicationStatus,
   updateCommunicationStatusByProviderMessageId,
 } from '@/api/communications'
-import type { Communication, CommunicationStatus, UpdateCommunicationStatusRequest } from '@/api/types'
+import type {
+  Communication,
+  CommunicationStatus,
+  UpdateCommunicationStatusRequest,
+} from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 
@@ -264,9 +268,7 @@ export function AdminCommunications() {
                 {isCommLookingUp ? 'Looking up...' : 'Lookup'}
               </button>
             </div>
-            {commLookupError && (
-              <p className="text-danger text-sm mt-2">{commLookupError}</p>
-            )}
+            {commLookupError && <p className="text-danger text-sm mt-2">{commLookupError}</p>}
             {commLookupResult && renderCommunicationDetail(commLookupResult, 'Result')}
           </div>
 
@@ -292,8 +294,7 @@ export function AdminCommunications() {
             {providerLookupError && (
               <p className="text-danger text-sm mt-2">{providerLookupError}</p>
             )}
-            {providerLookupResult &&
-              renderCommunicationDetail(providerLookupResult, 'Result')}
+            {providerLookupResult && renderCommunicationDetail(providerLookupResult, 'Result')}
           </div>
         </div>
 
@@ -315,9 +316,7 @@ export function AdminCommunications() {
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             </div>
           ) : communications.length === 0 ? (
-            <div className="p-6 text-center text-text-muted">
-              No queued communications found
-            </div>
+            <div className="p-6 text-center text-text-muted">No queued communications found</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">

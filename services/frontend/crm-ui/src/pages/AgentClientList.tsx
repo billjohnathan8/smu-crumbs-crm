@@ -38,7 +38,11 @@ export function AgentClientList() {
     setIsLoading(true)
     setError('')
     try {
-      const response = await listClients({ limit: ITEMS_PER_PAGE, offset: page * ITEMS_PER_PAGE, q: q || undefined })
+      const response = await listClients({
+        limit: ITEMS_PER_PAGE,
+        offset: page * ITEMS_PER_PAGE,
+        q: q || undefined,
+      })
       setClients(response.data)
       setTotal(response.pagination?.total || 0)
     } catch (err) {
@@ -115,7 +119,11 @@ export function AgentClientList() {
           {search && (
             <button
               type="button"
-              onClick={() => { setSearch(''); setSearchInput(''); setCurrentPage(0) }}
+              onClick={() => {
+                setSearch('')
+                setSearchInput('')
+                setCurrentPage(0)
+              }}
               className="px-4 py-2 bg-background-light hover:bg-background-lighter text-text rounded-lg text-sm font-medium transition-colors"
             >
               Clear
@@ -144,11 +152,21 @@ export function AgentClientList() {
                 <table className="w-full">
                   <thead className="bg-background-light">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Name</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Email</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Phone</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">KYC Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Actions</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        Name
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        Email
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        Phone
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        KYC Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -166,7 +184,8 @@ export function AgentClientList() {
                         <td className="px-6 py-4">
                           <span
                             className={`px-2 py-1 rounded text-xs font-medium ${
-                              statusColors[client.identityVerificationStatus] ?? 'bg-background-light text-text-muted'
+                              statusColors[client.identityVerificationStatus] ??
+                              'bg-background-light text-text-muted'
                             }`}
                           >
                             {client.identityVerificationStatus}
@@ -174,7 +193,10 @@ export function AgentClientList() {
                         </td>
                         <td className="px-6 py-4">
                           <button
-                            onClick={e => { e.stopPropagation(); navigate(`/agent/clients/${client.clientId}`) }}
+                            onClick={e => {
+                              e.stopPropagation()
+                              navigate(`/agent/clients/${client.clientId}`)
+                            }}
                             className="text-primary hover:underline text-sm"
                           >
                             View
