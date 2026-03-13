@@ -17,7 +17,7 @@ import software.amazon.awssdk.services.sesv2.SesV2ClientBuilder;
 public class VerificationEmailConfig {
 	@Bean
 	@ConditionalOnProperty(name = "app.verification-email.provider", havingValue = "ses")
-	SesV2Client sesV2Client(AppProperties appProperties) {
+	public SesV2Client sesV2Client(AppProperties appProperties) {
 		SesV2ClientBuilder builder = SesV2Client.builder();
 		String awsRegion = appProperties.getVerificationEmail().getAwsRegion();
 		if (awsRegion != null && !awsRegion.isBlank()) {
@@ -32,7 +32,7 @@ public class VerificationEmailConfig {
 
 	@Bean
 	@ConditionalOnBean(SesV2Client.class)
-	SesVerificationEmailSender sesVerificationEmailSender(
+	public SesVerificationEmailSender sesVerificationEmailSender(
 		SesV2Client sesV2Client,
 		AppProperties appProperties
 	) {

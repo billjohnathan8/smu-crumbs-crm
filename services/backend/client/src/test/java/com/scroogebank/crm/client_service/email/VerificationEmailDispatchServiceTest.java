@@ -33,7 +33,7 @@ class VerificationEmailDispatchServiceTest {
 	private VerificationEmailDispatchService dispatchService;
 
 	@BeforeEach
-	void setUp() {
+	public void setUp() {
 		communicationClient = mock(LogServiceCommunicationClient.class);
 		verificationEmailSender = mock(VerificationEmailSender.class);
 		appProperties = new AppProperties();
