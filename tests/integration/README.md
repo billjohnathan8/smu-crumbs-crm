@@ -16,6 +16,11 @@ Unlike mocked frontend tests in `services/frontend/crm-ui/e2e/`, these tests exe
 
 From the repository root:
 
+```python
+python scripts/pipelines/test_all.py
+```
+or
+
 ```bash
 bash scripts/ci/run-fullstack-integration-e2e.sh
 ```
