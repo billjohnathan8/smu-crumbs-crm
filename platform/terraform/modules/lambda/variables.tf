@@ -31,15 +31,6 @@ variable "enable_log_lambda" {
 variable "log_lambda_zip_path" {
   description = "Path to the log lambda zip."
   type        = string
-
-  validation {
-    condition = !var.enable_log_lambda || (
-      trimspace(var.log_lambda_zip_path) != "" &&
-      fileexists(var.log_lambda_zip_path) &&
-      filesize(var.log_lambda_zip_path) > 0
-    )
-    error_message = "When enable_log_lambda is true, log_lambda_zip_path must point to an existing, non-empty zip file."
-  }
 }
 
 variable "log_lambda_memory_size" {
@@ -130,15 +121,6 @@ variable "enable_aml_lambda" {
 variable "aml_lambda_zip_path" {
   description = "Path to AML lambda zip."
   type        = string
-
-  validation {
-    condition = !var.enable_aml_lambda || (
-      trimspace(var.aml_lambda_zip_path) != "" &&
-      fileexists(var.aml_lambda_zip_path) &&
-      filesize(var.aml_lambda_zip_path) > 0
-    )
-    error_message = "When enable_aml_lambda is true, aml_lambda_zip_path must point to an existing, non-empty zip file."
-  }
 }
 
 variable "aml_lambda_memory_size" {
@@ -206,15 +188,6 @@ variable "transaction_ingestion_lambda_zip_path" {
   description = "Path to transaction ingestion lambda zip."
   type        = string
   default     = ""
-
-  validation {
-    condition = !var.enable_transaction_ingestion_lambda || (
-      trimspace(var.transaction_ingestion_lambda_zip_path) != "" &&
-      fileexists(var.transaction_ingestion_lambda_zip_path) &&
-      filesize(var.transaction_ingestion_lambda_zip_path) > 0
-    )
-    error_message = "When enable_transaction_ingestion_lambda is true, transaction_ingestion_lambda_zip_path must point to an existing, non-empty zip file."
-  }
 }
 
 variable "transaction_ingestion_lambda_memory_size" {
@@ -271,15 +244,6 @@ variable "audit_consumer_zip_path" {
   description = "Path to audit consumer Lambda zip."
   type        = string
   default     = ""
-
-  validation {
-    condition = !var.enable_audit_consumer || (
-      trimspace(var.audit_consumer_zip_path) != "" &&
-      fileexists(var.audit_consumer_zip_path) &&
-      filesize(var.audit_consumer_zip_path) > 0
-    )
-    error_message = "When enable_audit_consumer is true, audit_consumer_zip_path must point to an existing, non-empty zip file."
-  }
 }
 
 variable "audit_consumer_role_arn" {
@@ -324,15 +288,6 @@ variable "aml_consumer_zip_path" {
   description = "Path to AML consumer Lambda zip."
   type        = string
   default     = ""
-
-  validation {
-    condition = !var.enable_aml_consumer || (
-      trimspace(var.aml_consumer_zip_path) != "" &&
-      fileexists(var.aml_consumer_zip_path) &&
-      filesize(var.aml_consumer_zip_path) > 0
-    )
-    error_message = "When enable_aml_consumer is true, aml_consumer_zip_path must point to an existing, non-empty zip file."
-  }
 }
 
 variable "aml_consumer_role_arn" {
@@ -377,15 +332,6 @@ variable "verification_zip_path" {
   description = "Path to verification Lambda zip."
   type        = string
   default     = ""
-
-  validation {
-    condition = !var.enable_verification_lambda || (
-      trimspace(var.verification_zip_path) != "" &&
-      fileexists(var.verification_zip_path) &&
-      filesize(var.verification_zip_path) > 0
-    )
-    error_message = "When enable_verification_lambda is true, verification_zip_path must point to an existing, non-empty zip file."
-  }
 }
 
 variable "verification_role_arn" {
@@ -434,15 +380,73 @@ variable "log_api_base_url" {
   description = "Log API base URL used by verification feedback Lambda."
   type        = string
   default     = ""
-
-  validation {
-    condition     = !var.enable_verification_lambda || trimspace(var.log_api_base_url) != ""
-    error_message = "When enable_verification_lambda is true, log_api_base_url must be non-empty."
-  }
 }
 
 variable "verification_jwt_hmac_secret_arn" {
   description = "JWT HMAC secret ARN used by verification feedback Lambda for internal service auth."
   type        = string
   default     = ""
+}
+
+check "lambda_artifact_paths_module" {
+  assert {
+    condition = !var.enable_log_lambda || (
+      trimspace(var.log_lambda_zip_path) != "" &&
+      fileexists(var.log_lambda_zip_path) &&
+      filesize(var.log_lambda_zip_path) > 0
+    )
+    error_message = "When enable_log_lambda is true, log_lambda_zip_path must point to an existing, non-empty zip file."
+  }
+
+  assert {
+    condition = !var.enable_aml_lambda || (
+      trimspace(var.aml_lambda_zip_path) != "" &&
+      fileexists(var.aml_lambda_zip_path) &&
+      filesize(var.aml_lambda_zip_path) > 0
+    )
+    error_message = "When enable_aml_lambda is true, aml_lambda_zip_path must point to an existing, non-empty zip file."
+  }
+
+  assert {
+    condition = !var.enable_transaction_ingestion_lambda || (
+      trimspace(var.transaction_ingestion_lambda_zip_path) != "" &&
+      fileexists(var.transaction_ingestion_lambda_zip_path) &&
+      filesize(var.transaction_ingestion_lambda_zip_path) > 0
+    )
+    error_message = "When enable_transaction_ingestion_lambda is true, transaction_ingestion_lambda_zip_path must point to an existing, non-empty zip file."
+  }
+
+  assert {
+    condition = !var.enable_audit_consumer || (
+      trimspace(var.audit_consumer_zip_path) != "" &&
+      fileexists(var.audit_consumer_zip_path) &&
+      filesize(var.audit_consumer_zip_path) > 0
+    )
+    error_message = "When enable_audit_consumer is true, audit_consumer_zip_path must point to an existing, non-empty zip file."
+  }
+
+  assert {
+    condition = !var.enable_aml_consumer || (
+      trimspace(var.aml_consumer_zip_path) != "" &&
+      fileexists(var.aml_consumer_zip_path) &&
+      filesize(var.aml_consumer_zip_path) > 0
+    )
+    error_message = "When enable_aml_consumer is true, aml_consumer_zip_path must point to an existing, non-empty zip file."
+  }
+
+  assert {
+    condition = !var.enable_verification_lambda || (
+      trimspace(var.verification_zip_path) != "" &&
+      fileexists(var.verification_zip_path) &&
+      filesize(var.verification_zip_path) > 0
+    )
+    error_message = "When enable_verification_lambda is true, verification_zip_path must point to an existing, non-empty zip file."
+  }
+}
+
+check "verification_lambda_requires_log_api_url" {
+  assert {
+    condition     = !var.enable_verification_lambda || trimspace(var.log_api_base_url) != ""
+    error_message = "When enable_verification_lambda is true, log_api_base_url must be non-empty."
+  }
 }

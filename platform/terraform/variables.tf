@@ -113,11 +113,6 @@ variable "agent_desired_count" {
   description = "Desired ECS task count for agent service. Must remain 1 unless enable_stateful_service_scale_out is true."
   type        = number
   default     = 1
-
-  validation {
-    condition     = var.enable_stateful_service_scale_out || var.agent_desired_count == 1
-    error_message = "agent_desired_count must be 1 unless enable_stateful_service_scale_out is true."
-  }
 }
 
 variable "client_desired_count" {
@@ -130,11 +125,6 @@ variable "transaction_desired_count" {
   description = "Desired ECS task count for transaction service. Must remain 1 unless enable_stateful_service_scale_out is true."
   type        = number
   default     = 1
-
-  validation {
-    condition     = var.enable_stateful_service_scale_out || var.transaction_desired_count == 1
-    error_message = "transaction_desired_count must be 1 unless enable_stateful_service_scale_out is true."
-  }
 }
 
 #--------------------------------------------------------------
@@ -225,44 +215,24 @@ variable "db_multi_az" {
   description = "Whether to enable Multi-AZ for the RDS instance. Must be true for prod."
   type        = bool
   default     = true
-
-  validation {
-    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || var.db_multi_az
-    error_message = "For environment=prod, db_multi_az must be true."
-  }
 }
 
 variable "db_backup_retention_days" {
   description = "RDS automated backup retention period in days (minimum 7 for prod)."
   type        = number
   default     = 7
-
-  validation {
-    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || var.db_backup_retention_days >= 7
-    error_message = "For environment=prod, db_backup_retention_days must be at least 7."
-  }
 }
 
 variable "db_skip_final_snapshot" {
   description = "Skip final snapshot when destroying the DB instance. Safer default is false."
   type        = bool
   default     = false
-
-  validation {
-    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || !var.db_skip_final_snapshot
-    error_message = "For environment=prod, db_skip_final_snapshot must be false."
-  }
 }
 
 variable "db_deletion_protection" {
   description = "Enable deletion protection on the DB instance. Safer default is true."
   type        = bool
   default     = true
-
-  validation {
-    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || var.db_deletion_protection
-    error_message = "For environment=prod, db_deletion_protection must be true."
-  }
 }
 
 #--------------------------------------------------------------
@@ -275,14 +245,6 @@ variable "jwt_hmac_secret" {
   type        = string
   default     = ""
   sensitive   = true
-
-  validation {
-    condition = !contains(["prod", "production"], lower(trimspace(var.environment))) || (
-      length(trimspace(var.jwt_hmac_secret)) >= 32 &&
-      trimspace(var.jwt_hmac_secret) != "dev-only-insecure-secret"
-    )
-    error_message = "For environment=prod, jwt_hmac_secret must be explicitly set and at least 32 characters."
-  }
 }
 
 variable "root_admin_email" {
@@ -296,18 +258,6 @@ variable "root_admin_password" {
   type        = string
   default     = ""
   sensitive   = true
-
-  validation {
-    condition = !contains(["prod", "production"], lower(trimspace(var.environment))) || (
-      length(trimspace(var.root_admin_password)) >= 16 &&
-      can(regex("[A-Z]", var.root_admin_password)) &&
-      can(regex("[a-z]", var.root_admin_password)) &&
-      can(regex("[0-9]", var.root_admin_password)) &&
-      can(regex("[^A-Za-z0-9]", var.root_admin_password)) &&
-      trimspace(var.root_admin_password) != "admin123"
-    )
-    error_message = "For environment=prod, root_admin_password must be >=16 chars and include upper, lower, number, and symbol."
-  }
 }
 
 variable "transaction_mock_sftp_root" {
@@ -347,15 +297,6 @@ variable "log_lambda_zip_path" {
   description = "Path to the packaged log Lambda zip artifact."
   type        = string
   default     = "../../services/backend/log/log-lambda.zip"
-
-  validation {
-    condition = !var.enable_log_lambda || (
-      trimspace(var.log_lambda_zip_path) != "" &&
-      fileexists(var.log_lambda_zip_path) &&
-      filesize(var.log_lambda_zip_path) > 0
-    )
-    error_message = "When enable_log_lambda is true, log_lambda_zip_path must point to an existing, non-empty zip file."
-  }
 }
 
 variable "log_lambda_memory_size" {
@@ -389,15 +330,6 @@ variable "transaction_ingestion_lambda_zip_path" {
   description = "Path to the packaged transaction ingestion Lambda zip artifact."
   type        = string
   default     = "../../services/backend/transaction-ingestion-lambda/transaction-ingestion-lambda.zip"
-
-  validation {
-    condition = !var.enable_transaction_ingestion_lambda || (
-      trimspace(var.transaction_ingestion_lambda_zip_path) != "" &&
-      fileexists(var.transaction_ingestion_lambda_zip_path) &&
-      filesize(var.transaction_ingestion_lambda_zip_path) > 0
-    )
-    error_message = "When enable_transaction_ingestion_lambda is true, transaction_ingestion_lambda_zip_path must point to an existing, non-empty zip file."
-  }
 }
 
 variable "transaction_ingestion_lambda_memory_size" {
@@ -440,15 +372,6 @@ variable "aml_lambda_zip_path" {
   description = "Path to the packaged AML Lambda zip artifact."
   type        = string
   default     = "../../services/backend/aml/aml-lambda.zip"
-
-  validation {
-    condition = !var.enable_aml_lambda || (
-      trimspace(var.aml_lambda_zip_path) != "" &&
-      fileexists(var.aml_lambda_zip_path) &&
-      filesize(var.aml_lambda_zip_path) > 0
-    )
-    error_message = "When enable_aml_lambda is true, aml_lambda_zip_path must point to an existing, non-empty zip file."
-  }
 }
 
 variable "aml_lambda_memory_size" {
@@ -616,11 +539,6 @@ variable "enable_multi_az_nat" {
   description = "Enable NAT Gateway in each AZ for high availability. Increases cost (one NAT Gateway per AZ). Must be true for prod."
   type        = bool
   default     = false
-
-  validation {
-    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || var.enable_multi_az_nat
-    error_message = "For environment=prod, enable_multi_az_nat must be true to avoid single-AZ NAT dependency."
-  }
 }
 
 #--------------------------------------------------------------
@@ -698,56 +616,24 @@ variable "enable_verification_pipeline" {
   description = "Create verification Lambda, SNS topic, SES identity, and S3 bucket."
   type        = bool
   default     = false
-
-  validation {
-    condition     = !var.enable_verification_pipeline || var.enable_log_lambda
-    error_message = "enable_verification_pipeline requires enable_log_lambda=true so the verification feedback Lambda receives a non-empty LOG_API_BASE_URL."
-  }
 }
 
 variable "audit_consumer_zip_path" {
   description = "Path to audit consumer Lambda zip (reserved scaffold; runtime package not yet present in this repository)."
   type        = string
   default     = "../../services/backend/audit-consumer/audit-consumer-lambda.zip"
-
-  validation {
-    condition = !var.enable_audit_pipeline || (
-      trimspace(var.audit_consumer_zip_path) != "" &&
-      fileexists(var.audit_consumer_zip_path) &&
-      filesize(var.audit_consumer_zip_path) > 0
-    )
-    error_message = "When enable_audit_pipeline is true, audit_consumer_zip_path must point to an existing, non-empty zip file."
-  }
 }
 
 variable "aml_consumer_zip_path" {
   description = "Path to AML consumer Lambda zip (reserved scaffold; runtime package not yet present in this repository)."
   type        = string
   default     = "../../services/backend/aml-consumer/aml-consumer-lambda.zip"
-
-  validation {
-    condition = !var.enable_aml_pipeline || (
-      trimspace(var.aml_consumer_zip_path) != "" &&
-      fileexists(var.aml_consumer_zip_path) &&
-      filesize(var.aml_consumer_zip_path) > 0
-    )
-    error_message = "When enable_aml_pipeline is true, aml_consumer_zip_path must point to an existing, non-empty zip file."
-  }
 }
 
 variable "verification_zip_path" {
   description = "Path to verification Lambda zip."
   type        = string
   default     = "../../services/backend/verification/verification-lambda.zip"
-
-  validation {
-    condition = !var.enable_verification_pipeline || (
-      trimspace(var.verification_zip_path) != "" &&
-      fileexists(var.verification_zip_path) &&
-      filesize(var.verification_zip_path) > 0
-    )
-    error_message = "When enable_verification_pipeline is true, verification_zip_path must point to an existing, non-empty zip file."
-  }
 }
 
 #--------------------------------------------------------------
@@ -811,5 +697,129 @@ variable "backup_retention_days" {
   description = "Number of days to retain backups."
   type        = number
   default     = 30
+}
+
+check "stateful_service_scale_out_guardrails" {
+  assert {
+    condition     = var.enable_stateful_service_scale_out || var.agent_desired_count == 1
+    error_message = "agent_desired_count must be 1 unless enable_stateful_service_scale_out is true."
+  }
+
+  assert {
+    condition     = var.enable_stateful_service_scale_out || var.transaction_desired_count == 1
+    error_message = "transaction_desired_count must be 1 unless enable_stateful_service_scale_out is true."
+  }
+}
+
+check "prod_database_guardrails" {
+  assert {
+    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || var.db_multi_az
+    error_message = "For environment=prod, db_multi_az must be true."
+  }
+
+  assert {
+    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || var.db_backup_retention_days >= 7
+    error_message = "For environment=prod, db_backup_retention_days must be at least 7."
+  }
+
+  assert {
+    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || !var.db_skip_final_snapshot
+    error_message = "For environment=prod, db_skip_final_snapshot must be false."
+  }
+
+  assert {
+    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || var.db_deletion_protection
+    error_message = "For environment=prod, db_deletion_protection must be true."
+  }
+}
+
+check "prod_secret_strength_guardrails" {
+  assert {
+    condition = !contains(["prod", "production"], lower(trimspace(var.environment))) || (
+      length(trimspace(var.jwt_hmac_secret)) >= 32 &&
+      trimspace(var.jwt_hmac_secret) != "dev-only-insecure-secret"
+    )
+    error_message = "For environment=prod, jwt_hmac_secret must be explicitly set and at least 32 characters."
+  }
+
+  assert {
+    condition = !contains(["prod", "production"], lower(trimspace(var.environment))) || (
+      length(trimspace(var.root_admin_password)) >= 16 &&
+      can(regex("[A-Z]", var.root_admin_password)) &&
+      can(regex("[a-z]", var.root_admin_password)) &&
+      can(regex("[0-9]", var.root_admin_password)) &&
+      can(regex("[^A-Za-z0-9]", var.root_admin_password)) &&
+      trimspace(var.root_admin_password) != "admin123"
+    )
+    error_message = "For environment=prod, root_admin_password must be >=16 chars and include upper, lower, number, and symbol."
+  }
+}
+
+check "lambda_artifact_paths_root" {
+  assert {
+    condition = !var.enable_log_lambda || (
+      trimspace(var.log_lambda_zip_path) != "" &&
+      fileexists(var.log_lambda_zip_path) &&
+      filesize(var.log_lambda_zip_path) > 0
+    )
+    error_message = "When enable_log_lambda is true, log_lambda_zip_path must point to an existing, non-empty zip file."
+  }
+
+  assert {
+    condition = !var.enable_transaction_ingestion_lambda || (
+      trimspace(var.transaction_ingestion_lambda_zip_path) != "" &&
+      fileexists(var.transaction_ingestion_lambda_zip_path) &&
+      filesize(var.transaction_ingestion_lambda_zip_path) > 0
+    )
+    error_message = "When enable_transaction_ingestion_lambda is true, transaction_ingestion_lambda_zip_path must point to an existing, non-empty zip file."
+  }
+
+  assert {
+    condition = !var.enable_aml_lambda || (
+      trimspace(var.aml_lambda_zip_path) != "" &&
+      fileexists(var.aml_lambda_zip_path) &&
+      filesize(var.aml_lambda_zip_path) > 0
+    )
+    error_message = "When enable_aml_lambda is true, aml_lambda_zip_path must point to an existing, non-empty zip file."
+  }
+
+  assert {
+    condition = !var.enable_audit_pipeline || (
+      trimspace(var.audit_consumer_zip_path) != "" &&
+      fileexists(var.audit_consumer_zip_path) &&
+      filesize(var.audit_consumer_zip_path) > 0
+    )
+    error_message = "When enable_audit_pipeline is true, audit_consumer_zip_path must point to an existing, non-empty zip file."
+  }
+
+  assert {
+    condition = !var.enable_aml_pipeline || (
+      trimspace(var.aml_consumer_zip_path) != "" &&
+      fileexists(var.aml_consumer_zip_path) &&
+      filesize(var.aml_consumer_zip_path) > 0
+    )
+    error_message = "When enable_aml_pipeline is true, aml_consumer_zip_path must point to an existing, non-empty zip file."
+  }
+
+  assert {
+    condition = !var.enable_verification_pipeline || (
+      trimspace(var.verification_zip_path) != "" &&
+      fileexists(var.verification_zip_path) &&
+      filesize(var.verification_zip_path) > 0
+    )
+    error_message = "When enable_verification_pipeline is true, verification_zip_path must point to an existing, non-empty zip file."
+  }
+}
+
+check "prod_network_and_pipeline_guardrails" {
+  assert {
+    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || var.enable_multi_az_nat
+    error_message = "For environment=prod, enable_multi_az_nat must be true to avoid single-AZ NAT dependency."
+  }
+
+  assert {
+    condition     = !var.enable_verification_pipeline || var.enable_log_lambda
+    error_message = "enable_verification_pipeline requires enable_log_lambda=true so the verification feedback Lambda receives a non-empty LOG_API_BASE_URL."
+  }
 }
 
