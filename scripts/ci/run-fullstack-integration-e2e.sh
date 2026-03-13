@@ -161,12 +161,38 @@ require_docker_ready() {
 }
 
 dump_compose_logs() {
+  {
+    echo ""
+    echo "----- docker compose logs (cleanup snapshot) -----"
+  } >> "${LOG_DIR}/docker-compose.log"
   docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" logs --no-color \
-    > "${LOG_DIR}/docker-compose.log" 2>&1 || true
+    >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
 }
 
 aws_local() {
   "${AWS_CMD}" --endpoint-url "${LOCALSTACK_ENDPOINT}" --region ap-southeast-1 "$@"
+}
+
+aws_local_s3_put_object() {
+  local bucket="$1"
+  local key="$2"
+  local body_path="$3"
+  local source_path="${body_path}"
+
+  if [[ "${AWS_IS_WINDOWS}" == "true" ]]; then
+    if command -v cygpath >/dev/null 2>&1; then
+      local body_windows_path
+      body_windows_path="$(cygpath -w "${body_path}")"
+      source_path="${body_windows_path}"
+    elif command -v wslpath >/dev/null 2>&1; then
+      local body_windows_path
+      body_windows_path="$(wslpath -w "${body_path}")"
+      source_path="${body_windows_path}"
+    fi
+  fi
+
+  aws_local s3 cp "${source_path}" "s3://${bucket}/${key}" \
+    >/dev/null
 }
 
 normalize_text() {
@@ -1265,11 +1291,7 @@ clt_s3_ci_import,D,100.00,2026-01-01,Completed
 clt_s3_ci_import,W,40.00,2026-01-02,Pending
 CSV
 
-aws_local s3api put-object \
-  --bucket scroogebank-crm-dev-transaction-sftp \
-  --key "${TX_IMPORT_KEY}" \
-  --body "${TX_IMPORT_FILE}" \
-  >/dev/null
+aws_local_s3_put_object "scroogebank-crm-dev-transaction-sftp" "${TX_IMPORT_KEY}" "${TX_IMPORT_FILE}"
 
 IMPORT_RESPONSE="$(
   curl --silent --show-error --fail \
@@ -1311,11 +1333,7 @@ clientId,transaction,amount,date,status
 clt_s3_ci_scheduler,D,215.00,2026-02-10,Completed
 CSV
 
-aws_local s3api put-object \
-  --bucket scroogebank-crm-dev-transaction-sftp \
-  --key "${TX_SCHEDULED_KEY}" \
-  --body "${TX_SCHEDULED_FILE}" \
-  >/dev/null
+aws_local_s3_put_object "scroogebank-crm-dev-transaction-sftp" "${TX_SCHEDULED_KEY}" "${TX_SCHEDULED_FILE}"
 
 SCHEDULED_IMPORT_APPLIED=false
 for _ in {1..30}; do
@@ -1353,18 +1371,23 @@ clientId,transaction,amount,date,status
 clt_s3_ci_ingestion_lambda,D,500.00,2026-02-11,Completed
 CSV
 
-aws_local s3api put-object \
-  --bucket scroogebank-crm-dev-transaction-sftp \
-  --key "${TX_INGESTION_LAMBDA_KEY}" \
-  --body "${TX_INGESTION_LAMBDA_FILE}" \
-  >/dev/null
+aws_local_s3_put_object "scroogebank-crm-dev-transaction-sftp" "${TX_INGESTION_LAMBDA_KEY}" "${TX_INGESTION_LAMBDA_FILE}"
 
 TX_INGESTION_LAMBDA_INVOKE_OUTPUT="${LOG_DIR}/transaction-ingestion-lambda-invoke.json"
+TX_INGESTION_LAMBDA_INVOKE_OUTPUT_ARG="${TX_INGESTION_LAMBDA_INVOKE_OUTPUT}"
+if [[ "${AWS_IS_WINDOWS}" == "true" ]]; then
+  if command -v cygpath >/dev/null 2>&1; then
+    TX_INGESTION_LAMBDA_INVOKE_OUTPUT_ARG="$(cygpath -w "${TX_INGESTION_LAMBDA_INVOKE_OUTPUT}")"
+  elif command -v wslpath >/dev/null 2>&1; then
+    TX_INGESTION_LAMBDA_INVOKE_OUTPUT_ARG="$(wslpath -w "${TX_INGESTION_LAMBDA_INVOKE_OUTPUT}")"
+  fi
+fi
+
 aws_local lambda invoke \
   --function-name "${TRANSACTION_INGESTION_LAMBDA_FUNCTION_NAME}" \
   --cli-binary-format raw-in-base64-out \
   --payload '{}' \
-  "${TX_INGESTION_LAMBDA_INVOKE_OUTPUT}" \
+  "${TX_INGESTION_LAMBDA_INVOKE_OUTPUT_ARG}" \
   >/dev/null
 
 TX_INGESTION_LAMBDA_INVOKE_JSON="$(cat "${TX_INGESTION_LAMBDA_INVOKE_OUTPUT}")"
