@@ -154,7 +154,7 @@ test.describe("Real Fullstack Integration", () => {
     await loginViaUi(page, agentUser.email, agentUser.password, "/agent");
     await expect(page.getByRole("heading", { name: "Agent Dashboard" })).toBeVisible();
 
-    await page.getByRole("link", { name: "Create Client" }).click();
+    await page.locator("main").getByRole("link", { name: "Create Client" }).first().click();
     await expect(page).toHaveURL(/\/agent\/clients\/new$/);
 
     const clientEmail = `integration-client-${uniqueSuffix()}@example.com`;
