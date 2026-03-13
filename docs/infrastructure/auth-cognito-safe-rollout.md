@@ -22,6 +22,14 @@ This rollout does not require a one-shot cutover.
   - `COGNITO_JWKS_URL`
 - Terraform now wires these settings into ECS task env vars.
 - Integration compose is pinned to `AUTH_MODE=local` to keep existing CI/local E2E stable.
+- Frontend supports dual-mode login via `VITE_AUTH_MODE`:
+  - `local`: only local email/password login form
+  - `hybrid`: both local form and Cognito SSO button visible
+  - `cognito`: both visible (Cognito SSO is the primary flow)
+- Frontend Cognito configuration uses:
+  - `VITE_COGNITO_DOMAIN`: Cognito Hosted UI domain
+  - `VITE_COGNITO_CLIENT_ID`: Cognito App Client ID
+  - `VITE_COGNITO_REDIRECT_URI`: OAuth2 callback URL (defaults to `{origin}/auth/callback`)
 
 ## Prerequisites
 
@@ -66,11 +74,13 @@ terraform -chdir=platform/terraform apply
    - Existing local login token still works.
    - Cognito token also works on protected routes.
 
-### Phase 2: Frontend Cutover
+### Phase 2: Frontend Cutover ✅ Implemented
 
-1. Switch frontend login flow to Cognito (Hosted UI or SDK).
-2. Keep backend in `hybrid` during burn-in period.
-3. Run smoke and E2E tests with Cognito users in non-prod.
+1. ~~Switch frontend login flow to Cognito (Hosted UI or SDK).~~ **Done** — `LoginPage.tsx` now shows "Sign in with Cognito SSO" when `VITE_AUTH_MODE` is `hybrid` or `cognito`.
+2. `CognitoCallback.tsx` handles the `/auth/callback` route, exchanges authorization code for tokens, and stores the Cognito access token.
+3. `AuthContext.tsx` exposes `loginWithCognitoCode()` for the callback flow.
+4. Keep backend in `hybrid` during burn-in period.
+5. Run smoke and E2E tests with Cognito users in non-prod.
 
 ### Phase 3: Final Cutover
 
