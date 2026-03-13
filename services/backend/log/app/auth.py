@@ -47,6 +47,7 @@ def _b64url_decode(segment: str) -> bytes:
 # HS256 (local/hybrid mode)
 # ---------------------------------------------------------------------------
 
+
 def verify_hs256_jwt(token: str, secret: str) -> dict[str, Any]:
     """Validate an HS256 JWT and return the decoded claims."""
     parts = token.split(".")
@@ -210,6 +211,7 @@ def _cognito_role(claims: dict[str, Any]) -> str | None:
 # Dispatcher — picks HS256 or RS256 based on token header + auth_mode
 # ---------------------------------------------------------------------------
 
+
 def require_bearer_user(
     authorization: str | None,
     secret: str,
@@ -245,7 +247,9 @@ def require_bearer_user(
             raise UnauthorizedError("invalid_token")
         if not cognito_jwks_url:
             raise UnauthorizedError("invalid_token")
-        claims = verify_rs256_jwt(token, cognito_jwks_url, cognito_issuer, cognito_audience)
+        claims = verify_rs256_jwt(
+            token, cognito_jwks_url, cognito_issuer, cognito_audience
+        )
         sub = claims.get("sub")
         role = claims.get("role") or _cognito_role(claims)
     else:

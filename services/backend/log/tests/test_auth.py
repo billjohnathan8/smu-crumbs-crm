@@ -7,7 +7,6 @@ import hashlib
 import hmac
 import json
 from datetime import datetime, timezone
-from io import BytesIO
 from unittest.mock import patch
 
 import pytest
@@ -137,6 +136,7 @@ def test_require_bearer_user_rejects_bad_claims() -> None:
 # RS256 / Cognito helpers
 # ---------------------------------------------------------------------------
 
+
 def _generate_rsa_key():
     """Generate an RSA-2048 key pair for testing (uses cryptography library)."""
     from cryptography.hazmat.primitives.asymmetric import rsa
@@ -151,7 +151,11 @@ def _private_key_to_jwk(private_key, kid: str = "test-key-1") -> dict:
 
     def _int_to_b64url(n: int) -> str:
         length = (n.bit_length() + 7) // 8
-        return base64.urlsafe_b64encode(n.to_bytes(length, "big")).decode("ascii").rstrip("=")
+        return (
+            base64.urlsafe_b64encode(n.to_bytes(length, "big"))
+            .decode("ascii")
+            .rstrip("=")
+        )
 
     return {
         "kty": "RSA",
@@ -198,6 +202,7 @@ def _mint_rs256_token(
 
 def _make_urlopen_mock(jwk_dict: dict):
     """Return a context-manager mock for urllib.request.urlopen returning a JWKS."""
+
     class _FakeResponse:
         def read(self):
             return json.dumps({"keys": [jwk_dict]}).encode()
@@ -223,7 +228,10 @@ def test_verify_rs256_jwt_success() -> None:
     private_key = _generate_rsa_key()
     jwk = _private_key_to_jwk(private_key, "kid-1")
     token = _mint_rs256_token(
-        private_key, "kid-1", "cog-usr-1", "admin",
+        private_key,
+        "kid-1",
+        "cog-usr-1",
+        "admin",
         issuer="https://cognito-idp.ap-southeast-1.amazonaws.com/pool1",
         audience="client-app-id",
     )
@@ -244,7 +252,10 @@ def test_verify_rs256_jwt_expired() -> None:
     private_key = _generate_rsa_key()
     jwk = _private_key_to_jwk(private_key, "kid-1")
     token = _mint_rs256_token(
-        private_key, "kid-1", "cog-usr-1", "agent",
+        private_key,
+        "kid-1",
+        "cog-usr-1",
+        "agent",
         issuer="https://cognito-idp.ap-southeast-1.amazonaws.com/pool1",
         audience="client-app-id",
         exp_seconds=-10,
@@ -264,7 +275,10 @@ def test_verify_rs256_jwt_wrong_issuer() -> None:
     private_key = _generate_rsa_key()
     jwk = _private_key_to_jwk(private_key, "kid-1")
     token = _mint_rs256_token(
-        private_key, "kid-1", "cog-usr-1", "agent",
+        private_key,
+        "kid-1",
+        "cog-usr-1",
+        "agent",
         issuer="https://attacker.com/pool",
         audience="client-app-id",
     )
@@ -283,7 +297,10 @@ def test_verify_rs256_jwt_wrong_audience() -> None:
     private_key = _generate_rsa_key()
     jwk = _private_key_to_jwk(private_key, "kid-1")
     token = _mint_rs256_token(
-        private_key, "kid-1", "cog-usr-1", "agent",
+        private_key,
+        "kid-1",
+        "cog-usr-1",
+        "agent",
         issuer="https://cognito-idp.ap-southeast-1.amazonaws.com/pool1",
         audience="other-app-id",
     )
@@ -303,7 +320,10 @@ def test_verify_rs256_jwt_wrong_signature() -> None:
     other_key = _generate_rsa_key()
     jwk = _private_key_to_jwk(other_key, "kid-1")  # JWK is for different key
     token = _mint_rs256_token(
-        private_key, "kid-1", "cog-usr-1", "agent",
+        private_key,
+        "kid-1",
+        "cog-usr-1",
+        "agent",
         issuer="https://cognito-idp.ap-southeast-1.amazonaws.com/pool1",
         audience="client-app-id",
     )
@@ -322,7 +342,10 @@ def test_verify_rs256_jwt_unknown_kid() -> None:
     private_key = _generate_rsa_key()
     jwk = _private_key_to_jwk(private_key, "kid-other")  # different kid in JWKS
     token = _mint_rs256_token(
-        private_key, "kid-1", "cog-usr-1", "agent",
+        private_key,
+        "kid-1",
+        "cog-usr-1",
+        "agent",
         issuer="https://cognito-idp.ap-southeast-1.amazonaws.com/pool1",
         audience="client-app-id",
     )
@@ -340,7 +363,10 @@ def test_verify_rs256_jwt_unknown_kid() -> None:
 def test_verify_rs256_jwt_jwks_unavailable() -> None:
     private_key = _generate_rsa_key()
     token = _mint_rs256_token(
-        private_key, "kid-1", "cog-usr-1", "agent",
+        private_key,
+        "kid-1",
+        "cog-usr-1",
+        "agent",
         issuer="https://cognito-idp.ap-southeast-1.amazonaws.com/pool1",
         audience="client-app-id",
     )
@@ -373,7 +399,9 @@ def test_verify_rs256_jwt_uses_cognito_groups_when_no_role_claim() -> None:
         "cognito:groups": ["admin", "other-group"],
         # deliberately no "role" claim
     }
-    header = _b64url(json.dumps({"alg": "RS256", "typ": "JWT", "kid": "kid-1"}).encode())
+    header = _b64url(
+        json.dumps({"alg": "RS256", "typ": "JWT", "kid": "kid-1"}).encode()
+    )
     payload = _b64url(json.dumps(claims_dict).encode())
     sig = private_key.sign(
         f"{header}.{payload}".encode("ascii"), PKCS1v15(), hashes.SHA256()
@@ -404,7 +432,10 @@ def test_require_bearer_user_hybrid_accepts_both_algs() -> None:
     private_key = _generate_rsa_key()
     jwk = _private_key_to_jwk(private_key, "kid-1")
     rs256_token = _mint_rs256_token(
-        private_key, "kid-1", "rs-usr", "admin",
+        private_key,
+        "kid-1",
+        "rs-usr",
+        "admin",
         issuer="https://cognito.example.com/pool",
         audience="app-client",
     )
@@ -425,7 +456,10 @@ def test_require_bearer_user_local_mode_rejects_rs256() -> None:
     private_key = _generate_rsa_key()
     jwk = _private_key_to_jwk(private_key, "kid-1")
     rs256_token = _mint_rs256_token(
-        private_key, "kid-1", "rs-usr", "admin",
+        private_key,
+        "kid-1",
+        "rs-usr",
+        "admin",
         issuer="https://cognito.example.com/pool",
         audience="app-client",
     )
@@ -457,7 +491,10 @@ def test_jwks_cache_is_used_on_second_call() -> None:
     private_key = _generate_rsa_key()
     jwk = _private_key_to_jwk(private_key, "kid-1")
     token = _mint_rs256_token(
-        private_key, "kid-1", "usr", "agent",
+        private_key,
+        "kid-1",
+        "usr",
+        "agent",
         issuer="https://cognito.example.com/pool",
         audience="app-client",
     )
@@ -469,7 +506,17 @@ def test_jwks_cache_is_used_on_second_call() -> None:
         return _make_urlopen_mock(jwk)
 
     with patch("urllib.request.urlopen", side_effect=counting_urlopen):
-        verify_rs256_jwt(token, "https://fake.jwks/keys", "https://cognito.example.com/pool", "app-client")
-        verify_rs256_jwt(token, "https://fake.jwks/keys", "https://cognito.example.com/pool", "app-client")
+        verify_rs256_jwt(
+            token,
+            "https://fake.jwks/keys",
+            "https://cognito.example.com/pool",
+            "app-client",
+        )
+        verify_rs256_jwt(
+            token,
+            "https://fake.jwks/keys",
+            "https://cognito.example.com/pool",
+            "app-client",
+        )
 
     assert call_count == 1, "JWKS endpoint should only be fetched once when cached"

@@ -127,7 +127,9 @@ def test_load_service_jwt_secret_uses_secrets_manager(monkeypatch):
             calls.append(SecretId)
             return {"SecretString": "secret-from-aws"}
 
-    monkeypatch.setenv("TRANSACTION_IMPORT_JWT_HMAC_SECRET_ARN", "arn:aws:secretsmanager:...")
+    monkeypatch.setenv(
+        "TRANSACTION_IMPORT_JWT_HMAC_SECRET_ARN", "arn:aws:secretsmanager:..."
+    )
     monkeypatch.setattr(
         lambda_function.boto3,
         "client",

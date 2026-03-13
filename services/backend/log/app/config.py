@@ -95,9 +95,7 @@ class Settings:
         default_factory=lambda: os.getenv("COGNITO_JWKS_URL", "")
     )
     # Expected issuer in Cognito tokens (https://cognito-idp.<region>.amazonaws.com/<pool_id>)
-    cognito_issuer: str = field(
-        default_factory=lambda: os.getenv("COGNITO_ISSUER", "")
-    )
+    cognito_issuer: str = field(default_factory=lambda: os.getenv("COGNITO_ISSUER", ""))
     # Cognito App Client ID used as the audience claim
     cognito_audience: str = field(
         default_factory=lambda: os.getenv("COGNITO_CLIENT_ID", "")

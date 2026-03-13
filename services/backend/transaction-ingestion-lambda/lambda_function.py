@@ -58,7 +58,9 @@ def _load_service_jwt_secret() -> str | None:
         return None
 
     try:
-        secret_value = boto3.client("secretsmanager").get_secret_value(SecretId=secret_arn)["SecretString"]
+        secret_value = boto3.client("secretsmanager").get_secret_value(
+            SecretId=secret_arn
+        )["SecretString"]
     except Exception:
         logger.exception("Failed to load JWT secret for transaction import auth")
         return None
@@ -77,15 +79,23 @@ def _mint_service_jwt() -> str | None:
     ttl_seconds = int(os.environ.get("TRANSACTION_IMPORT_JWT_TTL_SECONDS", "300"))
     header = {"alg": "HS256", "typ": "JWT"}
     payload = {
-        "sub": os.environ.get("TRANSACTION_IMPORT_JWT_SUB", "SYSTEM_TRANSACTION_INGESTION"),
+        "sub": os.environ.get(
+            "TRANSACTION_IMPORT_JWT_SUB", "SYSTEM_TRANSACTION_INGESTION"
+        ),
         "role": os.environ.get("TRANSACTION_IMPORT_JWT_ROLE", "admin"),
         "iat": now_epoch,
         "exp": now_epoch + ttl_seconds,
     }
-    header_segment = _b64url_encode(json.dumps(header, separators=(",", ":"), sort_keys=True).encode("utf-8"))
-    payload_segment = _b64url_encode(json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8"))
+    header_segment = _b64url_encode(
+        json.dumps(header, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    )
+    payload_segment = _b64url_encode(
+        json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    )
     signing_input = f"{header_segment}.{payload_segment}"
-    signature = hmac.new(secret.encode("utf-8"), signing_input.encode("ascii"), hashlib.sha256).digest()
+    signature = hmac.new(
+        secret.encode("utf-8"), signing_input.encode("ascii"), hashlib.sha256
+    ).digest()
     return f"{signing_input}.{_b64url_encode(signature)}"
 
 
@@ -114,7 +124,9 @@ def _latest_csv_key(bucket: str, prefix: str) -> str | None:
             if not isinstance(key, str) or not key.lower().endswith(".csv"):
                 continue
             modified = obj.get("LastModified")
-            if latest_timestamp is None or (modified is not None and modified > latest_timestamp):
+            if latest_timestamp is None or (
+                modified is not None and modified > latest_timestamp
+            ):
                 latest_timestamp = modified
                 latest_key = key
     return latest_key
@@ -147,13 +159,17 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     if not import_url:
         raise ValueError("TRANSACTION_IMPORT_URL is required")
 
-    logger.info("Transaction ingestion schedule triggered; scanning s3://%s/%s", bucket, prefix)
+    logger.info(
+        "Transaction ingestion schedule triggered; scanning s3://%s/%s", bucket, prefix
+    )
     key = _latest_csv_key(bucket, prefix)
     if not key:
         logger.info("No CSV files found in s3://%s/%s", bucket, prefix)
         return {
             "statusCode": 200,
-            "body": json.dumps({"message": "no_csv_files_found", "bucket": bucket, "prefix": prefix}),
+            "body": json.dumps(
+                {"message": "no_csv_files_found", "bucket": bucket, "prefix": prefix}
+            ),
         }
 
     logger.info("Latest CSV selected: s3://%s/%s", bucket, key)
@@ -162,5 +178,11 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     logger.info("Import API response status=%s body=%s", status_code, response_body)
     return {
         "statusCode": status_code,
-        "body": json.dumps({"sourcePath": source_path, "importApiStatus": status_code, "importApiBody": response_body}),
+        "body": json.dumps(
+            {
+                "sourcePath": source_path,
+                "importApiStatus": status_code,
+                "importApiBody": response_body,
+            }
+        ),
     }
