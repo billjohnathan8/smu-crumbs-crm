@@ -1,13 +1,12 @@
 package com.scroogebank.crm.client_service.security;
 
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.ObjectMapper;
 import java.math.BigInteger;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.MessageDigest;
 import java.security.Signature;
@@ -20,10 +19,15 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Validates HMAC-signed JWTs and extracts authenticated user context.
@@ -50,7 +54,7 @@ public class JwtService {
 		ObjectMapper objectMapper,
 		Clock clock,
 		@Value("${app.jwt.hmac-secret}") String hmacSecret,
-		@Value("${app.jwt.auth-mode:local}") String authMode,
+		@Value("${app.jwt.auth-mode:hybrid}") String authMode,
 		@Value("${app.jwt.cognito.issuer:}") String cognitoIssuer,
 		@Value("${app.jwt.cognito.audience:}") String cognitoAudience,
 		@Value("${app.jwt.cognito.jwks-url:}") String cognitoJwksUrl,
@@ -168,7 +172,7 @@ public class JwtService {
 			byte[] sig = hmacSha256(signingInput.getBytes(StandardCharsets.US_ASCII));
 			return signingInput + "." + BASE64_URL_ENCODER.encodeToString(sig);
 		}
-		catch (Exception ex) {
+		catch (RuntimeException ex) {
 			throw new IllegalStateException("failed to mint test jwt", ex);
 		}
 	}
@@ -227,7 +231,7 @@ public class JwtService {
 		catch (JwtValidationException ex) {
 			throw ex;
 		}
-		catch (Exception ex) {
+		catch (GeneralSecurityException ex) {
 			throw new JwtValidationException("signature_verification_failed");
 		}
 	}
@@ -390,10 +394,14 @@ public class JwtService {
 
 			return new CachedJwks(keysByKid, clock.instant().plus(jwksCacheTtl));
 		}
+		catch (InterruptedException ex) {
+			Thread.currentThread().interrupt();
+			throw new JwtValidationException("jwks_fetch_failed");
+		}
 		catch (JwtValidationException ex) {
 			throw ex;
 		}
-		catch (Exception ex) {
+		catch (java.io.IOException | RuntimeException ex) {
 			throw new JwtValidationException("jwks_fetch_failed");
 		}
 	}
@@ -405,7 +413,7 @@ public class JwtService {
 			RSAPublicKeySpec spec = new RSAPublicKeySpec(modulus, exponent);
 			return (RSAPublicKey) KeyFactory.getInstance("RSA").generatePublic(spec);
 		}
-		catch (Exception ex) {
+		catch (GeneralSecurityException | IllegalArgumentException ex) {
 			throw new JwtValidationException("jwks_invalid_key");
 		}
 	}
@@ -414,7 +422,7 @@ public class JwtService {
 		try {
 			return objectMapper.readValue(bytes, new TypeReference<>() {});
 		}
-		catch (Exception ex) {
+		catch (RuntimeException ex) {
 			throw new JwtValidationException("invalid_json");
 		}
 	}
@@ -434,7 +442,7 @@ public class JwtService {
 			mac.init(new SecretKeySpec(secret, "HmacSHA256"));
 			return mac.doFinal(data);
 		}
-		catch (Exception ex) {
+		catch (GeneralSecurityException | IllegalArgumentException ex) {
 			throw new IllegalStateException("failed to compute hmac", ex);
 		}
 	}
