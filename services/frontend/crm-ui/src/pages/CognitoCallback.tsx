@@ -13,19 +13,14 @@ export function CognitoCallback() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { loginWithCognitoCode } = useAuth()
-  const [error, setError] = useState<string>('')
+  const [runtimeError, setRuntimeError] = useState<string>('')
+  const code = searchParams.get('code')
+  const callbackError = searchParams.get('error_description') || searchParams.get('error')
+  const error =
+    callbackError || (!code ? 'No authorization code received from Cognito.' : runtimeError)
 
   useEffect(() => {
-    const code = searchParams.get('code')
-    const errorParam = searchParams.get('error_description') || searchParams.get('error')
-
-    if (errorParam) {
-      setError(errorParam)
-      return
-    }
-
-    if (!code) {
-      setError('No authorization code received from Cognito.')
+    if (callbackError || !code) {
       return
     }
 
@@ -39,20 +34,24 @@ export function CognitoCallback() {
         const storedUser = localStorage.getItem('currentUser')
         if (storedUser) {
           const user = JSON.parse(storedUser)
-          navigate(user.role === 'admin' || user.role === 'super_admin' ? '/admin' : '/agent', { replace: true })
+          navigate(user.role === 'admin' || user.role === 'super_admin' ? '/admin' : '/agent', {
+            replace: true,
+          })
         } else {
           navigate('/', { replace: true })
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Authentication failed')
+          setRuntimeError(err instanceof Error ? err.message : 'Authentication failed')
         }
       }
     }
 
     exchange()
-    return () => { cancelled = true }
-  }, [searchParams, loginWithCognitoCode, navigate])
+    return () => {
+      cancelled = true
+    }
+  }, [callbackError, code, loginWithCognitoCode, navigate])
 
   if (error) {
     return (
