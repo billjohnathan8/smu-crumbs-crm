@@ -1,7 +1,11 @@
 package com.scroogebank.crm.client_service.entity;
 
+import java.time.Instant;
+import java.time.LocalDate;
+
 import com.scroogebank.crm.client_service.crypto.EncryptedStringConverter;
 import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
@@ -14,8 +18,6 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import java.time.Instant;
-import java.time.LocalDate;
 
 /**
  * JPA entity representing a client profile and verification state.
