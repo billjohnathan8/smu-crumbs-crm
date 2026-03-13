@@ -230,18 +230,94 @@ seed_data() {
   local create_status
   local create_body
   local seed_response_file
+  local max_attempts
+  local last_http_code
+
+  max_attempts=10
+  last_http_code=""
+
+  retry_http_post() {
+    local url="$1"
+    local data="$2"
+    local auth_header="${3:-}"
+    local output_file="${4:-}"
+    local attempt
+    local http_code
+    local curl_exit
+    local tmp_output
+
+    tmp_output="${output_file}"
+    if [[ -z "${tmp_output}" ]]; then
+      tmp_output="$(mktemp 2>/dev/null || echo "/tmp/db-seed-http.$$")"
+    fi
+
+    for attempt in $(seq 1 "${max_attempts}"); do
+      if [[ -n "${auth_header}" ]]; then
+        http_code="$(
+          curl --silent --show-error \
+            --output "${tmp_output}" \
+            --write-out "%{http_code}" \
+            --request POST "${url}" \
+            --header "Content-Type: application/json" \
+            --header "Authorization: Bearer ${auth_header}" \
+            --data "${data}" \
+            || true
+        )"
+      else
+        http_code="$(
+          curl --silent --show-error \
+            --output "${tmp_output}" \
+            --write-out "%{http_code}" \
+            --request POST "${url}" \
+            --header "Content-Type: application/json" \
+            --data "${data}" \
+            || true
+        )"
+      fi
+      curl_exit=$?
+
+      if [[ ${curl_exit} -eq 0 && ( "${http_code}" == "200" || "${http_code}" == "201" || "${http_code}" == "409" ) ]]; then
+        last_http_code="${http_code}"
+        echo "${http_code}"
+        return 0
+      fi
+
+      # Retry on transport failures and transient upstream instability.
+      if [[ ${curl_exit} -ne 0 || "${http_code}" == "000" || "${http_code}" == "429" || "${http_code}" == "502" || "${http_code}" == "503" || "${http_code}" == "504" ]]; then
+        sleep 1
+        continue
+      fi
+
+      last_http_code="${http_code}"
+      echo "${http_code}"
+      return 0
+    done
+
+    last_http_code="${http_code}"
+    echo "${http_code}"
+    return 1
+  }
 
   require_command curl
   python_cmd="$(detect_python)"
   seed_response_file="$(mktemp 2>/dev/null || echo "/tmp/db-seed-agent-create.$$")"
 
   echo "[seed] root admin login (also triggers root admin bootstrap when missing)"
-  login_response="$(
-    curl --silent --show-error --fail \
-      --request POST "${AGENT_BASE_URL}/api/auth/login" \
-      --header "Content-Type: application/json" \
-      --data "{\"email\":\"${ROOT_ADMIN_EMAIL}\",\"password\":\"${ROOT_ADMIN_PASSWORD}\"}"
-  )"
+  local login_response_file
+  local login_status
+  login_response_file="$(mktemp 2>/dev/null || echo "/tmp/db-seed-agent-login.$$")"
+
+  login_status="$(retry_http_post "${AGENT_BASE_URL}/api/auth/login" "{\"email\":\"${ROOT_ADMIN_EMAIL}\",\"password\":\"${ROOT_ADMIN_PASSWORD}\"}" "" "${login_response_file}")" || true
+  if [[ "${login_status}" != "200" ]]; then
+    echo "[FAIL] Root admin login failed while seeding baseline principals (HTTP ${login_status:-${last_http_code:-unknown}})." >&2
+    if [[ -f "${login_response_file}" ]]; then
+      cat "${login_response_file}" >&2 || true
+    fi
+    rm -f "${seed_response_file}" "${login_response_file}"
+    exit 1
+  fi
+
+  login_response="$(cat "${login_response_file}")"
 
   admin_access_token="$(
     LOGIN_RESPONSE="${login_response}" "${python_cmd}" - <<'PY'
@@ -264,15 +340,8 @@ PY
 EOF
   )"
 
-  create_status="$(
-    curl --silent --show-error \
-      --output "${seed_response_file}" \
-      --write-out "%{http_code}" \
-      --request POST "${AGENT_BASE_URL}/api/agents" \
-      --header "Authorization: Bearer ${admin_access_token}" \
-      --header "Content-Type: application/json" \
-      --data "${create_body}"
-  )"
+  create_status="$(retry_http_post "${AGENT_BASE_URL}/api/agents" "${create_body}" "${admin_access_token}" "${seed_response_file}")" || true
+  rm -f "${login_response_file}"
 
   case "${create_status}" in
     201)
@@ -282,7 +351,7 @@ EOF
       echo "[seed] Baseline agent user already exists: ${SEED_AGENT_EMAIL}"
       ;;
     *)
-      echo "[FAIL] Unexpected response while seeding agent user (HTTP ${create_status})." >&2
+      echo "[FAIL] Unexpected response while seeding agent user (HTTP ${create_status:-${last_http_code:-unknown}})." >&2
       if [[ -f "${seed_response_file}" ]]; then
         cat "${seed_response_file}" >&2 || true
       fi
