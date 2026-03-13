@@ -1,10 +1,34 @@
 import { Page } from "@playwright/test";
 
 /**
+ * Retry navigation once when Chromium reports transient network-change errors.
+ */
+export async function gotoWithNetworkRetry(
+  page: Page,
+  path: string,
+  maxAttempts = 2,
+) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      await page.goto(path, { waitUntil: "domcontentloaded" });
+      return;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const isNetworkChanged = message.includes("ERR_NETWORK_CHANGED");
+      const isLastAttempt = attempt === maxAttempts - 1;
+
+      if (!isNetworkChanged || isLastAttempt) {
+        throw error;
+      }
+    }
+  }
+}
+
+/**
  * Login as admin user and wait for dashboard
  */
 export async function loginAsAdmin(page: Page) {
-  await page.goto("/login");
+  await gotoWithNetworkRetry(page, "/login");
 
   // Clear storage to ensure clean state
   await page.evaluate(() => {
@@ -27,7 +51,7 @@ export async function loginAsAdmin(page: Page) {
  * Login as agent user and wait for dashboard
  */
 export async function loginAsAgent(page: Page) {
-  await page.goto("/login");
+  await gotoWithNetworkRetry(page, "/login");
 
   // Clear storage to ensure clean state
   await page.evaluate(() => {

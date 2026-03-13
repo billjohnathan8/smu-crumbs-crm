@@ -1,11 +1,12 @@
 import { test, expect } from "@playwright/test";
+import { gotoWithNetworkRetry } from "./helpers/auth";
 import { setupAdminRoutes } from "./helpers/mockRoutes";
 
 test("simple admin login test", async ({ page }) => {
   await setupAdminRoutes(page);
 
   // Navigate to login page
-  await page.goto("/login");
+  await gotoWithNetworkRetry(page, "/login");
 
   // Fill in the form
   await page.fill('input[type="email"]', "admin@example.com");
