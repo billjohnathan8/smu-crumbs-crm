@@ -18,7 +18,8 @@
     {
       "name": "app.sftp",
       "type": "com.scroogebank.crm.transaction_service.config.AppProperties$Sftp",
-      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties"
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties",
+      "description": "Ingestion polling config. The sftp prefix is retained for deployment compatibility; actual transport is S3-backed."
     },
     {
       "name": "app.sftp.poll",

@@ -55,19 +55,5 @@ services:
       timeout: 5s
       retries: 10
 
-  mock-sftp:
-    image: atmoz/sftp:latest
-    container_name: crm-mock-sftp
-    ports:
-      - "2222:22"
-    command: "mockuser:mockpass:1001:::upload"
-    volumes:
-      - "./services/backend/transaction/mock-sftp:/home/mockuser/upload:ro"
-    healthcheck:
-      test: ["CMD-SHELL", "ls /home/mockuser/upload >/dev/null 2>&1"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
 volumes:
   crm-pgdata:

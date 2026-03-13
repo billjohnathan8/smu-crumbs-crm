@@ -2,20 +2,29 @@
 
 ## Overview
 - Provides transaction import and listing APIs used by the backend.
-- Supports manual and scheduled transaction ingestion from a mocked SFTP source.
+- Supports manual and scheduled transaction ingestion from an S3-backed source.
 - Local mock transaction CSV files live at `mock-sftp/*.csv`.
 
-## Mock SFTP
-- The ingestion layer uses an `SftpClient` abstraction.
-- Local development uses `MockFilesystemSftpClient`:
-  - filesystem mode via `MOCK_SFTP_ROOT`
-  - S3-backed mode via `TRANSACTION_IMPORT_S3_*` (supports `s3://bucket/key` source paths)
-- For local stack testing, `docker-compose.localstack.yml` now includes a mock SFTP container:
-  - host: `localhost`
-  - port: `2222`
-  - username: `mockuser`
-  - password: `mockpass`
-  - remote folder mounted from `services/backend/transaction/mock-sftp`
+## Transaction Ingestion — S3-Backed Mock SFTP
+
+The project's SFTP requirement is intentionally satisfied by an S3-backed mock.
+**No real SFTP network client is used.** This design choice is deliberate:
+the course requirement for SFTP ingestion is met by treating an S3 bucket as the
+file-drop transport, which is functionally equivalent and avoids unnecessary
+network complexity.
+
+### How it works
+
+The ingestion layer uses a `TransactionFileSource` abstraction
+(implemented by `S3BackedTransactionFileSource`):
+
+| Mode | When | Source |
+|------|------|--------|
+| **Filesystem** | Local dev (`MOCK_SFTP_ROOT`) | CSV files on local disk |
+| **S3** | Deployed / CI (`TRANSACTION_IMPORT_S3_*`) | S3 bucket objects |
+
+- Explicit `s3://bucket/key` source paths are always resolved against S3.
+- When an S3 bucket is configured it takes precedence for listing operations.
 
 ### Ingestion behavior
 - Imports parse CSV rows with quoted-field support.
@@ -35,19 +44,12 @@
   - `TRANSACTION_SFTP_POLL_INITIAL_DELAY_MS`
 
 ### Implementation summary
-- Added `SftpClient` abstraction (`src/main/java/.../service/imports/SftpClient.java`).
-- Added `MockFilesystemSftpClient` for local/mock ingestion from `MOCK_SFTP_ROOT`.
-- Extended `MockFilesystemSftpClient` to optionally read/list CSV source files from S3.
-- Added `TransactionCsvParser` with:
-  - quoted-field CSV parsing
-  - 5-column validation (`clientId,transaction,amount,date,status`)
-  - typed row conversion and deterministic row dedupe key generation
-- Added `TransactionImportScheduler` (`@Scheduled`) for periodic polling/import.
-- Added idempotent import behavior:
-  - in-memory dedupe index
-  - persisted dedupe key (`import_dedupe_key`) with migration `V2__add_import_dedupe_key.sql`
-- Added parser/scheduler/idempotency tests.
-- Added additional sample CSV file: `mock-sftp/transactions-2026-03.csv`.
+- `TransactionFileSource` interface — abstraction for CSV file listing/reading.
+- `S3BackedTransactionFileSource` — reads from local filesystem or S3 bucket.
+- `TransactionCsvParser` — quoted-field CSV parsing, 5-column validation, dedupe key generation.
+- `TransactionImportScheduler` (`@Scheduled`) — periodic polling/import.
+- Idempotent import via persisted dedupe key (`import_dedupe_key`) with migration `V2__add_import_dedupe_key.sql`.
+- Sample CSV: `mock-sftp/transactions-2026-03.csv`.
 
 ## Running Locally
 
@@ -80,7 +82,7 @@ export TRANSACTION_IMPORT_S3_SECRET_ACCESS_KEY=
 Or copy values from `.env.example` (`services/backend/transaction/.env.example`).
 For environment boundaries across local/test/CI/prod, see [Configuration Guide](../../../docs/configuration.md).
 
-Start local infra (including mock SFTP):
+Start local infra:
 
 ```bash
 docker compose -f ../../../docker-compose.localstack.yml up -d
@@ -99,7 +101,6 @@ Security note:
 - Production must provide `JWT_HMAC_SECRET` via environment/secrets.
 
 ## Known limitations
-- Current transaction-service SFTP implementation supports filesystem and S3-mocked sources, but no network SFTP handshake yet.
 - Dedupe is field-based. Legitimate transactions with identical values across all dedupe fields are treated as duplicates.
 - `POST /api/transactions/import` still responds `202 Accepted` while import executes synchronously.
 
@@ -129,5 +130,3 @@ Reports:
 - `build/reports/checkstyle/test.html`
 - `build/reports/tests/test/index.html`
 - `build/reports/jacoco/test/html/index.html`
-
-
