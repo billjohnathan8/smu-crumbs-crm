@@ -111,6 +111,7 @@ CHANGELOG.md
 NOTES.md
 temp/*
 fail-logs/*
+docs/diff/
 
 # Debug Screenshots
 services/frontend/crm-ui/debug-*.png
