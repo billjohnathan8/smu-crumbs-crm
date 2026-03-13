@@ -79,6 +79,15 @@ public class ClientEntity {
 	@Column(name = "identity_verification_status", nullable = false, length = 20)
 	private IdentityVerificationStatus identityVerificationStatus = IdentityVerificationStatus.unverified;
 
+	@Column(name = "verification_document_type", length = 20)
+	private String verificationDocumentType;
+
+	@Column(name = "verification_document_ref", length = 255)
+	private String verificationDocumentRef;
+
+	@Column(name = "verification_verified_at")
+	private Instant verificationVerifiedAt;
+
 	@Column(name = "created_at", nullable = false)
 	private Instant createdAt;
 
@@ -224,5 +233,29 @@ public class ClientEntity {
 
 	public Instant getUpdatedAt() {
 		return updatedAt;
+	}
+
+	public String getVerificationDocumentType() {
+		return verificationDocumentType;
+	}
+
+	public void setVerificationDocumentType(String verificationDocumentType) {
+		this.verificationDocumentType = verificationDocumentType;
+	}
+
+	public String getVerificationDocumentRef() {
+		return verificationDocumentRef;
+	}
+
+	public void setVerificationDocumentRef(String verificationDocumentRef) {
+		this.verificationDocumentRef = verificationDocumentRef;
+	}
+
+	public Instant getVerificationVerifiedAt() {
+		return verificationVerifiedAt;
+	}
+
+	public void setVerificationVerifiedAt(Instant verificationVerifiedAt) {
+		this.verificationVerifiedAt = verificationVerifiedAt;
 	}
 }

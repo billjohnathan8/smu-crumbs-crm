@@ -266,9 +266,17 @@ public class ClientServiceImpl implements ClientService {
 		String requestId
 	) {
 		ClientEntity entity = loadOwnedClient(user, clientId);
-		request.nric(); // validation-only; do not store raw document refs in this mock service
 		IdentityVerificationStatus before = entity.getIdentityVerificationStatus();
+
+		// Persist document evidence so the verification event has a traceable audit trail.
+		if (request.documentType() != null && !request.documentType().isBlank()) {
+			entity.setVerificationDocumentType(request.documentType());
+		}
+		if (request.documentRef() != null && !request.documentRef().isBlank()) {
+			entity.setVerificationDocumentRef(request.documentRef());
+		}
 		entity.setIdentityVerificationStatus(IdentityVerificationStatus.verified);
+		entity.setVerificationVerifiedAt(java.time.Instant.now());
 		ClientEntity saved = clientRepository.save(entity);
 
 		publishAuditSafe(
@@ -411,6 +419,9 @@ public class ClientServiceImpl implements ClientService {
 			entity.getPostalCode(),
 			entity.getIdentityVerificationStatus(),
 			entity.getAssignedAgentId(),
+			entity.getVerificationDocumentType(),
+			entity.getVerificationDocumentRef(),
+			entity.getVerificationVerifiedAt(),
 			entity.getCreatedAt(),
 			entity.getUpdatedAt()
 		);

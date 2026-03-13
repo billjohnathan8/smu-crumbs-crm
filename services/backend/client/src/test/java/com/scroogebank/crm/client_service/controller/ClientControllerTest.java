@@ -49,6 +49,7 @@ class ClientControllerTest {
 	private ClientService clientService;
 	private RequestAuth requestAuth;
 
+	@SuppressWarnings("unused")
 	@BeforeEach
 	void setUp() {
 		clientService = mock(ClientService.class);
@@ -81,6 +82,9 @@ class ClientControllerTest {
 			"62704",
 			IdentityVerificationStatus.unverified,
 			"usr_1",
+			null,
+			null,
+			null,
 			Instant.parse("2026-02-04T12:00:00Z"),
 			Instant.parse("2026-02-04T12:00:00Z")
 		);
