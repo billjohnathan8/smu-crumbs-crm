@@ -26,6 +26,7 @@ concurrency:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   # Keep a lightweight CI-config sanity check.
