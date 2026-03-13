@@ -35,6 +35,21 @@ python scripts/pipelines/test_frontend.py
 3. Frontend mocked E2E
 4. Fullstack integration E2E (containers + LocalStack + Playwright)
 
+## Runtime Baseline (Latest Local Runs)
+
+Runtime numbers below are from the latest build logs on `2026-03-13`.
+
+| Command | Observed runtime | Result |
+|---|---:|---|
+| `python scripts/pipelines/test_all.py` | `656.1s` (~10m 56s) | Failed at Layer 4 (`Fullstack integration (full)` after `175.8s`) |
+| `bash scripts/ci/run-fullstack-integration-e2e.sh` | `407s` (~6m 47s) | Passed |
+
+Source logs:
+- `build-logs/test-all/last-run-summary.md`
+- `build-logs/fullstack-integration/20260313_224929-18799/docker-compose.log`
+
+Expect runtime variance from Docker image cache state, npm/pip cache state, and LocalStack cold starts.
+
 ## Fullstack Entry Points
 
 ```bash

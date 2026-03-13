@@ -33,6 +33,21 @@ The script will:
 5. Run HTTP smoke checks and this Playwright suite.
 6. Tear down containers on exit.
 
+## Runtime Snapshot (Latest Local Runs)
+
+Measured on `2026-03-13`:
+
+| Scope | Command | Observed runtime | Result |
+|---|---|---:|---|
+| Full local pipeline | `python scripts/pipelines/test_all.py` | `656.1s` (~10m 56s) | Failed in Layer 4 fullstack step |
+| Fullstack integration only | `bash scripts/ci/run-fullstack-integration-e2e.sh` | `407s` (~6m 47s) | Passed |
+
+Timing source logs:
+- `build-logs/test-all/last-run-summary.md`
+- `build-logs/fullstack-integration/20260313_224929-18799/docker-compose.log`
+
+In CI, these runtimes usually increase because of colder caches and shared runners.
+
 ## Manual Test Run (Stack Already Running)
 
 ```bash

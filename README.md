@@ -54,6 +54,18 @@ Docs:
 - Python 3.12+
 - Make
 
+# Local/CI Runtime Snapshot (2026-03-13)
+Measured on this repository's latest local runs. Use as planning guidance, not an SLA.
+
+| Command | Observed runtime | Source log |
+|---|---:|---|
+| `python scripts/pipelines/test_all.py` | `656.1s` (~10m 56s) | `build-logs/test-all/last-run-summary.md` |
+| `bash scripts/ci/run-fullstack-integration-e2e.sh` | `407s` (~6m 47s) | `build-logs/fullstack-integration/20260313_224929-18799/docker-compose.log` |
+
+Notes:
+- The latest `test_all.py` run reached Layer 4 and failed in fullstack (`175.8s`) after earlier layers passed.
+- Runtime varies with Docker cache, dependency cache, and LocalStack/container startup conditions.
+
 # Database (Local Postgres)
 - Host: `localhost` (or `postgres` inside Docker Compose network)
 - Port: `5432`
