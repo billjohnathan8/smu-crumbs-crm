@@ -23,6 +23,7 @@ import java.util.Map;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -50,10 +51,11 @@ public class JwtService {
 	private final HttpClient httpClient;
 	private volatile CachedJwks jwksCache;
 
+	@Autowired
 	public JwtService(
 		ObjectMapper objectMapper,
 		Clock clock,
-		@Value("${app.jwt.hmac-secret}") String hmacSecret,
+		@Value("${app.jwt.hmac-secret:dev-only-insecure-secret}") String hmacSecret,
 		@Value("${app.jwt.auth-mode:hybrid}") String authMode,
 		@Value("${app.jwt.cognito.issuer:}") String cognitoIssuer,
 		@Value("${app.jwt.cognito.audience:}") String cognitoAudience,
