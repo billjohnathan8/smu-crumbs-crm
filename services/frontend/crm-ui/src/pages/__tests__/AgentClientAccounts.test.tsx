@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
+import { within } from '@testing-library/dom'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { AgentClientAccounts } from '../AgentClientAccounts'
@@ -129,8 +130,9 @@ describe('AgentClientAccounts', () => {
     await user.click(screen.getByText('+ New Account'))
 
     await waitFor(() => {
-      expect(screen.getByTestId('account-modal')).toBeInTheDocument()
-      expect(screen.getByText('Create Account')).toBeInTheDocument()
+      const modal = screen.getByTestId('account-modal')
+      expect(modal).toBeInTheDocument()
+      expect(within(modal).getByRole('heading', { name: /Create Account/i })).toBeInTheDocument()
     })
   })
 
@@ -201,7 +203,11 @@ describe('AgentClientAccounts', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('delete-account-modal')).toBeInTheDocument()
-      expect(screen.getByText('Are you sure you want to delete this account? This action cannot be undone.')).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          'Are you sure you want to delete this account? This action cannot be undone.'
+        )
+      ).toBeInTheDocument()
     })
   })
 

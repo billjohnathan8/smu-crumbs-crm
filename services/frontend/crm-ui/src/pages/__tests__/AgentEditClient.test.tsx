@@ -131,9 +131,12 @@ describe('AgentEditClient', () => {
     await user.click(submitButton)
 
     await waitFor(() => {
-      expect(clientsApi.updateClient).toHaveBeenCalledWith('client-123', expect.objectContaining({
-        firstName: 'Jane',
-      }))
+      expect(clientsApi.updateClient).toHaveBeenCalledWith(
+        'client-123',
+        expect.objectContaining({
+          firstName: 'Jane',
+        })
+      )
       expect(mockNavigate).toHaveBeenCalledWith('/agent/clients/client-123', {
         state: { successMessage: 'Client updated successfully' },
       })

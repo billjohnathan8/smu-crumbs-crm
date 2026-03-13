@@ -7,7 +7,7 @@ import * as clientsApi from '@/api/clients'
 import * as transactionsApi from '@/api/transactions'
 import * as communicationsApi from '@/api/communications'
 import { ApiError } from '@/api/client'
-import type { Client, PaginatedResponse, Transaction, Account, Communication } from '@/api/types'
+import type { Client, PaginatedResponse, Transaction, Communication } from '@/api/types'
 
 vi.mock('@/api/clients')
 vi.mock('@/api/transactions')
@@ -28,7 +28,13 @@ vi.mock('react-router-dom', async () => {
     ...actual,
     useNavigate: () => mockNavigate,
     useParams: () => ({ clientId: 'client-123' }),
-    useLocation: () => ({ state: null, pathname: '/agent/clients/client-123', search: '', hash: '', key: '' }),
+    useLocation: () => ({
+      state: null,
+      pathname: '/agent/clients/client-123',
+      search: '',
+      hash: '',
+      key: '',
+    }),
   }
 })
 
@@ -79,7 +85,7 @@ describe('AgentClientDetail', () => {
     renderComponent()
 
     await waitFor(() => {
-      expect(screen.getByText('John Doe')).toBeInTheDocument()
+      expect(screen.getAllByText('John Doe').length).toBeGreaterThan(0)
     })
   })
 
@@ -152,15 +158,20 @@ describe('AgentClientDetail', () => {
     })
 
     // Confirm delete - find the delete button inside the modal
-    const modalDeleteButton = screen.getByTestId('delete-client-modal').querySelector('button.bg-danger')
+    const modalDeleteButton = screen
+      .getByTestId('delete-client-modal')
+      .querySelector('button.bg-danger')
     expect(modalDeleteButton).not.toBeNull()
     await user.click(modalDeleteButton!)
 
     await waitFor(() => {
       expect(clientsApi.deleteClient).toHaveBeenCalledWith('client-123')
-      expect(mockNavigate).toHaveBeenCalledWith('/agent/clients', expect.objectContaining({
-        replace: true,
-      }))
+      expect(mockNavigate).toHaveBeenCalledWith(
+        '/agent/clients',
+        expect.objectContaining({
+          replace: true,
+        })
+      )
     })
   })
 
@@ -242,7 +253,6 @@ describe('AgentClientDetail', () => {
 
     // The toEmail field should be pre-filled with client's email
     // Fill subject and body
-    const subjectInput = screen.getByRole('textbox', { name: '' }) || screen.getAllByRole('textbox')[1]
     // Use more specific selectors
     const inputs = screen.getAllByRole('textbox')
     const emailInput = inputs[0]
@@ -258,20 +268,24 @@ describe('AgentClientDetail', () => {
     await user.click(screen.getByRole('button', { name: /Send Email/i }))
 
     await waitFor(() => {
-      expect(communicationsApi.sendCommunication).toHaveBeenCalledWith(expect.objectContaining({
-        clientId: 'client-123',
-        channel: 'email',
-        subject: 'Test Subject',
-        body: 'Test body',
-      }))
+      expect(communicationsApi.sendCommunication).toHaveBeenCalledWith(
+        expect.objectContaining({
+          clientId: 'client-123',
+          channel: 'email',
+          subject: 'Test Subject',
+          body: 'Test body',
+        })
+      )
     })
   })
 
-  it('should show Verify Client (KYC) button for unverified clients', async () => {
+  it('should show Submit for KYC Verification button for unverified clients', async () => {
     renderComponent()
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Verify Client \(KYC\)/i })).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: /Submit for KYC Verification/i })
+      ).toBeInTheDocument()
     })
   })
 
@@ -284,7 +298,7 @@ describe('AgentClientDetail', () => {
     renderComponent()
 
     await waitFor(() => {
-      expect(screen.getByText('John Doe')).toBeInTheDocument()
+      expect(screen.getAllByText('John Doe').length).toBeGreaterThan(0)
     })
 
     expect(screen.queryByRole('button', { name: /Verify Client/i })).not.toBeInTheDocument()
