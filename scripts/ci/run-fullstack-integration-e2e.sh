@@ -841,10 +841,10 @@ provision_log_http_api() {
     --source-arn "arn:aws:execute-api:ap-southeast-1:000000000000:${api_id}/*/*/*" \
     >/dev/null 2>&1 || true
 
-  export LOG_SERVICE_URL="http://localstack:4566/restapis/${api_id}/${LOG_HTTP_API_STAGE}/_user_request_"
+  export LOG_SERVICE_URL="http://localstack:4566/_aws/execute-api/${api_id}/${LOG_HTTP_API_STAGE}"
   export CLIENT_LOG_SERVICE_URL="${LOG_SERVICE_URL}"
   export LOG_API_UPSTREAM="${LOG_SERVICE_URL}"
-  export LOG_SERVICE_PUBLIC_URL="${LOCALSTACK_ENDPOINT}/restapis/${api_id}/${LOG_HTTP_API_STAGE}/_user_request_"
+  export LOG_SERVICE_PUBLIC_URL="${LOCALSTACK_ENDPOINT}/_aws/execute-api/${api_id}/${LOG_HTTP_API_STAGE}"
 }
 
 mint_jwt() {
