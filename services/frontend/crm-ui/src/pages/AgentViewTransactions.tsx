@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/features/auth/AuthContext'
+import { useSearchParams } from 'react-router-dom'
 import { listTransactions, type ListTransactionsParams } from '@/api/transactions'
 import type { Transaction, TransactionStatus, TransactionKind } from '@/api/types'
 import { ApiError } from '@/api/client'
@@ -16,6 +17,8 @@ const ITEMS_PER_PAGE = 20
 
 export function AgentViewTransactions() {
   const { logout } = useAuth()
+  const [searchParams] = useSearchParams()
+  const clientIdFromQuery = searchParams.get('clientId') || ''
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [total, setTotal] = useState(0)
   const [currentPage, setCurrentPage] = useState(0)
@@ -23,6 +26,7 @@ export function AgentViewTransactions() {
   const [error, setError] = useState<string>('')
 
   const [filters, setFilters] = useState({
+    clientId: clientIdFromQuery,
     status: '' as TransactionStatus | '',
     transaction: '' as TransactionKind | '',
     fromDate: '',
@@ -40,6 +44,7 @@ export function AgentViewTransactions() {
         offset: page * ITEMS_PER_PAGE,
       }
 
+      if (filters.clientId) params.clientId = filters.clientId
       if (filters.status) params.status = filters.status
       if (filters.transaction) params.transaction = filters.transaction
       if (filters.fromDate) params.fromDate = filters.fromDate
@@ -49,7 +54,7 @@ export function AgentViewTransactions() {
 
       let filteredData = response.data
 
-      // Client-side search filter (if API doesn't support search)
+      // Client-side search filter for transaction ID matching
       if (filters.search) {
         const searchLower = filters.search.toLowerCase()
         filteredData = filteredData.filter(
@@ -88,6 +93,7 @@ export function AgentViewTransactions() {
 
   const resetFilters = () => {
     setFilters({
+      clientId: '',
       status: '',
       transaction: '',
       fromDate: '',
@@ -145,12 +151,23 @@ export function AgentViewTransactions() {
 
         <div className="bg-card border border-border rounded-lg mb-6 p-4">
           <h3 className="text-text font-medium mb-4">Filters</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+            <div>
+              <label className="block text-xs text-text-muted mb-1">Client ID</label>
+              <input
+                type="text"
+                placeholder="Filter by client ID"
+                value={filters.clientId}
+                onChange={e => handleFilterChange('clientId', e.target.value)}
+                className="w-full px-3 py-2 bg-background-light border border-border rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+
             <div>
               <label className="block text-xs text-text-muted mb-1">Search</label>
               <input
                 type="text"
-                placeholder="Client ID or Transaction ID"
+                placeholder="Transaction ID"
                 value={filters.search}
                 onChange={e => handleFilterChange('search', e.target.value)}
                 className="w-full px-3 py-2 bg-background-light border border-border rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"

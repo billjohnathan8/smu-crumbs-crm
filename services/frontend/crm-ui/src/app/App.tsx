@@ -5,6 +5,8 @@ import { LoginPage } from '@/pages/LoginPage'
 import { AdminDashboard } from '@/pages/AdminDashboard'
 import { AdminManageAccounts } from '@/pages/AdminManageAccounts'
 import { AgentDashboard } from '@/pages/AgentDashboard'
+import { AgentClientList } from '@/pages/AgentClientList'
+import { AgentClientDetail } from '@/pages/AgentClientDetail'
 import { AgentCreateClient } from '@/pages/AgentCreateClient'
 import { AgentViewTransactions } from '@/pages/AgentViewTransactions'
 import { AmlAlertsPage } from '@/pages/AmlAlertsPage'
@@ -46,7 +48,9 @@ export function App() {
 
           <Route element={<ProtectedRoute allowedRoles={['agent']} />}>
             <Route path="/agent" element={<AgentDashboard />} />
+            <Route path="/agent/clients" element={<AgentClientList />} />
             <Route path="/agent/clients/new" element={<AgentCreateClient />} />
+            <Route path="/agent/clients/:clientId" element={<AgentClientDetail />} />
             <Route path="/agent/transactions" element={<AgentViewTransactions />} />
             <Route path="/agent/aml-alerts" element={<AmlAlertsPage />} />
           </Route>
