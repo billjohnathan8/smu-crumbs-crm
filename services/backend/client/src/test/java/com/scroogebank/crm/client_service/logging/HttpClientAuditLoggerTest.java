@@ -18,9 +18,9 @@ class HttpClientAuditLoggerTest {
 	@Test
 	void logAuditEvent_postsToLogService() {
 		RestClient.Builder builder = RestClient.builder()
-			.baseUrl("http://localstack:4566/restapis/test-api/local/_user_request_");
+			.baseUrl("http://localstack:4566/_aws/execute-api/test-api/local");
 		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-		server.expect(requestTo("http://localstack:4566/restapis/test-api/local/_user_request_/api/logs"))
+		server.expect(requestTo("http://localstack:4566/_aws/execute-api/test-api/local/api/logs"))
 			.andExpect(method(HttpMethod.POST))
 			.andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer x"))
 			.andExpect(content().json("""

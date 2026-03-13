@@ -19,9 +19,9 @@ class HttpLogServiceCommunicationClientTest {
 	@Test
 	void listQueuedCommunications_callsExpectedEndpoint() {
 		RestClient.Builder builder = RestClient.builder()
-			.baseUrl("http://localstack:4566/restapis/test-api/local/_user_request_");
+			.baseUrl("http://localstack:4566/_aws/execute-api/test-api/local");
 		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-		server.expect(requestTo("http://localstack:4566/restapis/test-api/local/_user_request_/api/communications/queued?limit=20"))
+		server.expect(requestTo("http://localstack:4566/_aws/execute-api/test-api/local/api/communications/queued?limit=20"))
 			.andExpect(method(HttpMethod.GET))
 			.andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer x"))
 			.andRespond(withSuccess("""

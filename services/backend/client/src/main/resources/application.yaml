@@ -34,7 +34,7 @@ server:
   port: 8080
 
 app:
-  log-service-url: ${CLIENT_LOG_SERVICE_URL:${LOG_SERVICE_URL:http://localhost:4566/restapis/local/local/_user_request_}}
+  log-service-url: ${CLIENT_LOG_SERVICE_URL:${LOG_SERVICE_URL:http://localhost:4566/_aws/execute-api/local/local}}
   verification-email:
     provider: ${VERIFICATION_EMAIL_PROVIDER:mock}
     sender-email: ${SES_SENDER_EMAIL:}
