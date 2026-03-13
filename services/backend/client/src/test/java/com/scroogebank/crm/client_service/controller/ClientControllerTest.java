@@ -51,7 +51,6 @@ class ClientControllerTest {
 	private ClientService clientService;
 	private RequestAuth requestAuth;
 
-	@SuppressWarnings("unused")
 	@BeforeEach
 	void setUp() {
 		clientService = mock(ClientService.class);
