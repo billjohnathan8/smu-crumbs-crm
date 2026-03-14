@@ -8,6 +8,7 @@ import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 
 const agentNav: NavItem[] = [
   { label: 'Home', to: '/agent', end: true },
+  { label: 'My Clients', to: '/agent/clients' },
   { label: 'Create Client', to: '/agent/clients/new' },
   { label: 'Transactions', to: '/agent/transactions' },
   { label: 'AML Alerts', to: '/agent/aml-alerts' },

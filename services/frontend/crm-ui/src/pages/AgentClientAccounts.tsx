@@ -268,6 +268,9 @@ export function AgentClientAccounts() {
                       Account ID
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                      Client ID
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
                       Type
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
@@ -278,6 +281,9 @@ export function AgentClientAccounts() {
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-text-muted uppercase tracking-wider">
                       Initial Deposit
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                      Currency
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
                       Branch
@@ -293,6 +299,9 @@ export function AgentClientAccounts() {
                       <td className="px-6 py-3 text-sm text-text font-mono">
                         {acct.accountId.slice(0, 8)}…
                       </td>
+                      <td className="px-6 py-3 text-sm text-text">
+                        {acct.clientId}
+                      </td>
                       <td className="px-6 py-3 text-sm text-text">{acct.accountType}</td>
                       <td className="px-6 py-3">
                         <span
@@ -306,6 +315,9 @@ export function AgentClientAccounts() {
                       </td>
                       <td className="px-6 py-3 text-sm text-text text-right font-medium">
                         {formatAmount(acct.initialDeposit)}
+                      </td>
+                      <td className="px-6 py-3 text-sm text-text">
+                        {acct.currency}
                       </td>
                       <td className="px-6 py-3 text-sm text-text">{acct.branchId}</td>
                       <td className="px-6 py-3 text-right space-x-2">
@@ -346,6 +358,15 @@ export function AgentClientAccounts() {
                 </div>
               )}
               <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-text mb-1">Client ID</label>
+                  <input
+                    type="text"
+                    value={formData.clientId}
+                    readOnly
+                    className="w-full px-4 py-2 bg-background-light border border-border rounded-lg text-text-muted"
+                  />
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-text mb-1">Account Type</label>
                   <select
