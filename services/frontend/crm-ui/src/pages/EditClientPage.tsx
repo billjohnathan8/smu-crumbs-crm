@@ -14,10 +14,36 @@ const agentNav: NavItem[] = [
   { label: 'AML Alerts', to: '/agent/aml-alerts' },
 ]
 
-export function AgentEditClient() {
+const adminNav: NavItem[] = [
+  { label: 'Home', to: '/admin', end: true },
+  { label: 'All Clients', to: '/admin/clients' },
+  { label: 'Create Client', to: '/admin/clients/new' },
+  { label: 'Communications', to: '/admin/communications' },
+  { label: 'Transactions', to: '/admin/transactions' },
+  { label: 'AML Alerts', to: '/admin/aml-alerts' },
+  { label: 'User Management', to: '/admin/adminusermanagement' },
+]
+
+export function EditClientPage() {
   const { clientId } = useParams<{ clientId: string }>()
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
+
+  const isAdmin = user?.role === 'admin'
+  const isSuperAdmin = user?.role === 'super_admin'
+  const isManagementUser = isAdmin || isSuperAdmin
+
+  const basePath = isManagementUser ? '/admin' : '/agent'
+  const sidebarNav: NavItem[] = isManagementUser
+    ? [
+        ...adminNav,
+        ...(isSuperAdmin ? [{ label: 'Admin Management', to: '/admin/admins' as const }] : []),
+      ]
+    : agentNav
+
+  const detailPath = clientId ? `${basePath}/clients/${clientId}` : `${basePath}/clients`
+  const listPath = `${basePath}/clients`
+  const breadcrumbLabel = isManagementUser ? 'All Clients' : 'My Clients'
 
   const [formData, setFormData] = useState<ClientUpdateRequest>({})
   const [isLoading, setIsLoading] = useState(true)
@@ -28,6 +54,7 @@ export function AgentEditClient() {
 
   useEffect(() => {
     if (!clientId) return
+
     const load = async () => {
       setIsLoading(true)
       try {
@@ -55,6 +82,7 @@ export function AgentEditClient() {
         setIsLoading(false)
       }
     }
+
     load()
   }, [clientId, logout])
 
@@ -73,6 +101,7 @@ export function AgentEditClient() {
       const monthDiff = today.getMonth() - dob.getMonth()
       const actualAge =
         monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate()) ? age - 1 : age
+
       if (actualAge < 18) newErrors.dateOfBirth = 'Client must be at least 18 years old'
       else if (actualAge > 100) newErrors.dateOfBirth = 'Client age cannot exceed 100 years'
     }
@@ -107,7 +136,7 @@ export function AgentEditClient() {
     setIsSubmitting(true)
     try {
       await updateClient(clientId, formData)
-      navigate(`/agent/clients/${clientId}`, {
+      navigate(detailPath, {
         state: { successMessage: 'Client updated successfully' },
       })
     } catch (err) {
@@ -132,7 +161,7 @@ export function AgentEditClient() {
 
   if (isLoading) {
     return (
-      <SidebarLayout items={agentNav}>
+      <SidebarLayout items={sidebarNav}>
         <div className="flex items-center justify-center h-64">
           <div
             data-testid="loading-spinner"
@@ -145,12 +174,12 @@ export function AgentEditClient() {
 
   if (loadError) {
     return (
-      <SidebarLayout items={agentNav}>
+      <SidebarLayout items={sidebarNav}>
         <div className="bg-danger/10 border border-danger rounded-lg p-4 mt-6">
           <p className="text-danger">{loadError}</p>
         </div>
         <button
-          onClick={() => navigate(`/agent/clients/${clientId}`)}
+          onClick={() => navigate(detailPath)}
           className="mt-4 px-4 py-2 rounded bg-primary hover:bg-primary-hover text-white text-sm"
         >
           Back to Client
@@ -160,18 +189,28 @@ export function AgentEditClient() {
   }
 
   const inputCls = (field: keyof ClientUpdateRequest) =>
-    `w-full px-4 py-2 bg-background-light border ${errors[field] ? 'border-danger' : 'border-border'} rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent`
+    `w-full px-4 py-2 bg-background-light border ${
+      errors[field] ? 'border-danger' : 'border-border'
+    } rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent`
 
   return (
-    <SidebarLayout items={agentNav}>
+    <SidebarLayout items={sidebarNav}>
       <nav>
         <div className="flex justify-between h-16 items-center px-4">
           <div className="flex items-center space-x-4">
+            <button onClick={() => navigate(basePath)} className="text-text-muted hover:text-text">
+              Dashboard
+            </button>
+            <span className="text-text-muted">/</span>
+            <button onClick={() => navigate(listPath)} className="text-text-muted hover:text-text">
+              {breadcrumbLabel}
+            </button>
+            <span className="text-text-muted">/</span>
             <button
-              onClick={() => navigate(`/agent/clients/${clientId}`)}
-              className="text-text-muted hover:text-text text-sm"
+              onClick={() => navigate(detailPath)}
+              className="text-text-muted hover:text-text"
             >
-              ← Back to Client
+              Client Details
             </button>
             <span className="text-text-muted">/</span>
             <h1 className="text-xl font-bold text-text">Edit Client</h1>
@@ -371,7 +410,7 @@ export function AgentEditClient() {
             <div className="flex justify-end space-x-4 pt-4">
               <button
                 type="button"
-                onClick={() => navigate(`/agent/clients/${clientId}`)}
+                onClick={() => navigate(detailPath)}
                 className="px-6 py-3 rounded-lg bg-background-light text-text hover:bg-background-lighter font-medium transition-colors"
                 disabled={isSubmitting}
               >
@@ -380,7 +419,11 @@ export function AgentEditClient() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`px-6 py-3 rounded-lg font-medium transition-colors ${isSubmitting ? 'bg-primary/50 cursor-not-allowed text-white' : 'bg-primary hover:bg-primary-hover text-white'}`}
+                className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                  isSubmitting
+                    ? 'bg-primary/50 cursor-not-allowed text-white'
+                    : 'bg-primary hover:bg-primary-hover text-white'
+                }`}
               >
                 {isSubmitting ? 'Saving...' : 'Save Changes'}
               </button>

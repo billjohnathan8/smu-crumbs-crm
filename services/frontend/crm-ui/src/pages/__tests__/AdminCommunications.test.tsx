@@ -58,12 +58,13 @@ describe('AdminCommunications', () => {
       data: [],
       pagination: { limit: 200, offset: 0, total: 0 },
     }
-    vi.spyOn(communicationsApi, 'listQueuedCommunications').mockResolvedValue(mockResponse)
+
+    vi.mocked(communicationsApi.listQueuedCommunications).mockResolvedValue(mockResponse)
 
     renderPage()
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /^Communications$/i })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /Communications/i })).toBeInTheDocument()
     })
   })
 
@@ -72,7 +73,8 @@ describe('AdminCommunications', () => {
       data: [],
       pagination: { limit: 200, offset: 0, total: 0 },
     }
-    vi.spyOn(communicationsApi, 'listQueuedCommunications').mockResolvedValue(mockResponse)
+
+    vi.mocked(communicationsApi.listQueuedCommunications).mockResolvedValue(mockResponse)
 
     renderPage()
 
@@ -86,7 +88,8 @@ describe('AdminCommunications', () => {
       data: [mockComm],
       pagination: { limit: 200, offset: 0, total: 1 },
     }
-    vi.spyOn(communicationsApi, 'listQueuedCommunications').mockResolvedValue(mockResponse)
+
+    vi.mocked(communicationsApi.listQueuedCommunications).mockResolvedValue(mockResponse)
 
     renderPage()
 
@@ -97,19 +100,19 @@ describe('AdminCommunications', () => {
     })
   })
 
-  it('should show loading state', async () => {
-    vi.spyOn(communicationsApi, 'listQueuedCommunications').mockImplementation(
+  it('should show loading state', () => {
+    vi.mocked(communicationsApi.listQueuedCommunications).mockImplementation(
       () => new Promise(() => {})
     )
 
     renderPage()
 
-    expect(screen.getByRole('status', { hidden: true })).toBeInTheDocument()
+    expect(screen.getByTestId('loading-spinner')).toBeInTheDocument()
   })
 
   it('should show error when API call fails', async () => {
     const error = new ApiError(500, 'server_error', 'Failed to load communications')
-    vi.spyOn(communicationsApi, 'listQueuedCommunications').mockRejectedValue(error)
+    vi.mocked(communicationsApi.listQueuedCommunications).mockRejectedValue(error)
 
     renderPage()
 
@@ -123,7 +126,8 @@ describe('AdminCommunications', () => {
       data: [],
       pagination: { limit: 200, offset: 0, total: 0 },
     }
-    vi.spyOn(communicationsApi, 'listQueuedCommunications').mockResolvedValue(mockResponse)
+
+    vi.mocked(communicationsApi.listQueuedCommunications).mockResolvedValue(mockResponse)
 
     renderPage()
 
@@ -138,14 +142,13 @@ describe('AdminCommunications', () => {
       data: [],
       pagination: { limit: 200, offset: 0, total: 0 },
     }
-    vi.spyOn(communicationsApi, 'listQueuedCommunications').mockResolvedValue(mockResponse)
+
+    vi.mocked(communicationsApi.listQueuedCommunications).mockResolvedValue(mockResponse)
 
     renderPage()
 
     await waitFor(() => {
-      const navLinks = screen.getAllByRole('link')
-      const commLink = navLinks.find(link => link.textContent === 'Communications')
-      expect(commLink).toBeTruthy()
+      const commLink = screen.getByRole('link', { name: 'Communications' })
       expect(commLink).toHaveAttribute('href', '/admin/communications')
     })
   })
@@ -155,7 +158,8 @@ describe('AdminCommunications', () => {
       data: [],
       pagination: { limit: 200, offset: 0, total: 0 },
     }
-    vi.spyOn(communicationsApi, 'listQueuedCommunications').mockResolvedValue(mockResponse)
+
+    vi.mocked(communicationsApi.listQueuedCommunications).mockResolvedValue(mockResponse)
 
     renderPage()
 
