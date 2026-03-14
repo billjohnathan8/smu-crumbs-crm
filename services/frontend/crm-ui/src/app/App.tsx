@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from '@/features/auth/AuthContext'
 import { ProtectedRoute } from './ProtectedRoute'
 import { LoginPage } from '@/pages/LoginPage'
 import { CognitoCallback } from '@/pages/CognitoCallback'
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { AdminDashboard } from '@/pages/AdminDashboard'
 import { AdminManageAccounts } from '@/pages/AdminManageAccounts'
 import { AdminCommunications } from '@/pages/AdminCommunications'
@@ -44,6 +46,8 @@ export function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/auth/callback" element={<CognitoCallback />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           <Route element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} />}>
             <Route path="/admin" element={<AdminDashboard />} />
