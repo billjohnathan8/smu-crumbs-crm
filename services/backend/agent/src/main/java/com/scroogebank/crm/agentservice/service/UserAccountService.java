@@ -126,6 +126,9 @@ public class UserAccountService {
 
 		// Look up the target user's role
 		UserDto target = store.getUser(userId);
+		if (target == null) {
+			throw new UserNotFoundException(userId);
+		}
 		UserRole targetRole = target.role();
 		
 		validateHierarchyPermissions(user, targetRole, "disable");
@@ -140,8 +143,19 @@ public class UserAccountService {
 	 * @param userId API user identifier
 	 * @param _request reset payload (currently unused)
 	 */
-	public void resetPassword(String userId, ResetPasswordRequest _request) {
+	public void resetPassword(String userId, ResetPasswordRequest request, AuthenticatedUser requester) {
+		// Look up the target user's role
+		UserDto target = store.getUser(userId);
+		if (target == null) {
+			throw new UserNotFoundException(userId);
+		}
+		UserRole targetRole = target.role();
 
+		// Reset own password is always allowed
+		if (target.id().equals(requester.userId())) {
+			return;
+		}
+		validateHierarchyPermissions(requester, targetRole, "reset password for");
 		store.resetPassword(userId);
 	}
 

@@ -259,7 +259,7 @@ class UserControllerTest {
     void resetPassword_adminAccepted_withBody() throws Exception {
         when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
         ResetPasswordRequest body = new ResetPasswordRequest("ava@example.com");
-        doNothing().when(userAccountService).resetPassword(eq("usr_3"), any());
+        doNothing().when(userAccountService).resetPassword(eq("usr_3"), any(), any(AuthenticatedUser.class));
 
         mockMvc.perform(post("/api/agents/usr_3/reset-password")
                 .header("Authorization", "Bearer x")
@@ -272,7 +272,7 @@ class UserControllerTest {
     @Test
     void resetPassword_adminAccepted_withoutBody() throws Exception {
         when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
-        doNothing().when(userAccountService).resetPassword(eq("usr_3"), eq(null));
+        doNothing().when(userAccountService).resetPassword(eq("usr_3"), eq(null), any(AuthenticatedUser.class));
 
         mockMvc.perform(post("/api/agents/usr_3/reset-password").header("Authorization", "Bearer x"))
             .andExpect(status().isAccepted());

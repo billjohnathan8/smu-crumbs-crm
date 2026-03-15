@@ -71,7 +71,7 @@ class UserAccountServiceTest {
 		assertEquals(dto, service.updateUser("usr_2", update, requester));
 		service.deleteUser("usr_2", requester);
 		assertEquals(dto, service.disableUser("usr_2", requester));
-		service.resetPassword("usr_2", reset);
+		service.resetPassword("usr_2", reset, requester);
 
 		verify(store).deleteUser(eq("usr_2"));
 		verify(store).resetPassword(eq("usr_2"));

@@ -165,8 +165,8 @@ public class UserController {
 		@PathVariable String userId,
 		@Valid @RequestBody(required = false) ResetPasswordRequest body
 	) {
-		AuthenticatedUser user = requestAuth.requireUser(request);
-		userAccountService.resetPassword(userId, body);
+		AuthenticatedUser requester = requestAuth.requireUser(request);
+		userAccountService.resetPassword(userId, body, requester);
 		return ResponseEntity.status(HttpStatus.ACCEPTED).build();
 	}
 }
