@@ -47,7 +47,7 @@ class PersistentUserStoreTest {
 	@Test
 	void refreshTokenPersistsAcrossStoreInstance() {
 		UserDto created = store.createUser(
-			new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent, false, "TempPass!123")
+			new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent, "TempPass!123")
 		);
 		String token = store.issueRefreshToken(created.id());
 

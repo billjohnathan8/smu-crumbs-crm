@@ -12,9 +12,9 @@ import com.scroogebank.crm.agentservice.dto.UpdateUserRequest;
 import com.scroogebank.crm.agentservice.dto.UserDto;
 import com.scroogebank.crm.agentservice.dto.UserRole;
 import com.scroogebank.crm.agentservice.dto.UserStatus;
+import com.scroogebank.crm.agentservice.exception.AccessDeniedException;
 import com.scroogebank.crm.agentservice.exception.DuplicateUserException;
 import com.scroogebank.crm.agentservice.exception.UserNotFoundException;
-import com.scroogebank.crm.agentservice.security.ForbiddenException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -44,7 +44,6 @@ class InMemoryUserStoreTest {
 			"Ng",
 			"  ALICE@Example.com ",
 			null,
-			false,
 			"temp12345"
 		));
 
@@ -59,17 +58,17 @@ class InMemoryUserStoreTest {
 
 	@Test
 	void createUser_duplicateEmail_throwsConflict() {
-		store.createUser(new CreateUserRequest("A", "B", "ava@example.com", UserRole.agent, false, "pw"));
+		store.createUser(new CreateUserRequest("A", "B", "ava@example.com", UserRole.agent, "pw"));
 
 		assertThrows(DuplicateUserException.class, () -> store.createUser(
-			new CreateUserRequest("C", "D", "AVA@example.com", UserRole.admin, false, "pw")
+			new CreateUserRequest("C", "D", "AVA@example.com", UserRole.admin, "pw")
 		));
 	}
 
 	@Test
 	void updateUser_replacesEmailIndexAndRejectsDuplicate() {
-		UserDto first = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent, false, "pw"));
-		UserDto second = store.createUser(new CreateUserRequest("Ben", "Tan", "ben@example.com", UserRole.agent, false, "pw"));
+		UserDto first = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent, "pw"));
+		UserDto second = store.createUser(new CreateUserRequest("Ben", "Tan", "ben@example.com", UserRole.agent, "pw"));
 
 		UserDto updated = store.updateUser(first.id(), new UpdateUserRequest("Ava", "Stone", "ava.new@example.com", UserRole.admin));
 		assertEquals("ava.new@example.com", updated.email());
@@ -84,14 +83,14 @@ class InMemoryUserStoreTest {
 
 	@Test
 	void deleteUser_rootAdminIsForbidden() {
-		assertThrows(ForbiddenException.class, () -> store.deleteUser("usr_1"));
+		assertThrows(AccessDeniedException.class, () -> store.deleteUser("usr_1"));
 	}
 
 	@Test
 	void listAndCountUsers_applyRoleFilterAndPaging() {
-		store.createUser(new CreateUserRequest("A", "A", "a@example.com", UserRole.agent, false, "pw"));
-		store.createUser(new CreateUserRequest("B", "B", "b@example.com", UserRole.admin, false, "pw"));
-		store.createUser(new CreateUserRequest("C", "C", "c@example.com", UserRole.agent, false, "pw"));
+		store.createUser(new CreateUserRequest("A", "A", "a@example.com", UserRole.agent, "pw"));
+		store.createUser(new CreateUserRequest("B", "B", "b@example.com", UserRole.admin, "pw"));
+		store.createUser(new CreateUserRequest("C", "C", "c@example.com", UserRole.agent, "pw"));
 
 		List<UserDto> page = store.listUsers(1, -10, "agent");
 		assertEquals(1, page.size());
@@ -121,7 +120,7 @@ class InMemoryUserStoreTest {
 
 	@Test
 	void resetPassword_invalidatesRefreshTokens() {
-		UserDto created = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent, false, "temp123"));
+		UserDto created = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent, "temp123"));
 		String token = store.issueRefreshToken(created.id());
 		assertTrue(store.isRefreshTokenValid(token));
 
@@ -137,8 +136,7 @@ class InMemoryUserStoreTest {
 			"Ng",
 			"alice@example.com",
 			UserRole.agent,
-			false,
-			null
+			"pw"
 		));
 
 		InMemoryUserStore.UserRecord record = store.loadRecord(created.id());
@@ -153,7 +151,6 @@ class InMemoryUserStoreTest {
 			"Ng",
 			"alice@example.com",
 			UserRole.agent,
-			false,
 			"pw"
 		));
 
@@ -164,7 +161,7 @@ class InMemoryUserStoreTest {
 
 	@Test
 	void deleteUser_removesRefreshTokens() {
-		UserDto created = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent, false, "pw"));
+		UserDto created = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent, "pw"));
 		String token = store.issueRefreshToken(created.id());
 		assertTrue(store.isRefreshTokenValid(token));
 
@@ -189,8 +186,8 @@ class InMemoryUserStoreTest {
 
 	@Test
 	void listUsers_blankRoleFilter_doesNotFilter() {
-		store.createUser(new CreateUserRequest("A", "A", "a@example.com", UserRole.agent, false, "pw"));
-		store.createUser(new CreateUserRequest("B", "B", "b@example.com", UserRole.admin, false, "pw"));
+		store.createUser(new CreateUserRequest("A", "A", "a@example.com", UserRole.agent, "pw"));
+		store.createUser(new CreateUserRequest("B", "B", "b@example.com", UserRole.admin, "pw"));
 
 		List<UserDto> all = store.listUsers(50, 0, "  ");
 		assertEquals(3, all.size());

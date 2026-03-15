@@ -7,11 +7,11 @@ import com.scroogebank.crm.agentservice.dto.UserRole;
 import com.scroogebank.crm.agentservice.dto.UserStatus;
 import com.scroogebank.crm.agentservice.entity.AgentRefreshTokenEntity;
 import com.scroogebank.crm.agentservice.entity.AgentUserEntity;
+import com.scroogebank.crm.agentservice.exception.AccessDeniedException;
 import com.scroogebank.crm.agentservice.exception.DuplicateUserException;
 import com.scroogebank.crm.agentservice.exception.UserNotFoundException;
 import com.scroogebank.crm.agentservice.repository.AgentRefreshTokenRepository;
 import com.scroogebank.crm.agentservice.repository.AgentUserRepository;
-import com.scroogebank.crm.agentservice.security.ForbiddenException;
 import com.scroogebank.crm.agentservice.util.IdCodec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -122,11 +122,12 @@ public class PersistentUserStore implements UserStore {
 		seedRootAdminIfMissing();
 		long dbId = decodeUserId(userId);
 		if (dbId == ROOT_ADMIN_DB_ID) {
-			throw new ForbiddenException("root_admin");
+			throw new AccessDeniedException("root_admin");
 		}
 		AgentUserEntity existing = loadEntityById(dbId);
-		refreshTokenRepository.deleteByUser_Id(existing.getId());
-		userRepository.delete(existing);
+		existing.setStatus(UserStatus.deleted);
+		existing.setUpdatedAt(clock.instant());
+		userRepository.save(existing);
 	}
 
 	@Transactional

@@ -13,8 +13,11 @@ import java.util.Map;
 import java.util.UUID;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import com.scroogebank.crm.agentservice.dto.UserRole;
 
 /**
  * Unit tests for {@link JwtService}.
@@ -39,7 +42,7 @@ class JwtServiceTest {
 		AuthenticatedUser user = jwtService.verifyAndParse(token);
 
 		assertEquals("usr_1", user.userId());
-		assertEquals("admin", user.role());
+		assertEquals(UserRole.admin, user.role());
 	}
 
 	@Test
@@ -49,7 +52,7 @@ class JwtServiceTest {
 		AuthenticatedUser user = jwtService.verifyAndParse(token);
 
 		assertEquals("usr_1", user.userId());
-		assertEquals("super_admin", user.role());
+		assertEquals(UserRole.super_admin, user.role());
 	}
 
 	@Test
@@ -64,7 +67,7 @@ class JwtServiceTest {
 		AuthenticatedUser user = jwtService.verifyAndParse(token);
 
 		assertEquals("usr_1", user.userId());
-		assertEquals("super_admin", user.role());
+		assertEquals(UserRole.super_admin, user.role());
 	}
 
 	@Test
@@ -154,7 +157,7 @@ class JwtServiceTest {
 		AuthenticatedUser user = jwtService.verifyAndParse(token);
 
 		assertEquals("usr_1", user.userId());
-		assertEquals("admin", user.role());
+		assertEquals(UserRole.admin, user.role());
 	}
 
 	private String signedToken(Map<String, Object> payload) {

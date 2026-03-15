@@ -7,7 +7,7 @@ import com.scroogebank.crm.agentservice.dto.UserRole;
 import com.scroogebank.crm.agentservice.dto.UserStatus;
 import com.scroogebank.crm.agentservice.exception.DuplicateUserException;
 import com.scroogebank.crm.agentservice.exception.UserNotFoundException;
-import com.scroogebank.crm.agentservice.security.ForbiddenException;
+import com.scroogebank.crm.agentservice.exception.AccessDeniedException;
 import com.scroogebank.crm.agentservice.util.IdCodec;
 import java.time.Clock;
 import java.time.Duration;
@@ -135,15 +135,27 @@ public class InMemoryUserStore implements UserStore {
 	 * Deletes a user and removes any associated refresh tokens.
 	 *
 	 * @param userId API user identifier
-	 * @throws ForbiddenException when attempting to delete the root admin
+	 * @throws AccessDenied when attempting to delete the root admin
 	 */
 	public void deleteUser(String userId) {
 		long dbId = decodeUserId(userId);
 		if (dbId == ROOT_ADMIN_DB_ID) {
-			throw new ForbiddenException("root_admin");
+			throw new AccessDeniedException("root_admin");
 		}
 		UserRecord existing = loadByDbId(dbId);
-		users.remove(dbId);
+		Instant now = clock.instant();
+		UserRecord updated = new UserRecord(
+			dbId,
+			existing.firstName(),
+			existing.lastName(),
+			existing.email(),
+			existing.role(),
+			UserStatus.deleted,
+			existing.passwordHash(),
+			existing.createdAt(),
+			now
+		);
+		users.put(dbId, updated);
 		emailIndex.remove(existing.email());
 		refreshTokens.entrySet().removeIf(e -> e.getValue().dbUserId == dbId);
 	}
