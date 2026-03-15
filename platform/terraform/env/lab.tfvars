@@ -33,6 +33,9 @@ enable_audit_pipeline            = false
 enable_aml_pipeline              = false
 enable_verification_pipeline     = false
 
+# --- Network (reduced for first deploy) ---
+enable_vpc_flow_logs = false            # avoids extra IAM role; re-enable after first deploy
+
 # --- Observability & Security (reduced for cost) ---
 enable_waf              = false
 enable_cloudtrail       = false
