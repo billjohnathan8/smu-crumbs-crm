@@ -16,6 +16,8 @@ crash.*.log
 # to change depending on the environment.
 *.tfvars
 *.tfvars.json
+# Allow committed environment variable files (non-sensitive values only)
+!platform/terraform/env/*.tfvars
 
 # Ignore backend configuration files (may contain sensitive S3/DynamoDB info)
 backend.hcl

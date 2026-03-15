@@ -5,14 +5,13 @@
 terraform {
   required_version = ">= 1.6.0"
 
-  # Partial backend config: set bucket/key/region via -backend-config
-  # Example: terraform init -backend-config="bucket=my-bucket" -backend-config="key=path/to/terraform.tfstate" -backend-config="region=ap-southeast-1"
-  # NOTE: Backend commented out for local state during development/validation
-  # Uncomment and configure when ready to use remote state
-  # backend "s3" {
-  #   encrypt      = true
-  #   use_lockfile = true
-  # }
+  # Remote state in S3 with partial backend config.
+  # Initialise with: terraform init -backend-config=env/<env>.backend.hcl
+  # Switch environments with: terraform init -reconfigure -backend-config=env/<env>.backend.hcl
+  backend "s3" {
+    encrypt      = true
+    use_lockfile = true
+  }
 
   required_providers {
     aws = {
