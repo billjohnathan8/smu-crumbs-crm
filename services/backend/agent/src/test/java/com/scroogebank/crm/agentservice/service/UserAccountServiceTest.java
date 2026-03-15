@@ -35,12 +35,12 @@ import org.junit.jupiter.params.provider.CsvSource;
  * Unit tests for {@link UserAccountService}.
  */
 class UserAccountServiceTest {
-	private UserStore store;
+	private PersistentUserStore store;
 	private UserAccountService service;
 
 	@BeforeEach
 	void setUp() {
-		store = mock(UserStore.class);
+		store = mock(PersistentUserStore.class);
 		service = new UserAccountService(store);
 	}
 
