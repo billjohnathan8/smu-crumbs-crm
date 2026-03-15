@@ -9,13 +9,17 @@ const ITEMS_PER_PAGE = 20
 
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
-  { label: 'Manage Accounts', to: '/admin/accounts' },
+  { label: 'All Clients', to: '/admin/clients' },
+  { label: 'Create Client', to: '/admin/clients/new' },
   { label: 'Communications', to: '/admin/communications' },
+  { label: 'Transactions', to: '/admin/transactions' },
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
+  { label: 'User Management', to: '/admin/adminusermanagement' },
 ]
 
 const agentNav: NavItem[] = [
   { label: 'Home', to: '/agent', end: true },
+  { label: 'My Clients', to: '/agent/clients' },
   { label: 'Create Client', to: '/agent/clients/new' },
   { label: 'Transactions', to: '/agent/transactions' },
   { label: 'AML Alerts', to: '/agent/aml-alerts' },
