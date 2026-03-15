@@ -3,7 +3,7 @@
 # Defines required version, backend configuration, and provider requirements
 #--------------------------------------------------------------
 terraform {
-  required_version = ">= 1.6.0"
+  required_version = ">= 1.10.0"
 
   # Remote state in S3 with partial backend config.
   # Initialise with: terraform init -backend-config=env/<env>.backend.hcl
