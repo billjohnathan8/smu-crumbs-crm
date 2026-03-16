@@ -43,13 +43,7 @@ export function AdminUserManagementPage() {
   const sidebarNav = canManageUsers ? adminNav : agentNav
   const homePath = basePath
 
-  if (!user) {
-    return <Navigate to="/login" replace />
-  }
 
-  if (isAgent || !canManageUsers) {
-    return <Navigate to="/unauthorized" replace />
-  }
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -116,6 +110,14 @@ export function AdminUserManagementPage() {
     } finally {
       setDeletingUserId(null)
     }
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (isAgent || !canManageUsers) {
+    return <Navigate to="/unauthorized" replace />
   }
 
   // Group users by role for display
