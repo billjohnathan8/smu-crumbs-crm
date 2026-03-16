@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
-import { AgentClientDetail } from '../ClientDetailPage'
+import { ClientDetailPage } from '../ClientDetailPage'
 import * as clientsApi from '@/api/clients'
 import * as transactionsApi from '@/api/transactions'
 import * as communicationsApi from '@/api/communications'
@@ -65,7 +65,7 @@ const mockCommsResponse: PaginatedResponse<Communication> = {
   pagination: { limit: 10, offset: 0, total: 0 },
 }
 
-describe('AgentClientDetail', () => {
+describe('ClientDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.spyOn(clientsApi, 'getClientById').mockResolvedValue(mockClient)
@@ -77,7 +77,7 @@ describe('AgentClientDetail', () => {
   const renderComponent = () =>
     render(
       <BrowserRouter>
-        <AgentClientDetail />
+        <ClientDetailPage />
       </BrowserRouter>
     )
 
@@ -200,12 +200,13 @@ describe('AgentClientDetail', () => {
     renderComponent()
 
     await waitFor(() => {
-      expect(screen.getByText('Communications')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /Communications/i ,level:2},)).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /Compose Email/i })).toBeInTheDocument()
     })
   })
 
   it('should show compose email form when Compose Email is clicked', async () => {
+    
     renderComponent()
     const user = userEvent.setup()
 

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
-import { AgentViewTransactions } from '../ViewTransactionsPage'
+import { ViewTransactionsPage } from '../ViewTransactionsPage'
 import * as transactionsApi from '@/api/transactions'
 import { ApiError } from '@/api/client'
 import type { Transaction } from '@/api/types'
@@ -25,7 +25,7 @@ describe('AgentViewTransactions', () => {
   const renderComponent = () => {
     return render(
       <BrowserRouter>
-        <AgentViewTransactions />
+        <ViewTransactionsPage />
       </BrowserRouter>
     )
   }
@@ -57,8 +57,7 @@ describe('AgentViewTransactions', () => {
 
     renderComponent()
 
-    expect(screen.getByText('Transactions')).toBeInTheDocument()
-
+    expect(screen.getByRole('heading', { name: 'Transactions', level: 1 })).toBeInTheDocument()
     await waitFor(() => {
       expect(screen.getByText('Transaction List')).toBeInTheDocument()
     })

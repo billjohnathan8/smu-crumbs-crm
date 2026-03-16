@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { BrowserRouter } from 'react-router-dom'
+import {MemoryRouter,Routes, Route, BrowserRouter } from 'react-router-dom'
 import { CreateNewUserPage } from '../CreateNewUserPage'
 import { AuthProvider } from '@/features/auth/AuthContext'
 import * as usersApi from '@/api/users'
@@ -30,9 +30,25 @@ const mockSuperAdminUser: User = {
   status: 'active',
 }
 
-const renderCreateNewUserPage = (user: User = mockAdminUser) => {
+
+
+const renderCreateNewUserPage = (user: User = mockAdminUser, useStrictRoutes: boolean = false) => {
+
   localStorage.setItem('authToken', 'test-token')
   localStorage.setItem('currentUser', JSON.stringify(user))
+  if (useStrictRoutes) {
+    return render(
+      <MemoryRouter initialEntries={['/admin/createnewuser']}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/admin/createnewuser" element={<CreateNewUserPage />} />
+            <Route path="/unauthorized" element={<h1>Mock Unauthorized Page</h1>} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>
+    )
+  }
+
 
   return render(
     <BrowserRouter>
@@ -81,7 +97,7 @@ describe('CreateNewUserPage', () => {
 
     const firstNameInput = screen.getByLabelText(/First Name/i)
     const lastNameInput = screen.getByLabelText(/Last Name/i)
-    const emailInput = screen.getByLabelText(/Email/i)
+    const emailInput = screen.getByLabelText(/^Email/i)
 
     await user.type(firstNameInput, 'John')
     await user.type(lastNameInput, 'Doe')
@@ -196,7 +212,7 @@ describe('CreateNewUserPage', () => {
 
   it('should handle duplicate email error', async () => {
     const user = userEvent.setup()
-    vi.spyOn(usersApi, 'createUser').mockRejectedValue(new ApiError('User already exists', 409))
+    vi.spyOn(usersApi, 'createUser').mockRejectedValue(new ApiError(409,'User already exists','User already exists'))
 
     renderCreateNewUserPage()
 
@@ -219,7 +235,7 @@ describe('CreateNewUserPage', () => {
   it('should handle unauthorized error', async () => {
     const user = userEvent.setup()
     const mockLogout = vi.fn()
-    vi.spyOn(usersApi, 'createUser').mockRejectedValue(new ApiError('Unauthorized', 401))
+    vi.spyOn(usersApi, 'createUser').mockRejectedValue(new ApiError(401,'Unauthorized','Unauthorized'))
 
     // Mock logout in useAuth
     vi.doMock('@/features/auth/AuthContext', () => ({
@@ -233,7 +249,7 @@ describe('CreateNewUserPage', () => {
 
     const firstNameInput = screen.getByLabelText(/First Name/i)
     const lastNameInput = screen.getByLabelText(/Last Name/i)
-    const emailInput = screen.getByLabelText(/Email/i)
+    const emailInput = screen.getByLabelText(/^Email/i)
 
     await user.type(firstNameInput, 'John')
     await user.type(lastNameInput, 'Doe')

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
-import { BrowserRouter } from 'react-router-dom'
+import {MemoryRouter,Routes,Route,BrowserRouter } from 'react-router-dom'
 import { AdminUserManagementPage } from '../AdminUserManagementPage'
 import { AuthProvider } from '@/features/auth/AuthContext'
 import * as usersApi from '@/api/users'
@@ -38,10 +38,28 @@ const mockAgentUser: User = {
   status: 'active',
 }
 
-const renderAdminUserManagementPage = (user: User = mockAdminUser) => {
+const renderAdminUserManagementPage = (
+  user: User = mockAdminUser, 
+  useStrictRoutes = false 
+) => {
+  vi.mocked(authApi.getCurrentUser).mockResolvedValue(user)
   localStorage.setItem('authToken', 'test-token')
   localStorage.setItem('currentUser', JSON.stringify(user))
 
+  if (useStrictRoutes) {
+    return render(
+      <MemoryRouter initialEntries={['/admin/adminusermanagement']}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/admin/adminusermanagement" element={<AdminUserManagementPage />} />
+            <Route path="/unauthorized" element={<h1>Mock Unauthorized Page</h1>} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>
+    )
+  }
+
+  // The default fallback for your standard UI tests
   return render(
     <BrowserRouter>
       <AuthProvider>
@@ -56,7 +74,6 @@ describe('AdminUserManagementPage', () => {
     localStorage.clear()
     vi.clearAllMocks()
     // Mock getCurrentUser to prevent AuthProvider from hanging
-    vi.mocked(authApi.getCurrentUser).mockResolvedValue(mockAdminUser)
   })
 
   it('should render user management page for admin', async () => {
@@ -68,7 +85,7 @@ describe('AdminUserManagementPage', () => {
     renderAdminUserManagementPage()
 
     await waitFor(() => {
-      expect(screen.getByText('User Management')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'User Management', level: 1 })).toBeInTheDocument()    })
       expect(screen.getByText('My Agents')).toBeInTheDocument()
     })
   })
@@ -82,7 +99,7 @@ describe('AdminUserManagementPage', () => {
     renderAdminUserManagementPage(mockSuperAdminUser)
 
     await waitFor(() => {
-      expect(screen.getByText('User Management')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'User Management', level: 1 })).toBeInTheDocument()    
       expect(screen.getByText('Admins')).toBeInTheDocument()
       expect(screen.getByText('My Users')).toBeInTheDocument()
     })
@@ -185,15 +202,15 @@ describe('AdminUserManagementPage', () => {
     renderAdminUserManagementPage()
 
     await waitFor(() => {
-      expect(screen.getByText('User Management')).toBeInTheDocument()
-    })
+      expect(screen.getByRole('heading', { name: 'User Management', level: 1 })).toBeInTheDocument()    
 
-    // Should not show admins section for regular admin
-    expect(screen.queryByText('Admins')).not.toBeInTheDocument()
+      // Should not show admins section for regular admin
+      expect(screen.queryByText('Admins')).not.toBeInTheDocument()
+    })
   })
 
   it('should handle API error', async () => {
-    vi.spyOn(usersApi, 'listUsers').mockRejectedValue(new ApiError('Failed to load users', 500))
+    vi.spyOn(usersApi, 'listUsers').mockRejectedValue(new ApiError(500, 'Failed to load users', 'Failed to load users'))
 
     renderAdminUserManagementPage()
 
@@ -202,15 +219,17 @@ describe('AdminUserManagementPage', () => {
     })
   })
 
-  it('should show loading state', () => {
+  it('should show loading state', async () => {
     vi.spyOn(usersApi, 'listUsers').mockImplementation(() => new Promise(() => {})) // Never resolves
 
     renderAdminUserManagementPage()
 
-    expect(screen.getByText('Loading users...')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Loading users...')).toBeInTheDocument()
+    })  
   })
 
-  it('should redirect unauthorized users', () => {
+  it('should redirect unauthorized users', async () => {
     const agentUser: User = {
       id: 'agent-123',
       firstName: 'Agent',
@@ -219,9 +238,12 @@ describe('AdminUserManagementPage', () => {
       role: 'agent',
       status: 'active',
     }
+    //uses strict routes
+    renderAdminUserManagementPage(agentUser,true)
 
-    renderAdminUserManagementPage(agentUser)
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Mock Unauthorized Page' })).toBeInTheDocument()
+    })  
 
-    expect(screen.getByText('/unauthorized')).toBeInTheDocument()
   })
-})
+

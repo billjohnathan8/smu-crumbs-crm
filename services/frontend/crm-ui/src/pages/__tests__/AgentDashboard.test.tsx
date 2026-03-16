@@ -84,7 +84,7 @@ describe('AgentDashboard', () => {
 
     await waitFor(() => {
       expect(screen.getByText('15')).toBeInTheDocument()
-      expect(screen.getByText(/My Clients/i)).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /My Recent Activities/i ,level:2},)).toBeInTheDocument()
     })
   })
 
