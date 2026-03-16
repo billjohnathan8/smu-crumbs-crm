@@ -1,0 +1,28 @@
+name: CD - Integration Deployment
+
+on:
+  push:
+    branches:
+      - integration
+
+# Ensure that only one deployment runs at a time to the integration environment
+concurrency:
+  group: cd-integration
+  cancel-in-progress: false 
+
+jobs:
+  deploy:
+    name: Execute Deployment "Dry Run"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Verify Environment
+        run: |
+          echo "🚀 Deployment Triggered!"
+          echo "Branch: ${{ github.ref }}"
+          echo "Commit SHA: ${{ github.sha }}"
+          echo "Triggering Event: ${{ github.event_name }}"
+          echo "Preparing to deploy microservices..."
+          echo "Done."
