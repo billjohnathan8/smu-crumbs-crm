@@ -20,6 +20,11 @@ repositories {
 	mavenCentral()
 }
 
+ext {
+    set('jackson-bom.version', '3.1.0') 
+	set('jackson-2-bom.version', '2.18.6')
+}
+
 dependencies {
 	implementation platform('software.amazon.awssdk:bom:2.31.49')
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
