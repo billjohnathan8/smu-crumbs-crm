@@ -11,34 +11,34 @@
 environment = "prod"
 
 # --- Network ---
-enable_multi_az_nat = true           # required for prod (guardrail-enforced)
+enable_multi_az_nat = true # required for prod (guardrail-enforced)
 
 # --- ECS ---
 client_desired_count = 2
 ecs_max_capacity     = 4
 
 # --- Database ---
-db_instance_class        = "db.t4g.micro"   # school budget; upgrade if needed
-db_multi_az              = true              # required for prod (guardrail-enforced)
-db_backup_retention_days = 7                 # minimum for prod (guardrail-enforced)
-db_skip_final_snapshot   = false             # required for prod (guardrail-enforced)
-db_deletion_protection   = true              # required for prod (guardrail-enforced)
+db_instance_class        = "db.t4g.micro" # school budget; upgrade if needed
+db_multi_az              = true           # required for prod (guardrail-enforced)
+db_backup_retention_days = 7              # minimum for prod (guardrail-enforced)
+db_skip_final_snapshot   = false          # required for prod (guardrail-enforced)
+db_deletion_protection   = true           # required for prod (guardrail-enforced)
 db_max_allocated_storage = 100
 
 # --- Lambda (all disabled until artifacts are built) ---
-enable_log_lambda                = false
-enable_aml_lambda                = false
+enable_log_lambda                   = false
+enable_aml_lambda                   = false
 enable_transaction_ingestion_lambda = false
-enable_audit_pipeline            = false
-enable_aml_pipeline              = false
-enable_verification_pipeline     = false
+enable_audit_pipeline               = false
+enable_aml_pipeline                 = false
+enable_verification_pipeline        = false
 
 # --- Observability & Security ---
-enable_waf              = true
-enable_cloudtrail       = true
-enable_cloudwatch_alarms = true
-enable_backup           = true
-backup_retention_days   = 30
+enable_waf                    = true
+enable_cloudtrail             = true
+enable_cloudwatch_alarms      = true
+enable_backup                 = true
+backup_retention_days         = 30
 cloudwatch_log_retention_days = 30
 
 # --- S3 / CloudFront ---
