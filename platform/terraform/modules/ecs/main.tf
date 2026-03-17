@@ -210,7 +210,7 @@ locals {
 
   # CloudMap namespace for service discovery
   cloudmap_namespace_name     = "${var.environment}.${var.project_name}.internal"
-  client_service_internal_url = "http://client.${local.cloudmap_namespace_name}:8080"
+  client_service_internal_url = var.enable_service_discovery ? "http://client.${local.cloudmap_namespace_name}:8080" : "http://${var.alb_dns_name}"
   task_definition_template    = "${path.module}/../../template/ecs_json.tpl"
 }
 

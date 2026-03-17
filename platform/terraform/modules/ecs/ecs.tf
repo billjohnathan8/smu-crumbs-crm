@@ -66,11 +66,14 @@ resource "aws_ecs_service" "service" {
     container_port   = 8080
   }
 
-  # Service discovery registration
-  service_registries {
-    registry_arn   = aws_service_discovery_service.service[each.key].arn
-    container_name = each.key
-    container_port = 8080
+  # Service discovery registration (disabled when Cloud Map is not available)
+  dynamic "service_registries" {
+    for_each = var.enable_service_discovery ? [1] : []
+    content {
+      registry_arn   = aws_service_discovery_service.service[each.key].arn
+      container_name = each.key
+      container_port = 8080
+    }
   }
 }
 

@@ -179,6 +179,18 @@ variable "transaction_import_s3_path_style_access_enabled" {
   default     = false
 }
 
+variable "enable_service_discovery" {
+  description = "Enable AWS Cloud Map private DNS namespace and service discovery for ECS inter-service communication. Disable when LabRole blocks servicediscovery:CreatePrivateDnsNamespace."
+  type        = bool
+  default     = true
+}
+
+variable "alb_dns_name" {
+  description = "ALB DNS name used as fallback CLIENT_SERVICE_URL when service discovery is disabled."
+  type        = string
+  default     = ""
+}
+
 variable "db_jdbc_url" {
   description = "JDBC URL consumed by client service."
   type        = string
