@@ -88,7 +88,7 @@ docker_run_with_retry() {
   local tmp_docker_config
 
   stderr_log="$(mktemp 2>/dev/null || echo "/tmp/docker-run-stderr.$$")"
-  if docker "$@" 2> >(tee "${stderr_log}" >&2); then
+  if MSYS_NO_PATHCONV=1 docker "$@" 2> >(tee "${stderr_log}" >&2); then
     rm -f "${stderr_log}"
     return 0
   fi
@@ -101,7 +101,7 @@ docker_run_with_retry() {
 
   tmp_docker_config="$(mktemp -d 2>/dev/null || echo "/tmp/docker-config.$$")"
   echo "[WARN] Docker credential helper failed. Retrying with temporary DOCKER_CONFIG." >&2
-  if DOCKER_CONFIG="${tmp_docker_config}" docker "$@"; then
+  if MSYS_NO_PATHCONV=1 DOCKER_CONFIG="${tmp_docker_config}" docker "$@"; then
     rm -rf "${tmp_docker_config}" "${stderr_log}"
     return 0
   fi
