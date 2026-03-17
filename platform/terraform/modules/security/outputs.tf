@@ -50,22 +50,26 @@ output "db_password_value" {
 
 output "ecs_task_execution_role_arn" {
   description = "ECS task execution role ARN."
-  value       = aws_iam_role.ecs_task_execution.arn
+  value       = local.use_lab_role ? var.lab_role_arn : aws_iam_role.ecs_task_execution[0].arn
 }
 
 output "ecs_task_role_arns" {
   description = "Per-service ECS task role ARNs."
-  value       = { for service, role in aws_iam_role.ecs_task : service => role.arn }
+  value = local.use_lab_role ? {
+    agent       = var.lab_role_arn
+    client      = var.lab_role_arn
+    transaction = var.lab_role_arn
+  } : { for service, role in aws_iam_role.ecs_task : service => role.arn }
 }
 
 output "log_lambda_role_arn" {
   description = "Log Lambda IAM role ARN."
-  value       = aws_iam_role.log_lambda.arn
+  value       = local.use_lab_role ? var.lab_role_arn : aws_iam_role.log_lambda[0].arn
 }
 
 output "aml_lambda_role_arn" {
   description = "AML Lambda IAM role ARN."
-  value       = aws_iam_role.aml_lambda.arn
+  value       = local.use_lab_role ? var.lab_role_arn : aws_iam_role.aml_lambda[0].arn
 }
 
 output "terraform_backend_policy_arn" {

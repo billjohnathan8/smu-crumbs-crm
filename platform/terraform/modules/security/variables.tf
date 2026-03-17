@@ -2,6 +2,12 @@
 # Security Module - Variables
 #--------------------------------------------------------------
 
+variable "lab_role_arn" {
+  description = "Pre-existing IAM role ARN to use instead of creating new roles (e.g. LabRole in Learner Lab). When set, all aws_iam_role creation is skipped and this ARN is returned for all role outputs."
+  type        = string
+  default     = ""
+}
+
 variable "project_name" {
   description = "Project name used in parameter and secret paths."
   type        = string

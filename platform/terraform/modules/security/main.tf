@@ -6,6 +6,12 @@
 
 data "aws_caller_identity" "current" {}
 
+locals {
+  # When lab_role_arn is provided, skip all IAM role creation and use the
+  # pre-existing role (e.g. LabRole in Learner Lab which blocks iam:CreateRole).
+  use_lab_role = var.lab_role_arn != ""
+}
+
 resource "aws_security_group" "alb" {
   name        = "${var.name_prefix}-alb-sg"
   description = "Allow inbound HTTP and HTTPS traffic to ALB."
@@ -138,12 +144,14 @@ data "aws_iam_policy_document" "ecs_task_execution_assume" {
 }
 
 resource "aws_iam_role" "ecs_task_execution" {
+  count              = local.use_lab_role ? 0 : 1
   name               = "${var.name_prefix}-ecs-task-exec"
   assume_role_policy = data.aws_iam_policy_document.ecs_task_execution_assume.json
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_task_execution_managed" {
-  role       = aws_iam_role.ecs_task_execution.name
+  count      = local.use_lab_role ? 0 : 1
+  role       = aws_iam_role.ecs_task_execution[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
@@ -175,8 +183,9 @@ data "aws_iam_policy_document" "ecs_task_execution_extra" {
 }
 
 resource "aws_iam_role_policy" "ecs_task_execution_extra" {
+  count  = local.use_lab_role ? 0 : 1
   name   = "${var.name_prefix}-ecs-task-exec-extra"
-  role   = aws_iam_role.ecs_task_execution.id
+  role   = aws_iam_role.ecs_task_execution[0].id
   policy = data.aws_iam_policy_document.ecs_task_execution_extra.json
 }
 
@@ -192,7 +201,7 @@ data "aws_iam_policy_document" "ecs_task_assume" {
 }
 
 resource "aws_iam_role" "ecs_task" {
-  for_each = toset(["agent", "client", "transaction"])
+  for_each = local.use_lab_role ? toset([]) : toset(["agent", "client", "transaction"])
 
   name               = "${var.name_prefix}-ecs-task-${each.key}"
   assume_role_policy = data.aws_iam_policy_document.ecs_task_assume.json
@@ -210,17 +219,20 @@ data "aws_iam_policy_document" "lambda_assume" {
 }
 
 resource "aws_iam_role" "log_lambda" {
+  count              = local.use_lab_role ? 0 : 1
   name               = "${var.name_prefix}-log-lambda"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
 }
 
 resource "aws_iam_role_policy_attachment" "log_lambda_basic" {
-  role       = aws_iam_role.log_lambda.name
+  count      = local.use_lab_role ? 0 : 1
+  role       = aws_iam_role.log_lambda[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 resource "aws_iam_role_policy_attachment" "log_lambda_vpc" {
-  role       = aws_iam_role.log_lambda.name
+  count      = local.use_lab_role ? 0 : 1
+  role       = aws_iam_role.log_lambda[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
@@ -238,18 +250,21 @@ data "aws_iam_policy_document" "log_lambda_secrets" {
 }
 
 resource "aws_iam_role_policy" "log_lambda_secrets" {
+  count  = local.use_lab_role ? 0 : 1
   name   = "${var.name_prefix}-log-lambda-secrets"
-  role   = aws_iam_role.log_lambda.id
+  role   = aws_iam_role.log_lambda[0].id
   policy = data.aws_iam_policy_document.log_lambda_secrets.json
 }
 
 resource "aws_iam_role" "aml_lambda" {
+  count              = local.use_lab_role ? 0 : 1
   name               = "${var.name_prefix}-aml-lambda"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
 }
 
 resource "aws_iam_role_policy_attachment" "aml_lambda_basic" {
-  role       = aws_iam_role.aml_lambda.name
+  count      = local.use_lab_role ? 0 : 1
+  role       = aws_iam_role.aml_lambda[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
@@ -279,8 +294,9 @@ data "aws_iam_policy_document" "aml_lambda_secrets" {
 }
 
 resource "aws_iam_role_policy" "aml_lambda_secrets" {
+  count  = local.use_lab_role ? 0 : 1
   name   = "${var.name_prefix}-aml-lambda-secrets"
-  role   = aws_iam_role.aml_lambda.id
+  role   = aws_iam_role.aml_lambda[0].id
   policy = data.aws_iam_policy_document.aml_lambda_secrets.json
 }
 

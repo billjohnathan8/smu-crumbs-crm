@@ -30,7 +30,7 @@ resource "random_password" "root_admin_password" {
 resource "random_password" "db_password" {
   length           = 24
   special          = true
-  override_special = "!@#$%*-_=+?"
+  override_special = "!#$%*-_=+?" # @ is not allowed in RDS master passwords
 }
 
 # AWS Secrets Manager secrets - securely store application credentials
