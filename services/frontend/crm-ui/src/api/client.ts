@@ -1,5 +1,7 @@
 import type { ErrorResponse } from './types'
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+
 export class ApiError extends Error {
   status: number
   error: string
@@ -80,7 +82,7 @@ export async function apiRequest<T>(endpoint: string, options: RequestOptions = 
     : timeoutSignal
 
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
       ...fetchOptions,
       headers,
       signal,
