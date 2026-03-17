@@ -11,11 +11,11 @@ locals {
   service_routing = {
     agent = {
       priority      = 10
-      path_patterns = ["/api/auth*", "/api/agents*", "/api/v1/agents*", "/api/v1/health"]
+      path_patterns = ["/api/auth*", "/api/agents*", "/api/v1/agents*", "/api/v1/health", "/api/logs*"]
     }
     client = {
       priority      = 20
-      path_patterns = ["/api/clients*", "/api/accounts*", "/api/v1/clients*"]
+      path_patterns = ["/api/clients*", "/api/accounts*", "/api/v1/clients*", "/api/communications*", "/api/aml*"]
     }
     transaction = {
       priority      = 30
@@ -37,7 +37,7 @@ resource "aws_lb" "crm" {
 resource "aws_lb_target_group" "service" {
   for_each = local.service_routing
 
-  name        = substr("${var.name_prefix}-${each.key}-tg", 0, 32)
+  name        = trim(substr("${var.name_prefix}-${each.key}-tg", 0, 32), "-")
   port        = 8080
   protocol    = "HTTP"
   target_type = "ip"
@@ -98,30 +98,6 @@ resource "aws_lb_listener" "https" {
       content_type = "application/json"
       message_body = "{\"message\":\"Not Found\"}"
       status_code  = "404"
-    }
-  }
-}
-
-#--------------------------------------------------------------
-# OPTIONS Preflight Rule
-# Returns 200 for CORS preflight requests from browsers.
-#--------------------------------------------------------------
-resource "aws_lb_listener_rule" "options_preflight" {
-  listener_arn = var.use_custom_domain ? aws_lb_listener.https[0].arn : aws_lb_listener.http.arn
-  priority     = 1
-
-  action {
-    type = "fixed-response"
-    fixed_response {
-      content_type = "text/plain"
-      message_body = ""
-      status_code  = "200"
-    }
-  }
-
-  condition {
-    http_request_method {
-      values = ["OPTIONS"]
     }
   }
 }
