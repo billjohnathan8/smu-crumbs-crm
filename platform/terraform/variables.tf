@@ -449,6 +449,12 @@ variable "frontend_bucket_force_destroy" {
   default     = false
 }
 
+variable "frontend_bucket_allow_public" {
+  description = "Disable S3 public access block on the frontend bucket. Required when using S3 static website hosting without CloudFront."
+  type        = bool
+  default     = false
+}
+
 variable "cloudfront_price_class" {
   description = "CloudFront price class."
   type        = string
@@ -497,6 +503,33 @@ variable "cloudwatch_log_retention_days" {
   description = "CloudWatch log retention in days for ECS, Lambda, and API Gateway logs."
   type        = number
   default     = 30
+}
+
+#--------------------------------------------------------------
+# Learner Lab / Restricted IAM Environments
+#--------------------------------------------------------------
+variable "lab_role_arn" {
+  description = "Pre-existing IAM role ARN to use instead of creating new roles (e.g. LabRole in Learner Lab). When set, all aws_iam_role creation is skipped and this ARN is used for all role outputs."
+  type        = string
+  default     = ""
+}
+
+variable "enable_cloudfront" {
+  description = "Create the CloudFront distribution. Disable when LabRole blocks cloudfront:CreateDistribution."
+  type        = bool
+  default     = true
+}
+
+variable "enable_cloudfront_oac" {
+  description = "Create CloudFront Origin Access Control for the S3 frontend bucket. Disable when LabRole blocks cloudfront:CreateOriginAccessControl."
+  type        = bool
+  default     = true
+}
+
+variable "enable_service_discovery" {
+  description = "Enable AWS Cloud Map private DNS namespace and service discovery for ECS inter-service communication. Disable when LabRole blocks servicediscovery:CreatePrivateDnsNamespace."
+  type        = bool
+  default     = true
 }
 
 #--------------------------------------------------------------

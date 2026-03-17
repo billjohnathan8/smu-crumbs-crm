@@ -47,6 +47,8 @@ module "security" {
   backend_state_bucket_name = var.backend_state_bucket_name
   backend_lock_table_name   = var.backend_lock_table_name
 
+  lab_role_arn = var.lab_role_arn
+
   enable_audit_pipeline               = var.enable_audit_pipeline
   enable_aml_pipeline                 = var.enable_aml_pipeline
   enable_verification_pipeline        = var.enable_verification_pipeline
@@ -284,6 +286,8 @@ module "ecs" {
   ecs_target_cpu_utilization                      = var.ecs_target_cpu_utilization
   ecs_target_memory_utilization                   = var.ecs_target_memory_utilization
   enable_stateful_service_scale_out               = var.enable_stateful_service_scale_out
+  enable_service_discovery                        = var.enable_service_discovery
+  alb_dns_name                                    = module.alb.alb_dns_name
 
   image_tags = {
     agent       = var.agent_image_tag
@@ -308,6 +312,7 @@ module "s3" {
 
   frontend_bucket_name           = local.frontend_bucket_name
   frontend_bucket_force_destroy  = var.frontend_bucket_force_destroy
+  frontend_bucket_allow_public   = var.frontend_bucket_allow_public
   enable_verification_bucket     = var.enable_verification_pipeline
   verification_bucket_name       = local.verification_bucket_name
   enable_transaction_sftp_bucket = var.enable_transaction_ingestion_lambda
@@ -336,6 +341,7 @@ module "waf" {
 #--------------------------------------------------------------
 module "cloudfront" {
   source = "./modules/cloudfront"
+  count  = var.enable_cloudfront ? 1 : 0
 
   name_prefix                          = local.name_prefix
   use_custom_domain                    = local.use_custom_domain
@@ -351,6 +357,7 @@ module "cloudfront" {
   log_api_origin_domain_name           = var.enable_log_lambda ? module.apigateway[0].log_api_origin_domain_name : null
   waf_arn                              = module.waf.waf_arn
   route53_zone_id                      = var.route53_hosted_zone_id
+  enable_cloudfront_oac                = var.enable_cloudfront_oac
 }
 
 #--------------------------------------------------------------

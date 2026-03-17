@@ -72,17 +72,17 @@ output "database_name" {
 #--------------------------------------------------------------
 output "cloudfront_distribution_id" {
   description = "CloudFront distribution ID."
-  value       = module.cloudfront.cloudfront_distribution_id
+  value       = try(module.cloudfront[0].cloudfront_distribution_id, null)
 }
 
 output "cloudfront_distribution_domain_name" {
   description = "CloudFront distribution domain name."
-  value       = module.cloudfront.cloudfront_distribution_domain_name
+  value       = try(module.cloudfront[0].cloudfront_distribution_domain_name, null)
 }
 
 output "app_url" {
-  description = "Primary app URL."
-  value       = module.cloudfront.app_url
+  description = "Primary app URL (CloudFront when enabled, ALB otherwise)."
+  value       = try(module.cloudfront[0].app_url, "http://${module.alb.alb_dns_name}")
 }
 
 #--------------------------------------------------------------
@@ -96,7 +96,7 @@ output "external_dns_frontend_name" {
 
 output "external_dns_frontend_target" {
   description = "CloudFront domain to target from external DNS."
-  value       = module.cloudfront.cloudfront_distribution_domain_name
+  value       = try(module.cloudfront[0].cloudfront_distribution_domain_name, null)
 }
 
 output "external_dns_alb_origin_name" {
@@ -112,6 +112,11 @@ output "external_dns_alb_origin_target" {
 output "frontend_bucket_name" {
   description = "Frontend S3 bucket name."
   value       = module.s3.frontend_bucket_name
+}
+
+output "frontend_website_url" {
+  description = "S3 static website hosting URL (when CloudFront is disabled and public access is enabled)."
+  value       = module.s3.frontend_website_endpoint
 }
 
 output "transaction_sftp_bucket_name" {
