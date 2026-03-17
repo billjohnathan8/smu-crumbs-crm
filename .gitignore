@@ -52,6 +52,8 @@ planout
 *.graphml
 inframap.json
 inframap.dot
+platform/terraform/plan.txt
+platform/terraform/lab-outputs.json
 
 # Generated infrastructure diagrams
 docs/infrastructure/generated/*
