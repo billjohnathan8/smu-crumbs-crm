@@ -6,6 +6,9 @@ name: Detect Changed Components
 on:
   workflow_call:
     outputs:
+      backend-aml:
+        description: 'true if services/backend/aml changed'
+        value: ${{ jobs.detect.outputs.backend-aml }}
       backend-agent:
         description: 'true if services/backend/agent changed'
         value: ${{ jobs.detect.outputs.backend-agent }}
@@ -56,6 +59,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     outputs:
+      backend-aml: ${{ steps.filter.outputs.backend-aml }}
       backend-agent: ${{ steps.filter.outputs.backend-agent }}
       backend-client: ${{ steps.filter.outputs.backend-client }}
       backend-transaction: ${{ steps.filter.outputs.backend-transaction }}
@@ -81,6 +85,8 @@ jobs:
         id: filter
         with:
           filters: |
+            backend-aml:
+              - 'services/backend/aml/**'
             backend-agent:
               - 'services/backend/agent/**'
             backend-client:
@@ -110,7 +116,8 @@ jobs:
         id: aggregate
         run: |
           ANY_BACKEND="false"
-          if [[ "${{ steps.filter.outputs.backend-agent }}" == "true" ]] || \
+           if [[ "${{ steps.filter.outputs.backend-aml }}" == "true" ]] || \
+             [[ "${{ steps.filter.outputs.backend-agent }}" == "true" ]] || \
              [[ "${{ steps.filter.outputs.backend-client }}" == "true" ]] || \
              [[ "${{ steps.filter.outputs.backend-transaction }}" == "true" ]] || \
              [[ "${{ steps.filter.outputs.backend-log }}" == "true" ]] || \
@@ -136,6 +143,7 @@ jobs:
             echo "### Changed Components"
             echo "| Scope | Changed |"
             echo "|-------|---------|"
+            echo "| backend-aml | ${{ steps.filter.outputs.backend-aml }} |"
             echo "| backend-agent | ${{ steps.filter.outputs.backend-agent }} |"
             echo "| backend-client | ${{ steps.filter.outputs.backend-client }} |"
             echo "| backend-transaction | ${{ steps.filter.outputs.backend-transaction }} |"
