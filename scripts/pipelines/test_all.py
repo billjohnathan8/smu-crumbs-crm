@@ -313,6 +313,14 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
             steps.append(
                 Step(
                     phase=phase,
+                    name="Check AWS credentials",
+                    cwd=terraform_dir,
+                    command=["aws", "sts", "get-caller-identity"],
+                )
+            )
+            steps.append(
+                Step(
+                    phase=phase,
                     name="Terraform fmt check",
                     cwd=terraform_dir,
                     command=["terraform", "fmt", "-check", "-recursive"],
@@ -978,7 +986,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--skip-terraform",
         action="store_true",
-        help="Skip Terraform lint/static checks from Layer 1.",
+        help=(
+            "Skip Terraform lint/static checks from Layer 1 "
+            "(use this when valid AWS credentials are not available)."
+        ),
     )
     parser.add_argument(
         "--skip-openapi",
