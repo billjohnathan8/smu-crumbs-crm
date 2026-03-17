@@ -28,6 +28,7 @@ spring:
     enabled: true
     baseline-on-migrate: true   # REQUIRED: initializes schema history if schema is non-empty
     baseline-version: 0
+    table: client_flyway_schema_history
     locations: classpath:db/migration  # default location for migration scripts
 
 server:
