@@ -65,7 +65,11 @@ export function AdminCommunications() {
           logout()
           return
         }
-        setError(err.message || 'Failed to load communications')
+        setError(
+          err.status >= 500
+            ? 'Communications service is not available in this deployment environment.'
+            : (err.message || 'Failed to load communications')
+        )
       } else {
         setError('An unexpected error occurred')
       }

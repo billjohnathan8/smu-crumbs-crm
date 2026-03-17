@@ -40,24 +40,34 @@ export function AdminDashboard() {
       setError('')
 
       try {
-        const [usersResponse, clientsResponse, logsResponse, allClientsResponse] =
-          await Promise.all([
+        const [usersResult, clientsResult, logsResult, allClientsResult] =
+          await Promise.allSettled([
             listUsers({ limit: 1 }),
             listClients({ limit: 1 }),
             listLogs({ limit: 10 }),
             listClients({ limit: 100 }),
           ])
 
+        if (usersResult.status === 'rejected' && usersResult.reason instanceof ApiError && usersResult.reason.status === 401) {
+          logout()
+          return
+        }
+
+        const usersResponse = usersResult.status === 'fulfilled' ? usersResult.value : null
+        const clientsResponse = clientsResult.status === 'fulfilled' ? clientsResult.value : null
+        const logsResponse = logsResult.status === 'fulfilled' ? logsResult.value : null
+        const allClientsResponse = allClientsResult.status === 'fulfilled' ? allClientsResult.value : null
+
         setStats({
-          totalAgents: usersResponse.pagination?.total || 0,
-          totalClients: clientsResponse.pagination?.total || 0,
-          recentActivities: logsResponse.pagination?.total || 0,
+          totalAgents: usersResponse?.pagination?.total || 0,
+          totalClients: clientsResponse?.pagination?.total || 0,
+          recentActivities: logsResponse?.pagination?.total || 0,
         })
 
-        setRecentLogs(logsResponse.data)
+        setRecentLogs(logsResponse?.data || [])
 
         // Filter for clients with pending verification
-        const pending = allClientsResponse.data.filter(
+        const pending = (allClientsResponse?.data || []).filter(
           (c: Client) => c.identityVerificationStatus === 'pending'
         )
         setPendingClients(pending)
