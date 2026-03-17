@@ -2,38 +2,171 @@ package com.scroogebank.crm.agentservice.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.scroogebank.crm.agentservice.api.Pagination;
 import com.scroogebank.crm.agentservice.dto.CreateUserRequest;
-// import com.scroogebank.crm.agentservice.dto.ResetPasswordRequest;
+import com.scroogebank.crm.agentservice.dto.ResetPasswordRequest;
 import com.scroogebank.crm.agentservice.dto.UpdateUserRequest;
 import com.scroogebank.crm.agentservice.dto.UserDto;
 import com.scroogebank.crm.agentservice.dto.UserRole;
 import com.scroogebank.crm.agentservice.dto.UserStatus;
 import com.scroogebank.crm.agentservice.dto.UsersListResponse;
 import com.scroogebank.crm.agentservice.security.AuthenticatedUser;
-import com.scroogebank.crm.agentservice.security.ForbiddenException;
+import com.scroogebank.crm.agentservice.exception.AccessDeniedException;
+import com.scroogebank.crm.agentservice.exception.UserNotFoundException;
+
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+
 
 /**
  * Unit tests for {@link UserAccountService}.
  */
 class UserAccountServiceTest {
-	private InMemoryUserStore store;
+	private PersistentUserStore store;
 	private UserAccountService service;
 
 	@BeforeEach
 	void setUp() {
-		store = mock(InMemoryUserStore.class);
+		store = mock(PersistentUserStore.class);
 		service = new UserAccountService(store);
+	}
+
+	@Test
+	void delegatesToStore() {
+		UserDto dto = new UserDto(
+			"usr_2",
+			"Ava",
+			"Stone",
+			"ava@example.com",
+			UserRole.agent,
+			UserStatus.active,
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:00Z")
+		);
+		AuthenticatedUser requester = new AuthenticatedUser("usr_1", "admin");
+		CreateUserRequest create = new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent, "pw");
+		UpdateUserRequest update = new UpdateUserRequest("Ava", "Stone", null, UserRole.agent);
+		ResetPasswordRequest reset = new ResetPasswordRequest("ava@example.com");
+
+		when(store.createUser(eq(create))).thenReturn(dto);
+		when(store.getUser(eq("usr_2"))).thenReturn(dto);
+		when(store.updateUser(eq("usr_2"), eq(update))).thenReturn(dto);
+		when(store.disableUser(eq("usr_2"))).thenReturn(dto);
+
+		assertEquals(dto, service.createUser(create, requester));
+		assertEquals(dto, service.getUser("usr_2", requester));
+		assertEquals(dto, service.updateUser("usr_2", update, requester));
+		service.deleteUser("usr_2", requester);
+		assertEquals(dto, service.disableUser("usr_2", requester));
+		service.resetPassword("usr_2", reset, requester);
+
+		verify(store).deleteUser(eq("usr_2"));
+		verify(store).resetPassword(eq("usr_2"));
+	}
+
+	//  CREATE USER TESTS  //
+	//  ─── Happy Path ───
+	@ParameterizedTest
+	@CsvSource({
+		"super_admin, admin",
+		"super_admin, agent",
+		"admin, agent"
+	})
+	void user_canCreateUsers(String requesterRole, String targetRole) {
+		AuthenticatedUser requester = userWithRole(UserRole.fromWireValue(requesterRole));
+		CreateUserRequest request = createRequest(UserRole.fromWireValue(targetRole));
+		Instant now = Instant.now();
+
+		when(store.createUser(any())).thenAnswer(inv -> {
+			CreateUserRequest req = inv.getArgument(0);
+			return new UserDto("usr_1", "Jane", "Smith", "jane@example.com", req.role(), UserStatus.active, now, now);
+		});
+
+		UserDto result = service.createUser(request, requester);
+
+		assertEquals(result.role(), UserRole.fromWireValue(targetRole));
+		assertEquals(result.status(), UserStatus.active);
+		verify(store, times(1)).createUser(any());
+	}
+	
+	//  ─── Permission Denied ───
+	@ParameterizedTest
+	@CsvSource({
+		"super_admin, super_admin",
+		"admin, super_admin",
+		"admin, admin",
+		"agent, super_admin",
+		"agent, admin",
+		"agent, agent"
+	})
+	void user_cannotCreateUsers(String requesterRole, String targetRole) {
+		AuthenticatedUser requester = userWithRole(UserRole.fromWireValue(requesterRole));
+		CreateUserRequest request = createRequest(UserRole.fromWireValue(targetRole));
+
+		assertThrows(AccessDeniedException.class, () -> service.createUser(request, requester));
+
+		// No call to store when validation fails
+		verify(store, never()).createUser(any());
+	}
+
+	//  READ USER TESTS  //
+	//  ─── Happy Path ───
+	@ParameterizedTest
+	@CsvSource({
+		"super_admin, admin",
+		"super_admin, agent",
+		"admin, agent"
+	})
+	void user_canListUsers(String requesterRole, String targetRole) {
+		AuthenticatedUser requester = userWithRole(UserRole.fromWireValue(requesterRole));
+		UserDto dto = new UserDto(
+			"usr_2",
+			"Ava",
+			"Stone",
+			"ava@example.com",
+			UserRole.fromWireValue(targetRole),
+			UserStatus.active,
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:00Z")
+		);
+
+		when(store.countUsers(eq(targetRole))).thenReturn(10L);
+		when(store.listUsers(eq(200), eq(0), eq(targetRole))).thenReturn(List.of(dto));
+
+		UsersListResponse result = service.listUsers(999, 0, targetRole, requester);
+		assertEquals(1, result.data().size());
+	}
+	
+	//  ─── Permission Denied ───
+	@ParameterizedTest
+	@CsvSource({
+		"super_admin, super_admin",
+		"admin, super_admin",
+		"admin, admin",
+		"agent, super_admin",
+		"agent, admin",
+		"agent, agent"
+	})
+	void user_cannotListUsers(String requesterRole, String targetRole) {
+		AuthenticatedUser requester = userWithRole(UserRole.fromWireValue(requesterRole));
+
+		assertThrows(AccessDeniedException.class, () -> service.listUsers(50, 0, targetRole, requester));
+
+		// No call to store when validation fails
+		verify(store, never()).listUsers(anyInt(), anyInt(), any());
 	}
 
 	@Test
@@ -51,181 +184,108 @@ class UserAccountServiceTest {
 		when(store.countUsers(eq("agent"))).thenReturn(10L);
 		when(store.listUsers(eq(200), eq(0), eq("agent"))).thenReturn(List.of(dto));
 
-		UsersListResponse response = service.listUsers(999, -5, "agent");
+		AuthenticatedUser requester = userWithRole(UserRole.admin);
+		UsersListResponse response = service.listUsers(999, -5, "agent", requester);
 
 		assertEquals(1, response.data().size());
 		assertEquals(new Pagination(200, 0, 10L), response.pagination());
 	}
 
-	@Test
-	void delegatesToStore() {
-		UserDto dto = new UserDto(
-			"usr_2",
-			"Ava",
-			"Stone",
-			"ava@example.com",
-			UserRole.agent,
-			UserStatus.active,
-			Instant.parse("2026-02-05T00:00:00Z"),
-			Instant.parse("2026-02-05T00:00:00Z")
-		);
-		CreateUserRequest create = new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent, false, "pw");
-		UpdateUserRequest update = new UpdateUserRequest("Ava", "Stone", null, null);
-		// ResetPasswordRequest reset = new ResetPasswordRequest("ava@example.com");
+	//  UPDATE USER TESTS  //
+	//  ─── Happy Path ───
+	@ParameterizedTest
+	@CsvSource({
+		"super_admin, admin",
+		"super_admin, agent",
+		"admin, agent"
+	})
+	void updateUser_allowed(String requesterRole, String targetRole) {
+		AuthenticatedUser requester = userWithRole(UserRole.fromWireValue(requesterRole));
+		UserDto existingUser = existingUser(UserRole.fromWireValue(targetRole));
+		UpdateUserRequest request = updateRequest(UserRole.fromWireValue(targetRole));
 
-		when(store.createUser(eq(create))).thenReturn(dto);
-		when(store.getUser(eq("usr_2"))).thenReturn(dto);
-		when(store.updateUser(eq("usr_2"), eq(update))).thenReturn(dto);
-		when(store.disableUser(eq("usr_2"))).thenReturn(dto);
+		when(store.getUser(existingUser.id().toString())).thenReturn(existingUser);
+		when(store.updateUser(any(), any())).thenReturn(existingUser);
 
-		assertEquals(dto, service.createUser(create, UserRole.admin));
-		assertEquals(dto, service.getUser("usr_2"));
-		assertEquals(dto, service.updateUser("usr_2", update, new AuthenticatedUser("usr_1", "admin")));
-		service.deleteUser("usr_2", new AuthenticatedUser("usr_1", "admin"));
-		assertEquals(dto, service.disableUser("usr_2", new AuthenticatedUser("usr_1", "admin")));
-		// service.resetPassword("usr_2", reset);
+		UserDto result = service.updateUser(existingUser.id(), request, requester);
 
-		verify(store).deleteUser(eq("usr_2"));
-		// verify(store).resetPassword(eq("usr_2"));
+		assertEquals(result.role(), UserRole.fromWireValue(targetRole));
+		verify(store).updateUser(eq(existingUser.id().toString()), eq(request));
+	};
+
+	//  ─── Permission Denied ───
+	@ParameterizedTest
+	@CsvSource({
+		"super_admin, super_admin",
+		"admin, super_admin",
+		"admin, admin",
+		"agent, super_admin",
+		"agent, admin",
+		"agent, agent"
+	})
+	void updateUser_notAllowed(String requesterRole, String targetRole) {
+		AuthenticatedUser requester = userWithRole(UserRole.fromWireValue(requesterRole));
+		UserDto existingUser = existingUser(UserRole.fromWireValue(targetRole));
+		UpdateUserRequest request = updateRequest(UserRole.fromWireValue(targetRole));
+
+		when(store.getUser(existingUser.id())).thenReturn(existingUser);
+
+		assertThrows(AccessDeniedException.class, () -> service.updateUser(existingUser.id(), request, requester));
+
+		verify(store, never()).updateUser(any(), any());
 	}
 
+	//  ─── User Not Found ───
 	@Test
-	void createUser_superAdminCreateAdmin() {
-		CreateUserRequest create = new CreateUserRequest("Ben", "Tan", "ben@example.com", UserRole.admin, false, "pw");
-		UserDto dto = new UserDto(
-			"usr_3",
-			"Ben",
-			"Tan",
-			"ben@example.com",
+	void updateUser_shouldThrow_whenUserNotFound() {
+		AuthenticatedUser requester = userWithRole(UserRole.super_admin);
+		String userId = "nonexistent-user-id";
+
+		UpdateUserRequest request = updateRequest(UserRole.admin);
+
+		when(store.getUser(userId)).thenReturn(null);
+
+		assertThrows(UserNotFoundException.class, () -> service.updateUser(userId, request, requester));
+		verify(store, never()).updateUser(any(), any());
+	}
+
+	//  ─── Field Mapping ───
+	@Test
+	void updateUser_shouldMapAllFieldsCorrectly() {
+		AuthenticatedUser requester = userWithRole(UserRole.super_admin);
+		UserDto existingUser = existingUser(UserRole.agent);
+
+		UpdateUserRequest request = new UpdateUserRequest(
+				"Jane",
+				"Smith",
+				"jane@example.com",
+				UserRole.admin
+		);
+		UserDto updatedUser = new UserDto(
+			existingUser.id(),
+			"Jane",
+			"Smith",
+			"jane@example.com",
 			UserRole.admin,
 			UserStatus.active,
-			Instant.parse("2026-02-05T00:00:00Z"),
-			Instant.parse("2026-02-05T00:00:00Z")
+			existingUser.createdAt(),
+			existingUser.updatedAt()
 		);
-		when(store.createUser(eq(create))).thenReturn(dto);
 
-		UserDto result = service.createUser(create, UserRole.super_admin);
 
-		assertEquals(dto, result);
-		verify(store).createUser(eq(create));
+		when(store.getUser(existingUser.id())).thenReturn(existingUser);
+		when(store.updateUser(any(), any())).thenReturn(updatedUser);
+
+		UserDto result = service.updateUser(existingUser.id(), request, requester);
+
+		assertEquals(result.firstName(), "Jane");
+		assertEquals(result.lastName(), "Smith");
+		assertEquals(result.email(), "jane@example.com");
+		assertEquals(result.role(), UserRole.admin);
+
+		verify(store).updateUser(eq(existingUser.id().toString()), eq(request));
 	}
 
-	@Test
-	void createUser_adminCreateAgent() {
-		CreateUserRequest create = new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent, false, "pw");
-		UserDto dto = new UserDto(
-			"usr_2",
-			"Ava",
-			"Stone",
-			"ava@example.com",
-			UserRole.agent,
-			UserStatus.active,
-			Instant.parse("2026-02-05T00:00:00Z"),
-			Instant.parse("2026-02-05T00:00:00Z")
-		);
-		when(store.createUser(eq(create))).thenReturn(dto);
-
-		UserDto result = service.createUser(create, UserRole.admin);
-
-		assertEquals(dto, result);
-		verify(store).createUser(eq(create));
-	}
-
-	@Test
-	void createUser_cannotCreateSuperAdmin() {
-		CreateUserRequest create = new CreateUserRequest("Root", "Admin", "root2@example.com", UserRole.super_admin, false, "pw");
-
-		assertThrows(IllegalArgumentException.class, () -> service.createUser(create, UserRole.admin));
-
-		// No call to store when validation fails
-		verify(store, never()).createUser(eq(create));
-	}
-
-	@Test
-	void createUser_agentCannotCreateAdmin() {
-		CreateUserRequest create = new CreateUserRequest("Ben", "Tan", "ben@example.com", UserRole.admin, false, "pw");
-
-		assertThrows(ForbiddenException.class, () -> service.createUser(create, UserRole.agent));
-
-		verify(store, never()).createUser(eq(create));
-	}
-
-	@Test
-	void updateUser_superAdminUpdateAdmin() {
-		UpdateUserRequest patch = new UpdateUserRequest("Ben", "Tan", "ben@example.com", UserRole.admin);
-		UserDto dto = new UserDto(
-			"usr_3",
-			"Ben",
-			"Tan",
-			"ben@example.com",
-			UserRole.admin,
-			UserStatus.active,
-			Instant.parse("2026-02-05T00:00:00Z"),
-			Instant.parse("2026-02-05T00:00:00Z")
-		);
-		when(store.updateUser(eq("usr_3"), eq(patch))).thenReturn(dto);
-
-		AuthenticatedUser superAdmin = new AuthenticatedUser("usr_1", "super_admin");
-		UserDto result = service.updateUser("usr_3", patch, superAdmin);
-
-		assertEquals(dto, result);
-		verify(store).updateUser(eq("usr_3"), eq(patch));
-	}
-
-	@Test
-	void updateUser_adminUpdateAgent() {
-		UpdateUserRequest patch = new UpdateUserRequest("Ava", "Stone", "ava@example.com", UserRole.admin);
-		UserDto dto = new UserDto(
-			"usr_2",
-			"Ava",
-			"Stone",
-			"ava@example.com",
-			UserRole.admin,
-			UserStatus.active,
-			Instant.parse("2026-02-05T00:00:00Z"),
-			Instant.parse("2026-02-05T00:00:00Z")
-		);
-		when(store.updateUser(eq("usr_2"), eq(patch))).thenReturn(dto);
-
-		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "admin");
-		UserDto result = service.updateUser("usr_2", patch, admin);
-
-		assertEquals(dto, result);
-		verify(store).updateUser(eq("usr_2"), eq(patch));
-	}
-
-	@Test
-	void updateUser_agentCanOnlyUpdateSelf() {
-		UpdateUserRequest patch = new UpdateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent);
-		AuthenticatedUser agent = new AuthenticatedUser("usr_2", "agent");
-
-		assertThrows(ForbiddenException.class, () -> service.updateUser("usr_3", patch, agent));
-
-		verify(store, never()).updateUser(eq("usr_3"), eq(patch));
-	}
-
-	@Test
-	void updateUser_agentCannotPromoteToAdminOrSuperAdmin() {
-		UpdateUserRequest promoteToAdmin = new UpdateUserRequest("Ava", "Stone", "ava@example.com", UserRole.admin);
-		UpdateUserRequest promoteToSuperAdmin = new UpdateUserRequest("Ava", "Stone", "ava@example.com", UserRole.super_admin);
-		AuthenticatedUser agent = new AuthenticatedUser("usr_2", "agent");
-
-		assertThrows(ForbiddenException.class, () -> service.updateUser("usr_2", promoteToAdmin, agent));
-		assertThrows(ForbiddenException.class, () -> service.updateUser("usr_2", promoteToSuperAdmin, agent));
-
-		verify(store, never()).updateUser(eq("usr_2"), eq(promoteToAdmin));
-		verify(store, never()).updateUser(eq("usr_2"), eq(promoteToSuperAdmin));
-	}
-
-	@Test
-	void updateUser_adminCannotPromoteToSuperAdmin() {
-		UpdateUserRequest promoteToSuperAdmin = new UpdateUserRequest("Ava", "Stone", "ava@example.com", UserRole.super_admin);
-		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "admin");
-
-		assertThrows(ForbiddenException.class, () -> service.updateUser("usr_2", promoteToSuperAdmin, admin));
-
-		verify(store, never()).updateUser(eq("usr_2"), eq(promoteToSuperAdmin));
-	}
 
 	@Test
 	void deleteUser_agentCannotDeleteAdminOrSuperAdmin() {
@@ -243,7 +303,7 @@ class UserAccountServiceTest {
 
 		AuthenticatedUser agent = new AuthenticatedUser("usr_2", "agent");
 
-		assertThrows(ForbiddenException.class, () -> service.deleteUser("usr_3", agent));
+		assertThrows(AccessDeniedException.class, () -> service.deleteUser("usr_3", agent));
 
 		verify(store).getUser(eq("usr_3"));
 		verify(store, never()).deleteUser(eq("usr_3"));
@@ -323,9 +383,35 @@ class UserAccountServiceTest {
 
 		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "admin");
 
-		assertThrows(ForbiddenException.class, () -> service.deleteUser("usr_4", admin));
+		assertThrows(AccessDeniedException.class, () -> service.deleteUser("usr_4", admin));
 
 		verify(store).getUser(eq("usr_4"));
 		verify(store, never()).deleteUser(eq("usr_4"));
+	}
+
+	// ─── Helpers ───
+	private AuthenticatedUser userWithRole(UserRole role) {
+		return new AuthenticatedUser("usr_1", role);
+	}
+
+	private CreateUserRequest createRequest(UserRole role) {
+        return new CreateUserRequest("Jane", "Smith", "jane@example.com", role, "pw");
+    }
+
+	private UpdateUserRequest updateRequest(UserRole role) {
+		return new UpdateUserRequest("Jane", "Smith", "jane@example.com", role);
+	}
+
+	private UserDto existingUser(UserRole role) {
+		return new UserDto(
+			"usr_3",
+			"Existing",
+			"User",
+			"existing.user@example.com",
+			role,
+			UserStatus.active,
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:00Z")
+		);
 	}
 }

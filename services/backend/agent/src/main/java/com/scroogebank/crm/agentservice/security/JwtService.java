@@ -27,6 +27,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import com.scroogebank.crm.agentservice.dto.UserRole;
+
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
@@ -207,10 +209,19 @@ public class JwtService {
 		if (sub == null || roleClaim == null) {
 			throw new JwtValidationException("missing_required_claims");
 		}
-		String role = normalizeRole(roleClaim);
-		if (role == null) {
+
+		String normalizedRole = normalizeRole(roleClaim);
+		if (normalizedRole == null) {
 			throw new JwtValidationException("invalid_role");
 		}
+
+		UserRole role;
+		try {
+			role = UserRole.valueOf(normalizedRole);
+		} catch (IllegalArgumentException e) {
+			throw new JwtValidationException("invalid_role");
+		}
+
 		return new AuthenticatedUser(sub, role);
 	}
 
@@ -257,16 +268,20 @@ public class JwtService {
 		if (sub == null || sub.isBlank()) {
 			throw new JwtValidationException("missing_required_claims");
 		}
-		String role = roleFromCognitoGroups(claims);
-		if (role == null) {
-			role = normalizeRole(asString(claims.get("custom:role")));
-		}
-		if (role == null) {
-			role = normalizeRole(asString(claims.get("role")));
-		}
-		if (role == null) {
+
+		String ori_role = roleFromCognitoGroups(claims);
+		String normalizedRole = normalizeRole(ori_role);
+		if (normalizedRole == null) {
 			throw new JwtValidationException("invalid_role");
 		}
+
+		UserRole role;
+		try {
+			role = UserRole.valueOf(normalizedRole);
+		} catch (IllegalArgumentException e) {
+			throw new JwtValidationException("invalid_role");
+		}
+
 		return new AuthenticatedUser(sub, role);
 	}
 

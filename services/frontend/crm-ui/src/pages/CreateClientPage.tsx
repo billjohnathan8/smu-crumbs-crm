@@ -4,10 +4,39 @@ import { useAuth } from '@/features/auth/AuthContext'
 import { createClient } from '@/api/clients'
 import type { ClientCreateRequest, Gender } from '@/api/types'
 import { ApiError } from '@/api/client'
+import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 
-export function AgentCreateClient() {
+const agentNav: NavItem[] = [
+  { label: 'Home', to: '/agent', end: true },
+  { label: 'My Clients', to: '/agent/clients' },
+  { label: 'Create Client', to: '/agent/clients/new' },
+  { label: 'Transactions', to: '/agent/transactions' },
+  { label: 'AML Alerts', to: '/agent/aml-alerts' },
+]
+
+const adminNav: NavItem[] = [
+  { label: 'Home', to: '/admin', end: true },
+  { label: 'All Clients', to: '/admin/clients' },
+  { label: 'Create Client', to: '/admin/clients/new' },
+  { label: 'Communications', to: '/admin/communications' },
+  { label: 'Transactions', to: '/admin/transactions' },
+  { label: 'AML Alerts', to: '/admin/aml-alerts' },
+  { label: 'User Management', to: '/admin/adminusermanagement' },
+]
+
+export function CreateClientPage() {
   const navigate = useNavigate()
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
+
+  const isAdmin = user?.role === 'admin'
+  const isRootAdmin = user?.role === 'super_admin' || String(user?.id) === '1'
+  const canViewAllClients = isAdmin || isRootAdmin
+
+  const basePath = canViewAllClients ? '/admin' : '/agent'
+  const sidebarNav = canViewAllClients ? adminNav : agentNav
+  const homePath = basePath
+  const listPath = canViewAllClients ? '/admin/accounts' : '/agent/clients'
+  const breadcrumbLabel = canViewAllClients ? 'Manage Accounts' : 'My Clients'
 
   const [formData, setFormData] = useState<ClientCreateRequest>({
     firstName: '',
@@ -24,13 +53,12 @@ export function AgentCreateClient() {
   })
 
   const [errors, setErrors] = useState<Partial<Record<keyof ClientCreateRequest, string>>>({})
-  const [generalError, setGeneralError] = useState<string>('')
+  const [generalError, setGeneralError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof ClientCreateRequest, string>> = {}
 
-    // Required fields
     if (!formData.firstName.trim()) {
       newErrors.firstName = 'First name is required'
     }
@@ -38,7 +66,6 @@ export function AgentCreateClient() {
       newErrors.lastName = 'Last name is required'
     }
 
-    // Date of Birth validation (18-100 years)
     if (!formData.dateOfBirth) {
       newErrors.dateOfBirth = 'Date of birth is required'
     } else {
@@ -56,21 +83,18 @@ export function AgentCreateClient() {
       }
     }
 
-    // Email validation
     if (!formData.emailAddress.trim()) {
       newErrors.emailAddress = 'Email is required'
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.emailAddress)) {
       newErrors.emailAddress = 'Invalid email format'
     }
 
-    // Phone validation (simple format check)
     if (!formData.phoneNumber.trim()) {
       newErrors.phoneNumber = 'Phone number is required'
     } else if (!/^[+]?[\d\s()-]{8,}$/.test(formData.phoneNumber)) {
       newErrors.phoneNumber = 'Invalid phone format (min 8 digits)'
     }
 
-    // Address fields
     if (!formData.address.trim()) {
       newErrors.address = 'Address is required'
     }
@@ -95,15 +119,13 @@ export function AgentCreateClient() {
     e.preventDefault()
     setGeneralError('')
 
-    if (!validateForm()) {
-      return
-    }
+    if (!validateForm()) return
 
     setIsSubmitting(true)
 
     try {
       const client = await createClient(formData)
-      navigate('/agent', {
+      navigate(listPath, {
         replace: true,
         state: {
           successMessage: `Client ${client.firstName} ${client.lastName} created successfully`,
@@ -136,24 +158,26 @@ export function AgentCreateClient() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <nav className="bg-card border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center space-x-4">
-              <a href="/agent" className="text-text-muted hover:text-text">
-                Dashboard
-              </a>
-              <span className="text-text-muted">/</span>
-              <h1 className="text-xl font-bold text-text">Create Client</h1>
-            </div>
-            <button
-              onClick={logout}
-              className="px-4 py-2 rounded-lg bg-danger hover:bg-danger-hover text-white font-medium transition-colors"
-            >
-              Logout
+    <SidebarLayout items={sidebarNav}>
+      <nav>
+        <div className="flex justify-between h-16 items-center px-4">
+          <div className="flex items-center space-x-4">
+            <button onClick={() => navigate(homePath)} className="text-text-muted hover:text-text">
+              Dashboard
             </button>
+            <span className="text-text-muted">/</span>
+            <button onClick={() => navigate(listPath)} className="text-text-muted hover:text-text">
+              {breadcrumbLabel}
+            </button>
+            <span className="text-text-muted">/</span>
+            <h1 className="text-xl font-bold text-text">Create Client</h1>
           </div>
+          <button
+            onClick={logout}
+            className="px-4 py-2 rounded-lg bg-danger hover:bg-danger-hover text-white font-medium transition-colors"
+          >
+            Logout
+          </button>
         </div>
       </nav>
 
@@ -371,7 +395,7 @@ export function AgentCreateClient() {
             <div className="flex justify-end space-x-4 pt-4">
               <button
                 type="button"
-                onClick={() => navigate('/agent')}
+                onClick={() => navigate(listPath)}
                 className="px-6 py-3 rounded-lg bg-background-light text-text hover:bg-background-lighter font-medium transition-colors"
                 disabled={isSubmitting}
               >
@@ -392,6 +416,6 @@ export function AgentCreateClient() {
           </form>
         </div>
       </main>
-    </div>
+    </SidebarLayout>
   )
 }

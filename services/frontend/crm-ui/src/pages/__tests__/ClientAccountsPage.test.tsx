@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { within } from '@testing-library/dom'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
-import { AgentClientAccounts } from '../AgentClientAccounts'
+import { ClientAccountsPage } from '../ClientAccountsPage'
 import * as clientsApi from '@/api/clients'
 import { ApiError } from '@/api/client'
 import type { Client, Account } from '@/api/types'
@@ -70,7 +70,7 @@ const mockAccounts: Account[] = [
   },
 ]
 
-describe('AgentClientAccounts', () => {
+describe('ClientAccountsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.spyOn(clientsApi, 'getClientById').mockResolvedValue(mockClient)
@@ -80,7 +80,7 @@ describe('AgentClientAccounts', () => {
   const renderComponent = () =>
     render(
       <BrowserRouter>
-        <AgentClientAccounts />
+        <ClientAccountsPage />
       </BrowserRouter>
     )
 

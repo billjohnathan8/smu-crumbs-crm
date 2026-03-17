@@ -16,9 +16,12 @@ interface Stats {
 
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
-  { label: 'Manage Accounts', to: '/admin/accounts' },
+  { label: 'All Clients', to: '/admin/clients' },
+  { label: 'Create Client', to: '/admin/clients/new' },
   { label: 'Communications', to: '/admin/communications' },
+  { label: 'Transactions', to: '/admin/transactions' },
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
+  { label: 'User Management', to: '/admin/adminusermanagement' },
 ]
 
 export function AdminDashboard() {

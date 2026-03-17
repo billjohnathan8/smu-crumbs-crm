@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
-import { AgentCreateClient } from '../AgentCreateClient'
+import { CreateClientPage } from '../CreateClientPage'
 import * as clientsApi from '@/api/clients'
 import { ApiError } from '@/api/client'
 import type { Client } from '@/api/types'
@@ -12,7 +12,7 @@ vi.mock('@/api/clients')
 const mockLogout = vi.fn()
 vi.mock('@/features/auth/AuthContext', () => ({
   useAuth: () => ({
-    user: { id: '1', firstName: 'John', lastName: 'Doe', role: 'agent' },
+    user: { id: 'agent-1', firstName: 'John', lastName: 'Doe', role: 'agent' },
     logout: mockLogout,
   }),
 }))
@@ -26,7 +26,7 @@ vi.mock('react-router-dom', async () => {
   }
 })
 
-describe('AgentCreateClient', () => {
+describe('CreateClientPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -34,7 +34,7 @@ describe('AgentCreateClient', () => {
   const renderComponent = () => {
     return render(
       <BrowserRouter>
-        <AgentCreateClient />
+        <CreateClientPage />
       </BrowserRouter>
     )
   }
@@ -240,7 +240,7 @@ describe('AgentCreateClient', () => {
 
     await waitFor(() => {
       expect(clientsApi.createClient).toHaveBeenCalled()
-      expect(mockNavigate).toHaveBeenCalledWith('/agent', {
+      expect(mockNavigate).toHaveBeenCalledWith('/agent/clients', {
         replace: true,
         state: {
           successMessage: 'Client John Doe created successfully',
@@ -266,7 +266,7 @@ describe('AgentCreateClient', () => {
     const cancelButton = screen.getByRole('button', { name: /Cancel/i })
     await user.click(cancelButton)
 
-    expect(mockNavigate).toHaveBeenCalledWith('/agent')
+    expect(mockNavigate).toHaveBeenCalledWith('/agent/clients')
   })
 
   it('should call logout on 401 error', async () => {

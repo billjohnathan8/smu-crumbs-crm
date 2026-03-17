@@ -67,6 +67,7 @@ docs/infrastructure/generated/*
 **/.gradle-local/
 **/.gradle-user-home/
 **/.gradle-test-home/
+.gradle-user-home-backend-pipeline/
 
 # Python / pytest cache
 .venv/

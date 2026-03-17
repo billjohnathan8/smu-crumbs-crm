@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
-import { AgentEditClient } from '../AgentEditClient'
+import {EditClientPage} from '../EditClientPage'
 import * as clientsApi from '@/api/clients'
 import { ApiError } from '@/api/client'
 import type { Client } from '@/api/types'
@@ -53,7 +53,7 @@ describe('AgentEditClient', () => {
   const renderComponent = () =>
     render(
       <BrowserRouter>
-        <AgentEditClient />
+        <EditClientPage />
       </BrowserRouter>
     )
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/features/auth/AuthContext'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { listTransactions, type ListTransactionsParams } from '@/api/transactions'
 import type { Transaction, TransactionStatus, TransactionKind } from '@/api/types'
 import { ApiError } from '@/api/client'
@@ -8,16 +8,42 @@ import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 
 const agentNav: NavItem[] = [
   { label: 'Home', to: '/agent', end: true },
+  { label: 'My Clients', to: '/agent/clients' },
   { label: 'Create Client', to: '/agent/clients/new' },
-  { label: 'View Transactions', to: '/agent/transactions' },
+  { label: 'Transactions', to: '/agent/transactions' },
   { label: 'AML Alerts', to: '/agent/aml-alerts' },
+]
+
+const adminNav: NavItem[] = [
+  { label: 'Home', to: '/admin', end: true },
+  { label: 'All Clients', to: '/admin/clients' },
+  { label: 'Create Client', to: '/admin/clients/new' },
+  { label: 'Communications', to: '/admin/communications' },
+  { label: 'Transactions', to: '/admin/transactions' },
+  { label: 'AML Alerts', to: '/admin/aml-alerts' },
+  { label: 'User Management', to: '/admin/adminusermanagement' },
 ]
 
 const ITEMS_PER_PAGE = 20
 
-export function AgentViewTransactions() {
-  const { logout } = useAuth()
+export function ViewTransactionsPage() {
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+
+  const isAdmin = user?.role === 'admin'
+  const isSuperAdmin = user?.role === 'super_admin'
+  const isManagementUser = isAdmin || isSuperAdmin
+
+  const sidebarNav: NavItem[] = isManagementUser
+    ? [
+        ...adminNav,
+        ...(isSuperAdmin ? [{ label: 'Admin Management', to: '/admin/admins' as const }] : []),
+      ]
+    : agentNav
+
+  const basePath = isManagementUser ? '/admin' : '/agent'
+
   const clientIdFromQuery = searchParams.get('clientId') || ''
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [total, setTotal] = useState(0)
@@ -54,7 +80,6 @@ export function AgentViewTransactions() {
 
       let filteredData = response.data
 
-      // Client-side search filter for transaction ID matching
       if (filters.search) {
         const searchLower = filters.search.toLowerCase()
         filteredData = filteredData.filter(
@@ -123,13 +148,13 @@ export function AgentViewTransactions() {
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE)
 
   return (
-    <SidebarLayout items={agentNav}>
+    <SidebarLayout items={sidebarNav}>
       <nav>
         <div className="flex justify-between h-16 items-center px-4">
           <div className="flex items-center space-x-4">
-            <a href="/agent" className="text-text-muted hover:text-text">
+            <button onClick={() => navigate(basePath)} className="text-text-muted hover:text-text">
               Dashboard
-            </a>
+            </button>
             <span className="text-text-muted">/</span>
             <h1 className="text-xl font-bold text-text">Transactions</h1>
           </div>
@@ -242,7 +267,7 @@ export function AgentViewTransactions() {
               <div
                 data-testid="loading-spinner"
                 className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"
-              ></div>
+              />
             </div>
           ) : transactions.length === 0 ? (
             <div className="p-6 text-center text-text-muted">No transactions found</div>

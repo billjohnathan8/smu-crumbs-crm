@@ -8,6 +8,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
  */
 public enum UserStatus {
 	active("active"),
+	deleted("deleted"),
 	disabled("disabled");
 
 	private final String wireValue;

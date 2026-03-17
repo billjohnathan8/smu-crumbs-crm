@@ -83,7 +83,7 @@ export function LoginPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="bg-card border border-border rounded-lg shadow-xl p-8">
-          <h1 className="text-3xl font-bold text-text mb-2 text-center">CRM Login</h1>
+          <h1 className="text-3xl font-bold text-text mb-2 text-center">Login to the CRM</h1>
           <p className="text-text-muted text-center mb-6">Sign in to your account</p>
 
           {generalError && (
@@ -152,6 +152,16 @@ export function LoginPage() {
               {isLoading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
+
+          <p className="text-sm text-center mt-3">
+            <button
+              type="button"
+              onClick={() => navigate('/forgot-password')}
+              className="text-primary underline-hover"
+            >
+              Forgot your password?
+            </button>
+          </p>
 
           {isCognitoEnabled && (
             <>

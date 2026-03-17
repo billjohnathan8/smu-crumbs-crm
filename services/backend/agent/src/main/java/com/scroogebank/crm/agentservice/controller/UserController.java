@@ -4,19 +4,20 @@ import com.scroogebank.crm.agentservice.dto.CreateUserRequest;
 import com.scroogebank.crm.agentservice.dto.ResetPasswordRequest;
 import com.scroogebank.crm.agentservice.dto.UpdateUserRequest;
 import com.scroogebank.crm.agentservice.dto.UserDto;
-import com.scroogebank.crm.agentservice.dto.UserRole;
 import com.scroogebank.crm.agentservice.dto.UsersListResponse;
 import com.scroogebank.crm.agentservice.security.AuthenticatedUser;
-import com.scroogebank.crm.agentservice.security.ForbiddenException;
 import com.scroogebank.crm.agentservice.security.RequestAuth;
 import com.scroogebank.crm.agentservice.service.UserAccountService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
+
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -44,6 +45,20 @@ public class UserController {
 	}
 
 	/**
+	 * Creates a new user (admin-only or super admin-only)
+	 *
+	 * @param request HTTP request containing the bearer token
+	 * @param body create user payload
+	 * @return created user
+	 */
+	@PostMapping
+	@ResponseStatus(HttpStatus.CREATED)
+	public UserDto createUser(HttpServletRequest request, @Valid @RequestBody CreateUserRequest body) {
+		AuthenticatedUser requester = requestAuth.requireUser(request);
+		return userAccountService.createUser(body, requester);
+	}
+
+	/**
 	 * Lists users with optional role filtering (admin-only or super admin-only)
 	 *
 	 * @param request HTTP request containing the bearer token
@@ -60,11 +75,11 @@ public class UserController {
 		@RequestParam(required = false) String role
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAdminOrSuperAdmin(user);
 		if (limit < 1 || limit > 200 || offset < 0) {
 			throw new IllegalArgumentException("invalid pagination");
 		}
-		return userAccountService.listUsers(limit, offset, role);
+		AuthenticatedUser requester = requestAuth.requireUser(request);
+		return userAccountService.listUsers(limit, offset, role, requester);
 	}
 
 	/**
@@ -76,11 +91,10 @@ public class UserController {
 	 */
 	@GetMapping("/{userId}")
 	public UserDto getUser(HttpServletRequest request, @PathVariable String userId) {
-		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAdminOrSuperAdmin(user);
-		return userAccountService.getUser(userId);
+		AuthenticatedUser requester = requestAuth.requireUser(request);
+		return userAccountService.getUser(userId, requester);
 	}
-	
+
 	/**
 	 * Returns the authenticated user's own profile.
 	 *
@@ -90,27 +104,11 @@ public class UserController {
 	@GetMapping("/me")
 	public UserDto me(HttpServletRequest request) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		return userAccountService.getUser(user.userId());
+		return userAccountService.getUser(user.userId(), user);
 	}
-
+	
 	/**
-	 * Creates a new user (admin-only or super admin-only)
-	 *
-	 * @param request HTTP request containing the bearer token
-	 * @param body create user payload
-	 * @return created user
-	 */
-	@PostMapping
-	@ResponseStatus(HttpStatus.CREATED)
-	public UserDto createUser(HttpServletRequest request, @Valid @RequestBody CreateUserRequest body) {
-		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAdminOrSuperAdmin(user);
-		UserRole creatorRole = UserRole.fromWireValue(user.role());
-		return userAccountService.createUser(body, creatorRole);
-	}
-
-	/**
-	 * Updates a user's profile. Admin/super admin can update any user; an agent can update self.
+	 * Updates a user's profile (admin-only or super admin-only)
 	 *
 	 * @param request HTTP request containing the bearer token
 	 * @param userId API user identifier
@@ -137,7 +135,6 @@ public class UserController {
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteUser(HttpServletRequest request, @PathVariable String userId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAdminOrSuperAdmin(user);
 		userAccountService.deleteUser(userId, user);
 	}
 
@@ -151,7 +148,6 @@ public class UserController {
 	@PostMapping("/{userId}/disable")
 	public UserDto disableUser(HttpServletRequest request, @PathVariable String userId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAdminOrSuperAdmin(user);
 		return userAccountService.disableUser(userId, user);
 	}
 
@@ -169,20 +165,8 @@ public class UserController {
 		@PathVariable String userId,
 		@Valid @RequestBody(required = false) ResetPasswordRequest body
 	) {
-		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAdminOrSuperAdmin(user);
-		userAccountService.resetPassword(userId, body);
+		AuthenticatedUser requester = requestAuth.requireUser(request);
+		userAccountService.resetPassword(userId, body, requester);
 		return ResponseEntity.status(HttpStatus.ACCEPTED).build();
-	}
-
-	/**
-	 * Enforces that the authenticated user is an admin.
-	 *
-	 * @param user authenticated user
-	 */
-	private static void requireAdminOrSuperAdmin(AuthenticatedUser user) {
-		if (!(user.isAdmin() || user.isSuperAdmin())) {
-			throw new ForbiddenException("forbidden");
-		}
 	}
 }

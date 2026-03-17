@@ -27,3 +27,7 @@ CREATE INDEX IF NOT EXISTS idx_agent_refresh_tokens_user_id
 
 CREATE INDEX IF NOT EXISTS idx_agent_refresh_tokens_expires_at
 	ON agent_refresh_tokens(expires_at);
+
+INSERT INTO agent_users (user_id, first_name, last_name, email, role, status, password_hash, created_at, updated_at)
+VALUES (0, 'Super', 'Admin', 'superAdmin@crm.com', 'super_admin', 'active', '$argon2id$v=19$m=19456,t=2,p=1$MzU5MjA0ZDM3YTUxYTc0YjVkYTdiMjhkY2Q3NTEzOGU$yZ+HQfCopGe7HBYVPP2cVURyi2zs8zL1VOFQqhRtrTg', NOW(), NOW())
+ON CONFLICT DO NOTHING;

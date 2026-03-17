@@ -7,7 +7,7 @@ spring:
 
 app:
   user-store:
-    type: in-memory
+    type: postgres
   root-admin:
     email: root@example.com
     password: RootPass!123

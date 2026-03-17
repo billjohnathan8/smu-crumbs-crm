@@ -1,5 +1,9 @@
 package com.scroogebank.crm.agentservice.security;
 
+import java.util.Objects;
+
+import com.scroogebank.crm.agentservice.dto.UserRole;
+
 /**
  * Authenticated principal extracted from a verified JWT.
  *
@@ -8,8 +12,19 @@ package com.scroogebank.crm.agentservice.security;
  */
 public record AuthenticatedUser(
 	String userId,
-	String role
+	UserRole role
 ) {
+
+	public AuthenticatedUser(String userId, UserRole role) {
+        this.userId = Objects.requireNonNull(userId, "userId");
+        this.role = Objects.requireNonNull(role, "role");
+	}
+
+	// Constructor for compatibility with older code using String roles
+	public AuthenticatedUser(String userId, String role) {
+		this(userId, parseRole(role));
+	}
+
 	/**
 	 * @return true when the user has the super admin role
 	 */
@@ -30,4 +45,23 @@ public record AuthenticatedUser(
 	public boolean isAgent() {
 		return "agent".equals(role);
 	}
+
+	private static UserRole parseRole(String r) {
+        if (r == null) throw new IllegalArgumentException("role missing");
+        try {
+            // support values like "super_admin", "SUPER_ADMIN", "Super_Admin"
+            String normalized = r.trim().replace('-', '_').replace(' ', '_').toUpperCase();
+            // try direct enum name
+            return UserRole.valueOf(normalized);
+        } catch (IllegalArgumentException ex) {
+            // fallback: try common aliases
+            String low = r.trim().toLowerCase();
+            return switch (low) {
+                case "superadmin", "super_admin", "super-admin" -> UserRole.super_admin;
+                case "admin" -> UserRole.admin;
+                case "agent" -> UserRole.agent;
+                default -> throw new IllegalArgumentException("unknown role: " + r);
+            };
+        }
+    }
 }

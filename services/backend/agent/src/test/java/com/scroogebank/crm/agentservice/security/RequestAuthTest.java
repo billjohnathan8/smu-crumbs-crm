@@ -10,6 +10,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 
+import com.scroogebank.crm.agentservice.dto.UserRole;
+
 /**
  * Unit tests for {@link RequestAuth}.
  */
@@ -40,6 +42,6 @@ class RequestAuthTest {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 
 		assertEquals("usr_1", user.userId());
-		assertEquals("admin", user.role());
+		assertEquals(UserRole.admin, user.role());
 	}
 }

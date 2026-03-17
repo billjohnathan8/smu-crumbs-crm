@@ -8,7 +8,8 @@ import com.scroogebank.crm.agentservice.dto.UserDto;
 import com.scroogebank.crm.agentservice.dto.UserRole;
 import com.scroogebank.crm.agentservice.dto.UsersListResponse;
 import com.scroogebank.crm.agentservice.security.AuthenticatedUser;	
-import com.scroogebank.crm.agentservice.security.ForbiddenException;
+import com.scroogebank.crm.agentservice.exception.AccessDeniedException;
+import com.scroogebank.crm.agentservice.exception.UserNotFoundException;
 import org.springframework.stereotype.Service;
 
 /**
@@ -16,10 +17,22 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class UserAccountService {
-	private final UserStore store;
+	private final PersistentUserStore store;
 
-	public UserAccountService(UserStore store) {
+	public UserAccountService(PersistentUserStore store) {
 		this.store = store;
+	}
+
+	/**
+	 * Creates a new user account.
+	 *
+	 * @param request create user payload
+	 * @return created user
+	 */
+	public UserDto createUser(CreateUserRequest request, AuthenticatedUser requester) {
+		validateHierarchyPermissions(requester, request.role(), "create");
+
+        return store.createUser(request);
 	}
 
 	/**
@@ -30,7 +43,9 @@ public class UserAccountService {
 	 * @param role optional role filter
 	 * @return paginated user list
 	 */
-	public UsersListResponse listUsers(int limit, int offset, String role) {
+	public UsersListResponse listUsers(int limit, int offset, String role, AuthenticatedUser requester) {
+		validateHierarchyPermissions(requester, UserRole.fromWireValue(role), "list");
+
 		int normalizedLimit = Math.max(1, Math.min(200, limit));
 		int normalizedOffset = Math.max(0, offset);
 		long total = store.countUsers(role);
@@ -41,61 +56,44 @@ public class UserAccountService {
 	}
 
 	/**
-	 * Creates a new user account.
-	 *
-	 * @param request create user payload
-	 * @return created user
-	 */
-	public UserDto createUser(CreateUserRequest request, UserRole role) {
-		// Can't create super admin accounts via this endpoint
-		if (request.role().equals(UserRole.super_admin)) {
-			throw new IllegalArgumentException("Can't create super admin");
-		}
-
-		// Agents are not allowed to create admin users
-		if (role == UserRole.agent && request.role() == UserRole.admin) {
-			throw new ForbiddenException("Agent is not allowed to create admin");
-		}
-
-		// Delegate to the store when validation passes
-		return store.createUser(request);
-	}
-
-	/**
 	 * Fetches a user by id.
 	 *
 	 * @param userId API user identifier
 	 * @return user DTO
 	 */
-	public UserDto getUser(String userId) {
-		return store.getUser(userId);
+	public UserDto getUser(String userId, AuthenticatedUser requester) {
+		// Check if user exists
+		UserDto existingUser = store.getUser(userId);
+		if (existingUser == null) {
+			throw new UserNotFoundException(userId);
+		}
+
+		// Retrieve own data is always allowed
+		if (existingUser.id().equals(requester.userId())) {
+			return existingUser;
+		}
+		validateHierarchyPermissions(requester, existingUser.role(), "list");
+		return existingUser;
 	}
 
 	/**
 	 * Updates a user by id.
 	 *
 	 * @param userId API user identifier
-	 * @param patch update payload
+	 * @param request update payload
 	 * @return updated user DTO
 	 */
-	public UserDto updateUser(String userId, UpdateUserRequest patch, AuthenticatedUser user) {
-		// Agents can only update their own account
-		if (user.isAgent() && !userId.equals(user.userId())) {
-			throw new ForbiddenException("Agent is not allowed to update other users");
+	public UserDto updateUser(String userId, UpdateUserRequest request, AuthenticatedUser user) {
+		// Check if user exists
+		UserDto existingUser = store.getUser(userId);
+		if (existingUser == null) {
+			throw new UserNotFoundException(userId);
 		}
 
-		// Agents cannot promote anyone (including themselves) to admin or super admin
-		if (user.isAgent() && (patch.role() == UserRole.admin || patch.role() == UserRole.super_admin)) {
-			throw new ForbiddenException("Agent is not allowed to update role to admin or super_admin");
-		}
-
-		// Admins cannot promote anyone to super admin
-		if (user.isAdmin() && patch.role() == UserRole.super_admin) {
-			throw new ForbiddenException("Admin is not allowed to update role to super_admin");
-		}
+		validateUpdatePermissions(userId, user, request.role());
 
 		// Delegate to the store when validation passes
-		return store.updateUser(userId, patch);
+		return store.updateUser(userId, request);
 	}
 
 	/**
@@ -107,17 +105,12 @@ public class UserAccountService {
 	public void deleteUser(String userId, AuthenticatedUser user) {
 		// Look up the target user's role
 		UserDto target = store.getUser(userId);
+		if (target == null) {
+			throw new UserNotFoundException(userId);
+		}
 		UserRole targetRole = target.role();
 
-		// Agents can never delete admin or super_admin accounts
-		if (user.isAgent() && (targetRole == UserRole.admin || targetRole == UserRole.super_admin)) {
-			throw new ForbiddenException("Agent is not allowed to delete admin or super_admin");
-		}
-
-		// Admins cannot delete super_admin accounts
-		if (user.isAdmin() && targetRole == UserRole.super_admin) {
-			throw new ForbiddenException("Admin is not allowed to delete super_admin");
-		}
+		validateHierarchyPermissions(user, targetRole, "delete");
 
 		// Root-admin protection and actual delete are enforced in the store
 		store.deleteUser(userId);
@@ -133,18 +126,14 @@ public class UserAccountService {
 
 		// Look up the target user's role
 		UserDto target = store.getUser(userId);
-		UserRole targetRole = target.role();
-
-		// Agent can't disable anyone
-		if (user.isAgent()) {
-			throw new ForbiddenException("Agent is not allowed to disable any user");
-		}		
-
-		// Superadmin can't be disabled
-		if (targetRole == UserRole.super_admin) {
-			throw new ForbiddenException("Superadmin is not allowed to be disabled");
+		if (target == null) {
+			throw new UserNotFoundException(userId);
 		}
+		UserRole targetRole = target.role();
+		
+		validateHierarchyPermissions(user, targetRole, "disable");
 
+		// Disable user
 		return store.disableUser(userId);
 	}
 
@@ -154,7 +143,64 @@ public class UserAccountService {
 	 * @param userId API user identifier
 	 * @param _request reset payload (currently unused)
 	 */
-	public void resetPassword(String userId, ResetPasswordRequest _request) {
+	public void resetPassword(String userId, ResetPasswordRequest request, AuthenticatedUser requester) {
+		// Look up the target user's role
+		UserDto target = store.getUser(userId);
+		if (target == null) {
+			throw new UserNotFoundException(userId);
+		}
+		UserRole targetRole = target.role();
+
+		// Reset own password is always allowed
+		if (target.id().equals(requester.userId())) {
+			return;
+		}
+		validateHierarchyPermissions(requester, targetRole, "reset password for");
 		store.resetPassword(userId);
+	}
+
+	private void validateHierarchyPermissions(AuthenticatedUser requester, UserRole targetRole, String action) {
+        switch (targetRole) {
+			case super_admin -> {
+				throw new AccessDeniedException("Root admin accounts cannot be " + action + " via the API");
+			}
+            case admin -> {
+                if (requester.role() != UserRole.super_admin) {
+                    throw new AccessDeniedException("Only root admins can " + action + " admin user.");
+                }
+				return;
+            }
+            case agent -> {
+                if (requester.role() != UserRole.super_admin && requester.role() != UserRole.admin) {
+                    throw new AccessDeniedException("Only admins or root admins can " + action + " agents");
+                }
+				return;
+            }
+            default -> throw new AccessDeniedException("Unsupported role assignment: " + targetRole);
+        }
+    }
+
+	private void validateUpdatePermissions(String userId, AuthenticatedUser requester, UserRole targetRole) {
+        switch (targetRole) {
+			case super_admin -> {
+				throw new AccessDeniedException("Root admin accounts cannot be updated via the API");
+			}
+            case admin -> {
+				if (requester.role() == UserRole.admin && !requester.userId().equals(userId)) {
+					throw new AccessDeniedException("Admin can only update themselves");
+				}
+                if (requester.role() != UserRole.super_admin) {
+                    throw new AccessDeniedException("Only root admins can update admin user");
+                }
+				return;
+            }
+            case agent -> {
+				if (requester.role() == UserRole.agent && !requester.userId().equals(userId)) {
+					throw new AccessDeniedException("Agent can only update themselves");
+				}
+				return;
+            }
+            default -> throw new AccessDeniedException("Unsupported role assignment: " + targetRole);
+        }
 	}
 }

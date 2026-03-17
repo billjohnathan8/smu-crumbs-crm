@@ -1,11 +1,13 @@
 package com.scroogebank.crm.agentservice.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -21,9 +23,9 @@ import com.scroogebank.crm.agentservice.dto.UserDto;
 import com.scroogebank.crm.agentservice.dto.UserRole;
 import com.scroogebank.crm.agentservice.dto.UserStatus;
 import com.scroogebank.crm.agentservice.dto.UsersListResponse;
+import com.scroogebank.crm.agentservice.exception.AccessDeniedException;
 import com.scroogebank.crm.agentservice.exception.ApiExceptionHandler;
 import com.scroogebank.crm.agentservice.security.AuthenticatedUser;
-import com.scroogebank.crm.agentservice.security.ForbiddenException;
 import com.scroogebank.crm.agentservice.security.RequestAuth;
 import com.scroogebank.crm.agentservice.service.UserAccountService;
 import java.time.Instant;
@@ -67,6 +69,7 @@ class UserControllerTest {
     @Test
     void listUsers_agentForbidden() throws Exception {
         when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_2", "agent"));
+        doThrow(new AccessDeniedException("root_admin")).when(userAccountService).listUsers(anyInt(), anyInt(), any(), any(AuthenticatedUser.class));
 
         mockMvc.perform(get("/api/agents").header("Authorization", "Bearer x"))
             .andExpect(status().isForbidden());
@@ -86,7 +89,7 @@ class UserControllerTest {
             Instant.parse("2026-02-05T00:00:00Z"),
             Instant.parse("2026-02-05T00:00:00Z")
         );
-        when(userAccountService.listUsers(eq(50), eq(0), eq(null)))
+        when(userAccountService.listUsers(eq(50), eq(0), eq(null), any()))
             .thenReturn(new UsersListResponse(List.of(dto), new Pagination(50, 0, 1)));
 
         mockMvc.perform(get("/api/agents").header("Authorization", "Bearer x"))
@@ -118,12 +121,12 @@ class UserControllerTest {
             Instant.parse("2026-02-05T00:00:00Z"),
             Instant.parse("2026-02-05T00:00:00Z")
         );
-        when(userAccountService.getUser(eq("usr_2"))).thenReturn(dto);
+        when(userAccountService.getUser(eq("usr_2"), any())).thenReturn(dto);
 
         mockMvc.perform(get("/api/agents/me").header("Authorization", "Bearer x"))
             .andExpect(status().isOk());
 
-        verify(userAccountService).getUser(eq("usr_2"));
+        verify(userAccountService).getUser(eq("usr_2"), any());
     }
 
     /** Admin can fetch another user by ID; controller returns 200 with user DTO. */
@@ -140,7 +143,7 @@ class UserControllerTest {
             Instant.parse("2026-02-05T00:00:00Z"),
             Instant.parse("2026-02-05T00:00:00Z")
         );
-        when(userAccountService.getUser(eq("usr_3"))).thenReturn(dto);
+        when(userAccountService.getUser(eq("usr_3"), any())).thenReturn(dto);
 
         mockMvc.perform(get("/api/agents/usr_3").header("Authorization", "Bearer x"))
             .andExpect(status().isOk());
@@ -150,7 +153,7 @@ class UserControllerTest {
     @Test
     void createUser_adminCreated() throws Exception {
         when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
-        CreateUserRequest body = new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent, false, "temp1234");
+        CreateUserRequest body = new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent, "temp1234");
         UserDto dto = new UserDto(
             "usr_2",
             "Ava",
@@ -174,7 +177,9 @@ class UserControllerTest {
     @Test
     void createUser_agentForbidden() throws Exception {
         when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_2", "agent"));
-        CreateUserRequest body = new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent, false, "temp1234");
+        doThrow(new AccessDeniedException("root_admin")).when(userAccountService).createUser(any(CreateUserRequest.class), any(AuthenticatedUser.class));
+
+        CreateUserRequest body = new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent, "temp1234");
 
         mockMvc.perform(post("/api/agents")
                 .header("Authorization", "Bearer x")
@@ -207,11 +212,11 @@ class UserControllerTest {
             .andExpect(status().isOk());
     }
 
-    /** Deleting root admin (usr_1) causes service to throw ForbiddenException; controller maps it to 403. */
+    /** Deleting root admin (usr_1) causes service to throw AccessDeniedException; controller maps it to 403. */
     @Test
     void deleteUser_rootAdminForbidden() throws Exception {
         when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
-        org.mockito.Mockito.doThrow(new ForbiddenException("root_admin"))
+        org.mockito.Mockito.doThrow(new AccessDeniedException("root_admin"))
 			.when(userAccountService).deleteUser(eq("usr_1"), any(AuthenticatedUser.class));
 
         mockMvc.perform(delete("/api/agents/usr_1").header("Authorization", "Bearer x"))
@@ -254,7 +259,7 @@ class UserControllerTest {
     void resetPassword_adminAccepted_withBody() throws Exception {
         when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
         ResetPasswordRequest body = new ResetPasswordRequest("ava@example.com");
-        doNothing().when(userAccountService).resetPassword(eq("usr_3"), any());
+        doNothing().when(userAccountService).resetPassword(eq("usr_3"), any(), any(AuthenticatedUser.class));
 
         mockMvc.perform(post("/api/agents/usr_3/reset-password")
                 .header("Authorization", "Bearer x")
@@ -267,7 +272,7 @@ class UserControllerTest {
     @Test
     void resetPassword_adminAccepted_withoutBody() throws Exception {
         when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
-        doNothing().when(userAccountService).resetPassword(eq("usr_3"), eq(null));
+        doNothing().when(userAccountService).resetPassword(eq("usr_3"), eq(null), any(AuthenticatedUser.class));
 
         mockMvc.perform(post("/api/agents/usr_3/reset-password").header("Authorization", "Bearer x"))
             .andExpect(status().isAccepted());
