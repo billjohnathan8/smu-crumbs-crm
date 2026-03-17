@@ -82,6 +82,12 @@ variable "route53_zone_id" {
   default     = ""
 }
 
+variable "enable_cloudfront_oac" {
+  description = "Create CloudFront Origin Access Control for the S3 frontend bucket. Disable when LabRole blocks cloudfront:CreateOriginAccessControl."
+  type        = bool
+  default     = true
+}
+
 check "log_api_origin_requires_domain_name" {
   assert {
     condition     = !var.enable_log_api_origin || (var.log_api_origin_domain_name != null && trimspace(var.log_api_origin_domain_name) != "")
