@@ -13,6 +13,8 @@ on:
         required: true
       ECR_REGISTRY:
         required: true
+      LAMBDA_ARTIFACT_BUCKET:
+        required: true
         
 # Ensure that only one deployment runs at a time to the integration environment
 concurrency:
@@ -24,7 +26,7 @@ permissions:
   id-token: write
 
 jobs:
-  build-scan-push:
+  build-scan-push-services:
     name: Build, Scan, Push (${{ matrix.service }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -80,7 +82,7 @@ jobs:
         run: |
           echo "uri=${ECR_REGISTRY}/services/${{ matrix.service }}" >> "$GITHUB_OUTPUT"
           echo "sha_tag=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-          echo "branch_tag=integration-latest" >> "$GITHUB_OUTPUT"
+          echo "branch_tag=integration" >> "$GITHUB_OUTPUT"
 
       - name: Build Docker image
         working-directory: ${{ matrix.working-directory }}
@@ -110,3 +112,20 @@ jobs:
           echo "Image: ${{ steps.image.outputs.uri }}:${{ steps.image.outputs.sha_tag }}"
           echo "Also tagged: ${{ steps.image.outputs.uri }}:${{ steps.image.outputs.branch_tag }}"
           echo "Trivy gate passed; image pushed to ECR."
+
+  package-upload-lambdas:
+    name: Package and Upload Lambda (${{ matrix.service }})
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - aml
+          - verification
+          - transaction-ingestion-lambda
+    uses: ./.github/workflows/reusable-lambda-artifact-deploy.yml
+    with:
+      service: ${{ matrix.service }}
+    secrets:
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      LAMBDA_ARTIFACT_BUCKET: ${{ secrets.LAMBDA_ARTIFACT_BUCKET }}

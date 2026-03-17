@@ -1,0 +1,114 @@
+name: Reusable - Lambda Artifact Deploy
+
+on:
+  workflow_call:
+    inputs:
+      service:
+        description: Lambda service folder name under services/backend
+        required: true
+        type: string
+      python_version:
+        description: Python version used to build the Lambda artifact
+        required: false
+        type: string
+        default: '3.13'
+    secrets:
+      AWS_ROLE_ARN:
+        required: true
+      AWS_REGION:
+        required: true
+      LAMBDA_ARTIFACT_BUCKET:
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  package-upload:
+    name: Package and upload (${{ inputs.service }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      LAMBDA_ARTIFACT_BUCKET: ${{ secrets.LAMBDA_ARTIFACT_BUCKET }}
+      LAMBDA_SERVICE_NAME: ${{ inputs.service }}
+      LAMBDA_WORKING_DIRECTORY: services/backend/${{ inputs.service }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        timeout-minutes: 2
+
+      - name: Validate required secrets
+        run: |
+          test -n "${{ secrets.AWS_ROLE_ARN }}"
+          test -n "${{ secrets.AWS_REGION }}"
+          test -n "${{ secrets.LAMBDA_ARTIFACT_BUCKET }}"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        timeout-minutes: 2
+        with:
+          python-version: ${{ inputs.python_version }}
+          cache: 'pip'
+          cache-dependency-path: ${{ env.LAMBDA_WORKING_DIRECTORY }}/requirements.txt
+
+      - name: Build Lambda zip artifact
+        id: package
+        working-directory: ${{ env.LAMBDA_WORKING_DIRECTORY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build
+          mkdir -p build/package
+
+          python -m pip install --upgrade pip
+
+          if [[ -f requirements.txt ]]; then
+            pip install -r requirements.txt --target build/package
+          fi
+
+          rsync -a ./ build/package/ \
+            --exclude build \
+            --exclude tests \
+            --exclude venv \
+            --exclude .pytest_cache \
+            --exclude __pycache__ \
+            --exclude '*.zip' \
+            --exclude pyproject.toml \
+            --exclude README.md
+
+          artifact_name="${GITHUB_SHA}.zip"
+          artifact_path="build/${artifact_name}"
+          s3_key="services/lambda/${LAMBDA_SERVICE_NAME}/${artifact_name}"
+
+          (
+            cd build/package
+            zip -r "../${artifact_name}" . \
+              -x "*.pyc" \
+              -x "*/__pycache__/*"
+          )
+
+          echo "artifact_name=${artifact_name}" >> "$GITHUB_OUTPUT"
+          echo "artifact_path=${artifact_path}" >> "$GITHUB_OUTPUT"
+          echo "s3_key=${s3_key}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Lambda zip to S3
+        run: |
+          aws s3 cp \
+            "${{ env.LAMBDA_WORKING_DIRECTORY }}/${{ steps.package.outputs.artifact_path }}" \
+            "s3://${{ env.LAMBDA_ARTIFACT_BUCKET }}/${{ steps.package.outputs.s3_key }}"
+
+      - name: Deployment summary
+        run: |
+          echo "Lambda: ${{ env.LAMBDA_SERVICE_NAME }}"
+          echo "Artifact: ${{ steps.package.outputs.artifact_name }}"
+          echo "Uploaded to: s3://${{ env.LAMBDA_ARTIFACT_BUCKET }}/${{ steps.package.outputs.s3_key }}"
