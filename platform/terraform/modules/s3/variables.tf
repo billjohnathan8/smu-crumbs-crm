@@ -12,6 +12,12 @@ variable "frontend_bucket_force_destroy" {
   type        = bool
 }
 
+variable "frontend_bucket_allow_public" {
+  description = "Disable S3 public access block on the frontend bucket. Required when using S3 static website hosting without CloudFront."
+  type        = bool
+  default     = false
+}
+
 variable "enable_verification_bucket" {
   description = "Create S3 bucket for verification document uploads."
   type        = bool

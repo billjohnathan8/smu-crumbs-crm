@@ -22,6 +22,11 @@ output "frontend_bucket_regional_domain_name" {
   value       = aws_s3_bucket.frontend.bucket_regional_domain_name
 }
 
+output "frontend_website_endpoint" {
+  description = "S3 static website hosting endpoint URL (only when public access is enabled)."
+  value       = var.frontend_bucket_allow_public ? "http://${aws_s3_bucket_website_configuration.frontend[0].website_endpoint}" : null
+}
+
 output "verification_bucket_id" {
   description = "Verification documents bucket ID."
   value       = var.enable_verification_bucket ? aws_s3_bucket.verification[0].id : null
