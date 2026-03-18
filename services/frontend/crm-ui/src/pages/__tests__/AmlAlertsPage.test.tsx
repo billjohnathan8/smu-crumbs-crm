@@ -57,7 +57,7 @@ describe('AmlAlertsPage', () => {
     vi.mocked(useAuth).mockReturnValue({
       user: { id: 'admin-1', role: 'admin', firstName: 'Admin', lastName: 'User' },
       logout: mockLogout,
-    } as any)
+    } as unknown as ReturnType<typeof useAuth>)
 
     // Default list API response
     vi.mocked(amlApi.listAmlAlerts).mockResolvedValue({
@@ -78,7 +78,7 @@ describe('AmlAlertsPage', () => {
     vi.mocked(useAuth).mockReturnValue({
       user: { id: 'user-1', role: 'user' },
       logout: mockLogout,
-    } as any)
+    } as unknown as ReturnType<typeof useAuth>)
 
     renderComponent()
     const userLink = screen.getAllByRole('link', { name: 'Dashboard' })[1] // Get the newly rendered one
@@ -169,7 +169,7 @@ describe('AmlAlertsPage', () => {
     vi.mocked(amlApi.updateAmlAlertReview).mockResolvedValue({
       ...mockAlerts[0],
       reviewStatus: 'Confirmed',
-    } as any)
+    } as unknown as AmlAlert)
 
     renderComponent()
     await waitFor(() => expect(screen.getByText('alert-1')).toBeInTheDocument())

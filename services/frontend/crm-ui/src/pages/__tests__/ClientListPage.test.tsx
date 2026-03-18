@@ -5,6 +5,7 @@ import { ClientListPage } from '../ClientListPage' // Adjust path if necessary
 import * as clientsApi from '@/api/clients'
 import { ApiError } from '@/api/client'
 import { useAuth } from '@/features/auth/AuthContext'
+import type { Client } from '@/api/types'
 
 // 1. Mock React Router
 const mockNavigate = vi.fn()
@@ -25,9 +26,15 @@ vi.mock('@/api/clients', () => ({
 
 // 4. Mock the ClientTable to keep the DOM clean and focus on Page logic
 vi.mock('@/components/ClientTable', () => ({
-  ClientTable: ({ clients, onView }: any) => (
+  ClientTable: ({
+    clients,
+    onView,
+  }: {
+    clients: Client[]
+    onView: (clientId: string) => void
+  }) => (
     <div data-testid="mock-client-table">
-      {clients.map((client: any) => (
+      {clients.map((client: Client) => (
         <div key={client.clientId} data-testid={`client-row-${client.clientId}`}>
           {client.firstName} {client.lastName}
           <button
@@ -62,11 +69,11 @@ describe('ClientListPage', () => {
     vi.mocked(useAuth).mockReturnValue({
       user: { id: 'user-123', role: 'user', firstName: 'User', lastName: 'Smith' },
       logout: mockLogout,
-    } as any)
+    } as unknown as ReturnType<typeof useAuth>)
 
     // Default API response
     vi.mocked(clientsApi.listClients).mockResolvedValue({
-      data: mockClientsData as any,
+      data: mockClientsData as unknown as Client[],
       pagination: { limit: 20, offset: 0, total: 2 },
     })
   })
@@ -90,7 +97,7 @@ describe('ClientListPage', () => {
     vi.mocked(useAuth).mockReturnValue({
       user: { id: 'admin-123', role: 'admin', firstName: 'Admin', lastName: 'User' },
       logout: mockLogout,
-    } as any)
+    } as unknown as ReturnType<typeof useAuth>)
 
     renderComponent()
 
@@ -179,7 +186,7 @@ describe('ClientListPage', () => {
   it('should handle pagination (Next and Previous)', async () => {
     // Mock API to return 45 total clients (3 pages)
     vi.mocked(clientsApi.listClients).mockResolvedValue({
-      data: mockClientsData as any,
+      data: mockClientsData as unknown as Client[],
       pagination: { limit: 20, offset: 0, total: 45 },
     })
 
@@ -240,7 +247,7 @@ describe('ClientListPage', () => {
     vi.mocked(useAuth).mockReturnValue({
       user: { id: 'admin-1', role: 'admin' },
       logout: mockLogout,
-    } as any)
+    } as unknown as ReturnType<typeof useAuth>)
 
     vi.mocked(clientsApi.listClients).mockRejectedValue(new ApiError(403, 'forbidden', 'Forbidden'))
 
