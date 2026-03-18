@@ -67,10 +67,10 @@ export function ClientDetailPage() {
 
   const canViewAllClients = isManagementUser
   const canReviewVerification = isManagementUser
-  const canDeleteClient = isManagementUser
-  const canEditClient = isManagementUser
+  const canDeleteClient = isUser || isManagementUser
+  const canEditClient = isUser || isManagementUser
   const canVerifyClient = isUser || isManagementUser
-  const canSendCommunication = isManagementUser
+  const canSendCommunication = isUser || isManagementUser
 
   const sidebarNav: NavItem[] = isManagementUser
     ? [

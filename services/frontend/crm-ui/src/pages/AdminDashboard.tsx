@@ -52,13 +52,13 @@ export function AdminDashboard() {
           ]
         )
 
-        if (
-          usersResult.status === 'rejected' &&
-          usersResult.reason instanceof ApiError &&
-          usersResult.reason.status === 401
-        ) {
-          logout()
-          return
+        if (usersResult.status === 'rejected') {
+          const reason = usersResult.reason
+          if (reason instanceof ApiError && reason.status === 401) {
+            logout()
+            return
+          }
+          setError(reason instanceof ApiError ? reason.message || 'Failed to load dashboard data' : 'Failed to load dashboard data')
         }
 
         const usersResponse = usersResult.status === 'fulfilled' ? usersResult.value : null
