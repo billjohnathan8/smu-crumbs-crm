@@ -6,12 +6,12 @@ import type { User, UserRole } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 
-const agentNav: NavItem[] = [
-  { label: 'Home', to: '/agent', end: true },
-  { label: 'My Clients', to: '/agent/clients' },
-  { label: 'Create Client', to: '/agent/clients/new' },
-  { label: 'Transactions', to: '/agent/transactions' },
-  { label: 'AML Alerts', to: '/agent/aml-alerts' },
+const userNav: NavItem[] = [
+  { label: 'Home', to: '/user', end: true },
+  { label: 'My Clients', to: '/user/clients' },
+  { label: 'Create Client', to: '/user/clients/new' },
+  { label: 'Transactions', to: '/user/transactions' },
+  { label: 'AML Alerts', to: '/user/aml-alerts' },
 ]
 
 const adminNav: NavItem[] = [
@@ -35,12 +35,12 @@ export function AdminUserManagementPage() {
 
   const isAdmin = user?.role === 'admin'
   const isRootAdmin = user?.role === 'super_admin' || String(user?.id) === '1'
-  const isAgent = user?.role === 'agent'
+  const isUser = user?.role === 'user'
 
   const canManageUsers = isAdmin || isRootAdmin
 
-  const basePath = canManageUsers ? '/admin' : '/agent'
-  const sidebarNav = canManageUsers ? adminNav : agentNav
+  const basePath = canManageUsers ? '/admin' : '/user'
+  const sidebarNav = canManageUsers ? adminNav : userNav
   const homePath = basePath
 
 
@@ -51,8 +51,8 @@ export function AdminUserManagementPage() {
         setLoading(true)
         setError('')
 
-        // For root admin, get all users; for admin, get only agents
-        const params = isRootAdmin ? {} : { role: 'agent' as UserRole }
+        // For root admin, get all users; for admin, get only users
+        const params = isRootAdmin ? {} : { role: 'user' as UserRole }
         const response = await listUsers(params)
         setUsers(response.data)
       } catch (err) {
@@ -80,8 +80,8 @@ export function AdminUserManagementPage() {
       return
     }
 
-    if (userRole === 'agent' && !isAdmin && !isRootAdmin) {
-      setError('You do not have permission to delete agents')
+    if (userRole === 'user' && !isAdmin && !isRootAdmin) {
+      setError('You do not have permission to delete users')
       return
     }
 
@@ -116,13 +116,13 @@ export function AdminUserManagementPage() {
     return <Navigate to="/login" replace />
   }
 
-  if (isAgent || !canManageUsers) {
+  if (isUser || !canManageUsers) {
     return <Navigate to="/unauthorized" replace />
   }
 
   // Group users by role for display
   const admins = users.filter(u => u.role === 'admin' || u.role === 'super_admin')
-  const agents = users.filter(u => u.role === 'agent')
+  const users = users.filter(u => u.role === 'user')
 
   return (
     <SidebarLayout items={sidebarNav}>
@@ -212,11 +212,11 @@ export function AdminUserManagementPage() {
 
             <div className="bg-card border border-border rounded-lg p-6">
               <h2 className="text-xl font-bold text-text mb-4">
-                {isRootAdmin ? 'My Users' : 'My Agents'}
+                {isRootAdmin ? 'My Users' : 'My Users'}
               </h2>
 
-              {agents.length === 0 ? (
-                <p className="text-text-muted">No agents found</p>
+              {users.length === 0 ? (
+                <p className="text-text-muted">No users found</p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -230,23 +230,23 @@ export function AdminUserManagementPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {agents.map(agent => (
-                        <tr key={agent.id} className="border-b border-border/50">
-                          <td className="py-3 px-4 text-text">{agent.firstName}</td>
-                          <td className="py-3 px-4 text-text">{agent.lastName}</td>
-                          <td className="py-3 px-4 text-text">{agent.email}</td>
-                          <td className="py-3 px-4 text-text capitalize">{agent.role}</td>
+                      {users.map(user => (
+                        <tr key={user.id} className="border-b border-border/50">
+                          <td className="py-3 px-4 text-text">{user.firstName}</td>
+                          <td className="py-3 px-4 text-text">{user.lastName}</td>
+                          <td className="py-3 px-4 text-text">{user.email}</td>
+                          <td className="py-3 px-4 text-text capitalize">{user.role}</td>
                           <td className="py-3 px-4">
                             <button
-                              onClick={() => handleDeleteUser(agent.id, agent.role)}
-                              disabled={deletingUserId === agent.id}
+                              onClick={() => handleDeleteUser(user.id, user.role)}
+                              disabled={deletingUserId === user.id}
                               className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                                deletingUserId === agent.id
+                                deletingUserId === user.id
                                   ? 'bg-danger/50 cursor-not-allowed text-white'
                                   : 'bg-danger hover:bg-danger-hover text-white'
                               }`}
                             >
-                              {deletingUserId === agent.id ? 'Deleting...' : 'Delete'}
+                              {deletingUserId === user.id ? 'Deleting...' : 'Delete'}
                             </button>
                           </td>
                         </tr>

@@ -16,7 +16,7 @@ vi.mock('@/api/communications')
 const mockLogout = vi.fn()
 vi.mock('@/features/auth/AuthContext', () => ({
   useAuth: () => ({
-    user: { id: 'agent-1', firstName: 'Agent', lastName: 'Smith', role: 'agent' },
+    user: { id: 'user-1', firstName: 'User', lastName: 'Smith', role: 'user' },
     logout: mockLogout,
   }),
 }))
@@ -30,7 +30,7 @@ vi.mock('react-router-dom', async () => {
     useParams: () => ({ clientId: 'client-123' }),
     useLocation: () => ({
       state: null,
-      pathname: '/agent/clients/client-123',
+      pathname: '/user/clients/client-123',
       search: '',
       hash: '',
       key: '',
@@ -113,7 +113,7 @@ describe('ClientDetailPage', () => {
     })
 
     await user.click(screen.getByRole('button', { name: /Edit Client/i }))
-    expect(mockNavigate).toHaveBeenCalledWith('/agent/clients/client-123/edit')
+    expect(mockNavigate).toHaveBeenCalledWith('/user/clients/client-123/edit')
   })
 
   it('should display Delete Client button', async () => {
@@ -167,7 +167,7 @@ describe('ClientDetailPage', () => {
     await waitFor(() => {
       expect(clientsApi.deleteClient).toHaveBeenCalledWith('client-123')
       expect(mockNavigate).toHaveBeenCalledWith(
-        '/agent/clients',
+        '/user/clients',
         expect.objectContaining({
           replace: true,
         })
@@ -193,7 +193,7 @@ describe('ClientDetailPage', () => {
     })
 
     await user.click(screen.getByText('Manage accounts →'))
-    expect(mockNavigate).toHaveBeenCalledWith('/agent/clients/client-123/accounts')
+    expect(mockNavigate).toHaveBeenCalledWith('/user/clients/client-123/accounts')
   })
 
   it('should display Communications section', async () => {
@@ -228,7 +228,7 @@ describe('ClientDetailPage', () => {
     const mockComm: Communication = {
       communicationId: 'comm-1',
       clientId: 'client-123',
-      agentId: 'agent-1',
+      userId: 'user-1',
       channel: 'email',
       toEmail: 'john@example.com',
       subject: 'Test Subject',

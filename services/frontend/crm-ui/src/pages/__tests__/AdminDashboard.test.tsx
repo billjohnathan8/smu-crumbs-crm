@@ -67,7 +67,7 @@ describe('AdminDashboard', () => {
     })
   })
 
-  it('should display total agents count', async () => {
+  it('should display total users count', async () => {
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
       data: [],
       pagination: { total: 25, limit: 1, offset: 0 },
@@ -85,7 +85,7 @@ describe('AdminDashboard', () => {
 
     await waitFor(() => {
       expect(screen.getByText('25')).toBeInTheDocument()
-      expect(screen.getByText(/Total Agents/i)).toBeInTheDocument()
+      expect(screen.getByText(/Total Users/i)).toBeInTheDocument()
     })
   })
 
@@ -137,7 +137,7 @@ describe('AdminDashboard', () => {
     const mockLogs: LogEntry[] = [
       {
         logId: 'log-1',
-        agentId: 'agent-abc123',
+        userId: 'user-abc123',
         clientId: 'client-xyz789',
         action: 'CREATE',
         attributeName: 'email',
@@ -147,7 +147,7 @@ describe('AdminDashboard', () => {
       },
       {
         logId: 'log-2',
-        agentId: 'agent-def456',
+        userId: 'user-def456',
         clientId: 'client-uvw321',
         action: 'UPDATE',
         attributeName: 'phoneNumber',
@@ -252,7 +252,7 @@ describe('AdminDashboard', () => {
     const mockLogs: LogEntry[] = [
       {
         logId: 'log-1',
-        agentId: 'agent-verylongid123456789',
+        userId: 'user-verylongid123456789',
         clientId: 'client-verylongid987654321',
         action: 'CREATE',
         attributeName: 'email',

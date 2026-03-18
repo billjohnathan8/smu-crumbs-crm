@@ -6,12 +6,12 @@ import type { Transaction, TransactionStatus, TransactionKind } from '@/api/type
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 
-const agentNav: NavItem[] = [
-  { label: 'Home', to: '/agent', end: true },
-  { label: 'My Clients', to: '/agent/clients' },
-  { label: 'Create Client', to: '/agent/clients/new' },
-  { label: 'Transactions', to: '/agent/transactions' },
-  { label: 'AML Alerts', to: '/agent/aml-alerts' },
+const userNav: NavItem[] = [
+  { label: 'Home', to: '/user', end: true },
+  { label: 'My Clients', to: '/user/clients' },
+  { label: 'Create Client', to: '/user/clients/new' },
+  { label: 'Transactions', to: '/user/transactions' },
+  { label: 'AML Alerts', to: '/user/aml-alerts' },
 ]
 
 const adminNav: NavItem[] = [
@@ -40,9 +40,9 @@ export function ViewTransactionsPage() {
         ...adminNav,
         ...(isSuperAdmin ? [{ label: 'Admin Management', to: '/admin/admins' as const }] : []),
       ]
-    : agentNav
+    : userNav
 
-  const basePath = isManagementUser ? '/admin' : '/agent'
+  const basePath = isManagementUser ? '/admin' : '/user'
 
   const clientIdFromQuery = searchParams.get('clientId') || ''
   const [transactions, setTransactions] = useState<Transaction[]>([])

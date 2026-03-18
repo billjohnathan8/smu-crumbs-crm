@@ -202,8 +202,8 @@ export function AdminCommunications() {
           <span className="font-mono text-text">{comm.clientId}</span>
         </div>
         <div>
-          <span className="text-text-muted">Agent:</span>{' '}
-          <span className="font-mono text-text">{comm.agentId}</span>
+          <span className="text-text-muted">User:</span>{' '}
+          <span className="font-mono text-text">{comm.userId}</span>
         </div>
         <div>
           <span className="text-text-muted">To:</span>{' '}

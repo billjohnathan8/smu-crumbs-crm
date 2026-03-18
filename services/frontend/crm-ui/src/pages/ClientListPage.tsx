@@ -7,12 +7,12 @@ import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 import { ClientTable } from '@/components/ClientTable'
 
-const agentNav: NavItem[] = [
-  { label: 'Home', to: '/agent', end: true },
-  { label: 'My Clients', to: '/agent/clients' },
-  { label: 'Create Client', to: '/agent/clients/new' },
-  { label: 'Transactions', to: '/agent/transactions' },
-  { label: 'AML Alerts', to: '/agent/aml-alerts' },
+const userNav: NavItem[] = [
+  { label: 'Home', to: '/user', end: true },
+  { label: 'My Clients', to: '/user/clients' },
+  { label: 'Create Client', to: '/user/clients/new' },
+  { label: 'Transactions', to: '/user/transactions' },
+  { label: 'AML Alerts', to: '/user/aml-alerts' },
 ]
 
 const adminNav: NavItem[] = [
@@ -31,7 +31,7 @@ export function ClientListPage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
-  const isAgent = user?.role === 'agent'
+  const isUser = user?.role === 'user'
   const isAdmin = user?.role === 'admin'
   const isSuperAdmin = user?.role === 'super_admin'
   const isManagementUser = isAdmin || isSuperAdmin
@@ -42,9 +42,9 @@ export function ClientListPage() {
         ...adminNav,
         ...(isSuperAdmin ? [{ label: 'Admin Management', to: '/admin/admins' as const }] : []),
       ]
-    : agentNav
+    : userNav
 
-  const basePath = isManagementUser ? '/admin' : '/agent'
+  const basePath = isManagementUser ? '/admin' : '/user'
   const pageTitle = canViewAllClients ? 'All Clients' : 'My Clients'
   const createClientPath = `${basePath}/clients/new`
   const clientDetailPath = (clientId: string) => `${basePath}/clients/${clientId}`
@@ -76,7 +76,7 @@ export function ClientListPage() {
           logout()
         } else if (err.status === 403) {
           setError(
-            isAgent
+            isUser
               ? 'You are not allowed to view this client list.'
               : 'You are not allowed to access this page.'
           )

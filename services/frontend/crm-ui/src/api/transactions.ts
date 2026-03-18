@@ -20,7 +20,7 @@ export interface ListTransactionsParams {
 }
 
 /**
- * List transactions (agents see only their clients' transactions, admins see all)
+ * List transactions (users see only their clients' transactions, admins see all)
  */
 export async function listTransactions(
   params?: ListTransactionsParams

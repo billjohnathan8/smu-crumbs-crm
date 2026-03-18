@@ -17,12 +17,12 @@ import { DeleteConfirmModal } from '@/components/DeleteConfirmModal'
 
 type ModalMode = 'create' | 'edit' | null
 
-const agentNav: NavItem[] = [
-  { label: 'Home', to: '/agent', end: true },
-  { label: 'My Clients', to: '/agent/clients' },
-  { label: 'Create Client', to: '/agent/clients/new' },
-  { label: 'Transactions', to: '/agent/transactions' },
-  { label: 'AML Alerts', to: '/agent/aml-alerts' },
+const userNav: NavItem[] = [
+  { label: 'Home', to: '/user', end: true },
+  { label: 'My Clients', to: '/user/clients' },
+  { label: 'Create Client', to: '/user/clients/new' },
+  { label: 'Transactions', to: '/user/transactions' },
+  { label: 'AML Alerts', to: '/user/aml-alerts' },
 ]
 
 const adminNav: NavItem[] = [
@@ -40,13 +40,13 @@ export function ClientAccountsPage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
-  const isAgent = user?.role === 'agent'
+  const isUser = user?.role === 'user'
   const isAdmin = user?.role === 'admin'
   const isSuperAdmin = user?.role === 'super_admin'
   const isManagementUser = isAdmin || isSuperAdmin
 
-  const basePath = isManagementUser ? '/admin' : '/agent'
-  const sidebarNav = isManagementUser ? adminNav : agentNav
+  const basePath = isManagementUser ? '/admin' : '/user'
+  const sidebarNav = isManagementUser ? adminNav : userNav
   const listPagePath = `${basePath}/clients`
   const clientDetailsPath = `${basePath}/clients/${clientId}`
 
@@ -92,7 +92,7 @@ export function ClientAccountsPage() {
         logout()
       } else if (err instanceof ApiError && err.status === 403) {
         setError(
-          isAgent
+          isUser
             ? 'You are not allowed to access this client.'
             : 'You are not allowed to access these accounts.'
         )

@@ -100,7 +100,7 @@ describe('clients API', () => {
         country: 'Singapore',
         postalCode: '123456',
         identityVerificationStatus: 'verified',
-        assignedAgentId: 'agent-456',
+        assignedUserId: 'user-456',
         createdAt: '2024-01-01T00:00:00Z',
         updatedAt: '2024-01-01T00:00:00Z',
       }
@@ -134,7 +134,7 @@ describe('clients API', () => {
         clientId: 'client-new',
         ...createRequest,
         identityVerificationStatus: 'unverified',
-        assignedAgentId: 'agent-123',
+        assignedUserId: 'user-123',
         createdAt: '2024-01-15T00:00:00Z',
         updatedAt: '2024-01-15T00:00:00Z',
       }
@@ -169,7 +169,7 @@ describe('clients API', () => {
         country: 'Singapore',
         postalCode: '123456',
         identityVerificationStatus: 'verified',
-        assignedAgentId: 'agent-456',
+        assignedUserId: 'user-456',
         createdAt: '2024-01-01T00:00:00Z',
         updatedAt: '2024-01-16T00:00:00Z',
       }

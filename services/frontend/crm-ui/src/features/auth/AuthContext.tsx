@@ -10,7 +10,7 @@ import {
 import type { User, LoginRequest } from '@/api/types'
 
 const DEV_BYPASS_AUTH = import.meta.env.DEV && import.meta.env.VITE_BYPASS_AUTH === 'true'
-const DEV_ROLE = (import.meta.env.VITE_BYPASS_ROLE ?? 'admin') as 'admin' | 'agent' | 'super_admin'
+const DEV_ROLE = (import.meta.env.VITE_BYPASS_ROLE ?? 'admin') as 'admin' | 'user' | 'super_admin'
 
 const DEV_USERS = {
   admin: {
@@ -29,12 +29,12 @@ const DEV_USERS = {
     role: 'super_admin',
     status: 'active',
   },
-  agent: {
+  user: {
     id: 'user-123',
     firstName: 'John',
     lastName: 'Doe',
-    email: 'agent@example.com',
-    role: 'agent',
+    email: 'user@example.com',
+    role: 'user',
     status: 'active',
   },
 } as const
@@ -94,8 +94,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const devUser =
         email === 'admin@example.com' && password === 'password123'
           ? DEV_USERS.admin
-          : email === 'agent@example.com' && password === 'password123'
-            ? DEV_USERS.agent
+          : email === 'user@example.com' && password === 'password123'
+            ? DEV_USERS.user
             : null
 
       if (!devUser) throw new Error('Invalid email or password')

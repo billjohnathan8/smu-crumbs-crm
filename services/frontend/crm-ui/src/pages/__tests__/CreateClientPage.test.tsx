@@ -12,7 +12,7 @@ vi.mock('@/api/clients')
 const mockLogout = vi.fn()
 vi.mock('@/features/auth/AuthContext', () => ({
   useAuth: () => ({
-    user: { id: 'agent-1', firstName: 'John', lastName: 'Doe', role: 'agent' },
+    user: { id: 'user-1', firstName: 'John', lastName: 'Doe', role: 'user' },
     logout: mockLogout,
   }),
 }))
@@ -240,7 +240,7 @@ describe('CreateClientPage', () => {
 
     await waitFor(() => {
       expect(clientsApi.createClient).toHaveBeenCalled()
-      expect(mockNavigate).toHaveBeenCalledWith('/agent/clients', {
+      expect(mockNavigate).toHaveBeenCalledWith('/user/clients', {
         replace: true,
         state: {
           successMessage: 'Client John Doe created successfully',
@@ -266,7 +266,7 @@ describe('CreateClientPage', () => {
     const cancelButton = screen.getByRole('button', { name: /Cancel/i })
     await user.click(cancelButton)
 
-    expect(mockNavigate).toHaveBeenCalledWith('/agent/clients')
+    expect(mockNavigate).toHaveBeenCalledWith('/user/clients')
   })
 
   it('should call logout on 401 error', async () => {

@@ -160,7 +160,7 @@ describe('LoginPage', () => {
     })
   })
 
-  it('should successfully login as agent and redirect', async () => {
+  it('should successfully login as user and redirect', async () => {
     const mockTokenResponse: TokenResponse = {
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
@@ -172,8 +172,8 @@ describe('LoginPage', () => {
       id: 'user-123',
       firstName: 'John',
       lastName: 'Doe',
-      email: 'agent@example.com',
-      role: 'agent',
+      email: 'user@example.com',
+      role: 'user',
       status: 'active',
     }
 
@@ -186,12 +186,12 @@ describe('LoginPage', () => {
     const passwordInput = screen.getByLabelText(/Password/i)
     const submitButton = screen.getByRole('button', { name: /Sign In/i })
 
-    fireEvent.change(emailInput, { target: { value: 'agent@example.com' } })
+    fireEvent.change(emailInput, { target: { value: 'user@example.com' } })
     fireEvent.change(passwordInput, { target: { value: 'password123' } })
     fireEvent.click(submitButton)
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/agent', { replace: true })
+      expect(mockNavigate).toHaveBeenCalledWith('/user', { replace: true })
     })
   })
 

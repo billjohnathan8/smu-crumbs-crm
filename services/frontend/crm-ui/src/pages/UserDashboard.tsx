@@ -6,15 +6,15 @@ import type { LogEntry } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 
-const agentNav: NavItem[] = [
-  { label: 'Home', to: '/agent', end: true },
-  { label: 'My Clients', to: '/agent/clients' },
-  { label: 'Create Client', to: '/agent/clients/new' },
-  { label: 'Transactions', to: '/agent/transactions' },
-  { label: 'AML Alerts', to: '/agent/aml-alerts' },
+const userNav: NavItem[] = [
+  { label: 'Home', to: '/user', end: true },
+  { label: 'My Clients', to: '/user/clients' },
+  { label: 'Create Client', to: '/user/clients/new' },
+  { label: 'Transactions', to: '/user/transactions' },
+  { label: 'AML Alerts', to: '/user/aml-alerts' },
 ]
 
-export function AgentDashboard() {
+export function UserDashboard() {
   const { user, logout } = useAuth()
   const [clientCount, setClientCount] = useState(0)
   const [recentActivities, setRecentActivities] = useState<LogEntry[]>([])
@@ -29,7 +29,7 @@ export function AgentDashboard() {
       try {
         const [clientsResponse, logsResponse] = await Promise.all([
           listClients({ limit: 1 }),
-          listLogs({ limit: 10, agentId: user?.id }),
+          listLogs({ limit: 10, userId: user?.id }),
         ])
 
         setClientCount(clientsResponse.pagination?.total || 0)
@@ -63,10 +63,10 @@ export function AgentDashboard() {
   }
 
   return (
-    <SidebarLayout items={agentNav}>
+    <SidebarLayout items={userNav}>
       <div className="flex justify-between h-16 items-center">
         <div>
-          <h1 className="text-xl font-bold text-text">Agent Dashboard</h1>
+          <h1 className="text-xl font-bold text-text">User Dashboard</h1>
           <p className="text-sm text-text-muted">
             Welcome, {user?.firstName} {user?.lastName}
           </p>
@@ -74,19 +74,19 @@ export function AgentDashboard() {
 
         <div className="flex space-x-4">
           <a
-            href="/agent/clients/new"
+            href="/user/clients/new"
             className="px-4 py-2 rounded-lg bg-success hover:bg-success-hover text-white font-medium transition-colors"
           >
             Create Client
           </a>
           <a
-            href="/agent/transactions"
+            href="/user/transactions"
             className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white font-medium transition-colors"
           >
             View Transactions
           </a>
           <a
-            href="/agent/aml-alerts"
+            href="/user/aml-alerts"
             className="px-4 py-2 rounded-lg bg-warning hover:bg-warning-hover text-white font-medium transition-colors"
           >
             AML Alerts

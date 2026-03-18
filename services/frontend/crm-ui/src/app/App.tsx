@@ -10,7 +10,7 @@ import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { AdminDashboard } from '@/pages/AdminDashboard'
 import { AdminCommunications } from '@/pages/AdminCommunications'
 import { AdminUserManagementPage } from '@/pages/AdminUserManagementPage'
-import { AgentDashboard } from '@/pages/AgentDashboard'
+import { UserDashboard } from '@/pages/UserDashboard'
 import { AmlAlertsPage } from '@/pages/AmlAlertsPage'
 import { ClientAccountsPage } from '@/pages/ClientAccountsPage'
 import { ClientDetailPage } from '@/pages/ClientDetailPage'
@@ -39,7 +39,7 @@ function RootRedirect() {
     return <Navigate to="/admin" replace />
   }
 
-  return <Navigate to="/agent" replace />
+  return <Navigate to="/user" replace />
 }
 
 export function App() {
@@ -66,15 +66,15 @@ export function App() {
             <Route path="/admin/createnewuserpage" element={<CreateNewUserPage />} />
           </Route>
 
-          <Route element={<ProtectedRoute allowedRoles={['agent']} />}>
-            <Route path="/agent" element={<AgentDashboard />} />
-            <Route path="/agent/clients" element={<ClientListPage />} />
-            <Route path="/agent/clients/new" element={<CreateClientPage />} />
-            <Route path="/agent/clients/:clientId" element={<ClientDetailPage />} />
-            <Route path="/agent/clients/:clientId/edit" element={<EditClientPage />} />
-            <Route path="/agent/clients/:clientId/accounts" element={<ClientAccountsPage />} />
-            <Route path="/agent/transactions" element={<ViewTransactionsPage />} />
-            <Route path="/agent/aml-alerts" element={<AmlAlertsPage />} />
+          <Route element={<ProtectedRoute allowedRoles={['user']} />}>
+            <Route path="/user" element={<UserDashboard />} />
+            <Route path="/user/clients" element={<ClientListPage />} />
+            <Route path="/user/clients/new" element={<CreateClientPage />} />
+            <Route path="/user/clients/:clientId" element={<ClientDetailPage />} />
+            <Route path="/user/clients/:clientId/edit" element={<EditClientPage />} />
+            <Route path="/user/clients/:clientId/accounts" element={<ClientAccountsPage />} />
+            <Route path="/user/transactions" element={<ViewTransactionsPage />} />
+            <Route path="/user/aml-alerts" element={<AmlAlertsPage />} />
           </Route>
 
           <Route path="/" element={<RootRedirect />} />

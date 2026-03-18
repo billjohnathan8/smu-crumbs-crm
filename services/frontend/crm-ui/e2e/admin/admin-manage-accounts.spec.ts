@@ -12,7 +12,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
     await setAuthState(page, "admin");
   });
 
-  test("should create new agent user successfully", async ({ page }) => {
+  test("should create new user successfully", async ({ page }) => {
     await test.step("Set up routes for successful creation", async () => {
       await page.route("**/api/**", (route: Route) => {
         const url = route.request().url();
@@ -30,7 +30,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -45,7 +45,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
           });
         }
 
-        if (url.includes("/api/agents") && route.request().method() === "GET") {
+        if (url.includes("/api/users") && route.request().method() === "GET") {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -57,7 +57,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
         }
 
         if (
-          url.includes("/api/agents") &&
+          url.includes("/api/users") &&
           route.request().method() === "POST"
         ) {
           const body = route.request().postDataJSON();
@@ -89,16 +89,16 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
     });
 
     await test.step("Open create user modal", async () => {
-      await page.click('button:has-text("Create New Agent")');
+      await page.click('button:has-text("Create New User")');
       await expect(page.getByText("Create New User")).toBeVisible();
     });
 
     await test.step("Fill and submit form", async () => {
       const email = uniqueEmail("newagent");
       await page.fill("#firstName", "New");
-      await page.fill("#lastName", "Agent");
+      await page.fill("#lastName", "User");
       await page.fill("#email", email);
-      await page.selectOption("#role", "agent");
+      await page.selectOption("#role", "user");
 
       await page.click('button[type="submit"]:has-text("Create User")');
     });
@@ -134,7 +134,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -149,7 +149,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
           });
         }
 
-        if (url.includes("/api/agents") && route.request().method() === "GET") {
+        if (url.includes("/api/users") && route.request().method() === "GET") {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -171,7 +171,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
     await test.step("Navigate and open modal", async () => {
       await page.goto("/admin/accounts");
       await page.waitForLoadState("domcontentloaded");
-      await page.click('button:has-text("Create New Agent")');
+      await page.click('button:has-text("Create New User")');
     });
 
     await test.step("Submit empty form", async () => {
@@ -203,7 +203,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -218,7 +218,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
           });
         }
 
-        if (url.includes("/api/agents") && route.request().method() === "GET") {
+        if (url.includes("/api/users") && route.request().method() === "GET") {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -240,7 +240,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
     await test.step("Navigate and open modal", async () => {
       await page.goto("/admin/accounts");
       await page.waitForLoadState("domcontentloaded");
-      await page.click('button:has-text("Create New Agent")');
+      await page.click('button:has-text("Create New User")');
     });
 
     await test.step("Fill with invalid email", async () => {
@@ -275,7 +275,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -290,7 +290,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
           });
         }
 
-        if (url.includes("/api/agents") && route.request().method() === "GET") {
+        if (url.includes("/api/users") && route.request().method() === "GET") {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -302,7 +302,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
         }
 
         if (
-          url.includes("/api/agents") &&
+          url.includes("/api/users") &&
           route.request().method() === "POST"
         ) {
           return route.fulfill({
@@ -326,7 +326,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
     await test.step("Navigate and create user", async () => {
       await page.goto("/admin/accounts");
       await page.waitForLoadState("domcontentloaded");
-      await page.click('button:has-text("Create New Agent")');
+      await page.click('button:has-text("Create New User")');
 
       await page.fill("#firstName", "Duplicate");
       await page.fill("#lastName", "User");
@@ -362,7 +362,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -377,7 +377,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
           });
         }
 
-        if (url.includes("/api/agents") && route.request().method() === "GET") {
+        if (url.includes("/api/users") && route.request().method() === "GET") {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -386,9 +386,9 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
                 {
                   id: userId,
                   firstName: "Test",
-                  lastName: "Agent",
-                  email: "testagent@example.com",
-                  role: "agent",
+                  lastName: "User",
+                  email: "testuser@example.com",
+                  role: "user",
                   status: "active",
                 },
               ],
@@ -398,7 +398,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
         }
 
         if (
-          url.includes("/api/agents/") &&
+          url.includes("/api/users/") &&
           route.request().method() === "PUT"
         ) {
           disableCallMade = true;
@@ -408,9 +408,9 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
             body: JSON.stringify({
               id: userId,
               firstName: "Test",
-              lastName: "Agent",
-              email: "testagent@example.com",
-              role: "agent",
+              lastName: "User",
+              email: "testuser@example.com",
+              role: "user",
               status: "disabled",
             }),
           });
@@ -482,7 +482,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -497,7 +497,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
           });
         }
 
-        if (url.includes("/api/agents") && route.request().method() === "GET") {
+        if (url.includes("/api/users") && route.request().method() === "GET") {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -506,9 +506,9 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
                 {
                   id: userId,
                   firstName: "Test",
-                  lastName: "Agent",
-                  email: "testagent@example.com",
-                  role: "agent",
+                  lastName: "User",
+                  email: "testuser@example.com",
+                  role: "user",
                   status: "active",
                 },
               ],
@@ -518,7 +518,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
         }
 
         if (
-          url.includes("/api/agents/") &&
+          url.includes("/api/users/") &&
           route.request().method() === "DELETE"
         ) {
           deleteCallMade = true;
@@ -580,7 +580,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -595,7 +595,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
           });
         }
 
-        if (url.includes("/api/agents") && route.request().method() === "GET") {
+        if (url.includes("/api/users") && route.request().method() === "GET") {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -604,9 +604,9 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
                 {
                   id: userId,
                   firstName: "Test",
-                  lastName: "Agent",
-                  email: "testagent@example.com",
-                  role: "agent",
+                  lastName: "User",
+                  email: "testuser@example.com",
+                  role: "user",
                   status: "active",
                 },
               ],
@@ -615,7 +615,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
           });
         }
 
-        if (url.includes("/api/agents/") && url.includes("/password-reset")) {
+        if (url.includes("/api/users/") && url.includes("/password-reset")) {
           resetCallMade = true;
           return route.fulfill({
             status: 200,
@@ -689,7 +689,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -704,7 +704,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
           });
         }
 
-        if (url.includes("/api/agents") && route.request().method() === "GET") {
+        if (url.includes("/api/users") && route.request().method() === "GET") {
           // Extract offset from URL
           const urlObj = new URL(url);
           const offset = parseInt(urlObj.searchParams.get("offset") || "0");
@@ -712,11 +712,11 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
           // Generate page-specific data
           const pageNum = offset / 10 + 1;
           const data = Array.from({ length: 10 }, (_, i) => ({
-            id: `agent-${offset + i}`,
-            firstName: `Agent`,
+            id: `user-${offset + i}`,
+            firstName: `User`,
             lastName: `Page${pageNum}-${i}`,
-            email: `agent-p${pageNum}-${i}@example.com`,
-            role: "agent",
+            email: `user-p${pageNum}-${i}@example.com`,
+            role: "user",
             status: "active",
           }));
 
@@ -787,7 +787,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -802,7 +802,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
           });
         }
 
-        if (url.includes("/api/agents") && route.request().method() === "GET") {
+        if (url.includes("/api/users") && route.request().method() === "GET") {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -824,7 +824,7 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
     await test.step("Navigate and open modal", async () => {
       await page.goto("/admin/accounts");
       await page.waitForLoadState("domcontentloaded");
-      await page.click('button:has-text("Create New Agent")');
+      await page.click('button:has-text("Create New User")');
       await expect(page.getByText("Create New User")).toBeVisible();
     });
 

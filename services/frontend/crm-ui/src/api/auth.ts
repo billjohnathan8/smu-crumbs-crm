@@ -2,7 +2,7 @@ import { apiPost, apiGet } from './client'
 import type { LoginRequest, TokenResponse, RefreshRequest, User } from './types'
 
 const AUTH_BASE = '/api/auth'
-const AGENTS_BASE = '/api/agents'
+const USERS_BASE = '/api/users'
 
 /**
  * Authenticate user and return access token
@@ -32,5 +32,5 @@ export async function refreshToken(refreshToken: string): Promise<TokenResponse>
  * Get current authenticated user profile
  */
 export async function getCurrentUser(): Promise<User> {
-  return apiGet<User>(`${AGENTS_BASE}/me`)
+  return apiGet<User>(`${USERS_BASE}/me`)
 }

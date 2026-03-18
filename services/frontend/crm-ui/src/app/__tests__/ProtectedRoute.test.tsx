@@ -89,7 +89,7 @@ describe('ProtectedRoute', () => {
       firstName: 'John',
       lastName: 'Doe',
       email: 'john@example.com',
-      role: 'agent',
+      role: 'user',
       status: 'active',
     }
 
@@ -114,7 +114,7 @@ describe('ProtectedRoute', () => {
       firstName: 'John',
       lastName: 'Doe',
       email: 'john@example.com',
-      role: 'agent',
+      role: 'user',
       status: 'active',
     }
 
@@ -138,7 +138,7 @@ describe('ProtectedRoute', () => {
       firstName: 'John',
       lastName: 'Doe',
       email: 'john@example.com',
-      role: 'agent',
+      role: 'user',
       status: 'active',
     }
 
@@ -151,7 +151,7 @@ describe('ProtectedRoute', () => {
     })
 
     window.history.pushState({}, '', '/protected')
-    renderProtectedRoute(['admin', 'agent'])
+    renderProtectedRoute(['admin', 'user'])
 
     expect(screen.getByText('Protected Content')).toBeInTheDocument()
   })

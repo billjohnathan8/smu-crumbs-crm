@@ -3,13 +3,13 @@ import { gotoWithNetworkRetry, setAuthState } from "../helpers/auth";
 import { setupAgentRoutes } from "../helpers/mockRoutes";
 import { uniqueEmail, uniquePhone, dobForAge } from "../helpers/testData";
 
-test.describe("Agent Create Client - Validation (Flow 6)", () => {
+test.describe("User Create Client - Validation (Flow 6)", () => {
   test.beforeEach(async ({ page, context }) => {
     await context.clearCookies();
     // Install default API mocks before first navigation to avoid Vite proxy noise.
     await setupAgentRoutes(page);
     await gotoWithNetworkRetry(page, "/login");
-    await setAuthState(page, "agent");
+    await setAuthState(page, "user");
   });
 
   test("should validate invalid email format", async ({ page }) => {
@@ -30,16 +30,16 @@ test.describe("Agent Create Client - Validation (Flow 6)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              id: "agent-1",
-              firstName: "Agent",
+              id: "user-1",
+              firstName: "User",
               lastName: "User",
-              email: "agent@example.com",
-              role: "agent",
+              email: "user@example.com",
+              role: "user",
               status: "active",
             }),
           });
@@ -54,7 +54,7 @@ test.describe("Agent Create Client - Validation (Flow 6)", () => {
     });
 
     await test.step("Navigate to create client page", async () => {
-      await page.goto("/agent/clients/new");
+      await page.goto("/user/clients/new");
       await page.waitForLoadState("domcontentloaded");
     });
 
@@ -96,16 +96,16 @@ test.describe("Agent Create Client - Validation (Flow 6)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              id: "agent-1",
-              firstName: "Agent",
+              id: "user-1",
+              firstName: "User",
               lastName: "User",
-              email: "agent@example.com",
-              role: "agent",
+              email: "user@example.com",
+              role: "user",
               status: "active",
             }),
           });
@@ -120,7 +120,7 @@ test.describe("Agent Create Client - Validation (Flow 6)", () => {
     });
 
     await test.step("Navigate to create client page", async () => {
-      await page.goto("/agent/clients/new");
+      await page.goto("/user/clients/new");
       await page.waitForLoadState("domcontentloaded");
     });
 
@@ -164,16 +164,16 @@ test.describe("Agent Create Client - Validation (Flow 6)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              id: "agent-1",
-              firstName: "Agent",
+              id: "user-1",
+              firstName: "User",
               lastName: "User",
-              email: "agent@example.com",
-              role: "agent",
+              email: "user@example.com",
+              role: "user",
               status: "active",
             }),
           });
@@ -188,7 +188,7 @@ test.describe("Agent Create Client - Validation (Flow 6)", () => {
     });
 
     await test.step("Navigate to create client page", async () => {
-      await page.goto("/agent/clients/new");
+      await page.goto("/user/clients/new");
       await page.waitForLoadState("domcontentloaded");
     });
 
@@ -232,16 +232,16 @@ test.describe("Agent Create Client - Validation (Flow 6)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              id: "agent-1",
-              firstName: "Agent",
+              id: "user-1",
+              firstName: "User",
               lastName: "User",
-              email: "agent@example.com",
-              role: "agent",
+              email: "user@example.com",
+              role: "user",
               status: "active",
             }),
           });
@@ -256,7 +256,7 @@ test.describe("Agent Create Client - Validation (Flow 6)", () => {
     });
 
     await test.step("Navigate to create client page", async () => {
-      await page.goto("/agent/clients/new");
+      await page.goto("/user/clients/new");
       await page.waitForLoadState("domcontentloaded");
     });
 
@@ -298,16 +298,16 @@ test.describe("Agent Create Client - Validation (Flow 6)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              id: "agent-1",
-              firstName: "Agent",
+              id: "user-1",
+              firstName: "User",
               lastName: "User",
-              email: "agent@example.com",
-              role: "agent",
+              email: "user@example.com",
+              role: "user",
               status: "active",
             }),
           });
@@ -336,7 +336,7 @@ test.describe("Agent Create Client - Validation (Flow 6)", () => {
     });
 
     await test.step("Navigate to create client page", async () => {
-      await page.goto("/agent/clients/new");
+      await page.goto("/user/clients/new");
       await page.waitForLoadState("domcontentloaded");
     });
 
@@ -380,16 +380,16 @@ test.describe("Agent Create Client - Validation (Flow 6)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              id: "agent-1",
-              firstName: "Agent",
+              id: "user-1",
+              firstName: "User",
               lastName: "User",
-              email: "agent@example.com",
-              role: "agent",
+              email: "user@example.com",
+              role: "user",
               status: "active",
             }),
           });
@@ -418,7 +418,7 @@ test.describe("Agent Create Client - Validation (Flow 6)", () => {
     });
 
     await test.step("Navigate to create client page", async () => {
-      await page.goto("/agent/clients/new");
+      await page.goto("/user/clients/new");
       await page.waitForLoadState("domcontentloaded");
     });
 
@@ -464,16 +464,16 @@ test.describe("Agent Create Client - Validation (Flow 6)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              id: "agent-1",
-              firstName: "Agent",
+              id: "user-1",
+              firstName: "User",
               lastName: "User",
-              email: "agent@example.com",
-              role: "agent",
+              email: "user@example.com",
+              role: "user",
               status: "active",
             }),
           });
@@ -502,7 +502,7 @@ test.describe("Agent Create Client - Validation (Flow 6)", () => {
     });
 
     await test.step("Navigate to create client page", async () => {
-      await page.goto("/agent/clients/new");
+      await page.goto("/user/clients/new");
       await page.waitForLoadState("domcontentloaded");
     });
 
@@ -544,16 +544,16 @@ test.describe("Agent Create Client - Validation (Flow 6)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              id: "agent-1",
-              firstName: "Agent",
+              id: "user-1",
+              firstName: "User",
               lastName: "User",
-              email: "agent@example.com",
-              role: "agent",
+              email: "user@example.com",
+              role: "user",
               status: "active",
             }),
           });
@@ -579,7 +579,7 @@ test.describe("Agent Create Client - Validation (Flow 6)", () => {
     });
 
     await test.step("Navigate to create client page", async () => {
-      await page.goto("/agent/clients/new");
+      await page.goto("/user/clients/new");
       await page.waitForLoadState("domcontentloaded");
     });
 
@@ -592,8 +592,8 @@ test.describe("Agent Create Client - Validation (Flow 6)", () => {
       await page.click('a:has-text("Dashboard")');
     });
 
-    await test.step("Verify navigation to agent dashboard", async () => {
-      await expect(page).toHaveURL(/\/agent$/, { timeout: 5000 });
+    await test.step("Verify navigation to user dashboard", async () => {
+      await expect(page).toHaveURL(/\/user$/, { timeout: 5000 });
     });
   });
 
@@ -617,16 +617,16 @@ test.describe("Agent Create Client - Validation (Flow 6)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              id: "agent-1",
-              firstName: "Agent",
+              id: "user-1",
+              firstName: "User",
               lastName: "User",
-              email: "agent@example.com",
-              role: "agent",
+              email: "user@example.com",
+              role: "user",
               status: "active",
             }),
           });
@@ -678,7 +678,7 @@ test.describe("Agent Create Client - Validation (Flow 6)", () => {
     });
 
     await test.step("Navigate to create client page", async () => {
-      await page.goto("/agent/clients/new");
+      await page.goto("/user/clients/new");
       await page.waitForLoadState("domcontentloaded");
     });
 
@@ -697,8 +697,8 @@ test.describe("Agent Create Client - Validation (Flow 6)", () => {
       await page.click('button[type="submit"]');
     });
 
-    await test.step("Verify redirect to agent dashboard", async () => {
-      await expect(page).toHaveURL(/\/agent$/, { timeout: 5000 });
+    await test.step("Verify redirect to user dashboard", async () => {
+      await expect(page).toHaveURL(/\/user$/, { timeout: 5000 });
     });
   });
 });

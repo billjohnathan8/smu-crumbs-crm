@@ -16,8 +16,8 @@ export interface PaginatedResponse<T> {
   pagination?: Pagination
 }
 
-// Auth types (agent-service)
-export type UserRole = 'admin' | 'agent' | 'super_admin'
+// Auth types (user-service)
+export type UserRole = 'admin' | 'user' | 'super_admin'
 export type UserStatus = 'active' | 'disabled'
 
 export interface User {
@@ -93,7 +93,7 @@ export interface Client {
   country: string
   postalCode: string
   identityVerificationStatus: IdentityVerificationStatus
-  assignedAgentId?: string
+  assignedUserId?: string
   createdAt?: string
   updatedAt?: string
 }
@@ -204,7 +204,7 @@ export interface LogEntry {
   attributeName: string
   beforeValue?: string | null
   afterValue?: string | null
-  agentId: string
+  userId: string
   clientId: string
   dateTime: string
   correlationId?: string | null
@@ -215,7 +215,7 @@ export interface CreateLogRequest {
   attributeName: string
   beforeValue?: string | null
   afterValue?: string | null
-  agentId: string
+  userId: string
   clientId: string
   dateTime?: string
   correlationId?: string | null
@@ -227,7 +227,7 @@ export type CommunicationStatus = 'queued' | 'sent' | 'failed'
 export interface Communication {
   communicationId: string
   clientId: string
-  agentId: string
+  userId: string
   channel: CommunicationChannel
   toEmail: string
   subject: string

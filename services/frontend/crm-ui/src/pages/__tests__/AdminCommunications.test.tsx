@@ -23,7 +23,7 @@ const mockUser: User = {
 const mockComm: Communication = {
   communicationId: 'com_1',
   clientId: 'client-123',
-  agentId: 'agent-1',
+  userId: 'user-1',
   channel: 'email',
   toEmail: 'john@example.com',
   subject: 'Welcome Email',

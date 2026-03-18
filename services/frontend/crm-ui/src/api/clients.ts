@@ -27,7 +27,7 @@ export interface ListClientAccountsParams {
 }
 
 /**
- * List clients (agents see only their own, admins see all)
+ * List clients (users see only their own, admins see all)
  */
 export async function listClients(params?: ListClientsParams): Promise<PaginatedResponse<Client>> {
   const query = new URLSearchParams()

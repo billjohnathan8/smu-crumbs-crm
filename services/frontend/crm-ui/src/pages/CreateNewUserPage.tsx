@@ -6,12 +6,12 @@ import type { CreateUserRequest, UserRole } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 
-const agentNav: NavItem[] = [
-  { label: 'Home', to: '/agent', end: true },
-  { label: 'My Clients', to: '/agent/clients' },
-  { label: 'Create Client', to: '/agent/clients/new' },
-  { label: 'Transactions', to: '/agent/transactions' },
-  { label: 'AML Alerts', to: '/agent/aml-alerts' },
+const userNav: NavItem[] = [
+  { label: 'Home', to: '/user', end: true },
+  { label: 'My Clients', to: '/user/clients' },
+  { label: 'Create Client', to: '/user/clients/new' },
+  { label: 'Transactions', to: '/user/transactions' },
+  { label: 'AML Alerts', to: '/user/aml-alerts' },
 ]
 
 const adminNav: NavItem[] = [
@@ -34,23 +34,23 @@ export function CreateNewUserPage() {
 
   const isAdmin = user?.role === 'admin'
   const isRootAdmin = user?.role === 'super_admin' || String(user?.id) === '1'
-  const isAgent = user?.role === 'agent'
+  const isUser = user?.role === 'user'
 
   const canManageUsers = isAdmin || isRootAdmin
 
-  const basePath = canManageUsers ? '/admin' : '/agent'
-  const sidebarNav = canManageUsers ? adminNav : agentNav
+  const basePath = canManageUsers ? '/admin' : '/user'
+  const sidebarNav = canManageUsers ? adminNav : userNav
   const homePath = basePath
-  const listPath = canManageUsers ? '/admin/adminusermanagement' : '/agent'
+  const listPath = canManageUsers ? '/admin/adminusermanagement' : '/user'
   const breadcrumbLabel = canManageUsers ? 'Manage Users' : 'Dashboard'
 
-  const allowedRoles: UserRole[] = isRootAdmin ? ['agent', 'admin'] : ['agent']
+  const allowedRoles: UserRole[] = isRootAdmin ? ['user', 'admin'] : ['user']
 
   const [formData, setFormData] = useState<CreateUserRequest>({
     firstName: '',
     lastName: '',
     email: '',
-    role: 'agent',
+    role: 'user',
     sendInviteEmail: true,
   })
 
@@ -60,7 +60,7 @@ export function CreateNewUserPage() {
     return <Navigate to="/login" replace />
   }
 
-  if (isAgent || !canManageUsers) {
+  if (isUser || !canManageUsers) {
     return <Navigate to="/unauthorized" replace />
   }
 
@@ -100,13 +100,13 @@ export function CreateNewUserPage() {
     try {
       await createUser(formData)
 
-      setSuccessMessage(`${formData.role === 'admin' ? 'Admin' : 'Agent'} created successfully`)
+      setSuccessMessage(`${formData.role === 'admin' ? 'Admin' : 'User'} created successfully`)
 
       setFormData({
         firstName: '',
         lastName: '',
         email: '',
-        role: 'agent',
+        role: 'user',
         sendInviteEmail: true,
       })
       setFormErrors({})
@@ -250,7 +250,7 @@ export function CreateNewUserPage() {
               >
                 {allowedRoles.map(role => (
                   <option key={role} value={role}>
-                    {role === 'admin' ? 'Admin' : 'Agent'}
+                    {role === 'admin' ? 'Admin' : 'User'}
                   </option>
                 ))}
               </select>

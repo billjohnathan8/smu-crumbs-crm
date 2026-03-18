@@ -6,12 +6,12 @@ import type { ClientCreateRequest, Gender } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 
-const agentNav: NavItem[] = [
-  { label: 'Home', to: '/agent', end: true },
-  { label: 'My Clients', to: '/agent/clients' },
-  { label: 'Create Client', to: '/agent/clients/new' },
-  { label: 'Transactions', to: '/agent/transactions' },
-  { label: 'AML Alerts', to: '/agent/aml-alerts' },
+const userNav: NavItem[] = [
+  { label: 'Home', to: '/user', end: true },
+  { label: 'My Clients', to: '/user/clients' },
+  { label: 'Create Client', to: '/user/clients/new' },
+  { label: 'Transactions', to: '/user/transactions' },
+  { label: 'AML Alerts', to: '/user/aml-alerts' },
 ]
 
 const adminNav: NavItem[] = [
@@ -32,10 +32,10 @@ export function CreateClientPage() {
   const isRootAdmin = user?.role === 'super_admin' || String(user?.id) === '1'
   const canViewAllClients = isAdmin || isRootAdmin
 
-  const basePath = canViewAllClients ? '/admin' : '/agent'
-  const sidebarNav = canViewAllClients ? adminNav : agentNav
+  const basePath = canViewAllClients ? '/admin' : '/user'
+  const sidebarNav = canViewAllClients ? adminNav : userNav
   const homePath = basePath
-  const listPath = canViewAllClients ? '/admin/accounts' : '/agent/clients'
+  const listPath = canViewAllClients ? '/admin/accounts' : '/user/clients'
   const breadcrumbLabel = canViewAllClients ? 'Manage Accounts' : 'My Clients'
 
   const [formData, setFormData] = useState<ClientCreateRequest>({

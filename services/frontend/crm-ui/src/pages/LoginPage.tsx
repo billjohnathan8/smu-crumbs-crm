@@ -57,10 +57,10 @@ export function LoginPage() {
         if (user.role === 'admin') {
           navigate('/admin', { replace: true })
         } else {
-          navigate('/agent', { replace: true })
+          navigate('/user', { replace: true })
         }
       } else {
-        navigate('/agent', { replace: true })
+        navigate('/user', { replace: true })
       }
     } catch (err) {
       if (err instanceof ApiError) {

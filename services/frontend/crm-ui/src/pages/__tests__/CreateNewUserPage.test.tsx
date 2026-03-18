@@ -111,14 +111,14 @@ describe('CreateNewUserPage', () => {
     })
   })
 
-  it('should create agent successfully', async () => {
+  it('should create user successfully', async () => {
     const user = userEvent.setup()
     vi.spyOn(usersApi, 'createUser').mockResolvedValue({
-      id: 'new-agent-123',
+      id: 'new-user-123',
       firstName: 'John',
       lastName: 'Doe',
       email: 'john@example.com',
-      role: 'agent',
+      role: 'user',
       status: 'active',
     })
 
@@ -132,7 +132,7 @@ describe('CreateNewUserPage', () => {
     await user.type(firstNameInput, 'John')
     await user.type(lastNameInput, 'Doe')
     await user.type(emailInput, 'john@example.com')
-    await user.selectOptions(roleSelect, 'agent')
+    await user.selectOptions(roleSelect, 'user')
 
     const submitButton = screen.getByRole('button', { name: /Create User/i })
     await user.click(submitButton)
@@ -142,10 +142,10 @@ describe('CreateNewUserPage', () => {
         firstName: 'John',
         lastName: 'Doe',
         email: 'john@example.com',
-        role: 'agent',
+        role: 'user',
         sendInviteEmail: true,
       })
-      expect(screen.getByText('Agent created successfully')).toBeInTheDocument()
+      expect(screen.getByText('User created successfully')).toBeInTheDocument()
     })
   })
 
@@ -194,19 +194,19 @@ describe('CreateNewUserPage', () => {
     const roleSelect = screen.getByLabelText(/Role/i)
     const options = screen.getAllByRole('option')
 
-    // Should only have 'agent' option for regular admin
+    // Should only have 'user' option for regular admin
     expect(options).toHaveLength(1)
-    expect(options[0]).toHaveValue('agent')
+    expect(options[0]).toHaveValue('user')
   })
 
-  it('should allow super admin to create both admin and agent roles', async () => {
+  it('should allow super admin to create both admin and user roles', async () => {
     renderCreateNewUserPage(mockSuperAdminUser)
 
     const roleSelect = screen.getByLabelText(/Role/i)
     const options = screen.getAllByRole('option')
 
     expect(options).toHaveLength(2)
-    expect(options[0]).toHaveValue('agent')
+    expect(options[0]).toHaveValue('user')
     expect(options[1]).toHaveValue('admin')
   })
 
@@ -264,16 +264,16 @@ describe('CreateNewUserPage', () => {
   })
 
   it('should redirect unauthorized users', () => {
-    const agentUser: User = {
-      id: 'agent-123',
-      firstName: 'Agent',
+    const normalUser: User = {
+      id: 'user-123',
+      firstName: 'User',
       lastName: 'User',
-      email: 'agent@example.com',
-      role: 'agent',
+      email: 'user@example.com',
+      role: 'user',
       status: 'active',
     }
 
-    renderCreateNewUserPage(agentUser)
+    renderCreateNewUserPage(normalUser)
 
     expect(screen.getByText('/unauthorized')).toBeInTheDocument()
   })

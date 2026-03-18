@@ -150,7 +150,7 @@ export function AdminDashboard() {
           <>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <div className="bg-card border border-border rounded-lg p-6">
-                <h3 className="text-text-muted text-sm font-medium mb-2">Total Agents</h3>
+                <h3 className="text-text-muted text-sm font-medium mb-2">Total Users</h3>
                 <p className="text-4xl font-bold text-text">{stats.totalAgents}</p>
               </div>
               <div className="bg-card border border-border rounded-lg p-6">
@@ -235,7 +235,7 @@ export function AdminDashboard() {
                           Attribute
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
-                          Agent ID
+                          User ID
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
                           Client ID
@@ -265,7 +265,7 @@ export function AdminDashboard() {
                           </td>
                           <td className="px-6 py-4 text-sm text-text">{log.attributeName}</td>
                           <td className="px-6 py-4 text-sm text-text-muted font-mono text-xs">
-                            {log.agentId.substring(0, 8)}...
+                            {log.userId.substring(0, 8)}...
                           </td>
                           <td className="px-6 py-4 text-sm text-text-muted font-mono text-xs">
                             {log.clientId.substring(0, 8)}...

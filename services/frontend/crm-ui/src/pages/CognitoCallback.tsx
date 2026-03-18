@@ -34,7 +34,7 @@ export function CognitoCallback() {
         const storedUser = localStorage.getItem('currentUser')
         if (storedUser) {
           const user = JSON.parse(storedUser)
-          navigate(user.role === 'admin' || user.role === 'super_admin' ? '/admin' : '/agent', {
+          navigate(user.role === 'admin' || user.role === 'super_admin' ? '/admin' : '/user', {
             replace: true,
           })
         } else {

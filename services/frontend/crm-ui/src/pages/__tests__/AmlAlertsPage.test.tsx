@@ -74,15 +74,15 @@ describe('AmlAlertsPage', () => {
     const adminLink = screen.getByRole('link', { name: 'Dashboard' })
     expect(adminLink).toHaveAttribute('href', '/admin')
 
-    // 2. Test Agent Role
+    // 2. Test User Role
     vi.mocked(useAuth).mockReturnValue({
-      user: { id: 'agent-1', role: 'agent' },
+      user: { id: 'user-1', role: 'user' },
       logout: mockLogout,
     } as any)
     
     renderComponent()
-    const agentLink = screen.getAllByRole('link', { name: 'Dashboard' })[1] // Get the newly rendered one
-    expect(agentLink).toHaveAttribute('href', '/agent')
+    const userLink = screen.getAllByRole('link', { name: 'Dashboard' })[1] // Get the newly rendered one
+    expect(userLink).toHaveAttribute('href', '/user')
   })
 
   it('should fetch and display alerts on mount', async () => {

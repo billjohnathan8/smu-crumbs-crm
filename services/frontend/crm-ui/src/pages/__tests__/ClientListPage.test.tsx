@@ -58,9 +58,9 @@ describe('ClientListPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     
-    // Default mock setup: Logged in as Agent
+    // Default mock setup: Logged in as User
     vi.mocked(useAuth).mockReturnValue({
-      user: { id: 'agent-123', role: 'agent', firstName: 'Agent', lastName: 'Smith' },
+      user: { id: 'user-123', role: 'user', firstName: 'User', lastName: 'Smith' },
       logout: mockLogout,
     } as any)
 
@@ -73,16 +73,16 @@ describe('ClientListPage', () => {
 
   const renderComponent = () => render(<ClientListPage />)
 
-  it('should render correct title and base paths for an Agent', async () => {
+  it('should render correct title and base paths for an User', async () => {
     renderComponent()
 
-    // Agent should see "My Clients"
+    // User should see "My Clients"
     expect(screen.getByRole('heading', { name: 'My Clients', level: 1 })).toBeInTheDocument()
 
-    // Verify New Client navigation path uses /agent
+    // Verify New Client navigation path uses /user
     const newClientBtn = screen.getByRole('button', { name: /\+ New Client/i })
     await userEvent.click(newClientBtn)
-    expect(mockNavigate).toHaveBeenCalledWith('/agent/clients/new')
+    expect(mockNavigate).toHaveBeenCalledWith('/user/clients/new')
   })
 
   it('should render correct title and base paths for an Admin', async () => {
@@ -123,7 +123,7 @@ describe('ClientListPage', () => {
   })
 
   it('should pass correct view path to ClientTable based on role', async () => {
-    renderComponent() // Default is Agent
+    renderComponent() // Default is User
 
     await waitFor(() => {
       expect(screen.getByTestId('view-btn-client-1')).toBeInTheDocument()
@@ -131,8 +131,8 @@ describe('ClientListPage', () => {
 
     await userEvent.click(screen.getByTestId('view-btn-client-1'))
     
-    // Agent navigates to /agent/clients/:id
-    expect(mockNavigate).toHaveBeenCalledWith('/agent/clients/client-1')
+    // User navigates to /user/clients/:id
+    expect(mockNavigate).toHaveBeenCalledWith('/user/clients/client-1')
   })
 
   it('should handle search functionality', async () => {
@@ -226,7 +226,7 @@ describe('ClientListPage', () => {
     })
   })
 
-  it('should display correct 403 error for Agent', async () => {
+  it('should display correct 403 error for User', async () => {
     vi.mocked(clientsApi.listClients).mockRejectedValue(
       new ApiError(403, 'forbidden', 'Forbidden')
     )

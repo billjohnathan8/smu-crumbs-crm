@@ -17,12 +17,12 @@ const adminNav: NavItem[] = [
   { label: 'User Management', to: '/admin/adminusermanagement' },
 ]
 
-const agentNav: NavItem[] = [
-  { label: 'Home', to: '/agent', end: true },
-  { label: 'My Clients', to: '/agent/clients' },
-  { label: 'Create Client', to: '/agent/clients/new' },
-  { label: 'Transactions', to: '/agent/transactions' },
-  { label: 'AML Alerts', to: '/agent/aml-alerts' },
+const userNav: NavItem[] = [
+  { label: 'Home', to: '/user', end: true },
+  { label: 'My Clients', to: '/user/clients' },
+  { label: 'Create Client', to: '/user/clients/new' },
+  { label: 'Transactions', to: '/user/transactions' },
+  { label: 'AML Alerts', to: '/user/aml-alerts' },
 ]
 
 export function AmlAlertsPage() {
@@ -46,10 +46,10 @@ export function AmlAlertsPage() {
   })
 
   const navItems = useMemo<NavItem[]>(
-    () => (user?.role === 'agent' ? agentNav : adminNav),
+    () => (user?.role === 'user' ? userNav : adminNav),
     [user?.role]
   )
-  const homePath = user?.role === 'agent' ? '/agent' : '/admin'
+  const homePath = user?.role === 'user' ? '/user' : '/admin'
 
   const fetchAlerts = async (page: number) => {
     setIsLoading(true)

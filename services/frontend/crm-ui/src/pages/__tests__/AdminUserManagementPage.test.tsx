@@ -30,11 +30,11 @@ const mockSuperAdminUser: User = {
 }
 
 const mockAgentUser: User = {
-  id: 'agent-123',
-  firstName: 'Agent',
+  id: 'user-123',
+  firstName: 'User',
   lastName: 'User',
-  email: 'agent@example.com',
-  role: 'agent',
+  email: 'user@example.com',
+  role: 'user',
   status: 'active',
 }
 
@@ -86,11 +86,11 @@ describe('AdminUserManagementPage', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'User Management', level: 1 })).toBeInTheDocument()    })
-      expect(screen.getByText('My Agents')).toBeInTheDocument()
+      expect(screen.getByText('My Users')).toBeInTheDocument()
     })
   })
 
-  it('should render user management page for super admin with admins and agents', async () => {
+  it('should render user management page for super admin with admins and users', async () => {
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
       data: [mockAdminUser, mockAgentUser],
       pagination: { total: 2, limit: 10, offset: 0 },
@@ -105,7 +105,7 @@ describe('AdminUserManagementPage', () => {
     })
   })
 
-  it('should display agents in table', async () => {
+  it('should display users in table', async () => {
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
       data: [mockAgentUser],
       pagination: { total: 1, limit: 10, offset: 0 },
@@ -114,10 +114,10 @@ describe('AdminUserManagementPage', () => {
     renderAdminUserManagementPage()
 
     await waitFor(() => {
-      expect(screen.getByText('Agent')).toBeInTheDocument()
       expect(screen.getByText('User')).toBeInTheDocument()
-      expect(screen.getByText('agent@example.com')).toBeInTheDocument()
-      expect(screen.getByText('agent')).toBeInTheDocument()
+      expect(screen.getByText('User')).toBeInTheDocument()
+      expect(screen.getByText('user@example.com')).toBeInTheDocument()
+      expect(screen.getByText('user')).toBeInTheDocument()
     })
   })
 
@@ -136,7 +136,7 @@ describe('AdminUserManagementPage', () => {
     })
   })
 
-  it('should handle delete agent', async () => {
+  it('should handle delete user', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
       data: [mockAgentUser],
@@ -153,7 +153,7 @@ describe('AdminUserManagementPage', () => {
     fireEvent.click(screen.getByText('Delete'))
 
     await waitFor(() => {
-      expect(usersApi.deleteUser).toHaveBeenCalledWith('agent-123')
+      expect(usersApi.deleteUser).toHaveBeenCalledWith('user-123')
     })
 
     confirmSpy.mockRestore()
@@ -171,7 +171,7 @@ describe('AdminUserManagementPage', () => {
 
     await waitFor(() => {
       const deleteButtons = screen.getAllByText('Delete')
-      expect(deleteButtons).toHaveLength(2) // One for admin, one for agent
+      expect(deleteButtons).toHaveLength(2) // One for admin, one for user
     })
 
     const deleteButtons = screen.getAllByText('Delete')
@@ -230,16 +230,16 @@ describe('AdminUserManagementPage', () => {
   })
 
   it('should redirect unauthorized users', async () => {
-    const agentUser: User = {
-      id: 'agent-123',
-      firstName: 'Agent',
+    const normalUser: User = {
+      id: 'user-123',
+      firstName: 'User',
       lastName: 'User',
-      email: 'agent@example.com',
-      role: 'agent',
+      email: 'user@example.com',
+      role: 'user',
       status: 'active',
     }
     //uses strict routes
-    renderAdminUserManagementPage(agentUser,true)
+    renderAdminUserManagementPage(normalUser,true)
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Mock Unauthorized Page' })).toBeInTheDocument()

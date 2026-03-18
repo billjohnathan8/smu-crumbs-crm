@@ -15,7 +15,7 @@ vi.mock('../client')
 const mockComm: Communication = {
   communicationId: 'comm-1',
   clientId: 'client-123',
-  agentId: 'agent-1',
+  userId: 'user-1',
   channel: 'email',
   toEmail: 'john@example.com',
   subject: 'Welcome',

@@ -29,12 +29,12 @@ import { BankAccountsPreview } from '@/components/BankAccountsPreview'
 import { CommunicationsPanel } from '@/components/CommunicationsPanel'
 import { DeleteConfirmModal } from '@/components/DeleteConfirmModal'
 
-const agentNav: NavItem[] = [
-  { label: 'Home', to: '/agent', end: true },
-  { label: 'My Clients', to: '/agent/clients' },
-  { label: 'Create Client', to: '/agent/clients/new' },
-  { label: 'Transactions', to: '/agent/transactions' },
-  { label: 'AML Alerts', to: '/agent/aml-alerts' },
+const userNav: NavItem[] = [
+  { label: 'Home', to: '/user', end: true },
+  { label: 'My Clients', to: '/user/clients' },
+  { label: 'Create Client', to: '/user/clients/new' },
+  { label: 'Transactions', to: '/user/transactions' },
+  { label: 'AML Alerts', to: '/user/aml-alerts' },
 ]
 
 const adminNav: NavItem[] = [
@@ -60,7 +60,7 @@ export function ClientDetailPage() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const isAgent = user?.role === 'agent'
+  const isUser = user?.role === 'user'
   const isAdmin = user?.role === 'admin'
   const isSuperAdmin = user?.role === 'super_admin'
   const isManagementUser = isAdmin || isSuperAdmin
@@ -69,7 +69,7 @@ export function ClientDetailPage() {
   const canReviewVerification = isManagementUser
   const canDeleteClient = isManagementUser
   const canEditClient = isManagementUser
-  const canVerifyClient = isAgent || isManagementUser
+  const canVerifyClient = isUser || isManagementUser
   const canSendCommunication = isManagementUser
 
   const sidebarNav: NavItem[] = isManagementUser
@@ -77,9 +77,9 @@ export function ClientDetailPage() {
         ...adminNav,
         ...(isSuperAdmin ? [{ label: 'Admin Management', to: '/admin/admins' as const }] : []),
       ]
-    : agentNav
+    : userNav
 
-  const basePath = isManagementUser ? '/admin' : '/agent'
+  const basePath = isManagementUser ? '/admin' : '/user'
   const clientsListPath = `${basePath}/clients`
 
   const [client, setClient] = useState<Client | null>(null)
@@ -147,7 +147,7 @@ export function ClientDetailPage() {
           logout()
         } else if (err.status === 403) {
           setError(
-            isAgent
+            isUser
               ? 'You are not allowed to access this client.'
               : 'You are not allowed to access this client record.'
           )

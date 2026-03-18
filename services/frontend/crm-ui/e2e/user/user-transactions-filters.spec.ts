@@ -2,7 +2,7 @@ import { test, expect, Route } from "@playwright/test";
 import { gotoWithNetworkRetry, setAuthState } from "../helpers/auth";
 import { setupAgentRoutes } from "../helpers/mockRoutes";
 
-test.describe("Agent View Transactions - Filters & Pagination (Flow 7)", () => {
+test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
   const sampleTransactions = [
     {
       id: "txn-001",
@@ -35,7 +35,7 @@ test.describe("Agent View Transactions - Filters & Pagination (Flow 7)", () => {
     // Install default API mocks before first navigation to avoid Vite proxy noise.
     await setupAgentRoutes(page);
     await gotoWithNetworkRetry(page, "/login");
-    await setAuthState(page, "agent");
+    await setAuthState(page, "user");
   });
 
   test("should filter transactions by status", async ({ page }) => {
@@ -58,16 +58,16 @@ test.describe("Agent View Transactions - Filters & Pagination (Flow 7)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              id: "agent-1",
-              firstName: "Agent",
+              id: "user-1",
+              firstName: "User",
               lastName: "User",
-              email: "agent@example.com",
-              role: "agent",
+              email: "user@example.com",
+              role: "user",
               status: "active",
             }),
           });
@@ -105,7 +105,7 @@ test.describe("Agent View Transactions - Filters & Pagination (Flow 7)", () => {
     });
 
     await test.step("Navigate to transactions page", async () => {
-      await page.goto("/agent/transactions");
+      await page.goto("/user/transactions");
       await page.waitForLoadState("domcontentloaded");
     });
 
@@ -150,16 +150,16 @@ test.describe("Agent View Transactions - Filters & Pagination (Flow 7)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              id: "agent-1",
-              firstName: "Agent",
+              id: "user-1",
+              firstName: "User",
               lastName: "User",
-              email: "agent@example.com",
-              role: "agent",
+              email: "user@example.com",
+              role: "user",
               status: "active",
             }),
           });
@@ -197,7 +197,7 @@ test.describe("Agent View Transactions - Filters & Pagination (Flow 7)", () => {
     });
 
     await test.step("Navigate to transactions page", async () => {
-      await page.goto("/agent/transactions");
+      await page.goto("/user/transactions");
       await page.waitForLoadState("domcontentloaded");
     });
 
@@ -235,16 +235,16 @@ test.describe("Agent View Transactions - Filters & Pagination (Flow 7)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              id: "agent-1",
-              firstName: "Agent",
+              id: "user-1",
+              firstName: "User",
               lastName: "User",
-              email: "agent@example.com",
-              role: "agent",
+              email: "user@example.com",
+              role: "user",
               status: "active",
             }),
           });
@@ -287,7 +287,7 @@ test.describe("Agent View Transactions - Filters & Pagination (Flow 7)", () => {
     });
 
     await test.step("Navigate to transactions page", async () => {
-      await page.goto("/agent/transactions");
+      await page.goto("/user/transactions");
       await page.waitForLoadState("domcontentloaded");
     });
 
@@ -321,16 +321,16 @@ test.describe("Agent View Transactions - Filters & Pagination (Flow 7)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              id: "agent-1",
-              firstName: "Agent",
+              id: "user-1",
+              firstName: "User",
               lastName: "User",
-              email: "agent@example.com",
-              role: "agent",
+              email: "user@example.com",
+              role: "user",
               status: "active",
             }),
           });
@@ -360,7 +360,7 @@ test.describe("Agent View Transactions - Filters & Pagination (Flow 7)", () => {
     });
 
     await test.step("Navigate to transactions page", async () => {
-      await page.goto("/agent/transactions");
+      await page.goto("/user/transactions");
       await page.waitForLoadState("domcontentloaded");
     });
 
@@ -395,16 +395,16 @@ test.describe("Agent View Transactions - Filters & Pagination (Flow 7)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              id: "agent-1",
-              firstName: "Agent",
+              id: "user-1",
+              firstName: "User",
               lastName: "User",
-              email: "agent@example.com",
-              role: "agent",
+              email: "user@example.com",
+              role: "user",
               status: "active",
             }),
           });
@@ -442,7 +442,7 @@ test.describe("Agent View Transactions - Filters & Pagination (Flow 7)", () => {
     });
 
     await test.step("Navigate to transactions page", async () => {
-      await page.goto("/agent/transactions");
+      await page.goto("/user/transactions");
       await page.waitForLoadState("domcontentloaded");
     });
 
@@ -488,16 +488,16 @@ test.describe("Agent View Transactions - Filters & Pagination (Flow 7)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              id: "agent-1",
-              firstName: "Agent",
+              id: "user-1",
+              firstName: "User",
               lastName: "User",
-              email: "agent@example.com",
-              role: "agent",
+              email: "user@example.com",
+              role: "user",
               status: "active",
             }),
           });
@@ -536,7 +536,7 @@ test.describe("Agent View Transactions - Filters & Pagination (Flow 7)", () => {
     });
 
     await test.step("Navigate to transactions page", async () => {
-      await page.goto("/agent/transactions");
+      await page.goto("/user/transactions");
       await page.waitForLoadState("domcontentloaded");
     });
 
@@ -601,16 +601,16 @@ test.describe("Agent View Transactions - Filters & Pagination (Flow 7)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              id: "agent-1",
-              firstName: "Agent",
+              id: "user-1",
+              firstName: "User",
               lastName: "User",
-              email: "agent@example.com",
-              role: "agent",
+              email: "user@example.com",
+              role: "user",
               status: "active",
             }),
           });
@@ -636,7 +636,7 @@ test.describe("Agent View Transactions - Filters & Pagination (Flow 7)", () => {
     });
 
     await test.step("Navigate to transactions page", async () => {
-      await page.goto("/agent/transactions");
+      await page.goto("/user/transactions");
       await page.waitForLoadState("domcontentloaded");
     });
 
@@ -663,16 +663,16 @@ test.describe("Agent View Transactions - Filters & Pagination (Flow 7)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              id: "agent-1",
-              firstName: "Agent",
+              id: "user-1",
+              firstName: "User",
               lastName: "User",
-              email: "agent@example.com",
-              role: "agent",
+              email: "user@example.com",
+              role: "user",
               status: "active",
             }),
           });
@@ -698,7 +698,7 @@ test.describe("Agent View Transactions - Filters & Pagination (Flow 7)", () => {
     });
 
     await test.step("Navigate to transactions page", async () => {
-      await page.goto("/agent/transactions");
+      await page.goto("/user/transactions");
       await page.waitForLoadState("domcontentloaded");
     });
 

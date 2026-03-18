@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
-import { AgentDashboard } from '../AgentDashboard'
+import { UserDashboard } from '../UserDashboard'
 import { AuthProvider } from '@/features/auth/AuthContext'
 import * as clientsApi from '@/api/clients'
 import * as logsApi from '@/api/logs'
@@ -14,15 +14,15 @@ vi.mock('@/api/logs')
 vi.mock('@/api/auth')
 
 const mockUser: User = {
-  id: 'agent-123',
+  id: 'user-123',
   firstName: 'John',
   lastName: 'Doe',
   email: 'john@example.com',
-  role: 'agent',
+  role: 'user',
   status: 'active',
 }
 
-const renderAgentDashboard = () => {
+const renderUserDashboard = () => {
   // Mock localStorage to have a user
   localStorage.setItem('authToken', 'test-token')
   localStorage.setItem('currentUser', JSON.stringify(mockUser))
@@ -30,13 +30,13 @@ const renderAgentDashboard = () => {
   return render(
     <BrowserRouter>
       <AuthProvider>
-        <AgentDashboard />
+        <UserDashboard />
       </AuthProvider>
     </BrowserRouter>
   )
 }
 
-describe('AgentDashboard', () => {
+describe('UserDashboard', () => {
   beforeEach(() => {
     localStorage.clear()
     vi.clearAllMocks()
@@ -58,11 +58,11 @@ describe('AgentDashboard', () => {
     vi.spyOn(clientsApi, 'listClients').mockResolvedValue(mockClientsResponse)
     vi.spyOn(logsApi, 'listLogs').mockResolvedValue(mockLogsResponse)
 
-    renderAgentDashboard()
+    renderUserDashboard()
 
     await waitFor(() => {
       expect(screen.getByText(/Welcome, John Doe/i)).toBeInTheDocument()
-      expect(screen.getByRole('heading', { name: /Agent Dashboard/i })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /User Dashboard/i })).toBeInTheDocument()
     })
   })
 
@@ -80,7 +80,7 @@ describe('AgentDashboard', () => {
     vi.spyOn(clientsApi, 'listClients').mockResolvedValue(mockClientsResponse)
     vi.spyOn(logsApi, 'listLogs').mockResolvedValue(mockLogsResponse)
 
-    renderAgentDashboard()
+    renderUserDashboard()
 
     await waitFor(() => {
       expect(screen.getByText('15')).toBeInTheDocument()
@@ -97,7 +97,7 @@ describe('AgentDashboard', () => {
     const mockActivities: LogEntry[] = [
       {
         logId: 'log-1',
-        agentId: 'agent-123',
+        userId: 'user-123',
         clientId: 'client-1',
         action: 'CREATE',
         attributeName: 'email',
@@ -107,7 +107,7 @@ describe('AgentDashboard', () => {
       },
       {
         logId: 'log-2',
-        agentId: 'agent-123',
+        userId: 'user-123',
         clientId: 'client-2',
         action: 'UPDATE',
         attributeName: 'phoneNumber',
@@ -125,7 +125,7 @@ describe('AgentDashboard', () => {
     vi.spyOn(clientsApi, 'listClients').mockResolvedValue(mockClientsResponse)
     vi.spyOn(logsApi, 'listLogs').mockResolvedValue(mockLogsResponse)
 
-    renderAgentDashboard()
+    renderUserDashboard()
 
     await waitFor(() => {
       expect(screen.getByText('2')).toBeInTheDocument()
@@ -143,7 +143,7 @@ describe('AgentDashboard', () => {
     const mockActivities: LogEntry[] = [
       {
         logId: 'log-1',
-        agentId: 'agent-123',
+        userId: 'user-123',
         clientId: 'client-abc123',
         action: 'CREATE',
         attributeName: 'email',
@@ -161,7 +161,7 @@ describe('AgentDashboard', () => {
     vi.spyOn(clientsApi, 'listClients').mockResolvedValue(mockClientsResponse)
     vi.spyOn(logsApi, 'listLogs').mockResolvedValue(mockLogsResponse)
 
-    renderAgentDashboard()
+    renderUserDashboard()
 
     await waitFor(() => {
       expect(screen.getByText('CREATE')).toBeInTheDocument()
@@ -184,7 +184,7 @@ describe('AgentDashboard', () => {
     vi.spyOn(clientsApi, 'listClients').mockResolvedValue(mockClientsResponse)
     vi.spyOn(logsApi, 'listLogs').mockResolvedValue(mockLogsResponse)
 
-    renderAgentDashboard()
+    renderUserDashboard()
 
     await waitFor(() => {
       expect(screen.getByText(/No recent activities/i)).toBeInTheDocument()
@@ -199,7 +199,7 @@ describe('AgentDashboard', () => {
       () => new Promise(() => {}) // Never resolves
     )
 
-    renderAgentDashboard()
+    renderUserDashboard()
 
     expect(screen.getByRole('status', { hidden: true })).toBeInTheDocument()
   })
@@ -210,7 +210,7 @@ describe('AgentDashboard', () => {
     vi.spyOn(clientsApi, 'listClients').mockRejectedValue(error)
     vi.spyOn(logsApi, 'listLogs').mockRejectedValue(error)
 
-    renderAgentDashboard()
+    renderUserDashboard()
 
     await waitFor(() => {
       expect(screen.getByText(/Failed to load dashboard data/i)).toBeInTheDocument()
@@ -231,17 +231,17 @@ describe('AgentDashboard', () => {
     vi.spyOn(clientsApi, 'listClients').mockResolvedValue(mockClientsResponse)
     vi.spyOn(logsApi, 'listLogs').mockResolvedValue(mockLogsResponse)
 
-    renderAgentDashboard()
+    renderUserDashboard()
 
     await waitFor(() => {
       const createClientLinks = screen.getAllByRole('link', { name: /Create Client/i })
       expect(createClientLinks.length).toBeGreaterThan(0)
       createClientLinks.forEach(link => {
-        expect(link).toHaveAttribute('href', '/agent/clients/new')
+        expect(link).toHaveAttribute('href', '/user/clients/new')
       })
       expect(screen.getByRole('link', { name: /View Transactions/i })).toHaveAttribute(
         'href',
-        '/agent/transactions'
+        '/user/transactions'
       )
     })
   })
@@ -255,7 +255,7 @@ describe('AgentDashboard', () => {
     const mockActivities: LogEntry[] = [
       {
         logId: 'log-1',
-        agentId: 'agent-123',
+        userId: 'user-123',
         clientId: 'client-verylongid123456789',
         action: 'CREATE',
         attributeName: 'email',
@@ -273,7 +273,7 @@ describe('AgentDashboard', () => {
     vi.spyOn(clientsApi, 'listClients').mockResolvedValue(mockClientsResponse)
     vi.spyOn(logsApi, 'listLogs').mockResolvedValue(mockLogsResponse)
 
-    renderAgentDashboard()
+    renderUserDashboard()
 
     await waitFor(() => {
       expect(screen.getByText(/client-v\.\.\./i)).toBeInTheDocument()

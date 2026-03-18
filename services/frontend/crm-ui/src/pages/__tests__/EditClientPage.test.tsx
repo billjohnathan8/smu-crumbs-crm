@@ -12,7 +12,7 @@ vi.mock('@/api/clients')
 const mockLogout = vi.fn()
 vi.mock('@/features/auth/AuthContext', () => ({
   useAuth: () => ({
-    user: { id: '1', firstName: 'John', lastName: 'Doe', role: 'agent' },
+    user: { id: '1', firstName: 'John', lastName: 'Doe', role: 'user' },
     logout: mockLogout,
   }),
 }))
@@ -44,7 +44,7 @@ const mockClient: Client = {
   createdAt: '2024-01-01T00:00:00Z',
 }
 
-describe('AgentEditClient', () => {
+describe('UserEditClient', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.spyOn(clientsApi, 'getClientById').mockResolvedValue(mockClient)
@@ -137,7 +137,7 @@ describe('AgentEditClient', () => {
           firstName: 'Jane',
         })
       )
-      expect(mockNavigate).toHaveBeenCalledWith('/agent/clients/client-123', {
+      expect(mockNavigate).toHaveBeenCalledWith('/user/clients/client-123', {
         state: { successMessage: 'Client updated successfully' },
       })
     })
@@ -154,7 +154,7 @@ describe('AgentEditClient', () => {
     const cancelButton = screen.getByRole('button', { name: /Cancel/i })
     await user.click(cancelButton)
 
-    expect(mockNavigate).toHaveBeenCalledWith('/agent/clients/client-123')
+    expect(mockNavigate).toHaveBeenCalledWith('/user/clients/client-123')
   })
 
   it('should call logout on 401 error during update', async () => {

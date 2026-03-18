@@ -35,7 +35,7 @@ describe('AuthContext', () => {
         firstName: 'John',
         lastName: 'Doe',
         email: 'john@example.com',
-        role: 'agent',
+        role: 'user',
         status: 'active',
       })
     )
@@ -58,7 +58,7 @@ describe('AuthContext', () => {
       firstName: 'John',
       lastName: 'Doe',
       email: 'john@example.com',
-      role: 'agent',
+      role: 'user',
       status: 'active',
     }
 
@@ -114,7 +114,7 @@ describe('AuthContext', () => {
       firstName: 'John',
       lastName: 'Doe',
       email: 'john@example.com',
-      role: 'agent',
+      role: 'user',
       status: 'active',
     }
 
@@ -155,7 +155,7 @@ describe('AuthContext', () => {
       firstName: 'John',
       lastName: 'Doe',
       email: 'john@example.com',
-      role: 'agent',
+      role: 'user',
       status: 'active',
     }
 
