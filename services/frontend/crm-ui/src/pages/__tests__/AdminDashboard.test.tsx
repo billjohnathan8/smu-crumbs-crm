@@ -85,7 +85,7 @@ describe('AdminDashboard', () => {
 
     await waitFor(() => {
       expect(screen.getByText('25')).toBeInTheDocument()
-      expect(screen.getByText(/Total Users/i)).toBeInTheDocument()
+      expect(screen.getByText(/Total Agents/i)).toBeInTheDocument()
     })
   })
 
