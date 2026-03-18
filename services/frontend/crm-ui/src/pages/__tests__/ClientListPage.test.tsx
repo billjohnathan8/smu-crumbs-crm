@@ -26,13 +26,7 @@ vi.mock('@/api/clients', () => ({
 
 // 4. Mock the ClientTable to keep the DOM clean and focus on Page logic
 vi.mock('@/components/ClientTable', () => ({
-  ClientTable: ({
-    clients,
-    onView,
-  }: {
-    clients: Client[]
-    onView: (clientId: string) => void
-  }) => (
+  ClientTable: ({ clients, onView }: { clients: Client[]; onView: (clientId: string) => void }) => (
     <div data-testid="mock-client-table">
       {clients.map((client: Client) => (
         <div key={client.clientId} data-testid={`client-row-${client.clientId}`}>
