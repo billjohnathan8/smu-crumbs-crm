@@ -1034,7 +1034,7 @@ end_phase
 start_phase "Phase 3b: Seed baseline principals"
 USER_BASE_URL="http://127.0.0.1:18081" \
 ROOT_ADMIN_EMAIL="${E2E_ADMIN_EMAIL:-admin@crm.local}" \
-ROOT_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-admin123}" \
+ROOT_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}" \
 SEED_USER_EMAIL="user@crm.local" \
 SEED_AGENT_PASSWORD="${E2E_USER_PASSWORD:-UserPass123!}" \
 bash "${DB_ORCHESTRATOR_SCRIPT}" seed \
