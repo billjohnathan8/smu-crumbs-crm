@@ -111,22 +111,6 @@ docker_run_with_retry() {
   return "${rc}"
 }
 
-detect_python() {
-  if command -v python3 >/dev/null 2>&1 \
-    && python3 -c "import sys; sys.exit(0)" 2>/dev/null \
-    && python3 -m pip --version >/dev/null 2>&1; then
-    echo "python3"
-    return
-  fi
-  if command -v python >/dev/null 2>&1 \
-    && python -c "import sys; sys.exit(0)" 2>/dev/null \
-    && python -m pip --version >/dev/null 2>&1; then
-    echo "python"
-    return
-  fi
-  echo "[FAIL] No working Python interpreter with pip found (python3 or python)." >&2
-  exit 1
-}
 
 db_psql() {
   local sql="$1"
@@ -228,7 +212,6 @@ migrate_all() {
 }
 
 seed_data() {
-  local python_cmd
   local login_response
   local admin_access_token
   local create_status
@@ -303,7 +286,6 @@ seed_data() {
   }
 
   require_command curl
-  python_cmd="$(detect_python)"
   seed_response_file="$(mktemp 2>/dev/null || echo "/tmp/db-seed-user-create.$$")"
 
   echo "[seed] root admin login (also triggers root admin bootstrap when missing)"
@@ -323,13 +305,8 @@ seed_data() {
 
   login_response="$(cat "${login_response_file}")"
 
-  admin_access_token="$(
-    LOGIN_RESPONSE="${login_response}" "${python_cmd}" - <<'PY'
-import json
-import os
-print(json.loads(os.environ["LOGIN_RESPONSE"])["accessToken"])
-PY
-  )"
+  # Extract accessToken using sed — no Python dependency required.
+  admin_access_token="$(echo "${login_response}" | sed 's/.*"accessToken":"\([^"]*\)".*/\1/')"
 
   create_body="$(
     cat <<EOF
