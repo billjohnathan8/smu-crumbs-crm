@@ -42,6 +42,7 @@ This document is intentionally short. Use it as the minimum bar for all PRs.
 - Use strict, explicit types for API-facing data.
 - Keep pages/components focused; extract reusable hooks/helpers.
 - Use ESLint and Prettier outputs as source of truth.
+- Format with Prettier before committing: `cd services/frontend/crm-ui && npx prettier --write "src/**/*.{ts,tsx,js,jsx,json,css,md}"`
 
 ### Terraform
 

@@ -317,6 +317,7 @@ Before requesting review, ensure:
 
 - [ ] Tests pass locally: `python scripts/pipelines/test_all.py`
 - [ ] Code follows coding standards
+- [ ] Frontend code formatted: `npm run format` in `services/frontend/crm-ui/`
 - [ ] New code has tests
 - [ ] Coverage thresholds met
 - [ ] Documentation updated (if applicable)

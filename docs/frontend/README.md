@@ -25,6 +25,9 @@ Default URL: `http://localhost:5173`
 npm run build
 npm run preview
 npm run lint
+npm run lint:fix
+npm run format              # Auto-format all files with Prettier
+npm run format:check        # Check formatting without modifying files
 npm run typecheck
 npm run test:run
 npm run test:coverage
