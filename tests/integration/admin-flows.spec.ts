@@ -102,6 +102,7 @@ test.describe("Admins Full Flow (Integration)", () => {
     await page.fill('[data-testid="last-name-input"]', NEW_ADMIN_LAST_NAME)
     await page.fill('[data-testid="email-input"]', NEW_ADMIN_EMAIL)
     await page.selectOption('[data-testid="role-select"]', 'admin')
+    await page.fill('[data-testid="password-input"]', NEW_ADMIN_PASSWORD)
     await page.click('[data-testid="create-user-button"]')
 
     await expect(page.getByText('Admin created successfully')).toBeVisible({ timeout: 5000 })
@@ -143,14 +144,15 @@ test.describe("Admins Full Flow (Integration)", () => {
     await page.fill('[data-testid="first-name-input"]', NEW_AGENT_FIRST_NAME)
     await page.fill('[data-testid="last-name-input"]', NEW_AGENT_LAST_NAME)
     await page.fill('[data-testid="email-input"]', NEW_AGENT_EMAIL)
-    await page.selectOption('[data-testid="role-select"]', 'agent')
+    await page.selectOption('[data-testid="role-select"]', 'user')
+    await page.fill('[data-testid="password-input"]', NEW_AGENT_PASSWORD)
     await page.click('[data-testid="create-user-button"]')
 
-    await expect(page.getByText('Agent created successfully')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('User created successfully')).toBeVisible({ timeout: 5000 })
   })
 
   test('normal admin should not be able to create admin role in UI', async ({ page }) => {
-    await login(page, NEW_ADMIN_EMAIL, ROOT_ADMIN_PASSWORD)
+    await login(page, NEW_ADMIN_EMAIL, NEW_ADMIN_PASSWORD)
 
     await expect(page).toHaveURL(/\/admin$/, { timeout: 10000 })
 
@@ -160,7 +162,7 @@ test.describe("Admins Full Flow (Integration)", () => {
   })
 
   test('admin should logout successfully', async ({ page }) => {
-    await login(page, NEW_ADMIN_EMAIL, ROOT_ADMIN_PASSWORD)
+    await login(page, NEW_ADMIN_EMAIL, NEW_ADMIN_PASSWORD)
 
     await expect(page).toHaveURL(/\/admin$/, { timeout: 10000 })
 
