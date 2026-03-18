@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { createClient } from '@/api/clients'
 import type { ClientCreateRequest, Gender } from '@/api/types'
@@ -125,7 +125,7 @@ export function CreateClientPage() {
 
     try {
       const client = await createClient(formData)
-      navigate(listPath, {
+      navigate(homePath, {
         replace: true,
         state: {
           successMessage: `Client ${client.firstName} ${client.lastName} created successfully`,
@@ -162,9 +162,9 @@ export function CreateClientPage() {
       <nav>
         <div className="flex justify-between h-16 items-center px-4">
           <div className="flex items-center space-x-4">
-            <button onClick={() => navigate(homePath)} className="text-text-muted hover:text-text">
+            <Link to={homePath} className="text-text-muted hover:text-text">
               Dashboard
-            </button>
+            </Link>
             <span className="text-text-muted">/</span>
             <button onClick={() => navigate(listPath)} className="text-text-muted hover:text-text">
               {breadcrumbLabel}
