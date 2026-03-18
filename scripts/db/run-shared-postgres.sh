@@ -315,7 +315,6 @@ seed_data() {
   "lastName": "User",
   "email": "${SEED_USER_EMAIL}",
   "role": "user",
-  "sendInviteEmail": false,
   "temporaryPassword": "${SEED_AGENT_PASSWORD}"
 }
 EOF
