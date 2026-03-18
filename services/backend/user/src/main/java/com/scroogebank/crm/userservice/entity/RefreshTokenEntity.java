@@ -42,6 +42,7 @@ public class RefreshTokenEntity {
 	@Column(name = "created_at", nullable = false)
 	private Instant createdAt;
 
+	@SuppressWarnings("unused")
 	@PrePersist
 	void prePersist() {
 		createdAt = Instant.now();
