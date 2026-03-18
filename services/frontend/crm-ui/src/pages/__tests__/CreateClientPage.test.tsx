@@ -240,7 +240,7 @@ describe('CreateClientPage', () => {
 
     await waitFor(() => {
       expect(clientsApi.createClient).toHaveBeenCalled()
-      expect(mockNavigate).toHaveBeenCalledWith('/user/clients', {
+      expect(mockNavigate).toHaveBeenCalledWith('/user', {
         replace: true,
         state: {
           successMessage: 'Client John Doe created successfully',
