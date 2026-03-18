@@ -430,6 +430,14 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
         steps.append(
             Step(
                 phase=phase,
+                name="Frontend Prettier format",
+                cwd=frontend_dir,
+                command=["npm", "run", "format"],
+            )
+        )
+        steps.append(
+            Step(
+                phase=phase,
                 name="Frontend Prettier check",
                 cwd=frontend_dir,
                 command=["npm", "run", "format:check"],
