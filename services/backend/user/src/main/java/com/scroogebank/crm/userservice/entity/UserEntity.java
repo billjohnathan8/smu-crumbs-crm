@@ -57,17 +57,15 @@ public class UserEntity {
 	@Column(name = "updated_at", nullable = false)
 	private Instant updatedAt;
 
-	@SuppressWarnings("unused")
 	@PrePersist
-	void prePersist() {
+	protected void prePersist() {
 		Instant now = Instant.now();
 		createdAt = now;
 		updatedAt = now;
 	}
 
-	@SuppressWarnings("unused")
 	@PreUpdate
-	void preUpdate() {
+	protected void preUpdate() {
 		updatedAt = Instant.now();
 	}
 
