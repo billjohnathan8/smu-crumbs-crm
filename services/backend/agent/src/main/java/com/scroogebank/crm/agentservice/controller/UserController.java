@@ -74,7 +74,6 @@ public class UserController {
 		@RequestParam(defaultValue = "0") @Min(0) int offset,
 		@RequestParam(required = false) String role
 	) {
-		AuthenticatedUser user = requestAuth.requireUser(request);
 		if (limit < 1 || limit > 200 || offset < 0) {
 			throw new IllegalArgumentException("invalid pagination");
 		}
