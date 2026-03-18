@@ -267,7 +267,7 @@ export function CreateNewUserPage() {
                 disabled={isSubmitting}
               />
               <label htmlFor="sendInvite" className="text-sm text-text">
-                Send invite email
+                Send invitation
               </label>
             </div>
 

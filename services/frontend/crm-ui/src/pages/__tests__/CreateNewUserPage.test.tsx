@@ -231,20 +231,15 @@ describe('CreateNewUserPage', () => {
 
   it('should handle unauthorized error', async () => {
     const user = userEvent.setup()
-    const mockLogout = vi.fn()
     vi.spyOn(usersApi, 'createUser').mockRejectedValue(
       new ApiError(401, 'Unauthorized', 'Unauthorized')
     )
 
-    // Mock logout in useAuth
-    vi.doMock('@/features/auth/AuthContext', () => ({
-      useAuth: () => ({
-        user: mockAdminUser,
-        logout: mockLogout,
-      }),
-    }))
-
     renderCreateNewUserPage()
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/First Name/i)).toBeInTheDocument()
+    })
 
     const firstNameInput = screen.getByLabelText(/First Name/i)
     const lastNameInput = screen.getByLabelText(/Last Name/i)
@@ -257,12 +252,14 @@ describe('CreateNewUserPage', () => {
     const submitButton = screen.getByRole('button', { name: /Create User/i })
     await user.click(submitButton)
 
+    // After 401, logout() is called which sets user to null,
+    // causing the component to navigate away from the form
     await waitFor(() => {
-      expect(mockLogout).toHaveBeenCalled()
+      expect(screen.queryByRole('button', { name: /Create User/i })).not.toBeInTheDocument()
     })
   })
 
-  it('should redirect unauthorized users', () => {
+  it('should redirect unauthorized users', async () => {
     const normalUser: User = {
       id: 'user-123',
       firstName: 'User',
@@ -272,16 +269,19 @@ describe('CreateNewUserPage', () => {
       status: 'active',
     }
 
-    renderCreateNewUserPage(normalUser)
+    vi.mocked(authApi.getCurrentUser).mockResolvedValue(normalUser)
+    renderCreateNewUserPage(normalUser, true)
 
-    expect(screen.getByText('/unauthorized')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Mock Unauthorized Page')).toBeInTheDocument()
+    })
   })
 
   it('should toggle send invite email checkbox', async () => {
     const user = userEvent.setup()
     renderCreateNewUserPage()
 
-    const checkbox = screen.getByLabelText(/Send invite email/i)
+    const checkbox = screen.getByLabelText(/Send invitation/i)
     expect(checkbox).toBeChecked()
 
     await user.click(checkbox)
