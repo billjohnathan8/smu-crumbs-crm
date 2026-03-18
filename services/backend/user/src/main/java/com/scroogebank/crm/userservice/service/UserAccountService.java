@@ -168,13 +168,11 @@ public class UserAccountService {
                 if (requester.role() != UserRole.super_admin) {
                     throw new AccessDeniedException("Only root admins can " + action + " admin user.");
                 }
-				return;
             }
             case user -> {
                 if (requester.role() != UserRole.super_admin && requester.role() != UserRole.admin) {
                     throw new AccessDeniedException("Only admins or root admins can " + action + " users");
                 }
-				return;
             }
             default -> throw new AccessDeniedException("Unsupported role assignment: " + targetRole);
         }
@@ -192,13 +190,11 @@ public class UserAccountService {
                 if (requester.role() != UserRole.super_admin) {
                     throw new AccessDeniedException("Only root admins can update admin user");
                 }
-				return;
             }
             case user -> {
 				if (requester.role() == UserRole.user && !requester.userId().equals(userId)) {
 					throw new AccessDeniedException("User can only update themselves");
 				}
-				return;
             }
             default -> throw new AccessDeniedException("Unsupported role assignment: " + targetRole);
         }
