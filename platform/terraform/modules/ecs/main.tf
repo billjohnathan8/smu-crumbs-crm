@@ -11,7 +11,7 @@ locals {
   in_memory_stateful_services = toset(["user", "transaction"])
 
   requested_desired_counts = {
-    user       = var.desired_counts.user
+    user        = var.desired_counts.user
     client      = var.desired_counts.client
     transaction = var.desired_counts.transaction
   }

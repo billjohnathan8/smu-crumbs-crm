@@ -56,7 +56,7 @@ output "ecs_task_execution_role_arn" {
 output "ecs_task_role_arns" {
   description = "Per-service ECS task role ARNs."
   value = local.use_lab_role ? {
-    user       = var.lab_role_arn
+    user        = var.lab_role_arn
     client      = var.lab_role_arn
     transaction = var.lab_role_arn
   } : { for service, role in aws_iam_role.ecs_task : service => role.arn }

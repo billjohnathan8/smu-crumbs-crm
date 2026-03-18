@@ -62,6 +62,6 @@ enable_cloudfront_oac    = false # moot when enable_cloudfront=false, kept for c
 enable_service_discovery = false
 
 # --- Service Docker Image Tags  ---
-user_image_tag       = "user-lab-001"
+user_image_tag        = "user-lab-001"
 client_image_tag      = "client-lab-001"
 transaction_image_tag = "transaction-lab-001"
