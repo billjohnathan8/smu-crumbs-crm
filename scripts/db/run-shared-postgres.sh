@@ -218,7 +218,7 @@ migrate_all() {
   run_flyway_migration \
     "client" \
     "${ROOT_DIR}/services/backend/client/src/main/resources/db/migration" \
-    "flyway_schema_history"
+    "client_flyway_schema_history"
   run_flyway_migration \
     "transaction" \
     "${ROOT_DIR}/services/backend/transaction/src/main/resources/db/migration" \
@@ -406,12 +406,12 @@ verify_schema() {
 
   echo "[verify] Checking migration history tables"
   assert_table_exists "user_flyway_schema_history"
-  assert_table_exists "flyway_schema_history"
+  assert_table_exists "client_flyway_schema_history"
   assert_table_exists "transaction_flyway_schema_history"
   assert_table_exists "schema_migrations"
 
   assert_history_non_empty "user_flyway_schema_history"
-  assert_history_non_empty "flyway_schema_history"
+  assert_history_non_empty "client_flyway_schema_history"
   assert_history_non_empty "transaction_flyway_schema_history"
   assert_history_non_empty "schema_migrations"
 
