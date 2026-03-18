@@ -21,8 +21,6 @@ repositories {
 }
 
 ext {
-    set('jackson-bom.version', '3.1.0') 
-	set('jackson-2-bom.version', '2.18.6')
 }
 
 dependencies {
@@ -35,8 +33,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'software.amazon.awssdk:sesv2'
-	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
-	implementation 'org.flywaydb:flyway-database-postgresql'
+implementation 'org.flywaydb:flyway-database-postgresql'
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 	runtimeOnly 'org.postgresql:postgresql'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
