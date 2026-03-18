@@ -90,7 +90,9 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
 
     await test.step("Open create user modal", async () => {
       await page.click('button:has-text("Create New User")');
-      await expect(page.getByText("Create New User")).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "Create New User" })
+      ).toBeVisible();
     });
 
     await test.step("Fill and submit form", async () => {
@@ -110,7 +112,9 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
     });
 
     await test.step("Verify modal is closed", async () => {
-      await expect(page.getByText("Create New User")).not.toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "Create New User" })
+      ).not.toBeVisible();
     });
   });
 
@@ -825,7 +829,9 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
       await page.goto("/admin/accounts");
       await page.waitForLoadState("domcontentloaded");
       await page.click('button:has-text("Create New User")');
-      await expect(page.getByText("Create New User")).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "Create New User" })
+      ).toBeVisible();
     });
 
     await test.step("Fill form partially", async () => {
@@ -838,7 +844,9 @@ test.describe("Admin Manage Accounts (Flow 3)", () => {
     });
 
     await test.step("Verify modal is closed", async () => {
-      await expect(page.getByText("Create New User")).not.toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "Create New User" })
+      ).not.toBeVisible();
     });
   });
 });
