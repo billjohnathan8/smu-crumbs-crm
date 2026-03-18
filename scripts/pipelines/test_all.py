@@ -113,6 +113,19 @@ def gradle_env(service_dir: Path) -> Dict[str, str]:
     return {"GRADLE_USER_HOME": str(service_dir / ".gradle-local")}
 
 
+def has_aws_credentials() -> bool:
+    """Return True if real AWS credentials appear to be configured."""
+    key = os.environ.get("AWS_ACCESS_KEY_ID", "")
+    secret = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
+    # Reject obvious placeholder/dummy values used in LocalStack/CI stubs
+    placeholders = {"test", "fake", "dummy", "localstack", "mock", "placeholder", "changeme"}
+    if key and secret:
+        if key.lower() not in placeholders and secret.lower() not in placeholders:
+            return True
+    creds_file = Path.home() / ".aws" / "credentials"
+    return creds_file.exists() and creds_file.stat().st_size > 0
+
+
 def resolve_windows_command(command: List[str]) -> List[str]:
     if not is_windows() or not command:
         return command
@@ -1028,6 +1041,14 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     started_at = time.monotonic()
+
+    if not args.skip_terraform and not has_aws_credentials():
+        print(
+            "[WARN] No AWS credentials detected; automatically skipping Terraform checks. "
+            "Set AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY or configure ~/.aws/credentials "
+            "to enable them, or pass --skip-terraform to silence this warning."
+        )
+        args.skip_terraform = True
 
     print("Running local CI-equivalent pipeline")
     print(f"Repository root: {REPO_ROOT}")
