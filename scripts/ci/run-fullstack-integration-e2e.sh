@@ -318,7 +318,16 @@ build_java_jar() {
 
   # When bash resolves `java` to a Windows JVM, Unix wrapper paths (e.g. /mnt/c/...)
   # fail with "Unable to access jarfile". Use the Windows wrapper directly.
+  # Exception: Git Bash (MSYSTEM set, e.g. MINGW64) handles Windows JVM paths
+  # correctly via MSYS path translation, so ./gradlew works and is preferred.
+  # cmd.exe /c "gradlew.bat" from Git Bash spawns Gradle's single-use daemon as a
+  # detached process — cmd.exe exits with code 0 immediately while the build runs
+  # in the background, so the JAR is never present when Docker builds the image.
+  local is_git_bash=false
+  [[ -n "${MSYSTEM:-}" ]] && is_git_bash=true
+
   if [[ "${java_runtime_is_windows}" == "true" ]] \
+    && [[ "${is_git_bash}" == "false" ]] \
     && command -v cmd.exe >/dev/null 2>&1 \
     && [ -f "./gradlew.bat" ]; then
     if ! cmd.exe /c "gradlew.bat bootJar --no-daemon --console=plain" \
@@ -331,8 +340,11 @@ build_java_jar() {
     if grep -Eq "JAVA_HOME|Unable to access jarfile" "${gradle_log}" \
       && command -v cmd.exe >/dev/null 2>&1 \
       && [ -f "./gradlew.bat" ]; then
-      cmd.exe /c "gradlew.bat bootJar --no-daemon --console=plain" \
-        > "${gradle_log}" 2>&1
+      if ! cmd.exe /c "gradlew.bat bootJar --no-daemon --console=plain" \
+        > "${gradle_log}" 2>&1; then
+        popd >/dev/null
+        return 1
+      fi
     else
       popd >/dev/null
       return 1
