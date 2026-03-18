@@ -229,3 +229,278 @@ resource "aws_cloudwatch_metric_alarm" "ses_complaint_rate_high" {
     Name = "${var.name_prefix}-ses-complaint-rate-high"
   }
 }
+
+# --- ECS Memory Utilization Alarms ---
+
+resource "aws_cloudwatch_metric_alarm" "ecs_memory_high" {
+  for_each = var.enable_ecs_alarms ? var.ecs_service_names : toset([])
+
+  alarm_name          = "${var.name_prefix}-${each.key}-memory-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "MemoryUtilization"
+  namespace           = "AWS/ECS"
+  period              = 300
+  statistic           = "Average"
+  threshold           = var.ecs_memory_alarm_threshold
+  alarm_description   = "ECS ${each.key} memory utilization above ${var.ecs_memory_alarm_threshold}%"
+
+  dimensions = {
+    ClusterName = var.ecs_cluster_name
+    ServiceName = "${var.name_prefix}-${each.key}"
+  }
+
+  tags = {
+    Name = "${var.name_prefix}-${each.key}-memory-high"
+  }
+}
+
+# --- ECS Running Task Count Alarms ---
+# Detects service outages where all tasks have stopped.
+# Uses ECS/ContainerInsights namespace (requires Container Insights enabled on cluster).
+
+resource "aws_cloudwatch_metric_alarm" "ecs_running_tasks_low" {
+  for_each = var.enable_ecs_alarms ? var.ecs_service_names : toset([])
+
+  alarm_name          = "${var.name_prefix}-${each.key}-running-tasks-low"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "RunningTaskCount"
+  namespace           = "ECS/ContainerInsights"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 1
+  alarm_description   = "ECS ${each.key} has fewer than 1 running task"
+  treat_missing_data  = "breaching"
+
+  dimensions = {
+    ClusterName = var.ecs_cluster_name
+    ServiceName = "${var.name_prefix}-${each.key}"
+  }
+
+  tags = {
+    Name = "${var.name_prefix}-${each.key}-running-tasks-low"
+  }
+}
+
+# --- ALB Per-Target-Group Alarms ---
+# Unhealthy host count, target-originated 5XX errors, and response time.
+
+resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_hosts" {
+  for_each = var.enable_alb_alarms ? var.target_group_arn_suffixes : {}
+
+  alarm_name          = "${var.name_prefix}-${each.key}-unhealthy-hosts"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 2
+  metric_name         = "UnHealthyHostCount"
+  namespace           = "AWS/ApplicationELB"
+  period              = 60
+  statistic           = "Average"
+  threshold           = var.alb_unhealthy_host_threshold
+  alarm_description   = "ALB target group ${each.key} has ${var.alb_unhealthy_host_threshold} or more unhealthy hosts"
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    LoadBalancer = var.alb_arn_suffix
+    TargetGroup  = each.value
+  }
+
+  tags = {
+    Name = "${var.name_prefix}-${each.key}-unhealthy-hosts"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "alb_target_5xx" {
+  for_each = var.enable_alb_alarms ? var.target_group_arn_suffixes : {}
+
+  alarm_name          = "${var.name_prefix}-${each.key}-target-5xx-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "HTTPCode_Target_5XX_Count"
+  namespace           = "AWS/ApplicationELB"
+  period              = 300
+  statistic           = "Sum"
+  threshold           = var.alb_target_5xx_threshold
+  alarm_description   = "ALB target group ${each.key} target-originated 5XX errors above ${var.alb_target_5xx_threshold}"
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    LoadBalancer = var.alb_arn_suffix
+    TargetGroup  = each.value
+  }
+
+  tags = {
+    Name = "${var.name_prefix}-${each.key}-target-5xx-high"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "alb_response_time" {
+  for_each = var.enable_alb_alarms ? var.target_group_arn_suffixes : {}
+
+  alarm_name          = "${var.name_prefix}-${each.key}-response-time-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 3
+  metric_name         = "TargetResponseTime"
+  namespace           = "AWS/ApplicationELB"
+  period              = 300
+  statistic           = "Average"
+  threshold           = var.alb_response_time_threshold
+  alarm_description   = "ALB target group ${each.key} average response time above ${var.alb_response_time_threshold}s"
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    LoadBalancer = var.alb_arn_suffix
+    TargetGroup  = each.value
+  }
+
+  tags = {
+    Name = "${var.name_prefix}-${each.key}-response-time-high"
+  }
+}
+
+# --- CloudWatch Dashboard ---
+# Consolidated view of ECS service health and ALB traffic metrics.
+
+resource "aws_cloudwatch_dashboard" "main" {
+  count = var.enable_dashboard ? 1 : 0
+
+  dashboard_name = "${var.name_prefix}-ecs-alb"
+
+  dashboard_body = jsonencode({
+    widgets = concat(
+      # Row 1: ECS service metrics
+      [
+        {
+          type   = "metric"
+          x      = 0
+          y      = 0
+          width  = 8
+          height = 6
+          properties = {
+            title   = "ECS CPU Utilization (%)"
+            metrics = [for svc in var.ecs_service_names : ["AWS/ECS", "CPUUtilization", "ClusterName", var.ecs_cluster_name, "ServiceName", "${var.name_prefix}-${svc}"]]
+            period  = 300
+            stat    = "Average"
+            region  = var.aws_region
+            yAxis   = { left = { min = 0, max = 100 } }
+          }
+        },
+        {
+          type   = "metric"
+          x      = 8
+          y      = 0
+          width  = 8
+          height = 6
+          properties = {
+            title   = "ECS Memory Utilization (%)"
+            metrics = [for svc in var.ecs_service_names : ["AWS/ECS", "MemoryUtilization", "ClusterName", var.ecs_cluster_name, "ServiceName", "${var.name_prefix}-${svc}"]]
+            period  = 300
+            stat    = "Average"
+            region  = var.aws_region
+            yAxis   = { left = { min = 0, max = 100 } }
+          }
+        },
+        {
+          type   = "metric"
+          x      = 16
+          y      = 0
+          width  = 8
+          height = 6
+          properties = {
+            title   = "ECS Running Task Count"
+            metrics = [for svc in var.ecs_service_names : ["ECS/ContainerInsights", "RunningTaskCount", "ClusterName", var.ecs_cluster_name, "ServiceName", "${var.name_prefix}-${svc}"]]
+            period  = 60
+            stat    = "Average"
+            region  = var.aws_region
+            yAxis   = { left = { min = 0 } }
+          }
+        },
+      ],
+      # Row 2: ALB traffic metrics
+      [
+        {
+          type   = "metric"
+          x      = 0
+          y      = 6
+          width  = 8
+          height = 6
+          properties = {
+            title = "ALB Request Count"
+            metrics = [
+              ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", var.alb_arn_suffix, { stat = "Sum" }]
+            ]
+            period = 300
+            region = var.aws_region
+          }
+        },
+        {
+          type   = "metric"
+          x      = 8
+          y      = 6
+          width  = 8
+          height = 6
+          properties = {
+            title = "ALB HTTP Response Codes"
+            metrics = [
+              ["AWS/ApplicationELB", "HTTPCode_Target_2XX_Count", "LoadBalancer", var.alb_arn_suffix, { stat = "Sum", label = "Target 2XX" }],
+              ["AWS/ApplicationELB", "HTTPCode_Target_4XX_Count", "LoadBalancer", var.alb_arn_suffix, { stat = "Sum", label = "Target 4XX" }],
+              ["AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "LoadBalancer", var.alb_arn_suffix, { stat = "Sum", label = "Target 5XX" }],
+              ["AWS/ApplicationELB", "HTTPCode_ELB_5XX_Count", "LoadBalancer", var.alb_arn_suffix, { stat = "Sum", label = "ELB 5XX" }]
+            ]
+            period = 300
+            region = var.aws_region
+          }
+        },
+        {
+          type   = "metric"
+          x      = 16
+          y      = 6
+          width  = 8
+          height = 6
+          properties = {
+            title = "ALB Target Response Time (s)"
+            metrics = [
+              ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", var.alb_arn_suffix, { stat = "Average", label = "Avg" }],
+              ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", var.alb_arn_suffix, { stat = "p99", label = "p99" }]
+            ]
+            period = 300
+            region = var.aws_region
+          }
+        },
+      ],
+      # Row 3: Per-target-group host health
+      [
+        {
+          type   = "metric"
+          x      = 0
+          y      = 12
+          width  = 12
+          height = 6
+          properties = {
+            title   = "ALB Healthy Host Count"
+            metrics = [for svc, suffix in var.target_group_arn_suffixes : ["AWS/ApplicationELB", "HealthyHostCount", "TargetGroup", suffix, "LoadBalancer", var.alb_arn_suffix, { label = svc }]]
+            period  = 60
+            stat    = "Average"
+            region  = var.aws_region
+            yAxis   = { left = { min = 0 } }
+          }
+        },
+        {
+          type   = "metric"
+          x      = 12
+          y      = 12
+          width  = 12
+          height = 6
+          properties = {
+            title   = "ALB Unhealthy Host Count"
+            metrics = [for svc, suffix in var.target_group_arn_suffixes : ["AWS/ApplicationELB", "UnHealthyHostCount", "TargetGroup", suffix, "LoadBalancer", var.alb_arn_suffix, { label = svc }]]
+            period  = 60
+            stat    = "Average"
+            region  = var.aws_region
+            yAxis   = { left = { min = 0 } }
+          }
+        },
+      ]
+    )
+  })
+}

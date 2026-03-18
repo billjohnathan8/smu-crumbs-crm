@@ -26,3 +26,8 @@ output "alb_dns_record_fqdn" {
   description = "Fully qualified domain name of the ALB DNS record (if created)."
   value       = length(aws_route53_record.alb) > 0 ? aws_route53_record.alb[0].fqdn : null
 }
+
+output "target_group_arn_suffixes" {
+  description = "ALB target group ARN suffixes keyed by service name."
+  value       = { for service, tg in aws_lb_target_group.service : service => tg.arn_suffix }
+}

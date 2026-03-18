@@ -288,15 +288,20 @@ module "ecs" {
   enable_stateful_service_scale_out               = var.enable_stateful_service_scale_out
   enable_service_discovery                        = var.enable_service_discovery
   alb_dns_name                                    = module.alb.alb_dns_name
+  enable_deployment_alarms                        = var.enable_cloudwatch_alarms
+  deployment_alarm_names = var.enable_cloudwatch_alarms ? {
+    for svc in ["user", "client", "transaction"] :
+    svc => ["${local.name_prefix}-${svc}-unhealthy-hosts"]
+  } : {}
 
   image_tags = {
-    user       = var.user_image_tag
+    user        = var.user_image_tag
     client      = var.client_image_tag
     transaction = var.transaction_image_tag
   }
 
   desired_counts = {
-    user       = var.user_desired_count
+    user        = var.user_desired_count
     client      = var.client_desired_count
     transaction = var.transaction_desired_count
   }
@@ -445,11 +450,15 @@ module "observability" {
   enable_rds_alarms       = var.enable_cloudwatch_alarms
   rds_instance_identifier = module.rds.rds_instance_identifier
 
-  enable_alb_alarms = var.enable_cloudwatch_alarms
-  alb_arn_suffix    = module.alb.alb_arn_suffix
+  enable_alb_alarms         = var.enable_cloudwatch_alarms
+  alb_arn_suffix            = module.alb.alb_arn_suffix
+  target_group_arn_suffixes = module.alb.target_group_arn_suffixes
 
   enable_ses_alarms = var.enable_cloudwatch_alarms && var.enable_verification_pipeline
   ses_identity      = var.ses_domain != "" ? var.ses_domain : var.ses_sender_email
+
+  enable_dashboard = var.enable_cloudwatch_alarms
+  aws_region       = var.aws_region
 }
 
 #--------------------------------------------------------------

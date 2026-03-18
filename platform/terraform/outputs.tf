@@ -292,6 +292,11 @@ output "cloudtrail_arn" {
   value       = module.observability.cloudtrail_arn
 }
 
+output "cloudwatch_dashboard_name" {
+  description = "CloudWatch dashboard name for ECS and ALB monitoring."
+  value       = module.observability.dashboard_name
+}
+
 # --- Backup ---
 
 output "backup_vault_arn" {
