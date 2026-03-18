@@ -2,7 +2,9 @@ package com.scroogebank.crm.userservice.service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
@@ -61,7 +63,7 @@ public class PasswordHasher {
 			SecretKeyFactory skf = SecretKeyFactory.getInstance(ALGO);
 			return skf.generateSecret(spec).getEncoded();
 		}
-		catch (Exception ex) {
+		catch (NoSuchAlgorithmException | InvalidKeySpecException ex) {
 			throw new IllegalStateException("failed to hash password", ex);
 		}
 	}
