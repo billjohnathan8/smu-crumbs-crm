@@ -176,7 +176,7 @@ class MockCRMWriteClient:
             "attributeName": log.attribute_name,
             "beforeValue": log.before_value,
             "afterValue": log.after_value,
-            "agentId": log.agent_id,
+            "userId": log.user_id,
             "clientId": log.client_id,
             "dateTime": log.date_time.isoformat(),
             "correlationId": log.correlation_id,

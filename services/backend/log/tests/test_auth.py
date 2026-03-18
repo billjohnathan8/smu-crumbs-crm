@@ -62,8 +62,8 @@ def test_verify_hs256_jwt_success() -> None:
 
 
 def test_verify_hs256_jwt_invalid_or_expired_token() -> None:
-    valid = mint_token("usr_1", "agent", "secret")
-    expired = mint_token("usr_1", "agent", "secret", exp_seconds=-1)
+    valid = mint_token("usr_1", "user", "secret")
+    expired = mint_token("usr_1", "user", "secret", exp_seconds=-1)
 
     with pytest.raises(UnauthorizedError):
         verify_hs256_jwt("bad-format", "secret")
@@ -106,17 +106,17 @@ def test_verify_hs256_jwt_rejects_invalid_exp() -> None:
 
 
 def test_require_bearer_user_and_require_roles() -> None:
-    token = mint_token("usr_1", "agent", "secret")
+    token = mint_token("usr_1", "user", "secret")
 
     user = require_bearer_user(f"Bearer {token}", "secret")
-    assert user == AuthenticatedUser(user_id="usr_1", role="agent")
+    assert user == AuthenticatedUser(user_id="usr_1", role="user")
 
     with pytest.raises(UnauthorizedError):
         require_bearer_user(None, "secret")
     with pytest.raises(UnauthorizedError):
         require_bearer_user("Bearer token", "wrong-secret")
 
-    require_roles(user, {"agent", "admin"})
+    require_roles(user, {"user", "admin"})
     with pytest.raises(ForbiddenError):
         require_roles(user, {"admin"})
 
@@ -255,7 +255,7 @@ def test_verify_rs256_jwt_expired() -> None:
         private_key,
         "kid-1",
         "cog-usr-1",
-        "agent",
+        "user",
         issuer="https://cognito-idp.ap-southeast-1.amazonaws.com/pool1",
         audience="client-app-id",
         exp_seconds=-10,
@@ -278,7 +278,7 @@ def test_verify_rs256_jwt_wrong_issuer() -> None:
         private_key,
         "kid-1",
         "cog-usr-1",
-        "agent",
+        "user",
         issuer="https://attacker.com/pool",
         audience="client-app-id",
     )
@@ -300,7 +300,7 @@ def test_verify_rs256_jwt_wrong_audience() -> None:
         private_key,
         "kid-1",
         "cog-usr-1",
-        "agent",
+        "user",
         issuer="https://cognito-idp.ap-southeast-1.amazonaws.com/pool1",
         audience="other-app-id",
     )
@@ -323,7 +323,7 @@ def test_verify_rs256_jwt_wrong_signature() -> None:
         private_key,
         "kid-1",
         "cog-usr-1",
-        "agent",
+        "user",
         issuer="https://cognito-idp.ap-southeast-1.amazonaws.com/pool1",
         audience="client-app-id",
     )
@@ -345,7 +345,7 @@ def test_verify_rs256_jwt_unknown_kid() -> None:
         private_key,
         "kid-1",
         "cog-usr-1",
-        "agent",
+        "user",
         issuer="https://cognito-idp.ap-southeast-1.amazonaws.com/pool1",
         audience="client-app-id",
     )
@@ -366,7 +366,7 @@ def test_verify_rs256_jwt_jwks_unavailable() -> None:
         private_key,
         "kid-1",
         "cog-usr-1",
-        "agent",
+        "user",
         issuer="https://cognito-idp.ap-southeast-1.amazonaws.com/pool1",
         audience="client-app-id",
     )
@@ -424,7 +424,7 @@ def test_verify_rs256_jwt_uses_cognito_groups_when_no_role_claim() -> None:
 def test_require_bearer_user_hybrid_accepts_both_algs() -> None:
     """In hybrid mode, both HS256 and RS256 tokens should be accepted."""
     # HS256 path
-    hs256_token = mint_token("hs-usr", "agent", "secret")
+    hs256_token = mint_token("hs-usr", "user", "secret")
     user = require_bearer_user(f"Bearer {hs256_token}", "secret", auth_mode="hybrid")
     assert user.user_id == "hs-usr"
 
@@ -474,7 +474,7 @@ def test_require_bearer_user_local_mode_rejects_rs256() -> None:
 
 def test_require_bearer_user_cognito_mode_rejects_hs256() -> None:
     """cognito auth_mode must reject HS256 tokens."""
-    hs256_token = mint_token("hs-usr", "agent", "secret")
+    hs256_token = mint_token("hs-usr", "user", "secret")
     with pytest.raises(UnauthorizedError):
         require_bearer_user(
             f"Bearer {hs256_token}",
@@ -494,7 +494,7 @@ def test_jwks_cache_is_used_on_second_call() -> None:
         private_key,
         "kid-1",
         "usr",
-        "agent",
+        "user",
         issuer="https://cognito.example.com/pool",
         audience="app-client",
     )

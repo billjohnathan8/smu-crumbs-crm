@@ -173,11 +173,11 @@ class JwtServiceTest {
 		ObjectMapper mapper = new ObjectMapper();
 		JwtService jwtService = new JwtService(mapper, clock, SECRET);
 
-		String token = mintToken(mapper, SECRET, Map.of("alg", "HS256", "typ", "JWT"), Map.of("sub", "usr_1", "role", "agent"));
+		String token = mintToken(mapper, SECRET, Map.of("alg", "HS256", "typ", "JWT"), Map.of("sub", "usr_1", "role", "user"));
 
 		AuthenticatedUser user = jwtService.verifyAndParse(token);
 		assertThat(user.userId()).isEqualTo("usr_1");
-		assertThat(user.role()).isEqualTo("agent");
+		assertThat(user.role()).isEqualTo("user");
 	}
 
 	@Test

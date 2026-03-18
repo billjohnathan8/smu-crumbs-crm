@@ -42,7 +42,7 @@ public class AuthService {
 		}
 
 		String userId = "usr_" + record.id();
-		String role = record.role() == null ? "agent" : record.role().wireValue();
+		String role = record.role() == null ? "user" : record.role().wireValue();
 		Instant expiresAt = clock.instant().plus(ACCESS_TTL);
 		String access = jwtService.mintAccessToken(userId, role, expiresAt);
 		String refresh = store.issueRefreshToken(userId);
@@ -74,7 +74,7 @@ public class AuthService {
 		catch (RuntimeException ex) {
 			throw new UnauthorizedException("invalid_refresh_token");
 		}
-		String role = record.role() == null ? "agent" : record.role().wireValue();
+		String role = record.role() == null ? "user" : record.role().wireValue();
 
 		Instant expiresAt = clock.instant().plus(ACCESS_TTL);
 		String access = jwtService.mintAccessToken(userId, role, expiresAt);

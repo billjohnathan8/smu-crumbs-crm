@@ -5,7 +5,7 @@ package com.scroogebank.crm.client_service.communication;
  */
 public record CreateCommunicationRequest(
 	String clientId,
-	String agentId,
+	String userId,
 	String toEmail,
 	String subject,
 	String body,

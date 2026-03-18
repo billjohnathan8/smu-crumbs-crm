@@ -22,7 +22,7 @@ public record ClientDto(
 	String country,
 	String postalCode,
 	IdentityVerificationStatus identityVerificationStatus,
-	String assignedAgentId,
+	String assignedUserId,
 	String verificationDocumentType,
 	String verificationDocumentRef,
 	Instant verificationVerifiedAt,

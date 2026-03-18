@@ -53,7 +53,7 @@ public class TransactionsController {
 	}
 
 	/**
-	 * Lists transactions with optional filters. Agents must supply a clientId and
+	 * Lists transactions with optional filters. Users must supply a clientId and
 	 * have access to that client; otherwise an empty page is returned.
 	 */
 	@GetMapping("/transactions")
@@ -68,12 +68,12 @@ public class TransactionsController {
 		@RequestParam(required = false) @DateTimeFormat(iso = ISO.DATE) LocalDate toDate
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAnyRole(user, "admin", "agent");
+		requireAnyRole(user, "admin", "user");
 
 		String authHeader = request.getHeader("Authorization");
-		if (user.isAgent()) {
+		if (user.isUser()) {
 			// We can only verify ownership for a specific clientId without enumerating
-			// all agent-owned clients from client-service. For safety, return empty
+			// all user-owned clients from client-service. For safety, return empty
 			// unless a clientId is provided and authorized.
 			if (clientId == null || clientId.isBlank()) {
 				return new TransactionsListResponse(
@@ -114,15 +114,15 @@ public class TransactionsController {
 	}
 
 	/**
-	 * Fetches a transaction by id. Agents receive a 404 when access is forbidden.
+	 * Fetches a transaction by id. Users receive a 404 when access is forbidden.
 	 */
 	@GetMapping("/transactions/{transactionId}")
 	public TransactionDto getTransaction(HttpServletRequest request, @PathVariable String transactionId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAnyRole(user, "admin", "agent");
+		requireAnyRole(user, "admin", "user");
 
 		TransactionDto tx = transactionsService.get(transactionId);
-		if (user.isAgent()) {
+		if (user.isUser()) {
 			String authHeader = request.getHeader("Authorization");
 			try {
 				clientAccessValidator.requireClientAccessible(user, authHeader, tx.clientId());
@@ -156,7 +156,7 @@ public class TransactionsController {
 		@RequestParam(defaultValue = "0") int offset
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAnyRole(user, "admin", "agent");
+		requireAnyRole(user, "admin", "user");
 		String authHeader = request.getHeader("Authorization");
 		clientAccessValidator.requireClientAccessible(user, authHeader, clientId);
 

@@ -40,7 +40,7 @@ class CreateLogRequest(BaseModel):
     attributeName: str = Field(min_length=1, max_length=100)
     beforeValue: str | None = Field(default=None, max_length=2000)
     afterValue: str | None = Field(default=None, max_length=2000)
-    agentId: str = Field(min_length=1, max_length=64)
+    userId: str = Field(min_length=1, max_length=64)
     clientId: str = Field(min_length=1, max_length=64)
     dateTime: datetime | None = None
     correlationId: str | None = Field(default=None, max_length=120)
@@ -61,7 +61,7 @@ class LogEntry(BaseModel):
     attributeName: str
     beforeValue: str | None = None
     afterValue: str | None = None
-    agentId: str
+    userId: str
     clientId: str
     dateTime: datetime
     correlationId: str | None = None
@@ -75,7 +75,7 @@ class CreateCommunicationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     clientId: str = Field(min_length=1, max_length=64)
-    agentId: str = Field(min_length=1, max_length=64)
+    userId: str = Field(min_length=1, max_length=64)
     toEmail: str = Field(
         min_length=3,
         max_length=320,
@@ -96,7 +96,7 @@ class CommunicationStatus(str, Enum):
 class Communication(BaseModel):
     communicationId: str
     clientId: str
-    agentId: str
+    userId: str
     channel: CommunicationChannel = CommunicationChannel.email
     toEmail: str
     subject: str

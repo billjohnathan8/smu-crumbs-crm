@@ -114,7 +114,7 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	/**
-	 * Creates a new client, assigns it to the requesting agent, and logs an audit event.
+	 * Creates a new client, assigns it to the requesting user, and logs an audit event.
 	 *
 	 * @param user authenticated user
 	 * @param request create payload
@@ -538,7 +538,7 @@ public class ClientServiceImpl implements ClientService {
 	 * @param attributeName attribute being changed or observed
 	 * @param beforeValue previous value (nullable)
 	 * @param afterValue new value (nullable)
-	 * @param agentId authenticated agent id
+	 * @param userId authenticated user id
 	 * @param clientId associated client id
 	 * @param correlationId request correlation id
 	 * @param authorizationHeader bearer token for downstream auth
@@ -548,7 +548,7 @@ public class ClientServiceImpl implements ClientService {
 		String attributeName,
 		String beforeValue,
 		String afterValue,
-		String agentId,
+		String userId,
 		String clientId,
 		String correlationId,
 		String authorizationHeader
@@ -562,7 +562,7 @@ public class ClientServiceImpl implements ClientService {
 				attributeName,
 				beforeValue,
 				afterValue,
-				agentId,
+				userId,
 				clientId,
 				correlationId,
 				authorizationHeader
@@ -578,14 +578,14 @@ public class ClientServiceImpl implements ClientService {
 	 *
 	 * @param client verified client entity
 	 * @param clientId public client identifier
-	 * @param agentId authenticated agent id
+	 * @param userId authenticated user id
 	 * @param authorizationHeader inbound authorization header
 	 * @param requestId request correlation id
 	 */
 	private void sendVerificationEmailSafe(
 		ClientEntity client,
 		String clientId,
-		String agentId,
+		String userId,
 		String authorizationHeader,
 		String requestId
 	) {
@@ -597,7 +597,7 @@ public class ClientServiceImpl implements ClientService {
 			);
 			verificationEmailDispatchService.queueAndDispatchVerificationEmail(
 				clientId,
-				agentId,
+				userId,
 				email,
 				authorizationHeader,
 				requestId

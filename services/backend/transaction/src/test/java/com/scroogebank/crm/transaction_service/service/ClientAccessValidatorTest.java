@@ -57,7 +57,7 @@ class ClientAccessValidatorTest {
 	@Test
 	void requireClientAccessible_missingAuthorizationHeader_throwsUnauthorized() {
 		assertThrows(UnauthorizedException.class, () ->
-			validator.requireClientAccessible(new AuthenticatedUser("usr_1", "agent"), " ", "clt_1")
+			validator.requireClientAccessible(new AuthenticatedUser("usr_1", "user"), " ", "clt_1")
 		);
 
 		verify(restClient, never()).get();
@@ -66,7 +66,7 @@ class ClientAccessValidatorTest {
 	@Test
 	void requireClientAccessible_nullAuthorizationHeader_throwsUnauthorized() {
 		assertThrows(UnauthorizedException.class, () ->
-			validator.requireClientAccessible(new AuthenticatedUser("usr_1", "agent"), null, "clt_1")
+			validator.requireClientAccessible(new AuthenticatedUser("usr_1", "user"), null, "clt_1")
 		);
 
 		verify(restClient, never()).get();
@@ -79,7 +79,7 @@ class ClientAccessValidatorTest {
 		doReturn(headersSpec).when(headersSpec).header(HttpHeaders.AUTHORIZATION, "Bearer x");
 		doReturn(responseSpec).when(headersSpec).retrieve();
 
-		validator.requireClientAccessible(new AuthenticatedUser("usr_1", "agent"), "Bearer x", "clt_1");
+		validator.requireClientAccessible(new AuthenticatedUser("usr_1", "user"), "Bearer x", "clt_1");
 
 		verify(responseSpec).toBodilessEntity();
 	}
@@ -95,7 +95,7 @@ class ClientAccessValidatorTest {
 		);
 
 		assertThrows(ForbiddenException.class, () ->
-			validator.requireClientAccessible(new AuthenticatedUser("usr_1", "agent"), "Bearer x", "clt_1")
+			validator.requireClientAccessible(new AuthenticatedUser("usr_1", "user"), "Bearer x", "clt_1")
 		);
 	}
 
@@ -110,7 +110,7 @@ class ClientAccessValidatorTest {
 		);
 
 		assertThrows(UnauthorizedException.class, () ->
-			validator.requireClientAccessible(new AuthenticatedUser("usr_1", "agent"), "Bearer x", "clt_1")
+			validator.requireClientAccessible(new AuthenticatedUser("usr_1", "user"), "Bearer x", "clt_1")
 		);
 	}
 
@@ -125,7 +125,7 @@ class ClientAccessValidatorTest {
 		);
 
 		assertThrows(ForbiddenException.class, () ->
-			validator.requireClientAccessible(new AuthenticatedUser("usr_1", "agent"), "Bearer x", "clt_1")
+			validator.requireClientAccessible(new AuthenticatedUser("usr_1", "user"), "Bearer x", "clt_1")
 		);
 	}
 }

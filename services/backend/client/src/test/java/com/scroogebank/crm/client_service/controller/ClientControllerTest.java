@@ -53,7 +53,7 @@ class ClientControllerTest {
 	void setUp() {
 		clientService = mock(ClientService.class);
 		requestAuth = mock(RequestAuth.class);
-		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "agent"));
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "user"));
 		mockMvc = MockMvcBuilders.standaloneSetup(new ClientController(clientService, requestAuth))
 			.setControllerAdvice(new ApiExceptionHandler())
 			.setMessageConverters(new JacksonJsonHttpMessageConverter(

@@ -112,14 +112,14 @@ class JwtServiceTest {
 	void verifyAndParse_withoutExp_allowsToken() {
 		String token = signedToken(Map.of(
 			"sub", "usr_1",
-			"role", "agent",
+			"role", "user",
 			"iat", FIXED_CLOCK.instant().getEpochSecond()
 		));
 
 		AuthenticatedUser user = jwtService.verifyAndParse(token);
 
 		assertEquals("usr_1", user.userId());
-		assertEquals("agent", user.role());
+		assertEquals("user", user.role());
 	}
 
 	@Test

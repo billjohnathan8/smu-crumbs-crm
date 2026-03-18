@@ -68,7 +68,7 @@ class ClientServiceImplTest {
 		);
 	}
 
-	private static ClientEntity entityFromPayload(Long id, String assignedAgentId, ClientPayload payload) {
+	private static ClientEntity entityFromPayload(Long id, String assignedUserId, ClientPayload payload) {
 		ClientEntity e = new ClientEntity();
 		e.setId(id);
 		e.setFirstName(payload.firstName());
@@ -82,7 +82,7 @@ class ClientServiceImplTest {
 		e.setState(payload.state());
 		e.setCountry(payload.country());
 		e.setPostalCode(payload.postalCode());
-		e.setAssignedAgentId(assignedAgentId);
+		e.setAssignedAgentId(assignedUserId);
 		e.setIdentityVerificationStatus(IdentityVerificationStatus.unverified);
 		return e;
 	}
@@ -90,13 +90,13 @@ class ClientServiceImplTest {
 	/** Verifies that listClients() returns all entities from the repository mapped to DTOs. */
 	@Test
 	void listClients_returnsAllAsDtos() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
 		ClientEntity e1 = entityFromPayload(1L, "usr_1", payload);
 		ClientEntity e2 = entityFromPayload(2L, "usr_1", payload);
 		when(clientRepository.searchByAgent(eq("usr_1"), eq(null))).thenReturn(List.of(e1, e2));
 
-		List<com.scroogebank.crm.client_service.dto.ClientDto> result = clientService.listClients(agent, 50, 0, null).data();
+		List<com.scroogebank.crm.client_service.dto.ClientDto> result = clientService.listClients(user, 50, 0, null).data();
 
 		assertThat(result).hasSize(2);
 		assertThat(result.get(0).clientId()).isEqualTo("clt_1");
@@ -128,12 +128,12 @@ class ClientServiceImplTest {
 	/** Verifies that getClient(id) returns the client DTO when the repository finds the entity. */
 	@Test
 	void getClient_whenFound_returnsDto() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
 		ClientEntity entity = entityFromPayload(7L, "usr_1", payload);
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
 
-		var result = clientService.getClient(agent, "clt_7", "Bearer x", "req-1");
+		var result = clientService.getClient(user, "clt_7", "Bearer x", "req-1");
 
 		assertThat(result.clientId()).isEqualTo("clt_7");
 		assertThat(result.emailAddress()).isEqualTo("jordan.taylor@example.com");
@@ -142,22 +142,22 @@ class ClientServiceImplTest {
 
 	@Test
 	void getClient_agentCannotReadOtherOwnersClient_throwsNotFound() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
 		ClientEntity entity = entityFromPayload(7L, "usr_other", payload);
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
 
-		assertThatThrownBy(() -> clientService.getClient(agent, "clt_7", "Bearer x", "req-1"))
+		assertThatThrownBy(() -> clientService.getClient(user, "clt_7", "Bearer x", "req-1"))
 			.isInstanceOf(ClientNotFoundException.class);
 	}
 
 	/** Verifies that getClient(id) throws ClientNotFoundException when the repository returns empty. */
 	@Test
 	void getClient_whenNotFound_throwsClientNotFoundException() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		when(clientRepository.findById(404L)).thenReturn(Optional.empty());
 
-		assertThatThrownBy(() -> clientService.getClient(agent, "clt_404", "Bearer x", "req-1"))
+		assertThatThrownBy(() -> clientService.getClient(user, "clt_404", "Bearer x", "req-1"))
 			.isInstanceOf(ClientNotFoundException.class)
 			.hasMessageContaining("not found");
 
@@ -167,7 +167,7 @@ class ClientServiceImplTest {
 	/** Verifies that createClient() checks email/phone uniqueness, saves the entity, and returns the new DTO. */
 	@Test
 	void createClient_whenNoConflict_returnsSavedDto() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
 		ClientCreateRequest request = new ClientCreateRequest(
 			payload.firstName(),
@@ -190,7 +190,7 @@ class ClientServiceImplTest {
 			return e;
 		});
 
-		var result = clientService.createClient(agent, request, "Bearer x", "req-1");
+		var result = clientService.createClient(user, request, "Bearer x", "req-1");
 
 		assertThat(result.clientId()).isEqualTo("clt_10");
 		assertThat(result.firstName()).isEqualTo("Jordan");
@@ -216,7 +216,7 @@ class ClientServiceImplTest {
 	/** Verifies that createClient() throws DuplicateClientException when the email is already in use (no save). */
 	@Test
 	void createClient_whenEmailExists_throwsDuplicateClientException() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
 		ClientCreateRequest request = new ClientCreateRequest(
 			payload.firstName(),
@@ -233,7 +233,7 @@ class ClientServiceImplTest {
 		);
 		when(clientRepository.existsByEmailAddressIgnoreCase(payload.emailAddress())).thenReturn(true);
 
-		assertThatThrownBy(() -> clientService.createClient(agent, request, "Bearer x", "req-1"))
+		assertThatThrownBy(() -> clientService.createClient(user, request, "Bearer x", "req-1"))
 			.isInstanceOf(DuplicateClientException.class)
 			.hasMessageContaining("Email");
 
@@ -244,7 +244,7 @@ class ClientServiceImplTest {
 	/** Verifies that createClient() throws DuplicateClientException when the phone number is already in use (no save). */
 	@Test
 	void createClient_whenPhoneExists_throwsDuplicateClientException() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
 		ClientCreateRequest request = new ClientCreateRequest(
 			payload.firstName(),
@@ -262,7 +262,7 @@ class ClientServiceImplTest {
 		when(clientRepository.existsByEmailAddressIgnoreCase(payload.emailAddress())).thenReturn(false);
 		when(clientRepository.existsByPhoneNumber(payload.phoneNumber())).thenReturn(true);
 
-		assertThatThrownBy(() -> clientService.createClient(agent, request, "Bearer x", "req-1"))
+		assertThatThrownBy(() -> clientService.createClient(user, request, "Bearer x", "req-1"))
 			.isInstanceOf(DuplicateClientException.class)
 			.hasMessageContaining("Phone");
 
@@ -273,7 +273,7 @@ class ClientServiceImplTest {
 	/** Verifies that updateClient() loads the entity, checks email/phone for other ids, applies payload, saves, and returns DTO. */
 	@Test
 	void updateClient_whenFoundAndNoConflict_returnsUpdatedDto() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
 		ClientUpdateRequest request = new ClientUpdateRequest(
 			payload.firstName(),
@@ -295,7 +295,7 @@ class ClientServiceImplTest {
 		when(clientRepository.existsByPhoneNumberAndIdNot(payload.phoneNumber(), 12L)).thenReturn(false);
 		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-		var result = clientService.updateClient(agent, "clt_12", request, "Bearer x", "req-1");
+		var result = clientService.updateClient(user, "clt_12", request, "Bearer x", "req-1");
 
 		assertThat(result.clientId()).isEqualTo("clt_12");
 		assertThat(result.firstName()).isEqualTo("Jordan");
@@ -316,11 +316,11 @@ class ClientServiceImplTest {
 	/** Verifies that updateClient() throws ClientNotFoundException when the client id does not exist (no save). */
 	@Test
 	void updateClient_whenNotFound_throwsClientNotFoundException() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientUpdateRequest request = new ClientUpdateRequest(null, null, null, null, null, null, null, null, null, null, null);
 		when(clientRepository.findById(999L)).thenReturn(Optional.empty());
 
-		assertThatThrownBy(() -> clientService.updateClient(agent, "clt_999", request, "Bearer x", "req-1"))
+		assertThatThrownBy(() -> clientService.updateClient(user, "clt_999", request, "Bearer x", "req-1"))
 			.isInstanceOf(ClientNotFoundException.class)
 			.hasMessageContaining("not found");
 
@@ -331,14 +331,14 @@ class ClientServiceImplTest {
 	/** Verifies that updateClient() throws DuplicateClientException when the new email belongs to another client (no save). */
 	@Test
 	void updateClient_whenEmailExistsForOtherId_throwsDuplicateClientException() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
 		ClientUpdateRequest request = new ClientUpdateRequest(null, null, null, null, payload.emailAddress(), null, null, null, null, null, null);
 		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
 		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
 		when(clientRepository.existsByEmailAddressIgnoreCaseAndIdNot(payload.emailAddress(), 12L)).thenReturn(true);
 
-		assertThatThrownBy(() -> clientService.updateClient(agent, "clt_12", request, "Bearer x", "req-1"))
+		assertThatThrownBy(() -> clientService.updateClient(user, "clt_12", request, "Bearer x", "req-1"))
 			.isInstanceOf(DuplicateClientException.class)
 			.hasMessageContaining("Email");
 
@@ -348,14 +348,14 @@ class ClientServiceImplTest {
 	/** Verifies that updateClient() throws DuplicateClientException when the new phone belongs to another client (no save). */
 	@Test
 	void updateClient_whenPhoneExistsForOtherId_throwsDuplicateClientException() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
 		ClientUpdateRequest request = new ClientUpdateRequest(null, null, null, null, null, payload.phoneNumber(), null, null, null, null, null);
 		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
 		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
 		when(clientRepository.existsByPhoneNumberAndIdNot(payload.phoneNumber(), 12L)).thenReturn(true);
 
-		assertThatThrownBy(() -> clientService.updateClient(agent, "clt_12", request, "Bearer x", "req-1"))
+		assertThatThrownBy(() -> clientService.updateClient(user, "clt_12", request, "Bearer x", "req-1"))
 			.isInstanceOf(DuplicateClientException.class)
 			.hasMessageContaining("Phone");
 
@@ -365,12 +365,12 @@ class ClientServiceImplTest {
 	/** Verifies that deleteClient() loads the entity and calls repository.delete (entity is removed). */
 	@Test
 	void deleteClient_whenFound_deletesEntity() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
 		ClientEntity entity = entityFromPayload(55L, "usr_1", payload);
 		when(clientRepository.findById(55L)).thenReturn(Optional.of(entity));
 
-		clientService.deleteClient(agent, "clt_55", "Bearer x", "req-1");
+		clientService.deleteClient(user, "clt_55", "Bearer x", "req-1");
 
 		verify(clientRepository).findById(55L);
 		verify(clientRepository).delete(entity);
@@ -389,10 +389,10 @@ class ClientServiceImplTest {
 	/** Verifies that deleteClient() throws ClientNotFoundException when the client id does not exist (no delete). */
 	@Test
 	void deleteClient_whenNotFound_throwsClientNotFoundException() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		when(clientRepository.findById(404L)).thenReturn(Optional.empty());
 
-		assertThatThrownBy(() -> clientService.deleteClient(agent, "clt_404", "Bearer x", "req-1"))
+		assertThatThrownBy(() -> clientService.deleteClient(user, "clt_404", "Bearer x", "req-1"))
 			.isInstanceOf(ClientNotFoundException.class)
 			.hasMessageContaining("not found");
 
@@ -402,7 +402,7 @@ class ClientServiceImplTest {
 
 	@Test
 	void createClient_whenLogPublishingFails_stillReturnsCreatedClient() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
 		ClientCreateRequest request = new ClientCreateRequest(
 			payload.firstName(),
@@ -428,7 +428,7 @@ class ClientServiceImplTest {
 		doThrow(new RuntimeException("log service unavailable"))
 			.when(clientAuditLogger).logAuditEvent(eq("CREATE"), any(), any(), any(), any(), any(), any(), any());
 
-		var result = clientService.createClient(agent, request, "Bearer x", "req-1");
+		var result = clientService.createClient(user, request, "Bearer x", "req-1");
 
 		assertThat(result.clientId()).isEqualTo("clt_20");
 		verify(clientRepository).save(any());
@@ -437,7 +437,7 @@ class ClientServiceImplTest {
 
 	@Test
 	void createClient_authorizationHeaderBlank_skipsAuditLogging_andLowercasesEmail() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientCreateRequest request = new ClientCreateRequest(
 			"Jordan",
 			"Taylor",
@@ -460,7 +460,7 @@ class ClientServiceImplTest {
 			return e;
 		});
 
-		var created = clientService.createClient(agent, request, "   ", "req-1");
+		var created = clientService.createClient(user, request, "   ", "req-1");
 
 		assertThat(created.clientId()).isEqualTo("clt_21");
 		assertThat(captor.getValue().getEmailAddress()).isEqualTo("jordan.taylor@example.com");
@@ -469,7 +469,7 @@ class ClientServiceImplTest {
 
 	@Test
 	void updateClient_singleFieldChange_auditLogContainsFieldNameAndValues() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
 		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
 		ClientUpdateRequest request = new ClientUpdateRequest(
@@ -478,7 +478,7 @@ class ClientServiceImplTest {
 		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
 		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-		clientService.updateClient(agent, "clt_12", request, "Bearer x", "req-1");
+		clientService.updateClient(user, "clt_12", request, "Bearer x", "req-1");
 
 		verify(clientAuditLogger).logAuditEvent(
 			eq("UPDATE"),
@@ -494,7 +494,7 @@ class ClientServiceImplTest {
 
 	@Test
 	void updateClient_multipleFieldChanges_auditLogPipeDelimited() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
 		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
 		ClientUpdateRequest request = new ClientUpdateRequest(
@@ -503,7 +503,7 @@ class ClientServiceImplTest {
 		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
 		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-		clientService.updateClient(agent, "clt_12", request, "Bearer x", "req-1");
+		clientService.updateClient(user, "clt_12", request, "Bearer x", "req-1");
 
 		verify(clientAuditLogger).logAuditEvent(
 			eq("UPDATE"),
@@ -519,7 +519,7 @@ class ClientServiceImplTest {
 
 	@Test
 	void updateClient_noFieldsChanged_skipsAuditLogging() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
 		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
 		ClientUpdateRequest request = new ClientUpdateRequest(
@@ -528,14 +528,14 @@ class ClientServiceImplTest {
 		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
 		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-		clientService.updateClient(agent, "clt_12", request, "Bearer x", "req-1");
+		clientService.updateClient(user, "clt_12", request, "Bearer x", "req-1");
 
 		verify(clientAuditLogger, never()).logAuditEvent(any(), any(), any(), any(), any(), any(), any(), any());
 	}
 
 	@Test
 	void updateClient_sameValuesSubmitted_skipsAuditLogging() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
 		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
 		ClientUpdateRequest request = new ClientUpdateRequest(
@@ -544,14 +544,14 @@ class ClientServiceImplTest {
 		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
 		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-		clientService.updateClient(agent, "clt_12", request, "Bearer x", "req-1");
+		clientService.updateClient(user, "clt_12", request, "Bearer x", "req-1");
 
 		verify(clientAuditLogger, never()).logAuditEvent(any(), any(), any(), any(), any(), any(), any(), any());
 	}
 
 	@Test
 	void verifyClient_setsStatusToPending_andAuditsWithNullBeforeValueWhenStatusWasNull() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
 		ClientEntity entity = entityFromPayload(7L, "usr_1", payload);
 		entity.setIdentityVerificationStatus(null);
@@ -565,7 +565,7 @@ class ClientServiceImplTest {
 			));
 
 		var response = clientService.verifyClient(
-			agent,
+			user,
 			"clt_7",
 			new VerifyClientRequest("S1234567A", "NRIC", null),
 			"Bearer x",
@@ -596,7 +596,7 @@ class ClientServiceImplTest {
 
 	@Test
 	void verifyClient_emailSenderFails_stillReturnsPendingResponse() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
 		ClientEntity entity = entityFromPayload(7L, "usr_1", payload);
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
@@ -612,7 +612,7 @@ class ClientServiceImplTest {
 			.queueAndDispatchVerificationEmail(any(), any(), any(), any(), any());
 
 		var response = clientService.verifyClient(
-			agent,
+			user,
 			"clt_7",
 			new VerifyClientRequest("S1234567A", "NRIC", null),
 			"Bearer x",

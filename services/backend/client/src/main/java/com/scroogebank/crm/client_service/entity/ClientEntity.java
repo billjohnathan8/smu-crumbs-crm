@@ -74,8 +74,8 @@ public class ClientEntity {
 	@Column(name = "postal_code", nullable = false, length = 512)
 	private String postalCode;
 
-	@Column(name = "assigned_agent_id", nullable = false, length = 64)
-	private String assignedAgentId;
+	@Column(name = "assigned_user_id", nullable = false, length = 64)
+	private String assignedUserId;
 
 	@Enumerated(EnumType.STRING)
 	@Column(name = "identity_verification_status", nullable = false, length = 20)
@@ -214,11 +214,11 @@ public class ClientEntity {
 	}
 
 	public String getAssignedAgentId() {
-		return assignedAgentId;
+		return assignedUserId;
 	}
 
-	public void setAssignedAgentId(String assignedAgentId) {
-		this.assignedAgentId = assignedAgentId;
+	public void setAssignedAgentId(String assignedUserId) {
+		this.assignedUserId = assignedUserId;
 	}
 
 	public IdentityVerificationStatus getIdentityVerificationStatus() {

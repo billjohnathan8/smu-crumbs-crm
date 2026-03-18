@@ -46,14 +46,14 @@ public class VerificationEmailDispatchService {
 	 * Enqueues a verification email communication and performs an immediate dispatch attempt.
 	 *
 	 * @param clientId public client id
-	 * @param agentId requesting agent id
+	 * @param userId requesting user id
 	 * @param email rendered email payload
 	 * @param authorizationHeader incoming authorization header
 	 * @param requestId request id for logging
 	 */
 	public void queueAndDispatchVerificationEmail(
 		String clientId,
-		String agentId,
+		String userId,
 		VerificationEmail email,
 		String authorizationHeader,
 		String requestId
@@ -65,7 +65,7 @@ public class VerificationEmailDispatchService {
 		CommunicationRecord communication = communicationClient.createCommunication(
 			new CreateCommunicationRequest(
 				clientId,
-				agentId,
+				userId,
 				email.toEmail(),
 				email.subject(),
 				email.body(),

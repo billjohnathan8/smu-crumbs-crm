@@ -68,7 +68,7 @@ class LogRepository:
                         action,
                         entity_type,
                         entity_id,
-                        agent_id,
+                        user_id,
                         message,
                         payload,
                         occurred_at
@@ -78,7 +78,7 @@ class LogRepository:
                         %(action)s,
                         %(entityType)s,
                         %(entityId)s,
-                        %(agentId)s,
+                        %(userId)s,
                         %(message)s,
                         %(payload)s,
                         %(occurredAt)s
@@ -106,7 +106,7 @@ class LogRepository:
                         attribute_name,
                         before_value,
                         after_value,
-                        agent_id,
+                        user_id,
                         client_id,
                         date_time,
                         correlation_id
@@ -116,7 +116,7 @@ class LogRepository:
                         %(attributeName)s,
                         %(beforeValue)s,
                         %(afterValue)s,
-                        %(agentId)s,
+                        %(userId)s,
                         %(clientId)s,
                         %(dateTime)s,
                         %(correlationId)s
@@ -184,7 +184,7 @@ class LogRepository:
         limit: int,
         offset: int,
         client_id: str | None,
-        agent_id: str | None,
+        user_id: str | None,
         action: str | None,
         from_dt,
         to_dt,
@@ -195,9 +195,9 @@ class LogRepository:
         if client_id:
             where.append("client_id = %(clientId)s")
             params["clientId"] = client_id
-        if agent_id:
-            where.append("agent_id = %(agentId)s")
-            params["agentId"] = agent_id
+        if user_id:
+            where.append("user_id = %(userId)s")
+            params["userId"] = user_id
         if action:
             where.append("action = %(action)s")
             params["action"] = action
@@ -233,7 +233,7 @@ class LogRepository:
                     """
                     INSERT INTO communications (
                         client_id,
-                        agent_id,
+                        user_id,
                         channel,
                         to_email,
                         subject,
@@ -249,7 +249,7 @@ class LogRepository:
                     )
                     VALUES (
                         %(clientId)s,
-                        %(agentId)s,
+                        %(userId)s,
                         %(channel)s,
                         %(toEmail)s,
                         %(subject)s,
@@ -410,14 +410,14 @@ class LogRepository:
         limit: int,
         offset: int,
         client_id: str,
-        agent_id: str | None = None,
+        user_id: str | None = None,
     ) -> tuple[list[dict], int]:
-        """List communications for a client and optional agent scope."""
+        """List communications for a client and optional user scope."""
         where_sql = "WHERE client_id = %s"
         params: list[object] = [client_id]
-        if agent_id:
-            where_sql += " AND agent_id = %s"
-            params.append(agent_id)
+        if user_id:
+            where_sql += " AND user_id = %s"
+            params.append(user_id)
 
         with psycopg.connect(self._settings.dsn, row_factory=dict_row) as conn:
             with conn.cursor() as cur:

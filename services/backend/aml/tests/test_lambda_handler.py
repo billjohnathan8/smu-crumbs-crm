@@ -138,9 +138,9 @@ class TestCreateLogEntry:
         after = json.loads(log.after_value)
         assert after["alertType"] == AlertType.STATISTICAL_OUTLIER.value
 
-    def test_log_agent_id_is_system(self, sample_alert):
+    def test_log_user_id_is_system(self, sample_alert):
         log = create_log_entry_for_alert(sample_alert)
-        assert log.agent_id == "SYSTEM_AML"
+        assert log.user_id == "SYSTEM_AML"
 
     def test_log_client_id_matches_alert(self, sample_alert):
         log = create_log_entry_for_alert(sample_alert)

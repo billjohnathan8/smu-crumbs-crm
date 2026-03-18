@@ -211,7 +211,7 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
         return Communication(
             communicationId=encode_prefixed_id("com_", int(row["id"])),
             clientId=row["client_id"],
-            agentId=row["agent_id"],
+            userId=row["user_id"],
             channel=row["channel"],
             toEmail=row["to_email"],
             subject=row["subject"],
@@ -258,20 +258,20 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
         limit: int = 50,
         offset: int = 0,
         clientId: str | None = None,
-        agentId: str | None = None,
+        userId: str | None = None,
         action: str | None = None,
         from_: datetime | None = Query(default=None, alias="from"),
         to: datetime | None = None,
     ):
-        require_roles(user, {"admin", "agent"})
-        effective_agent = agentId
-        if user.role == "agent":
+        require_roles(user, {"admin", "user"})
+        effective_agent = userId
+        if user.role == "user":
             effective_agent = user.user_id
         rows, total = service.list_logs(
             limit=min(max(limit, 1), 200),
             offset=max(offset, 0),
             client_id=clientId,
-            agent_id=effective_agent,
+            user_id=effective_agent,
             action=action,
             from_dt=from_,
             to_dt=to,
@@ -283,7 +283,7 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
                 attributeName=r["attribute_name"],
                 beforeValue=r["before_value"],
                 afterValue=r["after_value"],
-                agentId=r["agent_id"],
+                userId=r["user_id"],
                 clientId=r["client_id"],
                 dateTime=r["date_time"],
                 correlationId=r["correlation_id"],
@@ -304,8 +304,8 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
         user=Depends(get_user),
         service: LogService = Depends(get_log_service),
     ):
-        require_roles(user, {"admin", "agent"})
-        if user.role == "agent" and body.agentId != user.user_id:
+        require_roles(user, {"admin", "user"})
+        if user.role == "user" and body.userId != user.user_id:
             raise ForbiddenError()
         try:
             log_id = service.create_log(body)
@@ -318,7 +318,7 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
                 attributeName=row["attribute_name"],
                 beforeValue=row["before_value"],
                 afterValue=row["after_value"],
-                agentId=row["agent_id"],
+                userId=row["user_id"],
                 clientId=row["client_id"],
                 dateTime=row["date_time"],
                 correlationId=row["correlation_id"],
@@ -344,7 +344,7 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
         user=Depends(get_user),
         service: LogService = Depends(get_log_service),
     ):
-        require_roles(user, {"admin", "agent"})
+        require_roles(user, {"admin", "user"})
         try:
             db_id = decode_prefixed_id("log_", logId)
         except ValueError as exc:
@@ -354,7 +354,7 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
         row = service.get_log(db_id)
         if row is None:
             return _error(request, status.HTTP_404_NOT_FOUND, "not_found", "Not found")
-        if user.role == "agent" and row["agent_id"] != user.user_id:
+        if user.role == "user" and row["user_id"] != user.user_id:
             return _error(request, status.HTTP_404_NOT_FOUND, "not_found", "Not found")
         return LogEntry(
             logId=encode_prefixed_id("log_", int(row["id"])),
@@ -362,7 +362,7 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
             attributeName=row["attribute_name"],
             beforeValue=row["before_value"],
             afterValue=row["after_value"],
-            agentId=row["agent_id"],
+            userId=row["user_id"],
             clientId=row["client_id"],
             dateTime=row["date_time"],
             correlationId=row["correlation_id"],
@@ -392,7 +392,7 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
             attributeName=row["attribute_name"],
             beforeValue=row["before_value"],
             afterValue=row["after_value"],
-            agentId=row["agent_id"],
+            userId=row["user_id"],
             clientId=row["client_id"],
             dateTime=row["date_time"],
             correlationId=row["correlation_id"],
@@ -425,13 +425,13 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
         limit: int = 50,
         offset: int = 0,
     ):
-        require_roles(user, {"admin", "agent"})
+        require_roles(user, {"admin", "user"})
         effective_agent = None if user.role == "admin" else user.user_id
         rows, total = service.list_logs(
             limit=min(max(limit, 1), 200),
             offset=max(offset, 0),
             client_id=clientId,
-            agent_id=effective_agent,
+            user_id=effective_agent,
             action=None,
             from_dt=None,
             to_dt=None,
@@ -443,7 +443,7 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
                 attributeName=r["attribute_name"],
                 beforeValue=r["before_value"],
                 afterValue=r["after_value"],
-                agentId=r["agent_id"],
+                userId=r["user_id"],
                 clientId=r["client_id"],
                 dateTime=r["date_time"],
                 correlationId=r["correlation_id"],
@@ -468,7 +468,7 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
         user=Depends(get_user),
         service: LogService = Depends(get_log_service),
     ):
-        require_roles(user, {"admin", "agent"})
+        require_roles(user, {"admin", "user"})
         try:
             row = service.create_aml_alert(body)
         except ValueError as exc:
@@ -503,7 +503,7 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
         alertType: str | None = None,
         reviewStatus: str | None = None,
     ):
-        require_roles(user, {"admin", "agent"})
+        require_roles(user, {"admin", "user"})
         rows, total = service.list_aml_alerts(
             limit=min(max(limit, 1), 200),
             offset=max(offset, 0),
@@ -525,7 +525,7 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
         user=Depends(get_user),
         service: LogService = Depends(get_log_service),
     ):
-        require_roles(user, {"admin", "agent"})
+        require_roles(user, {"admin", "user"})
         row = service.get_aml_alert(alertId)
         if row is None:
             return _error(request, status.HTTP_404_NOT_FOUND, "not_found", "Not found")
@@ -539,7 +539,7 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
         user=Depends(get_user),
         service: LogService = Depends(get_log_service),
     ):
-        require_roles(user, {"admin", "agent"})
+        require_roles(user, {"admin", "user"})
         row = service.update_aml_alert_review(alertId, body.reviewStatus.value)
         if row is None:
             return _error(request, status.HTTP_404_NOT_FOUND, "not_found", "Not found")
@@ -552,8 +552,8 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
         user=Depends(get_user),
         service: LogService = Depends(get_log_service),
     ):
-        require_roles(user, {"admin", "agent"})
-        if user.role == "agent" and body.agentId != user.user_id:
+        require_roles(user, {"admin", "user"})
+        if user.role == "user" and body.userId != user.user_id:
             raise ForbiddenError()
         communication_id = service.create_communication(body)
         row = service.get_communication(communication_id)
@@ -588,7 +588,7 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
         user=Depends(get_user),
         service: LogService = Depends(get_log_service),
     ):
-        require_roles(user, {"admin", "agent"})
+        require_roles(user, {"admin", "user"})
         try:
             db_id = decode_prefixed_id("com_", communicationId)
         except ValueError as exc:
@@ -598,7 +598,7 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
         row = service.get_communication(db_id)
         if row is None:
             return _error(request, status.HTTP_404_NOT_FOUND, "not_found", "Not found")
-        if user.role == "agent" and row["agent_id"] != user.user_id:
+        if user.role == "user" and row["user_id"] != user.user_id:
             return _error(request, status.HTTP_404_NOT_FOUND, "not_found", "Not found")
         return to_communication(row)
 
@@ -611,13 +611,13 @@ def create_app(log_service: LogService | None = None) -> FastAPI:
         limit: int = 50,
         offset: int = 0,
     ):
-        require_roles(user, {"admin", "agent"})
+        require_roles(user, {"admin", "user"})
         effective_agent = None if user.role == "admin" else user.user_id
         rows, total = service.list_communications(
             limit=min(max(limit, 1), 200),
             offset=max(offset, 0),
             client_id=clientId,
-            agent_id=effective_agent,
+            user_id=effective_agent,
         )
         data = [to_communication(r).model_dump(exclude_none=True) for r in rows]
         return {

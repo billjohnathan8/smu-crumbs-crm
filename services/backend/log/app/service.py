@@ -36,7 +36,7 @@ class LogService:
         limit: int,
         offset: int,
         client_id: str | None,
-        agent_id: str | None,
+        user_id: str | None,
         action: str | None,
         from_dt,
         to_dt,
@@ -46,7 +46,7 @@ class LogService:
             limit=limit,
             offset=offset,
             client_id=client_id,
-            agent_id=agent_id,
+            user_id=user_id,
             action=action,
             from_dt=from_dt,
             to_dt=to_dt,
@@ -121,11 +121,11 @@ class LogService:
         )
 
     def list_communications(
-        self, limit: int, offset: int, client_id: str, agent_id: str | None = None
+        self, limit: int, offset: int, client_id: str, user_id: str | None = None
     ):
-        """List communications for a client, optionally scoped to an agent."""
+        """List communications for a client, optionally scoped to an user."""
         return self._repository.list_communications(
-            limit=limit, offset=offset, client_id=client_id, agent_id=agent_id
+            limit=limit, offset=offset, client_id=client_id, user_id=user_id
         )
 
     def list_queued_communications(self, limit: int) -> list[dict]:

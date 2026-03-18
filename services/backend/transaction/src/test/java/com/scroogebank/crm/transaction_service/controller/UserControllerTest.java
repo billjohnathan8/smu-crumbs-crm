@@ -55,7 +55,7 @@ class UserControllerTest {
 
 	@Test
 	void listTransactions_agentWithoutClientId_returnsOk() throws Exception {
-		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "agent"));
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "user"));
 		mockMvc.perform(get("/api/transactions").header("Authorization", "Bearer x"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data").isArray())
@@ -65,7 +65,7 @@ class UserControllerTest {
 
 	@Test
 	void listTransactions_agentWithClientId_checksOwnershipAndReturnsData() throws Exception {
-		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "agent"));
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "user"));
 		when(transactionsService.list(
 			any(Integer.class),
 			any(Integer.class),
@@ -96,7 +96,7 @@ class UserControllerTest {
 			.andExpect(jsonPath("$.pagination.total").value(1));
 
 		verify(clientAccessValidator).requireClientAccessible(
-			new AuthenticatedUser("usr_1", "agent"),
+			new AuthenticatedUser("usr_1", "user"),
 			"Bearer x",
 			"clt_1"
 		);
@@ -180,7 +180,7 @@ class UserControllerTest {
 
 	@Test
 	void getTransaction_agentWithoutClientAccess_returnsNotFound() throws Exception {
-		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "agent"));
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "user"));
 		when(transactionsService.get("txn_1")).thenReturn(new TransactionDto(
 			"txn_1",
 			"clt_private",

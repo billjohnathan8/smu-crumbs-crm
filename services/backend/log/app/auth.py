@@ -33,8 +33,8 @@ class AuthenticatedUser:
         return self.role == "admin"
 
     def is_agent(self) -> bool:
-        """Return True when the user has agent privileges."""
-        return self.role == "agent"
+        """Return True when the user has user privileges."""
+        return self.role == "user"
 
 
 def _b64url_decode(segment: str) -> bytes:
@@ -202,7 +202,7 @@ def _cognito_role(claims: dict[str, Any]) -> str | None:
     groups = claims.get("cognito:groups")
     if isinstance(groups, list):
         for group in groups:
-            if group in {"admin", "agent"}:
+            if group in {"admin", "user"}:
                 return group
     return None
 
@@ -261,7 +261,7 @@ def require_bearer_user(
 
     if not isinstance(sub, str) or not isinstance(role, str):
         raise UnauthorizedError("invalid_token")
-    if role not in {"admin", "agent"}:
+    if role not in {"admin", "user"}:
         raise UnauthorizedError("invalid_token")
     return AuthenticatedUser(user_id=sub, role=role)
 

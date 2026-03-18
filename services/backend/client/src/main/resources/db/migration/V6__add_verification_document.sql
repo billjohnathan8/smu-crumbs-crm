@@ -1,6 +1,6 @@
 -- V6: Persist document evidence collected during KYC verification.
 -- Stores the document type (e.g. NRIC) and an opaque reference supplied
--- by the agent at verification time so the audit trail is complete.
+-- by the user at verification time so the audit trail is complete.
 
 ALTER TABLE clients
     ADD COLUMN IF NOT EXISTS verification_document_type  VARCHAR(20),

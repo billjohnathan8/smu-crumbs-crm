@@ -30,7 +30,7 @@ def test_postgres_repository_round_trip() -> None:
             "attributeName": "status",
             "beforeValue": None,
             "afterValue": "approved",
-            "agentId": "usr_ci",
+            "userId": "usr_ci",
             "clientId": "clt_ci",
             "dateTime": datetime.now(timezone.utc),
             "correlationId": correlation_id,
@@ -40,5 +40,5 @@ def test_postgres_repository_round_trip() -> None:
     row = repo.get_audit_log(created_id)
     assert row is not None
     assert row["id"] == created_id
-    assert row["agent_id"] == "usr_ci"
+    assert row["user_id"] == "usr_ci"
     assert row["correlation_id"] == correlation_id

@@ -48,7 +48,7 @@ class AccountControllerTest {
 	void setUp() {
 		accountService = mock(AccountService.class);
 		RequestAuth requestAuth = mock(RequestAuth.class);
-		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "agent"));
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "user"));
 
 		mockMvc = MockMvcBuilders.standaloneSetup(new AccountController(accountService, requestAuth))
 			.setControllerAdvice(new ApiExceptionHandler())

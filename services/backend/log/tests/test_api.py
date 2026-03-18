@@ -61,7 +61,7 @@ class FakeLogService:
                 "attribute_name": request.attributeName,
                 "before_value": request.beforeValue,
                 "after_value": request.afterValue,
-                "agent_id": request.agentId,
+                "user_id": request.userId,
                 "client_id": request.clientId,
                 "date_time": request.dateTime or now,
                 "correlation_id": request.correlationId,
@@ -80,7 +80,7 @@ class FakeLogService:
         limit: int,
         offset: int,
         client_id,
-        agent_id,
+        user_id,
         action,
         from_dt,
         to_dt,
@@ -88,8 +88,8 @@ class FakeLogService:
         rows = list(self.logs)
         if client_id:
             rows = [r for r in rows if r["client_id"] == client_id]
-        if agent_id:
-            rows = [r for r in rows if r["agent_id"] == agent_id]
+        if user_id:
+            rows = [r for r in rows if r["user_id"] == user_id]
         if action:
             rows = [r for r in rows if r["action"] == action]
         total = len(rows)
@@ -125,7 +125,7 @@ class FakeLogService:
             {
                 "id": next_id,
                 "client_id": request.clientId,
-                "agent_id": request.agentId,
+                "user_id": request.userId,
                 "channel": request.channel or "email",
                 "to_email": request.toEmail,
                 "subject": request.subject,
@@ -151,11 +151,11 @@ class FakeLogService:
         return None
 
     def list_communications(
-        self, limit: int, offset: int, client_id: str, agent_id: str | None = None
+        self, limit: int, offset: int, client_id: str, user_id: str | None = None
     ):
         rows = [r for r in self.communications if r["client_id"] == client_id]
-        if agent_id:
-            rows = [r for r in rows if r["agent_id"] == agent_id]
+        if user_id:
+            rows = [r for r in rows if r["user_id"] == user_id]
         total = len(rows)
         return rows[offset : offset + limit], total
 
@@ -313,11 +313,11 @@ def test_create_log_as_agent_ok() -> None:
     app = create_app(FakeLogService())
     client = TestClient(app)
 
-    token = mint_token("usr_1", "agent", secret)
+    token = mint_token("usr_1", "user", secret)
     payload = {
         "action": "CREATE",
         "attributeName": "Client ID",
-        "agentId": "usr_1",
+        "userId": "usr_1",
         "clientId": "clt_1",
     }
 
@@ -328,20 +328,20 @@ def test_create_log_as_agent_ok() -> None:
     assert response.status_code == 201
     body = response.json()
     assert body["logId"].startswith("log_")
-    assert body["agentId"] == "usr_1"
+    assert body["userId"] == "usr_1"
 
 
-def test_create_log_agent_mismatched_agent_id_is_forbidden() -> None:
+def test_create_log_agent_mismatched_user_id_is_forbidden() -> None:
     secret = "test-secret"
     os.environ["JWT_HMAC_SECRET"] = secret
     app = create_app(FakeLogService())
     client = TestClient(app)
 
-    token = mint_token("usr_1", "agent", secret)
+    token = mint_token("usr_1", "user", secret)
     payload = {
         "action": "CREATE",
         "attributeName": "Client ID",
-        "agentId": "usr_other",
+        "userId": "usr_other",
         "clientId": "clt_1",
     }
 
@@ -363,7 +363,7 @@ def test_create_log_validation_error_returns_400() -> None:
     payload = {
         "action": "CREATE",
         "attributeName": "Client ID",
-        "agentId": "usr_1",
+        "userId": "usr_1",
         "clientId": "clt_1",
     }
 
@@ -384,7 +384,7 @@ def test_create_log_body_validation_returns_400_error_shape() -> None:
     token = mint_token("usr_admin", "admin", secret)
     payload = {
         "action": "CREATE",
-        "agentId": "usr_1",
+        "userId": "usr_1",
         "clientId": "clt_1",
     }
 
@@ -408,7 +408,7 @@ def test_update_log_admin_only() -> None:
         CreateLogRequest(
             action="CREATE",
             attributeName="Client ID",
-            agentId="usr_1",
+            userId="usr_1",
             clientId="clt_1",
         )
     )
@@ -435,11 +435,11 @@ def test_update_log_agent_forbidden() -> None:
         CreateLogRequest(
             action="CREATE",
             attributeName="Client ID",
-            agentId="usr_1",
+            userId="usr_1",
             clientId="clt_1",
         )
     )
-    token = mint_token("usr_1", "agent", secret)
+    token = mint_token("usr_1", "user", secret)
 
     response = client.put(
         f"/api/logs/log_{log_id}",
@@ -496,7 +496,7 @@ def test_get_log_admin_ok_and_not_found() -> None:
         CreateLogRequest(
             action="CREATE",
             attributeName="Client ID",
-            agentId="usr_1",
+            userId="usr_1",
             clientId="clt_1",
         )
     )
@@ -523,12 +523,12 @@ def test_get_log_agent_cannot_see_other_agents_log() -> None:
         CreateLogRequest(
             action="CREATE",
             attributeName="Client ID",
-            agentId="usr_owner",
+            userId="usr_owner",
             clientId="clt_1",
         )
     )
 
-    token = mint_token("usr_other", "agent", secret)
+    token = mint_token("usr_other", "user", secret)
     response = client.get(
         f"/api/logs/log_{log_id}", headers={"Authorization": f"Bearer {token}"}
     )
@@ -547,7 +547,7 @@ def test_delete_log_admin_not_found_and_success() -> None:
         CreateLogRequest(
             action="CREATE",
             attributeName="Client ID",
-            agentId="usr_1",
+            userId="usr_1",
             clientId="clt_1",
         )
     )
@@ -573,7 +573,7 @@ def test_list_logs_for_agent_forces_agent_scope() -> None:
         CreateLogRequest(
             action="CREATE",
             attributeName="Client ID",
-            agentId="usr_1",
+            userId="usr_1",
             clientId="clt_1",
         )
     )
@@ -581,20 +581,20 @@ def test_list_logs_for_agent_forces_agent_scope() -> None:
         CreateLogRequest(
             action="UPDATE",
             attributeName="Client ID",
-            agentId="usr_other",
+            userId="usr_other",
             clientId="clt_1",
         )
     )
-    token = mint_token("usr_1", "agent", secret)
+    token = mint_token("usr_1", "user", secret)
 
     response = client.get(
-        "/api/logs?agentId=usr_other&clientId=clt_1",
+        "/api/logs?userId=usr_other&clientId=clt_1",
         headers={"Authorization": f"Bearer {token}"},
     )
 
     assert response.status_code == 200
     assert len(response.json()["data"]) == 1
-    assert response.json()["data"][0]["agentId"] == "usr_1"
+    assert response.json()["data"][0]["userId"] == "usr_1"
 
 
 def test_list_logs_for_client_admin_sees_all_agent_scoped() -> None:
@@ -607,7 +607,7 @@ def test_list_logs_for_client_admin_sees_all_agent_scoped() -> None:
         CreateLogRequest(
             action="CREATE",
             attributeName="Client ID",
-            agentId="usr_1",
+            userId="usr_1",
             clientId="clt_1",
         )
     )
@@ -615,7 +615,7 @@ def test_list_logs_for_client_admin_sees_all_agent_scoped() -> None:
         CreateLogRequest(
             action="UPDATE",
             attributeName="Client ID",
-            agentId="usr_other",
+            userId="usr_other",
             clientId="clt_1",
         )
     )
@@ -626,17 +626,17 @@ def test_list_logs_for_client_admin_sees_all_agent_scoped() -> None:
         headers={"Authorization": f"Bearer {admin_token}"},
     )
 
-    agent_token = mint_token("usr_1", "agent", secret)
-    agent_response = client.get(
+    user_token = mint_token("usr_1", "user", secret)
+    user_response = client.get(
         "/api/clients/clt_1/logs",
-        headers={"Authorization": f"Bearer {agent_token}"},
+        headers={"Authorization": f"Bearer {user_token}"},
     )
 
     assert admin_response.status_code == 200
     assert len(admin_response.json()["data"]) == 2
-    assert agent_response.status_code == 200
-    assert len(agent_response.json()["data"]) == 1
-    assert agent_response.json()["data"][0]["agentId"] == "usr_1"
+    assert user_response.status_code == 200
+    assert len(user_response.json()["data"]) == 1
+    assert user_response.json()["data"][0]["userId"] == "usr_1"
 
 
 def test_communications_endpoints_enforce_role_and_scope() -> None:
@@ -645,29 +645,29 @@ def test_communications_endpoints_enforce_role_and_scope() -> None:
     service = FakeLogService()
     app = create_app(service)
     client = TestClient(app)
-    agent_token = mint_token("usr_1", "agent", secret)
+    user_token = mint_token("usr_1", "user", secret)
 
     forbidden = client.post(
         "/api/communications",
         json={
             "clientId": "clt_1",
-            "agentId": "usr_other",
+            "userId": "usr_other",
             "toEmail": "to@example.com",
             "subject": "Hello",
             "body": "Body",
         },
-        headers={"Authorization": f"Bearer {agent_token}"},
+        headers={"Authorization": f"Bearer {user_token}"},
     )
     accepted = client.post(
         "/api/communications",
         json={
             "clientId": "clt_1",
-            "agentId": "usr_1",
+            "userId": "usr_1",
             "toEmail": "to@example.com",
             "subject": "Hello",
             "body": "Body",
         },
-        headers={"Authorization": f"Bearer {agent_token}"},
+        headers={"Authorization": f"Bearer {user_token}"},
     )
 
     assert forbidden.status_code == 403
@@ -676,11 +676,11 @@ def test_communications_endpoints_enforce_role_and_scope() -> None:
 
     get_owned = client.get(
         f"/api/communications/{communication_id}",
-        headers={"Authorization": f"Bearer {agent_token}"},
+        headers={"Authorization": f"Bearer {user_token}"},
     )
     list_owned = client.get(
         "/api/clients/clt_1/communications",
-        headers={"Authorization": f"Bearer {agent_token}"},
+        headers={"Authorization": f"Bearer {user_token}"},
     )
 
     assert get_owned.status_code == 200
@@ -699,7 +699,7 @@ def test_create_communication_returns_500_when_missing_row() -> None:
         "/api/communications",
         json={
             "clientId": "clt_1",
-            "agentId": "usr_1",
+            "userId": "usr_1",
             "toEmail": "to@example.com",
             "subject": "Hello",
             "body": "Body",
@@ -722,7 +722,7 @@ def test_create_communication_invalid_email_returns_400() -> None:
         "/api/communications",
         json={
             "clientId": "clt_1",
-            "agentId": "usr_1",
+            "userId": "usr_1",
             "toEmail": "invalid-email",
             "subject": "Hello",
             "body": "Body",
@@ -768,7 +768,7 @@ def test_list_communications_admin_sees_all_agent_scoped() -> None:
     service.create_communication(
         CreateCommunicationRequest(
             clientId="clt_1",
-            agentId="usr_1",
+            userId="usr_1",
             toEmail="to@example.com",
             subject="Hello",
             body="Body",
@@ -778,7 +778,7 @@ def test_list_communications_admin_sees_all_agent_scoped() -> None:
     service.create_communication(
         CreateCommunicationRequest(
             clientId="clt_1",
-            agentId="usr_other",
+            userId="usr_other",
             toEmail="to@example.com",
             subject="Hello 2",
             body="Body 2",
@@ -792,17 +792,17 @@ def test_list_communications_admin_sees_all_agent_scoped() -> None:
         headers={"Authorization": f"Bearer {admin_token}"},
     )
 
-    agent_token = mint_token("usr_1", "agent", secret)
-    agent_response = client.get(
+    user_token = mint_token("usr_1", "user", secret)
+    user_response = client.get(
         "/api/clients/clt_1/communications",
-        headers={"Authorization": f"Bearer {agent_token}"},
+        headers={"Authorization": f"Bearer {user_token}"},
     )
 
     assert admin_response.status_code == 200
     assert len(admin_response.json()["data"]) == 2
-    assert agent_response.status_code == 200
-    assert len(agent_response.json()["data"]) == 1
-    assert agent_response.json()["data"][0]["agentId"] == "usr_1"
+    assert user_response.status_code == 200
+    assert len(user_response.json()["data"]) == 1
+    assert user_response.json()["data"][0]["userId"] == "usr_1"
 
 
 def test_list_queued_communications_admin_only() -> None:
@@ -812,7 +812,7 @@ def test_list_queued_communications_admin_only() -> None:
     service.create_communication(
         CreateCommunicationRequest(
             clientId="clt_1",
-            agentId="usr_1",
+            userId="usr_1",
             toEmail="to@example.com",
             subject="Hello",
             body="Body",
@@ -823,12 +823,12 @@ def test_list_queued_communications_admin_only() -> None:
     app = create_app(service)
     client = TestClient(app)
 
-    agent_token = mint_token("usr_1", "agent", secret)
+    user_token = mint_token("usr_1", "user", secret)
     admin_token = mint_token("usr_admin", "admin", secret)
 
     forbidden = client.get(
         "/api/communications/queued",
-        headers={"Authorization": f"Bearer {agent_token}"},
+        headers={"Authorization": f"Bearer {user_token}"},
     )
     ok = client.get(
         "/api/communications/queued",
@@ -847,7 +847,7 @@ def test_update_communication_status_by_id_and_provider_message_id() -> None:
     communication_id = service.create_communication(
         CreateCommunicationRequest(
             clientId="clt_1",
-            agentId="usr_1",
+            userId="usr_1",
             toEmail="to@example.com",
             subject="Hello",
             body="Body",
@@ -892,7 +892,7 @@ def test_create_communication_idempotency_key_returns_existing_record() -> None:
 
     payload = {
         "clientId": "clt_1",
-        "agentId": "usr_1",
+        "userId": "usr_1",
         "toEmail": "to@example.com",
         "subject": "Hello",
         "body": "Body",

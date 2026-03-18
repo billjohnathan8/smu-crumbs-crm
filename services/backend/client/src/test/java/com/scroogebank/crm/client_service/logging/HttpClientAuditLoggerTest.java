@@ -28,7 +28,7 @@ class HttpClientAuditLoggerTest {
 				  "action": "CREATE",
 				  "attributeName": "Client",
 				  "afterValue": "after",
-				  "agentId": "usr_1",
+				  "userId": "usr_1",
 				  "clientId": "clt_1",
 				  "correlationId": "req-1"
 				}

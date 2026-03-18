@@ -289,7 +289,7 @@ class LogEntry:
     attribute_name: str
     before_value: str | None
     after_value: str | None
-    agent_id: str
+    user_id: str
     client_id: str
     date_time: datetime
     correlation_id: str | None = None
@@ -517,7 +517,7 @@ class CRMWriteClient:
                 "attributeName": log.attribute_name,
                 "beforeValue": log.before_value,
                 "afterValue": log.after_value,
-                "agentId": log.agent_id,
+                "userId": log.user_id,
                 "clientId": log.client_id,
                 "dateTime": log.date_time.isoformat(),
                 "correlationId": log.correlation_id,
@@ -873,7 +873,7 @@ def create_log_entry_for_alert(alert: AMLAlert) -> LogEntry:
         attribute_name = "AML_ALERT"
         before_value   = None    (nothing existed before)
         after_value    = JSON-serialised alert summary
-        agent_id       = "SYSTEM_AML"  (system-generated)
+        user_id       = "SYSTEM_AML"  (system-generated)
         client_id      = the flagged client
         correlation_id = the alert's own ID for traceability
     """
@@ -890,7 +890,7 @@ def create_log_entry_for_alert(alert: AMLAlert) -> LogEntry:
             },
             default=str,
         ),
-        agent_id="SYSTEM_AML",
+        user_id="SYSTEM_AML",
         client_id=alert.client_id,
         date_time=alert.detected_at,
         correlation_id=alert.alert_id,

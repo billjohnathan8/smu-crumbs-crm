@@ -11,7 +11,7 @@ public record AuthenticatedUser(
 		return "admin".equals(role);
 	}
 
-	public boolean isAgent() {
-		return "agent".equals(role);
+	public boolean isUser() {
+		return "user".equals(role);
 	}
 }

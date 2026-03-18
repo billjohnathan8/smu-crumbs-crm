@@ -83,13 +83,13 @@ Detects two high-risk behavioral patterns:
 
 Every detected alert:
 1. Is written to the CRM as an `AMLAlert` with `review_status = "Pending"`.
-2. Generates a **Feature 3 audit log entry** (`action = CREATE`, `agent_id = "SYSTEM_AML"`) with a `correlation_id` linking back to the alert.
+2. Generates a **Feature 3 audit log entry** (`action = CREATE`, `user_id = "SYSTEM_AML"`) with a `correlation_id` linking back to the alert.
 
 **Role-based access (Feature 1):**
-- **Agents** see only alerts for their own assigned clients.
+- **Users** see only alerts for their own assigned clients.
 - **Admins** have a global view of all flagged activity.
 
-Agents can set `review_status` to `Confirmed` or `Dismissed` after investigation (human-in-the-loop).
+Users can set `review_status` to `Confirmed` or `Dismissed` after investigation (human-in-the-loop).
 
 ---
 
@@ -100,7 +100,7 @@ Agents can set `review_status` to `Confirmed` or `Dismissed` after investigation
 | `Transaction` | ID, client ID, type (D/W), amount, date, status |
 | `Account` | ID, client ID, account type, status, opening date, initial deposit |
 | `AMLAlert` | Alert ID, client ID, transaction ID, alert type, description, timestamp, review status |
-| `LogEntry` | Log ID, action, attribute name, before/after values, agent ID, client ID, timestamp, correlation ID |
+| `LogEntry` | Log ID, action, attribute name, before/after values, user ID, client ID, timestamp, correlation ID |
 
 **Alert types:** `STATISTICAL_OUTLIER`, `STRUCTURING`, `PASSTHROUGH`, `INCEPTION_SPIKE`
 

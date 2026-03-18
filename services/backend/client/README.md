@@ -4,7 +4,7 @@ Client management microservice built with Java 21 and Spring Boot 3.
 
 ## Overview
 
-The Client Service provides CRUD operations for managing clients in the Scroogebank CRM system. It handles client lifecycle management, validates client data, associates clients with agents, and emits audit events to the Log Service.
+The Client Service provides CRUD operations for managing clients in the Scroogebank CRM system. It handles client lifecycle management, validates client data, associates clients with users, and emits audit events to the Log Service.
 
 **Technology Stack:**
 - Java 21

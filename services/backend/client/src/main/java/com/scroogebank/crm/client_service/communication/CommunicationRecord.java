@@ -8,7 +8,7 @@ import java.time.Instant;
 public record CommunicationRecord(
 	String communicationId,
 	String clientId,
-	String agentId,
+	String userId,
 	String channel,
 	String toEmail,
 	String subject,

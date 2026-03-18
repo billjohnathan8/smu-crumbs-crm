@@ -81,7 +81,7 @@ def test_create_log_sets_default_datetime() -> None:
         CreateLogRequest(
             action="CREATE",
             attributeName="field",
-            agentId="usr_1",
+            userId="usr_1",
             clientId="clt_1",
         )
     )
@@ -98,7 +98,7 @@ def test_create_communication_sets_defaults() -> None:
     created_id = service.create_communication(
         CreateCommunicationRequest(
             clientId="clt_1",
-            agentId="usr_1",
+            userId="usr_1",
             toEmail="to@example.com",
             subject="Hello",
             body="Body",

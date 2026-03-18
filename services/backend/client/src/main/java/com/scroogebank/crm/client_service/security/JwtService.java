@@ -153,7 +153,7 @@ public class JwtService {
 	 * Mints a JWT for tests using the configured HMAC secret.
 	 *
 	 * @param userId subject claim
-	 * @param role role claim ("admin" or "agent")
+	 * @param role role claim ("admin" or "user")
 	 * @param expiresAt expiration time
 	 * @return signed JWT string
 	 */
@@ -295,7 +295,7 @@ public class JwtService {
 			if ("ADMIN".equals(normalized)) {
 				hasAdmin = true;
 			}
-			if ("AGENT".equals(normalized)) {
+			if ("USER".equals(normalized)) {
 				hasAgent = true;
 			}
 		}
@@ -303,7 +303,7 @@ public class JwtService {
 			return "admin";
 		}
 		if (hasAgent) {
-			return "agent";
+			return "user";
 		}
 		return null;
 	}
@@ -468,7 +468,7 @@ public class JwtService {
 
 	private static String normalizeRole(String value) {
 		return switch (value) {
-			case "admin", "agent" -> value;
+			case "admin", "user" -> value;
 			default -> null;
 		};
 	}

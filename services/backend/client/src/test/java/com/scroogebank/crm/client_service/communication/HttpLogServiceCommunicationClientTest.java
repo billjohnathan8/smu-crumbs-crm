@@ -25,7 +25,7 @@ class HttpLogServiceCommunicationClientTest {
 			.andExpect(method(HttpMethod.GET))
 			.andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer x"))
 			.andRespond(withSuccess("""
-				{"data":[{"communicationId":"com_1","clientId":"clt_1","agentId":"usr_1","channel":"email","toEmail":"to@example.com","subject":"s","body":"b","status":"queued","retryCount":0,"createdAt":"2026-03-12T05:00:00Z","updatedAt":"2026-03-12T05:00:00Z"}]}
+				{"data":[{"communicationId":"com_1","clientId":"clt_1","userId":"usr_1","channel":"email","toEmail":"to@example.com","subject":"s","body":"b","status":"queued","retryCount":0,"createdAt":"2026-03-12T05:00:00Z","updatedAt":"2026-03-12T05:00:00Z"}]}
 			""", org.springframework.http.MediaType.APPLICATION_JSON));
 
 		HttpLogServiceCommunicationClient client = new HttpLogServiceCommunicationClient(builder.build());
