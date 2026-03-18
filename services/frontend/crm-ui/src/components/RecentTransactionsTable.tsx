@@ -15,10 +15,7 @@ export function RecentTransactionsTable({
     <div className="bg-card border border-border rounded-lg">
       <div className="px-6 py-4 border-b border-border flex items-center justify-between">
         <h2 className="text-lg font-bold text-text">Recent Transactions</h2>
-        <button
-          onClick={onViewAll}
-          className="text-primary hover:underline text-sm"
-        >
+        <button onClick={onViewAll} className="text-primary hover:underline text-sm">
           View all →
         </button>
       </div>

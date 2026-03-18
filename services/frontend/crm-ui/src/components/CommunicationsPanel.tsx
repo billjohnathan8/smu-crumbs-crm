@@ -56,8 +56,7 @@ export function CommunicationsPanel({
   isUpdating = {},
   onUpdateStatus,
 }: CommunicationsPanelProps) {
-  const canCompose =
-    setShowComposeForm && composeData && setComposeData && onSubmit
+  const canCompose = setShowComposeForm && composeData && setComposeData && onSubmit
 
   const toggleCompose = () => {
     if (!setShowComposeForm) return
@@ -206,12 +205,8 @@ export function CommunicationsPanel({
                   <td className="whitespace-nowrap px-6 py-4 font-mono text-sm text-text-muted">
                     {comm.communicationId}
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-text">
-                    {comm.toEmail}
-                  </td>
-                  <td className="max-w-xs truncate px-6 py-4 text-sm text-text">
-                    {comm.subject}
-                  </td>
+                  <td className="whitespace-nowrap px-6 py-4 text-sm text-text">{comm.toEmail}</td>
+                  <td className="max-w-xs truncate px-6 py-4 text-sm text-text">{comm.subject}</td>
                   <td className="whitespace-nowrap px-6 py-4">
                     <select
                       value={statusUpdates?.[comm.communicationId] ?? comm.status}

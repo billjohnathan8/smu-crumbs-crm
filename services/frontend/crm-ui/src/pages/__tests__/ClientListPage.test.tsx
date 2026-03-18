@@ -30,7 +30,7 @@ vi.mock('@/components/ClientTable', () => ({
       {clients.map((client: any) => (
         <div key={client.clientId} data-testid={`client-row-${client.clientId}`}>
           {client.firstName} {client.lastName}
-          <button 
+          <button
             onClick={() => onView(client.clientId)}
             data-testid={`view-btn-${client.clientId}`}
           >
@@ -57,7 +57,7 @@ const mockClientsData = [
 describe('ClientListPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    
+
     // Default mock setup: Logged in as User
     vi.mocked(useAuth).mockReturnValue({
       user: { id: 'user-123', role: 'user', firstName: 'User', lastName: 'Smith' },
@@ -113,7 +113,7 @@ describe('ClientListPage', () => {
       // Spinner disappears, table appears
       expect(screen.queryByTestId('loading-spinner')).not.toBeInTheDocument()
       expect(screen.getByTestId('mock-client-table')).toBeInTheDocument()
-      
+
       // Verify API was called with default pagination
       expect(clientsApi.listClients).toHaveBeenCalledWith({ limit: 20, offset: 0, q: undefined })
     })
@@ -130,7 +130,7 @@ describe('ClientListPage', () => {
     })
 
     await userEvent.click(screen.getByTestId('view-btn-client-1'))
-    
+
     // User navigates to /user/clients/:id
     expect(mockNavigate).toHaveBeenCalledWith('/user/clients/client-1')
   })
@@ -164,7 +164,7 @@ describe('ClientListPage', () => {
 
     // Wait for the clear button to appear
     const clearBtn = await screen.findByRole('button', { name: 'Clear' })
-    
+
     // Click clear
     await user.click(clearBtn)
 
@@ -227,9 +227,7 @@ describe('ClientListPage', () => {
   })
 
   it('should display correct 403 error for User', async () => {
-    vi.mocked(clientsApi.listClients).mockRejectedValue(
-      new ApiError(403, 'forbidden', 'Forbidden')
-    )
+    vi.mocked(clientsApi.listClients).mockRejectedValue(new ApiError(403, 'forbidden', 'Forbidden'))
 
     renderComponent()
 
@@ -244,9 +242,7 @@ describe('ClientListPage', () => {
       logout: mockLogout,
     } as any)
 
-    vi.mocked(clientsApi.listClients).mockRejectedValue(
-      new ApiError(403, 'forbidden', 'Forbidden')
-    )
+    vi.mocked(clientsApi.listClients).mockRejectedValue(new ApiError(403, 'forbidden', 'Forbidden'))
 
     renderComponent()
 

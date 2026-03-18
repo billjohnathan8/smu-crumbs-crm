@@ -43,15 +43,20 @@ export function AdminDashboard() {
       setError('')
 
       try {
-        const [usersResult, clientsResult, logsResult, allClientsResult] =
-          await Promise.allSettled([
+        const [usersResult, clientsResult, logsResult, allClientsResult] = await Promise.allSettled(
+          [
             listUsers({ limit: 1 }),
             listClients({ limit: 1 }),
             listLogs({ limit: 10 }),
             listClients({ limit: 100 }),
-          ])
+          ]
+        )
 
-        if (usersResult.status === 'rejected' && usersResult.reason instanceof ApiError && usersResult.reason.status === 401) {
+        if (
+          usersResult.status === 'rejected' &&
+          usersResult.reason instanceof ApiError &&
+          usersResult.reason.status === 401
+        ) {
           logout()
           return
         }
@@ -59,7 +64,8 @@ export function AdminDashboard() {
         const usersResponse = usersResult.status === 'fulfilled' ? usersResult.value : null
         const clientsResponse = clientsResult.status === 'fulfilled' ? clientsResult.value : null
         const logsResponse = logsResult.status === 'fulfilled' ? logsResult.value : null
-        const allClientsResponse = allClientsResult.status === 'fulfilled' ? allClientsResult.value : null
+        const allClientsResponse =
+          allClientsResult.status === 'fulfilled' ? allClientsResult.value : null
 
         setStats({
           totalAgents: usersResponse?.pagination?.total || 0,

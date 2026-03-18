@@ -37,7 +37,7 @@ export function ForgotPasswordPage() {
 
     setIsLoading(true)
 
-     try {
+    try {
       const response = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -86,9 +86,12 @@ export function ForgotPasswordPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="bg-card border border-border rounded-lg shadow-xl p-8">
-          <h1 className="text-3xl font-bold text-text mb-2 text-center">Get back into your account</h1>
+          <h1 className="text-3xl font-bold text-text mb-2 text-center">
+            Get back into your account
+          </h1>
           <p className="text-text-muted text-center mb-6">
-            To recover your account, enter your email and we'll send you a link to reset your password.
+            To recover your account, enter your email and we'll send you a link to reset your
+            password.
           </p>
 
           {generalError && (

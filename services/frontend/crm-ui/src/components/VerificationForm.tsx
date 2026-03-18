@@ -37,9 +37,7 @@ export function VerificationForm({
             type="text"
             placeholder="e.g. S1234567D"
             value={verifyData.nric}
-            onChange={e =>
-              setVerifyData({ ...verifyData, nric: e.target.value.toUpperCase() })
-            }
+            onChange={e => setVerifyData({ ...verifyData, nric: e.target.value.toUpperCase() })}
             className="w-full px-4 py-2 bg-background-light border border-border rounded-lg text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             disabled={isVerifying}
           />
@@ -49,9 +47,7 @@ export function VerificationForm({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-text mb-1">
-            Document Reference
-          </label>
+          <label className="block text-sm font-medium text-text mb-1">Document Reference</label>
           <input
             type="text"
             placeholder="Optional scan/document reference ID"

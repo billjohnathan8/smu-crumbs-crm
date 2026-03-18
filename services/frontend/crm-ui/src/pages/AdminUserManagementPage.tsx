@@ -43,8 +43,6 @@ export function AdminUserManagementPage() {
   const sidebarNav = canManageUsers ? adminNav : userNav
   const homePath = basePath
 
-
-
   useEffect(() => {
     const fetchUsers = async () => {
       try {

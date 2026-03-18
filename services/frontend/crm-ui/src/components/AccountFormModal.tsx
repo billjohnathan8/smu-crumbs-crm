@@ -1,8 +1,4 @@
-import type {
-  AccountCreateRequest,
-  AccountType,
-  AccountStatus,
-} from '@/api/types'
+import type { AccountCreateRequest, AccountType, AccountStatus } from '@/api/types'
 import type { FormEvent } from 'react'
 
 type ModalMode = 'create' | 'edit' | null
@@ -119,9 +115,7 @@ export function AccountFormModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-text mb-1">
-                  Opening Date
-                </label>
+                <label className="block text-sm font-medium text-text mb-1">Opening Date</label>
                 <input
                   type="date"
                   value={formData.openingDate}

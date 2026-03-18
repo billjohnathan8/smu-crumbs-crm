@@ -79,7 +79,7 @@ export function AmlAlertsPage() {
         setError(
           err.status >= 500
             ? 'AML alerts service is not available in this deployment environment.'
-            : (err.message || 'Failed to load AML alerts')
+            : err.message || 'Failed to load AML alerts'
         )
       } else {
         setError('An unexpected error occurred')

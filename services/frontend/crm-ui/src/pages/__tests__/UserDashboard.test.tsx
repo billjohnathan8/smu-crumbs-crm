@@ -84,7 +84,9 @@ describe('UserDashboard', () => {
 
     await waitFor(() => {
       expect(screen.getByText('15')).toBeInTheDocument()
-      expect(screen.getByRole('heading', { name: /My Recent Activities/i ,level:2},)).toBeInTheDocument()
+      expect(
+        screen.getByRole('heading', { name: /My Recent Activities/i, level: 2 })
+      ).toBeInTheDocument()
     })
   })
 

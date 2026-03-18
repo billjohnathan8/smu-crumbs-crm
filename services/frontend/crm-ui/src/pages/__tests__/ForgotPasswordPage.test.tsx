@@ -36,7 +36,7 @@ describe('ForgotPasswordPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Email is required')).toBeInTheDocument()
     })
-    
+
     // Ensure native fetch was not called
     expect(fetchSpy).not.toHaveBeenCalled()
   })
@@ -78,7 +78,7 @@ describe('ForgotPasswordPage', () => {
 
   it('should successfully submit and show success screen', async () => {
     const user = userEvent.setup()
-    
+
     // Mock successful native fetch resolution
     fetchSpy.mockResolvedValueOnce(new Response(null, { status: 200 }))
 
@@ -113,7 +113,7 @@ describe('ForgotPasswordPage', () => {
 
   it('should show error message when fetch response is not ok (e.g., 400)', async () => {
     const user = userEvent.setup()
-    
+
     // Simulate a 400 Bad Request. In your component, !response.ok throws an Error.
     fetchSpy.mockResolvedValueOnce(new Response(null, { status: 400 }))
 
@@ -132,7 +132,7 @@ describe('ForgotPasswordPage', () => {
 
   it('should show fallback error message on severe network failure', async () => {
     const user = userEvent.setup()
-    
+
     // Simulate a hard network crash where fetch itself rejects
     fetchSpy.mockRejectedValueOnce(new Error('Network Down'))
 

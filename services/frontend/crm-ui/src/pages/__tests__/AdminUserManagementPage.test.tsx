@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
-import {MemoryRouter,Routes,Route,BrowserRouter } from 'react-router-dom'
+import { MemoryRouter, Routes, Route, BrowserRouter } from 'react-router-dom'
 import { AdminUserManagementPage } from '../AdminUserManagementPage'
 import { AuthProvider } from '@/features/auth/AuthContext'
 import * as usersApi from '@/api/users'
@@ -38,10 +38,7 @@ const mockAgentUser: User = {
   status: 'active',
 }
 
-const renderAdminUserManagementPage = (
-  user: User = mockAdminUser, 
-  useStrictRoutes = false 
-) => {
+const renderAdminUserManagementPage = (user: User = mockAdminUser, useStrictRoutes = false) => {
   vi.mocked(authApi.getCurrentUser).mockResolvedValue(user)
   localStorage.setItem('authToken', 'test-token')
   localStorage.setItem('currentUser', JSON.stringify(user))
@@ -85,165 +82,166 @@ describe('AdminUserManagementPage', () => {
     renderAdminUserManagementPage()
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'User Management', level: 1 })).toBeInTheDocument()    })
-      expect(screen.getByText('My Users')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'User Management', level: 1 })).toBeInTheDocument()
     })
+    expect(screen.getByText('My Users')).toBeInTheDocument()
+  })
+})
+
+it('should render user management page for super admin with admins and users', async () => {
+  vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
+    data: [mockAdminUser, mockAgentUser],
+    pagination: { total: 2, limit: 10, offset: 0 },
   })
 
-  it('should render user management page for super admin with admins and users', async () => {
-    vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
-      data: [mockAdminUser, mockAgentUser],
-      pagination: { total: 2, limit: 10, offset: 0 },
-    })
+  renderAdminUserManagementPage(mockSuperAdminUser)
 
-    renderAdminUserManagementPage(mockSuperAdminUser)
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'User Management', level: 1 })).toBeInTheDocument()
+    expect(screen.getByText('Admins')).toBeInTheDocument()
+    expect(screen.getByText('My Users')).toBeInTheDocument()
+  })
+})
 
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'User Management', level: 1 })).toBeInTheDocument()    
-      expect(screen.getByText('Admins')).toBeInTheDocument()
-      expect(screen.getByText('My Users')).toBeInTheDocument()
-    })
+it('should display users in table', async () => {
+  vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
+    data: [mockAgentUser],
+    pagination: { total: 1, limit: 10, offset: 0 },
   })
 
-  it('should display users in table', async () => {
-    vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
-      data: [mockAgentUser],
-      pagination: { total: 1, limit: 10, offset: 0 },
-    })
+  renderAdminUserManagementPage()
 
-    renderAdminUserManagementPage()
+  await waitFor(() => {
+    expect(screen.getByText('User')).toBeInTheDocument()
+    expect(screen.getByText('User')).toBeInTheDocument()
+    expect(screen.getByText('user@example.com')).toBeInTheDocument()
+    expect(screen.getByText('user')).toBeInTheDocument()
+  })
+})
 
-    await waitFor(() => {
-      expect(screen.getByText('User')).toBeInTheDocument()
-      expect(screen.getByText('User')).toBeInTheDocument()
-      expect(screen.getByText('user@example.com')).toBeInTheDocument()
-      expect(screen.getByText('user')).toBeInTheDocument()
-    })
+it('should display admins in table for super admin', async () => {
+  vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
+    data: [mockAdminUser, mockAgentUser],
+    pagination: { total: 2, limit: 10, offset: 0 },
   })
 
-  it('should display admins in table for super admin', async () => {
-    vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
-      data: [mockAdminUser, mockAgentUser],
-      pagination: { total: 2, limit: 10, offset: 0 },
-    })
+  renderAdminUserManagementPage(mockSuperAdminUser)
 
-    renderAdminUserManagementPage(mockSuperAdminUser)
+  await waitFor(() => {
+    expect(screen.getByText('Admin')).toBeInTheDocument()
+    expect(screen.getByText('admin@example.com')).toBeInTheDocument()
+    expect(screen.getByText('admin')).toBeInTheDocument()
+  })
+})
 
-    await waitFor(() => {
-      expect(screen.getByText('Admin')).toBeInTheDocument()
-      expect(screen.getByText('admin@example.com')).toBeInTheDocument()
-      expect(screen.getByText('admin')).toBeInTheDocument()
-    })
+it('should handle delete user', async () => {
+  const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+  vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
+    data: [mockAgentUser],
+    pagination: { total: 1, limit: 10, offset: 0 },
+  })
+  vi.spyOn(usersApi, 'deleteUser').mockResolvedValue()
+
+  renderAdminUserManagementPage()
+
+  await waitFor(() => {
+    expect(screen.getByText('Delete')).toBeInTheDocument()
   })
 
-  it('should handle delete user', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
-    vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
-      data: [mockAgentUser],
-      pagination: { total: 1, limit: 10, offset: 0 },
-    })
-    vi.spyOn(usersApi, 'deleteUser').mockResolvedValue()
+  fireEvent.click(screen.getByText('Delete'))
 
-    renderAdminUserManagementPage()
-
-    await waitFor(() => {
-      expect(screen.getByText('Delete')).toBeInTheDocument()
-    })
-
-    fireEvent.click(screen.getByText('Delete'))
-
-    await waitFor(() => {
-      expect(usersApi.deleteUser).toHaveBeenCalledWith('user-123')
-    })
-
-    confirmSpy.mockRestore()
+  await waitFor(() => {
+    expect(usersApi.deleteUser).toHaveBeenCalledWith('user-123')
   })
 
-  it('should handle delete admin for super admin', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
-    vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
-      data: [mockAdminUser, mockAgentUser],
-      pagination: { total: 2, limit: 10, offset: 0 },
-    })
-    vi.spyOn(usersApi, 'deleteUser').mockResolvedValue()
+  confirmSpy.mockRestore()
+})
 
-    renderAdminUserManagementPage(mockSuperAdminUser)
+it('should handle delete admin for super admin', async () => {
+  const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+  vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
+    data: [mockAdminUser, mockAgentUser],
+    pagination: { total: 2, limit: 10, offset: 0 },
+  })
+  vi.spyOn(usersApi, 'deleteUser').mockResolvedValue()
 
-    await waitFor(() => {
-      const deleteButtons = screen.getAllByText('Delete')
-      expect(deleteButtons).toHaveLength(2) // One for admin, one for user
-    })
+  renderAdminUserManagementPage(mockSuperAdminUser)
 
+  await waitFor(() => {
     const deleteButtons = screen.getAllByText('Delete')
-    fireEvent.click(deleteButtons[0]) // Delete admin
-
-    await waitFor(() => {
-      expect(usersApi.deleteUser).toHaveBeenCalledWith('admin-123')
-    })
-
-    confirmSpy.mockRestore()
+    expect(deleteButtons).toHaveLength(2) // One for admin, one for user
   })
 
-  it('should prevent admin from deleting other admins', async () => {
-    const anotherAdmin: User = {
-      id: 'admin-456',
-      firstName: 'Another',
-      lastName: 'Admin',
-      email: 'another@example.com',
-      role: 'admin',
-      status: 'active',
-    }
+  const deleteButtons = screen.getAllByText('Delete')
+  fireEvent.click(deleteButtons[0]) // Delete admin
 
-    vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
-      data: [anotherAdmin],
-      pagination: { total: 1, limit: 10, offset: 0 },
-    })
-
-    renderAdminUserManagementPage()
-
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'User Management', level: 1 })).toBeInTheDocument()    
-
-      // Should not show admins section for regular admin
-      expect(screen.queryByText('Admins')).not.toBeInTheDocument()
-    })
+  await waitFor(() => {
+    expect(usersApi.deleteUser).toHaveBeenCalledWith('admin-123')
   })
 
-  it('should handle API error', async () => {
-    vi.spyOn(usersApi, 'listUsers').mockRejectedValue(new ApiError(500, 'Failed to load users', 'Failed to load users'))
+  confirmSpy.mockRestore()
+})
 
-    renderAdminUserManagementPage()
+it('should prevent admin from deleting other admins', async () => {
+  const anotherAdmin: User = {
+    id: 'admin-456',
+    firstName: 'Another',
+    lastName: 'Admin',
+    email: 'another@example.com',
+    role: 'admin',
+    status: 'active',
+  }
 
-    await waitFor(() => {
-      expect(screen.getByText('Failed to load users')).toBeInTheDocument()
-    })
+  vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
+    data: [anotherAdmin],
+    pagination: { total: 1, limit: 10, offset: 0 },
   })
 
-  it('should show loading state', async () => {
-    vi.spyOn(usersApi, 'listUsers').mockImplementation(() => new Promise(() => {})) // Never resolves
+  renderAdminUserManagementPage()
 
-    renderAdminUserManagementPage()
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'User Management', level: 1 })).toBeInTheDocument()
 
-    await waitFor(() => {
-      expect(screen.getByText('Loading users...')).toBeInTheDocument()
-    })  
+    // Should not show admins section for regular admin
+    expect(screen.queryByText('Admins')).not.toBeInTheDocument()
   })
+})
 
-  it('should redirect unauthorized users', async () => {
-    const normalUser: User = {
-      id: 'user-123',
-      firstName: 'User',
-      lastName: 'User',
-      email: 'user@example.com',
-      role: 'user',
-      status: 'active',
-    }
-    //uses strict routes
-    renderAdminUserManagementPage(normalUser,true)
+it('should handle API error', async () => {
+  vi.spyOn(usersApi, 'listUsers').mockRejectedValue(
+    new ApiError(500, 'Failed to load users', 'Failed to load users')
+  )
 
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Mock Unauthorized Page' })).toBeInTheDocument()
-    })  
+  renderAdminUserManagementPage()
 
+  await waitFor(() => {
+    expect(screen.getByText('Failed to load users')).toBeInTheDocument()
   })
+})
 
+it('should show loading state', async () => {
+  vi.spyOn(usersApi, 'listUsers').mockImplementation(() => new Promise(() => {})) // Never resolves
+
+  renderAdminUserManagementPage()
+
+  await waitFor(() => {
+    expect(screen.getByText('Loading users...')).toBeInTheDocument()
+  })
+})
+
+it('should redirect unauthorized users', async () => {
+  const normalUser: User = {
+    id: 'user-123',
+    firstName: 'User',
+    lastName: 'User',
+    email: 'user@example.com',
+    role: 'user',
+    status: 'active',
+  }
+  //uses strict routes
+  renderAdminUserManagementPage(normalUser, true)
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Mock Unauthorized Page' })).toBeInTheDocument()
+  })
+})

@@ -79,7 +79,7 @@ describe('AmlAlertsPage', () => {
       user: { id: 'user-1', role: 'user' },
       logout: mockLogout,
     } as any)
-    
+
     renderComponent()
     const userLink = screen.getAllByRole('link', { name: 'Dashboard' })[1] // Get the newly rendered one
     expect(userLink).toHaveAttribute('href', '/user')
@@ -164,7 +164,7 @@ describe('AmlAlertsPage', () => {
 
   it('should update review status successfully', async () => {
     const user = userEvent.setup()
-    
+
     // Mock the update API call
     vi.mocked(amlApi.updateAmlAlertReview).mockResolvedValue({
       ...mockAlerts[0],
@@ -189,7 +189,7 @@ describe('AmlAlertsPage', () => {
       expect(amlApi.updateAmlAlertReview).toHaveBeenCalledWith('alert-1', {
         reviewStatus: 'Confirmed',
       })
-      
+
       // The button temporarily changes to "Saving..." then back to "Save" when done
       expect(screen.getAllByRole('button', { name: 'Save' })[0]).toBeInTheDocument()
     })
@@ -215,9 +215,7 @@ describe('AmlAlertsPage', () => {
     await user.click(nextBtn)
 
     await waitFor(() => {
-      expect(amlApi.listAmlAlerts).toHaveBeenCalledWith(
-        expect.objectContaining({ offset: 20 })
-      )
+      expect(amlApi.listAmlAlerts).toHaveBeenCalledWith(expect.objectContaining({ offset: 20 }))
       expect(screen.getByText(/Page 2 of 3/i)).toBeInTheDocument()
     })
 
@@ -227,9 +225,7 @@ describe('AmlAlertsPage', () => {
     await user.click(prevBtn)
 
     await waitFor(() => {
-      expect(amlApi.listAmlAlerts).toHaveBeenCalledWith(
-        expect.objectContaining({ offset: 0 })
-      )
+      expect(amlApi.listAmlAlerts).toHaveBeenCalledWith(expect.objectContaining({ offset: 0 }))
     })
   })
 

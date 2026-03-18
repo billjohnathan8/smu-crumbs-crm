@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import {MemoryRouter,Routes, Route, BrowserRouter } from 'react-router-dom'
+import { MemoryRouter, Routes, Route, BrowserRouter } from 'react-router-dom'
 import { CreateNewUserPage } from '../CreateNewUserPage'
 import { AuthProvider } from '@/features/auth/AuthContext'
 import * as usersApi from '@/api/users'
@@ -30,10 +30,7 @@ const mockSuperAdminUser: User = {
   status: 'active',
 }
 
-
-
 const renderCreateNewUserPage = (user: User = mockAdminUser, useStrictRoutes: boolean = false) => {
-
   localStorage.setItem('authToken', 'test-token')
   localStorage.setItem('currentUser', JSON.stringify(user))
   if (useStrictRoutes) {
@@ -48,7 +45,6 @@ const renderCreateNewUserPage = (user: User = mockAdminUser, useStrictRoutes: bo
       </MemoryRouter>
     )
   }
-
 
   return render(
     <BrowserRouter>
@@ -212,7 +208,9 @@ describe('CreateNewUserPage', () => {
 
   it('should handle duplicate email error', async () => {
     const user = userEvent.setup()
-    vi.spyOn(usersApi, 'createUser').mockRejectedValue(new ApiError(409,'User already exists','User already exists'))
+    vi.spyOn(usersApi, 'createUser').mockRejectedValue(
+      new ApiError(409, 'User already exists', 'User already exists')
+    )
 
     renderCreateNewUserPage()
 
@@ -235,7 +233,9 @@ describe('CreateNewUserPage', () => {
   it('should handle unauthorized error', async () => {
     const user = userEvent.setup()
     const mockLogout = vi.fn()
-    vi.spyOn(usersApi, 'createUser').mockRejectedValue(new ApiError(401,'Unauthorized','Unauthorized'))
+    vi.spyOn(usersApi, 'createUser').mockRejectedValue(
+      new ApiError(401, 'Unauthorized', 'Unauthorized')
+    )
 
     // Mock logout in useAuth
     vi.doMock('@/features/auth/AuthContext', () => ({

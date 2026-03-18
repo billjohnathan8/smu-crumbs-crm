@@ -200,13 +200,12 @@ describe('ClientDetailPage', () => {
     renderComponent()
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /Communications/i ,level:2},)).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /Communications/i, level: 2 })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /Compose Email/i })).toBeInTheDocument()
     })
   })
 
   it('should show compose email form when Compose Email is clicked', async () => {
-    
     renderComponent()
     const user = userEvent.setup()
 

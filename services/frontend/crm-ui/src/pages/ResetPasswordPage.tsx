@@ -20,9 +20,8 @@ export function ResetPasswordPage() {
   const [isSuccess, setIsSuccess] = useState(false)
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<
-      Record<'token' | keyof Omit<ResetPasswordRequest, 'token'>, string>
-    > = {}
+    const newErrors: Partial<Record<'token' | keyof Omit<ResetPasswordRequest, 'token'>, string>> =
+      {}
 
     if (!token.trim()) {
       newErrors.token = 'Reset link is invalid or missing token'
@@ -85,7 +84,9 @@ export function ResetPasswordPage() {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           <div className="bg-card border border-border rounded-lg shadow-xl p-8">
-            <h1 className="text-3xl font-bold text-text mb-2 text-center">Password Reset Successful</h1>
+            <h1 className="text-3xl font-bold text-text mb-2 text-center">
+              Password Reset Successful
+            </h1>
             <p className="text-text-muted text-center mb-6">
               Your password has been successfully reset. You can now log in with your new password.
             </p>
@@ -107,9 +108,7 @@ export function ResetPasswordPage() {
       <div className="w-full max-w-md">
         <div className="bg-card border border-border rounded-lg shadow-xl p-8">
           <h1 className="text-3xl font-bold text-text mb-2 text-center">Reset Password</h1>
-          <p className="text-text-muted text-center mb-6">
-            Enter your new password below.
-          </p>
+          <p className="text-text-muted text-center mb-6">Enter your new password below.</p>
 
           {generalError && (
             <div className="bg-danger/10 border border-danger rounded-lg p-4 mb-6">

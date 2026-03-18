@@ -79,7 +79,7 @@ export function AdminCommunications() {
         setError(
           err.status >= 500
             ? 'Communications service is not available in this deployment environment.'
-            : (err.message || 'Failed to load communications')
+            : err.message || 'Failed to load communications'
         )
       } else {
         setError(err instanceof ApiError ? err.message : 'Failed to load communications')

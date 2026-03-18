@@ -64,7 +64,7 @@ describe('AdminCommunications', () => {
     renderPage()
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /Communications/i ,level:1},)).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /Communications/i, level: 1 })).toBeInTheDocument()
     })
   })
 
