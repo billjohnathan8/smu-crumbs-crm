@@ -9,10 +9,10 @@
 
 import { test, expect, type Page } from "@playwright/test";
 
-async function setAuthState(page: Page, role: "admin" | "agent"): Promise<void> {
+async function setAuthState(page: Page, role: "admin" | "user"): Promise<void> {
   const mockUser = {
     id: `${role}-1`,
-    firstName: role === "admin" ? "Admin" : "Agent",
+    firstName: role === "admin" ? "Admin" : "User",
     lastName: "User",
     email: `${role}@example.com`,
     role,
@@ -27,7 +27,7 @@ async function setAuthState(page: Page, role: "admin" | "agent"): Promise<void> 
   await page.route("**/api/**", async (route) => {
     const url = route.request().url();
 
-    if (url.includes("/api/agents/me")) {
+    if (url.includes("/api/users/me")) {
       return route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -35,7 +35,7 @@ async function setAuthState(page: Page, role: "admin" | "agent"): Promise<void> 
       });
     }
 
-    if (url.includes("/api/agents") && route.request().method() === "GET") {
+    if (url.includes("/api/users") && route.request().method() === "GET") {
       return route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -113,11 +113,11 @@ test.describe("Protected Route Access (Integration)", () => {
     });
   });
 
-  test("should redirect unauthenticated user to login when accessing /agent", async ({
+  test("should redirect unauthenticated user to login when accessing /user", async ({
     page,
   }) => {
-    await test.step("Navigate to /agent without authentication", async () => {
-      await page.goto("/agent");
+    await test.step("Navigate to /user without authentication", async () => {
+      await page.goto("/user");
     });
 
     await test.step("Verify redirect to /login", async () => {
@@ -137,11 +137,11 @@ test.describe("Protected Route Access (Integration)", () => {
     });
   });
 
-  test("should redirect unauthenticated user to login when accessing /agent/clients/new", async ({
+  test("should redirect unauthenticated user to login when accessing /user/clients/new", async ({
     page,
   }) => {
-    await test.step("Navigate to /agent/clients/new without authentication", async () => {
-      await page.goto("/agent/clients/new");
+    await test.step("Navigate to /user/clients/new without authentication", async () => {
+      await page.goto("/user/clients/new");
     });
 
     await test.step("Verify redirect to /login", async () => {
@@ -149,7 +149,7 @@ test.describe("Protected Route Access (Integration)", () => {
     });
   });
 
-  test("should show Access Denied when admin tries to access agent routes", async ({
+  test("should show Access Denied when admin tries to access user routes", async ({
     page,
   }) => {
     await test.step("Set up admin authentication", async () => {
@@ -157,8 +157,8 @@ test.describe("Protected Route Access (Integration)", () => {
       await setAuthState(page, "admin");
     });
 
-    await test.step("Navigate to /agent (agent-only route)", async () => {
-      await page.goto("/agent");
+    await test.step("Navigate to /user (user-only route)", async () => {
+      await page.goto("/user");
       await page.waitForLoadState("domcontentloaded");
     });
 
@@ -178,7 +178,7 @@ test.describe("Protected Route Access (Integration)", () => {
     });
   });
 
-  test("should show Access Denied when admin tries to access /agent/clients/new", async ({
+  test("should show Access Denied when admin tries to access /user/clients/new", async ({
     page,
   }) => {
     await test.step("Set up admin authentication", async () => {
@@ -186,8 +186,8 @@ test.describe("Protected Route Access (Integration)", () => {
       await setAuthState(page, "admin");
     });
 
-    await test.step("Navigate to /agent/clients/new (agent-only route)", async () => {
-      await page.goto("/agent/clients/new");
+    await test.step("Navigate to /user/clients/new (user-only route)", async () => {
+      await page.goto("/user/clients/new");
       await page.waitForLoadState("domcontentloaded");
     });
 
@@ -198,12 +198,12 @@ test.describe("Protected Route Access (Integration)", () => {
     });
   });
 
-  test("should show Access Denied when agent tries to access admin routes", async ({
+  test("should show Access Denied when user tries to access admin routes", async ({
     page,
   }) => {
-    await test.step("Set up agent authentication", async () => {
+    await test.step("Set up user authentication", async () => {
       await page.goto("/login");
-      await setAuthState(page, "agent");
+      await setAuthState(page, "user");
     });
 
     await test.step("Navigate to /admin (admin-only route)", async () => {
@@ -221,12 +221,12 @@ test.describe("Protected Route Access (Integration)", () => {
     });
   });
 
-  test("should show Access Denied when agent tries to access /admin/accounts", async ({
+  test("should show Access Denied when user tries to access /admin/accounts", async ({
     page,
   }) => {
-    await test.step("Set up agent authentication", async () => {
+    await test.step("Set up user authentication", async () => {
       await page.goto("/login");
-      await setAuthState(page, "agent");
+      await setAuthState(page, "user");
     });
 
     await test.step("Navigate to /admin/accounts (admin-only route)", async () => {
@@ -261,19 +261,19 @@ test.describe("Protected Route Access (Integration)", () => {
     });
   });
 
-  test("should allow agent to access agent routes", async ({ page }) => {
-    await test.step("Set up agent authentication", async () => {
+  test("should allow user to access user routes", async ({ page }) => {
+    await test.step("Set up user authentication", async () => {
       await page.goto("/login");
-      await setAuthState(page, "agent");
+      await setAuthState(page, "user");
     });
 
-    await test.step("Navigate to /agent", async () => {
-      await page.goto("/agent");
+    await test.step("Navigate to /user", async () => {
+      await page.goto("/user");
       await page.waitForLoadState("domcontentloaded");
     });
 
-    await test.step("Verify agent dashboard is shown", async () => {
-      await expect(page.getByText("Agent Dashboard")).toBeVisible({
+    await test.step("Verify user dashboard is shown", async () => {
+      await expect(page.getByText("User Dashboard")).toBeVisible({
         timeout: 5000,
       });
       // Should NOT see Access Denied

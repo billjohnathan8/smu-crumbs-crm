@@ -6,16 +6,16 @@
  * 
  * Prerequisites:
  * - Backend service running and connected to localstack
- * - Database with test agent account
- * - Agent & admin user credentials configured
+ * - Database with test user account
+ * - User & admin user credentials configured
  * 
  * Run with: npm run e2e:integration:real
  */
 
 import { test, expect } from "@playwright/test";
 
-const AGENT_EMAIL = (process.env.E2E_AGENT_EMAIL ?? "agent@crm.local").trim();
-const AGENT_PASSWORD = (process.env.E2E_AGENT_PASSWORD ?? "AgentPass123!").trim();
+const USER_EMAIL = (process.env.E2E_USER_EMAIL ?? "user@crm.local").trim();
+const USER_PASSWORD = (process.env.E2E_USER_PASSWORD ?? "UserPass123!").trim();
 const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.local").trim();
 const ADMIN_PASSWORD = (process.env.E2E_ADMIN_PASSWORD ?? "admin123").trim();
 
@@ -39,7 +39,7 @@ test.describe("API Error Handling (Integration)", () => {
       await page.waitForLoadState("domcontentloaded");
 
       // Try with wrong password
-      await page.fill('[data-testid="email-input"]', AGENT_EMAIL);
+      await page.fill('[data-testid="email-input"]', USER_EMAIL);
       await page.fill('[data-testid="password-input"]', "wrongpassword123");
       await page.click('[data-testid="login-submit-button"]');
     });
@@ -59,30 +59,30 @@ test.describe("API Error Handling (Integration)", () => {
     });
   });
 
-  test("should handle permission errors when agent tries unauthorized actions", async ({
+  test("should handle permission errors when user tries unauthorized actions", async ({
     page,
   }) => {
-    await test.step("Login as agent user", async () => {
+    await test.step("Login as user", async () => {
       await page.goto("/login");
       await page.waitForLoadState("domcontentloaded");
 
-      await page.fill('[data-testid="email-input"]', AGENT_EMAIL);
-      await page.fill('[data-testid="password-input"]', AGENT_PASSWORD);
+      await page.fill('[data-testid="email-input"]', USER_EMAIL);
+      await page.fill('[data-testid="password-input"]', USER_PASSWORD);
       await page.click('[data-testid="login-submit-button"]');
 
       // Wait for successful login
-      await expect(page).toHaveURL(/\/agent/, { timeout: 10000 });
+      await expect(page).toHaveURL(/\/user/, { timeout: 10000 });
     });
 
-    await test.step("Verify agent cannot access admin dashboArd", async () => {
+    await test.step("Verify user cannot access admin dashboArd", async () => {
       // Try to navigate to admin page directly
       await page.goto("/admin");
 
-      // Should either redirect back to agent dashboard OR show access denied
+      // Should either redirect back to user dashboard OR show access denied
       // Wait a bit for any redirects to happen
       await page.waitForTimeout(1000);
 
-      const isRedirectedToAgent = page.url().includes("/agent");
+      const isRedirectedToAgent = page.url().includes("/user");
       const hasAccessDenied = await page
         .locator("text=/access denied|forbidden|not authorized/i")
         .first()
@@ -97,15 +97,15 @@ test.describe("API Error Handling (Integration)", () => {
   test("should handle validation errors when submitting invalid data", async ({
     page,
   }) => {
-    await test.step("Login as agent", async () => {
+    await test.step("Login as user", async () => {
       await page.goto("/login");
       await page.waitForLoadState("domcontentloaded");
 
-      await page.fill('[data-testid="email-input"]', AGENT_EMAIL);
-      await page.fill('[data-testid="password-input"]', AGENT_PASSWORD);
+      await page.fill('[data-testid="email-input"]', USER_EMAIL);
+      await page.fill('[data-testid="password-input"]', USER_PASSWORD);
       await page.click('[data-testid="login-submit-button"]');
 
-      await expect(page).toHaveURL(/\/agent/, { timeout: 10000 });
+      await expect(page).toHaveURL(/\/user/, { timeout: 10000 });
     });
 
     await test.step("Navigate to create client", async () => {
@@ -118,7 +118,7 @@ test.describe("API Error Handling (Integration)", () => {
         await page.waitForLoadState("domcontentloaded");
       } else {
         // Alternative: navigate directly
-        await page.goto("/agent/clients/new");
+        await page.goto("/user/clients/new");
       }
     });
 
@@ -147,15 +147,15 @@ test.describe("API Error Handling (Integration)", () => {
   });
 
   test("should handle invalid email format", async ({ page }) => {
-    await test.step("Login as agent", async () => {
+    await test.step("Login as user", async () => {
       await page.goto("/login");
       await page.waitForLoadState("domcontentloaded");
 
-      await page.fill('[data-testid="email-input"]', AGENT_EMAIL);
-      await page.fill('[data-testid="password-input"]', AGENT_PASSWORD);
+      await page.fill('[data-testid="email-input"]', USER_EMAIL);
+      await page.fill('[data-testid="password-input"]', USER_PASSWORD);
       await page.click('[data-testid="login-submit-button"]');
 
-      await expect(page).toHaveURL(/\/agent/, { timeout: 10000 });
+      await expect(page).toHaveURL(/\/user/, { timeout: 10000 });
     });
 
     await test.step("Navigate to create client", async () => {
@@ -164,7 +164,7 @@ test.describe("API Error Handling (Integration)", () => {
         await createClientLink.click();
         await page.waitForLoadState("domcontentloaded");
       } else {
-        await page.goto("/agent/clients/new");
+        await page.goto("/user/clients/new");
       }
     });
 
@@ -203,8 +203,8 @@ test.describe("API Error Handling (Integration)", () => {
       await context.setOffline(true);
 
       // Try to submit login form
-      await page.fill('[data-testid="email-input"]', AGENT_EMAIL);
-      await page.fill('[data-testid="password-input"]', AGENT_PASSWORD);
+      await page.fill('[data-testid="email-input"]', USER_EMAIL);
+      await page.fill('[data-testid="password-input"]', USER_PASSWORD);
       await page.click('[data-testid="login-submit-button"]');
 
       // Wait for error response
@@ -262,7 +262,7 @@ test.describe("API Error Handling (Integration)", () => {
       // 2. Loading spinner
       // 3. Empty state with "no data" message
       const hasContent = await page
-        .locator("text=/accounts|agents|users|loading|no/i")
+        .locator("text=/accounts|users|users|loading|no/i")
         .first()
         .isVisible()
         .catch(() => false);
@@ -272,19 +272,19 @@ test.describe("API Error Handling (Integration)", () => {
   });
 
   test("should properly display server error messages", async ({ page }) => {
-    await test.step("Login as agent", async () => {
+    await test.step("Login as user", async () => {
       await page.goto("/login");
       await page.waitForLoadState("domcontentloaded");
 
-      await page.fill('[data-testid="email-input"]', AGENT_EMAIL);
-      await page.fill('[data-testid="password-input"]', AGENT_PASSWORD);
+      await page.fill('[data-testid="email-input"]', USER_EMAIL);
+      await page.fill('[data-testid="password-input"]', USER_PASSWORD);
       await page.click('[data-testid="login-submit-button"]');
 
-      await expect(page).toHaveURL(/\/agent/, { timeout: 10000 });
+      await expect(page).toHaveURL(/\/user/, { timeout: 10000 });
     });
 
     await test.step("Navigate to page with data loading", async () => {
-      await page.goto("/agent/transactions");
+      await page.goto("/user/transactions");
       await page.waitForLoadState("domcontentloaded");
     });
 
@@ -319,7 +319,7 @@ test.describe("API Error Handling (Integration)", () => {
       await expect(page).toHaveURL(/\/admin/, { timeout: 10000 });
     });
 
-    await test.step("Try to create agent with existing email", async () => {
+    await test.step("Try to create user with existing email", async () => {
       await page.goto("/admin/accounts");
       await page.waitForLoadState("domcontentloaded");
 

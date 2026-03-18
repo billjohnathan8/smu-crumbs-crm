@@ -6,7 +6,7 @@ Full-stack Playwright tests for the Scroogebank CRM platform.
 
 These tests validate the live stack end-to-end:
 - Frontend UI (React)
-- Backend services (`agent`, `client`, `transaction`)
+- Backend services (`user`, `client`, `transaction`)
 - Log API contract served through LocalStack API Gateway -> Lambda (no dedicated log container)
 - PostgreSQL and LocalStack infrastructure
 
@@ -68,7 +68,7 @@ npm run report
 ## Runtime Endpoints (CI/Script Topology)
 
 - Integration gateway (Playwright base URL): `http://127.0.0.1:18088`
-- Agent service: `http://127.0.0.1:18081`
+- User service: `http://127.0.0.1:18081`
 - Client service: `http://127.0.0.1:18082`
 - Transaction service: `http://127.0.0.1:18083`
 - Frontend container: `http://127.0.0.1:18085`
@@ -80,9 +80,9 @@ Routing note:
 ## Test Credentials
 
 - Admin: `admin@crm.local` / `admin123`
-- Agent: `agent@crm.local` / `AgentPass123!`
+- User: `user@crm.local` / `UserPass123!`
 
-The agent account is created during the fullstack script warm-up step.
+The user account is created during the fullstack script warm-up step.
 
 ## CI Integration
 

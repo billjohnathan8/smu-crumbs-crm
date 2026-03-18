@@ -71,7 +71,7 @@ test.describe("Admin Flow (Integration)", () => {
     await expect(page).toHaveURL(/\/admin$/, { timeout: 10000 });
 
     // Wait for stats to load from real backend (may take time)
-    await expect(page.getByText("Total Agents")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Total Users")).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("Total Clients")).toBeVisible();
     await expect(page.getByText("Recent Activity")).toBeVisible();
   });

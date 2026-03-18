@@ -8,7 +8,7 @@ import {
 
 const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.local").trim();
 const ADMIN_PASSWORD = (process.env.E2E_ADMIN_PASSWORD ?? "admin123").trim();
-const AGENT_PASSWORD = (process.env.E2E_AGENT_PASSWORD ?? "AgentPass123!").trim();
+const USER_PASSWORD = (process.env.E2E_USER_PASSWORD ?? "UserPass123!").trim();
 
 function uniqueSuffix(): string {
   return `${Date.now()}-${Math.floor(Math.random() * 100_000)}`;
@@ -51,31 +51,31 @@ async function loginAsAdmin(request: APIRequestContext, baseURL: string): Promis
   return payload.accessToken;
 }
 
-async function createAgentUser(
+async function createUser(
   request: APIRequestContext,
   baseURL: string,
   adminToken: string,
 ): Promise<{ email: string; password: string; id: string }> {
-  const email = `it-agent-${uniqueSuffix()}@example.com`;
-  const createResponse = await request.post(`${baseURL}/api/agents`, {
+  const email = `it-user-${uniqueSuffix()}@example.com`;
+  const createResponse = await request.post(`${baseURL}/api/users`, {
     headers: {
       Authorization: `Bearer ${adminToken}`,
     },
     data: {
       firstName: "Integration",
-      lastName: "Agent",
+      lastName: "User",
       email,
-      role: "agent",
+      role: "user",
       sendInviteEmail: false,
-      temporaryPassword: AGENT_PASSWORD,
+      temporaryPassword: USER_PASSWORD,
     },
   });
   const payload = (await expectOkJson(
     createResponse,
-    "create agent user API request",
+    "create user API request",
   )) as { id: string };
   expect(payload.id).toMatch(/^usr_/);
-  return { email, password: AGENT_PASSWORD, id: payload.id };
+  return { email, password: USER_PASSWORD, id: payload.id };
 }
 
 async function waitForClientByEmail(
@@ -141,7 +141,7 @@ test.describe("Real Fullstack Integration", () => {
     await expect(page.getByRole("heading", { name: "User Accounts" })).toBeVisible();
   });
 
-  test("agent can create client and exercise cross-service APIs without mocks", async ({
+  test("user can create client and exercise cross-service APIs without mocks", async ({
     baseURL,
     page,
     request,
@@ -149,13 +149,13 @@ test.describe("Real Fullstack Integration", () => {
     const normalizedBaseURL = normalizeBaseURL(baseURL);
 
     const adminToken = await loginAsAdmin(request, normalizedBaseURL);
-    const agentUser = await createAgentUser(request, normalizedBaseURL, adminToken);
+    const normalUser = await createUser(request, normalizedBaseURL, adminToken);
 
-    await loginViaUi(page, agentUser.email, agentUser.password, "/agent");
-    await expect(page.getByRole("heading", { name: "Agent Dashboard" })).toBeVisible();
+    await loginViaUi(page, normalUser.email, normalUser.password, "/user");
+    await expect(page.getByRole("heading", { name: "User Dashboard" })).toBeVisible();
 
     await page.locator("main").getByRole("link", { name: "Create Client" }).first().click();
-    await expect(page).toHaveURL(/\/agent\/clients\/new$/);
+    await expect(page).toHaveURL(/\/user\/clients\/new$/);
 
     const clientEmail = `integration-client-${uniqueSuffix()}@example.com`;
     const clientPhone = `+1555${Math.floor(Math.random() * 9_000_000 + 1_000_000)}`;
@@ -173,8 +173,8 @@ test.describe("Real Fullstack Integration", () => {
     await page.fill('input[name="postalCode"]', "62704");
     await page.getByRole("button", { name: "Create Client" }).click();
 
-    await expect(page).toHaveURL(/\/agent$/);
-    await expect(page.getByRole("heading", { name: "Agent Dashboard" })).toBeVisible();
+    await expect(page).toHaveURL(/\/user$/);
+    await expect(page.getByRole("heading", { name: "User Dashboard" })).toBeVisible();
 
     const authToken = await page.evaluate(() => window.localStorage.getItem("authToken"));
     expect(authToken).toBeTruthy();
@@ -223,7 +223,7 @@ test.describe("Real Fullstack Integration", () => {
     expect(txPayload.pagination).toBeTruthy();
 
     await page.getByRole("link", { name: "View Transactions" }).click();
-    await expect(page).toHaveURL(/\/agent\/transactions$/);
+    await expect(page).toHaveURL(/\/user\/transactions$/);
     await expect(page.getByRole("heading", { name: "Transactions" })).toBeVisible();
   });
 });
