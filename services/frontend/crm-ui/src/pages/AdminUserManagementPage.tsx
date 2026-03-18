@@ -136,6 +136,7 @@ export function AdminUserManagementPage() {
 
           <div className="flex items-center space-x-4">
             <button
+              data-testid="create-new-user-button"
               onClick={() => navigate('/admin/users/new')}
               className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white font-medium transition-colors"
             >
