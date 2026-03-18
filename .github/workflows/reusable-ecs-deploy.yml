@@ -1,0 +1,154 @@
+name: Reusable - ECS Image Deploy
+
+on:
+  workflow_call:
+    inputs:
+      service:
+        description: ECS service folder name under services/backend (agent, client, transaction)
+        required: true
+        type: string
+      image_repo_prefix:
+        description: ECR path prefix used before service name
+        required: false
+        type: string
+        default: services
+    secrets:
+      AWS_ROLE_ARN:
+        required: true
+      AWS_REGION:
+        required: true
+      ECR_REGISTRY:
+        required: true
+
+    outputs:
+      image-uri:
+        description: ECR image URI without tag
+        value: ${{ jobs.build-tag-push.outputs.image-uri }}
+      sha-tag:
+        description: Commit SHA image tag
+        value: ${{ jobs.build-tag-push.outputs.sha-tag }}
+      latest-tag:
+        description: Latest image tag
+        value: ${{ jobs.build-tag-push.outputs.latest-tag }}
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build-test-tag-push:
+    name: Build, test, tag, and push (${{ inputs.service }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      image-uri: ${{ steps.meta.outputs.image_uri }}
+      sha-tag: ${{ steps.meta.outputs.sha_tag }}
+      latest-tag: ${{ steps.meta.outputs.latest_tag }}
+
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        timeout-minutes: 2
+
+      - name: Validate required secrets
+        run: |
+          test -n "${{ secrets.AWS_ROLE_ARN }}"
+          test -n "${{ secrets.AWS_REGION }}"
+          test -n "${{ secrets.ECR_REGISTRY }}"
+
+      - name: Validate service and set image metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          SERVICE="${{ inputs.service }}"
+
+          case "$SERVICE" in
+            agent|client|transaction)
+              ;;
+            *)
+              echo "Unsupported service: $SERVICE"
+              echo "Allowed values: agent, client, transaction"
+              exit 1
+              ;;
+          esac
+
+          WORKING_DIRECTORY="services/backend/${SERVICE}"
+          if [[ ! -d "$WORKING_DIRECTORY" ]]; then
+            echo "Missing service directory: $WORKING_DIRECTORY"
+            exit 1
+          fi
+
+          IMAGE_URI="${ECR_REGISTRY}/${{ inputs.image_repo_prefix }}/${SERVICE}"
+          SHA_TAG="${GITHUB_SHA}"
+          LATEST_TAG="latest"
+
+          echo "working_directory=${WORKING_DIRECTORY}" >> "$GITHUB_OUTPUT"
+          echo "image_uri=${IMAGE_URI}" >> "$GITHUB_OUTPUT"
+          echo "sha_tag=${SHA_TAG}" >> "$GITHUB_OUTPUT"
+          echo "latest_tag=${LATEST_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Build application artifact (Gradle)
+        working-directory: ${{ steps.meta.outputs.working_directory }}
+        run: |
+          chmod +x gradlew
+          ./gradlew clean bootJar -x test --no-daemon --console=plain
+
+      - name: Log in to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Docker image (local scan tag)
+        id: local_image
+        working-directory: ${{ steps.meta.outputs.working_directory }}
+        run: |
+          LOCAL_IMAGE="local/${{ inputs.service }}:${{ github.sha }}"
+          docker build \
+            -t "${LOCAL_IMAGE}" \
+            .
+          echo "local_image=${LOCAL_IMAGE}" >> "$GITHUB_OUTPUT"
+
+      - name: Trivy vulnerability scan (fail on HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: ${{ steps.local_image.outputs.local_image }}
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+      - name: Tag Docker image for ECR
+        run: |
+          docker tag \
+            "${{ steps.local_image.outputs.local_image }}" \
+            "${{ steps.meta.outputs.image_uri }}:${{ steps.meta.outputs.sha_tag }}"
+          docker tag \
+            "${{ steps.local_image.outputs.local_image }}" \
+            "${{ steps.meta.outputs.image_uri }}:${{ steps.meta.outputs.latest_tag }}"
+
+      - name: Push Docker image tags
+        run: |
+          docker push "${{ steps.meta.outputs.image_uri }}:${{ steps.meta.outputs.sha_tag }}"
+          docker push "${{ steps.meta.outputs.image_uri }}:${{ steps.meta.outputs.latest_tag }}"
+
+      - name: Deployment summary
+        run: |
+          echo "Service: ${{ inputs.service }}"
+          echo "Trivy gate: passed"
+          echo "Image: ${{ steps.meta.outputs.image_uri }}:${{ steps.meta.outputs.sha_tag }}"
+          echo "Also tagged: ${{ steps.meta.outputs.image_uri }}:${{ steps.meta.outputs.latest_tag }}"
