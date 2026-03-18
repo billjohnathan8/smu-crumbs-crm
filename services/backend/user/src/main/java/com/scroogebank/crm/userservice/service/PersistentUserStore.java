@@ -279,7 +279,7 @@ public class PersistentUserStore implements UserStore {
 	}
 
 	private void seedRootAdminIfMissing() {
-		if (userRepository.count() > 0) {
+		if (userRepository.findByEmail(normalizeEmail(rootEmail)).isPresent()) {
 			return;
 		}
 
