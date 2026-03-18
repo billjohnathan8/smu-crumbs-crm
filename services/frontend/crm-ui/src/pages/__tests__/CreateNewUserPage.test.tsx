@@ -38,10 +38,10 @@ const renderCreateNewUserPage = (user: User = mockAdminUser, useStrictRoutes: bo
   localStorage.setItem('currentUser', JSON.stringify(user))
   if (useStrictRoutes) {
     return render(
-      <MemoryRouter initialEntries={['/admin/createnewuser']}>
+      <MemoryRouter initialEntries={['/admin/users/new']}>
         <AuthProvider>
           <Routes>
-            <Route path="/admin/createnewuser" element={<CreateNewUserPage />} />
+            <Route path="/admin/users/new" element={<CreateNewUserPage />} />
             <Route path="/unauthorized" element={<h1>Mock Unauthorized Page</h1>} />
           </Routes>
         </AuthProvider>

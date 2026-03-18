@@ -21,7 +21,7 @@ const adminNav: NavItem[] = [
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
-  { label: 'User Management', to: '/admin/adminusermanagement' },
+  { label: 'User Management', to: '/admin/users' },
 ]
 
 export function CreateNewUserPage() {
@@ -33,7 +33,7 @@ export function CreateNewUserPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const isAdmin = user?.role === 'admin'
-  const isRootAdmin = user?.role === 'super_admin' || String(user?.id) === '1'
+  const isRootAdmin = user?.role === 'super_admin' || String(user?.id) === '0'
   const isAgent = user?.role === 'agent'
 
   const canManageUsers = isAdmin || isRootAdmin
@@ -41,7 +41,7 @@ export function CreateNewUserPage() {
   const basePath = canManageUsers ? '/admin' : '/agent'
   const sidebarNav = canManageUsers ? adminNav : agentNav
   const homePath = basePath
-  const listPath = canManageUsers ? '/admin/adminusermanagement' : '/agent'
+  const listPath = canManageUsers ? '/admin/users' : '/agent'
   const breadcrumbLabel = canManageUsers ? 'Manage Users' : 'Dashboard'
 
   const allowedRoles: UserRole[] = isRootAdmin ? ['agent', 'admin'] : ['agent']

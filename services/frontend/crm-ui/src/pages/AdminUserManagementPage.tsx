@@ -21,7 +21,7 @@ const adminNav: NavItem[] = [
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
-  { label: 'User Management', to: '/admin/adminusermanagement' },
+  { label: 'User Management', to: '/admin/users' },
 ]
 
 export function AdminUserManagementPage() {
@@ -34,7 +34,7 @@ export function AdminUserManagementPage() {
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null)
 
   const isAdmin = user?.role === 'admin'
-  const isRootAdmin = user?.role === 'super_admin' || String(user?.id) === '1'
+  const isRootAdmin = user?.role === 'super_admin' || String(user?.id) === '0'
   const isAgent = user?.role === 'agent'
 
   const canManageUsers = isAdmin || isRootAdmin
@@ -42,8 +42,6 @@ export function AdminUserManagementPage() {
   const basePath = canManageUsers ? '/admin' : '/agent'
   const sidebarNav = canManageUsers ? adminNav : agentNav
   const homePath = basePath
-
-
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -138,7 +136,7 @@ export function AdminUserManagementPage() {
 
           <div className="flex items-center space-x-4">
             <button
-              onClick={() => navigate('/admin/createnewuserpage')}
+              onClick={() => navigate('/admin/users/new')}
               className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white font-medium transition-colors"
             >
               Create New User

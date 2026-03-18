@@ -22,7 +22,7 @@ const adminNav: NavItem[] = [
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
-  { label: 'User Management', to: '/admin/adminusermanagement' },
+  { label: 'User Management', to: '/admin/users' },
 ]
 
 const ITEMS_PER_PAGE = 20
