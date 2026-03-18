@@ -58,7 +58,11 @@ export function AdminDashboard() {
             logout()
             return
           }
-          setError(reason instanceof ApiError ? reason.message || 'Failed to load dashboard data' : 'Failed to load dashboard data')
+          setError(
+            reason instanceof ApiError
+              ? reason.message || 'Failed to load dashboard data'
+              : 'Failed to load dashboard data'
+          )
         }
 
         const usersResponse = usersResult.status === 'fulfilled' ? usersResult.value : null
