@@ -71,11 +71,11 @@ repos:
   # --- Java: Checkstyle (all services) ---
   - repo: local
     hooks:
-      - id: java-checkstyle-agent
-        name: Checkstyle (Agent)
-        entry: cmd /c "cd services\backend\agent && gradlew.bat checkstyleMain checkstyleTest --no-daemon --console=plain"
+      - id: java-checkstyle-user
+        name: Checkstyle (User)
+        entry: cmd /c "cd services\backend\user && gradlew.bat checkstyleMain checkstyleTest --no-daemon --console=plain"
         language: system
-        files: ^services/backend/agent/src/.*\.java$
+        files: ^services/backend/user/src/.*\.java$
         pass_filenames: false
         stages: [pre-push]
 

@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
-      agent-backend: ${{ steps.filter.outputs.agent-backend }}
+      user-backend: ${{ steps.filter.outputs.user-backend }}
       aml-backend: ${{ steps.filter.outputs.aml-backend }}
       client-backend: ${{ steps.filter.outputs.client-backend }}
       log-backend: ${{ steps.filter.outputs.log-backend }}
@@ -42,8 +42,8 @@ jobs:
           filters: |
             frontend:
               - 'services/frontend/**'
-            agent-backend:
-              - 'services/backend/agent/**'
+            user-backend:
+              - 'services/backend/user/**'
             aml-backend:
               - 'services/backend/aml/**'
             client-backend:
@@ -60,7 +60,7 @@ jobs:
               - 'platform/**'
 
   # Conditional CI jobs based on changed services
-  # Stateful backend component workflows (agent/client/transaction/log) include
+  # Stateful backend component workflows (user/client/transaction/log) include
   # both fast unit tests and a separate DB-backed Postgres gate.
   ci-frontend:
     name: CI - Frontend
@@ -68,11 +68,11 @@ jobs:
     if: needs.detect-changes.outputs.frontend == 'true'
     uses: ./.github/workflows/ci-frontend.yml
 
-  ci-agent-backend:
-    name: CI - Agent Backend
+  ci-user-backend:
+    name: CI - User Backend
     needs: [detect-changes]
-    if: needs.detect-changes.outputs.agent-backend == 'true'
-    uses: ./.github/workflows/ci-agent-backend.yml
+    if: needs.detect-changes.outputs.user-backend == 'true'
+    uses: ./.github/workflows/ci-user-backend.yml
 
   ci-aml-backend:
     name: CI - AML Backend
@@ -137,7 +137,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - ci-frontend
-      - ci-agent-backend
+      - ci-user-backend
       - ci-aml-backend
       - ci-client-backend
       - ci-log-backend

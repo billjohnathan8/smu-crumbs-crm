@@ -15,7 +15,7 @@ on:
       services:
         description: Space-separated list of ECS service names to redeploy
         type: string
-        default: agent client transaction log
+        default: user client transaction log
     secrets:
       AWS_ROLE_ARN:
         required: true
@@ -55,12 +55,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push — agent
+      - name: Build and push — user
         uses: docker/build-push-action@v5
         with:
-          context: services/backend/agent
+          context: services/backend/user
           push: true
-          tags: ${{ secrets.ECR_REGISTRY }}/crm-agent:${{ github.sha }},${{ secrets.ECR_REGISTRY }}/crm-agent:latest
+          tags: ${{ secrets.ECR_REGISTRY }}/crm-user:${{ github.sha }},${{ secrets.ECR_REGISTRY }}/crm-user:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -91,11 +91,11 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Force ECS rolling deployment — agent
+      - name: Force ECS rolling deployment — user
         run: |
           aws ecs update-service \
             --cluster ${{ secrets.ECS_CLUSTER }} \
-            --service crm-agent \
+            --service crm-user \
             --force-new-deployment \
             --region ${{ secrets.AWS_REGION }}
 
@@ -117,7 +117,7 @@ jobs:
 
       - name: Wait for ECS services to stabilise
         run: |
-          for svc in crm-agent crm-client crm-transaction; do
+          for svc in crm-user crm-client crm-transaction; do
             echo "Waiting for $svc..."
             aws ecs wait services-stable \
               --cluster ${{ secrets.ECS_CLUSTER }} \

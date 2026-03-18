@@ -18,7 +18,7 @@ permissions:
 env:
   E2E_ADMIN_EMAIL: admin@crm.local
   E2E_ADMIN_PASSWORD: admin123
-  E2E_AGENT_PASSWORD: AgentPass123!
+  E2E_USER_PASSWORD: UserPass123!
   PLAYWRIGHT_BASE_URL: http://127.0.0.1:18088
 
 jobs:

@@ -32,26 +32,26 @@ jobs:
     uses: ./.github/workflows/reusable-changes.yml
 
   # DB-backed Postgres coverage for stateful services before fullstack.
-  db-test-agent:
+  db-test-user:
     if: >-
       ${{ !failure() && !cancelled() &&
-          (needs.changes.outputs.backend-agent == 'true' ||
+          (needs.changes.outputs.backend-user == 'true' ||
            needs.changes.outputs.ci-config == 'true') }}
     needs:
       - actionlint
       - changes
     uses: ./.github/workflows/reusable-test-component-db.yml
     with:
-      component: agent
+      component: user
       runtime: java
-      working-directory: services/backend/agent
+      working-directory: services/backend/user
       test-command: |
         chmod +x gradlew
         ./gradlew test \
-          --tests "com.scroogebank.crm.agentservice.service.PersistentUserStoreTest" \
+          --tests "com.scroogebank.crm.userservice.service.PersistentUserStoreTest" \
           --no-daemon --console=plain
       timeout-minutes: 12
-      artifact-paths: services/backend/agent/build/reports/**
+      artifact-paths: services/backend/user/build/reports/**
 
   db-test-client:
     if: >-
@@ -127,7 +127,7 @@ jobs:
     needs:
       - actionlint
       - changes
-      - db-test-agent
+      - db-test-user
       - db-test-client
       - db-test-transaction
       - db-test-log

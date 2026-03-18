@@ -11,8 +11,8 @@ name: CI - Main Pipeline
 #      v
 #    lint    (3-5 min, only scopes that changed)
 #      |
-#      +---> test-agent            \
-#      +---> test-agent-db          |
+#      +---> test-user            \
+#      +---> test-user-db          |
 #      +---> test-client            |
 #      +---> test-client-db         |  parallel component checks, each gated by scope
 #      +---> test-transaction       |
@@ -92,39 +92,39 @@ jobs:
   # Includes fast unit tests and separate DB-backed Postgres gates for
   # stateful services.
   # ==========================================================================
-  test-agent:
+  test-user:
     needs: [changes, lint]
     if: >-
-      ${{ needs.changes.outputs.backend-agent == 'true'
+      ${{ needs.changes.outputs.backend-user == 'true'
           || needs.changes.outputs.ci-config == 'true' }}
     uses: ./.github/workflows/reusable-test-component.yml
     with:
-      component: agent
+      component: user
       runtime: java
-      working-directory: services/backend/agent
+      working-directory: services/backend/user
       test-command: |
         chmod +x gradlew
         ./gradlew test jacocoTestReport --no-daemon --console=plain
       timeout-minutes: 10
-      artifact-paths: services/backend/agent/build/reports/**
+      artifact-paths: services/backend/user/build/reports/**
 
-  test-agent-db:
+  test-user-db:
     needs: [changes, lint]
     if: >-
-      ${{ needs.changes.outputs.backend-agent == 'true'
+      ${{ needs.changes.outputs.backend-user == 'true'
           || needs.changes.outputs.ci-config == 'true' }}
     uses: ./.github/workflows/reusable-test-component-db.yml
     with:
-      component: agent
+      component: user
       runtime: java
-      working-directory: services/backend/agent
+      working-directory: services/backend/user
       test-command: |
         chmod +x gradlew
         ./gradlew test \
-          --tests "com.scroogebank.crm.agentservice.service.PersistentUserStoreTest" \
+          --tests "com.scroogebank.crm.userservice.service.PersistentUserStoreTest" \
           --no-daemon --console=plain
       timeout-minutes: 12
-      artifact-paths: services/backend/agent/build/reports/**
+      artifact-paths: services/backend/user/build/reports/**
 
   test-client:
     needs: [changes, lint]
@@ -307,8 +307,8 @@ jobs:
     needs:
       - changes
       - lint
-      - test-agent
-      - test-agent-db
+      - test-user
+      - test-user-db
       - test-client
       - test-client-db
       - test-transaction

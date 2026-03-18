@@ -47,7 +47,7 @@ env:
   GRADLE_USER_HOME: ${{ github.workspace }}/.gradle-user-home
 
 jobs:
-  # ---- Java Checkstyle (agent, client, transaction) ----
+  # ---- Java Checkstyle (user, client, transaction) ----
   java-checkstyle:
     name: Checkstyle (Java)
     if: inputs.run-backend-java
@@ -56,7 +56,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        service: [agent, client, transaction]
+        service: [user, client, transaction]
     defaults:
       run:
         working-directory: services/backend/${{ matrix.service }}

@@ -1,18 +1,18 @@
-name: CI - Agent Backend
+name: CI - User Backend
 
-# Component pipeline for the agent-backend trunk.
+# Component pipeline for the user-backend trunk.
 # Runs Java checkstyle + fast unit tests + DB-backed persistence tests.
 
 on:
   pull_request:
     branches:
-      - agent-backend
+      - user-backend
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
   push:
     branches:
-      - agent-backend
+      - user-backend
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
@@ -20,7 +20,7 @@ on:
   workflow_call:
 
 concurrency:
-  group: ci-agent-backend-${{ github.ref }}
+  group: ci-user-backend-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -38,27 +38,27 @@ jobs:
     needs: lint
     uses: ./.github/workflows/reusable-test-component.yml
     with:
-      component: agent
+      component: user
       runtime: java
-      working-directory: services/backend/agent
+      working-directory: services/backend/user
       test-command: |
         chmod +x gradlew
         ./gradlew test jacocoTestReport --no-daemon --console=plain
       timeout-minutes: 10
-      artifact-paths: services/backend/agent/build/reports/**
+      artifact-paths: services/backend/user/build/reports/**
 
   # DB-backed persistence coverage against ephemeral PostgreSQL.
   test-db:
     needs: lint
     uses: ./.github/workflows/reusable-test-component-db.yml
     with:
-      component: agent
+      component: user
       runtime: java
-      working-directory: services/backend/agent
+      working-directory: services/backend/user
       test-command: |
         chmod +x gradlew
         ./gradlew test \
-          --tests "com.scroogebank.crm.agentservice.service.PersistentUserStoreTest" \
+          --tests "com.scroogebank.crm.userservice.service.PersistentUserStoreTest" \
           --no-daemon --console=plain
       timeout-minutes: 12
-      artifact-paths: services/backend/agent/build/reports/**
+      artifact-paths: services/backend/user/build/reports/**

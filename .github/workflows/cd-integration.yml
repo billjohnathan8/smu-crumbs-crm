@@ -35,8 +35,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - service: agent
-            working-directory: services/backend/agent
+          - service: user
+            working-directory: services/backend/user
           - service: client
             working-directory: services/backend/client
           - service: transaction
@@ -49,7 +49,7 @@ jobs:
     steps:
       - name: Checkout code
         if: >-
-          (matrix.service == 'agent' && (needs.changes.outputs.backend-agent == 'true' || needs.changes.outputs.ci-config == 'true')) ||
+          (matrix.service == 'user' && (needs.changes.outputs.backend-user == 'true' || needs.changes.outputs.ci-config == 'true')) ||
           (matrix.service == 'client' && (needs.changes.outputs.backend-client == 'true' || needs.changes.outputs.ci-config == 'true')) ||
           (matrix.service == 'transaction' && (needs.changes.outputs.backend-transaction == 'true' || needs.changes.outputs.ci-config == 'true'))
         uses: actions/checkout@v4
@@ -57,7 +57,7 @@ jobs:
 
       - name: Validate required secrets
         if: >-
-          (matrix.service == 'agent' && (needs.changes.outputs.backend-agent == 'true' || needs.changes.outputs.ci-config == 'true')) ||
+          (matrix.service == 'user' && (needs.changes.outputs.backend-user == 'true' || needs.changes.outputs.ci-config == 'true')) ||
           (matrix.service == 'client' && (needs.changes.outputs.backend-client == 'true' || needs.changes.outputs.ci-config == 'true')) ||
           (matrix.service == 'transaction' && (needs.changes.outputs.backend-transaction == 'true' || needs.changes.outputs.ci-config == 'true'))
         run: |
@@ -67,7 +67,7 @@ jobs:
 
       - name: Configure AWS credentials (OIDC)
         if: >-
-          (matrix.service == 'agent' && (needs.changes.outputs.backend-agent == 'true' || needs.changes.outputs.ci-config == 'true')) ||
+          (matrix.service == 'user' && (needs.changes.outputs.backend-user == 'true' || needs.changes.outputs.ci-config == 'true')) ||
           (matrix.service == 'client' && (needs.changes.outputs.backend-client == 'true' || needs.changes.outputs.ci-config == 'true')) ||
           (matrix.service == 'transaction' && (needs.changes.outputs.backend-transaction == 'true' || needs.changes.outputs.ci-config == 'true'))
         uses: aws-actions/configure-aws-credentials@v4
@@ -77,14 +77,14 @@ jobs:
 
       - name: Log in to Amazon ECR
         if: >-
-          (matrix.service == 'agent' && (needs.changes.outputs.backend-agent == 'true' || needs.changes.outputs.ci-config == 'true')) ||
+          (matrix.service == 'user' && (needs.changes.outputs.backend-user == 'true' || needs.changes.outputs.ci-config == 'true')) ||
           (matrix.service == 'client' && (needs.changes.outputs.backend-client == 'true' || needs.changes.outputs.ci-config == 'true')) ||
           (matrix.service == 'transaction' && (needs.changes.outputs.backend-transaction == 'true' || needs.changes.outputs.ci-config == 'true'))
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Set up Java 21
         if: >-
-          (matrix.service == 'agent' && (needs.changes.outputs.backend-agent == 'true' || needs.changes.outputs.ci-config == 'true')) ||
+          (matrix.service == 'user' && (needs.changes.outputs.backend-user == 'true' || needs.changes.outputs.ci-config == 'true')) ||
           (matrix.service == 'client' && (needs.changes.outputs.backend-client == 'true' || needs.changes.outputs.ci-config == 'true')) ||
           (matrix.service == 'transaction' && (needs.changes.outputs.backend-transaction == 'true' || needs.changes.outputs.ci-config == 'true'))
         uses: actions/setup-java@v4
@@ -94,7 +94,7 @@ jobs:
 
       - name: Build application artifact
         if: >-
-          (matrix.service == 'agent' && (needs.changes.outputs.backend-agent == 'true' || needs.changes.outputs.ci-config == 'true')) ||
+          (matrix.service == 'user' && (needs.changes.outputs.backend-user == 'true' || needs.changes.outputs.ci-config == 'true')) ||
           (matrix.service == 'client' && (needs.changes.outputs.backend-client == 'true' || needs.changes.outputs.ci-config == 'true')) ||
           (matrix.service == 'transaction' && (needs.changes.outputs.backend-transaction == 'true' || needs.changes.outputs.ci-config == 'true'))
         working-directory: ${{ matrix.working-directory }}
@@ -104,7 +104,7 @@ jobs:
 
       - name: Set image metadata
         if: >-
-          (matrix.service == 'agent' && (needs.changes.outputs.backend-agent == 'true' || needs.changes.outputs.ci-config == 'true')) ||
+          (matrix.service == 'user' && (needs.changes.outputs.backend-user == 'true' || needs.changes.outputs.ci-config == 'true')) ||
           (matrix.service == 'client' && (needs.changes.outputs.backend-client == 'true' || needs.changes.outputs.ci-config == 'true')) ||
           (matrix.service == 'transaction' && (needs.changes.outputs.backend-transaction == 'true' || needs.changes.outputs.ci-config == 'true'))
         id: image
@@ -115,7 +115,7 @@ jobs:
 
       - name: Build Docker image
         if: >-
-          (matrix.service == 'agent' && (needs.changes.outputs.backend-agent == 'true' || needs.changes.outputs.ci-config == 'true')) ||
+          (matrix.service == 'user' && (needs.changes.outputs.backend-user == 'true' || needs.changes.outputs.ci-config == 'true')) ||
           (matrix.service == 'client' && (needs.changes.outputs.backend-client == 'true' || needs.changes.outputs.ci-config == 'true')) ||
           (matrix.service == 'transaction' && (needs.changes.outputs.backend-transaction == 'true' || needs.changes.outputs.ci-config == 'true'))
         working-directory: ${{ matrix.working-directory }}
@@ -127,7 +127,7 @@ jobs:
 
       - name: Trivy vulnerability scan (fail on HIGH/CRITICAL)
         if: >-
-          (matrix.service == 'agent' && (needs.changes.outputs.backend-agent == 'true' || needs.changes.outputs.ci-config == 'true')) ||
+          (matrix.service == 'user' && (needs.changes.outputs.backend-user == 'true' || needs.changes.outputs.ci-config == 'true')) ||
           (matrix.service == 'client' && (needs.changes.outputs.backend-client == 'true' || needs.changes.outputs.ci-config == 'true')) ||
           (matrix.service == 'transaction' && (needs.changes.outputs.backend-transaction == 'true' || needs.changes.outputs.ci-config == 'true'))
         uses: aquasecurity/trivy-action@0.24.0
@@ -140,7 +140,7 @@ jobs:
 
       - name: Push Docker image to ECR
         if: >-
-          (matrix.service == 'agent' && (needs.changes.outputs.backend-agent == 'true' || needs.changes.outputs.ci-config == 'true')) ||
+          (matrix.service == 'user' && (needs.changes.outputs.backend-user == 'true' || needs.changes.outputs.ci-config == 'true')) ||
           (matrix.service == 'client' && (needs.changes.outputs.backend-client == 'true' || needs.changes.outputs.ci-config == 'true')) ||
           (matrix.service == 'transaction' && (needs.changes.outputs.backend-transaction == 'true' || needs.changes.outputs.ci-config == 'true'))
         run: |
@@ -149,7 +149,7 @@ jobs:
 
       - name: Deployment summary
         if: >-
-          (matrix.service == 'agent' && (needs.changes.outputs.backend-agent == 'true' || needs.changes.outputs.ci-config == 'true')) ||
+          (matrix.service == 'user' && (needs.changes.outputs.backend-user == 'true' || needs.changes.outputs.ci-config == 'true')) ||
           (matrix.service == 'client' && (needs.changes.outputs.backend-client == 'true' || needs.changes.outputs.ci-config == 'true')) ||
           (matrix.service == 'transaction' && (needs.changes.outputs.backend-transaction == 'true' || needs.changes.outputs.ci-config == 'true'))
         run: |
