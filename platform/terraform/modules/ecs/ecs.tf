@@ -52,6 +52,19 @@ resource "aws_ecs_service" "service" {
     rollback = true
   }
 
+  # CloudWatch alarm-based deployment monitoring (complements circuit breaker).
+  # Circuit breaker catches task startup failures; deployment alarms catch
+  # cases where tasks start but serve errors (e.g. unhealthy ALB targets).
+  # AWS ECS does not validate alarm existence at create time.
+  dynamic "alarms" {
+    for_each = var.enable_deployment_alarms && contains(keys(var.deployment_alarm_names), each.key) ? [1] : []
+    content {
+      alarm_names = var.deployment_alarm_names[each.key]
+      enable      = true
+      rollback    = true
+    }
+  }
+
   # Network configuration for Fargate tasks
   network_configuration {
     subnets          = var.private_subnet_ids

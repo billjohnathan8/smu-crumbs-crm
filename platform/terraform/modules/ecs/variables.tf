@@ -61,7 +61,7 @@ variable "ecr_repository_url" {
 variable "image_tags" {
   description = "Container image tags per service."
   type = object({
-    user       = string
+    user        = string
     client      = string
     transaction = string
   })
@@ -70,7 +70,7 @@ variable "image_tags" {
 variable "desired_counts" {
   description = "Requested ECS service counts per service. When enable_stateful_service_scale_out is false, user and transaction are pinned to 1 task."
   type = object({
-    user       = number
+    user        = number
     client      = number
     transaction = number
   })
@@ -231,4 +231,16 @@ variable "db_username_secret_arn" {
 variable "db_password_secret_arn" {
   description = "Secret ARN for SPRING_DATASOURCE_PASSWORD."
   type        = string
+}
+
+variable "enable_deployment_alarms" {
+  description = "Enable ECS deployment alarms for CloudWatch-based failed deployment detection and rollback."
+  type        = bool
+  default     = false
+}
+
+variable "deployment_alarm_names" {
+  description = "CloudWatch alarm names per service to evaluate during ECS deployments. Keys must match service names (user, client, transaction)."
+  type        = map(list(string))
+  default     = {}
 }
