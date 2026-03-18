@@ -12,6 +12,12 @@ on:
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
+  push:
+    branches:
+      - integration
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   workflow_dispatch:
 
 concurrency:
@@ -23,12 +29,33 @@ permissions:
   pull-requests: read
 
 jobs:
+  # Early gate: skip the entire CI graph for PR-merge push commits.
+  precheck:
+    name: Decide CI Execution
+    runs-on: ubuntu-latest
+    outputs:
+      should-run: ${{ steps.decision.outputs.should-run }}
+    steps:
+      - id: decision
+        run: |
+          SHOULD_RUN="true"
+          if [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.event.head_commit.message }}" == Merge\ pull\ request* ]]; then
+            SHOULD_RUN="false"
+          fi
+          echo "should-run=${SHOULD_RUN}" >> "$GITHUB_OUTPUT"
+
   # Keep a lightweight CI-config sanity check.
   actionlint:
+    if: ${{ needs.precheck.outputs.should-run == 'true' }}
+    needs:
+      - precheck
     uses: ./.github/workflows/reusable-actionlint.yml
 
   # Detect changed scopes so expensive fullstack runs only when relevant.
   changes:
+    if: ${{ needs.precheck.outputs.should-run == 'true' }}
+    needs:
+      - precheck
     uses: ./.github/workflows/reusable-changes.yml
 
   # DB-backed Postgres coverage for stateful services before fullstack.
