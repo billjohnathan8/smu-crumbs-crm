@@ -186,6 +186,7 @@ export function CreateNewUserPage() {
               </label>
               <input
                 id="firstName"
+                data-testid="first-name-input"
                 type="text"
                 value={formData.firstName}
                 onChange={e => updateField('firstName', e.target.value)}
@@ -205,6 +206,7 @@ export function CreateNewUserPage() {
               </label>
               <input
                 id="lastName"
+                data-testid="last-name-input"
                 type="text"
                 value={formData.lastName}
                 onChange={e => updateField('lastName', e.target.value)}
@@ -224,6 +226,7 @@ export function CreateNewUserPage() {
               </label>
               <input
                 id="email"
+                data-testid="email-input"
                 type="email"
                 value={formData.email}
                 onChange={e => updateField('email', e.target.value)}
@@ -241,6 +244,7 @@ export function CreateNewUserPage() {
               </label>
               <select
                 id="role"
+                data-testid="role-select"
                 value={formData.role}
                 onChange={e => updateField('role', e.target.value as UserRole)}
                 className={`w-full px-3 py-2 bg-background-light border ${
@@ -255,6 +259,22 @@ export function CreateNewUserPage() {
                 ))}
               </select>
               {formErrors.role && <p className="text-danger text-xs mt-1">{formErrors.role}</p>}
+            </div>
+
+            <div>
+              <label htmlFor="temporaryPassword" className="block text-sm font-medium text-text mb-1">
+                Temporary Password
+              </label>
+              <input
+                id="temporaryPassword"
+                data-testid="password-input"
+                type="password"
+                value={formData.temporaryPassword ?? ''}
+                onChange={e => updateField('temporaryPassword', e.target.value)}
+                className="w-full px-3 py-2 bg-background-light border border-border rounded text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                disabled={isSubmitting}
+                placeholder="Leave blank to auto-generate"
+              />
             </div>
 
             <div className="flex items-center">
@@ -274,6 +294,7 @@ export function CreateNewUserPage() {
             <div className="flex justify-end space-x-4 pt-4">
               <button
                 type="submit"
+                data-testid="create-user-button"
                 className={`px-6 py-3 rounded-lg font-medium transition-colors ${
                   isSubmitting
                     ? 'bg-primary/50 cursor-not-allowed text-white'
