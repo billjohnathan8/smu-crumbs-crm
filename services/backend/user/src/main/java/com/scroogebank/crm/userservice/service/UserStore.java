@@ -38,4 +38,10 @@ public interface UserStore {
 	String userIdForRefreshToken(String token);
 
 	boolean verifyPassword(InMemoryUserStore.UserRecord record, String password);
+
+	String createPasswordResetToken(String email);
+
+	String getLatestResetToken(String email);
+
+	void resetPasswordWithToken(String token, String newPassword);
 }

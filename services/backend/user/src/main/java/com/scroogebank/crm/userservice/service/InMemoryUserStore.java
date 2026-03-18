@@ -44,6 +44,8 @@ public class InMemoryUserStore implements UserStore {
 	private final Map<Long, UserRecord> users = new ConcurrentHashMap<>();
 	private final Map<String, Long> emailIndex = new ConcurrentHashMap<>();
 	private final Map<String, RefreshTokenRecord> refreshTokens = new ConcurrentHashMap<>();
+	private final Map<String, PasswordResetTokenRecord> passwordResetTokens = new ConcurrentHashMap<>();
+	private final Map<String, String> latestResetTokenByEmail = new ConcurrentHashMap<>();
 
 	public InMemoryUserStore(
 		Clock clock,
@@ -418,9 +420,74 @@ public class InMemoryUserStore implements UserStore {
 	) {}
 
 	/**
+	 * Creates a password reset token for the given email.
+	 *
+	 * @param email user email address
+	 * @return reset token, or null if no user with that email exists
+	 */
+	public String createPasswordResetToken(String email) {
+		String normalized = normalizeEmail(email);
+		Long dbId = emailIndex.get(normalized);
+		if (dbId == null) {
+			return null;
+		}
+		String token = UUID.randomUUID().toString();
+		passwordResetTokens.put(token, new PasswordResetTokenRecord(dbId, clock.instant().plus(Duration.ofHours(1))));
+		latestResetTokenByEmail.put(normalized, token);
+		return token;
+	}
+
+	/**
+	 * Returns the most recently created reset token for the given email (test-only).
+	 *
+	 * @param email user email address
+	 * @return latest reset token, or null
+	 */
+	public String getLatestResetToken(String email) {
+		return latestResetTokenByEmail.get(normalizeEmail(email));
+	}
+
+	/**
+	 * Resets a user's password using a valid reset token.
+	 *
+	 * @param token reset token
+	 * @param newPassword new plaintext password
+	 * @throws IllegalArgumentException when the token is invalid or expired
+	 */
+	public void resetPasswordWithToken(String token, String newPassword) {
+		PasswordResetTokenRecord record = passwordResetTokens.remove(token);
+		if (record == null || clock.instant().isAfter(record.expiresAt)) {
+			throw new IllegalArgumentException("invalid_or_expired_token");
+		}
+		UserRecord existing = loadByDbId(record.dbUserId);
+		Instant now = clock.instant();
+		UserRecord updated = new UserRecord(
+			existing.id(),
+			existing.firstName(),
+			existing.lastName(),
+			existing.email(),
+			existing.role(),
+			existing.status(),
+			passwordHasher.hash(newPassword),
+			existing.createdAt(),
+			now
+		);
+		users.put(existing.id(), updated);
+		refreshTokens.entrySet().removeIf(e -> e.getValue().dbUserId == existing.id());
+	}
+
+	/**
 	 * Refresh token metadata for the in-memory store.
 	 */
 	private record RefreshTokenRecord(
+		long dbUserId,
+		Instant expiresAt
+	) {}
+
+	/**
+	 * Password reset token metadata.
+	 */
+	private record PasswordResetTokenRecord(
 		long dbUserId,
 		Instant expiresAt
 	) {}

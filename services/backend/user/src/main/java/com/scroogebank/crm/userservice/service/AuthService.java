@@ -1,7 +1,9 @@
 package com.scroogebank.crm.userservice.service;
 
 import com.scroogebank.crm.userservice.dto.LoginRequest;
+import com.scroogebank.crm.userservice.dto.PerformResetPasswordRequest;
 import com.scroogebank.crm.userservice.dto.RefreshRequest;
+import com.scroogebank.crm.userservice.dto.ResetPasswordRequest;
 import com.scroogebank.crm.userservice.dto.TokenResponse;
 import com.scroogebank.crm.userservice.dto.UserStatus;
 import com.scroogebank.crm.userservice.security.JwtService;
@@ -53,6 +55,29 @@ public class AuthService {
 		String access = jwtService.mintAccessToken(userId, role, expiresAt);
 		String refresh = store.issueRefreshToken(userId);
 		return new TokenResponse(access, refresh, ACCESS_TTL.toSeconds(), "Bearer");
+	}
+
+	/**
+	 * Initiates a password reset flow by creating a reset token.
+	 * Always returns successfully to avoid leaking whether the email exists.
+	 *
+	 * @param request forgot password request containing the email
+	 */
+	public void forgotPassword(ResetPasswordRequest request) {
+		store.createPasswordResetToken(request.email());
+	}
+
+	/**
+	 * Resets a user's password using a valid reset token.
+	 *
+	 * @param request reset request with token and new password
+	 * @throws IllegalArgumentException when passwords don't match or token is invalid
+	 */
+	public void performResetPassword(PerformResetPasswordRequest request) {
+		if (!request.newPassword().equals(request.confirmPassword())) {
+			throw new IllegalArgumentException("passwords_do_not_match");
+		}
+		store.resetPasswordWithToken(request.token(), request.newPassword());
 	}
 
 	/**

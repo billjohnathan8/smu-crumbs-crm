@@ -1,10 +1,13 @@
 package com.scroogebank.crm.userservice.controller;
 
 import com.scroogebank.crm.userservice.dto.LoginRequest;
+import com.scroogebank.crm.userservice.dto.PerformResetPasswordRequest;
 import com.scroogebank.crm.userservice.dto.RefreshRequest;
+import com.scroogebank.crm.userservice.dto.ResetPasswordRequest;
 import com.scroogebank.crm.userservice.dto.TokenResponse;
 import com.scroogebank.crm.userservice.service.AuthService;
 import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -42,5 +45,29 @@ public class AuthController {
 	@PostMapping("/refresh")
 	public TokenResponse refresh(@Valid @RequestBody RefreshRequest request) {
 		return authService.refresh(request);
+	}
+
+	/**
+	 * Initiates a password reset flow. Always returns 200 to avoid leaking email existence.
+	 *
+	 * @param request forgot password request with email
+	 * @return empty 200 response
+	 */
+	@PostMapping("/forgot-password")
+	public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ResetPasswordRequest request) {
+		authService.forgotPassword(request);
+		return ResponseEntity.ok().build();
+	}
+
+	/**
+	 * Resets a user's password using a valid reset token.
+	 *
+	 * @param request reset request with token and new password
+	 * @return empty 200 response
+	 */
+	@PostMapping("/reset-password")
+	public ResponseEntity<Void> resetPassword(@Valid @RequestBody PerformResetPasswordRequest request) {
+		authService.performResetPassword(request);
+		return ResponseEntity.ok().build();
 	}
 }

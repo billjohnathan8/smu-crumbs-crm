@@ -22,7 +22,9 @@ import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -47,6 +49,8 @@ public class PersistentUserStore implements UserStore {
 	private final RefreshTokenRepository refreshTokenRepository;
 	private final String rootEmail;
 	private final String rootPassword;
+	private final Map<String, PasswordResetTokenRecord> passwordResetTokens = new ConcurrentHashMap<>();
+	private final Map<String, String> latestResetTokenByEmail = new ConcurrentHashMap<>();
 
 	public PersistentUserStore(
 		Clock clock,
@@ -278,6 +282,42 @@ public class PersistentUserStore implements UserStore {
 	public boolean verifyPassword(InMemoryUserStore.UserRecord record, String password) {
 		return passwordHasher.verify(password, record.passwordHash());
 	}
+
+	@Override
+	public String createPasswordResetToken(String email) {
+		seedRootAdminIfMissing();
+		String normalized = normalizeEmail(email);
+		if (userRepository.findByEmail(normalized).isEmpty()) {
+			return null;
+		}
+		String token = UUID.randomUUID().toString();
+		passwordResetTokens.put(token, new PasswordResetTokenRecord(normalized, clock.instant().plus(Duration.ofHours(1))));
+		latestResetTokenByEmail.put(normalized, token);
+		return token;
+	}
+
+	@Override
+	public String getLatestResetToken(String email) {
+		return latestResetTokenByEmail.get(normalizeEmail(email));
+	}
+
+	@Transactional
+	@Override
+	public void resetPasswordWithToken(String token, String newPassword) {
+		seedRootAdminIfMissing();
+		PasswordResetTokenRecord record = passwordResetTokens.remove(token);
+		if (record == null || clock.instant().isAfter(record.expiresAt)) {
+			throw new IllegalArgumentException("invalid_or_expired_token");
+		}
+		UserEntity entity = userRepository.findByEmail(record.email)
+			.orElseThrow(() -> new IllegalArgumentException("invalid_or_expired_token"));
+		entity.setPasswordHash(passwordHasher.hash(newPassword));
+		entity.setUpdatedAt(clock.instant());
+		userRepository.save(entity);
+		refreshTokenRepository.deleteByUser_Id(entity.getId());
+	}
+
+	private record PasswordResetTokenRecord(String email, Instant expiresAt) {}
 
 	private void seedRootAdminIfMissing() {
 		if (userRepository.findByEmail(normalizeEmail(rootEmail)).isPresent()) {

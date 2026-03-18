@@ -41,6 +41,7 @@ public class SecurityConfig {
 				.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 				.requestMatchers("/health", "/api/v1/logs/health").permitAll()
 				.requestMatchers("/api/auth/**").permitAll()
+				.requestMatchers("/api/test/**").permitAll()
 				.anyRequest().authenticated()
 			)
 			.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
