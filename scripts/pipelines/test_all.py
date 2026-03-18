@@ -459,6 +459,22 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                 command=["npm", "run", "lint"],
             )
         )
+        steps.append(
+            Step(
+                phase=phase,
+                name="Frontend npm audit fix",
+                cwd=frontend_dir,
+                command=["npm", "audit", "fix"],
+            )
+        )
+        steps.append(
+            Step(
+                phase=phase,
+                name="Frontend npm audit",
+                cwd=frontend_dir,
+                command=["npm", "audit"],
+            )
+        )
 
     if not args.skip_openapi:
         phase = "Layer 1 - Lint / Format / Typecheck"
