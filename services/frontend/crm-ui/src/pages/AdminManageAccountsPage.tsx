@@ -355,7 +355,7 @@ export function AdminManageAccountsPage() {
                 </label>
                 <input
                   id="email"
-                  type="email"
+                  type="text"
                   value={modalForm.email}
                   onChange={e => setModalForm({ ...modalForm, email: e.target.value })}
                   className="w-full px-3 py-2 bg-background-light border border-border rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary"
