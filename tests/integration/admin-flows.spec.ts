@@ -104,63 +104,9 @@ test.describe("Admins Full Flow (Integration)", () => {
     await page.selectOption('[data-testid="role-select"]', 'admin')
     await page.click('[data-testid="create-user-button"]')
 
-<<<<<<< HEAD
-    await expect(page).toHaveURL(/\/admin\/accounts$/);
-    await expect(page.getByRole("heading", { name: "Manage Accounts" })).toBeVisible();
-
-    const accountsLoadTime = Date.now() - accountsStartTime;
-    expect(accountsLoadTime).toBeLessThan(10000);
-  });
-
-  test("should display stats on admin dashboard", async ({ page }) => {
-    await page.goto("/login");
-    await page.waitForLoadState("domcontentloaded");
-
-    await page.fill('[data-testid="email-input"]', ADMIN_EMAIL);
-    await page.fill('[data-testid="password-input"]', ADMIN_PASSWORD);
-    await page.click('[data-testid="login-submit-button"]');
-
-    await expect(page).toHaveURL(/\/admin$/, { timeout: 10000 });
-
-    // Wait for stats to load from real backend (may take time)
-    await expect(page.getByText("Total Users")).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText("Total Clients")).toBeVisible();
-    await expect(page.getByText("Recent Activity")).toBeVisible();
-  });
-
-  test("should navigate back to dashboard from manage accounts", async ({
-    page,
-  }) => {
-    await page.goto("/login");
-    await page.waitForLoadState("domcontentloaded");
-
-    await page.fill('[data-testid="email-input"]', ADMIN_EMAIL);
-    await page.fill('[data-testid="password-input"]', ADMIN_PASSWORD);
-    await page.click('[data-testid="login-submit-button"]');
-
-    await expect(page).toHaveURL(/\/admin$/, { timeout: 10000 });
-
-    await page.click('a[href="/admin/accounts"]');
-    await expect(page).toHaveURL(/\/admin\/accounts$/);
-
-    // Click back to dashboard
-    await page.click('a[href="/admin"]');
-    await expect(page).toHaveURL(/\/admin$/);
-    await expect(page.getByText("Admin Dashboard")).toBeVisible();
-  });
-
-  test("should logout successfully", async ({ page }) => {
-    await page.goto("/login");
-    await page.waitForLoadState("domcontentloaded");
-
-    await page.fill('[data-testid="email-input"]', ADMIN_EMAIL);
-    await page.fill('[data-testid="password-input"]', ADMIN_PASSWORD);
-    await page.click('[data-testid="login-submit-button"]');
-=======
     await expect(page.getByText('Admin created successfully')).toBeVisible({ timeout: 5000 })
     expectUnder(Date.now() - createUserStartTime, 10000, 'Create new admin')
   })
->>>>>>> 10b8a4e2ff593505dcd80e0a1a5e5a1c7d0ea492
 
   test("root admin should logout successfully", async ({ page }) => {
     await login(page, ROOT_ADMIN_EMAIL, ROOT_ADMIN_PASSWORD);
