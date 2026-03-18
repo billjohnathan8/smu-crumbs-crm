@@ -208,8 +208,10 @@ locals {
     if var.enable_stateful_service_scale_out || !contains(local.in_memory_stateful_services, service_name)
   }
 
-  # CloudMap namespace for service discovery
-  cloudmap_namespace_name     = "${var.environment}.${var.project_name}.internal"
+  # CloudMap namespace for service discovery.
+  # Derived from the resource attribute when discovery is on so that any change
+  # to the namespace name propagates automatically rather than silently diverging.
+  cloudmap_namespace_name     = var.enable_service_discovery ? aws_service_discovery_private_dns_namespace.internal[0].name : "${var.environment}.${var.project_name}.internal"
   client_service_internal_url = var.enable_service_discovery ? "http://client.${local.cloudmap_namespace_name}:8080" : "http://${var.alb_dns_name}"
   task_definition_template    = "${path.module}/../../template/ecs_json.tpl"
 }

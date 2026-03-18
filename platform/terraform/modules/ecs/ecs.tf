@@ -95,4 +95,11 @@ resource "aws_ssm_parameter" "client_service_url" {
   name  = "/${var.project_name}/${var.environment}/service/client/internal_url"
   type  = "String"
   value = local.client_service_internal_url
+
+  lifecycle {
+    precondition {
+      condition     = var.enable_service_discovery || var.alb_dns_name != ""
+      error_message = "alb_dns_name must be provided when enable_service_discovery is false; CLIENT_SERVICE_URL would otherwise be empty."
+    }
+  }
 }
