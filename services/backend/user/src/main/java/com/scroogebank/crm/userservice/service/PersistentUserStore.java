@@ -15,6 +15,7 @@ import com.scroogebank.crm.userservice.repository.UserRepository;
 import com.scroogebank.crm.userservice.util.IdCodec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -76,7 +77,7 @@ public class PersistentUserStore implements UserStore {
 		String password = (request.temporaryPassword() == null || request.temporaryPassword().isBlank())
 			? UUID.randomUUID().toString()
 			: request.temporaryPassword();
-		UserRole role = request.role() == null ? UserRole.user : request.role();
+		UserRole role = request.role();
 
 		UserEntity entity = new UserEntity();
 		entity.setFirstName(request.firstName());
@@ -305,7 +306,7 @@ public class PersistentUserStore implements UserStore {
 			byte[] hash = digest.digest(token.getBytes(StandardCharsets.UTF_8));
 			return HEX_FORMAT.formatHex(hash);
 		}
-		catch (Exception ex) {
+		catch (NoSuchAlgorithmException ex) {
 			throw new IllegalStateException("failed to hash refresh token", ex);
 		}
 	}
