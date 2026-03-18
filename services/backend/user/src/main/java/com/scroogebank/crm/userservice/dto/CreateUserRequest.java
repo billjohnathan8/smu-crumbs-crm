@@ -31,6 +31,8 @@ public record CreateUserRequest(
 	@NotNull
 	UserRole role,
 
+	Boolean sendInviteEmail,
+
 	@Size(min = 8, max = 128)
 	String temporaryPassword
 ) {}
