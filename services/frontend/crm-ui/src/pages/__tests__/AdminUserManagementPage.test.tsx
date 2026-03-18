@@ -45,10 +45,10 @@ const renderAdminUserManagementPage = (user: User = mockAdminUser, useStrictRout
 
   if (useStrictRoutes) {
     return render(
-      <MemoryRouter initialEntries={['/admin/adminusermanagement']}>
+      <MemoryRouter initialEntries={['/admin/users']}>
         <AuthProvider>
           <Routes>
-            <Route path="/admin/adminusermanagement" element={<AdminUserManagementPage />} />
+            <Route path="/admin/users" element={<AdminUserManagementPage />} />
             <Route path="/unauthorized" element={<h1>Mock Unauthorized Page</h1>} />
           </Routes>
         </AuthProvider>
