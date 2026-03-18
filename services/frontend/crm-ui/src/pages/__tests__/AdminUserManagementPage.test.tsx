@@ -112,8 +112,7 @@ it('should display users in table', async () => {
   renderAdminUserManagementPage()
 
   await waitFor(() => {
-    expect(screen.getByText('User')).toBeInTheDocument()
-    expect(screen.getByText('User')).toBeInTheDocument()
+    expect(screen.getAllByText('User').length).toBeGreaterThanOrEqual(2)
     expect(screen.getByText('user@example.com')).toBeInTheDocument()
     expect(screen.getByText('user')).toBeInTheDocument()
   })

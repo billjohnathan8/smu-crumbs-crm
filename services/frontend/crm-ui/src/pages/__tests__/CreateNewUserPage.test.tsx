@@ -147,6 +147,7 @@ describe('CreateNewUserPage', () => {
 
   it('should create admin successfully for super admin', async () => {
     const user = userEvent.setup()
+    vi.mocked(authApi.getCurrentUser).mockResolvedValue(mockSuperAdminUser)
     vi.spyOn(usersApi, 'createUser').mockResolvedValue({
       id: 'new-admin-123',
       firstName: 'Jane',
