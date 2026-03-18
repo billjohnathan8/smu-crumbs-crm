@@ -159,7 +159,7 @@ class JwtServiceTest {
 			mapper,
 			SECRET,
 			Map.of("alg", "HS256", "typ", "JWT"),
-			Map.of("sub", "usr_1", "role", "user", "exp", clock.instant().plusSeconds(3600).getEpochSecond())
+			Map.of("sub", "usr_1", "role", "unknown", "exp", clock.instant().plusSeconds(3600).getEpochSecond())
 		);
 
 		assertThatThrownBy(() -> jwtService.verifyAndParse(token))
