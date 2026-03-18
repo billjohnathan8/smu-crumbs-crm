@@ -120,7 +120,7 @@ export function AdminUserManagementPage() {
 
   // Group users by role for display
   const admins = users.filter(u => u.role === 'admin' || u.role === 'super_admin')
-  const users = users.filter(u => u.role === 'user')
+  const regularUsers = users.filter(u => u.role === 'user')
 
   return (
     <SidebarLayout items={sidebarNav}>
@@ -213,7 +213,7 @@ export function AdminUserManagementPage() {
                 {isRootAdmin ? 'My Users' : 'My Users'}
               </h2>
 
-              {users.length === 0 ? (
+              {regularUsers.length === 0 ? (
                 <p className="text-text-muted">No users found</p>
               ) : (
                 <div className="overflow-x-auto">
@@ -228,23 +228,23 @@ export function AdminUserManagementPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {users.map(user => (
-                        <tr key={user.id} className="border-b border-border/50">
-                          <td className="py-3 px-4 text-text">{user.firstName}</td>
-                          <td className="py-3 px-4 text-text">{user.lastName}</td>
-                          <td className="py-3 px-4 text-text">{user.email}</td>
-                          <td className="py-3 px-4 text-text capitalize">{user.role}</td>
+                      {regularUsers.map(u => (
+                        <tr key={u.id} className="border-b border-border/50">
+                          <td className="py-3 px-4 text-text">{u.firstName}</td>
+                          <td className="py-3 px-4 text-text">{u.lastName}</td>
+                          <td className="py-3 px-4 text-text">{u.email}</td>
+                          <td className="py-3 px-4 text-text capitalize">{u.role}</td>
                           <td className="py-3 px-4">
                             <button
-                              onClick={() => handleDeleteUser(user.id, user.role)}
-                              disabled={deletingUserId === user.id}
+                              onClick={() => handleDeleteUser(u.id, u.role)}
+                              disabled={deletingUserId === u.id}
                               className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                                deletingUserId === user.id
+                                deletingUserId === u.id
                                   ? 'bg-danger/50 cursor-not-allowed text-white'
                                   : 'bg-danger hover:bg-danger-hover text-white'
                               }`}
                             >
-                              {deletingUserId === user.id ? 'Deleting...' : 'Delete'}
+                              {deletingUserId === u.id ? 'Deleting...' : 'Delete'}
                             </button>
                           </td>
                         </tr>

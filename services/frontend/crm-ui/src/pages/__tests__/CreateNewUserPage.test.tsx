@@ -184,10 +184,9 @@ describe('CreateNewUserPage', () => {
   })
 
   it('should not allow admin to create admin role', async () => {
-    const user = userEvent.setup()
     renderCreateNewUserPage()
 
-    const roleSelect = screen.getByLabelText(/Role/i)
+    screen.getByLabelText(/Role/i)
     const options = screen.getAllByRole('option')
 
     // Should only have 'user' option for regular admin
@@ -198,7 +197,7 @@ describe('CreateNewUserPage', () => {
   it('should allow super admin to create both admin and user roles', async () => {
     renderCreateNewUserPage(mockSuperAdminUser)
 
-    const roleSelect = screen.getByLabelText(/Role/i)
+    screen.getByLabelText(/Role/i)
     const options = screen.getAllByRole('option')
 
     expect(options).toHaveLength(2)
