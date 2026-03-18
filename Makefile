@@ -18,10 +18,10 @@ endif
 .PHONY: build-images inframap inframap-full terraform-graph
 
 build-images:
-	cd services/backend/agent && $(GRADLEW) bootJar
+	cd services/backend/user && $(GRADLEW) bootJar
 	cd services/backend/client && $(GRADLEW) bootJar
 	cd services/backend/transaction && $(GRADLEW) bootJar
-	docker build -t agent:dev services/backend/agent
+	docker build -t user:dev services/backend/user
 	docker build -t client:dev services/backend/client
 	docker build -t transaction:dev services/backend/transaction
 	docker build -t crm-ui:dev services/frontend/crm-ui

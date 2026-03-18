@@ -24,7 +24,7 @@ resource "aws_dynamodb_table" "audit_logs" {
   }
 
   attribute {
-    name = "agent_id"
+    name = "user_id"
     type = "S"
   }
 
@@ -34,8 +34,8 @@ resource "aws_dynamodb_table" "audit_logs" {
   }
 
   global_secondary_index {
-    name            = "agent-index"
-    hash_key        = "agent_id"
+    name            = "user-index"
+    hash_key        = "user_id"
     range_key       = "sk"
     projection_type = "ALL"
   }

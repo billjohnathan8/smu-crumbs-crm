@@ -15,7 +15,7 @@ else
     "scripts/ci/run-fullstack-integration-e2e.sh"
     ".github/workflows/reusable-test-component-db.yml"
     ".github/workflows/reusable-fullstack-integration.yml"
-    "services/backend/agent/.env.example"
+    "services/backend/user/.env.example"
     "services/backend/client/.env.example"
     "services/backend/transaction/.env.example"
     "services/backend/log/.env.example"

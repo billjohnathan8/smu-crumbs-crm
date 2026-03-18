@@ -8,10 +8,10 @@
 locals {
   # Services that require strict single-replica safety when stateful scale-out
   # is disabled. Toggle via enable_stateful_service_scale_out.
-  in_memory_stateful_services = toset(["agent", "transaction"])
+  in_memory_stateful_services = toset(["user", "transaction"])
 
   requested_desired_counts = {
-    agent       = var.desired_counts.agent
+    user       = var.desired_counts.user
     client      = var.desired_counts.client
     transaction = var.desired_counts.transaction
   }
@@ -24,9 +24,9 @@ locals {
   )
 
   service_configs = {
-    agent = {
-      desired_count = local.effective_desired_counts.agent
-      image_tag     = var.image_tags.agent
+    user = {
+      desired_count = local.effective_desired_counts.user
+      image_tag     = var.image_tags.user
       environment = [
         {
           name  = "ROOT_ADMIN_EMAIL"

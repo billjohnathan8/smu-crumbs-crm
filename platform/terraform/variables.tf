@@ -82,10 +82,10 @@ variable "ecr_repository_name" {
 #--------------------------------------------------------------
 # ECS Service Image Tags
 #--------------------------------------------------------------
-variable "agent_image_tag" {
-  description = "ECR image tag for the agent service container."
+variable "user_image_tag" {
+  description = "ECR image tag for the user service container."
   type        = string
-  default     = "agent-dev-001"
+  default     = "user-dev-001"
 }
 
 variable "client_image_tag" {
@@ -104,13 +104,13 @@ variable "transaction_image_tag" {
 # ECS Service Task Counts
 #--------------------------------------------------------------
 variable "enable_stateful_service_scale_out" {
-  description = "Allow agent and transaction services to scale beyond one task. Enable only after Phase B persistence is fully deployed and verified."
+  description = "Allow user and transaction services to scale beyond one task. Enable only after Phase B persistence is fully deployed and verified."
   type        = bool
   default     = false
 }
 
-variable "agent_desired_count" {
-  description = "Desired ECS task count for agent service. Must remain 1 unless enable_stateful_service_scale_out is true."
+variable "user_desired_count" {
+  description = "Desired ECS task count for user service. Must remain 1 unless enable_stateful_service_scale_out is true."
   type        = number
   default     = 1
 }
@@ -248,7 +248,7 @@ variable "jwt_hmac_secret" {
 }
 
 variable "root_admin_email" {
-  description = "Initial root admin email for the agent service."
+  description = "Initial root admin email for the user service."
   type        = string
   default     = "admin@crm.local"
 }
@@ -734,8 +734,8 @@ variable "backup_retention_days" {
 
 check "stateful_service_scale_out_guardrails" {
   assert {
-    condition     = var.enable_stateful_service_scale_out || var.agent_desired_count == 1
-    error_message = "agent_desired_count must be 1 unless enable_stateful_service_scale_out is true."
+    condition     = var.enable_stateful_service_scale_out || var.user_desired_count == 1
+    error_message = "user_desired_count must be 1 unless enable_stateful_service_scale_out is true."
   }
 
   assert {

@@ -1,7 +1,7 @@
 #--------------------------------------------------------------
 # ALB Module
 # Internet-facing Application Load Balancer with path-based routing
-# to agent, client, and transaction ECS services.
+# to user, client, and transaction ECS services.
 #--------------------------------------------------------------
 
 locals {
@@ -9,9 +9,9 @@ locals {
   # A dedicated exception for `/api/clients/*/transactions*` is defined below with a
   # higher precedence than generic client routes.
   service_routing = {
-    agent = {
+    user = {
       priority      = 10
-      path_patterns = ["/api/auth*", "/api/agents*", "/api/v1/agents*", "/api/v1/health", "/api/logs*"]
+      path_patterns = ["/api/auth*", "/api/users*", "/api/v1/users*", "/api/v1/health", "/api/logs*"]
     }
     client = {
       priority      = 20

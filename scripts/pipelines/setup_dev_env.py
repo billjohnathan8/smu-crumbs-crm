@@ -469,7 +469,7 @@ def configure_backend_dependencies(logger, platform):
         return
     
     # Gradle services
-    gradle_services = ["agent", "client", "transaction"]
+    gradle_services = ["user", "client", "transaction"]
     configured_count = 0
     
     for service_name in gradle_services:

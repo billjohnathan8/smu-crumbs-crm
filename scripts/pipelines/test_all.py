@@ -147,7 +147,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
 
     if run_backend:
         phase = "Layer 1 - Lint / Format / Typecheck"
-        for svc in ("agent", "client", "transaction"):
+        for svc in ("user", "client", "transaction"):
             svc_dir = services_backend / svc
             steps.append(
                 Step(
@@ -522,7 +522,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
             )
         )
 
-        for svc in ("agent", "client", "transaction"):
+        for svc in ("user", "client", "transaction"):
             svc_dir = services_backend / svc
             steps.append(
                 Step(

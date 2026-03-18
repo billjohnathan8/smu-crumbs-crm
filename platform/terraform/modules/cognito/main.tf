@@ -86,11 +86,11 @@ resource "aws_cognito_user_group" "admin" {
   description  = "Administrator group with highest privileges."
 }
 
-resource "aws_cognito_user_group" "agent" {
+resource "aws_cognito_user_group" "user" {
   user_pool_id = aws_cognito_user_pool.this.id
-  name         = "AGENT"
+  name         = "USER"
   precedence   = 1
-  description  = "Agent group with standard CRM access."
+  description  = "User group with standard CRM access."
 }
 
 resource "aws_cognito_user_pool_client" "this" {

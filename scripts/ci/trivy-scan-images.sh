@@ -13,7 +13,7 @@
 #   --exit-code N         1=fail on findings, 0=report only  (default: 1)
 #   --no-ignore-unfixed   Include vulnerabilities with no fix yet (default: ignored)
 #   --format FORMAT       table | json | sarif                (default: table)
-#   --service NAME        agent | client | transaction        (default: all)
+#   --service NAME        user | client | transaction        (default: all)
 #
 # Examples:
 #   # Exact same gate as the CD pipeline (fails on findings):
@@ -26,7 +26,7 @@
 #   bash scripts/ci/trivy-scan-images.sh --severity MEDIUM,HIGH,CRITICAL --exit-code 0
 #
 #   # Scan one service only:
-#   bash scripts/ci/trivy-scan-images.sh --service agent --exit-code 0
+#   bash scripts/ci/trivy-scan-images.sh --service user --exit-code 0
 # -----------------------------------------------------------------------------
 set -euo pipefail
 
@@ -67,20 +67,20 @@ fi
 
 # ── Service definitions ───────────────────────────────────────────────────────
 declare -A SERVICE_DIRS=(
-  [agent]="services/backend/agent"
+  [user]="services/backend/user"
   [client]="services/backend/client"
   [transaction]="services/backend/transaction"
 )
 declare -A IMAGE_TAGS=(
-  [agent]="agent:dev"
+  [user]="user:dev"
   [client]="client:dev"
   [transaction]="transaction:dev"
 )
-SERVICES=("agent" "client" "transaction")
+SERVICES=("user" "client" "transaction")
 
 if [[ -n "$TARGET_SERVICE" ]]; then
   if [[ -z "${SERVICE_DIRS[$TARGET_SERVICE]+_}" ]]; then
-    echo "[ERROR] Unknown service '$TARGET_SERVICE'. Valid: agent | client | transaction" >&2
+    echo "[ERROR] Unknown service '$TARGET_SERVICE'. Valid: user | client | transaction" >&2
     exit 1
   fi
   SERVICES=("$TARGET_SERVICE")

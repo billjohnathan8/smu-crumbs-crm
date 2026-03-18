@@ -239,7 +239,7 @@ module "apigateway" {
 
 #--------------------------------------------------------------
 # ECS Module
-# Fargate cluster with agent, client, and transaction services,
+# Fargate cluster with user, client, and transaction services,
 # service discovery, and CloudWatch logging.
 # Note: by default only stateless services are autoscaled; stateful
 # service scale-out is feature-gated by enable_stateful_service_scale_out.
@@ -290,13 +290,13 @@ module "ecs" {
   alb_dns_name                                    = module.alb.alb_dns_name
 
   image_tags = {
-    agent       = var.agent_image_tag
+    user       = var.user_image_tag
     client      = var.client_image_tag
     transaction = var.transaction_image_tag
   }
 
   desired_counts = {
-    agent       = var.agent_desired_count
+    user       = var.user_desired_count
     client      = var.client_desired_count
     transaction = var.transaction_desired_count
   }
@@ -440,7 +440,7 @@ module "observability" {
 
   enable_ecs_alarms = var.enable_cloudwatch_alarms
   ecs_cluster_name  = module.ecs.ecs_cluster_name
-  ecs_service_names = toset(["agent", "client", "transaction"])
+  ecs_service_names = toset(["user", "client", "transaction"])
 
   enable_rds_alarms       = var.enable_cloudwatch_alarms
   rds_instance_identifier = module.rds.rds_instance_identifier

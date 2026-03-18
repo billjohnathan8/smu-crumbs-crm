@@ -201,7 +201,7 @@ data "aws_iam_policy_document" "ecs_task_assume" {
 }
 
 resource "aws_iam_role" "ecs_task" {
-  for_each = local.use_lab_role ? toset([]) : toset(["agent", "client", "transaction"])
+  for_each = local.use_lab_role ? toset([]) : toset(["user", "client", "transaction"])
 
   name               = "${var.name_prefix}-ecs-task-${each.key}"
   assume_role_policy = data.aws_iam_policy_document.ecs_task_assume.json
@@ -577,7 +577,7 @@ data "aws_iam_policy_document" "ecs_sqs_send" {
 }
 
 resource "aws_iam_role_policy" "ecs_task_sqs" {
-  for_each = (var.enable_audit_pipeline || var.enable_aml_pipeline) ? toset(["agent", "client", "transaction"]) : toset([])
+  for_each = (var.enable_audit_pipeline || var.enable_aml_pipeline) ? toset(["user", "client", "transaction"]) : toset([])
 
   name   = "${var.name_prefix}-ecs-task-${each.key}-sqs"
   role   = aws_iam_role.ecs_task[each.key].id

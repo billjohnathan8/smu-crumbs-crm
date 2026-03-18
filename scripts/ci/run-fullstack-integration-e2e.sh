@@ -907,8 +907,8 @@ start_phase "Phase 1: Build artifacts + start base infra (parallel)"
 start_base_infra &
 infra_pid=$!
 
-build_java_jar "${ROOT_DIR}/services/backend/agent" "agent" &
-agent_build_pid=$!
+build_java_jar "${ROOT_DIR}/services/backend/user" "user" &
+user_build_pid=$!
 
 build_java_jar "${ROOT_DIR}/services/backend/client" "client" &
 client_build_pid=$!
@@ -925,7 +925,7 @@ transaction_ingestion_lambda_package_pid=$!
 
 wait_for_jobs \
   "${infra_pid}" "base-infra-up (postgres + localstack)" \
-  "${agent_build_pid}" "bootJar-agent" \
+  "${user_build_pid}" "bootJar-user" \
   "${client_build_pid}" "bootJar-client" \
   "${transaction_build_pid}" "bootJar-transaction" \
   "${lambda_package_pid}" "package-log-lambda" \
@@ -984,7 +984,7 @@ end_phase
 
 start_phase "Phase 2c: Start application services + integration gateway"
 docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" up -d --build \
-  agent-service client-service transaction-service frontend integration-gateway \
+  user-service client-service transaction-service frontend integration-gateway \
   >> "${LOG_DIR}/docker-compose.log" 2>&1
 end_phase
 
@@ -993,8 +993,8 @@ end_phase
 # --------------------------------------------------------------------------
 
 start_phase "Phase 3: Service health"
-wait_for_http "http://127.0.0.1:18081/health" "agent-service" &
-agent_health_pid=$!
+wait_for_http "http://127.0.0.1:18081/health" "user-service" &
+user_health_pid=$!
 wait_for_http "http://127.0.0.1:18082/health" "client-service" &
 client_health_pid=$!
 wait_for_http "http://127.0.0.1:18083/health" "transaction-service" &
@@ -1007,7 +1007,7 @@ wait_for_http "${PLAYWRIGHT_BASE_URL}/api/v1/logs/health" "log-service (lambda v
 log_health_pid=$!
 
 wait_for_jobs \
-  "${agent_health_pid}" "health-agent-service" \
+  "${user_health_pid}" "health-user-service" \
   "${client_health_pid}" "health-client-service" \
   "${transaction_health_pid}" "health-transaction-service" \
   "${frontend_health_pid}" "health-frontend" \
@@ -1016,15 +1016,15 @@ wait_for_jobs \
 end_phase
 
 # --------------------------------------------------------------------------
-# Phase 3b: Seed baseline agent principals for local/test
+# Phase 3b: Seed baseline user principals for local/test
 # --------------------------------------------------------------------------
 
 start_phase "Phase 3b: Seed baseline principals"
-AGENT_BASE_URL="http://127.0.0.1:18081" \
+USER_BASE_URL="http://127.0.0.1:18081" \
 ROOT_ADMIN_EMAIL="${E2E_ADMIN_EMAIL:-admin@crm.local}" \
 ROOT_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-admin123}" \
-SEED_AGENT_EMAIL="agent@crm.local" \
-SEED_AGENT_PASSWORD="${E2E_AGENT_PASSWORD:-AgentPass123!}" \
+SEED_USER_EMAIL="user@crm.local" \
+SEED_AGENT_PASSWORD="${E2E_USER_PASSWORD:-UserPass123!}" \
 bash "${DB_ORCHESTRATOR_SCRIPT}" seed \
   >> "${LOG_DIR}/docker-compose.log" 2>&1
 end_phase
@@ -1037,7 +1037,7 @@ end_phase
 
 start_phase "Phase 4: Cross-service HTTP smoke"
 
-AGENT_TOKEN="$(mint_jwt "ci_agent" "agent")"
+USER_TOKEN="$(mint_jwt "ci_user" "user")"
 ADMIN_TOKEN="$(mint_jwt "ci_admin" "admin")"
 
 CREATE_BODY='{
@@ -1058,7 +1058,7 @@ echo "  Smoke: client-service -> log-service-lambda (CREATE client, assert audit
 CREATE_RESPONSE="$(
   curl --silent --show-error --fail \
     --request POST "http://127.0.0.1:18082/api/clients" \
-    --header "Authorization: Bearer ${AGENT_TOKEN}" \
+    --header "Authorization: Bearer ${USER_TOKEN}" \
     --header "Content-Type: application/json" \
     --header "X-Request-Id: ci-fullstack-smoke-001" \
     --data "${CREATE_BODY}"
@@ -1076,7 +1076,7 @@ for _ in {1..20}; do
   LOGS_JSON="$(
     curl --silent --show-error --fail \
       "${PLAYWRIGHT_BASE_URL}/api/logs?clientId=${CLIENT_ID}" \
-      --header "Authorization: Bearer ${AGENT_TOKEN}" \
+      --header "Authorization: Bearer ${USER_TOKEN}" \
     || true
   )"
   if LOGS_JSON="${LOGS_JSON}" ${PYTHON_CMD} - "${CLIENT_ID}" <<'PY' 2>/dev/null; then
@@ -1101,7 +1101,7 @@ echo "  Smoke: /verify communication dispatch"
 VERIFY_RESPONSE="$(
   curl --silent --show-error --fail \
     --request POST "http://127.0.0.1:18082/api/clients/${CLIENT_ID}/verify" \
-    --header "Authorization: Bearer ${AGENT_TOKEN}" \
+    --header "Authorization: Bearer ${USER_TOKEN}" \
     --header "Content-Type: application/json" \
     --header "X-Request-Id: ci-fullstack-smoke-verify-001" \
     --data '{"nric":"S1234567D","documentType":"NRIC","documentRef":"localstack-smoke"}'
@@ -1120,7 +1120,7 @@ for _ in {1..20}; do
   COMMS_JSON="$(
     curl --silent --show-error --fail \
       "${LOG_SERVICE_PUBLIC_URL}/api/clients/${CLIENT_ID}/communications?limit=10&offset=0" \
-      --header "Authorization: Bearer ${AGENT_TOKEN}" \
+      --header "Authorization: Bearer ${USER_TOKEN}" \
       || true
   )"
   COMM_EXTRACT="$(
@@ -1191,7 +1191,7 @@ PY
     COMM_STATUS_JSON="$(
       curl --silent --show-error --fail \
         "${LOG_SERVICE_PUBLIC_URL}/api/communications/${COMMUNICATION_ID}" \
-        --header "Authorization: Bearer ${AGENT_TOKEN}" \
+        --header "Authorization: Bearer ${USER_TOKEN}" \
         || true
     )"
     if COMM_STATUS_JSON="${COMM_STATUS_JSON}" ${PYTHON_CMD} - <<'PY' 2>/dev/null; then
@@ -1219,11 +1219,11 @@ echo "  Smoke: verification dispatch worker scheduled path"
 QUEUED_COMMUNICATION_RESPONSE="$(
   curl --silent --show-error --fail \
     --request POST "${LOG_SERVICE_PUBLIC_URL}/api/communications" \
-    --header "Authorization: Bearer ${AGENT_TOKEN}" \
+    --header "Authorization: Bearer ${USER_TOKEN}" \
     --header "Content-Type: application/json" \
     --data "{
       \"clientId\": \"${CLIENT_ID}\",
-      \"agentId\": \"ci_agent\",
+      \"userId\": \"ci_user\",
       \"channel\": \"email\",
       \"toEmail\": \"queued.${CLIENT_ID}@example.com\",
       \"subject\": \"Scheduled dispatch smoke\",
@@ -1246,7 +1246,7 @@ for _ in {1..30}; do
   SCHEDULED_COMM_STATUS_JSON="$(
     curl --silent --show-error --fail \
       "${LOG_SERVICE_PUBLIC_URL}/api/communications/${QUEUED_COMMUNICATION_ID}" \
-      --header "Authorization: Bearer ${AGENT_TOKEN}" \
+      --header "Authorization: Bearer ${USER_TOKEN}" \
       || true
   )"
   if SCHEDULED_COMM_STATUS_JSON="${SCHEDULED_COMM_STATUS_JSON}" ${PYTHON_CMD} - <<'PY' 2>/dev/null; then
@@ -1271,7 +1271,7 @@ echo "  Smoke: transaction-service -> client-service (GET transactions)"
 TX_RESPONSE="$(
   curl --silent --show-error --fail \
     "http://127.0.0.1:18083/api/clients/${CLIENT_ID}/transactions" \
-    --header "Authorization: Bearer ${AGENT_TOKEN}"
+    --header "Authorization: Bearer ${USER_TOKEN}"
 )"
 TX_RESPONSE_JSON="${TX_RESPONSE}" ${PYTHON_CMD} - <<'PY'
 import json, os, sys
@@ -1432,7 +1432,7 @@ ALERT_ID="aml-smoke-$(date +%s)"
 AML_CREATE_RESPONSE="$(
   curl --silent --show-error --fail \
     --request POST "${PLAYWRIGHT_BASE_URL}/api/aml/alerts" \
-    --header "Authorization: Bearer ${AGENT_TOKEN}" \
+    --header "Authorization: Bearer ${USER_TOKEN}" \
     --header "Content-Type: application/json" \
     --data "{
       \"alertId\": \"${ALERT_ID}\",
@@ -1457,7 +1457,7 @@ PY
 AML_REVIEW_RESPONSE="$(
   curl --silent --show-error --fail \
     --request PUT "${PLAYWRIGHT_BASE_URL}/api/aml/alerts/${ALERT_ID}/review" \
-    --header "Authorization: Bearer ${AGENT_TOKEN}" \
+    --header "Authorization: Bearer ${USER_TOKEN}" \
     --header "Content-Type: application/json" \
     --data '{"reviewStatus":"Confirmed"}'
 )"
@@ -1510,13 +1510,13 @@ if [[ "${FULLSTACK_MODE}" == "full" ]]; then
     PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
     E2E_ADMIN_EMAIL="${E2E_ADMIN_EMAIL:-admin@crm.local}" \
     E2E_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-admin123}" \
-    E2E_AGENT_PASSWORD="${E2E_AGENT_PASSWORD:-AgentPass123!}" \
+    E2E_USER_PASSWORD="${E2E_USER_PASSWORD:-UserPass123!}" \
     npm test
   elif command -v cmd.exe >/dev/null 2>&1 && command -v wslpath >/dev/null 2>&1; then
     win_integration_dir="$(wslpath -w "${INTEGRATION_TEST_DIR}")"
     cmd.exe /c "cd /d ${win_integration_dir} && npm.cmd ci"
     cmd.exe /c "cd /d ${win_integration_dir} && npx.cmd playwright install chromium"
-    cmd.exe /c "cd /d ${win_integration_dir} && set PLAYWRIGHT_EXTERNAL_BASE_URL=true&& set PLAYWRIGHT_BASE_URL=${PLAYWRIGHT_BASE_URL}&& set E2E_ADMIN_EMAIL=${E2E_ADMIN_EMAIL:-admin@crm.local}&& set E2E_ADMIN_PASSWORD=${E2E_ADMIN_PASSWORD:-admin123}&& set E2E_AGENT_PASSWORD=${E2E_AGENT_PASSWORD:-AgentPass123!}&& npm.cmd test"
+    cmd.exe /c "cd /d ${win_integration_dir} && set PLAYWRIGHT_EXTERNAL_BASE_URL=true&& set PLAYWRIGHT_BASE_URL=${PLAYWRIGHT_BASE_URL}&& set E2E_ADMIN_EMAIL=${E2E_ADMIN_EMAIL:-admin@crm.local}&& set E2E_ADMIN_PASSWORD=${E2E_ADMIN_PASSWORD:-admin123}&& set E2E_USER_PASSWORD=${E2E_USER_PASSWORD:-UserPass123!}&& npm.cmd test"
   else
     echo "[FAIL] Node.js toolchain unavailable (need node/npm/npx, or cmd.exe + npm.cmd in WSL)." >&2
     exit 1

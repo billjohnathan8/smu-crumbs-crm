@@ -12,11 +12,11 @@ LOCAL_DB_USER="${LOCAL_DB_USER:-crm_app}"
 LOCAL_DB_PASSWORD="${LOCAL_DB_PASSWORD:-devpassword}"
 DB_DOCKER_NETWORK="${DB_DOCKER_NETWORK:-}"
 
-AGENT_BASE_URL="${AGENT_BASE_URL:-http://127.0.0.1:18081}"
+USER_BASE_URL="${USER_BASE_URL:-http://127.0.0.1:18081}"
 ROOT_ADMIN_EMAIL="${ROOT_ADMIN_EMAIL:-admin@crm.local}"
 ROOT_ADMIN_PASSWORD="${ROOT_ADMIN_PASSWORD:-admin123}"
-SEED_AGENT_EMAIL="${SEED_AGENT_EMAIL:-agent@crm.local}"
-SEED_AGENT_PASSWORD="${SEED_AGENT_PASSWORD:-AgentPass123!}"
+SEED_USER_EMAIL="${SEED_USER_EMAIL:-user@crm.local}"
+SEED_AGENT_PASSWORD="${SEED_AGENT_PASSWORD:-UserPass123!}"
 
 FLYWAY_IMAGE="${FLYWAY_IMAGE:-flyway/flyway:10}"
 POSTGRES_IMAGE="${POSTGRES_IMAGE:-postgres:16-alpine}"
@@ -59,8 +59,8 @@ Usage:
   bash scripts/db/run-shared-postgres.sh <command>
 
 Commands:
-  migrate       Run schema migrations for agent/client/transaction/log.
-  seed          Seed baseline users via agent-service API (idempotent).
+  migrate       Run schema migrations for user/client/transaction/log.
+  seed          Seed baseline users via user-service API (idempotent).
   verify        Verify required schema objects and migration histories.
   verify-seed   Verify seeded principals exist.
   reset         Drop and recreate the public schema (destructive for local/test DB).
@@ -69,8 +69,8 @@ Commands:
 Supported env overrides:
   LOCAL_DB_HOST, LOCAL_DB_PORT, LOCAL_DB_NAME, LOCAL_DB_USER, LOCAL_DB_PASSWORD
   DB_DOCKER_NETWORK   (for DB hosts reachable only inside a Docker network)
-  AGENT_BASE_URL, ROOT_ADMIN_EMAIL, ROOT_ADMIN_PASSWORD
-  SEED_AGENT_EMAIL, SEED_AGENT_PASSWORD
+  USER_BASE_URL, ROOT_ADMIN_EMAIL, ROOT_ADMIN_PASSWORD
+  SEED_USER_EMAIL, SEED_AGENT_PASSWORD
 EOF
 }
 
@@ -212,9 +212,9 @@ migrate_log_service() {
 migrate_all() {
   require_command docker
   run_flyway_migration \
-    "agent" \
-    "${ROOT_DIR}/services/backend/agent/src/main/resources/db/migration" \
-    "agent_flyway_schema_history"
+    "user" \
+    "${ROOT_DIR}/services/backend/user/src/main/resources/db/migration" \
+    "user_flyway_schema_history"
   run_flyway_migration \
     "client" \
     "${ROOT_DIR}/services/backend/client/src/main/resources/db/migration" \
@@ -304,14 +304,14 @@ seed_data() {
 
   require_command curl
   python_cmd="$(detect_python)"
-  seed_response_file="$(mktemp 2>/dev/null || echo "/tmp/db-seed-agent-create.$$")"
+  seed_response_file="$(mktemp 2>/dev/null || echo "/tmp/db-seed-user-create.$$")"
 
   echo "[seed] root admin login (also triggers root admin bootstrap when missing)"
   local login_response_file
   local login_status
-  login_response_file="$(mktemp 2>/dev/null || echo "/tmp/db-seed-agent-login.$$")"
+  login_response_file="$(mktemp 2>/dev/null || echo "/tmp/db-seed-user-login.$$")"
 
-  login_status="$(retry_http_post "${AGENT_BASE_URL}/api/auth/login" "{\"email\":\"${ROOT_ADMIN_EMAIL}\",\"password\":\"${ROOT_ADMIN_PASSWORD}\"}" "" "${login_response_file}")" || true
+  login_status="$(retry_http_post "${USER_BASE_URL}/api/auth/login" "{\"email\":\"${ROOT_ADMIN_EMAIL}\",\"password\":\"${ROOT_ADMIN_PASSWORD}\"}" "" "${login_response_file}")" || true
   if [[ "${login_status}" != "200" ]]; then
     echo "[FAIL] Root admin login failed while seeding baseline principals (HTTP ${login_status:-${last_http_code:-unknown}})." >&2
     if [[ -f "${login_response_file}" ]]; then
@@ -335,27 +335,27 @@ PY
     cat <<EOF
 {
   "firstName": "CI",
-  "lastName": "Agent",
-  "email": "${SEED_AGENT_EMAIL}",
-  "role": "agent",
+  "lastName": "User",
+  "email": "${SEED_USER_EMAIL}",
+  "role": "user",
   "sendInviteEmail": false,
   "temporaryPassword": "${SEED_AGENT_PASSWORD}"
 }
 EOF
   )"
 
-  create_status="$(retry_http_post "${AGENT_BASE_URL}/api/agents" "${create_body}" "${admin_access_token}" "${seed_response_file}")" || true
+  create_status="$(retry_http_post "${USER_BASE_URL}/api/users" "${create_body}" "${admin_access_token}" "${seed_response_file}")" || true
   rm -f "${login_response_file}"
 
   case "${create_status}" in
     201)
-      echo "[seed] Created baseline agent user: ${SEED_AGENT_EMAIL}"
+      echo "[seed] Created baseline user: ${SEED_USER_EMAIL}"
       ;;
     409)
-      echo "[seed] Baseline agent user already exists: ${SEED_AGENT_EMAIL}"
+      echo "[seed] Baseline user already exists: ${SEED_USER_EMAIL}"
       ;;
     *)
-      echo "[FAIL] Unexpected response while seeding agent user (HTTP ${create_status:-${last_http_code:-unknown}})." >&2
+      echo "[FAIL] Unexpected response while seeding baseline user (HTTP ${create_status:-${last_http_code:-unknown}})." >&2
       if [[ -f "${seed_response_file}" ]]; then
         cat "${seed_response_file}" >&2 || true
       fi
@@ -393,8 +393,8 @@ verify_schema() {
   require_command docker
 
   echo "[verify] Checking required stateful tables"
-  assert_table_exists "agent_users"
-  assert_table_exists "agent_refresh_tokens"
+  assert_table_exists "users"
+  assert_table_exists "refresh_tokens"
   assert_table_exists "clients"
   assert_table_exists "accounts"
   assert_table_exists "transaction_import_batches"
@@ -405,12 +405,12 @@ verify_schema() {
   assert_table_exists "aml_alerts"
 
   echo "[verify] Checking migration history tables"
-  assert_table_exists "agent_flyway_schema_history"
+  assert_table_exists "user_flyway_schema_history"
   assert_table_exists "flyway_schema_history"
   assert_table_exists "transaction_flyway_schema_history"
   assert_table_exists "schema_migrations"
 
-  assert_history_non_empty "agent_flyway_schema_history"
+  assert_history_non_empty "user_flyway_schema_history"
   assert_history_non_empty "flyway_schema_history"
   assert_history_non_empty "transaction_flyway_schema_history"
   assert_history_non_empty "schema_migrations"
@@ -423,17 +423,17 @@ verify_seed() {
   local root_count
   local seed_count
 
-  root_count="$(db_psql "SELECT COUNT(*) FROM agent_users WHERE lower(email)=lower('${ROOT_ADMIN_EMAIL}');")"
+  root_count="$(db_psql "SELECT COUNT(*) FROM users WHERE lower(email)=lower('${ROOT_ADMIN_EMAIL}');")"
   root_count="$(echo "${root_count}" | tr -d '[:space:]')"
   if [[ -z "${root_count}" || "${root_count}" == "0" ]]; then
     echo "[FAIL] Root admin seed is missing: ${ROOT_ADMIN_EMAIL}" >&2
     exit 1
   fi
 
-  seed_count="$(db_psql "SELECT COUNT(*) FROM agent_users WHERE lower(email)=lower('${SEED_AGENT_EMAIL}');")"
+  seed_count="$(db_psql "SELECT COUNT(*) FROM users WHERE lower(email)=lower('${SEED_USER_EMAIL}');")"
   seed_count="$(echo "${seed_count}" | tr -d '[:space:]')"
   if [[ -z "${seed_count}" || "${seed_count}" == "0" ]]; then
-    echo "[FAIL] Baseline seed agent is missing: ${SEED_AGENT_EMAIL}" >&2
+    echo "[FAIL] Baseline seed user is missing: ${SEED_USER_EMAIL}" >&2
     exit 1
   fi
 

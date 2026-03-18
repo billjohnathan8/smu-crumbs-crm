@@ -31,9 +31,9 @@ services:
       retries: 20
       start_period: 10s
 
-  agent-service:
+  user-service:
     build:
-      context: ../../services/backend/agent
+      context: ../../services/backend/user
       dockerfile: Dockerfile
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${LOCAL_DB_NAME:-crm}
@@ -127,7 +127,7 @@ services:
       LOG_API_UPSTREAM: ${LOG_API_UPSTREAM}
     depends_on:
       - frontend
-      - agent-service
+      - user-service
       - client-service
       - transaction-service
       - localstack

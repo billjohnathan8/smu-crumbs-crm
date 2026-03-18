@@ -61,23 +61,23 @@ variable "ecr_repository_url" {
 variable "image_tags" {
   description = "Container image tags per service."
   type = object({
-    agent       = string
+    user       = string
     client      = string
     transaction = string
   })
 }
 
 variable "desired_counts" {
-  description = "Requested ECS service counts per service. When enable_stateful_service_scale_out is false, agent and transaction are pinned to 1 task."
+  description = "Requested ECS service counts per service. When enable_stateful_service_scale_out is false, user and transaction are pinned to 1 task."
   type = object({
-    agent       = number
+    user       = number
     client      = number
     transaction = number
   })
 }
 
 variable "enable_stateful_service_scale_out" {
-  description = "Allow agent and transaction services to scale beyond one task once persistent shared storage is in place."
+  description = "Allow user and transaction services to scale beyond one task once persistent shared storage is in place."
   type        = bool
 }
 
@@ -122,7 +122,7 @@ variable "ecs_task_role_arns" {
 }
 
 variable "root_admin_email" {
-  description = "Initial root admin email for the agent service."
+  description = "Initial root admin email for the user service."
   type        = string
 }
 
