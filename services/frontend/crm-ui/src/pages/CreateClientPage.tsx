@@ -21,7 +21,7 @@ const adminNav: NavItem[] = [
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
-  { label: 'User Management', to: '/admin/adminusermanagement' },
+  { label: 'User Management', to: '/admin/users' },
 ]
 
 export function CreateClientPage() {
@@ -29,7 +29,7 @@ export function CreateClientPage() {
   const { user, logout } = useAuth()
 
   const isAdmin = user?.role === 'admin'
-  const isRootAdmin = user?.role === 'super_admin' || String(user?.id) === '1'
+  const isRootAdmin = user?.role === 'super_admin' || String(user?.id) === '0'
   const canViewAllClients = isAdmin || isRootAdmin
 
   const basePath = canViewAllClients ? '/admin' : '/user'

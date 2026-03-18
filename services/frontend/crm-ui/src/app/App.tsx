@@ -62,8 +62,8 @@ export function App() {
             <Route path="/admin/communications" element={<AdminCommunications />} />
             <Route path="/admin/transactions" element={<ViewTransactionsPage />} />
             <Route path="/admin/aml-alerts" element={<AmlAlertsPage />} />
-            <Route path="/admin/adminusermanagement" element={<AdminUserManagementPage />} />
-            <Route path="/admin/createnewuserpage" element={<CreateNewUserPage />} />
+            <Route path="/admin/users" element={<AdminUserManagementPage />} />
+            <Route path="/admin/users/new" element={<CreateNewUserPage />} />
           </Route>
 
           <Route element={<ProtectedRoute allowedRoles={['user']} />}>
