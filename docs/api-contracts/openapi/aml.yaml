@@ -223,8 +223,8 @@ components:
         attributeName: { type: string, minLength: 1, maxLength: 100 }
         beforeValue: { type: string, nullable: true, maxLength: 2000 }
         afterValue: { type: string, nullable: true, maxLength: 2000 }
-        agentId: { type: string, minLength: 1, maxLength: 64 }
+        userId: { type: string, minLength: 1, maxLength: 64 }
         clientId: { type: string, minLength: 1, maxLength: 64 }
         dateTime: { type: string, format: date-time }
         correlationId: { type: string, nullable: true, maxLength: 120 }
-      required: [action, attributeName, agentId, clientId]
+      required: [action, attributeName, userId, clientId]

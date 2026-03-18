@@ -82,7 +82,7 @@ Local development/testing only. Do not use these values for production deploymen
 Root admin Email: admin@crm.local
 Password: admin123
 
-Agent Account Email: agent@crm.local
+User Account Email: user@crm.local
 Password: client123
 
 ## Database (Project-wide)

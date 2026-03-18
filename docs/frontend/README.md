@@ -35,7 +35,7 @@ npm run e2e:mocked
 
 - `src/app` - app wiring and route guards
 - `src/features` - feature-specific state/logic
-- `src/pages` - route pages (admin/agent/login flows)
+- `src/pages` - route pages (admin/user/login flows)
 - `src/api` - API client layer
 
 ## API Routing
@@ -49,6 +49,6 @@ The app calls relative `/api/*` paths.
 
 Integration defaults:
 - Admin: `admin@crm.local` / `admin123`
-- Agent: `agent@crm.local` / `AgentPass123!`
+- User: `user@crm.local` / `UserPass123!`
 
-Mocked E2E tests may use different fixture credentials (`admin@example.com`, `agent@example.com`).
+Mocked E2E tests may use different fixture credentials (`admin@example.com`, `user@example.com`).

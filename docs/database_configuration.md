@@ -4,7 +4,7 @@ This document defines the canonical environment and database configuration contr
 
 ## Canonical DB Variable Contract
 
-Use these variables consistently across stateful services (`agent`, `client`, `transaction`, `log`).
+Use these variables consistently across stateful services (`user`, `client`, `transaction`, `log`).
 
 | Variable | Scope | Default (Local/CI) | Notes |
 |---|---|---|---|
@@ -18,10 +18,10 @@ Use these variables consistently across stateful services (`agent`, `client`, `t
 | `DB_NAME` | App runtime | `crm` (`crm_ci` in DB-backed CI jobs) | Base DB name fallback for service configs. |
 | `DB_USER` | App runtime | `crm_app` | Base username fallback for service configs. |
 | `DB_PASSWORD` | App runtime | `devpassword` | Base password fallback for service configs. |
-| `SPRING_DATASOURCE_URL` | Spring services (`agent`, `client`, `transaction`) | `jdbc:postgresql://<host>:<port>/<db>` | Optional explicit override; otherwise derived from `DB_*`. |
+| `SPRING_DATASOURCE_URL` | Spring services (`user`, `client`, `transaction`) | `jdbc:postgresql://<host>:<port>/<db>` | Optional explicit override; otherwise derived from `DB_*`. |
 | `SPRING_DATASOURCE_USERNAME` | Spring services | `crm_app` | Optional override; otherwise derived from `DB_USER`. |
 | `SPRING_DATASOURCE_PASSWORD` | Spring services | `devpassword` | Optional override; otherwise derived from `DB_PASSWORD`. |
-| `APP_USER_STORE_TYPE` | Agent service | `postgres` | Must be `postgres` for local integration/CI/prod paths. |
+| `APP_USER_STORE_TYPE` | User service | `postgres` | Must be `postgres` for local integration/CI/prod paths. |
 | `APP_TRANSACTIONS_STORE_TYPE` | Transaction service | `postgres` | Must be `postgres` for local integration/CI/prod paths. |
 | `APP_ENV` | Log service runtime guardrail | `dev`/`test` | `prod` requires explicit secrets (direct env or `*_SECRET_ARN`). |
 
@@ -39,7 +39,7 @@ Use these variables consistently across stateful services (`agent`, `client`, `t
 
 | Service | Local/Dev | Unit Test Default | CI DB-backed | Prod |
 |---|---|---|---|---|
-| `agent` | PostgreSQL + Flyway | H2 + in-memory store in test resources | `PersistentUserStoreTest` against real Postgres | PostgreSQL on RDS |
+| `user` | PostgreSQL + Flyway | H2 + in-memory store in test resources | `PersistentUserStoreTest` against real Postgres | PostgreSQL on RDS |
 | `client` | PostgreSQL + Flyway | Spring test profile defaults; integration uses Testcontainers Postgres | `ClientsServiceIT` (`-PincludeIntegration=true`) | PostgreSQL on RDS |
 | `transaction` | PostgreSQL + Flyway | H2 + in-memory store in test resources | `PersistentTransactionsStoreTest` against real Postgres | PostgreSQL on RDS |
 | `log` | PostgreSQL DSN (`DB_*`) + SQL migrations | Mostly mocked unit tests + optional DB integration tests | `test_repository_postgres_integration.py` against real Postgres | PostgreSQL on RDS with Secrets Manager wiring |

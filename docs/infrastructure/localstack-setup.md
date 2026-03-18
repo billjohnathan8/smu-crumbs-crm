@@ -16,7 +16,7 @@ LocalStack emulates AWS services used by the stack (SQS, DynamoDB, S3, Lambda, S
 docker compose -f docker-compose.localstack.yml up -d
 ```
 
-Local Postgres contract for stateful services (`agent`, `client`, `transaction`, `log`):
+Local Postgres contract for stateful services (`user`, `client`, `transaction`, `log`):
 - Host: `localhost` (or `postgres` from Docker network)
 - Port: `5432`
 - Database: `crm`
@@ -45,7 +45,7 @@ Apply schema migrations for all stateful services:
 bash scripts/db/run-shared-postgres.sh migrate
 ```
 
-Seed baseline local/test principals (requires `agent-service` running):
+Seed baseline local/test principals (requires `user-service` running):
 
 ```bash
 bash scripts/db/run-shared-postgres.sh seed

@@ -118,7 +118,7 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
 **Examples:**
 
 ```bash
-feat(agent): add CRUD endpoints for agent management
+feat(user): add CRUD endpoints for user management
 fix(client): resolve null pointer exception in client service
 docs: update local deployment guide
 test(transaction): add integration tests for transaction service
@@ -150,18 +150,18 @@ chore: update dependencies to latest versions
 - **SpotBugs** - Bug detection
 
 **Conventions:**
-- Package names: lowercase, no underscores (`com.scroogebank.crm.agent`)
-- Class names: PascalCase (`AgentService`, `ClientController`)
-- Method names: camelCase (`getAgentById`, `createClient`)
+- Package names: lowercase, no underscores (`com.scroogebank.crm.user`)
+- Class names: PascalCase (`UserService`, `ClientController`)
+- Method names: camelCase (`getUserById`, `createClient`)
 - Constants: UPPER_SNAKE_CASE (`MAX_RETRY_COUNT`, `DEFAULT_TIMEOUT`)
 
 **Testing:**
 - Unit tests: JUnit 5 + Mockito
-- Test class naming: `<ClassName>Test` (e.g., `AgentServiceTest`)
+- Test class naming: `<ClassName>Test` (e.g., `UserServiceTest`)
 - Test method naming: `<methodName>_<scenario>_<expectedResult>`
   ```java
   @Test
-  void getAgentById_whenAgentExists_returnsAgent() { ... }
+  void getUserById_whenAgentExists_returnsAgent() { ... }
   ```
 
 **Coverage requirements:**
@@ -212,8 +212,8 @@ def get_log_by_id(log_id: int) -> Optional[LogEntry]:
 - **TypeScript** - Strict mode enabled
 
 **Conventions:**
-- Component names: PascalCase (`AgentList`, `ClientForm`)
-- File names: PascalCase for components (`AgentList.tsx`)
+- Component names: PascalCase (`UserList`, `ClientForm`)
+- File names: PascalCase for components (`UserList.tsx`)
 - Hook names: camelCase starting with `use` (`useAgents`, `useClientData`)
 - Utility files: kebab-case (`api-client.ts`, `date-utils.ts`)
 
@@ -221,12 +221,12 @@ def get_log_by_id(log_id: int) -> Optional[LogEntry]:
 ```tsx
 import { useState } from 'react';
 
-interface AgentListProps {
-  onAgentSelect: (agentId: string) => void;
+interface UserListProps {
+  onUserSelect: (userId: string) => void;
 }
 
-export function AgentList({ onAgentSelect }: AgentListProps) {
-  const [agents, setAgents] = useState([]);
+export function UserList({ onUserSelect }: UserListProps) {
+  const [users, setAgents] = useState([]);
 
   // Component logic...
 
@@ -351,7 +351,7 @@ We use a **component trunk** strategy with branch policies:
 | `main` | Production-ready code | Maintainers only (via PR) | `integration` |
 | `integration` | Integration testing | Maintainers only (via PR) | Component trunks |
 | `frontend` | Frontend development | Frontend team | Feature branches |
-| `agent-backend` | Agent service | Backend team | Feature branches |
+| `user-backend` | User service | Backend team | Feature branches |
 | `client-backend` | Client service | Backend team | Feature branches |
 | `transaction-backend` | Transaction service | Backend team | Feature branches |
 | `log-backend` | Log service | Backend team | Feature branches |

@@ -1,10 +1,10 @@
 openapi: 3.0.3
 info:
-  title: agent
+  title: user
   version: 0.3.0
   description: 'Feature 1: CRM User Management.
 
-    Manages Admin/Agent users and supports authentication flows for the frontend.
+    Manages Admin/User accounts and supports authentication flows for the frontend.
 
     NOTE: In production, authentication is typically delegated to an OAuth2 IdP (e.g.,
     Cognito).'
@@ -34,7 +34,7 @@ paths:
                     example: ok
                   service:
                     type: string
-                    example: agent
+                    example: user
                 required:
                 - status
                 - service
@@ -47,16 +47,16 @@ paths:
       responses:
         '200':
           description: OK
-  /api/v1/agents/health:
+  /api/v1/users/health:
     get:
       deprecated: true
       tags:
       - health
-      summary: (Deprecated) Agents route health check
+      summary: (Deprecated) Users route health check
       responses:
         '200':
           description: OK
-  /api/agents:
+  /api/users:
     get:
       tags:
       - users
@@ -123,7 +123,7 @@ paths:
       tags:
       - users
       summary: Create user
-      description: Admin/super-admin only. Creates an admin or agent user.
+      description: Admin/super-admin only. Creates an admin or regular user.
       security:
       - BearerAuth: []
       x-required-roles:
@@ -166,7 +166,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /api/agents/me:
+  /api/users/me:
     get:
       tags:
       - users
@@ -175,7 +175,7 @@ paths:
       - BearerAuth: []
       x-required-roles:
       - admin
-      - agent
+      - user
       - super_admin
       responses:
         '200':
@@ -196,7 +196,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /api/agents/{userId}:
+  /api/users/{userId}:
     get:
       tags:
       - users
@@ -247,12 +247,12 @@ paths:
       tags:
       - users
       summary: Update user
-      description: User update endpoint. Admin/super-admin can update any user; agents can only update themselves with role restrictions.
+      description: User update endpoint. Admin/super-admin can update any user; users can only update themselves with role restrictions.
       security:
       - BearerAuth: []
       x-required-roles:
       - admin
-      - agent
+      - user
       - super_admin
       parameters:
       - name: userId
@@ -346,7 +346,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /api/agents/{userId}/disable:
+  /api/users/{userId}/disable:
     post:
       tags:
       - users
@@ -394,7 +394,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /api/agents/{userId}/reset-password:
+  /api/users/{userId}/reset-password:
     post:
       tags:
       - users
@@ -553,7 +553,7 @@ components:
       type: string
       enum:
       - admin
-      - agent
+      - user
       - super_admin
       description: User role
     UserStatus:

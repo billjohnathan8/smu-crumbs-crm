@@ -55,9 +55,9 @@ The deployment has **5 phases**, all of which must succeed for the app to work:
 $ROOT = $PWD.Path  # run from repo root
 $ECR = "231570205144.dkr.ecr.us-east-1.amazonaws.com/scroogebank-crm-lab-services"
 
-# Agent service
-cd "$ROOT\services\backend\agent"; .\gradlew.bat build -x test; cd $ROOT
-docker build --provenance=false --platform linux/amd64 -t "${ECR}:agent-lab-001" services\backend\agent
+# User service
+cd "$ROOT\services\backend\user"; .\gradlew.bat build -x test; cd $ROOT
+docker build --provenance=false --platform linux/amd64 -t "${ECR}:user-lab-001" services\backend\user
 
 # Client service
 cd "$ROOT\services\backend\client"; .\gradlew.bat build -x test; cd $ROOT
@@ -70,7 +70,7 @@ docker build --provenance=false --platform linux/amd64 -t "${ECR}:transaction-la
 
 > **Why `--provenance=false --platform linux/amd64`:** Docker Desktop with BuildKit enabled builds images as OCI manifest lists containing both the `linux/amd64` image and an `unknown/unknown` provenance attestation manifest. ECS's containerd runtime fails to resolve the correct platform from this manifest list and reports `CannotPullContainerError: not found`. The flags produce a standard single-arch image that ECS can pull correctly.
 
-> Image tags must match `lab.tfvars` values: `agent-lab-001`, `client-lab-001`, `transaction-lab-001`. If you use different tags, update `lab.tfvars` and re-apply.
+> Image tags must match `lab.tfvars` values: `user-lab-001`, `client-lab-001`, `transaction-lab-001`. If you use different tags, update `lab.tfvars` and re-apply.
 
 ---
 
@@ -106,7 +106,7 @@ $env:TF_VAR_root_admin_password = "YourPasswordHere!"
 ```
 
 - This seeds the root admin account password in the database. **Remember this value** — you need it to log in.
-- If you forget it later, retrieve from Secrets Manager: `aws secretsmanager get-secret-value --secret-id "/scroogebank-crm/lab/agent/root_admin_password" --query SecretString --output text`
+- If you forget it later, retrieve from Secrets Manager: `aws secretsmanager get-secret-value --secret-id "/scroogebank-crm/lab/user/root_admin_password" --query SecretString --output text`
 - `TF_VAR_jwt_hmac_secret` is auto-generated if unset (recommended for lab).
 
 ---
@@ -191,7 +191,7 @@ cmd /c "aws ecr get-login-password --region us-east-1 | docker login --username 
 ```powershell
 $ECR = "231570205144.dkr.ecr.us-east-1.amazonaws.com/scroogebank-crm-lab-services"
 
-docker push "${ECR}:agent-lab-001"
+docker push "${ECR}:user-lab-001"
 docker push "${ECR}:client-lab-001"
 docker push "${ECR}:transaction-lab-001"
 ```
@@ -201,7 +201,7 @@ docker push "${ECR}:transaction-lab-001"
 After the initial push, force ECS to pick up the new images:
 
 ```powershell
-aws ecs update-service --cluster scroogebank-crm-lab-ecs --service scroogebank-crm-lab-agent --force-new-deployment --region us-east-1
+aws ecs update-service --cluster scroogebank-crm-lab-ecs --service scroogebank-crm-lab-user --force-new-deployment --region us-east-1
 aws ecs update-service --cluster scroogebank-crm-lab-ecs --service scroogebank-crm-lab-client --force-new-deployment --region us-east-1
 aws ecs update-service --cluster scroogebank-crm-lab-ecs --service scroogebank-crm-lab-transaction --force-new-deployment --region us-east-1
 ```
@@ -253,7 +253,7 @@ S3 static website hosting and public read policy are managed by Terraform (`fron
 ### Step 11 — Check ECS services
 
 ```powershell
-aws ecs describe-services --cluster scroogebank-crm-lab-ecs --services scroogebank-crm-lab-agent scroogebank-crm-lab-client scroogebank-crm-lab-transaction --region us-east-1 --query "services[*].{name:serviceName,running:runningCount,desired:desiredCount,pending:pendingCount}"
+aws ecs describe-services --cluster scroogebank-crm-lab-ecs --services scroogebank-crm-lab-user scroogebank-crm-lab-client scroogebank-crm-lab-transaction --region us-east-1 --query "services[*].{name:serviceName,running:runningCount,desired:desiredCount,pending:pendingCount}"
 ```
 
 Expected: `running == desired` for all three.
@@ -261,7 +261,7 @@ Expected: `running == desired` for all three.
 ### Step 12 — Check ALB target health
 
 ```powershell
-$arns = aws elbv2 describe-target-groups --names scroogebank-crm-lab-agent-tg scroogebank-crm-lab-client-tg scroogebank-crm-lab-transaction --region us-east-1 --query "TargetGroups[*].TargetGroupArn" --output text
+$arns = aws elbv2 describe-target-groups --names scroogebank-crm-lab-user-tg scroogebank-crm-lab-client-tg scroogebank-crm-lab-transaction --region us-east-1 --query "TargetGroups[*].TargetGroupArn" --output text
 ```
 
 All three should show `healthy`.
@@ -278,7 +278,7 @@ $ALB = terraform output -raw alb_dns_name
 Then health-check all three services:
 
 ```powershell
-curl.exe "http://$ALB/api/agent/health"
+curl.exe "http://$ALB/api/user/health"
 curl.exe "http://$ALB/api/clients/health"
 curl.exe "http://$ALB/api/transactions/health"
 ```
@@ -325,9 +325,9 @@ cmd /c "aws ecr get-login-password --region us-east-1 | docker login --username 
 
 $ECR = "231570205144.dkr.ecr.us-east-1.amazonaws.com/scroogebank-crm-lab-services"
 
-cd "$ROOT\services\backend\agent"; .\gradlew.bat build -x test; cd $ROOT
-docker build --provenance=false --platform linux/amd64 -t "${ECR}:agent-lab-001" services\backend\agent
-docker push "${ECR}:agent-lab-001"
+cd "$ROOT\services\backend\user"; .\gradlew.bat build -x test; cd $ROOT
+docker build --provenance=false --platform linux/amd64 -t "${ECR}:user-lab-001" services\backend\user
+docker push "${ECR}:user-lab-001"
 
 cd "$ROOT\services\backend\client"; .\gradlew.bat build -x test; cd $ROOT
 docker build --provenance=false --platform linux/amd64 -t "${ECR}:client-lab-001" services\backend\client
@@ -338,7 +338,7 @@ docker build --provenance=false --platform linux/amd64 -t "${ECR}:transaction-la
 docker push "${ECR}:transaction-lab-001"
 
 # Force ECS to pick up new images
-aws ecs update-service --cluster scroogebank-crm-lab-ecs --service scroogebank-crm-lab-agent --force-new-deployment --region us-east-1
+aws ecs update-service --cluster scroogebank-crm-lab-ecs --service scroogebank-crm-lab-user --force-new-deployment --region us-east-1
 aws ecs update-service --cluster scroogebank-crm-lab-ecs --service scroogebank-crm-lab-client --force-new-deployment --region us-east-1
 aws ecs update-service --cluster scroogebank-crm-lab-ecs --service scroogebank-crm-lab-transaction --force-new-deployment --region us-east-1
 
@@ -354,7 +354,7 @@ aws s3 sync dist/ s3://scroogebank-crm-lab-frontend-231570205144/ --delete
 # === PHASE 4: VERIFY ===
 cd $ROOT\platform\terraform
 $ALB = terraform output -raw alb_dns_name
-curl.exe "http://$ALB/api/agent/health"
+curl.exe "http://$ALB/api/user/health"
 curl.exe "http://$ALB/api/clients/health"
 curl.exe "http://$ALB/api/transactions/health"
 terraform output -raw frontend_website_url
@@ -407,7 +407,7 @@ If that fails with `ExpiredToken`, re-export credentials first.
 ### Forgot root admin password
 
 ```powershell
-aws secretsmanager get-secret-value --secret-id "/scroogebank-crm/lab/agent/root_admin_password" --query SecretString --output text
+aws secretsmanager get-secret-value --secret-id "/scroogebank-crm/lab/user/root_admin_password" --query SecretString --output text
 ```
 
 ---
@@ -445,7 +445,7 @@ aws dynamodb describe-table --table-name scroogebank-crm-lab-tflock --region us-
 
 ### CannotPullContainerError: not found
 
-**Symptom:** ECS stopped task shows `stoppedReason: CannotPullContainerError: ... :agent-lab-001: not found`
+**Symptom:** ECS stopped task shows `stoppedReason: CannotPullContainerError: ... :user-lab-001: not found`
 
 **Cause:** Docker Desktop with BuildKit enabled builds images as OCI manifest lists containing both the `linux/amd64` image and an `unknown/unknown` provenance attestation manifest. ECS's containerd runtime fails to resolve the correct platform from this manifest list.
 
@@ -455,8 +455,8 @@ aws dynamodb describe-table --table-name scroogebank-crm-lab-tflock --region us-
 $ECR = "231570205144.dkr.ecr.us-east-1.amazonaws.com/scroogebank-crm-lab-services"
 $ROOT = $PWD.Path  # run from repo root
 
-docker build --provenance=false --platform linux/amd64 -t "${ECR}:agent-lab-001" "$ROOT\services\backend\agent"
-docker push "${ECR}:agent-lab-001"
+docker build --provenance=false --platform linux/amd64 -t "${ECR}:user-lab-001" "$ROOT\services\backend\user"
+docker push "${ECR}:user-lab-001"
 
 docker build --provenance=false --platform linux/amd64 -t "${ECR}:client-lab-001" "$ROOT\services\backend\client"
 docker push "${ECR}:client-lab-001"
@@ -464,7 +464,7 @@ docker push "${ECR}:client-lab-001"
 docker build --provenance=false --platform linux/amd64 -t "${ECR}:transaction-lab-001" "$ROOT\services\backend\transaction"
 docker push "${ECR}:transaction-lab-001"
 
-aws ecs update-service --cluster scroogebank-crm-lab-ecs --service scroogebank-crm-lab-agent --force-new-deployment --region us-east-1
+aws ecs update-service --cluster scroogebank-crm-lab-ecs --service scroogebank-crm-lab-user --force-new-deployment --region us-east-1
 aws ecs update-service --cluster scroogebank-crm-lab-ecs --service scroogebank-crm-lab-client --force-new-deployment --region us-east-1
 aws ecs update-service --cluster scroogebank-crm-lab-ecs --service scroogebank-crm-lab-transaction --force-new-deployment --region us-east-1
 ```

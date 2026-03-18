@@ -4,7 +4,7 @@ This runbook documents how to migrate auth safely from local HS256 tokens to Cog
 
 ## Scope
 
-- Backend services: `agent`, `client`, `transaction`
+- Backend services: `user`, `client`, `transaction`
 - Terraform ECS wiring for auth mode and Cognito settings
 - CI/local safety defaults
 
@@ -34,7 +34,7 @@ This rollout does not require a one-shot cutover.
 ## Prerequisites
 
 1. Cognito User Pool and App Client exist (Terraform `enable_cognito=true`).
-2. Cognito groups are configured consistently (`ADMIN`, `AGENT`).
+2. Cognito groups are configured consistently (`ADMIN`, `USER`).
 3. Backend services are deployed with the dual-mode code.
 4. Frontend migration plan is ready (Hosted UI or Cognito SDK) before final cutover.
 
@@ -119,7 +119,7 @@ Keep `scripts/ci/fullstack-integration.compose.yml` in `AUTH_MODE=local` unless 
 Before moving to `cognito` mode, confirm all are true:
 
 1. `hybrid` works with both token types in non-prod.
-2. Role mapping is correct (`ADMIN` -> `admin`, `AGENT` -> `agent`).
+2. Role mapping is correct (`ADMIN` -> `admin`, `USER` -> `user`).
 3. Frontend refresh/session behavior works with Cognito.
 4. E2E tests cover protected routes with Cognito users.
 5. Rollback to `local` is tested and documented.

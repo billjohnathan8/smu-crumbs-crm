@@ -61,11 +61,11 @@ paths:
       tags: [transactions]
       summary: List transactions
       description: |
-        Lists transactions. Admins may see all transactions; agents may see only transactions for their own clients.
-        If the caller is an agent and `clientId` is not provided, the service returns an empty page.
+        Lists transactions. Admins may see all transactions; users may see only transactions for their own clients.
+        If the caller is an user and `clientId` is not provided, the service returns an empty page.
       security:
         - BearerAuth: []
-      x-required-roles: [admin, agent]
+      x-required-roles: [admin, user]
       parameters:
         - name: limit
           in: query
@@ -179,7 +179,7 @@ paths:
       summary: Get transaction by ID
       security:
         - BearerAuth: []
-      x-required-roles: [admin, agent]
+      x-required-roles: [admin, user]
       parameters:
         - name: transactionId
           in: path
@@ -265,7 +265,7 @@ paths:
       summary: List transactions for a specific client
       security:
         - BearerAuth: []
-      x-required-roles: [admin, agent]
+      x-required-roles: [admin, user]
       parameters:
         - name: clientId
           in: path

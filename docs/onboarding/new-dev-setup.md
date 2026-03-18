@@ -65,7 +65,7 @@ Database settings used across local integration flows:
 Canonical config reference:
 - [../configuration.md](../configuration.md)
 - Service env templates:
-  - `services/backend/agent/.env.example`
+  - `services/backend/user/.env.example`
   - `services/backend/client/.env.example`
   - `services/backend/transaction/.env.example`
   - `services/backend/log/.env.example`
