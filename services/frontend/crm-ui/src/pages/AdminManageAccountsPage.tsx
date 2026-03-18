@@ -224,6 +224,9 @@ export function AdminManageAccountsPage() {
           </div>
         ) : (
           <div className="bg-card border border-border rounded-lg">
+            <div className="px-6 py-4 border-b border-border">
+              <h2 className="text-xl font-bold text-text">User Accounts</h2>
+            </div>
             <div className="overflow-x-auto">
               {users.length === 0 ? (
                 <div className="p-6 text-center text-text-muted">No users found</div>
