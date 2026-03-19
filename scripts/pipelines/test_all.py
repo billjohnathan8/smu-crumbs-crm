@@ -1007,6 +1007,7 @@ def write_summary(
         "timestamp": datetime.now().isoformat(),
         "suite": args.suite,
         "fullstack_mode": args.fullstack_mode,
+        "local_phase5": args.local_phase5,
         "dry_run": args.dry_run,
         "skip_fullstack": args.skip_fullstack,
         "skip_mocked_e2e": args.skip_mocked_e2e,
@@ -1036,6 +1037,7 @@ def write_summary(
     lines.append(f"- Timestamp: `{datetime.now().isoformat()}`")
     lines.append(f"- Suite: `{args.suite}`")
     lines.append(f"- Fullstack mode: `{args.fullstack_mode}`")
+    lines.append(f"- Local phase5 preset: `{args.local_phase5}`")
     lines.append(f"- Dry-run: `{args.dry_run}`")
     lines.append(f"- Success: `{ok}`")
     lines.append(f"- Total runtime (s): `{total_seconds:.1f}`")
@@ -1110,12 +1112,27 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Print all commands and timing sections without executing commands.",
     )
+    parser.add_argument(
+        "--local-phase5",
+        action="store_true",
+        help=(
+            "Run the complete local pipeline through fullstack Phase 5 "
+            "(forces suite=all, fullstack-mode=full, and skips Terraform/AWS checks)."
+        ),
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
     started_at = time.monotonic()
+
+    if args.local_phase5:
+        args.suite = "all"
+        args.fullstack_mode = "full"
+        args.skip_fullstack = False
+        args.skip_mocked_e2e = False
+        args.skip_terraform = True
 
     if not args.skip_terraform and not has_aws_credentials():
         print(
@@ -1131,6 +1148,7 @@ def main() -> int:
     print(f"Fullstack mode: {args.fullstack_mode}")
     print(
         "Flags: "
+        f"local_phase5={args.local_phase5}, "
         f"skip_fullstack={args.skip_fullstack}, "
         f"skip_mocked_e2e={args.skip_mocked_e2e}, "
         f"skip_terraform={args.skip_terraform}, "

@@ -18,6 +18,7 @@ python scripts/pipelines/test_all.py --fullstack-mode smoke
 python scripts/pipelines/test_all.py --skip-mocked-e2e
 python scripts/pipelines/test_all.py --skip-terraform
 python scripts/pipelines/test_all.py --skip-openapi
+python scripts/pipelines/test_all.py --local-phase5
 python scripts/pipelines/test_all.py --dry-run
 ```
 

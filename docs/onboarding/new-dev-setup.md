@@ -81,6 +81,7 @@ Useful options:
 ```bash
 python scripts/pipelines/test_all.py --skip-fullstack
 python scripts/pipelines/test_all.py --fullstack-mode smoke
+python scripts/pipelines/test_all.py --local-phase5
 python scripts/pipelines/test_all.py --dry-run
 ```
 
