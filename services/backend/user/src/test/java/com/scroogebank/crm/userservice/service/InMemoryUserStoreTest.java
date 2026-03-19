@@ -1,11 +1,20 @@
 package com.scroogebank.crm.userservice.service;
 
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import com.scroogebank.crm.userservice.dto.CreateUserRequest;
 import com.scroogebank.crm.userservice.dto.UpdateUserRequest;
@@ -15,14 +24,6 @@ import com.scroogebank.crm.userservice.dto.UserStatus;
 import com.scroogebank.crm.userservice.exception.AccessDeniedException;
 import com.scroogebank.crm.userservice.exception.DuplicateUserException;
 import com.scroogebank.crm.userservice.exception.UserNotFoundException;
-import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for {@link InMemoryUserStore}.
@@ -32,6 +33,7 @@ class InMemoryUserStoreTest {
 	private InMemoryUserStore store;
 
 	@BeforeEach
+	@SuppressWarnings("unused")
 	void setUp() {
 		clock = new TestClock(Instant.parse("2026-02-05T00:00:00Z"));
 		store = new InMemoryUserStore(clock, new PasswordHasher(), "root@example.com", "RootPass!123");
@@ -61,9 +63,10 @@ class InMemoryUserStoreTest {
 	void createUser_duplicateEmail_throwsConflict() {
 		store.createUser(new CreateUserRequest("A", "B", "ava@example.com", UserRole.user, false, "pw"));
 
-		assertThrows(DuplicateUserException.class, () -> store.createUser(
+		DuplicateUserException duplicate = assertThrows(DuplicateUserException.class, () -> store.createUser(
 			new CreateUserRequest("C", "D", "AVA@example.com", UserRole.admin, false, "pw")
 		));
+		assertNotNull(duplicate);
 	}
 
 	@Test
@@ -76,15 +79,17 @@ class InMemoryUserStoreTest {
 		assertNull(store.findByEmail("ava@example.com"));
 		assertNotNull(store.findByEmail("ava.new@example.com"));
 
-		assertThrows(DuplicateUserException.class, () -> store.updateUser(
+		DuplicateUserException duplicate = assertThrows(DuplicateUserException.class, () -> store.updateUser(
 			second.id(),
 			new UpdateUserRequest(null, null, "ava.new@example.com", null)
 		));
+		assertNotNull(duplicate);
 	}
 
 	@Test
 	void deleteUser_rootAdminIsForbidden() {
-		assertThrows(AccessDeniedException.class, () -> store.deleteUser("usr_1"));
+		AccessDeniedException denied = assertThrows(AccessDeniedException.class, () -> store.deleteUser("usr_1"));
+		assertNotNull(denied);
 	}
 
 	@Test
@@ -176,8 +181,10 @@ class InMemoryUserStoreTest {
 
 	@Test
 	void getUser_missingUser_throwsNotFound() {
-		assertThrows(UserNotFoundException.class, () -> store.getUser("usr_999"));
-		assertThrows(UserNotFoundException.class, () -> store.issueRefreshToken("usr_999"));
+		UserNotFoundException missingGet = assertThrows(UserNotFoundException.class, () -> store.getUser("usr_999"));
+		UserNotFoundException missingToken = assertThrows(UserNotFoundException.class, () -> store.issueRefreshToken("usr_999"));
+		assertNotNull(missingGet);
+		assertNotNull(missingToken);
 	}
 
 	@Test

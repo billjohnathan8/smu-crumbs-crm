@@ -26,6 +26,7 @@ class AuthControllerTest {
 	private ObjectMapper objectMapper;
 
 	@BeforeEach
+	@SuppressWarnings("unused")
 	void setUp() {
 		authService = mock(AuthService.class);
 		objectMapper = new ObjectMapper();

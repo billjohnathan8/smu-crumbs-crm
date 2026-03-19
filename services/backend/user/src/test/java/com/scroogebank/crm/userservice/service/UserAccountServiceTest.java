@@ -1,7 +1,15 @@
 package com.scroogebank.crm.userservice.service;
 
+import java.time.Instant;
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -19,16 +27,9 @@ import com.scroogebank.crm.userservice.dto.UserDto;
 import com.scroogebank.crm.userservice.dto.UserRole;
 import com.scroogebank.crm.userservice.dto.UserStatus;
 import com.scroogebank.crm.userservice.dto.UsersListResponse;
-import com.scroogebank.crm.userservice.security.AuthenticatedUser;
 import com.scroogebank.crm.userservice.exception.AccessDeniedException;
 import com.scroogebank.crm.userservice.exception.UserNotFoundException;
-
-import java.time.Instant;
-import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
+import com.scroogebank.crm.userservice.security.AuthenticatedUser;
 
 
 /**
@@ -39,6 +40,7 @@ class UserAccountServiceTest {
 	private UserAccountService service;
 
 	@BeforeEach
+	@SuppressWarnings("unused")
 	void setUp() {
 		store = mock(PersistentUserStore.class);
 		service = new UserAccountService(store);
@@ -116,7 +118,8 @@ class UserAccountServiceTest {
 		AuthenticatedUser requester = userWithRole(UserRole.fromWireValue(requesterRole));
 		CreateUserRequest request = createRequest(UserRole.fromWireValue(targetRole));
 
-		assertThrows(AccessDeniedException.class, () -> service.createUser(request, requester));
+		AccessDeniedException denied = assertThrows(AccessDeniedException.class, () -> service.createUser(request, requester));
+		assertNotNull(denied);
 
 		// No call to store when validation fails
 		verify(store, never()).createUser(any());
@@ -163,7 +166,8 @@ class UserAccountServiceTest {
 	void user_cannotListUsers(String requesterRole, String targetRole) {
 		AuthenticatedUser requester = userWithRole(UserRole.fromWireValue(requesterRole));
 
-		assertThrows(AccessDeniedException.class, () -> service.listUsers(50, 0, targetRole, requester));
+		AccessDeniedException denied = assertThrows(AccessDeniedException.class, () -> service.listUsers(50, 0, targetRole, requester));
+		assertNotNull(denied);
 
 		// No call to store when validation fails
 		verify(store, never()).listUsers(anyInt(), anyInt(), any());
@@ -204,13 +208,13 @@ class UserAccountServiceTest {
 		UserDto existingUser = existingUser(UserRole.fromWireValue(targetRole));
 		UpdateUserRequest request = updateRequest(UserRole.fromWireValue(targetRole));
 
-		when(store.getUser(existingUser.id().toString())).thenReturn(existingUser);
+		when(store.getUser(existingUser.id())).thenReturn(existingUser);
 		when(store.updateUser(any(), any())).thenReturn(existingUser);
 
 		UserDto result = service.updateUser(existingUser.id(), request, requester);
 
 		assertEquals(result.role(), UserRole.fromWireValue(targetRole));
-		verify(store).updateUser(eq(existingUser.id().toString()), eq(request));
+		verify(store).updateUser(eq(existingUser.id()), eq(request));
 	};
 
 	//  ─── Permission Denied ───
@@ -230,7 +234,8 @@ class UserAccountServiceTest {
 
 		when(store.getUser(existingUser.id())).thenReturn(existingUser);
 
-		assertThrows(AccessDeniedException.class, () -> service.updateUser(existingUser.id(), request, requester));
+		AccessDeniedException denied = assertThrows(AccessDeniedException.class, () -> service.updateUser(existingUser.id(), request, requester));
+		assertNotNull(denied);
 
 		verify(store, never()).updateUser(any(), any());
 	}
@@ -245,7 +250,8 @@ class UserAccountServiceTest {
 
 		when(store.getUser(userId)).thenReturn(null);
 
-		assertThrows(UserNotFoundException.class, () -> service.updateUser(userId, request, requester));
+		UserNotFoundException notFound = assertThrows(UserNotFoundException.class, () -> service.updateUser(userId, request, requester));
+		assertNotNull(notFound);
 		verify(store, never()).updateUser(any(), any());
 	}
 
@@ -283,7 +289,7 @@ class UserAccountServiceTest {
 		assertEquals(result.email(), "jane@example.com");
 		assertEquals(result.role(), UserRole.admin);
 
-		verify(store).updateUser(eq(existingUser.id().toString()), eq(request));
+		verify(store).updateUser(eq(existingUser.id()), eq(request));
 	}
 
 
@@ -303,7 +309,8 @@ class UserAccountServiceTest {
 
 		AuthenticatedUser user = new AuthenticatedUser("usr_2", "user");
 
-		assertThrows(AccessDeniedException.class, () -> service.deleteUser("usr_3", user));
+		AccessDeniedException denied = assertThrows(AccessDeniedException.class, () -> service.deleteUser("usr_3", user));
+		assertNotNull(denied);
 
 		verify(store).getUser(eq("usr_3"));
 		verify(store, never()).deleteUser(eq("usr_3"));
@@ -383,7 +390,8 @@ class UserAccountServiceTest {
 
 		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "admin");
 
-		assertThrows(AccessDeniedException.class, () -> service.deleteUser("usr_4", admin));
+		AccessDeniedException denied = assertThrows(AccessDeniedException.class, () -> service.deleteUser("usr_4", admin));
+		assertNotNull(denied);
 
 		verify(store).getUser(eq("usr_4"));
 		verify(store, never()).deleteUser(eq("usr_4"));

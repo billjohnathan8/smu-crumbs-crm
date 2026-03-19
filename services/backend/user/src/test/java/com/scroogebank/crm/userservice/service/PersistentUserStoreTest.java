@@ -1,18 +1,19 @@
 package com.scroogebank.crm.userservice.service;
 
+import java.time.Clock;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 
 import com.scroogebank.crm.userservice.dto.CreateUserRequest;
 import com.scroogebank.crm.userservice.dto.UserDto;
 import com.scroogebank.crm.userservice.dto.UserRole;
 import com.scroogebank.crm.userservice.repository.RefreshTokenRepository;
 import com.scroogebank.crm.userservice.repository.UserRepository;
-import java.time.Clock;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
 /**
  * Verifies persisted user/refresh-token state survives store recreation.
@@ -39,6 +40,7 @@ class PersistentUserStoreTest {
 	private Clock clock;
 
 	@BeforeEach
+	@SuppressWarnings("unused")
 	void setUp() {
 		refreshTokenRepository.deleteAll();
 		userRepository.deleteAll();

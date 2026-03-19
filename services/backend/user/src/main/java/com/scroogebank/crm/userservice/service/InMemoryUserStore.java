@@ -17,6 +17,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -65,6 +66,7 @@ public class InMemoryUserStore implements UserStore {
 	 * @return created user DTO
 	 * @throws DuplicateUserException when the email already exists
 	 */
+	@Override
 	public UserDto createUser(CreateUserRequest request) {
 		String email = normalizeEmail(request.email());
 		if (emailIndex.containsKey(email)) {
@@ -76,7 +78,7 @@ public class InMemoryUserStore implements UserStore {
 		String password = (request.temporaryPassword() == null || request.temporaryPassword().isBlank())
 			? UUID.randomUUID().toString()
 			: request.temporaryPassword();
-		UserRole role = request.role() == null ? UserRole.user : request.role();
+		UserRole role = Objects.requireNonNullElse(request.role(), UserRole.user);
 
 		UserRecord record = new UserRecord(
 			id,
@@ -102,6 +104,7 @@ public class InMemoryUserStore implements UserStore {
 	 * @return updated user DTO
 	 * @throws DuplicateUserException when the updated email already exists
 	 */
+	@Override
 	public UserDto updateUser(String userId, UpdateUserRequest patch) {
 		long dbId = decodeUserId(userId);
 		UserRecord existing = loadByDbId(dbId);
@@ -139,6 +142,7 @@ public class InMemoryUserStore implements UserStore {
 	 * @param userId API user identifier
 	 * @throws AccessDenied when attempting to delete the root admin
 	 */
+	@Override
 	public void deleteUser(String userId) {
 		long dbId = decodeUserId(userId);
 		if (dbId == ROOT_ADMIN_DB_ID) {
@@ -168,6 +172,7 @@ public class InMemoryUserStore implements UserStore {
 	 * @param userId API user identifier
 	 * @return updated user DTO
 	 */
+	@Override
 	public UserDto disableUser(String userId) {
 		long dbId = decodeUserId(userId);
 		UserRecord existing = loadByDbId(dbId);
@@ -192,6 +197,7 @@ public class InMemoryUserStore implements UserStore {
 	 *
 	 * @param userId API user identifier
 	 */
+	@Override
 	public void resetPassword(String userId) {
 		long dbId = decodeUserId(userId);
 		UserRecord existing = loadByDbId(dbId);
@@ -218,6 +224,7 @@ public class InMemoryUserStore implements UserStore {
 	 * @param userId API user identifier
 	 * @return user DTO
 	 */
+	@Override
 	public UserDto getUser(String userId) {
 		long dbId = decodeUserId(userId);
 		return toDto(loadByDbId(dbId));
@@ -229,6 +236,7 @@ public class InMemoryUserStore implements UserStore {
 	 * @param email email address
 	 * @return user record or null
 	 */
+	@Override
 	public UserRecord findByEmail(String email) {
 		Long dbId = emailIndex.get(normalizeEmail(email));
 		return dbId == null ? null : users.get(dbId);
@@ -240,6 +248,7 @@ public class InMemoryUserStore implements UserStore {
 	 * @param userId API user identifier
 	 * @return user record
 	 */
+	@Override
 	public UserRecord loadRecord(String userId) {
 		long dbId = decodeUserId(userId);
 		return loadByDbId(dbId);
@@ -253,6 +262,7 @@ public class InMemoryUserStore implements UserStore {
 	 * @param roleFilter optional role filter
 	 * @return list of user DTOs
 	 */
+	@Override
 	public List<UserDto> listUsers(int limit, int offset, String roleFilter) {
 		String normalizedRole = roleFilter == null ? null : roleFilter.trim();
 		List<UserRecord> records = new ArrayList<>(users.values());
@@ -275,6 +285,7 @@ public class InMemoryUserStore implements UserStore {
 	 * @param roleFilter optional role filter
 	 * @return count of matching users
 	 */
+	@Override
 	public long countUsers(String roleFilter) {
 		String normalizedRole = roleFilter == null ? null : roleFilter.trim();
 		if (normalizedRole == null || normalizedRole.isBlank()) {
@@ -290,6 +301,7 @@ public class InMemoryUserStore implements UserStore {
 	 * @param userId API user identifier
 	 * @return refresh token
 	 */
+	@Override
 	public String issueRefreshToken(String userId) {
 		long dbId = decodeUserId(userId);
 		loadByDbId(dbId);
@@ -304,6 +316,7 @@ public class InMemoryUserStore implements UserStore {
 	 * @param oldToken existing refresh token
 	 * @return new refresh token, or null if invalid/expired
 	 */
+	@Override
 	public String rotateRefreshToken(String oldToken) {
 		RefreshTokenRecord record = refreshTokens.remove(oldToken);
 		if (record == null) {
@@ -323,6 +336,7 @@ public class InMemoryUserStore implements UserStore {
 	 * @param token refresh token
 	 * @return true if valid and not expired
 	 */
+	@Override
 	public boolean isRefreshTokenValid(String token) {
 		RefreshTokenRecord record = refreshTokens.get(token);
 		return record != null && clock.instant().isBefore(record.expiresAt);
@@ -334,6 +348,7 @@ public class InMemoryUserStore implements UserStore {
 	 * @param token refresh token
 	 * @return user id or null when invalid/expired
 	 */
+	@Override
 	public String userIdForRefreshToken(String token) {
 		RefreshTokenRecord record = refreshTokens.get(token);
 		if (record == null || clock.instant().isAfter(record.expiresAt)) {
@@ -349,6 +364,7 @@ public class InMemoryUserStore implements UserStore {
 	 * @param password plaintext password
 	 * @return true when the password matches
 	 */
+	@Override
 	public boolean verifyPassword(UserRecord record, String password) {
 		return passwordHasher.verify(password, record.passwordHash());
 	}
@@ -425,6 +441,7 @@ public class InMemoryUserStore implements UserStore {
 	 * @param email user email address
 	 * @return reset token, or null if no user with that email exists
 	 */
+	@Override
 	public String createPasswordResetToken(String email) {
 		String normalized = normalizeEmail(email);
 		Long dbId = emailIndex.get(normalized);
@@ -443,6 +460,7 @@ public class InMemoryUserStore implements UserStore {
 	 * @param email user email address
 	 * @return latest reset token, or null
 	 */
+	@Override
 	public String getLatestResetToken(String email) {
 		return latestResetTokenByEmail.get(normalizeEmail(email));
 	}
@@ -454,6 +472,7 @@ public class InMemoryUserStore implements UserStore {
 	 * @param newPassword new plaintext password
 	 * @throws IllegalArgumentException when the token is invalid or expired
 	 */
+	@Override
 	public void resetPasswordWithToken(String token, String newPassword) {
 		PasswordResetTokenRecord record = passwordResetTokens.remove(token);
 		if (record == null || clock.instant().isAfter(record.expiresAt)) {
