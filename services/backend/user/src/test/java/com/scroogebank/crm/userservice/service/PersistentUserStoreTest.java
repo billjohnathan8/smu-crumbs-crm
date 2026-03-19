@@ -40,7 +40,6 @@ class PersistentUserStoreTest {
 	private Clock clock;
 
 	@BeforeEach
-	@SuppressWarnings("unused")
 	void setUp() {
 		refreshTokenRepository.deleteAll();
 		userRepository.deleteAll();

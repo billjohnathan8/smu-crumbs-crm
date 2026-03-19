@@ -33,7 +33,6 @@ class InMemoryUserStoreTest {
 	private InMemoryUserStore store;
 
 	@BeforeEach
-	@SuppressWarnings("unused")
 	void setUp() {
 		clock = new TestClock(Instant.parse("2026-02-05T00:00:00Z"));
 		store = new InMemoryUserStore(clock, new PasswordHasher(), "root@example.com", "RootPass!123");

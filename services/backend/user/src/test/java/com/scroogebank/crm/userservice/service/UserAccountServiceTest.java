@@ -40,7 +40,6 @@ class UserAccountServiceTest {
 	private UserAccountService service;
 
 	@BeforeEach
-	@SuppressWarnings("unused")
 	void setUp() {
 		store = mock(PersistentUserStore.class);
 		service = new UserAccountService(store);
