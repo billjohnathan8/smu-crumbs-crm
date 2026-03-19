@@ -57,7 +57,7 @@ class UserAccountServiceTest {
 			Instant.parse("2026-02-05T00:00:00Z")
 		);
 		AuthenticatedUser requester = new AuthenticatedUser("usr_1", "admin");
-		CreateUserRequest create = new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, "pw");
+		CreateUserRequest create = new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "pw");
 		UpdateUserRequest update = new UpdateUserRequest("Ava", "Stone", null, UserRole.user);
 		ResetPasswordRequest reset = new ResetPasswordRequest("ava@example.com");
 
@@ -395,7 +395,7 @@ class UserAccountServiceTest {
 	}
 
 	private CreateUserRequest createRequest(UserRole role) {
-        return new CreateUserRequest("Jane", "Smith", "jane@example.com", role, "pw");
+        return new CreateUserRequest("Jane", "Smith", "jane@example.com", role, false, "pw");
     }
 
 	private UpdateUserRequest updateRequest(UserRole role) {

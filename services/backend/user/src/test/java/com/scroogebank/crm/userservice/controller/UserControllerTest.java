@@ -153,7 +153,7 @@ class UserControllerTest {
     @Test
     void createUser_adminCreated() throws Exception {
         when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
-        CreateUserRequest body = new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, "temp1234");
+        CreateUserRequest body = new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "temp1234");
         UserDto dto = new UserDto(
             "usr_2",
             "Ava",
@@ -179,7 +179,7 @@ class UserControllerTest {
         when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_2", "user"));
         doThrow(new AccessDeniedException("root_admin")).when(userAccountService).createUser(any(CreateUserRequest.class), any(AuthenticatedUser.class));
 
-        CreateUserRequest body = new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, "temp1234");
+        CreateUserRequest body = new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "temp1234");
 
         mockMvc.perform(post("/api/users")
                 .header("Authorization", "Bearer x")
