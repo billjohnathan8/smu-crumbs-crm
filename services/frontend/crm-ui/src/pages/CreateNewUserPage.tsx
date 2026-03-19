@@ -263,7 +263,10 @@ export function CreateNewUserPage() {
             </div>
 
             <div>
-              <label htmlFor="temporaryPassword" className="block text-sm font-medium text-text mb-1">
+              <label
+                htmlFor="temporaryPassword"
+                className="block text-sm font-medium text-text mb-1"
+              >
                 Temporary Password
               </label>
               <input
