@@ -109,9 +109,11 @@ jobs:
           (matrix.service == 'transaction' && (needs.changes.outputs.backend-transaction == 'true' || needs.changes.outputs.ci-config == 'true'))
         id: image
         run: |
-          echo "uri=${ECR_REGISTRY}/services/${{ matrix.service }}" >> "$GITHUB_OUTPUT"
-          echo "sha_tag=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-          echo "branch_tag=integration" >> "$GITHUB_OUTPUT"
+          {
+            echo "uri=${ECR_REGISTRY}/services/${{ matrix.service }}"
+            echo "sha_tag=${GITHUB_SHA}"
+            echo "branch_tag=integration"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Build Docker image
         if: >-
@@ -165,7 +167,7 @@ jobs:
     name: Package and Upload Lambda (aml)
     needs:
       - changes
-    uses: ./.github/workflows/reusable-lambda-artifact-deploy.yml
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
     with:
       service: aml
     secrets:
@@ -180,7 +182,7 @@ jobs:
     name: Package and Upload Lambda (verification)
     needs:
       - changes
-    uses: ./.github/workflows/reusable-lambda-artifact-deploy.yml
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
     with:
       service: verification
     secrets:
@@ -195,7 +197,7 @@ jobs:
     name: Package and Upload Lambda (transaction-ingestion-lambda)
     needs:
       - changes
-    uses: ./.github/workflows/reusable-lambda-artifact-deploy.yml
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
     with:
       service: transaction-ingestion-lambda
     secrets:
