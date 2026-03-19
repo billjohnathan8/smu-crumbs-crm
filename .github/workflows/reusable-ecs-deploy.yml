@@ -23,7 +23,7 @@ on:
     outputs:
       image-uri:
         description: ECR image URI without tag
-        value: ${{ jobs.build-tag-push.outputs.image-uri }}
+        value: ${{ jobs.build-test-tag-push.outputs.image-uri }}
       sha-tag:
         description: Commit SHA image tag
         value: ${{ jobs.build-test-tag-push.outputs.sha-tag }}
