@@ -5,6 +5,8 @@
 
 locals {
   log_api_route_keys = toset([
+    "GET /health",
+    "GET /api/v1/health",
     "GET /api/v1/logs/health",
     "GET /api/logs",
     "POST /api/logs",

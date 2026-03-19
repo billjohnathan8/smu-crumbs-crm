@@ -118,7 +118,15 @@ def has_aws_credentials() -> bool:
     key = os.environ.get("AWS_ACCESS_KEY_ID", "")
     secret = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
     # Reject obvious placeholder/dummy values used in LocalStack/CI stubs
-    placeholders = {"test", "fake", "dummy", "localstack", "mock", "placeholder", "changeme"}
+    placeholders = {
+        "test",
+        "fake",
+        "dummy",
+        "localstack",
+        "mock",
+        "placeholder",
+        "changeme",
+    }
     if key and secret:
         if key.lower() not in placeholders and secret.lower() not in placeholders:
             return True
@@ -192,7 +200,16 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                 phase=phase,
                 name="Black check (log)",
                 cwd=log_dir,
-                command=[py, "-m", "black", "--check", "--diff", "app", "tests"],
+                command=[
+                    py,
+                    "-m",
+                    "black",
+                    "--check",
+                    "--diff",
+                    "app",
+                    "lambda_function.py",
+                    "tests",
+                ],
             )
         )
         steps.append(
@@ -209,6 +226,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                     "--max-line-length=100",
                     "--extend-ignore=E501,E203,W503",
                     "app",
+                    "lambda_function.py",
                     "tests",
                 ],
             )
@@ -228,7 +246,15 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                 phase=phase,
                 name="Black check (aml)",
                 cwd=aml_dir,
-                command=[py, "-m", "black", "--check", "--diff", "lambda_function.py", "tests"],
+                command=[
+                    py,
+                    "-m",
+                    "black",
+                    "--check",
+                    "--diff",
+                    "lambda_function.py",
+                    "tests",
+                ],
             )
         )
         steps.append(
@@ -250,7 +276,9 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
             )
         )
 
-        transaction_ingestion_lambda_dir = services_backend / "transaction-ingestion-lambda"
+        transaction_ingestion_lambda_dir = (
+            services_backend / "transaction-ingestion-lambda"
+        )
         steps.append(
             Step(
                 phase=phase,
@@ -264,7 +292,15 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                 phase=phase,
                 name="Black check (transaction-ingestion-lambda)",
                 cwd=transaction_ingestion_lambda_dir,
-                command=[py, "-m", "black", "--check", "--diff", "lambda_function.py", "tests"],
+                command=[
+                    py,
+                    "-m",
+                    "black",
+                    "--check",
+                    "--diff",
+                    "lambda_function.py",
+                    "tests",
+                ],
             )
         )
         steps.append(
@@ -300,7 +336,15 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                 phase=phase,
                 name="Black check (verification)",
                 cwd=verification_dir,
-                command=[py, "-m", "black", "--check", "--diff", "lambda_function.py", "tests"],
+                command=[
+                    py,
+                    "-m",
+                    "black",
+                    "--check",
+                    "--diff",
+                    "lambda_function.py",
+                    "tests",
+                ],
             )
         )
         steps.append(
@@ -352,7 +396,10 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                     phase=phase,
                     name="Build operable lambda artifacts",
                     cwd=REPO_ROOT,
-                    command=[py, str(REPO_ROOT / "scripts" / "ci" / "build_lambda_artifacts.py")],
+                    command=[
+                        py,
+                        str(REPO_ROOT / "scripts" / "ci" / "build_lambda_artifacts.py"),
+                    ],
                 )
             )
             steps.append(
@@ -540,7 +587,9 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                 command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
             )
         )
-        transaction_ingestion_lambda_dir = services_backend / "transaction-ingestion-lambda"
+        transaction_ingestion_lambda_dir = (
+            services_backend / "transaction-ingestion-lambda"
+        )
         steps.append(
             Step(
                 phase=phase,
@@ -592,6 +641,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                     "cache_dir=build/.pytest_cache",
                     "--junitxml=build/reports/tests/junit.xml",
                     "--cov=app",
+                    "--cov=lambda_function",
                     "--cov-branch",
                     "--cov-report=term-missing",
                     "--cov-report=xml:build/reports/coverage/coverage.xml",
@@ -678,7 +728,13 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
             if is_windows():
                 playwright_install = ["npx", "playwright", "install", "chromium"]
             else:
-                playwright_install = ["npx", "playwright", "install", "--with-deps", "chromium"]
+                playwright_install = [
+                    "npx",
+                    "playwright",
+                    "install",
+                    "--with-deps",
+                    "chromium",
+                ]
             steps.append(
                 Step(
                     phase=phase,
@@ -709,7 +765,15 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                 phase=phase,
                 name=f"Fullstack integration ({args.fullstack_mode})",
                 cwd=REPO_ROOT,
-                command=[bash, str(REPO_ROOT / "scripts" / "ci" / "run-fullstack-integration-e2e.sh")],
+                command=[
+                    bash,
+                    str(
+                        REPO_ROOT
+                        / "scripts"
+                        / "ci"
+                        / "run-fullstack-integration-e2e.sh"
+                    ),
+                ],
                 env={"FULLSTACK_MODE": args.fullstack_mode},
             )
         )
@@ -834,7 +898,9 @@ def run_step(step: Step, run_dir: Path, index: int, dry_run: bool) -> StepResult
     )
 
 
-def run_parallel_step(step: Step, run_dir: Path, index: int, dry_run: bool) -> StepResult:
+def run_parallel_step(
+    step: Step, run_dir: Path, index: int, dry_run: bool
+) -> StepResult:
     log_file = log_file_for_step(step, run_dir, index)
     cmd_display = display_command(step.command)
 
@@ -926,7 +992,12 @@ def run_parallel_group(
     return [results_by_index[index] for index, _ in indexed_steps]
 
 
-def write_summary(results: List[StepResult], run_dir: Path, started_at: float, args: argparse.Namespace) -> None:
+def write_summary(
+    results: List[StepResult],
+    run_dir: Path,
+    started_at: float,
+    args: argparse.Namespace,
+) -> None:
     summary_json = LOG_ROOT / "last-run-summary.json"
     summary_md = LOG_ROOT / "last-run-summary.md"
 
@@ -973,7 +1044,9 @@ def write_summary(results: List[StepResult], run_dir: Path, started_at: float, a
     lines.append("| Status | Duration (s) | Phase | Step |")
     lines.append("|---|---:|---|---|")
     for r in results:
-        lines.append(f"| {r.status} | {r.duration_seconds:.1f} | {r.phase} | {r.name} |")
+        lines.append(
+            f"| {r.status} | {r.duration_seconds:.1f} | {r.phase} | {r.name} |"
+        )
     lines.append("")
     lines.append(f"Machine-readable summary: `{summary_json}`")
     summary_md.write_text("\n".join(lines), encoding="utf-8")
@@ -990,7 +1063,9 @@ def print_summary(results: List[StepResult], started_at: float) -> None:
         print(f"{r.status:<10} {r.duration_seconds:>8.1f}  {r.phase:<36} {r.name}")
     print("-" * 90)
     print(f"{'TOTAL':<10} {time.monotonic() - started_at:>8.1f}")
-    print(f"Summary files: {LOG_ROOT / 'last-run-summary.md'} and {LOG_ROOT / 'last-run-summary.json'}")
+    print(
+        f"Summary files: {LOG_ROOT / 'last-run-summary.md'} and {LOG_ROOT / 'last-run-summary.json'}"
+    )
     print("=" * 90)
 
 
@@ -1102,7 +1177,9 @@ def main() -> int:
                 group.append(next_step)
                 next_index += 1
 
-            group_results = run_parallel_group(group, run_dir, group_index, args.dry_run)
+            group_results = run_parallel_group(
+                group, run_dir, group_index, args.dry_run
+            )
             results.extend(group_results)
             if any(result.status == "FAIL" for result in group_results):
                 break

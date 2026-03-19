@@ -1,33 +1,53 @@
-"""AWS Lambda entrypoint for the log service.
-
-This keeps the service Lambda-first while reusing the FastAPI app/router logic.
-"""
+﻿"""AWS Lambda entrypoint for the direct log-service router."""
 
 from __future__ import annotations
 
-import asyncio
+from dataclasses import dataclass
 from typing import Any
 
-from mangum import Mangum
+from app.config import Settings
+from app.lambda_router import LambdaRouter
+from app.repository import LogRepository
+from app.service import LogService
 
-from app.main import create_app
 
-_asgi_handler: Mangum | None = None
+@dataclass
+class _Runtime:
+    settings: Settings
+    service: LogService
+    router: LambdaRouter
 
 
-def _get_asgi_handler() -> Mangum:
-    """Create/caches the Mangum adapter for the FastAPI app."""
-    global _asgi_handler
-    if _asgi_handler is None:
-        _asgi_handler = Mangum(create_app(), lifespan="auto")
-    return _asgi_handler
+_runtime: _Runtime | None = None
+
+
+def _build_runtime() -> _Runtime:
+    settings = Settings()
+    service = LogService(LogRepository(settings))
+    service.bootstrap()
+    return _Runtime(
+        settings=settings, service=service, router=LambdaRouter(service, settings)
+    )
+
+
+def _get_runtime() -> _Runtime:
+    global _runtime
+    if _runtime is None:
+        _runtime = _build_runtime()
+    return _runtime
+
+
+def handle_event(
+    event: dict[str, Any],
+    *,
+    service: LogService,
+    settings: Settings,
+) -> dict[str, Any]:
+    """Handle a Lambda event with injected dependencies (test helper)."""
+    return LambdaRouter(service, settings).handle(event)
 
 
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
-    """Lambda handler compatible with API Gateway HTTP API v2 proxy events."""
-    # Python 3.14 no longer creates a default event loop implicitly.
-    try:
-        asyncio.get_event_loop()
-    except RuntimeError:
-        asyncio.set_event_loop(asyncio.new_event_loop())
-    return _get_asgi_handler()(event, context)
+    """Lambda handler compatible with API Gateway proxy events."""
+    del context
+    return _get_runtime().router.handle(event)

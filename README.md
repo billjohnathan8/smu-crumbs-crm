@@ -6,7 +6,7 @@
 ![Microservices](https://img.shields.io/badge/Architecture-Microservices-yellow)
 ![React](https://img.shields.io/badge/Frontend-React-63e5ff)
 ![Java](https://img.shields.io/badge/Backend-Springboot-green)
-![Python](https://img.shields.io/badge/Backend-FastAPI-006666)
+![Python](https://img.shields.io/badge/Backend-Python%20Lambda-006666)
 ![Terraform](https://img.shields.io/badge/IaC-Terraform-purple)
 ---
 > A cloud-native, microservices-based, and enterprise Customer Relationship Management (CRM) system for Scrooge Global Bank - developed as the flagship project for CS301 IT Solution Architecture (ITSA).
@@ -14,7 +14,7 @@
 # Tech Stack (Simplified)
 - Terraform (IaC)
 - React (frontend) + TypeScript + TailwindCSS
-- Spring Boot (Java 21) + FastAPI (Python 3.12+)
+- Spring Boot (Java 21) + Python Lambda services (Python 3.12+)
 - PostgreSQL, Docker
 
 # Quickstart

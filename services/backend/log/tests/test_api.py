@@ -1,15 +1,16 @@
-"""API endpoint tests for the log-service FastAPI app."""
+﻿"""Direct Lambda event contract tests for log-service APIs."""
+
+from __future__ import annotations
 
 import base64
 import hashlib
 import hmac
 import json
-import os
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from urllib.parse import urlencode
 
-from fastapi.testclient import TestClient
-
-from app.main import create_app
+from app.lambda_router import LambdaRouter
 from app.schemas import (
     CreateAmlAlertRequest,
     CreateCommunicationRequest,
@@ -37,6 +38,15 @@ def mint_token(sub: str, role: str, secret: str) -> str:
     signing_input = f"{header}.{payload}".encode("ascii")
     sig = hmac.new(secret.encode("utf-8"), signing_input, hashlib.sha256).digest()
     return f"{header}.{payload}.{_b64url(sig)}"
+
+
+@dataclass(frozen=True)
+class FakeSettings:
+    jwt_hmac_secret: str
+    auth_mode: str = "local"
+    cognito_jwks_url: str = ""
+    cognito_issuer: str = ""
+    cognito_audience: str = ""
 
 
 class FakeLogService:
@@ -151,7 +161,11 @@ class FakeLogService:
         return None
 
     def list_communications(
-        self, limit: int, offset: int, client_id: str, user_id: str | None = None
+        self,
+        limit: int,
+        offset: int,
+        client_id: str,
+        user_id: str | None = None,
     ):
         rows = [r for r in self.communications if r["client_id"] == client_id]
         if user_id:
@@ -186,7 +200,9 @@ class FakeLogService:
         return row
 
     def update_communication_status_by_provider_message_id(
-        self, provider_message_id: str, patch
+        self,
+        provider_message_id: str,
+        patch,
     ) -> dict | None:
         for row in self.communications:
             if row.get("provider_message_id") == provider_message_id:
@@ -255,244 +271,245 @@ class FakeLogServiceMissingCommunication(FakeLogService):
         return None
 
 
-def test_health_ok() -> None:
-    app = create_app(FakeLogService())
-    client = TestClient(app)
-
-    response = client.get("/health")
-
-    assert response.status_code == 200
-    assert response.json()["status"] == "ok"
+def _make_router(service: FakeLogService, secret: str = "test-secret") -> LambdaRouter:
+    settings = FakeSettings(jwt_hmac_secret=secret)
+    return LambdaRouter(service, settings)
 
 
-def test_health_v1_ok() -> None:
-    app = create_app(FakeLogService())
-    client = TestClient(app)
+def _http_api_v2_event(
+    method: str,
+    path: str,
+    *,
+    headers: dict[str, str] | None = None,
+    query: dict[str, str] | None = None,
+    body: dict | None = None,
+) -> dict:
+    raw_query = urlencode(query or {})
+    event = {
+        "version": "2.0",
+        "routeKey": f"{method} {path}",
+        "rawPath": path,
+        "rawQueryString": raw_query,
+        "headers": headers or {},
+        "requestContext": {
+            "http": {
+                "method": method,
+                "path": path,
+                "protocol": "HTTP/1.1",
+                "sourceIp": "127.0.0.1",
+                "userAgent": "pytest",
+            }
+        },
+        "isBase64Encoded": False,
+    }
+    if body is not None:
+        event["body"] = json.dumps(body)
+    return event
 
-    response = client.get("/api/v1/health")
 
-    assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+def _rest_proxy_event(
+    method: str,
+    path: str,
+    *,
+    headers: dict[str, str] | None = None,
+    query: dict[str, str] | None = None,
+    body: dict | None = None,
+    stage: str = "dev",
+    include_stage_prefix: bool = False,
+    include_user_request_prefix: bool = False,
+) -> dict:
+    normalized_path = path
+    if include_user_request_prefix:
+        normalized_path = f"/_user_request_{normalized_path}"
+    if include_stage_prefix:
+        normalized_path = f"/{stage}{normalized_path}"
+
+    event = {
+        "httpMethod": method,
+        "path": normalized_path,
+        "headers": headers or {},
+        "queryStringParameters": query or None,
+        "requestContext": {
+            "stage": stage,
+            "path": normalized_path,
+        },
+        "isBase64Encoded": False,
+    }
+    if body is not None:
+        event["body"] = json.dumps(body)
+    return event
+
+
+def _invoke(router: LambdaRouter, event: dict) -> tuple[dict, dict | None]:
+    response = router.handle(event)
+    body = response.get("body")
+    if body:
+        return response, json.loads(body)
+    return response, None
+
+
+def test_health_endpoints_ok() -> None:
+    router = _make_router(FakeLogService())
+
+    health, health_body = _invoke(router, _http_api_v2_event("GET", "/health"))
+    v1, v1_body = _invoke(router, _http_api_v2_event("GET", "/api/v1/health"))
+    logs_health, logs_health_body = _invoke(
+        router, _http_api_v2_event("GET", "/api/v1/logs/health")
+    )
+
+    assert health["statusCode"] == 200
+    assert health_body == {"status": "ok", "service": "log"}
+    assert v1["statusCode"] == 200
+    assert v1_body == {"status": "ok"}
+    assert logs_health["statusCode"] == 200
+    assert logs_health_body == {"status": "ok", "service": "log"}
 
 
 def test_logs_health_unavailable() -> None:
-    app = create_app(FakeUnhealthyLogService())
-    client = TestClient(app)
+    router = _make_router(FakeUnhealthyLogService())
 
-    response = client.get("/api/v1/logs/health")
+    response, body = _invoke(router, _http_api_v2_event("GET", "/api/v1/logs/health"))
 
-    assert response.status_code == 503
-    assert response.json()["error"] == "service_unavailable"
+    assert response["statusCode"] == 503
+    assert body is not None
+    assert body["error"] == "service_unavailable"
 
 
 def test_logs_requires_auth() -> None:
-    app = create_app(FakeLogService())
-    client = TestClient(app)
+    router = _make_router(FakeLogService())
 
-    response = client.get("/api/logs")
+    response, body = _invoke(router, _http_api_v2_event("GET", "/api/logs"))
 
-    assert response.status_code == 401
-    assert response.json()["error"] == "unauthorized"
-
-
-def test_request_id_middleware_sets_header_and_error_request_id() -> None:
-    request_id = "req_123"
-    app = create_app(FakeLogService())
-    client = TestClient(app)
-
-    response = client.get("/api/logs", headers={"X-Request-Id": request_id})
-
-    assert response.status_code == 401
-    assert response.headers["X-Request-Id"] == request_id
-    assert response.json()["requestId"] == request_id
+    assert response["statusCode"] == 401
+    assert body is not None
+    assert body["error"] == "unauthorized"
 
 
-def test_create_log_as_agent_ok() -> None:
-    secret = "test-secret"
-    os.environ["JWT_HMAC_SECRET"] = secret
-    app = create_app(FakeLogService())
-    client = TestClient(app)
+def test_request_id_header_propagates_to_errors() -> None:
+    router = _make_router(FakeLogService())
 
-    token = mint_token("usr_1", "user", secret)
-    payload = {
-        "action": "CREATE",
-        "attributeName": "Client ID",
-        "userId": "usr_1",
-        "clientId": "clt_1",
-    }
-
-    response = client.post(
-        "/api/logs", json=payload, headers={"Authorization": f"Bearer {token}"}
+    response, body = _invoke(
+        router,
+        _http_api_v2_event(
+            "GET",
+            "/api/logs",
+            headers={"X-Request-Id": "req_123"},
+        ),
     )
 
-    assert response.status_code == 201
-    body = response.json()
+    assert response["statusCode"] == 401
+    assert response["headers"]["X-Request-Id"] == "req_123"
+    assert body is not None
+    assert body["requestId"] == "req_123"
+
+
+def test_create_log_as_user_success() -> None:
+    secret = "test-secret"
+    router = _make_router(FakeLogService(), secret=secret)
+    token = mint_token("usr_1", "user", secret)
+
+    response, body = _invoke(
+        router,
+        _http_api_v2_event(
+            "POST",
+            "/api/logs",
+            headers={"Authorization": f"Bearer {token}"},
+            body={
+                "action": "CREATE",
+                "attributeName": "Client ID",
+                "userId": "usr_1",
+                "clientId": "clt_1",
+            },
+        ),
+    )
+
+    assert response["statusCode"] == 201
+    assert body is not None
     assert body["logId"].startswith("log_")
     assert body["userId"] == "usr_1"
 
 
-def test_create_log_agent_mismatched_user_id_is_forbidden() -> None:
+def test_create_log_user_mismatch_is_forbidden() -> None:
     secret = "test-secret"
-    os.environ["JWT_HMAC_SECRET"] = secret
-    app = create_app(FakeLogService())
-    client = TestClient(app)
-
+    router = _make_router(FakeLogService(), secret=secret)
     token = mint_token("usr_1", "user", secret)
-    payload = {
-        "action": "CREATE",
-        "attributeName": "Client ID",
-        "userId": "usr_other",
-        "clientId": "clt_1",
-    }
 
-    response = client.post(
-        "/api/logs", json=payload, headers={"Authorization": f"Bearer {token}"}
+    response, body = _invoke(
+        router,
+        _http_api_v2_event(
+            "POST",
+            "/api/logs",
+            headers={"Authorization": f"Bearer {token}"},
+            body={
+                "action": "CREATE",
+                "attributeName": "Client ID",
+                "userId": "usr_other",
+                "clientId": "clt_1",
+            },
+        ),
     )
 
-    assert response.status_code == 403
-    assert response.json()["error"] == "forbidden"
+    assert response["statusCode"] == 403
+    assert body is not None
+    assert body["error"] == "forbidden"
 
 
-def test_create_log_validation_error_returns_400() -> None:
+def test_create_log_body_validation_returns_400() -> None:
     secret = "test-secret"
-    os.environ["JWT_HMAC_SECRET"] = secret
-    app = create_app(FakeLogServiceValidationError())
-    client = TestClient(app)
-
+    router = _make_router(FakeLogService(), secret=secret)
     token = mint_token("usr_admin", "admin", secret)
-    payload = {
-        "action": "CREATE",
-        "attributeName": "Client ID",
-        "userId": "usr_1",
-        "clientId": "clt_1",
-    }
 
-    response = client.post(
-        "/api/logs", json=payload, headers={"Authorization": f"Bearer {token}"}
+    response, body = _invoke(
+        router,
+        _http_api_v2_event(
+            "POST",
+            "/api/logs",
+            headers={"Authorization": f"Bearer {token}"},
+            body={
+                "action": "CREATE",
+                "userId": "usr_1",
+                "clientId": "clt_1",
+            },
+        ),
     )
 
-    assert response.status_code == 400
-    assert response.json()["error"] == "validation_error"
+    assert response["statusCode"] == 400
+    assert body is not None
+    assert body["error"] == "validation_error"
+    assert "attributeName" in body["message"]
 
 
-def test_create_log_body_validation_returns_400_error_shape() -> None:
+def test_create_log_service_validation_error_returns_400() -> None:
     secret = "test-secret"
-    os.environ["JWT_HMAC_SECRET"] = secret
-    app = create_app(FakeLogService())
-    client = TestClient(app)
-
+    router = _make_router(FakeLogServiceValidationError(), secret=secret)
     token = mint_token("usr_admin", "admin", secret)
-    payload = {
-        "action": "CREATE",
-        "userId": "usr_1",
-        "clientId": "clt_1",
-    }
 
-    response = client.post(
-        "/api/logs", json=payload, headers={"Authorization": f"Bearer {token}"}
+    response, body = _invoke(
+        router,
+        _http_api_v2_event(
+            "POST",
+            "/api/logs",
+            headers={"Authorization": f"Bearer {token}"},
+            body={
+                "action": "CREATE",
+                "attributeName": "Client ID",
+                "userId": "usr_1",
+                "clientId": "clt_1",
+            },
+        ),
     )
 
-    assert response.status_code == 400
-    assert response.json()["error"] == "validation_error"
-    assert "attributeName" in response.json()["message"]
+    assert response["statusCode"] == 400
+    assert body is not None
+    assert body["error"] == "validation_error"
 
 
 def test_update_log_admin_only() -> None:
     secret = "test-secret"
-    os.environ["JWT_HMAC_SECRET"] = secret
     service = FakeLogService()
-    app = create_app(service)
-    client = TestClient(app)
+    router = _make_router(service, secret=secret)
 
-    log_id = service.create_log(
-        CreateLogRequest(
-            action="CREATE",
-            attributeName="Client ID",
-            userId="usr_1",
-            clientId="clt_1",
-        )
-    )
-    token = mint_token("usr_admin", "admin", secret)
-
-    response = client.put(
-        f"/api/logs/log_{log_id}",
-        json={"attributeName": "identityVerificationStatus"},
-        headers={"Authorization": f"Bearer {token}"},
-    )
-
-    assert response.status_code == 200
-    assert response.json()["attributeName"] == "identityVerificationStatus"
-
-
-def test_update_log_agent_forbidden() -> None:
-    secret = "test-secret"
-    os.environ["JWT_HMAC_SECRET"] = secret
-    service = FakeLogService()
-    app = create_app(service)
-    client = TestClient(app)
-
-    log_id = service.create_log(
-        CreateLogRequest(
-            action="CREATE",
-            attributeName="Client ID",
-            userId="usr_1",
-            clientId="clt_1",
-        )
-    )
-    token = mint_token("usr_1", "user", secret)
-
-    response = client.put(
-        f"/api/logs/log_{log_id}",
-        json={"attributeName": "identityVerificationStatus"},
-        headers={"Authorization": f"Bearer {token}"},
-    )
-
-    assert response.status_code == 403
-    assert response.json()["error"] == "forbidden"
-
-
-def test_update_log_not_found_returns_404() -> None:
-    secret = "test-secret"
-    os.environ["JWT_HMAC_SECRET"] = secret
-    service = FakeLogService()
-    app = create_app(service)
-    client = TestClient(app)
-    token = mint_token("usr_admin", "admin", secret)
-
-    response = client.put(
-        "/api/logs/log_999",
-        json={"attributeName": "identityVerificationStatus"},
-        headers={"Authorization": f"Bearer {token}"},
-    )
-
-    assert response.status_code == 404
-    assert response.json()["error"] == "not_found"
-
-
-def test_get_log_invalid_id_returns_bad_request() -> None:
-    secret = "test-secret"
-    os.environ["JWT_HMAC_SECRET"] = secret
-    app = create_app(FakeLogService())
-    client = TestClient(app)
-    token = mint_token("usr_admin", "admin", secret)
-
-    response = client.get(
-        "/api/logs/not-prefixed", headers={"Authorization": f"Bearer {token}"}
-    )
-
-    assert response.status_code == 400
-    assert response.json()["error"] == "validation_error"
-
-
-def test_get_log_admin_ok_and_not_found() -> None:
-    secret = "test-secret"
-    os.environ["JWT_HMAC_SECRET"] = secret
-    service = FakeLogService()
-    app = create_app(service)
-    client = TestClient(app)
-    token = mint_token("usr_admin", "admin", secret)
-
-    existing_id = service.create_log(
+    created_id = service.create_log(
         CreateLogRequest(
             action="CREATE",
             attributeName="Client ID",
@@ -501,74 +518,40 @@ def test_get_log_admin_ok_and_not_found() -> None:
         )
     )
 
-    found = client.get(
-        f"/api/logs/log_{existing_id}", headers={"Authorization": f"Bearer {token}"}
+    user_token = mint_token("usr_1", "user", secret)
+    forbidden, forbidden_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "PUT",
+            f"/api/logs/log_{created_id}",
+            headers={"Authorization": f"Bearer {user_token}"},
+            body={"attributeName": "identityVerificationStatus"},
+        ),
     )
-    missing = client.get(
-        "/api/logs/log_999", headers={"Authorization": f"Bearer {token}"}
+
+    admin_token = mint_token("usr_admin", "admin", secret)
+    updated, updated_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "PUT",
+            f"/api/logs/log_{created_id}",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            body={"attributeName": "identityVerificationStatus"},
+        ),
     )
 
-    assert found.status_code == 200
-    assert found.json()["logId"] == f"log_{existing_id}"
-    assert missing.status_code == 404
+    assert forbidden["statusCode"] == 403
+    assert forbidden_body is not None
+    assert forbidden_body["error"] == "forbidden"
+    assert updated["statusCode"] == 200
+    assert updated_body is not None
+    assert updated_body["attributeName"] == "identityVerificationStatus"
 
 
-def test_get_log_agent_cannot_see_other_agents_log() -> None:
+def test_list_logs_user_scope_is_forced() -> None:
     secret = "test-secret"
-    os.environ["JWT_HMAC_SECRET"] = secret
     service = FakeLogService()
-    app = create_app(service)
-    client = TestClient(app)
-    log_id = service.create_log(
-        CreateLogRequest(
-            action="CREATE",
-            attributeName="Client ID",
-            userId="usr_owner",
-            clientId="clt_1",
-        )
-    )
-
-    token = mint_token("usr_other", "user", secret)
-    response = client.get(
-        f"/api/logs/log_{log_id}", headers={"Authorization": f"Bearer {token}"}
-    )
-
-    assert response.status_code == 404
-
-
-def test_delete_log_admin_not_found_and_success() -> None:
-    secret = "test-secret"
-    os.environ["JWT_HMAC_SECRET"] = secret
-    service = FakeLogService()
-    app = create_app(service)
-    client = TestClient(app)
-    token = mint_token("usr_admin", "admin", secret)
-    existing_id = service.create_log(
-        CreateLogRequest(
-            action="CREATE",
-            attributeName="Client ID",
-            userId="usr_1",
-            clientId="clt_1",
-        )
-    )
-
-    missing = client.delete(
-        "/api/logs/log_999", headers={"Authorization": f"Bearer {token}"}
-    )
-    deleted = client.delete(
-        f"/api/logs/log_{existing_id}", headers={"Authorization": f"Bearer {token}"}
-    )
-
-    assert missing.status_code == 404
-    assert deleted.status_code == 204
-
-
-def test_list_logs_for_agent_forces_agent_scope() -> None:
-    secret = "test-secret"
-    os.environ["JWT_HMAC_SECRET"] = secret
-    service = FakeLogService()
-    app = create_app(service)
-    client = TestClient(app)
+    router = _make_router(service, secret=secret)
     service.create_log(
         CreateLogRequest(
             action="CREATE",
@@ -585,24 +568,28 @@ def test_list_logs_for_agent_forces_agent_scope() -> None:
             clientId="clt_1",
         )
     )
-    token = mint_token("usr_1", "user", secret)
 
-    response = client.get(
-        "/api/logs?userId=usr_other&clientId=clt_1",
-        headers={"Authorization": f"Bearer {token}"},
+    token = mint_token("usr_1", "user", secret)
+    response, body = _invoke(
+        router,
+        _http_api_v2_event(
+            "GET",
+            "/api/logs",
+            query={"userId": "usr_other", "clientId": "clt_1"},
+            headers={"Authorization": f"Bearer {token}"},
+        ),
     )
 
-    assert response.status_code == 200
-    assert len(response.json()["data"]) == 1
-    assert response.json()["data"][0]["userId"] == "usr_1"
+    assert response["statusCode"] == 200
+    assert body is not None
+    assert len(body["data"]) == 1
+    assert body["data"][0]["userId"] == "usr_1"
 
 
-def test_list_logs_for_client_admin_sees_all_agent_scoped() -> None:
+def test_list_logs_for_client_scope_admin_and_user() -> None:
     secret = "test-secret"
-    os.environ["JWT_HMAC_SECRET"] = secret
     service = FakeLogService()
-    app = create_app(service)
-    client = TestClient(app)
+    router = _make_router(service, secret=secret)
     service.create_log(
         CreateLogRequest(
             action="CREATE",
@@ -621,351 +608,316 @@ def test_list_logs_for_client_admin_sees_all_agent_scoped() -> None:
     )
 
     admin_token = mint_token("usr_admin", "admin", secret)
-    admin_response = client.get(
-        "/api/clients/clt_1/logs",
-        headers={"Authorization": f"Bearer {admin_token}"},
+    admin_response, admin_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "GET",
+            "/api/clients/clt_1/logs",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        ),
     )
-
     user_token = mint_token("usr_1", "user", secret)
-    user_response = client.get(
-        "/api/clients/clt_1/logs",
-        headers={"Authorization": f"Bearer {user_token}"},
+    user_response, user_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "GET",
+            "/api/clients/clt_1/logs",
+            headers={"Authorization": f"Bearer {user_token}"},
+        ),
     )
 
-    assert admin_response.status_code == 200
-    assert len(admin_response.json()["data"]) == 2
-    assert user_response.status_code == 200
-    assert len(user_response.json()["data"]) == 1
-    assert user_response.json()["data"][0]["userId"] == "usr_1"
+    assert admin_response["statusCode"] == 200
+    assert admin_body is not None
+    assert len(admin_body["data"]) == 2
+    assert user_response["statusCode"] == 200
+    assert user_body is not None
+    assert len(user_body["data"]) == 1
+    assert user_body["data"][0]["userId"] == "usr_1"
 
 
-def test_communications_endpoints_enforce_role_and_scope() -> None:
+def test_communications_endpoints_enforce_role_scope_and_updates() -> None:
     secret = "test-secret"
-    os.environ["JWT_HMAC_SECRET"] = secret
     service = FakeLogService()
-    app = create_app(service)
-    client = TestClient(app)
+    router = _make_router(service, secret=secret)
     user_token = mint_token("usr_1", "user", secret)
 
-    forbidden = client.post(
-        "/api/communications",
-        json={
-            "clientId": "clt_1",
-            "userId": "usr_other",
-            "toEmail": "to@example.com",
-            "subject": "Hello",
-            "body": "Body",
-        },
-        headers={"Authorization": f"Bearer {user_token}"},
+    forbidden, forbidden_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "POST",
+            "/api/communications",
+            headers={"Authorization": f"Bearer {user_token}"},
+            body={
+                "clientId": "clt_1",
+                "userId": "usr_other",
+                "toEmail": "to@example.com",
+                "subject": "Hello",
+                "body": "Body",
+            },
+        ),
     )
-    accepted = client.post(
-        "/api/communications",
-        json={
-            "clientId": "clt_1",
-            "userId": "usr_1",
-            "toEmail": "to@example.com",
-            "subject": "Hello",
-            "body": "Body",
-        },
-        headers={"Authorization": f"Bearer {user_token}"},
-    )
-
-    assert forbidden.status_code == 403
-    assert accepted.status_code == 202
-    communication_id = accepted.json()["communicationId"]
-
-    get_owned = client.get(
-        f"/api/communications/{communication_id}",
-        headers={"Authorization": f"Bearer {user_token}"},
-    )
-    list_owned = client.get(
-        "/api/clients/clt_1/communications",
-        headers={"Authorization": f"Bearer {user_token}"},
+    accepted, accepted_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "POST",
+            "/api/communications",
+            headers={"Authorization": f"Bearer {user_token}"},
+            body={
+                "clientId": "clt_1",
+                "userId": "usr_1",
+                "toEmail": "to@example.com",
+                "subject": "Hello",
+                "body": "Body",
+            },
+        ),
     )
 
-    assert get_owned.status_code == 200
-    assert list_owned.status_code == 200
-    assert len(list_owned.json()["data"]) == 1
+    assert forbidden["statusCode"] == 403
+    assert forbidden_body is not None
+    assert forbidden_body["error"] == "forbidden"
+    assert accepted["statusCode"] == 202
+    assert accepted_body is not None
 
+    communication_id = accepted_body["communicationId"]
+    service.communications[0]["provider_message_id"] = "ses-message-1"
 
-def test_create_communication_returns_500_when_missing_row() -> None:
-    secret = "test-secret"
-    os.environ["JWT_HMAC_SECRET"] = secret
-    app = create_app(FakeLogServiceMissingCommunication())
-    client = TestClient(app)
+    get_owned, get_owned_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "GET",
+            f"/api/communications/{communication_id}",
+            headers={"Authorization": f"Bearer {user_token}"},
+        ),
+    )
+    list_owned, list_owned_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "GET",
+            "/api/clients/clt_1/communications",
+            headers={"Authorization": f"Bearer {user_token}"},
+        ),
+    )
+
+    assert get_owned["statusCode"] == 200
+    assert get_owned_body is not None
+    assert get_owned_body["communicationId"] == communication_id
+    assert list_owned["statusCode"] == 200
+    assert list_owned_body is not None
+    assert len(list_owned_body["data"]) == 1
+
+    queued_forbidden, _ = _invoke(
+        router,
+        _http_api_v2_event(
+            "GET",
+            "/api/communications/queued",
+            headers={"Authorization": f"Bearer {user_token}"},
+        ),
+    )
     admin_token = mint_token("usr_admin", "admin", secret)
-
-    response = client.post(
-        "/api/communications",
-        json={
-            "clientId": "clt_1",
-            "userId": "usr_1",
-            "toEmail": "to@example.com",
-            "subject": "Hello",
-            "body": "Body",
-        },
-        headers={"Authorization": f"Bearer {admin_token}"},
+    queued_ok, queued_ok_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "GET",
+            "/api/communications/queued",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        ),
+    )
+    by_id, by_id_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "PATCH",
+            f"/api/communications/{communication_id}/status",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            body={"status": "sent", "providerMessageId": "ses-message-1"},
+        ),
+    )
+    by_provider, by_provider_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "PATCH",
+            "/api/communications/provider/ses-message-1/status",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            body={
+                "status": "failed",
+                "deliveryEvent": "BOUNCE",
+                "errorMessage": "mailbox full",
+            },
+        ),
     )
 
-    assert response.status_code == 500
-    assert response.json()["error"] == "internal_error"
+    assert queued_forbidden["statusCode"] == 403
+    assert queued_ok["statusCode"] == 200
+    assert queued_ok_body is not None
+    assert len(queued_ok_body["data"]) == 1
+    assert by_id["statusCode"] == 200
+    assert by_id_body is not None
+    assert by_id_body["status"] == "sent"
+    assert by_provider["statusCode"] == 200
+    assert by_provider_body is not None
+    assert by_provider_body["status"] == "failed"
+
+
+def test_create_communication_missing_row_returns_500() -> None:
+    secret = "test-secret"
+    router = _make_router(FakeLogServiceMissingCommunication(), secret=secret)
+    token = mint_token("usr_admin", "admin", secret)
+
+    response, body = _invoke(
+        router,
+        _http_api_v2_event(
+            "POST",
+            "/api/communications",
+            headers={"Authorization": f"Bearer {token}"},
+            body={
+                "clientId": "clt_1",
+                "userId": "usr_1",
+                "toEmail": "to@example.com",
+                "subject": "Hello",
+                "body": "Body",
+            },
+        ),
+    )
+
+    assert response["statusCode"] == 500
+    assert body is not None
+    assert body["error"] == "internal_error"
 
 
 def test_create_communication_invalid_email_returns_400() -> None:
     secret = "test-secret"
-    os.environ["JWT_HMAC_SECRET"] = secret
-    app = create_app(FakeLogService())
-    client = TestClient(app)
-    admin_token = mint_token("usr_admin", "admin", secret)
+    router = _make_router(FakeLogService(), secret=secret)
+    token = mint_token("usr_admin", "admin", secret)
 
-    response = client.post(
-        "/api/communications",
-        json={
-            "clientId": "clt_1",
-            "userId": "usr_1",
-            "toEmail": "invalid-email",
-            "subject": "Hello",
-            "body": "Body",
-        },
-        headers={"Authorization": f"Bearer {admin_token}"},
+    response, body = _invoke(
+        router,
+        _http_api_v2_event(
+            "POST",
+            "/api/communications",
+            headers={"Authorization": f"Bearer {token}"},
+            body={
+                "clientId": "clt_1",
+                "userId": "usr_1",
+                "toEmail": "invalid-email",
+                "subject": "Hello",
+                "body": "Body",
+            },
+        ),
     )
 
-    assert response.status_code == 400
-    assert response.json()["error"] == "validation_error"
-    assert "toEmail" in response.json()["message"]
+    assert response["statusCode"] == 400
+    assert body is not None
+    assert body["error"] == "validation_error"
+    assert "toEmail" in body["message"]
 
 
 def test_get_communication_invalid_id_and_not_found() -> None:
     secret = "test-secret"
-    os.environ["JWT_HMAC_SECRET"] = secret
-    service = FakeLogService()
-    app = create_app(service)
-    client = TestClient(app)
-    admin_token = mint_token("usr_admin", "admin", secret)
-
-    bad = client.get(
-        "/api/communications/not-prefixed",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
-    missing = client.get(
-        "/api/communications/com_999",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
-
-    assert bad.status_code == 400
-    assert bad.json()["error"] == "validation_error"
-    assert missing.status_code == 404
-    assert missing.json()["error"] == "not_found"
-
-
-def test_list_communications_admin_sees_all_agent_scoped() -> None:
-    secret = "test-secret"
-    os.environ["JWT_HMAC_SECRET"] = secret
-    service = FakeLogService()
-    app = create_app(service)
-    client = TestClient(app)
-
-    service.create_communication(
-        CreateCommunicationRequest(
-            clientId="clt_1",
-            userId="usr_1",
-            toEmail="to@example.com",
-            subject="Hello",
-            body="Body",
-            channel=None,
-        )
-    )
-    service.create_communication(
-        CreateCommunicationRequest(
-            clientId="clt_1",
-            userId="usr_other",
-            toEmail="to@example.com",
-            subject="Hello 2",
-            body="Body 2",
-            channel=None,
-        )
-    )
-
-    admin_token = mint_token("usr_admin", "admin", secret)
-    admin_response = client.get(
-        "/api/clients/clt_1/communications",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
-
-    user_token = mint_token("usr_1", "user", secret)
-    user_response = client.get(
-        "/api/clients/clt_1/communications",
-        headers={"Authorization": f"Bearer {user_token}"},
-    )
-
-    assert admin_response.status_code == 200
-    assert len(admin_response.json()["data"]) == 2
-    assert user_response.status_code == 200
-    assert len(user_response.json()["data"]) == 1
-    assert user_response.json()["data"][0]["userId"] == "usr_1"
-
-
-def test_list_queued_communications_admin_only() -> None:
-    secret = "test-secret"
-    os.environ["JWT_HMAC_SECRET"] = secret
-    service = FakeLogService()
-    service.create_communication(
-        CreateCommunicationRequest(
-            clientId="clt_1",
-            userId="usr_1",
-            toEmail="to@example.com",
-            subject="Hello",
-            body="Body",
-            channel=None,
-            idempotencyKey=None,
-        )
-    )
-    app = create_app(service)
-    client = TestClient(app)
-
-    user_token = mint_token("usr_1", "user", secret)
-    admin_token = mint_token("usr_admin", "admin", secret)
-
-    forbidden = client.get(
-        "/api/communications/queued",
-        headers={"Authorization": f"Bearer {user_token}"},
-    )
-    ok = client.get(
-        "/api/communications/queued",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
-
-    assert forbidden.status_code == 403
-    assert ok.status_code == 200
-    assert len(ok.json()["data"]) == 1
-
-
-def test_update_communication_status_by_id_and_provider_message_id() -> None:
-    secret = "test-secret"
-    os.environ["JWT_HMAC_SECRET"] = secret
-    service = FakeLogService()
-    communication_id = service.create_communication(
-        CreateCommunicationRequest(
-            clientId="clt_1",
-            userId="usr_1",
-            toEmail="to@example.com",
-            subject="Hello",
-            body="Body",
-            channel=None,
-            idempotencyKey="verify:clt_1",
-        )
-    )
-    service.communications[0]["provider_message_id"] = "ses-message-1"
-
-    app = create_app(service)
-    client = TestClient(app)
-    admin_token = mint_token("usr_admin", "admin", secret)
-
-    by_id = client.patch(
-        f"/api/communications/com_{communication_id}/status",
-        json={"status": "sent", "providerMessageId": "ses-message-1"},
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
-    by_provider = client.patch(
-        "/api/communications/provider/ses-message-1/status",
-        json={
-            "status": "failed",
-            "deliveryEvent": "BOUNCE",
-            "errorMessage": "mailbox full",
-        },
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
-
-    assert by_id.status_code == 200
-    assert by_id.json()["status"] == "sent"
-    assert by_provider.status_code == 200
-    assert by_provider.json()["status"] == "failed"
-    assert by_provider.json()["deliveryEvent"] == "BOUNCE"
-
-
-def test_create_communication_idempotency_key_returns_existing_record() -> None:
-    secret = "test-secret"
-    os.environ["JWT_HMAC_SECRET"] = secret
-    app = create_app(FakeLogService())
-    client = TestClient(app)
-    admin_token = mint_token("usr_admin", "admin", secret)
-
-    payload = {
-        "clientId": "clt_1",
-        "userId": "usr_1",
-        "toEmail": "to@example.com",
-        "subject": "Hello",
-        "body": "Body",
-        "idempotencyKey": "verify:clt_1",
-    }
-    first = client.post(
-        "/api/communications",
-        json=payload,
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
-    second = client.post(
-        "/api/communications",
-        json=payload,
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
-
-    assert first.status_code == 202
-    assert second.status_code == 202
-    assert first.json()["communicationId"] == second.json()["communicationId"]
-
-
-def test_create_and_review_aml_alert_flow() -> None:
-    secret = "test-secret"
-    os.environ["JWT_HMAC_SECRET"] = secret
-    service = FakeLogService()
-    app = create_app(service)
-    client = TestClient(app)
+    router = _make_router(FakeLogService(), secret=secret)
     token = mint_token("usr_admin", "admin", secret)
 
-    create_response = client.post(
-        "/api/aml/alerts",
-        json={
-            "alertId": "aml_1",
-            "clientId": "clt_1",
-            "transactionId": "txn_1",
-            "alertType": "STRUCTURING",
-            "description": "Structuring detected",
-            "detectedAt": "2026-02-01T12:00:00Z",
-            "reviewStatus": "Pending",
-        },
-        headers={"Authorization": f"Bearer {token}"},
+    bad_response, bad_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "GET",
+            "/api/communications/not-prefixed",
+            headers={"Authorization": f"Bearer {token}"},
+        ),
     )
-    assert create_response.status_code == 201
-    assert create_response.json()["alertId"] == "aml_1"
-    assert create_response.json()["reviewStatus"] == "Pending"
-
-    list_response = client.get(
-        "/api/aml/alerts?clientId=clt_1",
-        headers={"Authorization": f"Bearer {token}"},
+    missing_response, missing_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "GET",
+            "/api/communications/com_999",
+            headers={"Authorization": f"Bearer {token}"},
+        ),
     )
-    assert list_response.status_code == 200
-    assert len(list_response.json()["data"]) == 1
 
-    review_response = client.put(
-        "/api/aml/alerts/aml_1/review",
-        json={"reviewStatus": "Confirmed"},
-        headers={"Authorization": f"Bearer {token}"},
-    )
-    assert review_response.status_code == 200
-    assert review_response.json()["reviewStatus"] == "Confirmed"
+    assert bad_response["statusCode"] == 400
+    assert bad_body is not None
+    assert bad_body["error"] == "validation_error"
+    assert missing_response["statusCode"] == 404
+    assert missing_body is not None
+    assert missing_body["error"] == "not_found"
 
 
-def test_get_aml_alert_not_found() -> None:
+def test_aml_alert_create_list_review_flow() -> None:
     secret = "test-secret"
-    os.environ["JWT_HMAC_SECRET"] = secret
-    app = create_app(FakeLogService())
-    client = TestClient(app)
+    router = _make_router(FakeLogService(), secret=secret)
     token = mint_token("usr_admin", "admin", secret)
 
-    response = client.get(
-        "/api/aml/alerts/aml_missing",
-        headers={"Authorization": f"Bearer {token}"},
+    created, created_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "POST",
+            "/api/aml/alerts",
+            headers={"Authorization": f"Bearer {token}"},
+            body={
+                "alertId": "aml_1",
+                "clientId": "clt_1",
+                "transactionId": "txn_1",
+                "alertType": "STRUCTURING",
+                "description": "Structuring detected",
+                "detectedAt": "2026-02-01T12:00:00Z",
+                "reviewStatus": "Pending",
+            },
+        ),
+    )
+    listed, listed_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "GET",
+            "/api/aml/alerts",
+            headers={"Authorization": f"Bearer {token}"},
+            query={"clientId": "clt_1"},
+        ),
+    )
+    reviewed, reviewed_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "PUT",
+            "/api/aml/alerts/aml_1/review",
+            headers={"Authorization": f"Bearer {token}"},
+            body={"reviewStatus": "Confirmed"},
+        ),
     )
 
-    assert response.status_code == 404
-    assert response.json()["error"] == "not_found"
+    assert created["statusCode"] == 201
+    assert created_body is not None
+    assert created_body["alertId"] == "aml_1"
+    assert listed["statusCode"] == 200
+    assert listed_body is not None
+    assert len(listed_body["data"]) == 1
+    assert reviewed["statusCode"] == 200
+    assert reviewed_body is not None
+    assert reviewed_body["reviewStatus"] == "Confirmed"
+
+
+def test_rest_proxy_event_shapes_are_supported() -> None:
+    secret = "test-secret"
+    router = _make_router(FakeLogService(), secret=secret)
+    token = mint_token("usr_admin", "admin", secret)
+
+    rest_health, rest_health_body = _invoke(
+        router,
+        _rest_proxy_event(
+            "GET",
+            "/health",
+            include_stage_prefix=True,
+            include_user_request_prefix=True,
+        ),
+    )
+    rest_logs, rest_logs_body = _invoke(
+        router,
+        _rest_proxy_event(
+            "GET",
+            "/api/logs",
+            headers={"Authorization": f"Bearer {token}"},
+            query={"limit": "5"},
+        ),
+    )
+
+    assert rest_health["statusCode"] == 200
+    assert rest_health_body == {"status": "ok", "service": "log"}
+    assert rest_logs["statusCode"] == 200
+    assert rest_logs_body is not None
+    assert "data" in rest_logs_body

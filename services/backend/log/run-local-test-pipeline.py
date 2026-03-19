@@ -90,20 +90,45 @@ def main() -> int:
 
     # 1) Lint
     run(
-        [str(venv_python), "-m", "black", "--check", "app", "tests"],
+        [
+            str(venv_python),
+            "-m",
+            "black",
+            "--check",
+            "app",
+            "lambda_function.py",
+            "tests",
+        ],
         cwd=service_root,
         env={"BLACK_CACHE_DIR": str(black_cache_dir)},
     )
     # On Windows + newer Python versions, flake8's default "auto" job count can
     # trigger multiprocessing permission errors. Force single-process linting.
     run(
-        [str(venv_python), "-m", "flake8", "--jobs", "1", "app", "tests"],
+        [
+            str(venv_python),
+            "-m",
+            "flake8",
+            "--jobs",
+            "1",
+            "app",
+            "lambda_function.py",
+            "tests",
+        ],
         cwd=service_root,
     )
 
     # 2) Build (syntax compilation check for Python service code)
     run(
-        [str(venv_python), "-m", "compileall", "-q", "app", "lambda_function.py", "tests"],
+        [
+            str(venv_python),
+            "-m",
+            "compileall",
+            "-q",
+            "app",
+            "lambda_function.py",
+            "tests",
+        ],
         cwd=service_root,
     )
 

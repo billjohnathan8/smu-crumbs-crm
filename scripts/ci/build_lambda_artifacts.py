@@ -16,7 +16,11 @@ ARTIFACT_SPECS = [
     {
         "service_dir": ROOT_DIR / "services" / "backend" / "log",
         "zip_name": "log-lambda.zip",
-        "packages": ["fastapi==0.115.12", "psycopg[binary]==3.2.13", "mangum==0.19.0"],
+        "packages": [
+            "psycopg[binary]==3.2.13",
+            "pydantic==2.12.5",
+            "cryptography>=42.0,<46",
+        ],
         "include_app": True,
     },
     {

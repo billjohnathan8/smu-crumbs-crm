@@ -7,9 +7,8 @@
 
 - Canonical runtime: AWS Lambda via entrypoint module `lambda_function.py` and handler
   `lambda_function.lambda_handler`
-- FastAPI `app.main:create_app()` remains the shared application surface used by Lambda
-  adapter and test clients; local/CI integration routes HTTP traffic through
-  LocalStack API Gateway -> Lambda.
+- Request handling is implemented directly in Lambda (`app.lambda_router.LambdaRouter`)
+  with explicit API Gateway event routing (HTTP API v2 + REST proxy shapes).
 - Includes AML alert endpoints at `/api/aml/alerts` for Feature 5 persistence/review.
 
 ## Configuration safety
@@ -61,7 +60,7 @@ Reports:
 
 ## Deploy as AWS Lambda
 
-This service is Lambda-first using Mangum and a root Lambda entrypoint module.
+This service is a direct API Gateway-proxy Lambda.
 
 ### Handler
 

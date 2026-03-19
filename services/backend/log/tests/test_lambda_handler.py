@@ -1,29 +1,44 @@
-"""Smoke tests for the log-service AWS Lambda handler."""
+﻿"""Smoke tests for the direct log-service AWS Lambda handler."""
 
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 
-import pytest
-
-mangum = pytest.importorskip("mangum")
-Mangum = mangum.Mangum
-
-# Imported after `importorskip` so the test module is skipped cleanly when `mangum`
-# is unavailable in local/dev environments.
-import lambda_function  # noqa: E402
-from app.main import create_app  # noqa: E402
+import lambda_function
+from app.lambda_router import LambdaRouter
 
 
-class _FakeLogService:
+@dataclass(frozen=True)
+class FakeSettings:
+    jwt_hmac_secret: str = "test-secret"
+    auth_mode: str = "local"
+    cognito_jwks_url: str = ""
+    cognito_issuer: str = ""
+    cognito_audience: str = ""
+
+
+class FakeService:
+    def __init__(self) -> None:
+        self.bootstrap_calls = 0
+
     def bootstrap(self) -> None:
-        return
+        self.bootstrap_calls += 1
 
     def health(self) -> bool:
         return True
 
     def list_logs(self, **_kwargs):
         return [], 0
+
+
+def _runtime(service: FakeService) -> lambda_function._Runtime:
+    settings = FakeSettings()
+    return lambda_function._Runtime(
+        settings=settings,
+        service=service,
+        router=LambdaRouter(service, settings),
+    )
 
 
 def _http_api_v2_event(method: str, path: str) -> dict:
@@ -49,9 +64,24 @@ def _http_api_v2_event(method: str, path: str) -> dict:
     }
 
 
+def _rest_proxy_event(method: str, path: str) -> dict:
+    return {
+        "httpMethod": method,
+        "path": path,
+        "headers": {
+            "host": "localhost",
+        },
+        "requestContext": {
+            "stage": "dev",
+            "path": path,
+        },
+        "isBase64Encoded": False,
+    }
+
+
 def test_lambda_handler_health_ok(monkeypatch) -> None:
-    asgi_handler = Mangum(create_app(_FakeLogService()))
-    monkeypatch.setattr(lambda_function, "_get_asgi_handler", lambda: asgi_handler)
+    service = FakeService()
+    monkeypatch.setattr(lambda_function, "_runtime", _runtime(service))
 
     response = lambda_function.lambda_handler(
         _http_api_v2_event("GET", "/health"), None
@@ -64,14 +94,46 @@ def test_lambda_handler_health_ok(monkeypatch) -> None:
 
 
 def test_lambda_handler_unauthorized_without_token(monkeypatch) -> None:
-    asgi_handler = Mangum(create_app(_FakeLogService()))
-    monkeypatch.setattr(lambda_function, "_get_asgi_handler", lambda: asgi_handler)
+    service = FakeService()
+    monkeypatch.setattr(lambda_function, "_runtime", _runtime(service))
 
     response = lambda_function.lambda_handler(
-        _http_api_v2_event("GET", "/api/logs"),
-        None,
+        _http_api_v2_event("GET", "/api/logs"), None
     )
 
     assert response["statusCode"] == 401
     body = json.loads(response["body"])
     assert body["error"] == "unauthorized"
+
+
+def test_lambda_handler_supports_rest_proxy_shape(monkeypatch) -> None:
+    service = FakeService()
+    monkeypatch.setattr(lambda_function, "_runtime", _runtime(service))
+
+    response = lambda_function.lambda_handler(
+        _rest_proxy_event("GET", "/_user_request_/health"),
+        None,
+    )
+
+    assert response["statusCode"] == 200
+    body = json.loads(response["body"])
+    assert body["status"] == "ok"
+
+
+def test_lambda_handler_builds_runtime_once(monkeypatch) -> None:
+    calls = {"count": 0}
+    runtime = _runtime(FakeService())
+
+    def fake_build_runtime() -> lambda_function._Runtime:
+        calls["count"] += 1
+        return runtime
+
+    monkeypatch.setattr(lambda_function, "_runtime", None)
+    monkeypatch.setattr(lambda_function, "_build_runtime", fake_build_runtime)
+
+    first = lambda_function.lambda_handler(_http_api_v2_event("GET", "/health"), None)
+    second = lambda_function.lambda_handler(_http_api_v2_event("GET", "/health"), None)
+
+    assert first["statusCode"] == 200
+    assert second["statusCode"] == 200
+    assert calls["count"] == 1
