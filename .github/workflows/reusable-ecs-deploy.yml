@@ -26,10 +26,10 @@ on:
         value: ${{ jobs.build-tag-push.outputs.image-uri }}
       sha-tag:
         description: Commit SHA image tag
-        value: ${{ jobs.build-tag-push.outputs.sha-tag }}
+        value: ${{ jobs.build-test-tag-push.outputs.sha-tag }}
       latest-tag:
         description: Latest image tag
-        value: ${{ jobs.build-tag-push.outputs.latest-tag }}
+        value: ${{ jobs.build-test-tag-push.outputs.latest-tag }}
 
 permissions:
   contents: read
