@@ -1,0 +1,123 @@
+name: CD - Main Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+# Ensure that only one deployment runs at a time to the main environment.
+concurrency:
+  group: cd-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  changes:
+    uses: ./.github/workflows/reusable-changes.yml
+
+  deploy-agent:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-agent == 'true' ||
+           needs.changes.outputs.ci-config == 'true') }}
+    needs:
+      - changes
+    uses: ./.github/workflows/reusable-ecs-deploy.yml
+    with:
+      service: agent
+    secrets:
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+
+  deploy-client:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-client == 'true' ||
+           needs.changes.outputs.ci-config == 'true') }}
+    needs:
+      - changes
+    uses: ./.github/workflows/reusable-ecs-deploy.yml
+    with:
+      service: client
+    secrets:
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+
+  deploy-transaction:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-transaction == 'true' ||
+           needs.changes.outputs.ci-config == 'true') }}
+    needs:
+      - changes
+    uses: ./.github/workflows/reusable-ecs-deploy.yml
+    with:
+      service: transaction
+    secrets:
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+
+  deploy-aml:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-aml == 'true' ||
+           needs.changes.outputs.ci-config == 'true') }}
+    needs:
+      - changes
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
+    with:
+      service: aml
+    secrets:
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      LAMBDA_ARTIFACT_BUCKET: ${{ secrets.LAMBDA_ARTIFACT_BUCKET }}
+
+  deploy-verification:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-verification == 'true' ||
+           needs.changes.outputs.ci-config == 'true') }}
+    needs:
+      - changes
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
+    with:
+      service: verification
+    secrets:
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      LAMBDA_ARTIFACT_BUCKET: ${{ secrets.LAMBDA_ARTIFACT_BUCKET }}
+
+  deploy-transaction-ingestion-lambda:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-transaction-ingestion-lambda == 'true' ||
+           needs.changes.outputs.ci-config == 'true') }}
+    needs:
+      - changes
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
+    with:
+      service: transaction-ingestion-lambda
+    secrets:
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      LAMBDA_ARTIFACT_BUCKET: ${{ secrets.LAMBDA_ARTIFACT_BUCKET }}
+
+  deploy-frontend:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.frontend == 'true' ||
+           needs.changes.outputs.ci-config == 'true') }}
+    needs:
+      - changes
+    uses: ./.github/workflows/reusable-frontend-deploy.yml
+    secrets:
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      FRONTEND_S3_BUCKET: ${{ secrets.FRONTEND_S3_BUCKET }}
+      CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
