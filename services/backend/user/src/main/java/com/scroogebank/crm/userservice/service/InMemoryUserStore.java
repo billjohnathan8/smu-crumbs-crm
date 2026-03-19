@@ -1,14 +1,5 @@
 package com.scroogebank.crm.userservice.service;
 
-import com.scroogebank.crm.userservice.dto.CreateUserRequest;
-import com.scroogebank.crm.userservice.dto.UpdateUserRequest;
-import com.scroogebank.crm.userservice.dto.UserDto;
-import com.scroogebank.crm.userservice.dto.UserRole;
-import com.scroogebank.crm.userservice.dto.UserStatus;
-import com.scroogebank.crm.userservice.exception.DuplicateUserException;
-import com.scroogebank.crm.userservice.exception.UserNotFoundException;
-import com.scroogebank.crm.userservice.exception.AccessDeniedException;
-import com.scroogebank.crm.userservice.util.IdCodec;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -21,9 +12,20 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+
+import com.scroogebank.crm.userservice.dto.CreateUserRequest;
+import com.scroogebank.crm.userservice.dto.UpdateUserRequest;
+import com.scroogebank.crm.userservice.dto.UserDto;
+import com.scroogebank.crm.userservice.dto.UserRole;
+import com.scroogebank.crm.userservice.dto.UserStatus;
+import com.scroogebank.crm.userservice.exception.AccessDeniedException;
+import com.scroogebank.crm.userservice.exception.DuplicateUserException;
+import com.scroogebank.crm.userservice.exception.UserNotFoundException;
+import com.scroogebank.crm.userservice.util.IdCodec;
 
 /**
  * In-memory user store used for CRUD operations and refresh token tracking.
