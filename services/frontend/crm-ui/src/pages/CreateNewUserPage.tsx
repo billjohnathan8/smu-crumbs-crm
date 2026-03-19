@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
+import { isRootAdminUser } from '@/features/auth/authorization'
 import { createUser } from '@/api/users'
 import type { CreateUserRequest, UserRole } from '@/api/types'
 import { ApiError } from '@/api/client'
@@ -33,7 +34,7 @@ export function CreateNewUserPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const isAdmin = user?.role === 'admin'
-  const isRootAdmin = user?.role === 'super_admin' || String(user?.id) === '1'
+  const isRootAdmin = isRootAdminUser(user)
   const isUser = user?.role === 'user'
 
   const canManageUsers = isAdmin || isRootAdmin

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
+import { isRootAdminUser } from '@/features/auth/authorization'
 import { createClient } from '@/api/clients'
 import type { ClientCreateRequest, Gender } from '@/api/types'
 import { ApiError } from '@/api/client'
@@ -29,7 +30,7 @@ export function CreateClientPage() {
   const { user, logout } = useAuth()
 
   const isAdmin = user?.role === 'admin'
-  const isRootAdmin = user?.role === 'super_admin' || String(user?.id) === '0'
+  const isRootAdmin = isRootAdminUser(user)
   const canViewAllClients = isAdmin || isRootAdmin
 
   const basePath = canViewAllClients ? '/admin' : '/user'
