@@ -13,7 +13,7 @@ REM   --severity LEVELS     Comma-separated severities (default: HIGH,CRITICAL)
 REM   --exit-code N         1=fail on findings, 0=report only  (default: 1)
 REM   --no-ignore-unfixed   Include vulnerabilities with no fix yet (default: ignored)
 REM   --format FORMAT       table | json | sarif                (default: table)
-REM   --service NAME        agent | client | transaction        (default: all)
+REM   --service NAME        user | client | transaction         (default: all)
 REM
 REM Examples:
 REM   Exact same gate as the CD pipeline (fails on findings):
@@ -26,7 +26,7 @@ REM   Include MEDIUM findings while debugging:
 REM     trivy-scan-images.bat --severity MEDIUM,HIGH,CRITICAL --exit-code 0
 REM
 REM   Scan one service only:
-REM     trivy-scan-images.bat --service agent --exit-code 0
+REM     trivy-scan-images.bat --service user --exit-code 0
 REM
 REM Install Trivy first if not present:
 REM   winget install aquasecurity.trivy
@@ -71,10 +71,10 @@ where trivy >nul 2>&1 || (
 
 REM ── Validate service arg if provided ─────────────────────────────────────────
 if not "%TARGET_SERVICE%"=="" (
-  if /i not "%TARGET_SERVICE%"=="agent" (
+  if /i not "%TARGET_SERVICE%"=="user" (
     if /i not "%TARGET_SERVICE%"=="client" (
       if /i not "%TARGET_SERVICE%"=="transaction" (
-        echo [ERROR] Unknown service '%TARGET_SERVICE%'. Valid: agent ^| client ^| transaction
+        echo [ERROR] Unknown service '%TARGET_SERVICE%'. Valid: user ^| client ^| transaction
         exit /b 1
       )
     )
@@ -91,12 +91,12 @@ echo   Severity : %SEVERITY%
 echo   Exit code: %EXIT_CODE%  (1=fail on findings, 0=report only)
 if "%IGNORE_UNFIXED%"=="" ( echo   Unfixed  : included ) else ( echo   Unfixed  : ignored )
 echo   Format   : %FORMAT%
-if "%TARGET_SERVICE%"=="" ( echo   Services : agent client transaction ) else ( echo   Services : %TARGET_SERVICE% )
+if "%TARGET_SERVICE%"=="" ( echo   Services : user client transaction ) else ( echo   Services : %TARGET_SERVICE% )
 echo --------------------------------------------------------------
 
 REM ── Build + Scan ─────────────────────────────────────────────────────────────
 set "OVERALL_STATUS=0"
-set "SERVICES=agent client transaction"
+set "SERVICES=user client transaction"
 if not "%TARGET_SERVICE%"=="" set "SERVICES=%TARGET_SERVICE%"
 
 for %%S in (%SERVICES%) do call :scan_service %%S
@@ -121,7 +121,7 @@ REM ============================================================================
 set "SVC=%~1"
 set "SVC_DIR="
 set "IMG_TAG="
-if /i "%SVC%"=="agent"       set "SVC_DIR=services\backend\agent"       & set "IMG_TAG=agent:dev"
+if /i "%SVC%"=="user"        set "SVC_DIR=services\backend\user"        & set "IMG_TAG=user:dev"
 if /i "%SVC%"=="client"      set "SVC_DIR=services\backend\client"      & set "IMG_TAG=client:dev"
 if /i "%SVC%"=="transaction" set "SVC_DIR=services\backend\transaction" & set "IMG_TAG=transaction:dev"
 

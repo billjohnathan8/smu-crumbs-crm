@@ -84,6 +84,11 @@ jobs:
         uses: dorny/paths-filter@v3
         id: filter
         with:
+          # workflow_call does not always infer a reliable base; set it explicitly.
+          # For PRs use base SHA, for pushes use the "before" SHA, otherwise fall back to HEAD~1.
+          base: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD~1' }}
+          ref: ${{ github.sha }}
+          list-files: shell
           filters: |
             backend-aml:
               - 'services/backend/aml/**'
@@ -136,6 +141,18 @@ jobs:
             echo "any-backend=${ANY_BACKEND}"
             echo "any-service=${ANY_SERVICE}"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Debug changed files
+        run: |
+          {
+            echo "### Changed Files (paths-filter)"
+            echo
+            if [[ -n "${{ steps.filter.outputs.changes }}" ]]; then
+              echo "${{ steps.filter.outputs.changes }}"
+            else
+              echo "(No files reported)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Summary
         run: |

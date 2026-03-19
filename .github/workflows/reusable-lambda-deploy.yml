@@ -97,9 +97,11 @@ jobs:
               -x "*/__pycache__/*"
           )
 
-          echo "artifact_name=${artifact_name}" >> "$GITHUB_OUTPUT"
-          echo "artifact_path=${artifact_path}" >> "$GITHUB_OUTPUT"
-          echo "s3_key=${s3_key}" >> "$GITHUB_OUTPUT"
+          {
+            echo "artifact_name=${artifact_name}"
+            echo "artifact_path=${artifact_path}"
+            echo "s3_key=${s3_key}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Upload Lambda zip to S3
         run: |
