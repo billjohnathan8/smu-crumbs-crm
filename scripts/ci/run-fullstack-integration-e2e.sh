@@ -1052,13 +1052,16 @@ start_phase "Phase 4: Cross-service HTTP smoke"
 USER_TOKEN="$(mint_jwt "ci_user" "user")"
 ADMIN_TOKEN="$(mint_jwt "ci_admin" "admin")"
 
+SMOKE_CLIENT_EMAIL="jordan.taylor+${RUN_ID}@example.com"
+SMOKE_CLIENT_PHONE="+1$(printf '%s' "${RUN_ID}" | tr -cd '0-9' | tail -c 11)"
+
 CREATE_BODY='{
   "firstName": "Jordan",
   "lastName": "Taylor",
   "dateOfBirth": "1990-01-15",
   "gender": "Male",
-  "emailAddress": "jordan.taylor@example.com",
-  "phoneNumber": "+15551234567",
+  "emailAddress": "'"${SMOKE_CLIENT_EMAIL}"'",
+  "phoneNumber": "'"${SMOKE_CLIENT_PHONE}"'",
   "address": "123 Main Street",
   "city": "Springfield",
   "state": "Illinois",

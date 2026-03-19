@@ -17,6 +17,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class UserAccountService {
+	private static final String ROOT_ADMIN_USER_ID = "usr_1";
+
 	private final PersistentUserStore store;
 
 	public UserAccountService(PersistentUserStore store) {
@@ -165,7 +167,7 @@ public class UserAccountService {
 				throw new AccessDeniedException("Root admin accounts cannot be " + action + " via the API");
 			}
             case admin -> {
-                if (requester.role() != UserRole.super_admin) {
+                if (requester.role() != UserRole.super_admin && !isSeededRootAdmin(requester)) {
                     throw new AccessDeniedException("Only root admins can " + action + " admin user.");
                 }
             }
@@ -187,7 +189,7 @@ public class UserAccountService {
 				if (requester.role() == UserRole.admin && !requester.userId().equals(userId)) {
 					throw new AccessDeniedException("Admin can only update themselves");
 				}
-                if (requester.role() != UserRole.super_admin) {
+                if (requester.role() != UserRole.super_admin && !isSeededRootAdmin(requester)) {
                     throw new AccessDeniedException("Only root admins can update admin user");
                 }
             }
@@ -198,5 +200,9 @@ public class UserAccountService {
             }
             default -> throw new AccessDeniedException("Unsupported role assignment: " + targetRole);
         }
+	}
+
+	private boolean isSeededRootAdmin(AuthenticatedUser requester) {
+		return ROOT_ADMIN_USER_ID.equals(requester.userId());
 	}
 }

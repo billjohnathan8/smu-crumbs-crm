@@ -22,7 +22,7 @@ const NEW_ADMIN_PASSWORD = "AdminTest123!";
 const NEW_ADMIN_FIRST_NAME = "Test";
 const NEW_ADMIN_LAST_NAME = "Admin";
 
-const NEW_AGENT_EMAIL = `agent.test@crm.local`;
+const NEW_AGENT_EMAIL = `agent.test.${Date.now()}@crm.local`;
 const NEW_AGENT_PASSWORD = "AgentTest123!";
 const NEW_AGENT_FIRST_NAME = "Test";
 const NEW_AGENT_LAST_NAME = "Agent";
@@ -158,7 +158,7 @@ test.describe("Admins Full Flow (Integration)", () => {
 
     await page.goto('/admin/users/new')
     await expect(page.locator('[data-testid="role-select"] option[value="admin"]')).toHaveCount(0)
-    await expect(page.locator('[data-testid="role-select"] option[value="agent"]')).toHaveCount(1)
+    await expect(page.locator('[data-testid="role-select"] option[value="user"]')).toHaveCount(1)
   })
 
   test('admin should logout successfully', async ({ page }) => {

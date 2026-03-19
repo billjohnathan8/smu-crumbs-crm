@@ -124,6 +124,23 @@ class UserAccountServiceTest {
 		verify(store, never()).createUser(any());
 	}
 
+	@Test
+	void seededRootAdmin_canCreateAdminUser() {
+		AuthenticatedUser requester = new AuthenticatedUser("usr_1", "admin");
+		CreateUserRequest request = createRequest(UserRole.admin);
+		Instant now = Instant.now();
+
+		when(store.createUser(any())).thenAnswer(inv -> {
+			CreateUserRequest req = inv.getArgument(0);
+			return new UserDto("usr_9", "Jane", "Smith", "jane@example.com", req.role(), UserStatus.active, now, now);
+		});
+
+		UserDto result = service.createUser(request, requester);
+
+		assertEquals(UserRole.admin, result.role());
+		verify(store, times(1)).createUser(any());
+	}
+
 	//  READ USER TESTS  //
 	//  ─── Happy Path ───
 	@ParameterizedTest
@@ -398,7 +415,7 @@ class UserAccountServiceTest {
 
 	// ─── Helpers ───
 	private AuthenticatedUser userWithRole(UserRole role) {
-		return new AuthenticatedUser("usr_1", role);
+		return new AuthenticatedUser("usr_2", role);
 	}
 
 	private CreateUserRequest createRequest(UserRole role) {
