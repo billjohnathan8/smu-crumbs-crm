@@ -87,10 +87,12 @@ jobs:
           SHA_TAG="${GITHUB_SHA}"
           LATEST_TAG="latest"
 
-          echo "working_directory=${WORKING_DIRECTORY}" >> "$GITHUB_OUTPUT"
-          echo "image_uri=${IMAGE_URI}" >> "$GITHUB_OUTPUT"
-          echo "sha_tag=${SHA_TAG}" >> "$GITHUB_OUTPUT"
-          echo "latest_tag=${LATEST_TAG}" >> "$GITHUB_OUTPUT"
+          {
+            echo "working_directory=${WORKING_DIRECTORY}"
+            echo "image_uri=${IMAGE_URI}"
+            echo "sha_tag=${SHA_TAG}"
+            echo "latest_tag=${LATEST_TAG}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4

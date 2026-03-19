@@ -37,9 +37,12 @@ jobs:
       should-run: ${{ steps.decision.outputs.should-run }}
     steps:
       - id: decision
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message || '' }}
         run: |
           SHOULD_RUN="true"
-          if [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.event.head_commit.message }}" == Merge\ pull\ request* ]]; then
+          if [[ "${EVENT_NAME}" == "push" ]] && [[ "${HEAD_COMMIT_MESSAGE}" == "Merge pull request"* ]]; then
             SHOULD_RUN="false"
           fi
           echo "should-run=${SHOULD_RUN}" >> "$GITHUB_OUTPUT"
