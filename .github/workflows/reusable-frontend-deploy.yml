@@ -1,0 +1,112 @@
+name: Reusable - Frontend CloudFront Deploy
+
+on:
+  workflow_call:
+    inputs:
+      working_directory:
+        description: Frontend project directory
+        required: false
+        type: string
+        default: services/frontend/crm-ui
+      build_command:
+        description: Command used to build frontend assets
+        required: false
+        type: string
+        default: npm run build
+      build_output_dir:
+        description: Relative build output directory from working directory
+        required: false
+        type: string
+        default: dist
+      cloudfront_invalidation_paths:
+        description: Space-separated CloudFront invalidation paths
+        required: false
+        type: string
+        default: '/*'
+    secrets:
+      AWS_ROLE_ARN:
+        required: true
+      AWS_REGION:
+        required: true
+      FRONTEND_S3_BUCKET:
+        required: true
+      CLOUDFRONT_DISTRIBUTION_ID:
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-frontend:
+    name: Build and deploy frontend to CloudFront
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        timeout-minutes: 2
+
+      - name: Validate required secrets
+        run: |
+          test -n "${{ secrets.AWS_ROLE_ARN }}"
+          test -n "${{ secrets.AWS_REGION }}"
+          test -n "${{ secrets.FRONTEND_S3_BUCKET }}"
+          test -n "${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ${{ inputs.working_directory }}/package.json
+          cache: npm
+          cache-dependency-path: ${{ inputs.working_directory }}/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: ${{ inputs.working_directory }}
+        run: npm ci
+
+      - name: Build frontend assets
+        working-directory: ${{ inputs.working_directory }}
+        env:
+          VITE_COMMIT_SHA: ${{ github.sha }}
+        run: ${{ inputs.build_command }}
+
+      - name: Validate build output exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUTPUT_DIR="${{ inputs.working_directory }}/${{ inputs.build_output_dir }}"
+          if [[ ! -d "$OUTPUT_DIR" ]]; then
+            echo "Build output directory not found: $OUTPUT_DIR"
+            exit 1
+          fi
+
+      - name: Upload static assets to S3
+        run: |
+          aws s3 sync \
+            "${{ inputs.working_directory }}/${{ inputs.build_output_dir }}/" \
+            "s3://${{ secrets.FRONTEND_S3_BUCKET }}/" \
+            --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --paths ${{ inputs.cloudfront_invalidation_paths }}
+
+      - name: Deployment summary
+        run: |
+          echo "Frontend directory: ${{ inputs.working_directory }}"
+          echo "Build output: ${{ inputs.build_output_dir }}"
+          echo "Synced to: s3://${{ secrets.FRONTEND_S3_BUCKET }}/"
+          echo "CloudFront invalidation paths: ${{ inputs.cloudfront_invalidation_paths }}"
