@@ -58,6 +58,8 @@ bash scripts/ci/run-fullstack-integration-e2e.sh
 bash scripts/ci/run-ingestion-verification-smoke.sh
 ```
 
+`run-ingestion-verification-smoke.sh` forces `VERIFICATION_EMAIL_PROVIDER=ses` so the verification feedback Lambda path is asserted (not skipped).
+
 Before changing local/CI DB config files, run:
 
 ```bash

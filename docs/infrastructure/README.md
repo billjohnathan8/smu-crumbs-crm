@@ -7,6 +7,7 @@ Scope: Terraform in `platform/terraform` and local AWS emulation with LocalStack
 - Terraform workflow (format/validate/plan)
 - LocalStack for local integration testing
 - Optional infra diagrams via InfraMap / `terraform graph`
+- Environment feature contract: [../configuration.md](../configuration.md)
 
 ## Terraform Commands
 
@@ -38,5 +39,6 @@ Outputs:
 ## Notes
 
 - Keep `environment=dev` for local/non-production workflows.
+- Environment-specific Terraform contracts are stored in `platform/terraform/env/*.tfvars`.
 - Provide production secrets via `TF_VAR_*` environment variables, not committed files.
 - Snapshot reports and one-off implementation notes were removed from this folder to reduce drift.
