@@ -27,9 +27,15 @@ variable "vpc_id" {
   type        = string
 }
 
-variable "private_subnet_ids" {
-  description = "Private subnet IDs used by ECS tasks."
+variable "service_subnet_ids" {
+  description = "Subnet IDs used by ECS tasks."
   type        = list(string)
+}
+
+variable "assign_public_ip" {
+  description = "Assign a public IP address to ECS tasks."
+  type        = bool
+  default     = false
 }
 
 variable "ecs_service_security_group_id" {
