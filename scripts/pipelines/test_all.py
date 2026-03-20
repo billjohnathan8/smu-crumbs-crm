@@ -68,6 +68,19 @@ def detect_python() -> str:
     return sys.executable
 
 
+def detect_actionlint() -> Optional[str]:
+    # Check PATH first (covers global installs and activated virtualenvs).
+    found = shutil.which("actionlint")
+    if found:
+        return found
+    # Fall back to the local devtools install location (scripts/first-time-setup).
+    devtools_bin = REPO_ROOT / ".devtools" / "bin"
+    candidate = devtools_bin / ("actionlint.exe" if is_windows() else "actionlint")
+    if candidate.exists():
+        return str(candidate)
+    return None
+
+
 def detect_bash() -> Optional[str]:
     candidates: List[str] = []
 
@@ -155,6 +168,7 @@ def resolve_windows_command(command: List[str]) -> List[str]:
 def build_steps(args: argparse.Namespace) -> List[Step]:
     py = detect_python()
     bash = detect_bash()
+    actionlint_cmd = detect_actionlint()
     tflint_available = shutil.which("tflint") is not None
 
     services_backend = REPO_ROOT / "services" / "backend"
@@ -165,6 +179,22 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
 
     run_backend = args.suite in ("all", "backend")
     run_frontend = args.suite in ("all", "frontend")
+
+    phase = "Layer 1 - Lint / Format / Typecheck"
+    if actionlint_cmd:
+        steps.append(
+            Step(
+                phase=phase,
+                name="Actionlint (GitHub Actions workflows)",
+                cwd=REPO_ROOT,
+                command=[actionlint_cmd, "-color"],
+            )
+        )
+    else:
+        print(
+            "[WARN] actionlint not found in PATH or .devtools/bin; skipping GitHub Actions "
+            "workflow lint. Run scripts/first-time-setup.ps1 (or .sh) to install it."
+        )
 
     if run_backend:
         phase = "Layer 1 - Lint / Format / Typecheck"
