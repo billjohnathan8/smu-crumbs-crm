@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from urllib.parse import urlencode
 
+from app.auth import UnauthorizedError
 from app.lambda_router import LambdaRouter
 from app.schemas import (
     CreateAmlAlertRequest,
@@ -47,6 +48,32 @@ class FakeSettings:
     cognito_jwks_url: str = ""
     cognito_issuer: str = ""
     cognito_audience: str = ""
+    client_service_url: str = "http://localhost:8080"
+
+
+class FakeClientScopeAuthorizer:
+    def __init__(
+        self,
+        *,
+        allow_all: bool = True,
+        allowed_client_ids_by_auth: dict[str, set[str]] | None = None,
+    ) -> None:
+        self._allow_all = allow_all
+        self._allowed_client_ids_by_auth = allowed_client_ids_by_auth or {}
+
+    def can_access_client(self, authorization: str | None, client_id: str) -> bool:
+        if not authorization:
+            raise UnauthorizedError("missing_bearer")
+        if self._allow_all:
+            return True
+        return client_id in self._allowed_client_ids_by_auth.get(authorization, set())
+
+    def list_accessible_client_ids(self, authorization: str | None) -> set[str]:
+        if not authorization:
+            raise UnauthorizedError("missing_bearer")
+        if self._allow_all:
+            return {"clt_1", "clt_2", "clt_3", "clt_4"}
+        return set(self._allowed_client_ids_by_auth.get(authorization, set()))
 
 
 class FakeLogService:
@@ -234,12 +261,15 @@ class FakeLogService:
         limit: int,
         offset: int,
         client_id: str | None,
+        client_ids: list[str] | None,
         alert_type: str | None,
         review_status: str | None,
     ):
         rows = list(self.aml_alerts.values())
         if client_id:
             rows = [r for r in rows if r["client_id"] == client_id]
+        elif client_ids:
+            rows = [r for r in rows if r["client_id"] in set(client_ids)]
         if alert_type:
             rows = [r for r in rows if r["alert_type"] == alert_type]
         if review_status:
@@ -271,9 +301,21 @@ class FakeLogServiceMissingCommunication(FakeLogService):
         return None
 
 
-def _make_router(service: FakeLogService, secret: str = "test-secret") -> LambdaRouter:
+def _make_router(
+    service: FakeLogService,
+    secret: str = "test-secret",
+    client_scope_authorizer: FakeClientScopeAuthorizer | None = None,
+) -> LambdaRouter:
     settings = FakeSettings(jwt_hmac_secret=secret)
-    return LambdaRouter(service, settings)
+    return LambdaRouter(
+        service,
+        settings,
+        client_scope_authorizer=(
+            client_scope_authorizer
+            if client_scope_authorizer is not None
+            else FakeClientScopeAuthorizer()
+        ),
+    )
 
 
 def _http_api_v2_event(
@@ -890,6 +932,155 @@ def test_aml_alert_create_list_review_flow() -> None:
     assert reviewed["statusCode"] == 200
     assert reviewed_body is not None
     assert reviewed_body["reviewStatus"] == "Confirmed"
+
+
+def test_aml_alert_non_admin_access_is_client_scoped() -> None:
+    secret = "test-secret"
+    service = FakeLogService()
+    user_token = mint_token("usr_1", "user", secret)
+    user_auth = f"Bearer {user_token}"
+    router = _make_router(
+        service,
+        secret=secret,
+        client_scope_authorizer=FakeClientScopeAuthorizer(
+            allow_all=False,
+            allowed_client_ids_by_auth={user_auth: {"clt_1"}},
+        ),
+    )
+
+    service.create_aml_alert(
+        CreateAmlAlertRequest(
+            alertId="aml_1",
+            clientId="clt_1",
+            transactionId="txn_1",
+            alertType="STRUCTURING",
+            description="Structuring detected",
+            detectedAt=datetime.now(timezone.utc),
+            reviewStatus="Pending",
+        )
+    )
+    service.create_aml_alert(
+        CreateAmlAlertRequest(
+            alertId="aml_2",
+            clientId="clt_2",
+            transactionId="txn_2",
+            alertType="PASSTHROUGH",
+            description="Pass through anomaly",
+            detectedAt=datetime.now(timezone.utc),
+            reviewStatus="Pending",
+        )
+    )
+
+    listed, listed_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "GET",
+            "/api/aml/alerts",
+            headers={"Authorization": user_auth},
+        ),
+    )
+    forbidden_client, forbidden_client_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "GET",
+            "/api/aml/alerts",
+            headers={"Authorization": user_auth},
+            query={"clientId": "clt_2"},
+        ),
+    )
+    get_denied, get_denied_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "GET",
+            "/api/aml/alerts/aml_2",
+            headers={"Authorization": user_auth},
+        ),
+    )
+    review_denied, review_denied_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "PUT",
+            "/api/aml/alerts/aml_2/review",
+            headers={"Authorization": user_auth},
+            body={"reviewStatus": "Confirmed"},
+        ),
+    )
+    review_allowed, review_allowed_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "PUT",
+            "/api/aml/alerts/aml_1/review",
+            headers={"Authorization": user_auth},
+            body={"reviewStatus": "Confirmed"},
+        ),
+    )
+
+    assert listed["statusCode"] == 200
+    assert listed_body is not None
+    assert [row["alertId"] for row in listed_body["data"]] == ["aml_1"]
+
+    assert forbidden_client["statusCode"] == 200
+    assert forbidden_client_body is not None
+    assert forbidden_client_body["data"] == []
+
+    assert get_denied["statusCode"] == 404
+    assert get_denied_body is not None
+    assert get_denied_body["error"] == "not_found"
+
+    assert review_denied["statusCode"] == 404
+    assert review_denied_body is not None
+    assert review_denied_body["error"] == "not_found"
+
+    assert review_allowed["statusCode"] == 200
+    assert review_allowed_body is not None
+    assert review_allowed_body["reviewStatus"] == "Confirmed"
+
+
+def test_aml_alert_create_requires_admin_and_auth() -> None:
+    secret = "test-secret"
+    router = _make_router(FakeLogService(), secret=secret)
+    user_token = mint_token("usr_1", "user", secret)
+
+    unauthorized, unauthorized_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "POST",
+            "/api/aml/alerts",
+            body={
+                "alertId": "aml_1",
+                "clientId": "clt_1",
+                "transactionId": "txn_1",
+                "alertType": "STRUCTURING",
+                "description": "Structuring detected",
+                "detectedAt": "2026-02-01T12:00:00Z",
+                "reviewStatus": "Pending",
+            },
+        ),
+    )
+    forbidden, forbidden_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "POST",
+            "/api/aml/alerts",
+            headers={"Authorization": f"Bearer {user_token}"},
+            body={
+                "alertId": "aml_1",
+                "clientId": "clt_1",
+                "transactionId": "txn_1",
+                "alertType": "STRUCTURING",
+                "description": "Structuring detected",
+                "detectedAt": "2026-02-01T12:00:00Z",
+                "reviewStatus": "Pending",
+            },
+        ),
+    )
+
+    assert unauthorized["statusCode"] == 401
+    assert unauthorized_body is not None
+    assert unauthorized_body["error"] == "unauthorized"
+    assert forbidden["statusCode"] == 403
+    assert forbidden_body is not None
+    assert forbidden_body["error"] == "forbidden"
 
 
 def test_rest_proxy_event_shapes_are_supported() -> None:

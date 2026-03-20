@@ -92,6 +92,7 @@ class LogService:
         limit: int,
         offset: int,
         client_id: str | None,
+        client_ids: list[str] | None,
         alert_type: str | None,
         review_status: str | None,
     ):
@@ -100,6 +101,7 @@ class LogService:
             limit=limit,
             offset=offset,
             client_id=client_id,
+            client_ids=client_ids,
             alert_type=alert_type,
             review_status=review_status,
         )

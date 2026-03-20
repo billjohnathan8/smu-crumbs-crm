@@ -37,6 +37,18 @@ class AuthenticatedUser:
         return self.role == "user"
 
 
+def _normalize_role(raw_role: Any) -> str | None:
+    """Normalize role aliases and casing across token sources."""
+    if not isinstance(raw_role, str):
+        return None
+    normalized = raw_role.strip().lower().replace("-", "_").replace(" ", "_")
+    if normalized in {"admin", "super_admin", "superadmin"}:
+        return "admin"
+    if normalized == "user":
+        return "user"
+    return None
+
+
 def _b64url_decode(segment: str) -> bytes:
     """Decode a base64url segment without padding."""
     padding = "=" * ((4 - (len(segment) % 4)) % 4)
@@ -202,8 +214,14 @@ def _cognito_role(claims: dict[str, Any]) -> str | None:
     groups = claims.get("cognito:groups")
     if isinstance(groups, list):
         for group in groups:
-            if group in {"admin", "user"}:
-                return group
+            normalized = _normalize_role(group)
+            if normalized:
+                return normalized
+    if isinstance(groups, str):
+        for group in groups.split(","):
+            normalized = _normalize_role(group)
+            if normalized:
+                return normalized
     return None
 
 
@@ -242,8 +260,10 @@ def require_bearer_user(
         except Exception:
             pass
 
+    normalized_auth_mode = auth_mode.strip().lower()
+
     if alg == "RS256":
-        if auth_mode not in ("cognito", "hybrid"):
+        if normalized_auth_mode not in ("cognito", "hybrid"):
             raise UnauthorizedError("invalid_token")
         if not cognito_jwks_url:
             raise UnauthorizedError("invalid_token")
@@ -251,17 +271,19 @@ def require_bearer_user(
             token, cognito_jwks_url, cognito_issuer, cognito_audience
         )
         sub = claims.get("sub")
-        role = claims.get("role") or _cognito_role(claims)
+        role = (
+            _cognito_role(claims)
+            or _normalize_role(claims.get("custom:role"))
+            or _normalize_role(claims.get("role"))
+        )
     else:
-        if auth_mode == "cognito":
+        if normalized_auth_mode == "cognito":
             raise UnauthorizedError("invalid_token")
         claims = verify_hs256_jwt(token, secret)
         sub = claims.get("sub")
-        role = claims.get("role")
+        role = _normalize_role(claims.get("role"))
 
-    if not isinstance(sub, str) or not isinstance(role, str):
-        raise UnauthorizedError("invalid_token")
-    if role not in {"admin", "user"}:
+    if not isinstance(sub, str) or not role:
         raise UnauthorizedError("invalid_token")
     return AuthenticatedUser(user_id=sub, role=role)
 

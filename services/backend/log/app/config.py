@@ -37,6 +37,24 @@ def _is_dev_environment() -> bool:
     return _runtime_environment() in {"dev", "local", "test"}
 
 
+def _default_auth_mode() -> str:
+    """Use hybrid in dev-like environments, Cognito-only elsewhere."""
+    return "hybrid" if _is_dev_environment() else "cognito"
+
+
+def _parse_bool_env(name: str, default: bool) -> bool:
+    """Parse a boolean env var using common true/false string forms."""
+    value = os.getenv(name)
+    if value is None:
+        return default
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+    raise RuntimeError(f"{name} must be a boolean value")
+
+
 def _env_or_secret(env_var: str, secret_arn_var: str, default: str | None) -> str:
     """Prefer direct env values, then secret ARN, then optional default."""
     direct_value = os.getenv(env_var)
@@ -86,11 +104,20 @@ class Settings:
             "dev-only-insecure-secret" if _is_dev_environment() else None,
         )
     )
-    # Authentication mode: "local" (HS256 only), "cognito" (RS256 only), "hybrid" (both)
+    # Authentication mode: local (HS256 only), cognito (RS256 only), hybrid (both)
     auth_mode: str = field(
-        default_factory=lambda: os.getenv("AUTH_MODE", "hybrid").strip().lower()
+        default_factory=lambda: os.getenv("AUTH_MODE", _default_auth_mode())
+        .strip()
+        .lower()
     )
-    # Cognito JWKS endpoint — required when auth_mode is "cognito" or "hybrid"
+    # Explicitly controls whether hybrid HS256/RS256 trust is allowed.
+    allow_hybrid_auth: bool = field(
+        default_factory=lambda: _parse_bool_env(
+            "ALLOW_HYBRID_AUTH",
+            _is_dev_environment(),
+        )
+    )
+    # Cognito JWKS endpoint, required when auth_mode is cognito/hybrid.
     cognito_jwks_url: str = field(
         default_factory=lambda: os.getenv("COGNITO_JWKS_URL", "")
     )
@@ -101,6 +128,30 @@ class Settings:
     cognito_audience: str = field(
         default_factory=lambda: os.getenv("COGNITO_CLIENT_ID", "")
     )
+    client_service_url: str = field(
+        default_factory=lambda: os.getenv("CLIENT_SERVICE_URL", "http://localhost:8080")
+        .rstrip("/")
+    )
+
+    def __post_init__(self) -> None:
+        valid_modes = {"local", "cognito", "hybrid"}
+        if self.auth_mode not in valid_modes:
+            raise RuntimeError("AUTH_MODE must be one of: local, cognito, hybrid")
+        if self.auth_mode == "hybrid" and not self.allow_hybrid_auth:
+            raise RuntimeError("hybrid auth_mode is disabled for this environment")
+        if self.auth_mode == "cognito":
+            if not self.cognito_jwks_url.strip():
+                raise RuntimeError(
+                    "COGNITO_JWKS_URL must be set when AUTH_MODE is cognito"
+                )
+            if not self.cognito_issuer.strip():
+                raise RuntimeError(
+                    "COGNITO_ISSUER must be set when AUTH_MODE is cognito"
+                )
+            if not self.cognito_audience.strip():
+                raise RuntimeError(
+                    "COGNITO_CLIENT_ID must be set when AUTH_MODE is cognito"
+                )
 
     @property
     def dsn(self) -> str:

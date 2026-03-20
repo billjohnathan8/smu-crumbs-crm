@@ -16,6 +16,7 @@ class FakeSettings:
     cognito_jwks_url: str = ""
     cognito_issuer: str = ""
     cognito_audience: str = ""
+    client_service_url: str = "http://localhost:8080"
 
 
 class FakeService:

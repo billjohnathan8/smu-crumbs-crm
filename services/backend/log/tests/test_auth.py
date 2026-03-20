@@ -132,6 +132,15 @@ def test_require_bearer_user_rejects_bad_claims() -> None:
         require_bearer_user(f"Bearer {bad_types}", secret)
 
 
+def test_require_bearer_user_normalizes_super_admin_to_admin() -> None:
+    secret = "secret"
+    token = mint_token("usr_1", "super_admin", secret)
+
+    user = require_bearer_user(f"Bearer {token}", secret)
+
+    assert user == AuthenticatedUser(user_id="usr_1", role="admin")
+
+
 # ---------------------------------------------------------------------------
 # RS256 / Cognito helpers
 # ---------------------------------------------------------------------------

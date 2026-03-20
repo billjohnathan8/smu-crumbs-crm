@@ -15,6 +15,7 @@ from urllib.parse import parse_qs, urlsplit
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .auth import ForbiddenError, UnauthorizedError, require_bearer_user, require_roles
+from .client_scope import ClientScopeAuthorizer
 from .config import Settings
 from .schemas import (
     AmlAlert,
@@ -339,9 +340,19 @@ def _error_response(
 class LambdaRouter:
     """Direct event router for the log service Lambda runtime."""
 
-    def __init__(self, service: LogService, settings: Settings):
+    def __init__(
+        self,
+        service: LogService,
+        settings: Settings,
+        client_scope_authorizer: ClientScopeAuthorizer | None = None,
+    ):
         self._service = service
         self._settings = settings
+        self._client_scope_authorizer = (
+            client_scope_authorizer
+            if client_scope_authorizer is not None
+            else ClientScopeAuthorizer(settings.client_service_url)
+        )
 
     def handle(self, event: dict[str, Any]) -> dict[str, Any]:
         request = normalize_event(event)
@@ -489,6 +500,34 @@ class LambdaRouter:
             cognito_issuer=self._settings.cognito_issuer,
             cognito_audience=self._settings.cognito_audience,
         )
+
+    def _can_user_access_client(
+        self,
+        request: NormalizedRequest,
+        client_id: str,
+    ) -> bool:
+        try:
+            return self._client_scope_authorizer.can_access_client(
+                request.headers.get(_AUTH_HEADER),
+                client_id,
+            )
+        except UnauthorizedError:
+            raise
+        except RuntimeError as exc:
+            raise _HttpError(503, "Client scope validation unavailable") from exc
+
+    def _list_user_accessible_client_ids(
+        self,
+        request: NormalizedRequest,
+    ) -> set[str]:
+        try:
+            return self._client_scope_authorizer.list_accessible_client_ids(
+                request.headers.get(_AUTH_HEADER)
+            )
+        except UnauthorizedError:
+            raise
+        except RuntimeError as exc:
+            raise _HttpError(503, "Client scope validation unavailable") from exc
 
     @staticmethod
     def _decode_prefixed_id(prefix: str, value: str) -> int:
@@ -678,7 +717,7 @@ class LambdaRouter:
 
     def _create_aml_alert(self, request: NormalizedRequest) -> RoutedResponse:
         user = self._require_user(request)
-        require_roles(user, {"admin", "user"})
+        require_roles(user, {"admin"})
 
         body = self._parse_body(CreateAmlAlertRequest, request)
 
@@ -700,10 +739,40 @@ class LambdaRouter:
 
         query = self._parse_query(_ListAmlAlertsQuery, request)
         limit, offset = self._clamp_limit_offset(query.limit, query.offset)
+        client_id_filter = query.clientId
+        client_ids_filter: list[str] | None = None
+
+        if user.role == "user":
+            if client_id_filter:
+                if not self._can_user_access_client(request, client_id_filter):
+                    payload = {
+                        "data": [],
+                        "pagination": Pagination(
+                            limit=limit,
+                            offset=offset,
+                            total=0,
+                        ).model_dump(mode="json"),
+                    }
+                    return RoutedResponse(200, payload)
+            else:
+                accessible_client_ids = self._list_user_accessible_client_ids(request)
+                if not accessible_client_ids:
+                    payload = {
+                        "data": [],
+                        "pagination": Pagination(
+                            limit=limit,
+                            offset=offset,
+                            total=0,
+                        ).model_dump(mode="json"),
+                    }
+                    return RoutedResponse(200, payload)
+                client_ids_filter = sorted(accessible_client_ids)
+
         rows, total = self._service.list_aml_alerts(
             limit=limit,
             offset=offset,
-            client_id=query.clientId,
+            client_id=client_id_filter,
+            client_ids=client_ids_filter,
             alert_type=query.alertType,
             review_status=query.reviewStatus,
         )
@@ -725,6 +794,10 @@ class LambdaRouter:
         row = self._service.get_aml_alert(alert_id)
         if row is None:
             raise _HttpError(404, "Not found")
+        if user.role == "user" and not self._can_user_access_client(
+            request, row["client_id"]
+        ):
+            raise _HttpError(404, "Not found")
         return RoutedResponse(200, self._to_aml_alert(row))
 
     def _review_aml_alert(
@@ -734,6 +807,14 @@ class LambdaRouter:
     ) -> RoutedResponse:
         user = self._require_user(request)
         require_roles(user, {"admin", "user"})
+
+        existing = self._service.get_aml_alert(alert_id)
+        if existing is None:
+            raise _HttpError(404, "Not found")
+        if user.role == "user" and not self._can_user_access_client(
+            request, existing["client_id"]
+        ):
+            raise _HttpError(404, "Not found")
 
         body = self._parse_body(UpdateAmlAlertReviewRequest, request)
         row = self._service.update_aml_alert_review(alert_id, body.reviewStatus.value)

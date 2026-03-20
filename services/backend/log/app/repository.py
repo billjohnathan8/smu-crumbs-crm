@@ -326,6 +326,7 @@ class LogRepository:
         limit: int,
         offset: int,
         client_id: str | None,
+        client_ids: list[str] | None,
         alert_type: str | None,
         review_status: str | None,
     ) -> tuple[list[dict], int]:
@@ -335,6 +336,9 @@ class LogRepository:
         if client_id:
             where.append("client_id = %(clientId)s")
             params["clientId"] = client_id
+        elif client_ids:
+            where.append("client_id = ANY(%(clientIds)s)")
+            params["clientIds"] = client_ids
         if alert_type:
             where.append("alert_type = %(alertType)s")
             params["alertType"] = alert_type
