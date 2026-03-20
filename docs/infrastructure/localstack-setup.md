@@ -22,7 +22,7 @@ Local Postgres contract for stateful services (`user`, `client`, `transaction`, 
 - Database: `crm`
 - User: `crm_app`
 - Password: `devpassword`
-- Canonical environment matrix and variable contract: [../configuration.md](../configuration.md)
+- Canonical environment matrix and variable contract: [../database_configuration.md](../database_configuration.md)
 
 Optional overrides when launching compose:
 

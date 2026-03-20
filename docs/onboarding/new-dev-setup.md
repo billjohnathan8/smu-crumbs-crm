@@ -63,7 +63,7 @@ Database settings used across local integration flows:
 - Password: `devpassword`
 
 Canonical config reference:
-- [../configuration.md](../configuration.md)
+- [../database_configuration.md](../database_configuration.md)
 - Service env templates:
   - `services/backend/user/.env.example`
   - `services/backend/client/.env.example`
