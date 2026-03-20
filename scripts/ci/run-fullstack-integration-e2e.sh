@@ -491,7 +491,7 @@ deploy_log_lambda() {
       zip_arg="fileb://${zip_windows_path}"
     fi
   fi
-  local env_vars="Variables={DB_HOST=${LOCAL_DB_HOST},DB_PORT=${LOCAL_DB_PORT},DB_NAME=${LOCAL_DB_NAME},DB_USER=${LOCAL_DB_USER},DB_PASSWORD=${LOCAL_DB_PASSWORD},JWT_HMAC_SECRET=dev-only-insecure-secret,AWS_DEFAULT_REGION=ap-southeast-1,AWS_ENDPOINT_URL=http://localstack:4566}"
+  local env_vars="Variables={DB_HOST=${LOCAL_DB_HOST},DB_PORT=${LOCAL_DB_PORT},DB_NAME=${LOCAL_DB_NAME},DB_USER=${LOCAL_DB_USER},DB_PASSWORD=${LOCAL_DB_PASSWORD},JWT_HMAC_SECRET=dev-only-insecure-secret,AWS_DEFAULT_REGION=ap-southeast-1,AWS_ENDPOINT_URL=http://localstack:4566,CLIENT_SERVICE_URL=http://client-service:8080}"
 
   if aws_local lambda get-function --function-name "${LOG_LAMBDA_FUNCTION_NAME}" >/dev/null 2>&1; then
     aws_local lambda update-function-code \
