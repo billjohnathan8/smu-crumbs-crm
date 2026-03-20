@@ -12,8 +12,10 @@ environment = "lab"
 aws_region  = "us-east-1"
 
 # --- Network ---
-enable_multi_az_nat = false # irrelevant when NAT is disabled
-enable_nat_gateway  = false # major cost saver for Learner Lab
+enable_stateful_service_scale_out = false
+enable_multi_az_nat               = false # irrelevant when NAT is disabled
+enable_nat_gateway                = false # major cost saver for Learner Lab
+enable_vpc_flow_logs              = false # avoids extra IAM role churn in first-pass lab deploys
 
 # --- ECS ---
 client_desired_count          = 1 # minimal footprint
@@ -21,6 +23,7 @@ ecs_max_capacity              = 2
 ecs_use_public_subnets        = true
 ecs_assign_public_ip          = true
 enable_ecs_container_insights = false
+enable_service_discovery      = false # LabRole cannot create Cloud Map private DNS namespaces
 
 # --- Database ---
 db_instance_class                = "db.t4g.micro"
@@ -32,16 +35,16 @@ db_deletion_protection           = false # allow clean teardown
 db_max_allocated_storage         = 20
 rds_performance_insights_enabled = false
 
-# --- Lambda (all disabled until artifacts are built) ---
-enable_log_lambda                   = false
-enable_aml_lambda                   = false
-enable_transaction_ingestion_lambda = false
-enable_audit_pipeline               = false
-enable_aml_pipeline                 = false
-enable_verification_pipeline        = false
-
-# --- Network (reduced for first deploy) ---
-enable_vpc_flow_logs = false # avoids extra IAM role; re-enable after first deploy
+# --- Feature Contract (Learner Lab) ---
+# Keep runtime-heavy/externally-dependent features disabled in learner-lab.
+# Coverage for these paths is provided by local/integration smoke profiles.
+enable_log_lambda                   = false # LabRole execution-role path for VPC Lambda is not guaranteed.
+enable_aml_lambda                   = false # Requires external SFTP endpoint/key ownership not provided in lab.
+enable_transaction_ingestion_lambda = false # Depends on Lambda + internal auth path that is out of learner-lab scope.
+enable_audit_pipeline               = false # Partial scaffold only: runtime artifact absent in repository.
+enable_aml_pipeline                 = false # Partial scaffold only: runtime artifact absent in repository.
+enable_verification_pipeline        = false # Requires SES sender ownership/verification; covered in local/integration.
+ses_sender_email                    = "verification@crm.local"
 
 # --- Observability & Security (reduced for cost) ---
 enable_waf                    = false
@@ -61,10 +64,9 @@ auth_mode      = "local"
 
 # --- Learner Lab LabRole restrictions ---
 # LabRole cannot create IAM roles, CloudFront distributions, or Cloud Map namespaces.
-lab_role_name            = "LabRole"
-enable_cloudfront        = false
-enable_cloudfront_oac    = false # moot when enable_cloudfront=false, kept for clarity
-enable_service_discovery = false
+lab_role_name         = "LabRole"
+enable_cloudfront     = false
+enable_cloudfront_oac = false # moot when enable_cloudfront=false, kept for clarity
 
 # --- Route53 / ACM ---
 manage_route53_records            = false

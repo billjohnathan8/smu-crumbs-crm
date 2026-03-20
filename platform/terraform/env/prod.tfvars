@@ -9,12 +9,14 @@
 
 # --- General ---
 environment                    = "prod"
+aws_region                     = "ap-southeast-1"
 enforce_strict_prod_guardrails = false # budget-first production bring-up profile
 
 # --- Network ---
-enable_multi_az_nat  = false
-enable_nat_gateway   = false
-enable_vpc_flow_logs = false
+enable_stateful_service_scale_out = false
+enable_multi_az_nat               = false
+enable_nat_gateway                = false
+enable_vpc_flow_logs              = false
 
 # --- ECS ---
 client_desired_count          = 1
@@ -32,13 +34,20 @@ db_deletion_protection           = false
 db_max_allocated_storage         = 20
 rds_performance_insights_enabled = false
 
-# --- Lambda (all disabled until artifacts are built) ---
-enable_log_lambda                   = false
-enable_aml_lambda                   = false
-enable_transaction_ingestion_lambda = false
-enable_audit_pipeline               = false
-enable_aml_pipeline                 = false
-enable_verification_pipeline        = false
+# --- Feature Contract (production-like) ---
+# Enabled by default for requirement-aligned runtime parity:
+# - log API path
+# - verification dispatch + feedback path
+# - transaction ingestion scheduler path
+enable_log_lambda                   = true
+enable_transaction_ingestion_lambda = true
+enable_verification_pipeline        = true
+ses_sender_email                    = "verification@crm.local" # override with a verified sender in target AWS account
+
+# Intentionally disabled until prerequisites are available:
+enable_aml_lambda     = false # requires real SFTP source + key management contract
+enable_audit_pipeline = false # partial scaffold only: audit-consumer runtime artifact absent
+enable_aml_pipeline   = false # partial scaffold only: aml-consumer runtime artifact absent
 
 # --- Observability & Security ---
 enable_waf                    = false
@@ -53,6 +62,7 @@ frontend_bucket_force_destroy = false
 cloudfront_price_class        = "PriceClass_100"
 enable_cloudfront             = true
 enable_cloudfront_oac         = true
+enable_service_discovery      = true
 
 # --- Auth ---
 enable_cognito = true
