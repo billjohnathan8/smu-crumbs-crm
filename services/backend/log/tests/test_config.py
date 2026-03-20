@@ -70,7 +70,9 @@ def test_settings_defaults_to_cognito_in_prod_like_env(monkeypatch) -> None:
     monkeypatch.setenv("DB_PASSWORD", "prod-pass")
     monkeypatch.setenv("JWT_HMAC_SECRET", "prod-jwt")
     monkeypatch.setenv("COGNITO_JWKS_URL", "https://example.com/.well-known/jwks.json")
-    monkeypatch.setenv("COGNITO_ISSUER", "https://cognito-idp.ap-southeast-1.amazonaws.com/pool")
+    monkeypatch.setenv(
+        "COGNITO_ISSUER", "https://cognito-idp.ap-southeast-1.amazonaws.com/pool"
+    )
     monkeypatch.setenv("COGNITO_CLIENT_ID", "client-id")
     monkeypatch.delenv("AUTH_MODE", raising=False)
 
@@ -87,7 +89,9 @@ def test_settings_rejects_hybrid_mode_in_prod_like_env(monkeypatch) -> None:
     monkeypatch.setenv("AUTH_MODE", "hybrid")
     monkeypatch.delenv("ALLOW_HYBRID_AUTH", raising=False)
     monkeypatch.setenv("COGNITO_JWKS_URL", "https://example.com/.well-known/jwks.json")
-    monkeypatch.setenv("COGNITO_ISSUER", "https://cognito-idp.ap-southeast-1.amazonaws.com/pool")
+    monkeypatch.setenv(
+        "COGNITO_ISSUER", "https://cognito-idp.ap-southeast-1.amazonaws.com/pool"
+    )
     monkeypatch.setenv("COGNITO_CLIENT_ID", "client-id")
 
     with pytest.raises(RuntimeError, match="hybrid auth_mode is disabled"):

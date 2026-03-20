@@ -129,8 +129,9 @@ class Settings:
         default_factory=lambda: os.getenv("COGNITO_CLIENT_ID", "")
     )
     client_service_url: str = field(
-        default_factory=lambda: os.getenv("CLIENT_SERVICE_URL", "http://localhost:8080")
-        .rstrip("/")
+        default_factory=lambda: os.getenv(
+            "CLIENT_SERVICE_URL", "http://localhost:8080"
+        ).rstrip("/")
     )
 
     def __post_init__(self) -> None:
