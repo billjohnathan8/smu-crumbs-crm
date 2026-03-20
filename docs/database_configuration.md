@@ -109,7 +109,7 @@ Canonical Terraform env profiles:
 |---|---|---|---|---|---|---|
 | Log Lambda + API Gateway | implemented | enabled | enabled | disabled | enabled | Required by verification feedback path. |
 | Verification pipeline (SES/SNS/Lambda/S3) | implemented | enabled | enabled | disabled | enabled | Learner-lab keeps this off due SES ownership + LabRole constraints. |
-| Transaction ingestion Lambda | implemented | enabled | enabled | disabled | enabled | Uses transaction S3 import path. |
+| Transaction ingestion Lambda | implemented | enabled | enabled | disabled | enabled | Uses S3-backed mock ingestion path (no real SFTP transport). |
 | Service discovery (Cloud Map) | implemented | out of scope | enabled | disabled | enabled | Local uses Docker DNS; learner-lab cannot create Cloud Map namespace. |
 | AML Lambda (scheduled SFTP pull) | implemented but disabled | disabled | disabled | disabled | disabled | Requires external SFTP endpoint/key contract not represented in repo defaults. |
 | Audit pipeline (SQS + consumer + DynamoDB) | partial | disabled | disabled | disabled | disabled | `audit-consumer` runtime artifact missing (`services/backend/audit-consumer/...`). |

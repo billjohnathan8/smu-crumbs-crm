@@ -20,6 +20,7 @@ This directory keeps only current, high-signal docs.
 - Infrastructure diagrams and tools: [infrastructure/inframap-setup.md](infrastructure/inframap-setup.md)
 - ADR index: [architectural-decisions-record/README.md](architectural-decisions-record/README.md)
 - API contracts: [api-contracts/openapi](api-contracts/openapi)
+- Transaction ingestion contract: [api-contracts/transaction-ingestion-contract.md](api-contracts/transaction-ingestion-contract.md)
 
 ## Terraform Infrastructure Workflow
 

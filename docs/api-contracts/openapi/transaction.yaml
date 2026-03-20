@@ -5,8 +5,9 @@ info:
   description: |
     Feature 4: Bank Account Transactions Management.
 
-    The CRM imports transaction information from a configured source path (filesystem
-    mock SFTP or S3-backed mock SFTP) and populates its own Transaction table.
+    The CRM imports transaction information from a configured source path (local
+    filesystem mock path or S3-backed mock ingestion path) and populates its own
+    Transaction table.
     This API supports viewing transactions and triggering imports.
     In runtime, ingestion can be triggered manually, by the transaction-service
     scheduler, or by the transaction-ingestion Lambda calling this API.
@@ -136,7 +137,8 @@ paths:
       tags: [transactions]
       summary: Create transaction
       description: |
-        Creates a transaction record in CRM database. Normally populated by import from SFTP.
+        Creates a transaction record in CRM database. Normally populated by import from the
+        configured ingestion source.
         Provided for completeness/testing.
       security:
         - BearerAuth: []
@@ -583,5 +585,5 @@ components:
         sourcePath:
           type: string
           nullable: true
-          description: Optional SFTP path override for local testing.
+          description: Optional import source override (relative local path or `s3://bucket/key`).
       additionalProperties: false
