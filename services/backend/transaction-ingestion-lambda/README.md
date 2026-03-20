@@ -1,38 +1,48 @@
 # Transaction Ingestion Lambda
 
-Scheduled Lambda that implements S3-backed mock SFTP ingestion for the Terraform pipeline.
-No real SFTP network client is used — the S3 bucket serves as the file-drop transport.
+Scheduled Lambda that drives the official transaction ingestion path in deployed environments:
 
-EventBridge schedule → Lambda → S3 bucket scan → transaction import API call.
+`EventBridge schedule -> Lambda -> S3 object selection -> POST /api/transactions/import`
 
-## Package artifact
-- Terraform expects: `transaction-ingestion-lambda.zip`
-- Default root Terraform variable:
+This Lambda does not use a real SFTP client. It scans an S3 bucket used as the mock ingestion drop location.
+
+## Package Artifact
+
+- Terraform artifact path:
+  - `transaction-ingestion-lambda.zip`
+- Root Terraform default:
   - `transaction_ingestion_lambda_zip_path = ../../services/backend/transaction-ingestion-lambda/transaction-ingestion-lambda.zip`
 
-## Required environment variables
-- `TRANSACTION_SFTP_BUCKET` — S3 bucket name used as the mock SFTP file source
-- `TRANSACTION_IMPORT_URL`
+## Environment Variables
 
-## Optional environment variables
+Required:
+- `TRANSACTION_SFTP_BUCKET`: S3 bucket name scanned for CSV objects.
+- `TRANSACTION_IMPORT_URL`: Full URL to `POST /api/transactions/import`.
+
+Optional:
 - `TRANSACTION_SFTP_PREFIX` (default: `incoming/`)
 - `TRANSACTION_IMPORT_AUTH_HEADER`
 - `TRANSACTION_IMPORT_BEARER_TOKEN`
 - `TRANSACTION_IMPORT_JWT_HMAC_SECRET`
 - `TRANSACTION_IMPORT_JWT_HMAC_SECRET_ARN`
-- `JWT_HMAC_SECRET_ARN` (fallback)
+- `JWT_HMAC_SECRET_ARN` (fallback for JWT minting)
 - `TRANSACTION_IMPORT_JWT_SUB` (default: `SYSTEM_TRANSACTION_INGESTION`)
 - `TRANSACTION_IMPORT_JWT_ROLE` (default: `admin`)
 - `TRANSACTION_IMPORT_JWT_TTL_SECONDS` (default: `300`)
 
-## Behavior
-- Selects the newest `.csv` object under `TRANSACTION_SFTP_PREFIX`.
-- Calls `POST TRANSACTION_IMPORT_URL` with body:
-  - `{"sourcePath":"s3://<bucket>/<s3-key>"}`
-- Auth header resolution order:
-  - `TRANSACTION_IMPORT_AUTH_HEADER`
-  - `TRANSACTION_IMPORT_BEARER_TOKEN`
-  - minted internal JWT from secret env/Secrets Manager
+`TRANSACTION_SFTP_*` naming is legacy. The transport is S3-backed mock ingestion.
 
-## Current integration limitation
-- This lambda is still polling only one newest CSV object per run (not all newly uploaded CSV files).
+## Behavior
+
+- Scans `s3://$TRANSACTION_SFTP_BUCKET/$TRANSACTION_SFTP_PREFIX`.
+- Selects newest `.csv` object.
+- Calls transaction import API with payload:
+  - `{"sourcePath":"s3://<bucket>/<key>"}`
+- Auth precedence:
+  1. `TRANSACTION_IMPORT_AUTH_HEADER`
+  2. `TRANSACTION_IMPORT_BEARER_TOKEN`
+  3. Minted internal JWT from configured secret.
+
+## Current Limitation
+
+- Processes one newest CSV per run (not all new CSV files).

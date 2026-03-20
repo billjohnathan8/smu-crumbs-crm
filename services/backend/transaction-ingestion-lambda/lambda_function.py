@@ -3,12 +3,14 @@ Scheduled transaction ingestion Lambda.
 
 Flow:
 1. Triggered by EventBridge schedule.
-2. Reads newest CSV object from a mocked SFTP S3 bucket/prefix.
+2. Reads newest CSV object from an S3-backed mock ingestion bucket/prefix.
 3. Calls transaction-service import endpoint with sourcePath = s3://bucket/key.
 
+No real SFTP transport is used.
+
 Environment variables:
-    TRANSACTION_SFTP_BUCKET     Required. S3 bucket name to scan.
-    TRANSACTION_SFTP_PREFIX     Optional. Key prefix (default: incoming/).
+    TRANSACTION_SFTP_BUCKET     Required. S3 bucket name to scan (legacy name).
+    TRANSACTION_SFTP_PREFIX     Optional. Key prefix (default: incoming/) (legacy name).
     TRANSACTION_IMPORT_URL      Required. Full URL for POST /api/transactions/import.
     TRANSACTION_IMPORT_AUTH_HEADER Optional. Full Authorization header.
     TRANSACTION_IMPORT_BEARER_TOKEN Optional. Bearer token fallback.
