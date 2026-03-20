@@ -3,9 +3,9 @@
  *
  * These tests require a REAL backend with database and run against a full-stack environment.
  *
- * WILL FAIL! Expected backend support for full E2E:
- * - POST /api/auth/forgot-password (to accept email and trigger reset flow)
- * - POST /api/auth/reset-password (to accept token and new password, and perform reset password (link to reset page))
+ * Expected backend support for full E2E:
+ * - POST /api/auth/forgot-password
+ * - POST /api/auth/reset-password
  * - TEST-ONLY endpoint to retrieve latest reset token for a user (enabled only in local/test profile), e.g.
  *   GET /api/test/password-reset/latest-token?email=admin@crm.local
  *

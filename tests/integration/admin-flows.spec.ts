@@ -42,7 +42,7 @@ function expectUnder(durationMs: number, limitMs: number, label: string) {
 }
 
 // Test Starts!!
-// Root admin logins -> root admin create admin -> admin logins -> admin create agent
+// Root admin logins -> root admin create admin -> admin logins -> admin create agent (role=user)
 test.describe("Admins Full Flow (Integration)", () => {
   test.beforeEach(async ({ page, context }) => {
     // Clear all cookies and storage state for clean slate
