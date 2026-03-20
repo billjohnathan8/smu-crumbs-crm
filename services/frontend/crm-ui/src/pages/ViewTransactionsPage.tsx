@@ -246,7 +246,9 @@ export function ViewTransactionsPage() {
 
   useEffect(() => {
     if (!isManagementUser) return
-    const storedBatchIds = parseStoredImportBatchIds(localStorage.getItem(IMPORT_HISTORY_STORAGE_KEY))
+    const storedBatchIds = parseStoredImportBatchIds(
+      localStorage.getItem(IMPORT_HISTORY_STORAGE_KEY)
+    )
     if (storedBatchIds.length > 0) {
       setTrackedImportBatchIds(storedBatchIds.slice(0, MAX_TRACKED_IMPORT_BATCHES))
     }
@@ -310,11 +312,16 @@ export function ViewTransactionsPage() {
       if (trimmedClientId) payload.clientId = trimmedClientId
       if (trimmedSourcePath) payload.sourcePath = trimmedSourcePath
 
-      const batch = await startTransactionImport(Object.keys(payload).length > 0 ? payload : undefined)
+      const batch = await startTransactionImport(
+        Object.keys(payload).length > 0 ? payload : undefined
+      )
 
       mergeTrackedImportBatchIds([batch.importBatchId])
       setImportBatches(prev =>
-        sortImportBatches([batch, ...prev.filter(item => item.importBatchId !== batch.importBatchId)])
+        sortImportBatches([
+          batch,
+          ...prev.filter(item => item.importBatchId !== batch.importBatchId),
+        ])
       )
 
       if (batch.status === 'failed') {
@@ -325,7 +332,9 @@ export function ViewTransactionsPage() {
           `Import batch ${batch.importBatchId} completed (${batch.importedRecords}/${batch.totalRecords} imported).`
         )
       } else {
-        setImportNotice(`Import batch ${batch.importBatchId} started with status "${batch.status}".`)
+        setImportNotice(
+          `Import batch ${batch.importBatchId} started with status "${batch.status}".`
+        )
       }
 
       setImportClientId('')
@@ -395,7 +404,10 @@ export function ViewTransactionsPage() {
         )}
 
         {isManagementUser && (
-          <div className="bg-card border border-border rounded-lg mb-6 p-4" data-testid="transaction-import-panel">
+          <div
+            className="bg-card border border-border rounded-lg mb-6 p-4"
+            data-testid="transaction-import-panel"
+          >
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <h3 className="text-text font-medium">Transaction Import</h3>
@@ -466,7 +478,9 @@ export function ViewTransactionsPage() {
             <div className="mt-6 border border-border rounded-lg">
               <div className="px-4 py-3 border-b border-border flex items-center justify-between">
                 <h4 className="font-medium text-text">Import Batch History</h4>
-                {hasActiveImports && <span className="text-xs text-text-muted">Auto-refresh every 5s</span>}
+                {hasActiveImports && (
+                  <span className="text-xs text-text-muted">Auto-refresh every 5s</span>
+                )}
               </div>
 
               {isRefreshingImportHistory && importBatches.length === 0 ? (
@@ -519,7 +533,9 @@ export function ViewTransactionsPage() {
                           <td className="px-4 py-3 text-sm text-text">
                             {batch.requestedClientId || 'All clients'}
                           </td>
-                          <td className="px-4 py-3 text-sm text-text">{formatDateTime(batch.requestedAt)}</td>
+                          <td className="px-4 py-3 text-sm text-text">
+                            {formatDateTime(batch.requestedAt)}
+                          </td>
                           <td className="px-4 py-3 text-sm text-text">
                             {batch.importedRecords}/{batch.totalRecords}
                           </td>

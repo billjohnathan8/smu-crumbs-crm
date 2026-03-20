@@ -15,6 +15,7 @@ export function isRootAdminUser(
     .toLowerCase()
 
   const hasRootId = id === 'usr_1' || id === '1'
-  const hasRootRole = role === '' || role === 'admin' || role === 'super_admin' || role === 'superadmin'
+  const hasRootRole =
+    role === '' || role === 'admin' || role === 'super_admin' || role === 'superadmin'
   return hasRootId && hasRootRole
 }
