@@ -24,6 +24,7 @@ module "network" {
   enable_vpc_flow_logs    = var.enable_vpc_flow_logs
   flow_log_retention_days = var.cloudwatch_log_retention_days
   enable_multi_az_nat     = var.enable_multi_az_nat
+  enable_nat_gateway      = var.enable_nat_gateway
 }
 
 #--------------------------------------------------------------
@@ -47,7 +48,8 @@ module "security" {
   backend_state_bucket_name = var.backend_state_bucket_name
   backend_lock_table_name   = var.backend_lock_table_name
 
-  lab_role_arn = var.lab_role_arn
+  lab_role_arn  = var.lab_role_arn
+  lab_role_name = var.lab_role_name
 
   enable_audit_pipeline               = var.enable_audit_pipeline
   enable_aml_pipeline                 = var.enable_aml_pipeline
@@ -253,7 +255,8 @@ module "ecs" {
   aws_region   = var.aws_region
 
   vpc_id                                          = module.network.vpc_id
-  private_subnet_ids                              = module.network.private_subnet_ids
+  service_subnet_ids                              = local.ecs_subnet_ids
+  assign_public_ip                                = var.ecs_assign_public_ip
   ecs_service_security_group_id                   = module.security.ecs_service_security_group_id
   cloudwatch_log_retention_days                   = var.cloudwatch_log_retention_days
   target_group_arns                               = module.alb.target_group_arns

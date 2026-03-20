@@ -166,6 +166,18 @@ variable "ecs_target_memory_utilization" {
   default     = 75
 }
 
+variable "ecs_use_public_subnets" {
+  description = "Run ECS services in public subnets instead of private subnets. Useful for low-cost lab deployments when NAT Gateways are disabled."
+  type        = bool
+  default     = false
+}
+
+variable "ecs_assign_public_ip" {
+  description = "Assign public IP addresses to ECS tasks. Must be true when ecs_use_public_subnets is true."
+  type        = bool
+  default     = false
+}
+
 #--------------------------------------------------------------
 # Database (RDS PostgreSQL) Configuration
 #--------------------------------------------------------------
@@ -514,6 +526,12 @@ variable "lab_role_arn" {
   default     = ""
 }
 
+variable "lab_role_name" {
+  description = "Pre-existing IAM role name to use in restricted environments (for example, LabRole in Learner Lab). Used only when lab_role_arn is empty."
+  type        = string
+  default     = ""
+}
+
 variable "enable_cloudfront" {
   description = "Create the CloudFront distribution. Disable when LabRole blocks cloudfront:CreateDistribution."
   type        = bool
@@ -572,6 +590,12 @@ variable "enable_multi_az_nat" {
   description = "Enable NAT Gateway in each AZ for high availability. Increases cost (one NAT Gateway per AZ). Must be true for prod."
   type        = bool
   default     = false
+}
+
+variable "enable_nat_gateway" {
+  description = "Enable NAT Gateway resources for private subnet egress. Disable for low-cost lab deployments that place ECS tasks in public subnets."
+  type        = bool
+  default     = true
 }
 
 #--------------------------------------------------------------
@@ -851,8 +875,24 @@ check "prod_network_and_pipeline_guardrails" {
   }
 
   assert {
+    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || var.enable_nat_gateway
+    error_message = "For environment=prod, enable_nat_gateway must be true."
+  }
+
+  assert {
     condition     = !var.enable_verification_pipeline || var.enable_log_lambda
     error_message = "enable_verification_pipeline requires enable_log_lambda=true so the verification feedback Lambda receives a non-empty LOG_API_BASE_URL."
   }
 }
 
+check "natless_ecs_guardrails" {
+  assert {
+    condition     = var.enable_nat_gateway || var.ecs_use_public_subnets
+    error_message = "When enable_nat_gateway is false, ecs_use_public_subnets must be true so ECS tasks still have outbound internet access."
+  }
+
+  assert {
+    condition     = !var.ecs_use_public_subnets || var.ecs_assign_public_ip
+    error_message = "When ecs_use_public_subnets is true, ecs_assign_public_ip must be true."
+  }
+}

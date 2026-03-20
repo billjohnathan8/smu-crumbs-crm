@@ -47,6 +47,8 @@ locals {
   #--------------------------------------------------------------
   db_subnet_ids = length(var.db_subnet_cidrs) > 0 ? module.network.db_subnet_ids : module.network.private_subnet_ids
 
+  ecs_subnet_ids = var.ecs_use_public_subnets ? module.network.public_subnet_ids : module.network.private_subnet_ids
+
   #--------------------------------------------------------------
   # Backup Targets
   # Collect DynamoDB table ARNs for AWS Backup (filter out nulls)
