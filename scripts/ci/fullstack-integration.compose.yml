@@ -39,6 +39,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${LOCAL_DB_NAME:-crm}
       SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-crm_app}
       SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASSWORD:-devpassword}
+      SPRING_PROFILES_ACTIVE: local
       APP_USER_STORE_TYPE: postgres
       AUTH_MODE: local
       JWT_HMAC_SECRET: dev-only-insecure-secret
