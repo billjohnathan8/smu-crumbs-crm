@@ -44,7 +44,7 @@ make terraform-graph
 
 Docs:
 - `docs/infrastructure/inframap-setup.md`
-- `docs/infrastructure/README.md`
+- `docs/README.md`
 
 # Prerequisites
 - Docker Desktop (or Docker Engine)
@@ -73,7 +73,7 @@ Notes:
 - User: `crm_app`
 - Password: `devpassword`
 - Runtime override vars (optional): `LOCAL_DB_NAME`, `LOCAL_DB_USER`, `LOCAL_DB_PASSWORD`
-- Full environment matrix and variable contract: [docs/configuration.md](docs/configuration.md)
+- Full environment matrix and variable contract: [docs/database_configuration.md](docs/database_configuration.md)
 
 # Testing Credentials
 Local development/testing only. Do not use these values for production deployments.
@@ -92,6 +92,6 @@ User: crm_app
 Password: devpassword
 
 ## Configuration Reference
-- Central config contract: [docs/configuration.md](docs/configuration.md)
+- Central config contract: [docs/database_configuration.md](docs/database_configuration.md)
 - LocalStack + local DB flow: [docs/infrastructure/localstack-setup.md](docs/infrastructure/localstack-setup.md)
 - New developer setup: [docs/onboarding/new-dev-setup.md](docs/onboarding/new-dev-setup.md)
