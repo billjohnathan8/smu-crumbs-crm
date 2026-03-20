@@ -122,7 +122,7 @@ resource "aws_s3_bucket_public_access_block" "verification" {
   restrict_public_buckets = true
 }
 
-# --- Transaction mocked SFTP source bucket (optional) ---
+# --- Transaction ingestion source bucket (optional, legacy 'sftp' naming) ---
 
 resource "aws_s3_bucket" "transaction_sftp" {
   count = var.enable_transaction_sftp_bucket ? 1 : 0

@@ -38,16 +38,16 @@ output "verification_bucket_arn" {
 }
 
 output "transaction_sftp_bucket_name" {
-  description = "Mocked transaction SFTP source bucket name."
+  description = "Transaction ingestion source bucket name (legacy 'sftp' naming)."
   value       = var.enable_transaction_sftp_bucket ? aws_s3_bucket.transaction_sftp[0].bucket : null
 }
 
 output "transaction_sftp_bucket_id" {
-  description = "Mocked transaction SFTP source bucket ID."
+  description = "Transaction ingestion source bucket ID (legacy 'sftp' naming)."
   value       = var.enable_transaction_sftp_bucket ? aws_s3_bucket.transaction_sftp[0].id : null
 }
 
 output "transaction_sftp_bucket_arn" {
-  description = "Mocked transaction SFTP source bucket ARN."
+  description = "Transaction ingestion source bucket ARN (legacy 'sftp' naming)."
   value       = var.enable_transaction_sftp_bucket ? aws_s3_bucket.transaction_sftp[0].arn : null
 }

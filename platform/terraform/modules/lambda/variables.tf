@@ -215,13 +215,13 @@ variable "transaction_ingestion_schedule_expression" {
 }
 
 variable "transaction_sftp_bucket_id" {
-  description = "S3 bucket ID used as mocked transaction SFTP source."
+  description = "S3 bucket ID used as transaction ingestion source (legacy 'sftp' naming)."
   type        = string
   default     = ""
 }
 
 variable "transaction_sftp_remote_prefix" {
-  description = "S3 object prefix used by transaction ingestion Lambda."
+  description = "S3 object prefix used by transaction ingestion Lambda (legacy 'sftp' naming)."
   type        = string
   default     = "incoming/"
 }

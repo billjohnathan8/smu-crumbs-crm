@@ -134,6 +134,7 @@ resource "aws_lambda_function" "transaction_ingestion" {
 
   environment {
     variables = {
+      # Legacy naming retained for compatibility; bucket/prefix are S3-backed mock ingestion inputs.
       TRANSACTION_SFTP_BUCKET                = var.transaction_sftp_bucket_id
       TRANSACTION_SFTP_PREFIX                = var.transaction_sftp_remote_prefix
       TRANSACTION_IMPORT_URL                 = var.transaction_import_api_url

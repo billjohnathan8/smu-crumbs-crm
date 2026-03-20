@@ -318,7 +318,7 @@ module "ecs" {
 #--------------------------------------------------------------
 # S3 Module
 # Frontend static asset bucket, verification document bucket,
-# and mocked transaction SFTP source bucket
+# and transaction ingestion source bucket (legacy 'sftp' naming).
 #--------------------------------------------------------------
 module "s3" {
   source = "./modules/s3"

@@ -31,13 +31,13 @@ variable "verification_bucket_name" {
 }
 
 variable "enable_transaction_sftp_bucket" {
-  description = "Create S3 bucket for mocked transaction SFTP source files."
+  description = "Create S3 bucket for transaction ingestion source files (legacy 'sftp' naming)."
   type        = bool
   default     = false
 }
 
 variable "transaction_sftp_bucket_name" {
-  description = "Mocked transaction SFTP source S3 bucket name."
+  description = "Transaction ingestion source S3 bucket name (legacy 'sftp' naming)."
   type        = string
   default     = ""
 }

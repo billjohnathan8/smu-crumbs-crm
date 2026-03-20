@@ -159,7 +159,7 @@ variable "verification_sns_topic_arn" {
 }
 
 variable "transaction_sftp_bucket_arn" {
-  description = "ARN of the mocked transaction SFTP source S3 bucket."
+  description = "ARN of the transaction ingestion source S3 bucket (legacy 'sftp' naming)."
   type        = string
   default     = ""
 }

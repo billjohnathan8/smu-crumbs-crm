@@ -144,7 +144,7 @@ output "frontend_website_url" {
 }
 
 output "transaction_sftp_bucket_name" {
-  description = "Mocked transaction SFTP source S3 bucket name."
+  description = "Transaction ingestion source S3 bucket name (legacy 'sftp' naming)."
   value       = module.s3.transaction_sftp_bucket_name
 }
 

@@ -291,7 +291,7 @@ variable "transaction_mock_sftp_root" {
 }
 
 variable "transaction_sftp_bucket_name" {
-  description = "S3 bucket name used as mocked SFTP source for transaction ingestion Lambda. Leave empty to auto-generate."
+  description = "S3 bucket name used as transaction ingestion source. Name retains legacy 'sftp' terminology for compatibility. Leave empty to auto-generate."
   type        = string
   default     = ""
 }
@@ -375,7 +375,7 @@ variable "transaction_ingestion_schedule_expression" {
 }
 
 variable "transaction_sftp_remote_prefix" {
-  description = "S3 object prefix scanned by transaction ingestion Lambda."
+  description = "S3 object prefix scanned by transaction ingestion Lambda (legacy 'sftp' naming)."
   type        = string
   default     = "incoming/"
 }
