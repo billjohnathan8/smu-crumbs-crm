@@ -34,6 +34,7 @@ app:
   jwt:
     hmac-secret: ${JWT_HMAC_SECRET:}
     auth-mode: ${AUTH_MODE:hybrid}
+    allow-hybrid: ${APP_JWT_ALLOW_HYBRID:true}
     cognito:
       issuer: ${COGNITO_ISSUER:}
       audience: ${COGNITO_AUDIENCE:}
