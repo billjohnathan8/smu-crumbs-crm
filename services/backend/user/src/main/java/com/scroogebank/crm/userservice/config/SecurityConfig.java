@@ -4,7 +4,10 @@ import java.util.List;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
@@ -26,9 +29,11 @@ import com.scroogebank.crm.userservice.security.JwtAuthFilter;
 public class SecurityConfig {
 
 	private final JwtAuthFilter jwtAuthFilter;
+	private final boolean testEndpointsEnabled;
 
-	public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
+	public SecurityConfig(JwtAuthFilter jwtAuthFilter, Environment environment) {
 		this.jwtAuthFilter = jwtAuthFilter;
+		this.testEndpointsEnabled = environment.acceptsProfiles(Profiles.of("local", "test"));
 	}
 
 	@Bean
@@ -41,7 +46,9 @@ public class SecurityConfig {
 				.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 				.requestMatchers("/health", "/api/v1/logs/health").permitAll()
 				.requestMatchers("/api/auth/**").permitAll()
-				.requestMatchers("/api/test/**").permitAll()
+				.requestMatchers("/api/test/**").access((authentication, context) ->
+					new AuthorizationDecision(testEndpointsEnabled)
+				)
 				.anyRequest().authenticated()
 			)
 			.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
