@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import tools.jackson.databind.ObjectMapper;
@@ -277,4 +278,16 @@ class UserControllerTest {
         mockMvc.perform(post("/api/users/usr_3/reset-password").header("Authorization", "Bearer x"))
             .andExpect(status().isAccepted());
     }
+
+	@Test
+	void resetPassword_selfResetRejected_withClearError() throws Exception {
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_2", "user"));
+		doThrow(new AccessDeniedException("self_reset_not_supported_use_forgot_password"))
+			.when(userAccountService).resetPassword(eq("usr_2"), eq(null), any(AuthenticatedUser.class));
+
+		mockMvc.perform(post("/api/users/usr_2/reset-password").header("Authorization", "Bearer x"))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.error").value("forbidden"))
+			.andExpect(jsonPath("$.message").value("self_reset_not_supported_use_forgot_password"));
+	}
 }

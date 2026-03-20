@@ -27,6 +27,10 @@ The User Service provides CRUD operations for managing insurance users in the Sc
 - `DELETE /api/users/{id}/disable` - Disable user
 - `GET /health` - Health check
 
+Test-only password reset helper:
+- `GET /api/test/password-reset/latest-token?email=...` is only enabled when `spring.profiles.active` includes `local` or `test`.
+- In non-local/test profiles this path is blocked and cannot be used for token introspection.
+
 ## Local Development
 
 ### Running Tests
@@ -102,6 +106,7 @@ Use `services/backend/user/.env.example` as the baseline local/dev template.
 | `SPRING_DATASOURCE_PASSWORD` | `devpassword` | Database password |
 | `APP_USER_STORE_TYPE` | `postgres` | User store backend (`postgres` for local/integration runtime) |
 | `LOG_SERVICE_URL` | `http://localhost:4566/restapis/<api-id>/local/_user_request_` | Lambda-backed log API URL for audit events |
+| `SPRING_PROFILES_ACTIVE` | _(unset)_ | Use `local` for local/integration test helper routes; do not enable in prod/lab profiles |
 
 Security note:
 - Production must provide `JWT_HMAC_SECRET` and `ROOT_ADMIN_PASSWORD` via environment/secrets.

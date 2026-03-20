@@ -78,6 +78,28 @@ class UserAccountServiceTest {
 		verify(store).resetPassword(eq("usr_2"));
 	}
 
+	@Test
+	void resetPassword_selfTarget_rejected() {
+		UserDto self = new UserDto(
+			"usr_2",
+			"Ava",
+			"Stone",
+			"ava@example.com",
+			UserRole.user,
+			UserStatus.active,
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:00Z")
+		);
+		AuthenticatedUser requester = new AuthenticatedUser("usr_2", "user");
+		when(store.getUser("usr_2")).thenReturn(self);
+
+		AccessDeniedException denied = assertThrows(AccessDeniedException.class, () ->
+			service.resetPassword("usr_2", null, requester)
+		);
+		assertEquals("self_reset_not_supported_use_forgot_password", denied.getMessage());
+		verify(store, never()).resetPassword(any());
+	}
+
 	//  CREATE USER TESTS  //
 	//  ─── Happy Path ───
 	@ParameterizedTest

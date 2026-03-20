@@ -57,7 +57,8 @@ class ApiExceptionHandlerTest {
 
 		mockMvc.perform(get("/forbidden"))
 			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.error").value("forbidden"));
+			.andExpect(jsonPath("$.error").value("forbidden"))
+			.andExpect(jsonPath("$.message").value("forbidden"));
 
 		mockMvc.perform(get("/bad-request"))
 			.andExpect(status().isBadRequest())

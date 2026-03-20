@@ -202,6 +202,47 @@ class InMemoryUserStoreTest {
 		assertEquals(3, all.size());
 	}
 
+	@Test
+	void resetPasswordToken_isOneTimeAndInvalidatesRefreshTokens() {
+		UserDto created = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "TempPass!123"));
+		String refresh = store.issueRefreshToken(created.id());
+		String token = store.createPasswordResetToken("ava@example.com");
+
+		assertNotNull(token);
+		store.resetPasswordWithToken(token, "NewPass!123");
+		assertFalse(store.isRefreshTokenValid(refresh));
+		assertTrue(store.verifyPassword(store.loadRecord(created.id()), "NewPass!123"));
+		assertThrows(IllegalArgumentException.class, () -> store.resetPasswordWithToken(token, "OtherPass!123"));
+	}
+
+	@Test
+	void resetPasswordToken_reissuingInvalidatesPriorToken() {
+		store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "TempPass!123"));
+		String first = store.createPasswordResetToken("ava@example.com");
+		String second = store.createPasswordResetToken("ava@example.com");
+
+		assertNotNull(first);
+		assertNotNull(second);
+		assertThrows(IllegalArgumentException.class, () -> store.resetPasswordWithToken(first, "OtherPass!123"));
+	}
+
+	@Test
+	void latestResetToken_disabledByDefault() {
+		store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "TempPass!123"));
+		store.createPasswordResetToken("ava@example.com");
+
+		assertNull(store.getLatestResetToken("ava@example.com"));
+	}
+
+	@Test
+	void latestResetToken_availableWhenTestIntrospectionEnabled() {
+		InMemoryUserStore testStore = new InMemoryUserStore(clock, new PasswordHasher(), "root@example.com", "RootPass!123", true);
+		testStore.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "TempPass!123"));
+
+		String token = testStore.createPasswordResetToken("ava@example.com");
+		assertEquals(token, testStore.getLatestResetToken("ava@example.com"));
+	}
+
 	private static final class TestClock extends Clock {
 		private final ZoneId zone = ZoneOffset.UTC;
 		private Instant instant;

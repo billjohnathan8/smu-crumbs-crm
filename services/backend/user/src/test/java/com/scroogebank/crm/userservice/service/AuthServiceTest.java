@@ -5,11 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.scroogebank.crm.userservice.dto.LoginRequest;
+import com.scroogebank.crm.userservice.dto.PerformResetPasswordRequest;
 import com.scroogebank.crm.userservice.dto.RefreshRequest;
+import com.scroogebank.crm.userservice.dto.ResetPasswordRequest;
 import com.scroogebank.crm.userservice.dto.TokenResponse;
 import com.scroogebank.crm.userservice.dto.UserRole;
 import com.scroogebank.crm.userservice.dto.UserStatus;
@@ -116,6 +119,26 @@ class AuthServiceTest {
 		assertEquals("access-2", response.accessToken());
 		assertEquals("new", response.refreshToken());
 		assertEquals("Bearer", response.tokenType());
+	}
+
+	@Test
+	void forgotPassword_alwaysDelegatesToStore() {
+		authService.forgotPassword(new ResetPasswordRequest("ava@example.com"));
+		verify(store).createPasswordResetToken("ava@example.com");
+	}
+
+	@Test
+	void performResetPassword_mismatch_throws() {
+		assertThrows(IllegalArgumentException.class, () -> authService.performResetPassword(
+			new PerformResetPasswordRequest("token-1", "NewPass!123", "different")
+		));
+		verify(store, never()).resetPasswordWithToken(any(), any());
+	}
+
+	@Test
+	void performResetPassword_valid_delegatesToStore() {
+		authService.performResetPassword(new PerformResetPasswordRequest("token-1", "NewPass!123", "NewPass!123"));
+		verify(store).resetPasswordWithToken("token-1", "NewPass!123");
 	}
 
 	private static InMemoryUserStore.UserRecord userRecord(long id, UserRole role, UserStatus status) {
