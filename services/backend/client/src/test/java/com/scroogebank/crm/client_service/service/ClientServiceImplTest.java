@@ -4,6 +4,7 @@ import com.scroogebank.crm.client_service.dto.ClientCreateRequest;
 import com.scroogebank.crm.client_service.dto.ClientPayload;
 import com.scroogebank.crm.client_service.dto.ClientUpdateRequest;
 import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
+import com.scroogebank.crm.client_service.dto.ReviewVerificationRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientRequest;
 import com.scroogebank.crm.client_service.email.VerificationEmail;
 import com.scroogebank.crm.client_service.email.VerificationEmailDispatchService;
@@ -638,5 +639,125 @@ class ClientServiceImplTest {
 			eq("Bearer x"),
 			eq("req-1")
 		);
+	}
+
+	@Test
+	void reviewVerification_adminApprove_pendingTransitionsToVerified_andSendsEmail() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		ClientPayload payload = samplePayload();
+		ClientEntity entity = entityFromPayload(7L, "usr_1", payload);
+		entity.setIdentityVerificationStatus(IdentityVerificationStatus.pending);
+		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
+		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+		when(verificationEmailTemplateRenderer.render("jordan.taylor@example.com", "Jordan", "clt_7"))
+			.thenReturn(new VerificationEmail(
+				"jordan.taylor@example.com",
+				"Verification complete",
+				"Body"
+			));
+
+		var response = clientService.reviewVerification(
+			admin,
+			"clt_7",
+			new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.approve),
+			"Bearer x",
+			"req-1"
+		);
+
+		assertThat(response.clientId()).isEqualTo("clt_7");
+		assertThat(response.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.verified);
+		assertThat(entity.getVerificationVerifiedAt()).isNotNull();
+		verify(clientAuditLogger).logAuditEvent(
+			eq("UPDATE"),
+			eq("identityVerificationStatus"),
+			eq("pending"),
+			eq("verified"),
+			eq("usr_admin"),
+			eq("clt_7"),
+			eq("req-1"),
+			eq("Bearer x")
+		);
+		verify(verificationEmailDispatchService).queueAndDispatchVerificationEmail(
+			eq("clt_7"),
+			eq("usr_admin"),
+			any(VerificationEmail.class),
+			eq("Bearer x"),
+			eq("req-1")
+		);
+	}
+
+	@Test
+	void reviewVerification_adminReject_pendingTransitionsToRejected_withoutSendingEmail() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		ClientPayload payload = samplePayload();
+		ClientEntity entity = entityFromPayload(8L, "usr_1", payload);
+		entity.setIdentityVerificationStatus(IdentityVerificationStatus.pending);
+		when(clientRepository.findById(8L)).thenReturn(Optional.of(entity));
+		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		var response = clientService.reviewVerification(
+			admin,
+			"clt_8",
+			new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.reject),
+			"Bearer x",
+			"req-2"
+		);
+
+		assertThat(response.clientId()).isEqualTo("clt_8");
+		assertThat(response.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.rejected);
+		assertThat(entity.getVerificationVerifiedAt()).isNull();
+		verify(clientAuditLogger).logAuditEvent(
+			eq("UPDATE"),
+			eq("identityVerificationStatus"),
+			eq("pending"),
+			eq("rejected"),
+			eq("usr_admin"),
+			eq("clt_8"),
+			eq("req-2"),
+			eq("Bearer x")
+		);
+		verify(verificationEmailDispatchService, never()).queueAndDispatchVerificationEmail(
+			any(),
+			any(),
+			any(),
+			any(),
+			any()
+		);
+	}
+
+	@Test
+	void reviewVerification_nonAdmin_throwsAccessDenied() {
+		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "user");
+
+		assertThatThrownBy(() -> clientService.reviewVerification(
+			agent,
+			"clt_7",
+			new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.approve),
+			"Bearer x",
+			"req-1"
+		))
+			.isInstanceOf(org.springframework.security.access.AccessDeniedException.class)
+			.hasMessageContaining("Only admins can review verifications");
+	}
+
+	@Test
+	void reviewVerification_nonPendingStatus_throwsConflict() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		ClientPayload payload = samplePayload();
+		ClientEntity entity = entityFromPayload(9L, "usr_1", payload);
+		entity.setIdentityVerificationStatus(IdentityVerificationStatus.unverified);
+		when(clientRepository.findById(9L)).thenReturn(Optional.of(entity));
+
+		assertThatThrownBy(() -> clientService.reviewVerification(
+			admin,
+			"clt_9",
+			new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.approve),
+			"Bearer x",
+			"req-3"
+		))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessageContaining("not in pending state");
+
+		verify(clientRepository, never()).save(any());
 	}
 }

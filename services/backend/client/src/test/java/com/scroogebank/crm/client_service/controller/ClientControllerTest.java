@@ -10,6 +10,7 @@ import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -18,6 +19,7 @@ import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
 import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -29,6 +31,7 @@ import com.scroogebank.crm.client_service.dto.ClientCreateRequest;
 import com.scroogebank.crm.client_service.dto.ClientDto;
 import com.scroogebank.crm.client_service.dto.ClientListResponse;
 import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
+import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
 import com.scroogebank.crm.client_service.entity.Gender;
 import com.scroogebank.crm.client_service.exception.ApiExceptionHandler;
 import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
@@ -237,5 +240,42 @@ class ClientControllerTest {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.error").value("validation_error"))
 			.andExpect(jsonPath("$.message").value("Invalid request parameter: limit"));
+	}
+
+	@Test
+	void reviewVerification_returnsUpdatedStatus() throws Exception {
+		setUp();
+		when(clientService.reviewVerification(any(), eq("clt_7"), any(), any(), any()))
+			.thenReturn(new VerifyClientResponse("clt_7", IdentityVerificationStatus.verified));
+
+		mockMvc.perform(patch("/api/clients/clt_7/verify/review")
+				.header("Authorization", AUTH_HEADER)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "action": "approve"
+					}
+					"""))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.clientId").value("clt_7"))
+			.andExpect(jsonPath("$.identityVerificationStatus").value("verified"));
+	}
+
+	@Test
+	void reviewVerification_forbidden_returns403() throws Exception {
+		setUp();
+		doThrow(new org.springframework.security.access.AccessDeniedException("Only admins can review verifications"))
+			.when(clientService).reviewVerification(any(), eq("clt_7"), any(), any(), any());
+
+		mockMvc.perform(patch("/api/clients/clt_7/verify/review")
+				.header("Authorization", AUTH_HEADER)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "action": "approve"
+					}
+					"""))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.error").value("forbidden"));
 	}
 }
