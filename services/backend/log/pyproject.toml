@@ -1,3 +1,10 @@
 [tool.black]
 line-length = 88
 target-version = ["py311"]
+
+[tool.coverage.run]
+branch = true
+source = ["app", "lambda_function"]
+
+[tool.coverage.report]
+fail_under = 60
