@@ -8,6 +8,12 @@ variable "lab_role_arn" {
   default     = ""
 }
 
+variable "lab_role_name" {
+  description = "Pre-existing IAM role name to use when lab_role_arn is not supplied (for example, LabRole in Learner Lab)."
+  type        = string
+  default     = ""
+}
+
 variable "project_name" {
   description = "Project name used in parameter and secret paths."
   type        = string

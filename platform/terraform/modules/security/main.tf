@@ -7,9 +7,10 @@
 data "aws_caller_identity" "current" {}
 
 locals {
-  # When lab_role_arn is provided, skip all IAM role creation and use the
-  # pre-existing role (e.g. LabRole in Learner Lab which blocks iam:CreateRole).
-  use_lab_role = var.lab_role_arn != ""
+  # When a lab role override is supplied, skip all IAM role creation and use the
+  # pre-existing role (for example, LabRole in Learner Lab which blocks iam:CreateRole).
+  effective_lab_role_arn = var.lab_role_arn != "" ? var.lab_role_arn : (var.lab_role_name != "" ? "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.lab_role_name}" : "")
+  use_lab_role           = local.effective_lab_role_arn != ""
 }
 
 resource "aws_security_group" "alb" {
@@ -303,21 +304,21 @@ resource "aws_iam_role_policy" "aml_lambda_secrets" {
 # --- Transaction ingestion Lambda role ---
 
 resource "aws_iam_role" "transaction_ingestion_lambda" {
-  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+  count = var.enable_transaction_ingestion_lambda && !local.use_lab_role ? 1 : 0
 
   name               = "${var.name_prefix}-transaction-ingestion-lambda"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
 }
 
 resource "aws_iam_role_policy_attachment" "transaction_ingestion_lambda_basic" {
-  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+  count = var.enable_transaction_ingestion_lambda && !local.use_lab_role ? 1 : 0
 
   role       = aws_iam_role.transaction_ingestion_lambda[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 data "aws_iam_policy_document" "transaction_ingestion_lambda_s3" {
-  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+  count = var.enable_transaction_ingestion_lambda && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "ReadTransactionSftpBucket"
@@ -334,7 +335,7 @@ data "aws_iam_policy_document" "transaction_ingestion_lambda_s3" {
 }
 
 resource "aws_iam_role_policy" "transaction_ingestion_lambda_s3" {
-  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+  count = var.enable_transaction_ingestion_lambda && !local.use_lab_role ? 1 : 0
 
   name   = "${var.name_prefix}-transaction-ingestion-lambda-s3"
   role   = aws_iam_role.transaction_ingestion_lambda[0].id
@@ -342,7 +343,7 @@ resource "aws_iam_role_policy" "transaction_ingestion_lambda_s3" {
 }
 
 data "aws_iam_policy_document" "transaction_ingestion_lambda_secrets" {
-  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+  count = var.enable_transaction_ingestion_lambda && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "ReadTransactionIngestionJwtSecret"
@@ -357,7 +358,7 @@ data "aws_iam_policy_document" "transaction_ingestion_lambda_secrets" {
 }
 
 resource "aws_iam_role_policy" "transaction_ingestion_lambda_secrets" {
-  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+  count = var.enable_transaction_ingestion_lambda && !local.use_lab_role ? 1 : 0
 
   name   = "${var.name_prefix}-transaction-ingestion-lambda-secrets"
   role   = aws_iam_role.transaction_ingestion_lambda[0].id
@@ -367,28 +368,28 @@ resource "aws_iam_role_policy" "transaction_ingestion_lambda_secrets" {
 # --- Audit consumer Lambda role ---
 
 resource "aws_iam_role" "audit_consumer_lambda" {
-  count = var.enable_audit_pipeline ? 1 : 0
+  count = var.enable_audit_pipeline && !local.use_lab_role ? 1 : 0
 
   name               = "${var.name_prefix}-audit-consumer-lambda"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
 }
 
 resource "aws_iam_role_policy_attachment" "audit_consumer_lambda_basic" {
-  count = var.enable_audit_pipeline ? 1 : 0
+  count = var.enable_audit_pipeline && !local.use_lab_role ? 1 : 0
 
   role       = aws_iam_role.audit_consumer_lambda[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 resource "aws_iam_role_policy_attachment" "audit_consumer_lambda_vpc" {
-  count = var.enable_audit_pipeline ? 1 : 0
+  count = var.enable_audit_pipeline && !local.use_lab_role ? 1 : 0
 
   role       = aws_iam_role.audit_consumer_lambda[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
 data "aws_iam_policy_document" "audit_consumer_lambda" {
-  count = var.enable_audit_pipeline ? 1 : 0
+  count = var.enable_audit_pipeline && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "ConsumeAuditQueue"
@@ -413,7 +414,7 @@ data "aws_iam_policy_document" "audit_consumer_lambda" {
 }
 
 resource "aws_iam_role_policy" "audit_consumer_lambda" {
-  count = var.enable_audit_pipeline ? 1 : 0
+  count = var.enable_audit_pipeline && !local.use_lab_role ? 1 : 0
 
   name   = "${var.name_prefix}-audit-consumer-lambda"
   role   = aws_iam_role.audit_consumer_lambda[0].id
@@ -423,21 +424,21 @@ resource "aws_iam_role_policy" "audit_consumer_lambda" {
 # --- AML consumer Lambda role ---
 
 resource "aws_iam_role" "aml_consumer_lambda" {
-  count = var.enable_aml_pipeline ? 1 : 0
+  count = var.enable_aml_pipeline && !local.use_lab_role ? 1 : 0
 
   name               = "${var.name_prefix}-aml-consumer-lambda"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
 }
 
 resource "aws_iam_role_policy_attachment" "aml_consumer_lambda_basic" {
-  count = var.enable_aml_pipeline ? 1 : 0
+  count = var.enable_aml_pipeline && !local.use_lab_role ? 1 : 0
 
   role       = aws_iam_role.aml_consumer_lambda[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 data "aws_iam_policy_document" "aml_consumer_lambda" {
-  count = var.enable_aml_pipeline ? 1 : 0
+  count = var.enable_aml_pipeline && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "ConsumeAmlQueue"
@@ -462,7 +463,7 @@ data "aws_iam_policy_document" "aml_consumer_lambda" {
 }
 
 resource "aws_iam_role_policy" "aml_consumer_lambda" {
-  count = var.enable_aml_pipeline ? 1 : 0
+  count = var.enable_aml_pipeline && !local.use_lab_role ? 1 : 0
 
   name   = "${var.name_prefix}-aml-consumer-lambda"
   role   = aws_iam_role.aml_consumer_lambda[0].id
@@ -472,21 +473,21 @@ resource "aws_iam_role_policy" "aml_consumer_lambda" {
 # --- Verification Lambda role ---
 
 resource "aws_iam_role" "verification_lambda" {
-  count = var.enable_verification_pipeline ? 1 : 0
+  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
 
   name               = "${var.name_prefix}-verification-lambda"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
 }
 
 resource "aws_iam_role_policy_attachment" "verification_lambda_basic" {
-  count = var.enable_verification_pipeline ? 1 : 0
+  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
 
   role       = aws_iam_role.verification_lambda[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 data "aws_iam_policy_document" "verification_lambda" {
-  count = var.enable_verification_pipeline ? 1 : 0
+  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "ReadVerificationBucket"
@@ -531,7 +532,7 @@ data "aws_iam_policy_document" "verification_lambda" {
 }
 
 resource "aws_iam_role_policy" "verification_lambda" {
-  count = var.enable_verification_pipeline ? 1 : 0
+  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
 
   name   = "${var.name_prefix}-verification-lambda"
   role   = aws_iam_role.verification_lambda[0].id
@@ -539,7 +540,7 @@ resource "aws_iam_role_policy" "verification_lambda" {
 }
 
 data "aws_iam_policy_document" "ecs_client_ses_send" {
-  count = var.enable_verification_pipeline ? 1 : 0
+  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "SendVerificationEmailViaSes"
@@ -553,7 +554,7 @@ data "aws_iam_policy_document" "ecs_client_ses_send" {
 }
 
 resource "aws_iam_role_policy" "ecs_task_client_ses_send" {
-  count = var.enable_verification_pipeline ? 1 : 0
+  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
 
   name   = "${var.name_prefix}-ecs-task-client-ses-send"
   role   = aws_iam_role.ecs_task["client"].id
@@ -563,7 +564,7 @@ resource "aws_iam_role_policy" "ecs_task_client_ses_send" {
 # --- ECS task policy: allow sending to SQS queues ---
 
 data "aws_iam_policy_document" "ecs_sqs_send" {
-  count = (var.enable_audit_pipeline || var.enable_aml_pipeline) ? 1 : 0
+  count = (var.enable_audit_pipeline || var.enable_aml_pipeline) && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "SendToSqs"
@@ -577,7 +578,7 @@ data "aws_iam_policy_document" "ecs_sqs_send" {
 }
 
 resource "aws_iam_role_policy" "ecs_task_sqs" {
-  for_each = (var.enable_audit_pipeline || var.enable_aml_pipeline) ? toset(["user", "client", "transaction"]) : toset([])
+  for_each = (var.enable_audit_pipeline || var.enable_aml_pipeline) && !local.use_lab_role ? toset(["user", "client", "transaction"]) : toset([])
 
   name   = "${var.name_prefix}-ecs-task-${each.key}-sqs"
   role   = aws_iam_role.ecs_task[each.key].id
@@ -585,7 +586,7 @@ resource "aws_iam_role_policy" "ecs_task_sqs" {
 }
 
 data "aws_iam_policy_document" "ecs_transaction_s3_read" {
-  count = var.enable_transaction_ingestion_lambda && var.transaction_sftp_bucket_arn != "" ? 1 : 0
+  count = var.enable_transaction_ingestion_lambda && var.transaction_sftp_bucket_arn != "" && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "ReadTransactionIngestionS3Source"
@@ -602,7 +603,7 @@ data "aws_iam_policy_document" "ecs_transaction_s3_read" {
 }
 
 resource "aws_iam_role_policy" "ecs_task_transaction_s3_read" {
-  count = var.enable_transaction_ingestion_lambda && var.transaction_sftp_bucket_arn != "" ? 1 : 0
+  count = var.enable_transaction_ingestion_lambda && var.transaction_sftp_bucket_arn != "" && !local.use_lab_role ? 1 : 0
 
   name   = "${var.name_prefix}-ecs-task-transaction-s3-read"
   role   = aws_iam_role.ecs_task["transaction"].id
