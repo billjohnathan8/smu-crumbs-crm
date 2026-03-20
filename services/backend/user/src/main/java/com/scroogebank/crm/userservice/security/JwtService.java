@@ -59,6 +59,7 @@ public class JwtService {
 		Clock clock,
 		@Value("${app.jwt.hmac-secret:dev-only-insecure-secret}") String hmacSecret,
 		@Value("${app.jwt.auth-mode:hybrid}") String authMode,
+		@Value("${app.jwt.allow-hybrid:true}") boolean allowHybridAuth,
 		@Value("${app.jwt.cognito.issuer:}") String cognitoIssuer,
 		@Value("${app.jwt.cognito.audience:}") String cognitoAudience,
 		@Value("${app.jwt.cognito.jwks-url:}") String cognitoJwksUrl,
@@ -69,6 +70,7 @@ public class JwtService {
 			clock,
 			hmacSecret,
 			authMode,
+			allowHybridAuth,
 			cognitoIssuer,
 			cognitoAudience,
 			cognitoJwksUrl,
@@ -77,11 +79,12 @@ public class JwtService {
 		);
 	}
 
-	private JwtService(
+	JwtService(
 		ObjectMapper objectMapper,
 		Clock clock,
 		String hmacSecret,
 		String authMode,
+		boolean allowHybridAuth,
 		String cognitoIssuer,
 		String cognitoAudience,
 		String cognitoJwksUrl,
@@ -92,6 +95,7 @@ public class JwtService {
 		this.clock = clock;
 		this.secret = trim(hmacSecret).getBytes(StandardCharsets.UTF_8);
 		this.authMode = parseAuthMode(authMode);
+		validateAuthModeConfiguration(this.authMode, allowHybridAuth);
 		this.cognitoIssuer = trim(cognitoIssuer);
 		this.cognitoAudience = trim(cognitoAudience);
 		this.cognitoJwksUrl = trim(cognitoJwksUrl);
@@ -105,6 +109,7 @@ public class JwtService {
 			clock,
 			hmacSecret,
 			"local",
+			true,
 			"",
 			"",
 			"",
@@ -270,6 +275,12 @@ public class JwtService {
 		}
 
 		String ori_role = roleFromCognitoGroups(claims);
+		if (ori_role == null) {
+			ori_role = asString(claims.get("custom:role"));
+		}
+		if (ori_role == null) {
+			ori_role = asString(claims.get("role"));
+		}
 		String normalizedRole = normalizeRole(ori_role);
 		if (normalizedRole == null) {
 			throw new JwtValidationException("invalid_role");
@@ -306,14 +317,14 @@ public class JwtService {
 			if (!(group instanceof String value)) {
 				continue;
 			}
-			String normalized = value.trim().toUpperCase();
-			if ("SUPER_ADMIN".equals(normalized) || "SUPERADMIN".equals(normalized)) {
+			String normalizedRole = normalizeRole(value);
+			if ("super_admin".equals(normalizedRole)) {
 				hasSuperAdmin = true;
 			}
-			if ("ADMIN".equals(normalized)) {
+			if ("admin".equals(normalizedRole)) {
 				hasAdmin = true;
 			}
-			if ("USER".equals(normalized)) {
+			if ("user".equals(normalizedRole)) {
 				hasAgent = true;
 			}
 		}
@@ -478,6 +489,12 @@ public class JwtService {
 		return value == null ? "" : value.trim();
 	}
 
+	private static void validateAuthModeConfiguration(AuthMode authMode, boolean allowHybridAuth) {
+		if (authMode == AuthMode.HYBRID && !allowHybridAuth) {
+			throw new IllegalStateException("hybrid_auth_mode_not_allowed");
+		}
+	}
+
 	private static AuthMode parseAuthMode(String value) {
 		return switch (trim(value).toLowerCase()) {
 			case "", "local" -> AuthMode.LOCAL;
@@ -488,8 +505,12 @@ public class JwtService {
 	}
 
 	private static String normalizeRole(String value) {
-		return switch (value) {
-			case "admin", "user", "super_admin" -> value;
+		if (value == null) {
+			return null;
+		}
+		String normalized = value.trim().toLowerCase().replace('-', '_').replace(' ', '_');
+		return switch (normalized) {
+			case "admin", "user", "super_admin" -> normalized;
 			case "superadmin" -> "super_admin";
 			default -> null;
 		};

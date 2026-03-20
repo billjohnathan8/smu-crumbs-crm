@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import tools.jackson.databind.ObjectMapper;
+import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
@@ -158,6 +159,25 @@ class JwtServiceTest {
 
 		assertEquals("usr_1", user.userId());
 		assertEquals(UserRole.admin, user.role());
+	}
+
+	@Test
+	void constructor_hybridModeRejectedWhenDisabled() {
+		assertThrows(
+			IllegalStateException.class,
+			() -> new JwtService(
+				new ObjectMapper(),
+				FIXED_CLOCK,
+				SECRET,
+				"hybrid",
+				false,
+				"",
+				"",
+				"",
+				300,
+				HttpClient.newHttpClient()
+			)
+		);
 	}
 
 	private String signedToken(Map<String, Object> payload) {

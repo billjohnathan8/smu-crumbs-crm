@@ -1,6 +1,7 @@
 package com.scroogebank.crm.client_service.security;
 
 import tools.jackson.databind.ObjectMapper;
+import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
@@ -168,6 +169,23 @@ class JwtServiceTest {
 	}
 
 	@Test
+	void verifyAndParse_superAdminRole_isNormalizedToAdmin() throws Exception {
+		Clock clock = Clock.fixed(Instant.parse("2026-02-05T00:00:00Z"), ZoneOffset.UTC);
+		ObjectMapper mapper = new ObjectMapper();
+		JwtService jwtService = new JwtService(mapper, clock, SECRET);
+
+		String token = mintToken(
+			mapper,
+			SECRET,
+			Map.of("alg", "HS256", "typ", "JWT"),
+			Map.of("sub", "usr_1", "role", "super_admin", "exp", clock.instant().plusSeconds(3600).getEpochSecond())
+		);
+
+		AuthenticatedUser user = jwtService.verifyAndParse(token);
+		assertThat(user.role()).isEqualTo("admin");
+	}
+
+	@Test
 	void verifyAndParse_missingExpClaim_isAllowed() throws Exception {
 		Clock clock = Clock.fixed(Instant.parse("2026-02-05T00:00:00Z"), ZoneOffset.UTC);
 		ObjectMapper mapper = new ObjectMapper();
@@ -213,5 +231,24 @@ class JwtServiceTest {
 		assertThatThrownBy(() -> jwtService.verifyAndParse(token))
 			.isInstanceOf(JwtValidationException.class)
 			.hasMessage("invalid_number_claim");
+	}
+
+	@Test
+	void constructor_hybridModeRejectedWhenDisabled() {
+		Clock clock = Clock.fixed(Instant.parse("2026-02-05T00:00:00Z"), ZoneOffset.UTC);
+		assertThatThrownBy(() -> new JwtService(
+			new ObjectMapper(),
+			clock,
+			SECRET,
+			"hybrid",
+			false,
+			"",
+			"",
+			"",
+			300,
+			HttpClient.newHttpClient()
+		))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessage("hybrid_auth_mode_not_allowed");
 	}
 }

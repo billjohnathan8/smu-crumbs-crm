@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import tools.jackson.databind.ObjectMapper;
+import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
@@ -66,6 +67,19 @@ class JwtServiceTest {
 		));
 
 		assertThrows(JwtValidationException.class, () -> jwtService.verifyAndParse(token));
+	}
+
+	@Test
+	void verifyAndParse_superAdminRole_isNormalizedToAdmin() {
+		String token = signedToken(Map.of(
+			"sub", "usr_1",
+			"role", "super_admin",
+			"iat", FIXED_CLOCK.instant().getEpochSecond(),
+			"exp", FIXED_CLOCK.instant().plusSeconds(3600).getEpochSecond()
+		));
+
+		AuthenticatedUser user = jwtService.verifyAndParse(token);
+		assertEquals("admin", user.role());
 	}
 
 	@Test
@@ -134,6 +148,25 @@ class JwtServiceTest {
 		assertThrows(JwtValidationException.class, () -> jwtService.verifyAndParse(token));
 	}
 
+	@Test
+	void constructor_hybridModeRejectedWhenDisabled() {
+		assertThrows(
+			IllegalStateException.class,
+			() -> new JwtService(
+				new ObjectMapper(),
+				FIXED_CLOCK,
+				SECRET,
+				"hybrid",
+				false,
+				"",
+				"",
+				"",
+				300,
+				HttpClient.newHttpClient()
+			)
+		);
+	}
+
 	private String signedToken(Map<String, Object> payload) {
 		try {
 			String header = b64Json(Map.of("alg", "HS256", "typ", "JWT"));
@@ -154,4 +187,3 @@ class JwtServiceTest {
 		return Base64.getUrlEncoder().withoutPadding().encodeToString(json.getBytes(StandardCharsets.UTF_8));
 	}
 }
-
