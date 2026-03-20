@@ -51,3 +51,9 @@ variable "alb_subdomain" {
   type        = string
   default     = "alb"
 }
+
+variable "manage_route53_record" {
+  description = "Whether Terraform should manage the ALB Route53 alias record."
+  type        = bool
+  default     = false
+}

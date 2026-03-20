@@ -82,6 +82,12 @@ variable "route53_zone_id" {
   default     = ""
 }
 
+variable "manage_route53_record" {
+  description = "Whether Terraform should manage the CloudFront Route53 alias record."
+  type        = bool
+  default     = false
+}
+
 variable "enable_cloudfront_oac" {
   description = "Create CloudFront Origin Access Control for the S3 frontend bucket. Disable when LabRole blocks cloudfront:CreateOriginAccessControl."
   type        = bool

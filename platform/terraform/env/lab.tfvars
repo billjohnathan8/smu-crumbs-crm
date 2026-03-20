@@ -16,19 +16,21 @@ enable_multi_az_nat = false # irrelevant when NAT is disabled
 enable_nat_gateway  = false # major cost saver for Learner Lab
 
 # --- ECS ---
-client_desired_count   = 1 # minimal footprint
-ecs_max_capacity       = 2
-ecs_use_public_subnets = true
-ecs_assign_public_ip   = true
+client_desired_count          = 1 # minimal footprint
+ecs_max_capacity              = 2
+ecs_use_public_subnets        = true
+ecs_assign_public_ip          = true
+enable_ecs_container_insights = false
 
 # --- Database ---
-db_instance_class        = "db.t4g.micro"
-db_engine_version        = "17"  # explicit; AWS now defaults to 17, parameter group family must match
-db_multi_az              = false # not needed for testing
-db_backup_retention_days = 1
-db_skip_final_snapshot   = true  # allow clean teardown
-db_deletion_protection   = false # allow clean teardown
-db_max_allocated_storage = 20
+db_instance_class                = "db.t4g.micro"
+db_engine_version                = "17"  # explicit; AWS now defaults to 17, parameter group family must match
+db_multi_az                      = false # not needed for testing
+db_backup_retention_days         = 1
+db_skip_final_snapshot           = true  # allow clean teardown
+db_deletion_protection           = false # allow clean teardown
+db_max_allocated_storage         = 20
+rds_performance_insights_enabled = false
 
 # --- Lambda (all disabled until artifacts are built) ---
 enable_log_lambda                   = false
@@ -63,6 +65,11 @@ lab_role_name            = "LabRole"
 enable_cloudfront        = false
 enable_cloudfront_oac    = false # moot when enable_cloudfront=false, kept for clarity
 enable_service_discovery = false
+
+# --- Route53 / ACM ---
+manage_route53_records            = false
+manage_acm_dns_validation_records = false
+create_acm_certificates           = false
 
 # --- Service Docker Image Tags  ---
 user_image_tag        = "user-lab-001"

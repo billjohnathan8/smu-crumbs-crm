@@ -84,23 +84,24 @@ module "ecr" {
 module "rds" {
   source = "./modules/rds"
 
-  project_name             = var.project_name
-  environment              = var.environment
-  name_prefix              = local.name_prefix
-  private_subnet_ids       = local.db_subnet_ids
-  db_security_group_id     = module.security.db_security_group_id
-  db_password_value        = module.security.db_password_value
-  db_name                  = var.db_name
-  db_username              = var.db_username
-  db_port                  = var.db_port
-  db_instance_class        = var.db_instance_class
-  db_engine_version        = var.db_engine_version
-  db_allocated_storage     = var.db_allocated_storage
-  db_max_allocated_storage = var.db_max_allocated_storage
-  db_multi_az              = var.db_multi_az
-  db_backup_retention_days = var.db_backup_retention_days
-  db_skip_final_snapshot   = var.db_skip_final_snapshot
-  db_deletion_protection   = var.db_deletion_protection
+  project_name                 = var.project_name
+  environment                  = var.environment
+  name_prefix                  = local.name_prefix
+  private_subnet_ids           = local.db_subnet_ids
+  db_security_group_id         = module.security.db_security_group_id
+  db_password_value            = module.security.db_password_value
+  db_name                      = var.db_name
+  db_username                  = var.db_username
+  db_port                      = var.db_port
+  db_instance_class            = var.db_instance_class
+  db_engine_version            = var.db_engine_version
+  db_allocated_storage         = var.db_allocated_storage
+  db_max_allocated_storage     = var.db_max_allocated_storage
+  db_multi_az                  = var.db_multi_az
+  db_backup_retention_days     = var.db_backup_retention_days
+  db_skip_final_snapshot       = var.db_skip_final_snapshot
+  db_deletion_protection       = var.db_deletion_protection
+  performance_insights_enabled = var.rds_performance_insights_enabled
 }
 
 #--------------------------------------------------------------
@@ -110,12 +111,14 @@ module "rds" {
 #--------------------------------------------------------------
 module "acm" {
   source = "./modules/acm"
-  count  = local.use_custom_domain ? 1 : 0
+  count  = local.create_acm_certificates ? 1 : 0
 
-  name_prefix          = local.name_prefix
-  app_domain_name      = var.app_domain_name
-  route53_zone_id      = var.route53_hosted_zone_id
-  alb_origin_subdomain = var.alb_origin_subdomain
+  name_prefix                   = local.name_prefix
+  app_domain_name               = var.app_domain_name
+  route53_zone_id               = var.route53_hosted_zone_id
+  alb_origin_subdomain          = var.alb_origin_subdomain
+  manage_dns_validation_records = var.manage_acm_dns_validation_records
+  wait_for_validation           = var.acm_wait_for_validation
 
   providers = {
     aws.us_east_1      = aws.us_east_1
@@ -135,10 +138,11 @@ module "alb" {
   public_subnet_ids         = module.network.public_subnet_ids
   alb_security_group_id     = module.security.alb_security_group_id
   use_custom_domain         = local.use_custom_domain
-  alb_certificate_arn       = local.use_custom_domain ? module.acm[0].alb_certificate_arn : null
+  alb_certificate_arn       = local.alb_certificate_arn
   service_health_check_path = "/health"
   route53_zone_id           = var.route53_hosted_zone_id
   alb_subdomain             = var.alb_origin_subdomain
+  manage_route53_record     = local.manage_route53_records
 
   depends_on = [module.acm]
 }
@@ -259,6 +263,7 @@ module "ecs" {
   assign_public_ip                                = var.ecs_assign_public_ip
   ecs_service_security_group_id                   = module.security.ecs_service_security_group_id
   cloudwatch_log_retention_days                   = var.cloudwatch_log_retention_days
+  enable_container_insights                       = var.enable_ecs_container_insights
   target_group_arns                               = module.alb.target_group_arns
   service_health_check_path                       = "/health"
   ecr_repository_url                              = module.ecr.repository_url
@@ -355,8 +360,8 @@ module "cloudfront" {
   use_custom_domain                    = local.use_custom_domain
   app_domain_name                      = var.app_domain_name
   cloudfront_price_class               = var.cloudfront_price_class
-  frontend_certificate_arn             = local.use_custom_domain ? module.acm[0].frontend_certificate_arn : null
-  alb_origin_domain_name               = local.use_custom_domain ? module.acm[0].alb_origin_domain_name : null
+  frontend_certificate_arn             = local.frontend_certificate_arn
+  alb_origin_domain_name               = local.alb_origin_domain_name
   alb_dns_name                         = module.alb.alb_dns_name
   frontend_bucket_id                   = module.s3.frontend_bucket_id
   frontend_bucket_arn                  = module.s3.frontend_bucket_arn
@@ -365,6 +370,7 @@ module "cloudfront" {
   log_api_origin_domain_name           = var.enable_log_lambda ? module.apigateway[0].log_api_origin_domain_name : null
   waf_arn                              = module.waf.waf_arn
   route53_zone_id                      = var.route53_hosted_zone_id
+  manage_route53_record                = local.manage_route53_records
   enable_cloudfront_oac                = var.enable_cloudfront_oac
 }
 

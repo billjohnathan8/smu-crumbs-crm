@@ -22,9 +22,30 @@ locals {
   #--------------------------------------------------------------
   # Domain and URL Resolution
   #--------------------------------------------------------------
-  use_custom_domain = var.app_domain_name != ""
+  use_custom_domain = trimspace(var.app_domain_name) != ""
+
+  # External-certificate mode is explicit: both frontend and ALB cert ARNs
+  # must be provided together.
+  use_existing_acm_certificates = (
+    trimspace(var.existing_frontend_certificate_arn) != "" &&
+    trimspace(var.existing_alb_certificate_arn) != ""
+  )
+
+  # Route53 record ownership is opt-in and only relevant for custom domains.
+  manage_route53_records = local.use_custom_domain && var.manage_route53_records
+
+  # ACM creation is opt-in for custom domains when cert ARNs are not provided.
+  create_acm_certificates = local.use_custom_domain && var.create_acm_certificates && !local.use_existing_acm_certificates
 
   alb_origin_domain_name = local.use_custom_domain ? "${var.alb_origin_subdomain}.${var.app_domain_name}" : null
+
+  frontend_certificate_arn = local.use_custom_domain ? (
+    local.use_existing_acm_certificates ? var.existing_frontend_certificate_arn : try(module.acm[0].frontend_certificate_arn, null)
+  ) : null
+
+  alb_certificate_arn = local.use_custom_domain ? (
+    local.use_existing_acm_certificates ? var.existing_alb_certificate_arn : try(module.acm[0].alb_certificate_arn, null)
+  ) : null
 
   crm_api_base_url = var.aml_crm_api_base_url != "" ? var.aml_crm_api_base_url : (
     local.use_custom_domain ? "https://${local.alb_origin_domain_name}" : "http://${module.alb.alb_dns_name}"

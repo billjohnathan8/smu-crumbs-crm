@@ -48,6 +48,12 @@ variable "cloudwatch_log_retention_days" {
   type        = number
 }
 
+variable "enable_container_insights" {
+  description = "Enable ECS Container Insights at the cluster level."
+  type        = bool
+  default     = false
+}
+
 variable "target_group_arns" {
   description = "ALB target group ARNs keyed by service name."
   type        = map(string)

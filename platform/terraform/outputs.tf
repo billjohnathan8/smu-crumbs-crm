@@ -85,6 +85,20 @@ output "app_url" {
   value       = try(module.cloudfront[0].app_url, "http://${module.alb.alb_dns_name}")
 }
 
+output "custom_domain_mode" {
+  description = "How custom-domain certificates are sourced."
+  value = local.use_custom_domain ? (
+    local.use_existing_acm_certificates ? "external_acm_certificates" : (
+      local.create_acm_certificates ? "terraform_acm_certificates" : "invalid_custom_domain_contract"
+    )
+  ) : "disabled"
+}
+
+output "terraform_manages_route53_records" {
+  description = "Whether Terraform is configured to manage Route53 records for this deployment."
+  value       = local.manage_route53_records
+}
+
 #--------------------------------------------------------------
 # External DNS Outputs
 # Values to create CNAME / A records in an externally-managed DNS zone
@@ -101,12 +115,22 @@ output "external_dns_frontend_target" {
 
 output "external_dns_alb_origin_name" {
   description = "DNS name to create externally for CloudFront-to-ALB origin."
-  value       = local.use_custom_domain ? module.acm[0].alb_origin_domain_name : null
+  value       = local.alb_origin_domain_name
 }
 
 output "external_dns_alb_origin_target" {
   description = "ALB DNS name to target from external DNS."
   value       = module.alb.alb_dns_name
+}
+
+output "acm_us_certificate_validation_records" {
+  description = "DNS records to create for validating the CloudFront ACM certificate (when Terraform creates certs)."
+  value       = local.create_acm_certificates ? module.acm[0].us_certificate_validation_records : []
+}
+
+output "acm_ap_certificate_validation_records" {
+  description = "DNS records to create for validating the regional ALB ACM certificate (when Terraform creates certs)."
+  value       = local.create_acm_certificates ? module.acm[0].ap_certificate_validation_records : []
 }
 
 output "frontend_bucket_name" {

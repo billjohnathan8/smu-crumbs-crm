@@ -178,6 +178,12 @@ variable "ecs_assign_public_ip" {
   default     = false
 }
 
+variable "enable_ecs_container_insights" {
+  description = "Enable ECS Container Insights. Disable for lower CloudWatch cost in budget-constrained environments."
+  type        = bool
+  default     = false
+}
+
 #--------------------------------------------------------------
 # Database (RDS PostgreSQL) Configuration
 #--------------------------------------------------------------
@@ -245,6 +251,12 @@ variable "db_deletion_protection" {
   description = "Enable deletion protection on the DB instance. Safer default is true."
   type        = bool
   default     = true
+}
+
+variable "rds_performance_insights_enabled" {
+  description = "Enable RDS Performance Insights. Disable for lower cost during first-time budget-sensitive bring-up."
+  type        = bool
+  default     = false
 }
 
 #--------------------------------------------------------------
@@ -496,10 +508,52 @@ variable "route53_hosted_zone_id" {
   default     = ""
 }
 
+variable "manage_route53_records" {
+  description = "Whether Terraform should manage Route53 records in the provided hosted zone. Keep false to treat school Route53 as externally managed."
+  type        = bool
+  default     = false
+}
+
+variable "manage_acm_dns_validation_records" {
+  description = "Whether Terraform should create ACM DNS validation records in Route53. Keep false when DNS validation records are created manually by the school/domain owner."
+  type        = bool
+  default     = false
+}
+
+variable "create_acm_certificates" {
+  description = "Whether Terraform should request ACM certificates for custom domains. When false, provide existing cert ARNs."
+  type        = bool
+  default     = false
+}
+
+variable "existing_frontend_certificate_arn" {
+  description = "Pre-existing ACM certificate ARN in us-east-1 for CloudFront. Used when create_acm_certificates=false."
+  type        = string
+  default     = ""
+}
+
+variable "existing_alb_certificate_arn" {
+  description = "Pre-existing ACM certificate ARN in the primary AWS region for ALB. Used when create_acm_certificates=false."
+  type        = string
+  default     = ""
+}
+
+variable "acm_wait_for_validation" {
+  description = "Wait for ACM certificates to reach ISSUED status in Terraform apply. Keep true for one-pass bring-up."
+  type        = bool
+  default     = true
+}
+
 variable "alb_origin_subdomain" {
   description = "Subdomain used as the CloudFront-to-ALB origin host when custom domain is enabled."
   type        = string
   default     = "api"
+}
+
+variable "enforce_strict_prod_guardrails" {
+  description = "Enforce strict production high-availability guardrails (Multi-AZ NAT/RDS and stricter RDS destruction settings). Set false for budget-first production-account bring-up."
+  type        = bool
+  default     = true
 }
 
 #--------------------------------------------------------------
@@ -770,22 +824,22 @@ check "stateful_service_scale_out_guardrails" {
 
 check "prod_database_guardrails" {
   assert {
-    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || var.db_multi_az
+    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || !var.enforce_strict_prod_guardrails || var.db_multi_az
     error_message = "For environment=prod, db_multi_az must be true."
   }
 
   assert {
-    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || var.db_backup_retention_days >= 7
+    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || !var.enforce_strict_prod_guardrails || var.db_backup_retention_days >= 7
     error_message = "For environment=prod, db_backup_retention_days must be at least 7."
   }
 
   assert {
-    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || !var.db_skip_final_snapshot
+    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || !var.enforce_strict_prod_guardrails || !var.db_skip_final_snapshot
     error_message = "For environment=prod, db_skip_final_snapshot must be false."
   }
 
   assert {
-    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || var.db_deletion_protection
+    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || !var.enforce_strict_prod_guardrails || var.db_deletion_protection
     error_message = "For environment=prod, db_deletion_protection must be true."
   }
 }
@@ -870,18 +924,59 @@ check "lambda_artifact_paths_root" {
 
 check "prod_network_and_pipeline_guardrails" {
   assert {
-    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || var.enable_multi_az_nat
+    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || !var.enforce_strict_prod_guardrails || var.enable_multi_az_nat
     error_message = "For environment=prod, enable_multi_az_nat must be true to avoid single-AZ NAT dependency."
   }
 
   assert {
-    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || var.enable_nat_gateway
+    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || !var.enforce_strict_prod_guardrails || var.enable_nat_gateway
     error_message = "For environment=prod, enable_nat_gateway must be true."
   }
 
   assert {
     condition     = !var.enable_verification_pipeline || var.enable_log_lambda
     error_message = "enable_verification_pipeline requires enable_log_lambda=true so the verification feedback Lambda receives a non-empty LOG_API_BASE_URL."
+  }
+}
+
+check "custom_domain_contract_guardrails" {
+  assert {
+    condition = (
+      trimspace(var.existing_frontend_certificate_arn) == "" &&
+      trimspace(var.existing_alb_certificate_arn) == ""
+      ) || (
+      trimspace(var.existing_frontend_certificate_arn) != "" &&
+      trimspace(var.existing_alb_certificate_arn) != ""
+    )
+    error_message = "Provide both existing_frontend_certificate_arn and existing_alb_certificate_arn together, or leave both empty."
+  }
+
+  assert {
+    condition = trimspace(var.app_domain_name) == "" || (
+      var.create_acm_certificates || (
+        trimspace(var.existing_frontend_certificate_arn) != "" &&
+        trimspace(var.existing_alb_certificate_arn) != ""
+      )
+    )
+    error_message = "When app_domain_name is set, either create_acm_certificates must be true or both existing certificate ARNs must be provided."
+  }
+
+  assert {
+    condition     = trimspace(var.app_domain_name) != "" || !var.create_acm_certificates
+    error_message = "create_acm_certificates can only be true when app_domain_name is set."
+  }
+
+  assert {
+    condition = trimspace(var.app_domain_name) != "" || (
+      trimspace(var.existing_frontend_certificate_arn) == "" &&
+      trimspace(var.existing_alb_certificate_arn) == ""
+    )
+    error_message = "Existing ACM certificate ARNs require app_domain_name to be set."
+  }
+
+  assert {
+    condition     = !(var.manage_route53_records || var.manage_acm_dns_validation_records) || trimspace(var.route53_hosted_zone_id) != ""
+    error_message = "route53_hosted_zone_id must be set when Terraform is configured to manage any Route53 records."
   }
 }
 

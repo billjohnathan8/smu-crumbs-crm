@@ -8,25 +8,29 @@
 #--------------------------------------------------
 
 # --- General ---
-environment = "prod"
+environment                    = "prod"
+enforce_strict_prod_guardrails = false # budget-first production bring-up profile
 
 # --- Network ---
-enable_multi_az_nat = true # required for prod (guardrail-enforced)
-enable_nat_gateway  = true # required for prod (guardrail-enforced)
+enable_multi_az_nat  = false
+enable_nat_gateway   = false
+enable_vpc_flow_logs = false
 
 # --- ECS ---
-client_desired_count   = 2
-ecs_max_capacity       = 4
-ecs_use_public_subnets = false
-ecs_assign_public_ip   = false
+client_desired_count          = 1
+ecs_max_capacity              = 2
+ecs_use_public_subnets        = true
+ecs_assign_public_ip          = true
+enable_ecs_container_insights = false
 
 # --- Database ---
-db_instance_class        = "db.t4g.micro" # school budget; upgrade if needed
-db_multi_az              = true           # required for prod (guardrail-enforced)
-db_backup_retention_days = 7              # minimum for prod (guardrail-enforced)
-db_skip_final_snapshot   = false          # required for prod (guardrail-enforced)
-db_deletion_protection   = true           # required for prod (guardrail-enforced)
-db_max_allocated_storage = 100
+db_instance_class                = "db.t4g.micro" # school budget baseline
+db_multi_az                      = false
+db_backup_retention_days         = 1
+db_skip_final_snapshot           = true
+db_deletion_protection           = false
+db_max_allocated_storage         = 20
+rds_performance_insights_enabled = false
 
 # --- Lambda (all disabled until artifacts are built) ---
 enable_log_lambda                   = false
@@ -37,21 +41,29 @@ enable_aml_pipeline                 = false
 enable_verification_pipeline        = false
 
 # --- Observability & Security ---
-enable_waf                    = true
-enable_cloudtrail             = true
-enable_cloudwatch_alarms      = true
-enable_backup                 = true
-backup_retention_days         = 30
-cloudwatch_log_retention_days = 30
+enable_waf                    = false
+enable_cloudtrail             = false
+enable_cloudwatch_alarms      = false
+enable_backup                 = false
+backup_retention_days         = 7
+cloudwatch_log_retention_days = 7
 
 # --- S3 / CloudFront ---
 frontend_bucket_force_destroy = false
 cloudfront_price_class        = "PriceClass_100"
+enable_cloudfront             = true
+enable_cloudfront_oac         = true
 
 # --- Auth ---
 enable_cognito = true
 auth_mode      = "hybrid"
 
-# --- Domain (fill in when school provides) ---
-# app_domain_name       = ""
-# route53_hosted_zone_id = ""
+# --- Domain / DNS Ownership ---
+# Keep custom-domain disabled for first bring-up unless cert + DNS ownership are ready.
+# app_domain_name = ""
+manage_route53_records            = false
+manage_acm_dns_validation_records = false
+create_acm_certificates           = false
+# route53_hosted_zone_id        = "Z123EXAMPLE"
+# existing_frontend_certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/..."
+# existing_alb_certificate_arn      = "arn:aws:acm:ap-southeast-1:123456789012:certificate/..."
