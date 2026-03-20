@@ -679,6 +679,17 @@ variable "cognito_logout_urls" {
   default     = []
 }
 
+variable "cognito_mfa_configuration" {
+  description = "Cognito MFA configuration for the user pool. Allowed values: OFF, OPTIONAL, ON."
+  type        = string
+  default     = "OFF"
+
+  validation {
+    condition     = contains(["OFF", "ON", "OPTIONAL"], upper(trimspace(var.cognito_mfa_configuration)))
+    error_message = "cognito_mfa_configuration must be one of: OFF, OPTIONAL, ON."
+  }
+}
+
 variable "auth_mode" {
   description = "Runtime auth mode for backend services. Supported values: local, hybrid, cognito."
   type        = string
@@ -795,6 +806,18 @@ variable "enable_cloudwatch_alarms" {
   default     = true
 }
 
+variable "alarm_notification_email" {
+  description = "Email endpoint subscribed to the CloudWatch alarm SNS topic. Required for production-like environments when alarms are enabled unless alarm_notification_topic_arn is provided."
+  type        = string
+  default     = ""
+}
+
+variable "alarm_notification_topic_arn" {
+  description = "Existing SNS topic ARN for CloudWatch alarm notifications. Leave empty to create and use the repo-managed alarm topic."
+  type        = string
+  default     = ""
+}
+
 #--------------------------------------------------------------
 # Backup Configuration
 #--------------------------------------------------------------
@@ -863,6 +886,23 @@ check "prod_secret_strength_guardrails" {
       trimspace(var.root_admin_password) != "admin123"
     )
     error_message = "For environment=prod, root_admin_password must be >=16 chars and include upper, lower, number, and symbol."
+  }
+}
+
+check "production_like_mfa_guardrails" {
+  assert {
+    condition     = !var.enable_cognito || !contains(["prod", "production", "integration"], lower(trimspace(var.environment))) || upper(trimspace(var.cognito_mfa_configuration)) != "OFF"
+    error_message = "For production-like environments with enable_cognito=true, cognito_mfa_configuration must be OPTIONAL or ON."
+  }
+}
+
+check "alarm_notification_endpoint_guardrails" {
+  assert {
+    condition = !var.enable_cloudwatch_alarms || !contains(["prod", "production", "integration"], lower(trimspace(var.environment))) || (
+      trimspace(var.alarm_notification_email) != "" ||
+      trimspace(var.alarm_notification_topic_arn) != ""
+    )
+    error_message = "For production-like environments with enable_cloudwatch_alarms=true, set alarm_notification_email or alarm_notification_topic_arn."
   }
 }
 

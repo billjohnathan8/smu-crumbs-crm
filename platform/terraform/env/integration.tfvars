@@ -42,16 +42,18 @@ enable_aml_pipeline   = false # partial scaffold only: aml-consumer runtime arti
 # --- Security / Observability ---
 enable_waf                    = false
 enable_cloudtrail             = false
-enable_cloudwatch_alarms      = false
+enable_cloudwatch_alarms      = true
+alarm_notification_email      = "crm-alerts-integration@crm.local" # replace with a monitored mailbox before apply
 enable_backup                 = false
 cloudwatch_log_retention_days = 7
 
 # --- Frontend / Auth ---
-enable_cloudfront      = true
-enable_cloudfront_oac  = true
-enable_cognito         = true
-auth_mode              = "hybrid"
-cloudfront_price_class = "PriceClass_100"
+enable_cloudfront         = true
+enable_cloudfront_oac     = true
+enable_cognito            = true
+cognito_mfa_configuration = "OPTIONAL"
+auth_mode                 = "hybrid"
+cloudfront_price_class    = "PriceClass_100"
 
 # --- Domain / DNS ---
 manage_route53_records            = false

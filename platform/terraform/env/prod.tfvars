@@ -52,7 +52,8 @@ enable_aml_pipeline   = false # partial scaffold only: aml-consumer runtime arti
 # --- Observability & Security ---
 enable_waf                    = false
 enable_cloudtrail             = false
-enable_cloudwatch_alarms      = false
+enable_cloudwatch_alarms      = true
+alarm_notification_email      = "crm-alerts-prod@crm.local" # replace with a monitored mailbox before apply
 enable_backup                 = false
 backup_retention_days         = 7
 cloudwatch_log_retention_days = 7
@@ -65,8 +66,9 @@ enable_cloudfront_oac         = true
 enable_service_discovery      = true
 
 # --- Auth ---
-enable_cognito = true
-auth_mode      = "hybrid"
+enable_cognito            = true
+cognito_mfa_configuration = "ON"
+auth_mode                 = "hybrid"
 
 # --- Domain / DNS Ownership ---
 # Keep custom-domain disabled for first bring-up unless cert + DNS ownership are ready.

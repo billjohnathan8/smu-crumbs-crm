@@ -30,3 +30,26 @@ resource "aws_sns_topic_subscription" "verification_email" {
   protocol  = "email"
   endpoint  = var.notification_email
 }
+
+# CloudWatch alarm notification topic.
+resource "aws_sns_topic" "alarm_notifications" {
+  count = var.enable_alarm_topic ? 1 : 0
+
+  name = "${var.name_prefix}-alarms"
+
+  tags = {
+    Name        = "${var.name_prefix}-alarms"
+    Environment = var.environment
+    Service     = "observability"
+    ManagedBy   = "terraform"
+  }
+}
+
+# SNS Email subscription for CloudWatch alarm notifications.
+resource "aws_sns_topic_subscription" "alarm_email" {
+  count = var.enable_alarm_topic && var.alarm_notification_email != "" ? 1 : 0
+
+  topic_arn = aws_sns_topic.alarm_notifications[0].arn
+  protocol  = "email"
+  endpoint  = var.alarm_notification_email
+}

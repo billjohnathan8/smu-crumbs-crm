@@ -7,6 +7,12 @@ variable "name_prefix" {
   type        = string
 }
 
+variable "alarm_notification_topic_arn" {
+  description = "SNS topic ARN used for CloudWatch alarm and recovery notifications. Leave empty to disable alarm actions."
+  type        = string
+  default     = ""
+}
+
 # --- CloudTrail ---
 
 variable "enable_cloudtrail" {

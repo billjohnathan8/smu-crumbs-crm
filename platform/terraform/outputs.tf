@@ -256,6 +256,11 @@ output "verification_topic_arn" {
   value       = module.sns.verification_topic_arn
 }
 
+output "alarm_notification_topic_arn" {
+  description = "Effective SNS topic ARN used by CloudWatch alarm actions."
+  value       = trimspace(var.alarm_notification_topic_arn) != "" ? trimspace(var.alarm_notification_topic_arn) : module.sns.alarm_topic_arn
+}
+
 #--------------------------------------------------------------
 # SES Outputs
 #--------------------------------------------------------------

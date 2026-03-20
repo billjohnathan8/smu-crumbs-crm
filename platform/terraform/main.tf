@@ -388,6 +388,7 @@ module "cognito" {
   callback_urls                = var.cognito_callback_urls
   logout_urls                  = var.cognito_logout_urls
   cognito_domain_prefix        = var.cognito_domain_prefix
+  mfa_configuration            = upper(trimspace(var.cognito_mfa_configuration))
 }
 
 #--------------------------------------------------------------
@@ -414,6 +415,8 @@ module "sns" {
   environment                  = var.environment
   enable_verification_pipeline = var.enable_verification_pipeline
   notification_email           = var.ses_notification_email
+  enable_alarm_topic           = var.enable_cloudwatch_alarms && trimspace(var.alarm_notification_topic_arn) == ""
+  alarm_notification_email     = var.alarm_notification_email
 }
 
 #--------------------------------------------------------------
@@ -449,8 +452,9 @@ module "dynamodb" {
 module "observability" {
   source = "./modules/observability"
 
-  name_prefix       = local.name_prefix
-  enable_cloudtrail = var.enable_cloudtrail
+  name_prefix                  = local.name_prefix
+  enable_cloudtrail            = var.enable_cloudtrail
+  alarm_notification_topic_arn = trimspace(var.alarm_notification_topic_arn) != "" ? trimspace(var.alarm_notification_topic_arn) : (module.sns.alarm_topic_arn != null ? module.sns.alarm_topic_arn : "")
 
   enable_ecs_alarms = var.enable_cloudwatch_alarms
   ecs_cluster_name  = module.ecs.ecs_cluster_name

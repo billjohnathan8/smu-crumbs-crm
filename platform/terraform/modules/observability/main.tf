@@ -6,6 +6,10 @@
 
 data "aws_caller_identity" "current" {}
 
+locals {
+  alarm_action_arns = trimspace(var.alarm_notification_topic_arn) == "" ? [] : [trimspace(var.alarm_notification_topic_arn)]
+}
+
 # --- CloudTrail ---
 
 resource "aws_s3_bucket" "cloudtrail" {
@@ -106,6 +110,8 @@ resource "aws_cloudwatch_metric_alarm" "ecs_cpu_high" {
   statistic           = "Average"
   threshold           = var.ecs_cpu_alarm_threshold
   alarm_description   = "ECS ${each.key} CPU utilization above ${var.ecs_cpu_alarm_threshold}%"
+  alarm_actions       = local.alarm_action_arns
+  ok_actions          = local.alarm_action_arns
 
   dimensions = {
     ClusterName = var.ecs_cluster_name
@@ -129,6 +135,8 @@ resource "aws_cloudwatch_metric_alarm" "rds_cpu_high" {
   statistic           = "Average"
   threshold           = var.rds_cpu_alarm_threshold
   alarm_description   = "RDS CPU utilization above ${var.rds_cpu_alarm_threshold}%"
+  alarm_actions       = local.alarm_action_arns
+  ok_actions          = local.alarm_action_arns
 
   dimensions = {
     DBInstanceIdentifier = var.rds_instance_identifier
@@ -151,6 +159,8 @@ resource "aws_cloudwatch_metric_alarm" "rds_free_storage" {
   statistic           = "Average"
   threshold           = var.rds_free_storage_threshold_bytes
   alarm_description   = "RDS free storage below threshold"
+  alarm_actions       = local.alarm_action_arns
+  ok_actions          = local.alarm_action_arns
 
   dimensions = {
     DBInstanceIdentifier = var.rds_instance_identifier
@@ -174,6 +184,8 @@ resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
   threshold           = var.alb_5xx_alarm_threshold
   alarm_description   = "ALB 5XX errors above threshold"
   treat_missing_data  = "notBreaching"
+  alarm_actions       = local.alarm_action_arns
+  ok_actions          = local.alarm_action_arns
 
   dimensions = {
     LoadBalancer = var.alb_arn_suffix
@@ -197,6 +209,8 @@ resource "aws_cloudwatch_metric_alarm" "ses_bounce_rate_high" {
   threshold           = var.ses_bounce_rate_alarm_threshold
   alarm_description   = "SES bounce rate above threshold"
   treat_missing_data  = "notBreaching"
+  alarm_actions       = local.alarm_action_arns
+  ok_actions          = local.alarm_action_arns
 
   dimensions = {
     Identity = var.ses_identity
@@ -220,6 +234,8 @@ resource "aws_cloudwatch_metric_alarm" "ses_complaint_rate_high" {
   threshold           = var.ses_complaint_rate_alarm_threshold
   alarm_description   = "SES complaint rate above threshold"
   treat_missing_data  = "notBreaching"
+  alarm_actions       = local.alarm_action_arns
+  ok_actions          = local.alarm_action_arns
 
   dimensions = {
     Identity = var.ses_identity
@@ -244,6 +260,8 @@ resource "aws_cloudwatch_metric_alarm" "ecs_memory_high" {
   statistic           = "Average"
   threshold           = var.ecs_memory_alarm_threshold
   alarm_description   = "ECS ${each.key} memory utilization above ${var.ecs_memory_alarm_threshold}%"
+  alarm_actions       = local.alarm_action_arns
+  ok_actions          = local.alarm_action_arns
 
   dimensions = {
     ClusterName = var.ecs_cluster_name
@@ -272,6 +290,8 @@ resource "aws_cloudwatch_metric_alarm" "ecs_running_tasks_low" {
   threshold           = 1
   alarm_description   = "ECS ${each.key} has fewer than 1 running task"
   treat_missing_data  = "breaching"
+  alarm_actions       = local.alarm_action_arns
+  ok_actions          = local.alarm_action_arns
 
   dimensions = {
     ClusterName = var.ecs_cluster_name
@@ -299,6 +319,8 @@ resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_hosts" {
   threshold           = var.alb_unhealthy_host_threshold
   alarm_description   = "ALB target group ${each.key} has ${var.alb_unhealthy_host_threshold} or more unhealthy hosts"
   treat_missing_data  = "notBreaching"
+  alarm_actions       = local.alarm_action_arns
+  ok_actions          = local.alarm_action_arns
 
   dimensions = {
     LoadBalancer = var.alb_arn_suffix
@@ -323,6 +345,8 @@ resource "aws_cloudwatch_metric_alarm" "alb_target_5xx" {
   threshold           = var.alb_target_5xx_threshold
   alarm_description   = "ALB target group ${each.key} target-originated 5XX errors above ${var.alb_target_5xx_threshold}"
   treat_missing_data  = "notBreaching"
+  alarm_actions       = local.alarm_action_arns
+  ok_actions          = local.alarm_action_arns
 
   dimensions = {
     LoadBalancer = var.alb_arn_suffix
@@ -347,6 +371,8 @@ resource "aws_cloudwatch_metric_alarm" "alb_response_time" {
   threshold           = var.alb_response_time_threshold
   alarm_description   = "ALB target group ${each.key} average response time above ${var.alb_response_time_threshold}s"
   treat_missing_data  = "notBreaching"
+  alarm_actions       = local.alarm_action_arns
+  ok_actions          = local.alarm_action_arns
 
   dimensions = {
     LoadBalancer = var.alb_arn_suffix
