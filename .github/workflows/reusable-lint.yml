@@ -326,9 +326,8 @@ jobs:
         run: pip install checkov
 
       - name: Run Checkov (security & compliance scan)
-        # --soft-fail reports findings without blocking the pipeline.
-        # Remove --soft-fail once critical findings are resolved and
-        # enforcement is desired on every merge.
+        # CRITICAL and HIGH findings block the pipeline (exit 1).
+        # LOW and MEDIUM findings are reported but non-blocking (--soft-fail).
         timeout-minutes: 5
         run: |
           checkov \
@@ -337,7 +336,8 @@ jobs:
             --output cli \
             --compact \
             --quiet \
-            --soft-fail
+            --soft-fail \
+            --hard-fail-on CRITICAL,HIGH
 
   # ---- OpenAPI Spectral lint ----
   openapi-spectral:
@@ -377,16 +377,19 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install Gitleaks
+        timeout-minutes: 2
+        run: |
+          GITLEAKS_VERSION=8.24.3
+          curl -sSL \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz gitleaks
+          sudo install -m 0755 gitleaks /usr/local/bin/gitleaks
+
       - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        continue-on-error: true  # Allow to fail without license key for org repos
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
-          # Required for private repos in GitHub org accounts.
-          # Obtain a free licence at https://gitleaks.io and store it as a
-          # repo/org secret named GITLEAKS_LICENSE if scans fail with a
-          # licence error.
+        # Uses the open-source CLI directly — no org licence required.
+        # Exits 1 if any unallowlisted secrets are detected.
+        run: gitleaks detect --source=. --config=.gitleaks.toml --redact --verbose
 
   # ---- TruffleHog secret scanner ----
   trufflehog:
