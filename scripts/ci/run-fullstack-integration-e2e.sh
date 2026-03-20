@@ -1447,7 +1447,7 @@ ALERT_ID="aml-smoke-$(date +%s)"
 AML_CREATE_RESPONSE="$(
   curl --silent --show-error --fail \
     --request POST "${PLAYWRIGHT_BASE_URL}/api/aml/alerts" \
-    --header "Authorization: Bearer ${USER_TOKEN}" \
+    --header "Authorization: Bearer ${ADMIN_TOKEN}" \
     --header "Content-Type: application/json" \
     --data "{
       \"alertId\": \"${ALERT_ID}\",
