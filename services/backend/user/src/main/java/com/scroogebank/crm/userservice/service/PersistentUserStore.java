@@ -25,8 +25,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
@@ -41,29 +44,65 @@ public class PersistentUserStore implements UserStore {
 	private static final String USER_ID_PREFIX = "usr_";
 	private static final long ROOT_ADMIN_DB_ID = 1L;
 	private static final Duration REFRESH_TTL = Duration.ofDays(7);
+	private static final Duration RESET_TTL = Duration.ofHours(1);
 	private static final HexFormat HEX_FORMAT = HexFormat.of();
 
 	private final Clock clock;
 	private final PasswordHasher passwordHasher;
 	private final UserRepository userRepository;
 	private final RefreshTokenRepository refreshTokenRepository;
+	private final boolean testResetIntrospectionEnabled;
 	private final String rootEmail;
 	private final String rootPassword;
 	private final Map<String, PasswordResetTokenRecord> passwordResetTokens = new ConcurrentHashMap<>();
 	private final Map<String, String> latestResetTokenByEmail = new ConcurrentHashMap<>();
 
+	@Autowired
 	public PersistentUserStore(
 		Clock clock,
 		PasswordHasher passwordHasher,
 		UserRepository userRepository,
 		RefreshTokenRepository refreshTokenRepository,
 		@Value("${app.root-admin.email}") String rootEmail,
-		@Value("${app.root-admin.password}") String rootPassword
+		@Value("${app.root-admin.password}") String rootPassword,
+		Environment environment
+	) {
+		this(
+			clock,
+			passwordHasher,
+			userRepository,
+			refreshTokenRepository,
+			rootEmail,
+			rootPassword,
+			environment.acceptsProfiles(Profiles.of("local", "test"))
+		);
+	}
+
+	PersistentUserStore(
+		Clock clock,
+		PasswordHasher passwordHasher,
+		UserRepository userRepository,
+		RefreshTokenRepository refreshTokenRepository,
+		String rootEmail,
+		String rootPassword
+	) {
+		this(clock, passwordHasher, userRepository, refreshTokenRepository, rootEmail, rootPassword, false);
+	}
+
+	PersistentUserStore(
+		Clock clock,
+		PasswordHasher passwordHasher,
+		UserRepository userRepository,
+		RefreshTokenRepository refreshTokenRepository,
+		String rootEmail,
+		String rootPassword,
+		boolean testResetIntrospectionEnabled
 	) {
 		this.clock = clock;
 		this.passwordHasher = passwordHasher;
 		this.userRepository = userRepository;
 		this.refreshTokenRepository = refreshTokenRepository;
+		this.testResetIntrospectionEnabled = testResetIntrospectionEnabled;
 		this.rootEmail = rootEmail;
 		this.rootPassword = rootPassword;
 	}
@@ -291,13 +330,22 @@ public class PersistentUserStore implements UserStore {
 			return null;
 		}
 		String token = UUID.randomUUID().toString();
-		passwordResetTokens.put(token, new PasswordResetTokenRecord(normalized, clock.instant().plus(Duration.ofHours(1))));
-		latestResetTokenByEmail.put(normalized, token);
+		passwordResetTokens.entrySet().removeIf(e -> e.getValue().email.equals(normalized));
+		passwordResetTokens.put(
+			hashToken(token),
+			new PasswordResetTokenRecord(normalized, clock.instant().plus(RESET_TTL))
+		);
+		if (testResetIntrospectionEnabled) {
+			latestResetTokenByEmail.put(normalized, token);
+		}
 		return token;
 	}
 
 	@Override
 	public String getLatestResetToken(String email) {
+		if (!testResetIntrospectionEnabled) {
+			return null;
+		}
 		return latestResetTokenByEmail.get(normalizeEmail(email));
 	}
 
@@ -305,7 +353,7 @@ public class PersistentUserStore implements UserStore {
 	@Override
 	public void resetPasswordWithToken(String token, String newPassword) {
 		seedRootAdminIfMissing();
-		PasswordResetTokenRecord record = passwordResetTokens.remove(token);
+		PasswordResetTokenRecord record = passwordResetTokens.remove(hashToken(token));
 		if (record == null || clock.instant().isAfter(record.expiresAt)) {
 			throw new IllegalArgumentException("invalid_or_expired_token");
 		}
@@ -315,6 +363,9 @@ public class PersistentUserStore implements UserStore {
 		entity.setUpdatedAt(clock.instant());
 		userRepository.save(entity);
 		refreshTokenRepository.deleteByUser_Id(entity.getId());
+		latestResetTokenByEmail.computeIfPresent(record.email, (_email, latestToken) ->
+			latestToken.equals(token) ? null : latestToken
+		);
 	}
 
 	private record PasswordResetTokenRecord(String email, Instant expiresAt) {}
@@ -347,7 +398,7 @@ public class PersistentUserStore implements UserStore {
 			return HEX_FORMAT.formatHex(hash);
 		}
 		catch (NoSuchAlgorithmException ex) {
-			throw new IllegalStateException("failed to hash refresh token", ex);
+			throw new IllegalStateException("failed to hash token", ex);
 		}
 	}
 

@@ -1,10 +1,14 @@
 package com.scroogebank.crm.userservice.service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -13,8 +17,11 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Component;
 
 import com.scroogebank.crm.userservice.dto.CreateUserRequest;
@@ -40,9 +47,12 @@ public class InMemoryUserStore implements UserStore {
 	private static final String USER_ID_PREFIX = "usr_";
 	private static final long ROOT_ADMIN_DB_ID = 1L;
 	private static final Duration REFRESH_TTL = Duration.ofDays(7);
+	private static final Duration RESET_TTL = Duration.ofHours(1);
+	private static final HexFormat HEX_FORMAT = HexFormat.of();
 
 	private final Clock clock;
 	private final PasswordHasher passwordHasher;
+	private final boolean testResetIntrospectionEnabled;
 	private final AtomicLong idSequence = new AtomicLong(2L);
 	private final Map<Long, UserRecord> users = new ConcurrentHashMap<>();
 	private final Map<String, Long> emailIndex = new ConcurrentHashMap<>();
@@ -50,14 +60,42 @@ public class InMemoryUserStore implements UserStore {
 	private final Map<String, PasswordResetTokenRecord> passwordResetTokens = new ConcurrentHashMap<>();
 	private final Map<String, String> latestResetTokenByEmail = new ConcurrentHashMap<>();
 
+	@Autowired
 	public InMemoryUserStore(
 		Clock clock,
 		PasswordHasher passwordHasher,
 		@Value("${app.root-admin.email}") String rootEmail,
-		@Value("${app.root-admin.password}") String rootPassword
+		@Value("${app.root-admin.password}") String rootPassword,
+		Environment environment
+	) {
+		this(
+			clock,
+			passwordHasher,
+			rootEmail,
+			rootPassword,
+			environment.acceptsProfiles(Profiles.of("local", "test"))
+		);
+	}
+
+	InMemoryUserStore(
+		Clock clock,
+		PasswordHasher passwordHasher,
+		String rootEmail,
+		String rootPassword
+	) {
+		this(clock, passwordHasher, rootEmail, rootPassword, false);
+	}
+
+	InMemoryUserStore(
+		Clock clock,
+		PasswordHasher passwordHasher,
+		String rootEmail,
+		String rootPassword,
+		boolean testResetIntrospectionEnabled
 	) {
 		this.clock = clock;
 		this.passwordHasher = passwordHasher;
+		this.testResetIntrospectionEnabled = testResetIntrospectionEnabled;
 		seedRootAdmin(rootEmail, rootPassword);
 	}
 
@@ -451,8 +489,14 @@ public class InMemoryUserStore implements UserStore {
 			return null;
 		}
 		String token = UUID.randomUUID().toString();
-		passwordResetTokens.put(token, new PasswordResetTokenRecord(dbId, clock.instant().plus(Duration.ofHours(1))));
-		latestResetTokenByEmail.put(normalized, token);
+		passwordResetTokens.entrySet().removeIf(e -> e.getValue().dbUserId == dbId);
+		passwordResetTokens.put(
+			hashToken(token),
+			new PasswordResetTokenRecord(dbId, normalized, clock.instant().plus(RESET_TTL))
+		);
+		if (testResetIntrospectionEnabled) {
+			latestResetTokenByEmail.put(normalized, token);
+		}
 		return token;
 	}
 
@@ -464,6 +508,9 @@ public class InMemoryUserStore implements UserStore {
 	 */
 	@Override
 	public String getLatestResetToken(String email) {
+		if (!testResetIntrospectionEnabled) {
+			return null;
+		}
 		return latestResetTokenByEmail.get(normalizeEmail(email));
 	}
 
@@ -476,7 +523,7 @@ public class InMemoryUserStore implements UserStore {
 	 */
 	@Override
 	public void resetPasswordWithToken(String token, String newPassword) {
-		PasswordResetTokenRecord record = passwordResetTokens.remove(token);
+		PasswordResetTokenRecord record = passwordResetTokens.remove(hashToken(token));
 		if (record == null || clock.instant().isAfter(record.expiresAt)) {
 			throw new IllegalArgumentException("invalid_or_expired_token");
 		}
@@ -495,6 +542,20 @@ public class InMemoryUserStore implements UserStore {
 		);
 		users.put(existing.id(), updated);
 		refreshTokens.entrySet().removeIf(e -> e.getValue().dbUserId == existing.id());
+		latestResetTokenByEmail.computeIfPresent(record.email, (_email, latestToken) ->
+			latestToken.equals(token) ? null : latestToken
+		);
+	}
+
+	private static String hashToken(String token) {
+		try {
+			MessageDigest digest = MessageDigest.getInstance("SHA-256");
+			byte[] hash = digest.digest(token.getBytes(StandardCharsets.UTF_8));
+			return HEX_FORMAT.formatHex(hash);
+		}
+		catch (NoSuchAlgorithmException ex) {
+			throw new IllegalStateException("failed to hash reset token", ex);
+		}
 	}
 
 	/**
@@ -510,6 +571,7 @@ public class InMemoryUserStore implements UserStore {
 	 */
 	private record PasswordResetTokenRecord(
 		long dbUserId,
+		String email,
 		Instant expiresAt
 	) {}
 }
