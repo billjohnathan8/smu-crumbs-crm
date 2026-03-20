@@ -145,6 +145,9 @@ public class PersistentUserStore implements UserStore {
 	public UserDto updateUser(String userId, UpdateUserRequest patch) {
 		seedRootAdminIfMissing();
 		long dbId = decodeUserId(userId);
+		if (isRootAdminDbId(dbId)) {
+			throw new AccessDeniedException("root_admin");
+		}
 		UserEntity existing = loadEntityById(dbId);
 
 		String newEmail = patch.email() == null ? existing.getEmail() : normalizeEmail(patch.email());
@@ -165,7 +168,7 @@ public class PersistentUserStore implements UserStore {
 	public void deleteUser(String userId) {
 		seedRootAdminIfMissing();
 		long dbId = decodeUserId(userId);
-		if (dbId == ROOT_ADMIN_DB_ID) {
+		if (isRootAdminDbId(dbId)) {
 			throw new AccessDeniedException("root_admin");
 		}
 		UserEntity existing = loadEntityById(dbId);
@@ -179,6 +182,9 @@ public class PersistentUserStore implements UserStore {
 	public UserDto disableUser(String userId) {
 		seedRootAdminIfMissing();
 		long dbId = decodeUserId(userId);
+		if (isRootAdminDbId(dbId)) {
+			throw new AccessDeniedException("root_admin");
+		}
 		UserEntity existing = loadEntityById(dbId);
 		existing.setStatus(UserStatus.disabled);
 		existing.setUpdatedAt(clock.instant());
@@ -190,6 +196,9 @@ public class PersistentUserStore implements UserStore {
 	public void resetPassword(String userId) {
 		seedRootAdminIfMissing();
 		long dbId = decodeUserId(userId);
+		if (isRootAdminDbId(dbId)) {
+			throw new AccessDeniedException("root_admin");
+		}
 		UserEntity existing = loadEntityById(dbId);
 		existing.setPasswordHash(passwordHasher.hash(UUID.randomUUID().toString()));
 		existing.setUpdatedAt(clock.instant());
@@ -371,7 +380,7 @@ public class PersistentUserStore implements UserStore {
 	private record PasswordResetTokenRecord(String email, Instant expiresAt) {}
 
 	private void seedRootAdminIfMissing() {
-		if (userRepository.findByEmail(normalizeEmail(rootEmail)).isPresent()) {
+		if (userRepository.findById(ROOT_ADMIN_DB_ID).isPresent()) {
 			return;
 		}
 
@@ -385,6 +394,10 @@ public class PersistentUserStore implements UserStore {
 		root.setCreatedAt(clock.instant());
 		root.setUpdatedAt(clock.instant());
 		userRepository.save(root);
+	}
+
+	private static boolean isRootAdminDbId(long dbId) {
+		return dbId == ROOT_ADMIN_DB_ID;
 	}
 
 	private UserEntity loadEntityById(long dbId) {

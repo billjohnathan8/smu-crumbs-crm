@@ -147,6 +147,9 @@ public class InMemoryUserStore implements UserStore {
 	@Override
 	public UserDto updateUser(String userId, UpdateUserRequest patch) {
 		long dbId = decodeUserId(userId);
+		if (isRootAdminDbId(dbId)) {
+			throw new AccessDeniedException("root_admin");
+		}
 		UserRecord existing = loadByDbId(dbId);
 
 		String newEmail = patch.email() == null ? existing.email() : normalizeEmail(patch.email());
@@ -215,6 +218,9 @@ public class InMemoryUserStore implements UserStore {
 	@Override
 	public UserDto disableUser(String userId) {
 		long dbId = decodeUserId(userId);
+		if (isRootAdminDbId(dbId)) {
+			throw new AccessDeniedException("root_admin");
+		}
 		UserRecord existing = loadByDbId(dbId);
 		Instant now = clock.instant();
 		UserRecord updated = new UserRecord(
@@ -240,6 +246,9 @@ public class InMemoryUserStore implements UserStore {
 	@Override
 	public void resetPassword(String userId) {
 		long dbId = decodeUserId(userId);
+		if (isRootAdminDbId(dbId)) {
+			throw new AccessDeniedException("root_admin");
+		}
 		UserRecord existing = loadByDbId(dbId);
 		Instant now = clock.instant();
 		String newPassword = UUID.randomUUID().toString();
@@ -437,6 +446,10 @@ public class InMemoryUserStore implements UserStore {
 
 	private static long decodeUserId(String userId) {
 		return IdCodec.decode(USER_ID_PREFIX, userId);
+	}
+
+	private static boolean isRootAdminDbId(long dbId) {
+		return dbId == ROOT_ADMIN_DB_ID;
 	}
 
 	private static String encodeUserId(long dbId) {
