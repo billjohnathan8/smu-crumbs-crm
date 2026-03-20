@@ -186,9 +186,8 @@ jobs:
         run: pip install checkov
 
       - name: Run Checkov (security & compliance scan)
-        # --soft-fail reports findings without blocking the pipeline.
-        # Remove --soft-fail once critical findings are resolved and
-        # enforcement is desired on every merge.
+        # CRITICAL and HIGH findings block the pipeline (exit 1).
+        # LOW and MEDIUM findings are reported but non-blocking (--soft-fail).
         timeout-minutes: 5
         run: |
           checkov \
@@ -197,4 +196,5 @@ jobs:
             --output cli \
             --compact \
             --quiet \
-            --soft-fail
+            --soft-fail \
+            --hard-fail-on CRITICAL,HIGH
