@@ -19,7 +19,7 @@
       "name": "app.sftp",
       "type": "com.scroogebank.crm.transaction_service.config.AppProperties$Sftp",
       "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties",
-      "description": "Ingestion polling config. The sftp prefix is retained for deployment compatibility; actual transport is S3-backed."
+      "description": "Legacy-named ingestion polling config. Actual ingestion transport is S3-backed mock ingestion."
     },
     {
       "name": "app.sftp.poll",
@@ -79,43 +79,13 @@
       "name": "app.mock-sftp.root",
       "type": "java.lang.String",
       "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$MockSftp",
-      "description": "Root directory for mock SFTP server"
-    },
-    {
-      "name": "app.sftp.host",
-      "type": "java.lang.String",
-      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$Sftp",
-      "description": "Configured SFTP host"
-    },
-    {
-      "name": "app.sftp.port",
-      "type": "java.lang.Integer",
-      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$Sftp",
-      "description": "Configured SFTP port"
-    },
-    {
-      "name": "app.sftp.username",
-      "type": "java.lang.String",
-      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$Sftp",
-      "description": "Configured SFTP username"
-    },
-    {
-      "name": "app.sftp.password",
-      "type": "java.lang.String",
-      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$Sftp",
-      "description": "Configured SFTP password"
-    },
-    {
-      "name": "app.sftp.private-key-path",
-      "type": "java.lang.String",
-      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$Sftp",
-      "description": "Configured SFTP private key path"
+      "description": "Root directory for local filesystem transaction import files"
     },
     {
       "name": "app.sftp.remote-dir",
       "type": "java.lang.String",
       "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$Sftp",
-      "description": "Remote directory polled for CSV files"
+      "description": "Relative directory or key prefix polled for CSV files"
     },
     {
       "name": "app.sftp.poll.enabled",
@@ -139,7 +109,7 @@
       "name": "app.import-s3.bucket",
       "type": "java.lang.String",
       "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$ImportS3",
-      "description": "Optional S3 bucket used as import source for mock SFTP ingestion"
+      "description": "Optional S3 bucket used as transaction import source"
     },
     {
       "name": "app.import-s3.region",

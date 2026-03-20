@@ -46,6 +46,18 @@ class S3BackedTransactionFileSourceTest {
 	}
 
 	@Test
+	void listCsvFiles_usesFilesystemWhenNoS3BucketConfigured() throws IOException {
+		Files.writeString(tempDir.resolve("b.csv"), "clientId,transaction,amount,date,status\n");
+		Files.writeString(tempDir.resolve("a.csv"), "clientId,transaction,amount,date,status\n");
+		Files.writeString(tempDir.resolve("readme.txt"), "ignored");
+		S3BackedTransactionFileSource client = new S3BackedTransactionFileSource(tempDir);
+
+		List<String> files = client.listCsvFiles(".");
+
+		assertEquals(List.of("a.csv", "b.csv"), files);
+	}
+
+	@Test
 	void openCsvFile_readsFromConfiguredS3BucketWhenFilesystemFileMissing() throws IOException {
 		S3Client s3Client = Mockito.mock(S3Client.class);
 		when(s3Client.getObjectAsBytes(any(GetObjectRequest.class))).thenReturn(csvObject("clt_1,D,10,2026-01-01,Completed\n"));
@@ -99,6 +111,24 @@ class S3BackedTransactionFileSourceTest {
 		verify(s3Client).listObjectsV2(requestCaptor.capture());
 		assertEquals("bucket-a", requestCaptor.getValue().bucket());
 		assertEquals("incoming/", requestCaptor.getValue().prefix());
+	}
+
+	@Test
+	void listCsvFiles_prefersS3WhenBucketIsConfigured() throws IOException {
+		Files.writeString(tempDir.resolve("local.csv"), "clientId,transaction,amount,date,status\n");
+		S3Client s3Client = Mockito.mock(S3Client.class);
+		when(s3Client.listObjectsV2(any(ListObjectsV2Request.class))).thenReturn(
+			ListObjectsV2Response.builder()
+				.contents(S3Object.builder().key("incoming/remote.csv").build())
+				.isTruncated(false)
+				.build()
+		);
+		S3BackedTransactionFileSource client = new S3BackedTransactionFileSource(tempDir, importS3("bucket-a"), s3Client);
+
+		List<String> files = client.listCsvFiles("incoming");
+
+		assertEquals(List.of("s3://bucket-a/incoming/remote.csv"), files);
+		verify(s3Client).listObjectsV2(any(ListObjectsV2Request.class));
 	}
 
 	private static AppProperties.ImportS3 importS3(String bucket) {

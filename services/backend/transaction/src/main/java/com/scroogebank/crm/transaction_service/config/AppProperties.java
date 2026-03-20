@@ -78,8 +78,9 @@ public class AppProperties {
 	}
 
 	/**
-	 * Ingestion polling config. The {@code app.sftp.*} config prefix is retained
-	 * for deployment compatibility; the actual transport is S3-backed (not real SFTP).
+	 * Ingestion polling config.
+	 * The {@code app.sftp.*} prefix is legacy naming retained for compatibility;
+	 * actual ingestion transport is filesystem/S3-backed mock ingestion.
 	 */
 	public static class Sftp {
 		private String remoteDir = ".";

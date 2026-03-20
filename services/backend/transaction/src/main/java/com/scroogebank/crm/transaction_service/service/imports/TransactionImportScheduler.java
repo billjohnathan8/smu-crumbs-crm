@@ -18,8 +18,8 @@ import com.scroogebank.crm.transaction_service.service.TransactionsService;
 /**
  * Periodically polls the configured S3-backed source and imports all visible CSV files.
  *
- * <p>The SFTP requirement is satisfied by reading from an S3 bucket (or local
- * filesystem fallback) — no real SFTP network connection is used.
+ * <p>Official ingestion path: read from S3-backed mock ingestion (or local
+ * filesystem fallback for development). No real SFTP network connection is used.
  */
 @Component
 @ConditionalOnProperty(name = "app.sftp.poll.enabled", havingValue = "true")

@@ -30,14 +30,14 @@ import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
 /**
- * S3-backed transaction file source that mocks the project's SFTP requirement.
+ * Official transaction file source implementation.
  *
  * <p>This implementation intentionally does NOT use a real SFTP network client.
- * It satisfies the SFTP requirement via two modes:
+ * It supports two ingestion modes:
  * <ul>
- *   <li><b>Filesystem mode</b> — reads CSV files from a local directory
+ *   <li><b>Filesystem mode</b> - reads CSV files from a local directory
  *       ({@code app.mock-sftp.root}), used during local development.</li>
- *   <li><b>S3 mode</b> — reads CSV files from an S3 bucket
+ *   <li><b>S3 mode</b> - reads CSV files from an S3 bucket
  *       ({@code app.import-s3.*}), used in deployed/CI environments.</li>
  * </ul>
  *
@@ -269,3 +269,4 @@ public class S3BackedTransactionFileSource implements TransactionFileSource {
 
 	private record S3Location(String bucket, String key) {}
 }
+

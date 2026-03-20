@@ -43,12 +43,8 @@ app:
   client-service-url: ${CLIENT_SERVICE_URL:http://localhost:8080}
   mock-sftp:
     root: ${MOCK_SFTP_ROOT:./mock-sftp}
+  # Legacy naming: app.sftp.* controls polling only. Transport is filesystem/S3 mock ingestion.
   sftp:
-    host: ${TRANSACTION_SFTP_HOST:localhost}
-    port: ${TRANSACTION_SFTP_PORT:22}
-    username: ${TRANSACTION_SFTP_USERNAME:mock_user}
-    password: ${TRANSACTION_SFTP_PASSWORD:mock_password}
-    private-key-path: ${TRANSACTION_SFTP_PRIVATE_KEY_PATH:}
     remote-dir: ${TRANSACTION_SFTP_REMOTE_DIR:.}
     poll:
       enabled: ${TRANSACTION_SFTP_POLL_ENABLED:false}

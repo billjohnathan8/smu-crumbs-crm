@@ -7,9 +7,9 @@ import java.util.List;
 /**
  * Abstraction for reading transaction CSV files from the configured source.
  *
- * <p>The project's SFTP requirement is intentionally satisfied by an S3-backed
- * mock rather than a real network SFTP client. Implementations read from the
- * local filesystem (for dev) or from an S3 bucket (for deployed environments).
+ * <p>Official ingestion contract: filesystem mock files for local development
+ * and S3-backed mock ingestion for deployed environments. No real SFTP network
+ * client is supported by this service.
  */
 public interface TransactionFileSource {
 	List<String> listCsvFiles(String remoteDir) throws IOException;
