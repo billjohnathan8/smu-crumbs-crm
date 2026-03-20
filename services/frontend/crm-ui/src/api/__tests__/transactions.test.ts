@@ -4,9 +4,17 @@ import {
   getTransactionById,
   createTransaction,
   deleteTransaction,
+  startTransactionImport,
+  getTransactionImportBatch,
 } from '../transactions'
 import * as client from '../client'
-import type { Transaction, CreateTransactionRequest, PaginatedResponse } from '../types'
+import type {
+  Transaction,
+  CreateTransactionRequest,
+  PaginatedResponse,
+  ImportBatch,
+  ImportTransactionsRequest,
+} from '../types'
 
 vi.mock('../client')
 
@@ -191,6 +199,81 @@ describe('transactions API', () => {
       await deleteTransaction('txn-123')
 
       expect(client.apiDelete).toHaveBeenCalledWith('/api/transactions/txn-123')
+    })
+  })
+
+  describe('startTransactionImport', () => {
+    it('should trigger transaction import without payload', async () => {
+      const mockBatch: ImportBatch = {
+        importBatchId: 'imp_7',
+        status: 'queued',
+        requestedClientId: null,
+        requestedAt: '2026-03-20T12:00:00Z',
+        startedAt: null,
+        finishedAt: null,
+        totalRecords: 0,
+        importedRecords: 0,
+        failedRecords: 0,
+        errorMessage: null,
+      }
+
+      vi.spyOn(client, 'apiPost').mockResolvedValue(mockBatch)
+
+      const result = await startTransactionImport()
+
+      expect(client.apiPost).toHaveBeenCalledWith('/api/transactions/import', undefined)
+      expect(result).toEqual(mockBatch)
+    })
+
+    it('should trigger transaction import with optional filters', async () => {
+      const payload: ImportTransactionsRequest = {
+        clientId: 'clt_100',
+        sourcePath: '/mock-sftp/transactions-2026-03.csv',
+      }
+
+      const mockBatch: ImportBatch = {
+        importBatchId: 'imp_8',
+        status: 'running',
+        requestedClientId: 'clt_100',
+        requestedAt: '2026-03-20T12:00:00Z',
+        startedAt: '2026-03-20T12:00:01Z',
+        finishedAt: null,
+        totalRecords: 0,
+        importedRecords: 0,
+        failedRecords: 0,
+        errorMessage: null,
+      }
+
+      vi.spyOn(client, 'apiPost').mockResolvedValue(mockBatch)
+
+      const result = await startTransactionImport(payload)
+
+      expect(client.apiPost).toHaveBeenCalledWith('/api/transactions/import', payload)
+      expect(result).toEqual(mockBatch)
+    })
+  })
+
+  describe('getTransactionImportBatch', () => {
+    it('should fetch import batch status by id', async () => {
+      const mockBatch: ImportBatch = {
+        importBatchId: 'imp_9',
+        status: 'completed',
+        requestedClientId: 'clt_100',
+        requestedAt: '2026-03-20T12:00:00Z',
+        startedAt: '2026-03-20T12:00:01Z',
+        finishedAt: '2026-03-20T12:00:02Z',
+        totalRecords: 10,
+        importedRecords: 10,
+        failedRecords: 0,
+        errorMessage: null,
+      }
+
+      vi.spyOn(client, 'apiGet').mockResolvedValue(mockBatch)
+
+      const result = await getTransactionImportBatch('imp_9')
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/transactions/imports/imp_9')
+      expect(result).toEqual(mockBatch)
     })
   })
 })

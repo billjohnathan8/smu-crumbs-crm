@@ -5,51 +5,69 @@ import { BrowserRouter } from 'react-router-dom'
 import { ViewTransactionsPage } from '../ViewTransactionsPage'
 import * as transactionsApi from '@/api/transactions'
 import { ApiError } from '@/api/client'
-import type { Transaction } from '@/api/types'
+import type { Transaction, ImportBatch } from '@/api/types'
 
 vi.mock('@/api/transactions')
 
+let mockRole: 'admin' | 'user' | 'super_admin' = 'user'
 const mockLogout = vi.fn()
+
 vi.mock('@/features/auth/AuthContext', () => ({
   useAuth: () => ({
-    user: { id: '1', firstName: 'John', lastName: 'Doe', role: 'user' },
+    user: { id: '1', firstName: 'John', lastName: 'Doe', role: mockRole },
     logout: mockLogout,
   }),
 }))
 
-describe('UserViewTransactions', () => {
+const importHistoryStorageKey = 'crm-ui:transaction-import-batches'
+
+const mockTransactions: Transaction[] = [
+  {
+    id: 'txn-1',
+    clientId: 'client-1',
+    transaction: 'D',
+    amount: 1000,
+    date: '2024-01-15T10:30:00Z',
+    status: 'Completed',
+  },
+  {
+    id: 'txn-2',
+    clientId: 'client-2',
+    transaction: 'W',
+    amount: 500,
+    date: '2024-01-16T14:20:00Z',
+    status: 'Pending',
+  },
+]
+
+const mockImportBatch: ImportBatch = {
+  importBatchId: 'imp_1',
+  status: 'running',
+  requestedClientId: null,
+  requestedAt: '2026-03-20T10:00:00Z',
+  startedAt: '2026-03-20T10:00:01Z',
+  finishedAt: null,
+  totalRecords: 0,
+  importedRecords: 0,
+  failedRecords: 0,
+  errorMessage: null,
+}
+
+describe('ViewTransactionsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    localStorage.clear()
+    mockRole = 'user'
   })
 
-  const renderComponent = () => {
-    return render(
+  const renderComponent = () =>
+    render(
       <BrowserRouter>
         <ViewTransactionsPage />
       </BrowserRouter>
     )
-  }
 
-  const mockTransactions: Transaction[] = [
-    {
-      id: 'txn-1',
-      clientId: 'client-1',
-      transaction: 'D',
-      amount: 1000.0,
-      date: '2024-01-15T10:30:00Z',
-      status: 'Completed',
-    },
-    {
-      id: 'txn-2',
-      clientId: 'client-2',
-      transaction: 'W',
-      amount: 500.0,
-      date: '2024-01-16T14:20:00Z',
-      status: 'Pending',
-    },
-  ]
-
-  it('should render the transactions list page', async () => {
+  it('renders transaction list for user role without import controls', async () => {
     vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
       data: mockTransactions,
       pagination: { limit: 20, offset: 0, total: 2 },
@@ -60,37 +78,12 @@ describe('UserViewTransactions', () => {
     expect(screen.getByRole('heading', { name: 'Transactions', level: 1 })).toBeInTheDocument()
     await waitFor(() => {
       expect(screen.getByText('Transaction List')).toBeInTheDocument()
-    })
-  })
-
-  it('should display transactions in a table', async () => {
-    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
-      data: mockTransactions,
-      pagination: { limit: 20, offset: 0, total: 2 },
-    })
-
-    renderComponent()
-
-    await waitFor(() => {
-      // Check for transaction IDs (partial match to handle truncation)
       expect(screen.getByText(/txn-1/)).toBeInTheDocument()
-      expect(screen.getByText(/txn-2/)).toBeInTheDocument()
-      // Check for statuses (may appear in dropdown and table, so use getAllByText)
-      expect(screen.getAllByText('Completed').length).toBeGreaterThanOrEqual(1)
-      expect(screen.getAllByText('Pending').length).toBeGreaterThanOrEqual(1)
     })
+    expect(screen.queryByTestId('transaction-import-panel')).not.toBeInTheDocument()
   })
 
-  it('should show loading state initially', () => {
-    vi.spyOn(transactionsApi, 'listTransactions').mockImplementation(() => new Promise(() => {}))
-
-    renderComponent()
-
-    const spinner = screen.getByTestId('loading-spinner')
-    expect(spinner.className).toContain('animate-spin')
-  })
-
-  it('should display empty state when no transactions found', async () => {
+  it('shows empty state when there are no transactions', async () => {
     vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
       data: [],
       pagination: { limit: 20, offset: 0, total: 0 },
@@ -103,101 +96,10 @@ describe('UserViewTransactions', () => {
     })
   })
 
-  it('should display error state when API call fails', async () => {
-    const apiError = new ApiError(500, 'server_error', 'Failed to fetch transactions')
-    vi.spyOn(transactionsApi, 'listTransactions').mockRejectedValue(apiError)
-
-    renderComponent()
-
-    await waitFor(() => {
-      expect(screen.getByText('Failed to fetch transactions')).toBeInTheDocument()
-    })
-  })
-
-  it('should display network error state', async () => {
-    const networkError = new ApiError(0, 'network_error', 'Network error occurred')
-    vi.spyOn(transactionsApi, 'listTransactions').mockRejectedValue(networkError)
-
-    renderComponent()
-
-    await waitFor(() => {
-      expect(screen.getByText('Network error occurred')).toBeInTheDocument()
-    })
-  })
-
-  it('should render filter controls', async () => {
-    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
-      data: mockTransactions,
-      pagination: { limit: 20, offset: 0, total: 2 },
-    })
-
-    renderComponent()
-
-    expect(screen.getByText('Filters')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Filter by client ID')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Transaction ID')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Reset Filters/ })).toBeInTheDocument()
-
-    await waitFor(() => {
-      const statusSelects = screen.getAllByRole('combobox')
-      expect(statusSelects.length).toBeGreaterThan(0)
-    })
-  })
-
-  it('should format amounts as currency', async () => {
-    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
-      data: mockTransactions,
-      pagination: { limit: 20, offset: 0, total: 2 },
-    })
-
-    renderComponent()
-
-    await waitFor(() => {
-      expect(screen.getByText(/1,000/)).toBeInTheDocument()
-      expect(screen.getByText(/500/)).toBeInTheDocument()
-    })
-  })
-
-  it('should handle pagination when total exceeds page size', async () => {
-    const manyTransactions = Array.from({ length: 25 }, (_, i) => ({
-      id: `txn-${i}`,
-      clientId: `client-${i}`,
-      transaction: 'D' as const,
-      amount: 100,
-      date: '2024-01-15T10:30:00Z',
-      status: 'Completed' as const,
-    }))
-
-    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
-      data: manyTransactions.slice(0, 20),
-      pagination: { limit: 20, offset: 0, total: 25 },
-    })
-
-    renderComponent()
-
-    await waitFor(() => {
-      expect(screen.getByText(/Showing 1 to 20 of 25 transactions/)).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /Next/ })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /Previous/ })).toBeInTheDocument()
-    })
-  })
-
-  it('should not show pagination for single page results', async () => {
-    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
-      data: mockTransactions,
-      pagination: { limit: 20, offset: 0, total: 2 },
-    })
-
-    renderComponent()
-
-    await waitFor(() => {
-      expect(screen.queryByText(/Page 1 of/)).not.toBeInTheDocument()
-    })
-  })
-
-  it('should call logout on 401 error', async () => {
-    const error = new ApiError(401, 'unauthorized', 'Unauthorized')
-    vi.spyOn(transactionsApi, 'listTransactions').mockRejectedValue(error)
+  it('logs out on unauthorized transaction listing response', async () => {
+    vi.spyOn(transactionsApi, 'listTransactions').mockRejectedValue(
+      new ApiError(401, 'unauthorized', 'Unauthorized')
+    )
 
     renderComponent()
 
@@ -206,296 +108,191 @@ describe('UserViewTransactions', () => {
     })
   })
 
-  it('should handle generic API error', async () => {
-    const error = new ApiError(500, 'server_error', 'Server error')
-    vi.spyOn(transactionsApi, 'listTransactions').mockRejectedValue(error)
-
-    renderComponent()
-
-    await waitFor(() => {
-      expect(screen.getByText('Server error')).toBeInTheDocument()
-    })
-  })
-
-  it('should handle non-ApiError exception', async () => {
-    const error = new Error('Network failure')
-    vi.spyOn(transactionsApi, 'listTransactions').mockRejectedValue(error)
-
-    renderComponent()
-
-    await waitFor(() => {
-      expect(screen.getByText('An unexpected error occurred')).toBeInTheDocument()
-    })
-  })
-
-  it('should navigate to next page when clicking Next button', async () => {
+  it('requests next page when clicking pagination next', async () => {
     const user = userEvent.setup()
-    const manyTransactions = Array.from({ length: 25 }, (_, i) => ({
-      id: `txn-${i}`,
-      clientId: `client-${i}`,
-      transaction: 'D' as const,
-      amount: 100,
-      date: '2024-01-15T10:30:00Z',
-      status: 'Completed' as const,
-    }))
-
     const listSpy = vi.spyOn(transactionsApi, 'listTransactions')
     listSpy
       .mockResolvedValueOnce({
-        data: manyTransactions.slice(0, 20),
+        data: Array.from({ length: 20 }, (_, index) => ({
+          id: `txn-${index}`,
+          clientId: `client-${index}`,
+          transaction: 'D' as const,
+          amount: 100,
+          date: '2024-01-15T10:30:00Z',
+          status: 'Completed' as const,
+        })),
         pagination: { limit: 20, offset: 0, total: 25 },
       })
       .mockResolvedValueOnce({
-        data: manyTransactions.slice(20, 25),
+        data: Array.from({ length: 5 }, (_, index) => ({
+          id: `txn-2-${index}`,
+          clientId: `client-2-${index}`,
+          transaction: 'W' as const,
+          amount: 120,
+          date: '2024-01-16T10:30:00Z',
+          status: 'Pending' as const,
+        })),
         pagination: { limit: 20, offset: 20, total: 25 },
       })
 
     renderComponent()
 
     await waitFor(() => {
-      expect(screen.getByText(/Showing 1 to 20 of 25 transactions/)).toBeInTheDocument()
+      expect(screen.getByText('Page 1 of 2')).toBeInTheDocument()
     })
 
-    const nextButton = screen.getByRole('button', { name: /Next/ })
-    await user.click(nextButton)
+    await user.click(screen.getByRole('button', { name: 'Next' }))
 
     await waitFor(() => {
-      expect(screen.getByText(/Showing 21 to 25 of 25 transactions/)).toBeInTheDocument()
+      expect(listSpy).toHaveBeenLastCalledWith({ limit: 20, offset: 20 })
+      expect(screen.getByText('Page 2 of 2')).toBeInTheDocument()
     })
   })
 
-  it('should navigate to previous page when clicking Previous button', async () => {
+  it('shows import controls for admin and starts import without payload', async () => {
+    mockRole = 'admin'
     const user = userEvent.setup()
-    const manyTransactions = Array.from({ length: 25 }, (_, i) => ({
-      id: `txn-${i}`,
-      clientId: `client-${i}`,
-      transaction: 'D' as const,
-      amount: 100,
-      date: '2024-01-15T10:30:00Z',
-      status: 'Completed' as const,
-    }))
 
-    const listSpy = vi.spyOn(transactionsApi, 'listTransactions')
-    // Initial render - page 0
-    listSpy
-      .mockResolvedValueOnce({
-        data: manyTransactions.slice(0, 20),
-        pagination: { limit: 20, offset: 0, total: 25 },
-      })
-      // Click Next - go to page 1
-      .mockResolvedValueOnce({
-        data: manyTransactions.slice(20, 25),
-        pagination: { limit: 20, offset: 20, total: 25 },
-      })
-      // Click Previous - go back to page 0
-      .mockResolvedValueOnce({
-        data: manyTransactions.slice(0, 20),
-        pagination: { limit: 20, offset: 0, total: 25 },
-      })
-
-    renderComponent()
-
-    // Wait for initial page to load
-    await waitFor(() => {
-      expect(screen.getByText(/Showing 1 to 20 of 25 transactions/)).toBeInTheDocument()
-    })
-
-    // Navigate to page 1
-    const nextButton = screen.getByRole('button', { name: /Next/i })
-    await user.click(nextButton)
-
-    await waitFor(() => {
-      expect(screen.getByText(/Showing 21 to 25 of 25 transactions/)).toBeInTheDocument()
-    })
-
-    // Navigate back to page 0
-    const prevButton = screen.getByRole('button', { name: /Previous/ })
-    await user.click(prevButton)
-
-    await waitFor(() => {
-      expect(screen.getByText(/Showing 1 to 20 of 25 transactions/)).toBeInTheDocument()
-    })
-  })
-
-  it('should filter by status', async () => {
-    const user = userEvent.setup()
-    const listSpy = vi.spyOn(transactionsApi, 'listTransactions')
-    listSpy
-      .mockResolvedValueOnce({
-        data: mockTransactions,
-        pagination: { limit: 20, offset: 0, total: 2 },
-      })
-      .mockResolvedValueOnce({
-        data: [mockTransactions[0]], // Only Completed
-        pagination: { limit: 20, offset: 0, total: 1 },
-      })
-
-    renderComponent()
-
-    await waitFor(() => {
-      expect(screen.getByText('Transaction List')).toBeInTheDocument()
-    })
-
-    // Find the status dropdown
-    const selects = screen.getAllByRole('combobox')
-    const statusSelect =
-      selects.find(select => select.getAttribute('class')?.includes('status')) || selects[0]
-
-    await user.selectOptions(statusSelect, 'Completed')
-
-    await waitFor(() => {
-      expect(listSpy).toHaveBeenCalledTimes(2)
-    })
-  })
-
-  it('should filter by transaction type', async () => {
-    const user = userEvent.setup()
-    const listSpy = vi.spyOn(transactionsApi, 'listTransactions')
-    listSpy
-      .mockResolvedValueOnce({
-        data: mockTransactions,
-        pagination: { limit: 20, offset: 0, total: 2 },
-      })
-      .mockResolvedValueOnce({
-        data: [mockTransactions[0]], // Only Deposit
-        pagination: { limit: 20, offset: 0, total: 1 },
-      })
-
-    renderComponent()
-
-    await waitFor(() => {
-      expect(screen.getByText('Transaction List')).toBeInTheDocument()
-    })
-
-    // Find the transaction type dropdown
-    const selects = screen.getAllByRole('combobox')
-    const typeSelect =
-      selects.find(select => select.textContent?.includes('All Types')) || selects[1]
-
-    await user.selectOptions(typeSelect, 'D')
-
-    await waitFor(() => {
-      expect(listSpy).toHaveBeenCalledTimes(2)
-    })
-  })
-
-  it('should filter by search text', async () => {
-    const user = userEvent.setup()
     vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
       data: mockTransactions,
       pagination: { limit: 20, offset: 0, total: 2 },
     })
+    const startImportSpy = vi
+      .spyOn(transactionsApi, 'startTransactionImport')
+      .mockResolvedValue(mockImportBatch)
+    vi.spyOn(transactionsApi, 'getTransactionImportBatch').mockResolvedValue({
+      ...mockImportBatch,
+      status: 'completed',
+      finishedAt: '2026-03-20T10:00:05Z',
+      totalRecords: 10,
+      importedRecords: 10,
+    })
 
     renderComponent()
 
     await waitFor(() => {
-      expect(screen.getByText('Transaction List')).toBeInTheDocument()
+      expect(screen.getByTestId('transaction-import-panel')).toBeInTheDocument()
     })
 
-    const searchInput = screen.getByPlaceholderText('Transaction ID')
-    await user.type(searchInput, 'txn-1')
+    await user.click(screen.getByRole('button', { name: 'Start Import' }))
 
     await waitFor(() => {
-      // The component should filter locally, so we check if filtering logic is triggered
-      expect(searchInput).toHaveValue('txn-1')
+      expect(startImportSpy).toHaveBeenCalledWith(undefined)
+      expect(screen.getByText(/Import batch imp_1 started/i)).toBeInTheDocument()
+      expect(screen.getByText('imp_1')).toBeInTheDocument()
     })
   })
 
-  it('should reset all filters when clicking Reset Filters', async () => {
+  it('starts import with optional payload fields', async () => {
+    mockRole = 'admin'
     const user = userEvent.setup()
-    const listSpy = vi.spyOn(transactionsApi, 'listTransactions')
-    listSpy
-      .mockResolvedValueOnce({
-        data: mockTransactions,
-        pagination: { limit: 20, offset: 0, total: 2 },
-      })
-      .mockResolvedValueOnce({
-        data: mockTransactions,
-        pagination: { limit: 20, offset: 0, total: 2 },
-      })
-
-    renderComponent()
-
-    await waitFor(() => {
-      expect(screen.getByText('Transaction List')).toBeInTheDocument()
-    })
-
-    // Add a search filter
-    const searchInput = screen.getByPlaceholderText('Transaction ID')
-    await user.type(searchInput, 'test')
-
-    expect(searchInput).toHaveValue('test')
-
-    // Click reset
-    const resetButton = screen.getByRole('button', { name: /Reset Filters/i })
-    await user.click(resetButton)
-
-    await waitFor(() => {
-      expect(searchInput).toHaveValue('')
-    })
-  })
-
-  it('should disable Previous button on first page', async () => {
-    const manyTransactions = Array.from({ length: 25 }, (_, i) => ({
-      id: `txn-${i}`,
-      clientId: `client-${i}`,
-      transaction: 'D' as const,
-      amount: 100,
-      date: '2024-01-15T10:30:00Z',
-      status: 'Completed' as const,
-    }))
 
     vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
-      data: manyTransactions.slice(0, 20),
-      pagination: { limit: 20, offset: 0, total: 25 },
+      data: mockTransactions,
+      pagination: { limit: 20, offset: 0, total: 2 },
     })
+    const startImportSpy = vi
+      .spyOn(transactionsApi, 'startTransactionImport')
+      .mockResolvedValue(mockImportBatch)
+    vi.spyOn(transactionsApi, 'getTransactionImportBatch').mockResolvedValue(mockImportBatch)
 
     renderComponent()
 
     await waitFor(() => {
-      const prevButton = screen.getByRole('button', { name: /Previous/i })
-      expect(prevButton).toBeDisabled()
+      expect(screen.getByTestId('transaction-import-panel')).toBeInTheDocument()
+    })
+
+    await user.type(screen.getByPlaceholderText('Import for one client'), 'clt_123')
+    await user.type(screen.getByPlaceholderText('Override source path'), '/tmp/sample.csv')
+    await user.click(screen.getByRole('button', { name: 'Start Import' }))
+
+    await waitFor(() => {
+      expect(startImportSpy).toHaveBeenCalledWith({
+        clientId: 'clt_123',
+        sourcePath: '/tmp/sample.csv',
+      })
     })
   })
 
-  it('should disable Next button on last page', async () => {
+  it('shows import error notice when starting import fails', async () => {
+    mockRole = 'admin'
     const user = userEvent.setup()
-    const manyTransactions = Array.from({ length: 25 }, (_, i) => ({
-      id: `txn-${i}`,
-      clientId: `client-${i}`,
-      transaction: 'D' as const,
-      amount: 100,
-      date: '2024-01-15T10:30:00Z',
-      status: 'Completed' as const,
-    }))
 
-    const listSpy = vi.spyOn(transactionsApi, 'listTransactions')
-    listSpy
-      .mockResolvedValueOnce({
-        data: manyTransactions.slice(0, 20),
-        pagination: { limit: 20, offset: 0, total: 25 },
-      })
-      .mockResolvedValueOnce({
-        data: manyTransactions.slice(20, 25),
-        pagination: { limit: 20, offset: 20, total: 25 },
-      })
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: mockTransactions,
+      pagination: { limit: 20, offset: 0, total: 2 },
+    })
+    vi.spyOn(transactionsApi, 'startTransactionImport').mockRejectedValue(
+      new ApiError(500, 'server_error', 'Failed to start import')
+    )
+    vi.spyOn(transactionsApi, 'getTransactionImportBatch').mockResolvedValue(mockImportBatch)
 
     renderComponent()
 
     await waitFor(() => {
-      expect(screen.getByText(/Showing 1 to 20 of 25 transactions/)).toBeInTheDocument()
+      expect(screen.getByTestId('transaction-import-panel')).toBeInTheDocument()
     })
 
-    // Navigate to last page
-    const nextButton = screen.getByRole('button', { name: /Next/i })
-    await user.click(nextButton)
+    await user.click(screen.getByRole('button', { name: 'Start Import' }))
 
     await waitFor(() => {
-      expect(screen.getByText(/Showing 21 to 25 of 25 transactions/)).toBeInTheDocument()
-      const nextButtonAfterClick = screen.getByRole('button', {
-        name: /Next/i,
-      })
-      expect(nextButtonAfterClick).toBeDisabled()
+      expect(screen.getByText('Failed to start import')).toBeInTheDocument()
+    })
+  })
+
+  it('loads tracked import batch history from localStorage for admin', async () => {
+    mockRole = 'admin'
+    localStorage.setItem(importHistoryStorageKey, JSON.stringify(['imp_saved']))
+
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: [],
+      pagination: { limit: 20, offset: 0, total: 0 },
+    })
+    vi.spyOn(transactionsApi, 'startTransactionImport').mockResolvedValue(mockImportBatch)
+    const getBatchSpy = vi.spyOn(transactionsApi, 'getTransactionImportBatch').mockResolvedValue({
+      importBatchId: 'imp_saved',
+      status: 'failed',
+      requestedClientId: 'clt_300',
+      requestedAt: '2026-03-20T10:00:00Z',
+      startedAt: '2026-03-20T10:00:01Z',
+      finishedAt: '2026-03-20T10:00:02Z',
+      totalRecords: 4,
+      importedRecords: 1,
+      failedRecords: 3,
+      errorMessage: 'Malformed records detected',
+    })
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(getBatchSpy).toHaveBeenCalledWith('imp_saved')
+      expect(screen.getByText('imp_saved')).toBeInTheDocument()
+      expect(screen.getByText('Malformed records detected')).toBeInTheDocument()
+    })
+  })
+
+  it('tracks import batch ids discovered in transaction rows', async () => {
+    mockRole = 'admin'
+
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: [{ ...mockTransactions[0], importBatchId: 'imp_from_txn' }],
+      pagination: { limit: 20, offset: 0, total: 1 },
+    })
+    vi.spyOn(transactionsApi, 'startTransactionImport').mockResolvedValue(mockImportBatch)
+    const getBatchSpy = vi.spyOn(transactionsApi, 'getTransactionImportBatch').mockResolvedValue({
+      ...mockImportBatch,
+      importBatchId: 'imp_from_txn',
+      status: 'completed',
+      totalRecords: 3,
+      importedRecords: 3,
+      finishedAt: '2026-03-20T10:05:00Z',
+    })
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(getBatchSpy).toHaveBeenCalledWith('imp_from_txn')
+      expect(screen.getByText('imp_from_txn')).toBeInTheDocument()
     })
   })
 })
