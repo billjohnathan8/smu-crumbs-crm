@@ -71,6 +71,17 @@ tasks.named('jacocoTestReport') {
 	}
 }
 
+tasks.named('jacocoTestCoverageVerification') {
+	dependsOn tasks.named('jacocoTestReport')
+	violationRules {
+		rule {
+			limit {
+				minimum = 0.50
+			}
+		}
+	}
+}
+
 tasks.named('assemble') {
 	mustRunAfter tasks.named('checkstyleMain'), tasks.named('checkstyleTest')
 }
@@ -94,6 +105,6 @@ tasks.named('jar') {
 tasks.register('localTestPipeline') {
 	group = 'verification'
 	description = 'Runs lint, build, tests, and coverage reports for local CI.'
-	dependsOn 'checkstyleMain', 'checkstyleTest', 'assemble', 'test', 'jacocoTestReport'
+	dependsOn 'checkstyleMain', 'checkstyleTest', 'assemble', 'test', 'jacocoTestReport', 'jacocoTestCoverageVerification'
 }
 
