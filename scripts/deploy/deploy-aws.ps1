@@ -100,9 +100,62 @@ function Invoke-Tf([string[]]$tfArgs) {
     }
 }
 
+function Invoke-Aws {
+    param(
+        [string[]]$AwsArgs,
+        [switch]$AllowFailure,
+        [switch]$CaptureOutput
+    )
+
+    $full = @($AwsArgs | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if ($full.Count -eq 0) {
+        Write-Host "[ERROR] AWS command failed: no arguments supplied"
+        exit 1
+    }
+
+    $out = $null
+    $code = 0
+    $stderrText = ""
+    $stdoutFile = [System.IO.Path]::GetTempFileName()
+    $stderrFile = [System.IO.Path]::GetTempFileName()
+
+    try {
+        $proc = Start-Process -FilePath "aws" `
+            -ArgumentList $full `
+            -NoNewWindow `
+            -Wait `
+            -PassThru `
+            -RedirectStandardOutput $stdoutFile `
+            -RedirectStandardError $stderrFile
+
+        $code = $proc.ExitCode
+        if ($CaptureOutput -and (Test-Path $stdoutFile)) {
+            $out = Get-Content -LiteralPath $stdoutFile -Raw
+        }
+        if (Test-Path $stderrFile) {
+            $stderrText = Get-Content -LiteralPath $stderrFile -Raw
+        }
+    } finally {
+        if (Test-Path $stdoutFile) { Remove-Item -LiteralPath $stdoutFile -ErrorAction SilentlyContinue }
+        if (Test-Path $stderrFile) { Remove-Item -LiteralPath $stderrFile -ErrorAction SilentlyContinue }
+    }
+
+    if ($code -ne 0 -and -not $AllowFailure) {
+        $errSuffix = ""
+        if (-not [string]::IsNullOrWhiteSpace($stderrText)) {
+            $errSuffix = ": " + $stderrText.Trim()
+        }
+        Write-Host "[ERROR] AWS command failed: aws $($full -join ' ') (exit $code)$errSuffix"
+        exit $code
+    }
+
+    if ($CaptureOutput) { return ,$out }
+    return $code
+}
+
 function Test-AwsCreds {
-    $null = aws sts get-caller-identity 2>&1
-    return $LASTEXITCODE -eq 0
+    $code = Invoke-Aws -AwsArgs @("sts", "get-caller-identity") -AllowFailure
+    return $code -eq 0
 }
 
 # ---------------------------------------------------------------------------
@@ -192,7 +245,8 @@ if ($Env -eq "lab") {
 
 Write-Host ""
 Write-Host "[OK] Credentials valid:"
-aws sts get-caller-identity
+$callerJson = Invoke-Aws -AwsArgs @("sts", "get-caller-identity", "--output", "json") -CaptureOutput
+Write-Host $callerJson
 
 # ---------------------------------------------------------------------------
 # 3. Sensitive Terraform variables (jwt_hmac_secret, root_admin_password)

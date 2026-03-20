@@ -18,7 +18,7 @@ resource "aws_ecs_task_definition" "service" {
 
   container_definitions = templatefile(local.task_definition_template, {
     container_name    = each.key
-    image             = "${var.ecr_repository_url}:${each.value.image_tag}"
+    image             = "${var.ecr_repository_urls[each.key]}:${each.value.image_tag}"
     container_port    = 8080
     environment_json  = jsonencode(each.value.environment)
     secrets_json      = jsonencode(each.value.secrets)

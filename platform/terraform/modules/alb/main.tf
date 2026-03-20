@@ -53,6 +53,25 @@ resource "aws_lb_target_group" "service" {
   }
 }
 
+resource "aws_lb_target_group" "service_green" {
+  for_each = local.service_routing
+
+  name        = trim(substr("${var.name_prefix}-${each.key}-tg-green", 0, 32), "-")
+  port        = 8080
+  protocol    = "HTTP"
+  target_type = "ip"
+  vpc_id      = var.vpc_id
+
+  health_check {
+    path                = var.service_health_check_path
+    matcher             = "200"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+  }
+}
+
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.crm.arn
   port              = 80

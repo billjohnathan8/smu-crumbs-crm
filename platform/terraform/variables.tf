@@ -79,6 +79,12 @@ variable "ecr_repository_name" {
   default     = ""
 }
 
+variable "ecr_repository_names" {
+  description = "Optional explicit ECR repository names keyed by service (user, client, transaction)."
+  type        = map(string)
+  default     = {}
+}
+
 #--------------------------------------------------------------
 # ECS Service Image Tags
 #--------------------------------------------------------------
@@ -816,6 +822,12 @@ variable "alarm_notification_topic_arn" {
   description = "Existing SNS topic ARN for CloudWatch alarm notifications. Leave empty to create and use the repo-managed alarm topic."
   type        = string
   default     = ""
+}
+
+variable "enable_codedeploy" {
+  description = "Create CodeDeploy applications and deployment groups for ECS and Lambda services."
+  type        = bool
+  default     = true
 }
 
 #--------------------------------------------------------------

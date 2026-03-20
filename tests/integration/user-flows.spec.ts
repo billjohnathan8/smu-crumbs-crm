@@ -126,7 +126,7 @@ test.describe("User Flow (Integration)", () => {
     await expect(page).toHaveURL(/\/user$/);
 
     // Wait for stats/data to load from real backend
-    await expect(page.getByText("My Clients")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("heading", { name: "My Clients" })).toBeVisible({ timeout: 10000 });
   });
 
   test("should navigate to create client page", async ({ page }) => {

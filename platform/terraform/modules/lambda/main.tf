@@ -22,6 +22,7 @@ resource "aws_lambda_function" "log" {
   runtime          = "python3.13"
   memory_size      = var.log_lambda_memory_size
   timeout          = var.log_lambda_timeout_seconds
+  publish          = true
 
   vpc_config {
     subnet_ids         = var.private_subnet_ids
@@ -64,6 +65,7 @@ resource "aws_lambda_function" "aml" {
   runtime          = "python3.13"
   memory_size      = var.aml_lambda_memory_size
   timeout          = var.aml_lambda_timeout_seconds
+  publish          = true
 
   environment {
     variables = {
@@ -131,6 +133,7 @@ resource "aws_lambda_function" "transaction_ingestion" {
   runtime          = "python3.13"
   memory_size      = var.transaction_ingestion_lambda_memory_size
   timeout          = var.transaction_ingestion_lambda_timeout_seconds
+  publish          = true
 
   environment {
     variables = {
@@ -270,6 +273,7 @@ resource "aws_lambda_function" "verification" {
   runtime          = "python3.13"
   memory_size      = var.verification_memory_size
   timeout          = var.verification_timeout_seconds
+  publish          = true
 
   environment {
     variables = {
@@ -301,4 +305,37 @@ resource "aws_sns_topic_subscription" "verification_feedback" {
   endpoint  = aws_lambda_function.verification[0].arn
 
   depends_on = [aws_lambda_permission.allow_sns_invoke_verification]
+}
+
+# Stable aliases for safe Lambda traffic shifting via CodeDeploy
+resource "aws_lambda_alias" "log_live" {
+  count = var.enable_log_lambda ? 1 : 0
+
+  name             = "live"
+  function_name    = aws_lambda_function.log[0].function_name
+  function_version = aws_lambda_function.log[0].version
+}
+
+resource "aws_lambda_alias" "aml_live" {
+  count = var.enable_aml_lambda ? 1 : 0
+
+  name             = "live"
+  function_name    = aws_lambda_function.aml[0].function_name
+  function_version = aws_lambda_function.aml[0].version
+}
+
+resource "aws_lambda_alias" "transaction_ingestion_live" {
+  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+
+  name             = "live"
+  function_name    = aws_lambda_function.transaction_ingestion[0].function_name
+  function_version = aws_lambda_function.transaction_ingestion[0].version
+}
+
+resource "aws_lambda_alias" "verification_live" {
+  count = var.enable_verification_lambda ? 1 : 0
+
+  name             = "live"
+  function_name    = aws_lambda_function.verification[0].function_name
+  function_version = aws_lambda_function.verification[0].version
 }

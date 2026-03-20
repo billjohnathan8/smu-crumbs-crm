@@ -28,10 +28,10 @@ on:
         required: true
       AWS_REGION:
         required: true
-      FRONTEND_S3_BUCKET:
+      TF_FRONTEND_BUCKET_NAME:
         required: true
-      CLOUDFRONT_DISTRIBUTION_ID:
-        required: true
+      TF_CLOUDFRONT_DISTRIBUTION_ID:
+        required: false
 
 permissions:
   contents: read
@@ -45,6 +45,7 @@ jobs:
 
     env:
       AWS_REGION: ${{ secrets.AWS_REGION }}
+      TF_CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.TF_CLOUDFRONT_DISTRIBUTION_ID }}
 
     steps:
       - name: Checkout code
@@ -55,8 +56,7 @@ jobs:
         run: |
           test -n "${{ secrets.AWS_ROLE_ARN }}"
           test -n "${{ secrets.AWS_REGION }}"
-          test -n "${{ secrets.FRONTEND_S3_BUCKET }}"
-          test -n "${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}"
+          test -n "${{ secrets.TF_FRONTEND_BUCKET_NAME }}"
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -95,18 +95,29 @@ jobs:
         run: |
           aws s3 sync \
             "${{ inputs.working_directory }}/${{ inputs.build_output_dir }}/" \
-            "s3://${{ secrets.FRONTEND_S3_BUCKET }}/" \
+            "s3://${{ secrets.TF_FRONTEND_BUCKET_NAME }}/" \
             --delete
 
       - name: Invalidate CloudFront cache
+        if: env.TF_CLOUDFRONT_DISTRIBUTION_ID != ''
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id "${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --distribution-id "${TF_CLOUDFRONT_DISTRIBUTION_ID}" \
             --paths ${{ inputs.cloudfront_invalidation_paths }}
+
+      - name: Skip CloudFront invalidation
+        if: env.TF_CLOUDFRONT_DISTRIBUTION_ID == ''
+        run: |
+          echo "No CloudFront distribution ID was provided by Terraform contract; skipping invalidation."
 
       - name: Deployment summary
         run: |
           echo "Frontend directory: ${{ inputs.working_directory }}"
           echo "Build output: ${{ inputs.build_output_dir }}"
-          echo "Synced to: s3://${{ secrets.FRONTEND_S3_BUCKET }}/"
-          echo "CloudFront invalidation paths: ${{ inputs.cloudfront_invalidation_paths }}"
+          echo "Synced to: s3://${{ secrets.TF_FRONTEND_BUCKET_NAME }}/"
+          if [[ -n "${TF_CLOUDFRONT_DISTRIBUTION_ID}" ]]; then
+            echo "CloudFront distribution: ${TF_CLOUDFRONT_DISTRIBUTION_ID}"
+            echo "CloudFront invalidation paths: ${{ inputs.cloudfront_invalidation_paths }}"
+          else
+            echo "CloudFront distribution: <none>"
+          fi

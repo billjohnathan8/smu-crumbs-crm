@@ -19,6 +19,12 @@ on:
         required: true
       LAMBDA_ARTIFACT_BUCKET:
         required: true
+      TF_LAMBDA_FUNCTION_NAMES_JSON:
+        required: true
+      TF_CODEDEPLOY_LAMBDA_APPLICATION_NAME:
+        required: true
+      TF_CODEDEPLOY_LAMBDA_DEPLOYMENT_GROUP_NAMES_JSON:
+        required: true
 
 permissions:
   contents: read
@@ -35,6 +41,9 @@ jobs:
       LAMBDA_ARTIFACT_BUCKET: ${{ secrets.LAMBDA_ARTIFACT_BUCKET }}
       LAMBDA_SERVICE_NAME: ${{ inputs.service }}
       LAMBDA_WORKING_DIRECTORY: services/backend/${{ inputs.service }}
+      LAMBDA_FUNCTION_NAMES_JSON: ${{ secrets.TF_LAMBDA_FUNCTION_NAMES_JSON }}
+      CODEDEPLOY_LAMBDA_APPLICATION_NAME: ${{ secrets.TF_CODEDEPLOY_LAMBDA_APPLICATION_NAME }}
+      CODEDEPLOY_LAMBDA_DEPLOYMENT_GROUP_NAMES_JSON: ${{ secrets.TF_CODEDEPLOY_LAMBDA_DEPLOYMENT_GROUP_NAMES_JSON }}
 
     steps:
       - name: Checkout code
@@ -46,6 +55,48 @@ jobs:
           test -n "${{ secrets.AWS_ROLE_ARN }}"
           test -n "${{ secrets.AWS_REGION }}"
           test -n "${{ secrets.LAMBDA_ARTIFACT_BUCKET }}"
+          test -n "${{ secrets.TF_LAMBDA_FUNCTION_NAMES_JSON }}"
+          test -n "${{ secrets.TF_CODEDEPLOY_LAMBDA_APPLICATION_NAME }}"
+          test -n "${{ secrets.TF_CODEDEPLOY_LAMBDA_DEPLOYMENT_GROUP_NAMES_JSON }}"
+
+      - name: Resolve Terraform deployment metadata
+        id: metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SERVICE="${LAMBDA_SERVICE_NAME}"
+          SERVICE_UNDERSCORE="${SERVICE//-/_}"
+          SERVICE_TRIMMED="${SERVICE%-lambda}"
+          SERVICE_TRIMMED_UNDERSCORE="${SERVICE_TRIMMED//-/_}"
+
+          resolve_map_value() {
+            local json_payload="$1"
+            local value
+            for key in "$SERVICE" "$SERVICE_UNDERSCORE" "$SERVICE_TRIMMED" "$SERVICE_TRIMMED_UNDERSCORE"; do
+              value="$(jq -er --arg key "$key" '.[$key] // empty' <<< "$json_payload" 2>/dev/null || true)"
+              if [[ -n "$value" && "$value" != "null" ]]; then
+                echo "$value"
+                return 0
+              fi
+            done
+            return 1
+          }
+
+          FUNCTION_NAME="$(resolve_map_value "$LAMBDA_FUNCTION_NAMES_JSON")" || {
+            echo "Missing Lambda function name for service '$SERVICE' in lambda_function_names_json contract"
+            exit 1
+          }
+
+          DEPLOYMENT_GROUP_NAME="$(resolve_map_value "$CODEDEPLOY_LAMBDA_DEPLOYMENT_GROUP_NAMES_JSON")" || {
+            echo "Missing CodeDeploy deployment group for service '$SERVICE' in codedeploy_lambda_deployment_group_names_json contract"
+            exit 1
+          }
+
+          {
+            echo "function_name=${FUNCTION_NAME}"
+            echo "deployment_group_name=${DEPLOYMENT_GROUP_NAME}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -112,5 +163,8 @@ jobs:
       - name: Deployment summary
         run: |
           echo "Lambda: ${{ env.LAMBDA_SERVICE_NAME }}"
+          echo "Resolved function name: ${{ steps.metadata.outputs.function_name }}"
+          echo "Resolved CodeDeploy app: ${{ env.CODEDEPLOY_LAMBDA_APPLICATION_NAME }}"
+          echo "Resolved CodeDeploy group: ${{ steps.metadata.outputs.deployment_group_name }}"
           echo "Artifact: ${{ steps.package.outputs.artifact_name }}"
           echo "Uploaded to: s3://${{ env.LAMBDA_ARTIFACT_BUCKET }}/${{ steps.package.outputs.s3_key }}"

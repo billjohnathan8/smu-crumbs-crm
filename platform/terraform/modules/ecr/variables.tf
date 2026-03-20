@@ -8,7 +8,13 @@ variable "name_prefix" {
 }
 
 variable "ecr_repository_name" {
-  description = "Optional explicit ECR repository name."
+  description = "Optional base ECR repository name. When set, service repositories are created as <base>-<service>."
   type        = string
   default     = ""
+}
+
+variable "ecr_repository_names" {
+  description = "Optional explicit ECR repository names keyed by service (user, client, transaction)."
+  type        = map(string)
+  default     = {}
 }

@@ -54,9 +54,10 @@ enable_waf                    = false
 enable_cloudtrail             = false
 enable_cloudwatch_alarms      = true
 alarm_notification_email      = "crm-alerts-prod@crm.local" # replace with a monitored mailbox before apply
-enable_backup                 = false
-backup_retention_days         = 7
-cloudwatch_log_retention_days = 7
+enable_backup                 = true
+enable_codedeploy             = true
+backup_retention_days         = 30
+cloudwatch_log_retention_days = 30
 
 # --- S3 / CloudFront ---
 frontend_bucket_force_destroy = false
