@@ -96,9 +96,40 @@ if ($AwsAccessKeyId) { $env:AWS_ACCESS_KEY_ID = $AwsAccessKeyId }
 if ($AwsSecretAccessKey) { $env:AWS_SECRET_ACCESS_KEY = $AwsSecretAccessKey }
 if ($AwsSessionToken) { $env:AWS_SESSION_TOKEN = $AwsSessionToken }
 
+$resolvedLabRoleArn = $null
+if ($Env -eq "lab") {
+    if (-not [string]::IsNullOrWhiteSpace($AwsLabRoleArn)) {
+        $resolvedLabRoleArn = $AwsLabRoleArn
+    } elseif (-not [string]::IsNullOrWhiteSpace($env:AWS_LAB_ROLE_ARN)) {
+        $resolvedLabRoleArn = $env:AWS_LAB_ROLE_ARN
+    } elseif (-not [string]::IsNullOrWhiteSpace($env:TF_VAR_lab_role_arn)) {
+        $resolvedLabRoleArn = $env:TF_VAR_lab_role_arn
+    } else {
+        $callerJson = Invoke-Aws -AwsArgs @("sts", "get-caller-identity", "--output", "json") -AllowFailure -CaptureOutput
+        if (-not [string]::IsNullOrWhiteSpace($callerJson)) {
+            try {
+                $caller = $callerJson | ConvertFrom-Json
+                if (-not [string]::IsNullOrWhiteSpace($caller.Account)) {
+                    $resolvedLabRoleArn = "arn:aws:iam::$($caller.Account):role/LabRole"
+                }
+            } catch {
+                # Ignore parse failures and fall through to explicit guidance.
+            }
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($resolvedLabRoleArn)) {
+        throw "For lab deployments, provide -AwsLabRoleArn (for example arn:aws:iam::785454804346:role/LabRole) or set AWS_LAB_ROLE_ARN/TF_VAR_lab_role_arn."
+    }
+
+    $env:TF_VAR_lab_role_arn = $resolvedLabRoleArn
+    Write-Host "[INFO] Using lab role ARN: $resolvedLabRoleArn"
+} elseif ($AwsLabRoleArn) {
+    $env:TF_VAR_lab_role_arn = $AwsLabRoleArn
+}
+
 $env:TF_VAR_root_admin_password = $RootAdminPassword
 if ($JwtHmacSecret) { $env:TF_VAR_jwt_hmac_secret = $JwtHmacSecret }
-if ($AwsLabRoleArn) { $env:TF_VAR_lab_role_arn = $AwsLabRoleArn }
 
 if ($PlanOnly) {
     & $deployScript -Env $Env -PlanOnly

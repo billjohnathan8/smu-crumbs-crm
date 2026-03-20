@@ -56,7 +56,7 @@ auth_mode      = "hybrid"
 
 # --- Learner Lab LabRole restrictions ---
 # LabRole cannot create IAM roles, CloudFront distributions, or Cloud Map namespaces.
-lab_role_arn             = "arn:aws:iam::231570205144:role/LabRole"
+# Provide lab_role_arn at runtime via TF_VAR_lab_role_arn (or local helper scripts).
 enable_cloudfront        = false
 enable_cloudfront_oac    = false # moot when enable_cloudfront=false, kept for clarity
 enable_service_discovery = false

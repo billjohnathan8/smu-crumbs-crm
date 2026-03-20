@@ -1,0 +1,341 @@
+name: InfrastructureUp
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        type: choice
+        options:
+          - lab
+          - prod
+      auto_apply:
+        description: Apply planned changes
+        required: true
+        default: true
+        type: boolean
+      publish_ssm:
+        description: Publish non-sensitive deploy metadata to SSM
+        required: true
+        default: true
+        type: boolean
+      sync_deployer_role_arn:
+        description: Sync Terraform deployer role ARN to GitHub environment variable AWS_ROLE_ARN
+        required: true
+        default: true
+        type: boolean
+      aws_access_key_id:
+        description: Runtime AWS_ACCESS_KEY_ID (required)
+        required: false
+        type: string
+      aws_secret_access_key:
+        description: Runtime AWS_SECRET_ACCESS_KEY (required)
+        required: false
+        type: string
+      aws_session_token:
+        description: Runtime AWS_SESSION_TOKEN (required for lab)
+        required: false
+        type: string
+      root_admin_password:
+        description: Runtime root_admin_password (required)
+        required: false
+        type: string
+      jwt_hmac_secret:
+        description: Runtime jwt_hmac_secret (optional in lab)
+        required: false
+        type: string
+      aws_lab_role_arn:
+        description: Runtime AWS_LAB_ROLE_ARN (optional for lab; defaults to arn:aws:iam::<caller-account>:role/LabRole)
+        required: false
+        type: string
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  infrastructure-up:
+    name: Terraform plan/apply + publish contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: ${{ inputs.environment }}
+
+    env:
+      TF_IN_AUTOMATION: "1"
+      TF_INPUT: "0"
+      TF_DIR: platform/terraform
+      DEPLOY_ENV: ${{ inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate runtime input contract
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DEPLOY_ENV="${{ inputs.environment }}"
+
+          test -n "${{ inputs.root_admin_password }}"
+          test -n "${{ inputs.aws_access_key_id }}"
+          test -n "${{ inputs.aws_secret_access_key }}"
+          if [[ "$DEPLOY_ENV" == "lab" ]]; then
+            test -n "${{ inputs.aws_session_token }}"
+          fi
+
+      - name: Configure AWS temporary credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ inputs.aws_access_key_id }}
+          aws-secret-access-key: ${{ inputs.aws_secret_access_key }}
+          aws-session-token: ${{ inputs.aws_session_token }}
+          aws-region: ${{ inputs.environment == 'lab' && 'us-east-1' || 'ap-southeast-1' }}
+
+      - name: Validate caller identity and lab role account
+        id: caller
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+          echo "account_id=${ACCOUNT_ID}" >> "$GITHUB_OUTPUT"
+
+          if [[ "${{ inputs.environment }}" == "lab" ]]; then
+            LAB_ROLE_ARN="${{ inputs.aws_lab_role_arn }}"
+            if [[ -z "${LAB_ROLE_ARN}" ]]; then
+              LAB_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/LabRole"
+            else
+              if [[ ! "${LAB_ROLE_ARN}" =~ ^arn:aws:iam::([0-9]{12}):role/.+ ]]; then
+                echo "Invalid AWS_LAB_ROLE_ARN format: ${LAB_ROLE_ARN}"
+                exit 1
+              fi
+
+              LAB_ACCOUNT_ID="${BASH_REMATCH[1]}"
+              if [[ "${LAB_ACCOUNT_ID}" != "${ACCOUNT_ID}" ]]; then
+                echo "AWS_LAB_ROLE_ARN account (${LAB_ACCOUNT_ID}) does not match caller account (${ACCOUNT_ID})"
+                exit 1
+              fi
+            fi
+
+            echo "resolved_lab_role_arn=${LAB_ROLE_ARN}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create runtime terraform override file
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ROOT_ADMIN_PASSWORD='${{ inputs.root_admin_password }}'
+          JWT_HMAC_SECRET='${{ inputs.jwt_hmac_secret }}'
+          LAB_ROLE_ARN='${{ steps.caller.outputs.resolved_lab_role_arn }}'
+
+          {
+            echo "root_admin_password = $(jq -Rn --arg v "$ROOT_ADMIN_PASSWORD" '$v')"
+            if [[ -n "$JWT_HMAC_SECRET" ]]; then
+              echo "jwt_hmac_secret = $(jq -Rn --arg v "$JWT_HMAC_SECRET" '$v')"
+            fi
+            if [[ "${{ inputs.environment }}" == "lab" && -n "$LAB_ROLE_ARN" ]]; then
+              echo "lab_role_arn = $(jq -Rn --arg v "$LAB_ROLE_ARN" '$v')"
+            fi
+          } > runtime.auto.tfvars
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform init -reconfigure -backend-config="env/${DEPLOY_ENV}.backend.hcl"
+
+      - name: Terraform plan
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform plan \
+            -var-file="env/${DEPLOY_ENV}.tfvars" \
+            -var-file="runtime.auto.tfvars" \
+            -out=tfplan
+
+      - name: Export plan text
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform show -no-color tfplan > terraform-plan.txt
+
+      - name: Terraform apply
+        if: ${{ inputs.auto_apply }}
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform apply -auto-approve tfplan
+
+      - name: Export Terraform output JSON
+        if: ${{ inputs.auto_apply }}
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform output -json > terraform-output.json
+
+      - name: Build allowlisted output snapshot
+        if: ${{ inputs.auto_apply }}
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          jq -n \
+            --arg generated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg environment "${DEPLOY_ENV}" \
+            --arg aws_region "${AWS_DEFAULT_REGION}" \
+            --argjson tf "$(cat terraform-output.json)" \
+            '{
+              generated_at: $generated_at,
+              environment: $environment,
+              deploy_contract: {
+                aws_region: $aws_region,
+                ecs_cluster_name: ($tf.ecs_cluster_name.value // null),
+                ecr_repository_urls: ($tf.ecr_repository_urls.value // {}),
+                ecr_repository_names: ($tf.ecr_repository_names.value // {}),
+                codedeploy_ecs_application_name: ($tf.codedeploy_ecs_application_name.value // null),
+                codedeploy_ecs_deployment_group_names: ($tf.codedeploy_ecs_deployment_group_names.value // {}),
+                codedeploy_lambda_application_name: ($tf.codedeploy_lambda_application_name.value // null),
+                codedeploy_lambda_deployment_group_names: ($tf.codedeploy_lambda_deployment_group_names.value // {}),
+                lambda_function_names: {
+                  log: ($tf.log_lambda_name.value // null),
+                  aml: ($tf.aml_lambda_name.value // null),
+                  transaction_ingestion: ($tf.transaction_ingestion_lambda_name.value // null),
+                  verification: ($tf.verification_lambda_name.value // null)
+                },
+                frontend_bucket_name: ($tf.frontend_bucket_name.value // null),
+                cloudfront_distribution_id: ($tf.cloudfront_distribution_id.value // null),
+                cloudfront_distribution_domain_name: ($tf.cloudfront_distribution_domain_name.value // null),
+                app_url: ($tf.app_url.value // null),
+                alb_dns_name: ($tf.alb_dns_name.value // null),
+                frontend_website_url: ($tf.frontend_website_url.value // null),
+                cognito_user_pool_id: ($tf.cognito_user_pool_id.value // null),
+                cognito_app_client_id: ($tf.cognito_app_client_id.value // null),
+                deployer_role_arn: ($tf.deployer_role_arn.value // null)
+              }
+            }' > deploy-contract-snapshot.json
+
+      - name: Publish deployment metadata to SSM
+        if: ${{ inputs.auto_apply && inputs.publish_ssm }}
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE_PATH="/scroogebank-crm/${DEPLOY_ENV}/deploy"
+          TF_JSON="terraform-output.json"
+
+          put_string() {
+            local key="$1"
+            local value="$2"
+            if [[ -z "$value" || "$value" == "null" ]]; then
+              echo "Skipping empty value for ${key}"
+              return 0
+            fi
+            aws ssm put-parameter \
+              --name "${BASE_PATH}/${key}" \
+              --type String \
+              --overwrite \
+              --value "$value" >/dev/null
+          }
+
+          put_json() {
+            local key="$1"
+            local value="$2"
+            if [[ -z "$value" || "$value" == "null" ]]; then
+              echo "Skipping empty value for ${key}"
+              return 0
+            fi
+            aws ssm put-parameter \
+              --name "${BASE_PATH}/${key}" \
+              --type String \
+              --overwrite \
+              --value "$value" >/dev/null
+          }
+
+          put_string "aws-region" "${AWS_DEFAULT_REGION}"
+          put_string "ecs/cluster-name" "$(jq -r '.ecs_cluster_name.value // empty' "$TF_JSON")"
+          put_json "ecr/repository-urls" "$(jq -c '.ecr_repository_urls.value // {}' "$TF_JSON")"
+          put_json "ecr/repository-names" "$(jq -c '.ecr_repository_names.value // {}' "$TF_JSON")"
+          put_string "codedeploy/ecs/application-name" "$(jq -r '.codedeploy_ecs_application_name.value // empty' "$TF_JSON")"
+          put_json "codedeploy/ecs/deployment-groups" "$(jq -c '.codedeploy_ecs_deployment_group_names.value // {}' "$TF_JSON")"
+          put_string "codedeploy/lambda/application-name" "$(jq -r '.codedeploy_lambda_application_name.value // empty' "$TF_JSON")"
+          put_json "codedeploy/lambda/deployment-groups" "$(jq -c '.codedeploy_lambda_deployment_group_names.value // {}' "$TF_JSON")"
+          put_json "lambda/function-names" "$(jq -cn --argjson tf "$(cat "$TF_JSON")" '{log: ($tf.log_lambda_name.value // null), aml: ($tf.aml_lambda_name.value // null), transaction_ingestion: ($tf.transaction_ingestion_lambda_name.value // null), verification: ($tf.verification_lambda_name.value // null)}')"
+          put_string "frontend/s3-bucket" "$(jq -r '.frontend_bucket_name.value // empty' "$TF_JSON")"
+          put_string "frontend/cloudfront-distribution-id" "$(jq -r '.cloudfront_distribution_id.value // empty' "$TF_JSON")"
+          put_string "frontend/app-url" "$(jq -r '.app_url.value // empty' "$TF_JSON")"
+
+      - name: Sync deployer role ARN to GitHub environment variable
+        if: ${{ inputs.auto_apply && inputs.sync_deployer_role_arn }}
+        working-directory: ${{ env.TF_DIR }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DEPLOYER_ROLE_ARN="$(jq -r '.deployer_role_arn.value // empty' terraform-output.json)"
+          if [[ -z "${DEPLOYER_ROLE_ARN}" ]]; then
+            echo "No deployer_role_arn output found. Skipping AWS_ROLE_ARN sync."
+            exit 0
+          fi
+
+          gh variable set AWS_ROLE_ARN \
+            --env "${DEPLOY_ENV}" \
+            --body "${DEPLOYER_ROLE_ARN}"
+
+          echo "Updated environment variable AWS_ROLE_ARN for environment '${DEPLOY_ENV}'."
+
+      - name: Upload Terraform plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ inputs.environment }}-${{ github.run_id }}
+          path: |
+            platform/terraform/tfplan
+            platform/terraform/terraform-plan.txt
+          retention-days: 14
+
+      - name: Upload Terraform output and snapshot artifacts
+        if: ${{ inputs.auto_apply }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-output-${{ inputs.environment }}-${{ github.run_id }}
+          path: |
+            platform/terraform/terraform-output.json
+            platform/terraform/deploy-contract-snapshot.json
+          retention-days: 14
+
+      - name: Run summary
+        if: ${{ inputs.auto_apply }}
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          {
+            echo "## InfrastructureUp Summary"
+            echo ""
+            echo "- Environment: ${DEPLOY_ENV}"
+            echo "- AWS auth mode: runtime temporary credentials"
+            echo "- Caller account: ${{ steps.caller.outputs.account_id }}"
+            echo "- Resolved lab role ARN: ${{ steps.caller.outputs.resolved_lab_role_arn }}"
+            echo "- SSM publish: ${{ inputs.publish_ssm }}"
+            echo "- Deployer role sync: ${{ inputs.sync_deployer_role_arn }}"
+            echo ""
+            echo "### Key endpoints"
+            echo "- app_url: $(jq -r '.deploy_contract.app_url // ""' deploy-contract-snapshot.json)"
+            echo "- alb_dns_name: $(jq -r '.deploy_contract.alb_dns_name // ""' deploy-contract-snapshot.json)"
+            echo "- frontend_website_url: $(jq -r '.deploy_contract.frontend_website_url // ""' deploy-contract-snapshot.json)"
+            echo ""
+            echo "### Deployment identifiers"
+            echo "- ecs_cluster_name: $(jq -r '.deploy_contract.ecs_cluster_name // ""' deploy-contract-snapshot.json)"
+            echo "- codedeploy_ecs_application_name: $(jq -r '.deploy_contract.codedeploy_ecs_application_name // ""' deploy-contract-snapshot.json)"
+            echo "- codedeploy_lambda_application_name: $(jq -r '.deploy_contract.codedeploy_lambda_application_name // ""' deploy-contract-snapshot.json)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Cleanup runtime terraform override file
+        if: ${{ always() }}
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: rm -f runtime.auto.tfvars

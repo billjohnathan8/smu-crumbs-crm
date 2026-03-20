@@ -18,14 +18,6 @@ param(
     [switch]$TombstoneSsm
 )
 
-Write-Host "`n--- DEBUG START ---" -ForegroundColor Yellow
-Write-Host "[DEBUG] Raw Args: $($args -join ' | ')"
-Write-Host "[DEBUG] Bound Parameters: $(($PSBoundParameters.Keys | ForEach-Object { "$_=$($PSBoundParameters[$_])" }) -join ', ')"
-Write-Host "[DEBUG] Command Line: $($MyInvocation.Line)"
-if ($PSCmdlet) { 
-    Write-Host "[DEBUG] Parameter Set: $($PSCmdlet.ParameterSetName)" 
-}
-Write-Host "--- DEBUG END ---\n" -ForegroundColor Yellow
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
