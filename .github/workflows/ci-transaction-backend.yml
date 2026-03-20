@@ -43,7 +43,7 @@ jobs:
       working-directory: services/backend/transaction
       test-command: |
         chmod +x gradlew
-        ./gradlew test jacocoTestReport --no-daemon --console=plain
+        ./gradlew test jacocoTestReport jacocoTestCoverageVerification --no-daemon --console=plain
       timeout-minutes: 10
       artifact-paths: services/backend/transaction/build/reports/**
 
