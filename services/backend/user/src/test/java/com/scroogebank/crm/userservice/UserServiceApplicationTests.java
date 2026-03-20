@@ -30,12 +30,11 @@ class UserServiceApplicationTests {
 	
 	@Test
 	@Transactional
-	void superAdmin_isSeededWithIdZero() {
-		UserDto user = store.getUser("usr_0");
-        assertNotNull(user);
-        assertEquals(UserRole.super_admin, user.role());
-        assertEquals(UserStatus.active, user.status());
+	void rootAdmin_isBootstrappedAtUsr1() {
+		UserDto user = store.getUser("usr_1");
+		assertNotNull(user);
+		assertEquals(UserRole.admin, user.role());
+		assertEquals(UserStatus.active, user.status());
 	}
 }
-
 

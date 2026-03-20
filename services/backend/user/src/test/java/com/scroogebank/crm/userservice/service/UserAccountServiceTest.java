@@ -233,6 +233,33 @@ class UserAccountServiceTest {
 		assertEquals(new Pagination(200, 0, 10L), response.pagination());
 	}
 
+	@Test
+	void listUsers_rootAdminCanListAllWithoutRoleFilter() {
+		UserDto dto = existingUser(UserRole.user);
+		AuthenticatedUser requester = new AuthenticatedUser("usr_1", "admin");
+		when(store.countUsers(eq(null))).thenReturn(1L);
+		when(store.listUsers(eq(50), eq(0), eq(null))).thenReturn(List.of(dto));
+
+		UsersListResponse response = service.listUsers(50, 0, null, requester);
+
+		assertEquals(1, response.data().size());
+		verify(store).countUsers(eq(null));
+		verify(store).listUsers(eq(50), eq(0), eq(null));
+	}
+
+	@Test
+	void listUsers_nonRootAdminCannotListAllWithoutRoleFilter() {
+		AuthenticatedUser requester = new AuthenticatedUser("usr_2", "admin");
+
+		AccessDeniedException denied = assertThrows(
+			AccessDeniedException.class,
+			() -> service.listUsers(50, 0, null, requester)
+		);
+		assertNotNull(denied);
+		verify(store, never()).countUsers(any());
+		verify(store, never()).listUsers(anyInt(), anyInt(), any());
+	}
+
 	//  UPDATE USER TESTS  //
 	//  ─── Happy Path ───
 	@ParameterizedTest
@@ -328,6 +355,68 @@ class UserAccountServiceTest {
 		assertEquals(result.role(), UserRole.admin);
 
 		verify(store).updateUser(eq(existingUser.id()), eq(request));
+	}
+
+	@Test
+	void updateUser_nonRootAdminCannotUpdateAdminWhenRoleOmitted() {
+		AuthenticatedUser requester = new AuthenticatedUser("usr_2", "admin");
+		UserDto existingAdmin = existingUser(UserRole.admin);
+		UpdateUserRequest request = new UpdateUserRequest("Jane", null, null, null);
+
+		when(store.getUser(existingAdmin.id())).thenReturn(existingAdmin);
+
+		assertThrows(
+			AccessDeniedException.class,
+			() -> service.updateUser(existingAdmin.id(), request, requester)
+		);
+		verify(store, never()).updateUser(any(), any());
+	}
+
+	@Test
+	void updateUser_rootAdminCanUpdateAdminWhenRoleOmitted() {
+		AuthenticatedUser requester = new AuthenticatedUser("usr_1", "admin");
+		UserDto existingAdmin = existingUser(UserRole.admin);
+		UpdateUserRequest request = new UpdateUserRequest("Jane", null, null, null);
+		UserDto updated = new UserDto(
+			existingAdmin.id(),
+			"Jane",
+			existingAdmin.lastName(),
+			existingAdmin.email(),
+			existingAdmin.role(),
+			existingAdmin.status(),
+			existingAdmin.createdAt(),
+			existingAdmin.updatedAt()
+		);
+
+		when(store.getUser(existingAdmin.id())).thenReturn(existingAdmin);
+		when(store.updateUser(existingAdmin.id(), request)).thenReturn(updated);
+
+		UserDto result = service.updateUser(existingAdmin.id(), request, requester);
+
+		assertEquals("Jane", result.firstName());
+		verify(store).updateUser(existingAdmin.id(), request);
+	}
+
+	@Test
+	void updateUser_rootAdminAccountCannotBeUpdated() {
+		AuthenticatedUser requester = new AuthenticatedUser("usr_1", "admin");
+		UserDto rootAdmin = new UserDto(
+			"usr_1",
+			"Root",
+			"Admin",
+			"admin@crm.local",
+			UserRole.admin,
+			UserStatus.active,
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:00Z")
+		);
+		when(store.getUser("usr_1")).thenReturn(rootAdmin);
+
+		assertThrows(
+			AccessDeniedException.class,
+			() -> service.updateUser("usr_1", new UpdateUserRequest("Root", "Admin", null, null), requester)
+		);
+		verify(store, never()).updateUser(any(), any());
 	}
 
 
@@ -433,6 +522,47 @@ class UserAccountServiceTest {
 
 		verify(store).getUser(eq("usr_4"));
 		verify(store, never()).deleteUser(eq("usr_4"));
+	}
+
+	@Test
+	void disableUser_rootAdminAccountCannotBeDisabled() {
+		AuthenticatedUser requester = new AuthenticatedUser("usr_1", "admin");
+		UserDto rootAdmin = new UserDto(
+			"usr_1",
+			"Root",
+			"Admin",
+			"admin@crm.local",
+			UserRole.admin,
+			UserStatus.active,
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:00Z")
+		);
+		when(store.getUser("usr_1")).thenReturn(rootAdmin);
+
+		assertThrows(AccessDeniedException.class, () -> service.disableUser("usr_1", requester));
+		verify(store, never()).disableUser(any());
+	}
+
+	@Test
+	void resetPassword_rootAdminAccountCannotBeResetViaAdminEndpoint() {
+		AuthenticatedUser requester = new AuthenticatedUser("usr_9", "admin");
+		UserDto rootAdmin = new UserDto(
+			"usr_1",
+			"Root",
+			"Admin",
+			"admin@crm.local",
+			UserRole.admin,
+			UserStatus.active,
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:00Z")
+		);
+		when(store.getUser("usr_1")).thenReturn(rootAdmin);
+
+		assertThrows(
+			AccessDeniedException.class,
+			() -> service.resetPassword("usr_1", new ResetPasswordRequest("admin@crm.local"), requester)
+		);
+		verify(store, never()).resetPassword(any());
 	}
 
 	// ─── Helpers ───

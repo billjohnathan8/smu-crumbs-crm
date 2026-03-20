@@ -92,6 +92,27 @@ class InMemoryUserStoreTest {
 	}
 
 	@Test
+	void updateUser_rootAdminIsForbidden() {
+		AccessDeniedException denied = assertThrows(
+			AccessDeniedException.class,
+			() -> store.updateUser("usr_1", new UpdateUserRequest("Root", "Admin", "root@example.com", UserRole.admin))
+		);
+		assertNotNull(denied);
+	}
+
+	@Test
+	void disableUser_rootAdminIsForbidden() {
+		AccessDeniedException denied = assertThrows(AccessDeniedException.class, () -> store.disableUser("usr_1"));
+		assertNotNull(denied);
+	}
+
+	@Test
+	void resetPassword_rootAdminIsForbidden() {
+		AccessDeniedException denied = assertThrows(AccessDeniedException.class, () -> store.resetPassword("usr_1"));
+		assertNotNull(denied);
+	}
+
+	@Test
 	void listAndCountUsers_applyRoleFilterAndPaging() {
 		store.createUser(new CreateUserRequest("A", "A", "a@example.com", UserRole.user, false, "pw"));
 		store.createUser(new CreateUserRequest("B", "B", "b@example.com", UserRole.admin, false, "pw"));

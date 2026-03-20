@@ -12,10 +12,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.scroogebank.crm.userservice.dto.CreateUserRequest;
+import com.scroogebank.crm.userservice.dto.UpdateUserRequest;
 import com.scroogebank.crm.userservice.dto.UserDto;
 import com.scroogebank.crm.userservice.dto.UserRole;
+import com.scroogebank.crm.userservice.exception.AccessDeniedException;
 import com.scroogebank.crm.userservice.repository.RefreshTokenRepository;
 import com.scroogebank.crm.userservice.repository.UserRepository;
 
@@ -43,10 +46,15 @@ class PersistentUserStoreTest {
 	@Autowired
 	private Clock clock;
 
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
+
 	@BeforeEach
 	void setUp() {
-		refreshTokenRepository.deleteAll();
-		userRepository.deleteAll();
+		jdbcTemplate.execute("DELETE FROM refresh_tokens");
+		jdbcTemplate.execute("DELETE FROM users");
+		jdbcTemplate.execute("ALTER TABLE refresh_tokens ALTER COLUMN token_id RESTART WITH 1");
+		jdbcTemplate.execute("ALTER TABLE users ALTER COLUMN user_id RESTART WITH 1");
 	}
 
 	@Test
@@ -90,5 +98,15 @@ class PersistentUserStoreTest {
 		store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "TempPass!123"));
 		store.createPasswordResetToken("ava@example.com");
 		assertNull(store.getLatestResetToken("ava@example.com"));
+	}
+
+	@Test
+	void rootAdmin_mutatingAdminEndpoints_areForbidden() {
+		assertThrows(
+			AccessDeniedException.class,
+			() -> store.updateUser("usr_1", new UpdateUserRequest("Root", "Admin", "root@example.com", UserRole.admin))
+		);
+		assertThrows(AccessDeniedException.class, () -> store.disableUser("usr_1"));
+		assertThrows(AccessDeniedException.class, () -> store.resetPassword("usr_1"));
 	}
 }
