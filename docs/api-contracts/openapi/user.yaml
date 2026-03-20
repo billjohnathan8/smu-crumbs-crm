@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: user
-  version: 0.3.0
+  version: 0.3.1
   description: 'Feature 1: CRM User Management.
 
     Manages Admin/User accounts and supports authentication flows for the frontend.
@@ -15,6 +15,7 @@ tags:
 - name: health
 - name: users
 - name: auth
+- name: test-tools
 paths:
   /health:
     get:
@@ -61,7 +62,7 @@ paths:
       tags:
       - users
       summary: List users
-      description: Admin/super-admin only. Lists all users.
+      description: Root admin can list all users. Non-root admins must pass `role=user` to list agent accounts.
       security:
       - BearerAuth: []
       x-required-roles:
@@ -114,7 +115,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Forbidden
+          description: Forbidden (for example admin requesting full list without `role=user`).
           content:
             application/json:
               schema:
@@ -247,7 +248,7 @@ paths:
       tags:
       - users
       summary: Update user
-      description: User update endpoint. Admin/super-admin can update any user; users can only update themselves with role restrictions.
+      description: User update endpoint. Root admin can update admin accounts except the root admin record itself. Users can only update themselves.
       security:
       - BearerAuth: []
       x-required-roles:
@@ -307,7 +308,7 @@ paths:
       tags:
       - users
       summary: Delete user
-      description: Admin/super-admin only. Deletes a user. Root administrator cannot be deleted.
+      description: Admin/super-admin only. Deletes a user. Root administrator (`usr_1`) cannot be deleted.
       security:
       - BearerAuth: []
       x-required-roles:
@@ -351,7 +352,7 @@ paths:
       tags:
       - users
       summary: Disable user
-      description: Admin/super-admin only. Disables an account (user can no longer log in).
+      description: Admin/super-admin only. Disables an account (user can no longer log in). Root administrator (`usr_1`) cannot be disabled.
       security:
       - BearerAuth: []
       x-required-roles:
@@ -399,7 +400,7 @@ paths:
       tags:
       - users
       summary: Reset password
-      description: Admin/super-admin only. Triggers a password reset and revokes active refresh tokens.
+      description: Admin/super-admin only. Triggers a password reset and revokes active refresh tokens. Root administrator (`usr_1`) cannot be reset through this endpoint.
       security:
       - BearerAuth: []
       x-required-roles:
@@ -506,6 +507,78 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/auth/forgot-password:
+    post:
+      tags:
+      - auth
+      summary: Start forgot-password flow
+      description: Always returns 200 to avoid leaking whether the email exists.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '200':
+          description: Password reset request accepted.
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/auth/reset-password:
+    post:
+      tags:
+      - auth
+      summary: Complete forgot-password flow
+      description: Resets password using a valid reset token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerformResetPasswordRequest'
+      responses:
+        '200':
+          description: Password reset completed.
+        '400':
+          description: Validation error (including invalid/expired token or mismatched passwords).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/test/password-reset/latest-token:
+    get:
+      tags:
+      - test-tools
+      summary: Get latest reset token (test/local only)
+      description: |
+        Test helper endpoint used by local/test E2E flows.
+        Enabled only when the active Spring profile includes `local` or `test`.
+      parameters:
+      - name: email
+        in: query
+        required: true
+        schema:
+          type: string
+          format: email
+      responses:
+        '200':
+          description: Latest reset token for the email.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetTokenLookupResponse'
+        '403':
+          description: Endpoint disabled outside local/test profiles.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No reset token available for the email.
 components:
   securitySchemes:
     BearerAuth:
@@ -555,7 +628,10 @@ components:
       - admin
       - user
       - super_admin
-      description: User role
+      description: |
+        User role on the API wire.
+        `user` is the non-admin CRM role (equivalent to "agent" in requirement wording).
+        `super_admin` is a legacy role alias still accepted in some JWT flows.
     UserStatus:
       type: string
       enum:
@@ -688,6 +764,31 @@ components:
           type: string
       required:
       - refreshToken
+    ForgotPasswordRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+      required:
+      - email
+    PerformResetPasswordRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        token:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+          maxLength: 128
+        confirmPassword:
+          type: string
+      required:
+      - token
+      - newPassword
+      - confirmPassword
     ResetPasswordRequest:
       type: object
       additionalProperties: false
@@ -695,7 +796,14 @@ components:
         email:
           type: string
           format: email
-          description: Email of the user whose password is being reset.
+          description: Optional email payload on admin-triggered reset endpoint.
       required:
       - email
+    PasswordResetTokenLookupResponse:
+      type: object
+      properties:
+        token:
+          type: string
+      required:
+      - token
   responses: {}

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: client
-  version: 0.3.0
+  version: 0.3.1
   description: 'Feature 2: Client Profile Management and Account Management.
 
     Users can only access their own clients; admins can access all clients.
@@ -155,7 +155,7 @@ paths:
     post:
       tags: [clients]
       summary: Verify client identity
-      description: Updates client's identity verification status based on provided NRIC/document reference.
+      description: Submits verification evidence and sets status to `pending` for review.
       security: [{BearerAuth: []}]
       x-required-roles: [user, admin]
       parameters:
@@ -171,6 +171,27 @@ paths:
         '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  /api/clients/{clientId}/verify/review:
+    patch:
+      tags: [clients]
+      summary: Review pending verification
+      description: Admin-only review action for a pending verification (`approve` or `reject`).
+      security: [{BearerAuth: []}]
+      x-required-roles: [admin]
+      parameters:
+      - {name: clientId, in: path, required: true, schema: {$ref: '#/components/schemas/ClientId'}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ReviewVerificationRequest'}
+      responses:
+        '200': {description: Verification review applied., content: {application/json: {schema: {$ref: '#/components/schemas/VerifyClientResponse'}}}}
+        '400': {description: Validation error., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '403': {description: Forbidden (caller is not admin)., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '409': {description: Conflict (verification is not pending)., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
   /api/accounts:
     post:
       tags: [accounts]
@@ -326,6 +347,22 @@ components:
           type: string
           description: User ID of the user responsible for this client. Set by system from token; users see only their own clients.
           readOnly: true
+        verificationDocumentType:
+          type: string
+          nullable: true
+          readOnly: true
+          description: Stored verification document type when supplied during verify flow.
+        verificationDocumentRef:
+          type: string
+          nullable: true
+          readOnly: true
+          description: Stored verification document reference when supplied during verify flow.
+        verificationVerifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+          description: Timestamp set when verification is approved.
         createdAt: {type: string, format: date-time}
         updatedAt: {type: string, format: date-time}
       required:
@@ -387,6 +424,14 @@ components:
         clientId: {$ref: '#/components/schemas/ClientId'}
         identityVerificationStatus: {$ref: '#/components/schemas/IdentityVerificationStatus'}
       required: [clientId, identityVerificationStatus]
+    ReviewVerificationRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        action:
+          type: string
+          enum: [approve, reject]
+      required: [action]
     Account:
       type: object
       properties:
