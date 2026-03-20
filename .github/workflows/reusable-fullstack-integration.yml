@@ -20,6 +20,8 @@ env:
   E2E_ADMIN_PASSWORD: admin123
   E2E_USER_PASSWORD: UserPass123!
   PLAYWRIGHT_BASE_URL: http://127.0.0.1:18088
+  VERIFICATION_EMAIL_PROVIDER: ses
+  SES_SENDER_EMAIL: verification@crm.local
 
 jobs:
   fullstack-integration-e2e:
