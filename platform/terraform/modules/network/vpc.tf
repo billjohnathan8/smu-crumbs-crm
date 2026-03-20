@@ -28,7 +28,7 @@ resource "aws_internet_gateway" "this" {
 # When enable_multi_az_nat is true, creates one EIP per AZ
 # When false, creates a single EIP for the primary NAT Gateway
 resource "aws_eip" "nat" {
-  count = var.enable_multi_az_nat ? var.az_count : 1
+  count = var.enable_nat_gateway ? (var.enable_multi_az_nat ? var.az_count : 1) : 0
 
   domain = "vpc"
 
@@ -41,7 +41,7 @@ resource "aws_eip" "nat" {
 # When enable_multi_az_nat is true, creates one NAT Gateway per AZ for high availability
 # When false, creates a single NAT Gateway in the first public subnet (cost-optimized)
 resource "aws_nat_gateway" "this" {
-  count = var.enable_multi_az_nat ? var.az_count : 1
+  count = var.enable_nat_gateway ? (var.enable_multi_az_nat ? var.az_count : 1) : 0
 
   allocation_id = aws_eip.nat[count.index].id
   subnet_id     = aws_subnet.public[tostring(count.index)].id
