@@ -1,7 +1,8 @@
 name: CI - Terraform
 
-# Component pipeline for terraform configuration validation and security scanning.
-# Runs terraform fmt, validate, tflint, and checkov checks.
+# Component pipeline for terraform configuration validation, planning, and security scanning.
+# Runs terraform fmt, validate, integration-contract plan artifact generation,
+# tflint, and checkov checks.
 
 on:
   pull_request:
@@ -25,6 +26,8 @@ on:
     secrets:
       INFRACOST_API_KEY:
         required: false
+      AWS_ROLE_ARN:
+        required: false
 
 concurrency:
   group: ci-terraform-${{ github.ref }}
@@ -32,6 +35,7 @@ concurrency:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   terraform-lint:
@@ -40,6 +44,7 @@ jobs:
     timeout-minutes: 15
     env:
       INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
+      TF_PLAN_ENV: integration
     defaults:
       run:
         working-directory: platform/terraform
@@ -85,6 +90,51 @@ jobs:
           TF_VAR_enable_verification_pipeline: "true"
           TF_VAR_ses_sender_email: "verification@crm.local"
         run: terraform validate
+
+      - name: Prepare Terraform plan artifact directory
+        timeout-minutes: 1
+        run: mkdir -p .tfplan
+
+      - name: Configure AWS credentials for Terraform plan
+        if: ${{ secrets.AWS_ROLE_ARN != '' && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ap-southeast-1
+
+      - name: terraform init (integration backend)
+        if: ${{ secrets.AWS_ROLE_ARN != '' && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) }}
+        timeout-minutes: 5
+        run: terraform init -reconfigure -backend-config=env/${{ env.TF_PLAN_ENV }}.backend.hcl
+
+      - name: terraform plan (integration contract)
+        if: ${{ secrets.AWS_ROLE_ARN != '' && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) }}
+        timeout-minutes: 8
+        run: |
+          terraform plan \
+            -input=false \
+            -lock-timeout=300s \
+            -var-file=env/${TF_PLAN_ENV}.tfvars \
+            -out=.tfplan/${TF_PLAN_ENV}.tfplan
+          terraform show -no-color .tfplan/${TF_PLAN_ENV}.tfplan > .tfplan/${TF_PLAN_ENV}.plan.txt
+
+      - name: Record skipped Terraform plan reason
+        if: ${{ !(secrets.AWS_ROLE_ARN != '' && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork)) }}
+        timeout-minutes: 1
+        run: |
+          cat <<'EOF' > .tfplan/README.txt
+          Terraform plan was skipped because AWS_ROLE_ARN is not configured for this run
+          or this run is from a forked pull request where repository secrets are unavailable.
+          Static terraform checks still ran successfully.
+          EOF
+
+      - name: Upload Terraform plan artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: platform/terraform/.tfplan/
+          retention-days: 7
 
       - name: Set up TFLint
         uses: terraform-linters/setup-tflint@v4
