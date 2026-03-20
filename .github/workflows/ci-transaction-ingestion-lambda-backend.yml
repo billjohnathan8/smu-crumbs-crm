@@ -6,13 +6,13 @@ name: CI - Transaction Ingestion Lambda Backend
 on:
   pull_request:
     branches:
-      - transaction-backend
+      - transaction-ingestion-lambda-backend
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
   push:
     branches:
-      - transaction-backend
+      - transaction-ingestion-lambda-backend
     paths-ignore:
       - '**/*.md'
       - 'docs/**'

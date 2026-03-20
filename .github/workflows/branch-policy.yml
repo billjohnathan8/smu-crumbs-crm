@@ -45,7 +45,7 @@ jobs:
           }
 
           # ── component trunk branches ───────────────────────────────
-          TRUNKS="frontend user-backend log-backend client-backend transaction-backend xfactor-backend"
+          TRUNKS="frontend user-backend client-backend transaction-backend aml-backend log-backend verification-backend transaction-ingestion-lambda-backend"
 
           is_trunk() {
             for t in $TRUNKS; do
