@@ -22,7 +22,7 @@ const DEV_USERS = {
     status: 'active',
   },
   super_admin: {
-    id: 'super-admin-123',
+    id: 'usr_1',
     firstName: 'Super',
     lastName: 'Admin',
     email: 'super-admin@example.com',

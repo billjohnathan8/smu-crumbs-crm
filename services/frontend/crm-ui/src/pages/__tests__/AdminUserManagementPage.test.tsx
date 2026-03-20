@@ -21,7 +21,7 @@ const mockAdminUser: User = {
 }
 
 const mockSuperAdminUser: User = {
-  id: 'super-123',
+  id: 'usr_1',
   firstName: 'Super',
   lastName: 'Admin',
   email: 'super@example.com',

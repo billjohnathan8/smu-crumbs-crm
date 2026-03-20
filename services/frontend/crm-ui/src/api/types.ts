@@ -17,6 +17,7 @@ export interface PaginatedResponse<T> {
 }
 
 // Auth types (user-service)
+// `user` is the non-admin CRM role (agent in requirement wording).
 export type UserRole = 'admin' | 'user' | 'super_admin'
 export type UserStatus = 'active' | 'disabled'
 
@@ -175,6 +176,7 @@ export interface AccountUpdateRequest {
 // Transaction types (transaction-service)
 export type TransactionKind = 'D' | 'W'
 export type TransactionStatus = 'Completed' | 'Pending' | 'Failed'
+export type ImportBatchStatus = 'queued' | 'running' | 'completed' | 'failed'
 
 export interface Transaction {
   id: string
@@ -193,6 +195,24 @@ export interface CreateTransactionRequest {
   amount: number
   date: string
   status: TransactionStatus
+}
+
+export interface ImportTransactionsRequest {
+  clientId?: string
+  sourcePath?: string
+}
+
+export interface ImportBatch {
+  importBatchId: string
+  status: ImportBatchStatus
+  requestedClientId?: string | null
+  requestedAt: string
+  startedAt?: string | null
+  finishedAt?: string | null
+  totalRecords: number
+  importedRecords: number
+  failedRecords: number
+  errorMessage?: string | null
 }
 
 // Log types (log-service)

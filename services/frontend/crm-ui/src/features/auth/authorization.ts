@@ -1,6 +1,6 @@
 /**
- * Root admin is represented as the first seeded user (usr_1). Some flows also
- * emit legacy role aliases, so we normalize both role and id checks here.
+ * Root admin is the seeded identity `usr_1`.
+ * Legacy `super_admin` role claims are accepted only when paired with root id.
  */
 export function isRootAdminUser(
   user: { id?: unknown; role?: unknown } | null | undefined
@@ -14,5 +14,7 @@ export function isRootAdminUser(
     .trim()
     .toLowerCase()
 
-  return role === 'super_admin' || role === 'superadmin' || id === 'usr_1' || id === '1'
+  const hasRootId = id === 'usr_1' || id === '1'
+  const hasRootRole = role === '' || role === 'admin' || role === 'super_admin' || role === 'superadmin'
+  return hasRootId && hasRootRole
 }

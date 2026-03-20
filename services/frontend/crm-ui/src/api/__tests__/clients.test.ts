@@ -6,6 +6,7 @@ import {
   updateClient,
   deleteClient,
   verifyClient,
+  reviewVerification,
   createAccount,
   updateAccount,
   listClientAccounts,
@@ -18,6 +19,7 @@ import type {
   ClientUpdateRequest,
   VerifyClientRequest,
   VerifyClientResponse,
+  ReviewVerificationRequest,
   Account,
   AccountCreateRequest,
   AccountUpdateRequest,
@@ -229,6 +231,46 @@ describe('clients API', () => {
       const result = await verifyClient('client-999', verifyRequest)
 
       expect(result.identityVerificationStatus).toBe('pending')
+    })
+  })
+
+  describe('reviewVerification', () => {
+    it('should review pending verification with approve action', async () => {
+      const reviewRequest: ReviewVerificationRequest = {
+        action: 'approve',
+      }
+
+      const mockResponse: VerifyClientResponse = {
+        clientId: 'client-123',
+        identityVerificationStatus: 'verified',
+      }
+
+      vi.spyOn(client, 'apiPatch').mockResolvedValue(mockResponse)
+
+      const result = await reviewVerification('client-123', reviewRequest)
+
+      expect(client.apiPatch).toHaveBeenCalledWith(
+        '/api/clients/client-123/verify/review',
+        reviewRequest
+      )
+      expect(result).toEqual(mockResponse)
+    })
+
+    it('should review pending verification with reject action', async () => {
+      const reviewRequest: ReviewVerificationRequest = {
+        action: 'reject',
+      }
+
+      const mockResponse: VerifyClientResponse = {
+        clientId: 'client-123',
+        identityVerificationStatus: 'rejected',
+      }
+
+      vi.spyOn(client, 'apiPatch').mockResolvedValue(mockResponse)
+
+      const result = await reviewVerification('client-123', reviewRequest)
+
+      expect(result.identityVerificationStatus).toBe('rejected')
     })
   })
 
