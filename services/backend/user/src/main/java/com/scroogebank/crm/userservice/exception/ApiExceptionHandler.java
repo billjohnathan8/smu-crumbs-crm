@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * Maps application exceptions into consistent API error responses.
@@ -48,14 +49,23 @@ public class ApiExceptionHandler {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(request, "validation_error", ex.getMessage()));
 	}
 
+	@ExceptionHandler(NoResourceFoundException.class)
+	public ResponseEntity<ErrorResponse> handleNoResource(HttpServletRequest request, NoResourceFoundException _ex) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(request, "not_found", "Not Found"));
+	}
+
 	@ExceptionHandler({UnauthorizedException.class, JwtValidationException.class})
 	public ResponseEntity<ErrorResponse> handleUnauthorized(HttpServletRequest request, RuntimeException _ex) {
 		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error(request, "unauthorized", "Unauthorized"));
 	}
 
 	@ExceptionHandler(ForbiddenException.class)
-	public ResponseEntity<ErrorResponse> handleForbidden(HttpServletRequest request, ForbiddenException _ex) {
-		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error(request, "forbidden", "Forbidden"));
+	public ResponseEntity<ErrorResponse> handleForbidden(HttpServletRequest request, ForbiddenException ex) {
+		String message = ex.getMessage();
+		if (message == null || message.isBlank()) {
+			message = "Forbidden";
+		}
+		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error(request, "forbidden", message));
 	}
 
 	@ExceptionHandler(IllegalArgumentException.class)

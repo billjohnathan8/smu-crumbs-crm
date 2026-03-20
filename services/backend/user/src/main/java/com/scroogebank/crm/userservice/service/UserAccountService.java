@@ -153,9 +153,9 @@ public class UserAccountService {
 		}
 		UserRole targetRole = target.role();
 
-		// Reset own password is always allowed
+		// Self-reset must use forgot-password flow and is not supported on admin reset route.
 		if (target.id().equals(requester.userId())) {
-			return;
+			throw new AccessDeniedException("self_reset_not_supported_use_forgot_password");
 		}
 		validateHierarchyPermissions(requester, targetRole, "reset password for");
 		store.resetPassword(userId);
