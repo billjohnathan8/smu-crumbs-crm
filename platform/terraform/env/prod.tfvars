@@ -12,10 +12,13 @@ environment = "prod"
 
 # --- Network ---
 enable_multi_az_nat = true # required for prod (guardrail-enforced)
+enable_nat_gateway  = true # required for prod (guardrail-enforced)
 
 # --- ECS ---
-client_desired_count = 2
-ecs_max_capacity     = 4
+client_desired_count   = 2
+ecs_max_capacity       = 4
+ecs_use_public_subnets = false
+ecs_assign_public_ip   = false
 
 # --- Database ---
 db_instance_class        = "db.t4g.micro" # school budget; upgrade if needed

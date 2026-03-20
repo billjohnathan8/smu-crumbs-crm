@@ -12,11 +12,14 @@ environment = "lab"
 aws_region  = "us-east-1"
 
 # --- Network ---
-enable_multi_az_nat = false # single-AZ NAT saves cost in lab
+enable_multi_az_nat = false # irrelevant when NAT is disabled
+enable_nat_gateway  = false # major cost saver for Learner Lab
 
 # --- ECS ---
-client_desired_count = 1 # minimal footprint
-ecs_max_capacity     = 2
+client_desired_count   = 1 # minimal footprint
+ecs_max_capacity       = 2
+ecs_use_public_subnets = true
+ecs_assign_public_ip   = true
 
 # --- Database ---
 db_instance_class        = "db.t4g.micro"
@@ -51,12 +54,12 @@ frontend_bucket_allow_public  = true # S3 static website hosting (no CloudFront 
 cloudfront_price_class        = "PriceClass_100"
 
 # --- Auth ---
-enable_cognito = true
-auth_mode      = "hybrid"
+enable_cognito = false
+auth_mode      = "local"
 
 # --- Learner Lab LabRole restrictions ---
 # LabRole cannot create IAM roles, CloudFront distributions, or Cloud Map namespaces.
-lab_role_arn             = "arn:aws:iam::231570205144:role/LabRole"
+lab_role_name            = "LabRole"
 enable_cloudfront        = false
 enable_cloudfront_oac    = false # moot when enable_cloudfront=false, kept for clarity
 enable_service_discovery = false
