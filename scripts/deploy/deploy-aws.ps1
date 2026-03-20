@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Deploy ScroogeBank CRM infrastructure to LearnerLab or prod.
+    Deploy ScroogeBank CRM infrastructure to LearnerLab, integration, or prod.
 
 .DESCRIPTION
     Runs terraform init -> plan -> apply (or destroy) for the target environment.
@@ -9,15 +9,15 @@
       lab  - LearnerLab credentials expire every 4 hours. Set them in your shell
              before running, or this script will prompt you to paste them from
              the LearnerLab portal (AWS Details > AWS CLI).
-      prod - Credentials must be set in your shell as AWS_ACCESS_KEY_ID /
-             AWS_SECRET_ACCESS_KEY before running.
+      integration/prod - Credentials must be set in your shell as
+                         AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY before running.
 
     Sensitive Terraform variables (TF_VAR_jwt_hmac_secret,
     TF_VAR_root_admin_password) are read from the environment; if not set you
     will be prompted for them.
 
 .PARAMETER Env
-    Target environment: 'lab' or 'prod'.
+    Target environment: 'lab', 'integration', or 'prod'.
 
 .PARAMETER PlanOnly
     Run terraform plan but skip apply.
@@ -40,6 +40,12 @@
     .\scripts\deploy\deploy-aws.ps1 -Env lab
 
 .EXAMPLE
+    # Deploy to integration:
+    $env:AWS_ACCESS_KEY_ID     = "AKIA..."
+    $env:AWS_SECRET_ACCESS_KEY = "..."
+    .\scripts\deploy\deploy-aws.ps1 -Env integration
+
+.EXAMPLE
     # Deploy to prod:
     $env:AWS_ACCESS_KEY_ID     = "AKIA..."
     $env:AWS_SECRET_ACCESS_KEY = "..."
@@ -51,7 +57,7 @@
 #>
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet("lab", "prod")]
+    [ValidateSet("lab", "integration", "prod")]
     [string]$Env,
 
     [switch]$PlanOnly,
@@ -120,8 +126,8 @@ if (-not (Test-Path $tfvarsFile)) {
 
 # ---------------------------------------------------------------------------
 # 2. AWS credentials
-#    lab  — try env vars first; if invalid, prompt for paste from portal
-#    prod — env vars only (long-lived credentials, no paste flow)
+#    lab                   - try env vars first; if invalid, prompt for paste from portal
+#    integration / prod    - env vars only (long-lived credentials, no paste flow)
 # ---------------------------------------------------------------------------
 if ($Env -eq "lab") {
     $env:AWS_DEFAULT_REGION = "us-east-1"
@@ -170,12 +176,12 @@ if ($Env -eq "lab") {
     }
 
 } else {
-    # prod — must already be set
+    # integration/prod - must already be set
     $env:AWS_DEFAULT_REGION = "ap-southeast-1"
 
     if (-not (Test-AwsCreds)) {
         Write-Host ""
-        Write-Host "[ERROR] No valid AWS credentials found for prod."
+        Write-Host "[ERROR] No valid AWS credentials found for $Env."
         Write-Host "  Set them before running:"
         Write-Host "    `$env:AWS_ACCESS_KEY_ID     = 'AKIA...'"
         Write-Host "    `$env:AWS_SECRET_ACCESS_KEY = '...'"
@@ -258,3 +264,4 @@ try {
     if (Test-Path $planFile) { Remove-Item $planFile -ErrorAction SilentlyContinue }
     Pop-Location
 }
+
