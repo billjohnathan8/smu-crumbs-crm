@@ -465,6 +465,8 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                         "--compact",
                         "--quiet",
                         "--soft-fail",
+                        "--hard-fail-on",
+                        "CRITICAL,HIGH",
                     ],
                 )
             )
@@ -619,6 +621,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                         svc_dir,
                         "test",
                         "jacocoTestReport",
+                        "jacocoTestCoverageVerification",
                         "--no-daemon",
                         "--console=plain",
                     ),
