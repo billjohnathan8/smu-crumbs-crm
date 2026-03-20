@@ -53,9 +53,18 @@ variable "service_health_check_path" {
   default     = "/health"
 }
 
-variable "ecr_repository_url" {
-  description = "ECR repository URL for service images."
-  type        = string
+variable "ecr_repository_urls" {
+  description = "ECR repository URLs keyed by service name."
+  type        = map(string)
+
+  validation {
+    condition = alltrue([
+      contains(keys(var.ecr_repository_urls), "user"),
+      contains(keys(var.ecr_repository_urls), "client"),
+      contains(keys(var.ecr_repository_urls), "transaction")
+    ])
+    error_message = "ecr_repository_urls must include user, client, and transaction keys."
+  }
 }
 
 variable "image_tags" {

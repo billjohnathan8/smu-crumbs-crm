@@ -79,6 +79,12 @@ variable "ecr_repository_name" {
   default     = ""
 }
 
+variable "ecr_repository_names" {
+  description = "Optional explicit ECR repository names keyed by service (user, client, transaction)."
+  type        = map(string)
+  default     = {}
+}
+
 #--------------------------------------------------------------
 # ECS Service Image Tags
 #--------------------------------------------------------------
@@ -713,6 +719,12 @@ variable "enable_cloudtrail" {
 
 variable "enable_cloudwatch_alarms" {
   description = "Create CloudWatch alarms for ECS, RDS, and ALB."
+  type        = bool
+  default     = true
+}
+
+variable "enable_codedeploy" {
+  description = "Create CodeDeploy applications and deployment groups for ECS and Lambda services."
   type        = bool
   default     = true
 }

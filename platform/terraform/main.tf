@@ -71,8 +71,9 @@ module "security" {
 module "ecr" {
   source = "./modules/ecr"
 
-  name_prefix         = local.name_prefix
-  ecr_repository_name = var.ecr_repository_name
+  name_prefix          = local.name_prefix
+  ecr_repository_name  = var.ecr_repository_name
+  ecr_repository_names = var.ecr_repository_names
 }
 
 #--------------------------------------------------------------
@@ -258,7 +259,7 @@ module "ecs" {
   cloudwatch_log_retention_days                   = var.cloudwatch_log_retention_days
   target_group_arns                               = module.alb.target_group_arns
   service_health_check_path                       = "/health"
-  ecr_repository_url                              = module.ecr.repository_url
+  ecr_repository_urls                             = module.ecr.repository_urls
   ecs_task_execution_role_arn                     = module.security.ecs_task_execution_role_arn
   ecs_task_role_arns                              = module.security.ecs_task_role_arns
   root_admin_email                                = var.root_admin_email
@@ -473,4 +474,43 @@ module "backup" {
   backup_retention_days = var.backup_retention_days
   rds_instance_arn      = module.rds.rds_instance_arn
   dynamodb_table_arns   = local.dynamodb_backup_arns
+}
+
+#--------------------------------------------------------------
+# CodeDeploy Module
+# Deployment applications/groups for ECS services and Lambda functions
+#--------------------------------------------------------------
+module "codedeploy" {
+  source = "./modules/codedeploy"
+
+  enable_codedeploy            = var.enable_codedeploy
+  name_prefix                  = local.name_prefix
+  ecs_cluster_name             = module.ecs.ecs_cluster_name
+  ecs_service_names            = module.ecs.ecs_service_names
+  alb_listener_arn             = module.alb.primary_listener_arn
+  ecs_blue_target_group_names  = module.alb.target_group_names
+  ecs_green_target_group_names = module.alb.target_group_green_names
+
+  lambda_deployments = {
+    log = {
+      enabled       = var.enable_log_lambda
+      function_name = module.lambda.log_lambda_name != null ? module.lambda.log_lambda_name : ""
+      alias_name    = module.lambda.log_lambda_alias_name != null ? module.lambda.log_lambda_alias_name : ""
+    }
+    aml = {
+      enabled       = var.enable_aml_lambda
+      function_name = module.lambda.aml_lambda_name != null ? module.lambda.aml_lambda_name : ""
+      alias_name    = module.lambda.aml_lambda_alias_name != null ? module.lambda.aml_lambda_alias_name : ""
+    }
+    transaction-ingestion = {
+      enabled       = var.enable_transaction_ingestion_lambda
+      function_name = module.lambda.transaction_ingestion_lambda_name != null ? module.lambda.transaction_ingestion_lambda_name : ""
+      alias_name    = module.lambda.transaction_ingestion_lambda_alias_name != null ? module.lambda.transaction_ingestion_lambda_alias_name : ""
+    }
+    verification = {
+      enabled       = var.enable_verification_pipeline
+      function_name = module.lambda.verification_lambda_name != null ? module.lambda.verification_lambda_name : ""
+      alias_name    = module.lambda.verification_lambda_alias_name != null ? module.lambda.verification_lambda_alias_name : ""
+    }
+  }
 }

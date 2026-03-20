@@ -32,8 +32,18 @@ output "ecs_cluster_name" {
 }
 
 output "ecr_repository_url" {
-  description = "ECR repository URL for service images."
+  description = "Compatibility output for the user service ECR repository URL."
   value       = module.ecr.repository_url
+}
+
+output "ecr_repository_urls" {
+  description = "ECR repository URLs keyed by service name."
+  value       = module.ecr.repository_urls
+}
+
+output "ecr_repository_names" {
+  description = "ECR repository names keyed by service name."
+  value       = module.ecr.repository_names
 }
 
 #--------------------------------------------------------------
@@ -302,4 +312,26 @@ output "cloudwatch_dashboard_name" {
 output "backup_vault_arn" {
   description = "AWS Backup vault ARN."
   value       = module.backup.backup_vault_arn
+}
+
+# --- CodeDeploy ---
+
+output "codedeploy_ecs_application_name" {
+  description = "CodeDeploy ECS application name."
+  value       = module.codedeploy.ecs_application_name
+}
+
+output "codedeploy_lambda_application_name" {
+  description = "CodeDeploy Lambda application name."
+  value       = module.codedeploy.lambda_application_name
+}
+
+output "codedeploy_ecs_deployment_group_names" {
+  description = "CodeDeploy ECS deployment group names keyed by service."
+  value       = module.codedeploy.ecs_deployment_group_names
+}
+
+output "codedeploy_lambda_deployment_group_names" {
+  description = "CodeDeploy Lambda deployment group names keyed by logical lambda service."
+  value       = module.codedeploy.lambda_deployment_group_names
 }

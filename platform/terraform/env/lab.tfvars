@@ -60,6 +60,7 @@ lab_role_arn             = "arn:aws:iam::231570205144:role/LabRole"
 enable_cloudfront        = false
 enable_cloudfront_oac    = false # moot when enable_cloudfront=false, kept for clarity
 enable_service_discovery = false
+enable_codedeploy        = false # CodeDeploy module creates IAM role; disabled under LabRole restrictions
 
 # --- Service Docker Image Tags  ---
 user_image_tag        = "user-lab-001"

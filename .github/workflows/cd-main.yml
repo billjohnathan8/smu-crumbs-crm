@@ -28,10 +28,7 @@ jobs:
     uses: ./.github/workflows/reusable-ecs-deploy.yml
     with:
       service: user
-    secrets:
-      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+    secrets: inherit
 
   deploy-client:
     if: >-
@@ -43,10 +40,7 @@ jobs:
     uses: ./.github/workflows/reusable-ecs-deploy.yml
     with:
       service: client
-    secrets:
-      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+    secrets: inherit
 
   deploy-transaction:
     if: >-
@@ -58,10 +52,7 @@ jobs:
     uses: ./.github/workflows/reusable-ecs-deploy.yml
     with:
       service: transaction
-    secrets:
-      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+    secrets: inherit
 
   deploy-aml:
     if: >-
@@ -73,10 +64,7 @@ jobs:
     uses: ./.github/workflows/reusable-lambda-deploy.yml
     with:
       service: aml
-    secrets:
-      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      LAMBDA_ARTIFACT_BUCKET: ${{ secrets.LAMBDA_ARTIFACT_BUCKET }}
+    secrets: inherit
 
   deploy-verification:
     if: >-
@@ -88,10 +76,7 @@ jobs:
     uses: ./.github/workflows/reusable-lambda-deploy.yml
     with:
       service: verification
-    secrets:
-      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      LAMBDA_ARTIFACT_BUCKET: ${{ secrets.LAMBDA_ARTIFACT_BUCKET }}
+    secrets: inherit
 
   deploy-transaction-ingestion-lambda:
     if: >-
@@ -103,10 +88,7 @@ jobs:
     uses: ./.github/workflows/reusable-lambda-deploy.yml
     with:
       service: transaction-ingestion-lambda
-    secrets:
-      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      LAMBDA_ARTIFACT_BUCKET: ${{ secrets.LAMBDA_ARTIFACT_BUCKET }}
+    secrets: inherit
 
   deploy-frontend:
     if: >-
@@ -116,8 +98,4 @@ jobs:
     needs:
       - changes
     uses: ./.github/workflows/reusable-frontend-deploy.yml
-    secrets:
-      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      FRONTEND_S3_BUCKET: ${{ secrets.FRONTEND_S3_BUCKET }}
-      CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+    secrets: inherit

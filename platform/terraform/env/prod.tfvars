@@ -38,6 +38,7 @@ enable_waf                    = true
 enable_cloudtrail             = true
 enable_cloudwatch_alarms      = true
 enable_backup                 = true
+enable_codedeploy             = true
 backup_retention_days         = 30
 cloudwatch_log_retention_days = 30
 

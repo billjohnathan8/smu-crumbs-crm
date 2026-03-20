@@ -7,17 +7,12 @@ on:
         description: ECS service folder name under services/backend (user, client, transaction)
         required: true
         type: string
-      image_repo_prefix:
-        description: ECR path prefix used before service name
-        required: false
-        type: string
-        default: services
     secrets:
       AWS_ROLE_ARN:
         required: true
       AWS_REGION:
         required: true
-      ECR_REGISTRY:
+      TF_ECR_REPOSITORY_URLS_JSON:
         required: true
 
     outputs:
@@ -47,7 +42,6 @@ jobs:
 
     env:
       AWS_REGION: ${{ secrets.AWS_REGION }}
-      ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
 
     steps:
       - name: Checkout code
@@ -58,14 +52,15 @@ jobs:
         run: |
           test -n "${{ secrets.AWS_ROLE_ARN }}"
           test -n "${{ secrets.AWS_REGION }}"
-          test -n "${{ secrets.ECR_REGISTRY }}"
+          test -n "${{ secrets.TF_ECR_REPOSITORY_URLS_JSON }}"
 
-      - name: Validate service and set image metadata
+      - name: Resolve Terraform metadata and set image metadata
         id: meta
         shell: bash
         run: |
           set -euo pipefail
           SERVICE="${{ inputs.service }}"
+          ECR_REPOSITORY_URLS_JSON='${{ secrets.TF_ECR_REPOSITORY_URLS_JSON }}'
 
           case "$SERVICE" in
             user|client|transaction)
@@ -83,7 +78,12 @@ jobs:
             exit 1
           fi
 
-          IMAGE_URI="${ECR_REGISTRY}/${{ inputs.image_repo_prefix }}/${SERVICE}"
+          IMAGE_URI="$(jq -er --arg service "$SERVICE" '.[$service] // empty' <<< "$ECR_REPOSITORY_URLS_JSON")"
+          if [[ -z "$IMAGE_URI" || "$IMAGE_URI" == "null" ]]; then
+            echo "Missing ECR repository URL for service '$SERVICE' in ecr_repository_urls contract"
+            exit 1
+          fi
+
           SHA_TAG="${GITHUB_SHA}"
           LATEST_TAG="latest"
 
@@ -126,7 +126,7 @@ jobs:
           echo "local_image=${LOCAL_IMAGE}" >> "$GITHUB_OUTPUT"
 
       - name: Trivy vulnerability scan (fail on HIGH/CRITICAL)
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: ${{ steps.local_image.outputs.local_image }}
           format: table
