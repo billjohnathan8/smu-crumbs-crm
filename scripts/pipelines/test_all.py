@@ -126,26 +126,6 @@ def gradle_env(service_dir: Path) -> Dict[str, str]:
     return {"GRADLE_USER_HOME": str(service_dir / ".gradle-local")}
 
 
-def has_aws_credentials() -> bool:
-    """Return True if real AWS credentials appear to be configured."""
-    key = os.environ.get("AWS_ACCESS_KEY_ID", "")
-    secret = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
-    # Reject obvious placeholder/dummy values used in LocalStack/CI stubs
-    placeholders = {
-        "test",
-        "fake",
-        "dummy",
-        "localstack",
-        "mock",
-        "placeholder",
-        "changeme",
-    }
-    if key and secret:
-        if key.lower() not in placeholders and secret.lower() not in placeholders:
-            return True
-    creds_file = Path.home() / ".aws" / "credentials"
-    return creds_file.exists() and creds_file.stat().st_size > 0
-
 
 def resolve_windows_command(command: List[str]) -> List[str]:
     if not is_windows() or not command:
@@ -429,21 +409,6 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                     ],
                 )
             )
-            if has_aws_credentials():
-                steps.append(
-                    Step(
-                        phase=phase,
-                        name="Check AWS credentials",
-                        cwd=terraform_dir,
-                        command=["aws", "sts", "get-caller-identity"],
-                    )
-                )
-            else:
-                print(
-                    "[INFO] No AWS credentials detected; skipping 'Check AWS credentials' step. "
-                    "Set AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY or configure ~/.aws/credentials "
-                    "to enable this check."
-                )
 
     if run_frontend:
         phase = "Layer 1 - Lint / Format / Typecheck"
