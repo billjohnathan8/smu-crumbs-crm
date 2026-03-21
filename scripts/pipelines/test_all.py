@@ -397,6 +397,16 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
         )
 
         if not args.skip_terraform:
+            # Neutralise any local AWS credentials so the AWS provider does
+            # not attempt STS validation during offline init/validate.
+            _tf_no_aws_env = {
+                "AWS_ACCESS_KEY_ID": "",
+                "AWS_SECRET_ACCESS_KEY": "",
+                "AWS_SESSION_TOKEN": "",
+                "AWS_PROFILE": "",
+                "AWS_SHARED_CREDENTIALS_FILE": "",
+                "AWS_CONFIG_FILE": "",
+            }
             steps.append(
                 Step(
                     phase=phase,
@@ -411,6 +421,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                     name="Terraform init (no backend)",
                     cwd=terraform_dir,
                     command=["terraform", "init", "-backend=false"],
+                    env=_tf_no_aws_env,
                 )
             )
             steps.append(
@@ -419,6 +430,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                     name="Terraform validate",
                     cwd=terraform_dir,
                     command=["terraform", "validate"],
+                    env=_tf_no_aws_env,
                 )
             )
             steps.append(
@@ -439,6 +451,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                     cwd=terraform_dir,
                     command=["terraform", "validate"],
                     env={
+                        **_tf_no_aws_env,
                         "TF_VAR_enable_log_lambda": "true",
                         "TF_VAR_enable_aml_lambda": "true",
                         "TF_VAR_enable_transaction_ingestion_lambda": "true",
@@ -500,14 +513,21 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                     ],
                 )
             )
-            steps.append(
-                Step(
-                    phase=phase,
-                    name="Check AWS credentials",
-                    cwd=terraform_dir,
-                    command=["aws", "sts", "get-caller-identity"],
+            if has_aws_credentials():
+                steps.append(
+                    Step(
+                        phase=phase,
+                        name="Check AWS credentials",
+                        cwd=terraform_dir,
+                        command=["aws", "sts", "get-caller-identity"],
+                    )
                 )
-            )
+            else:
+                print(
+                    "[INFO] No AWS credentials detected; skipping 'Check AWS credentials' step. "
+                    "Set AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY or configure ~/.aws/credentials "
+                    "to enable this check."
+                )
 
     if run_frontend:
         phase = "Layer 1 - Lint / Format / Typecheck"
@@ -1191,14 +1211,6 @@ def main() -> int:
         args.fullstack_mode = "full"
         args.skip_fullstack = False
         args.skip_mocked_e2e = False
-        args.skip_terraform = True
-
-    if not args.skip_terraform and not has_aws_credentials():
-        print(
-            "[WARN] No AWS credentials detected; automatically skipping Terraform checks. "
-            "Set AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY or configure ~/.aws/credentials "
-            "to enable them, or pass --skip-terraform to silence this warning."
-        )
         args.skip_terraform = True
 
     print("Running local CI-equivalent pipeline")
