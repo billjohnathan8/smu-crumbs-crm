@@ -261,6 +261,66 @@ def test_lambda_handler_updates_for_valid_sns_records(monkeypatch):
     assert calls[0][2] == "DELIVERY"
 
 
+def test_lambda_handler_verification_feedback_delivery_and_bounce(monkeypatch):
+    monkeypatch.setenv("LOG_API_BASE_URL", "https://example.com")
+    calls = []
+
+    def fake_update(base_url, provider_message_id, event_type, error_message):
+        calls.append((base_url, provider_message_id, event_type, error_message))
+        return 200, '{"ok":true}'
+
+    monkeypatch.setattr(
+        lambda_function,
+        "_update_communication_feedback",
+        fake_update,
+    )
+    event = {
+        "Records": [
+            {
+                "Sns": {
+                    "Message": json.dumps(
+                        {
+                            "eventType": "Delivery",
+                            "mail": {"messageId": "ses-delivery-1"},
+                        }
+                    )
+                }
+            },
+            {
+                "Sns": {
+                    "Message": json.dumps(
+                        {
+                            "eventType": "Bounce",
+                            "mail": {"messageId": "ses-bounce-1"},
+                            "bounce": {
+                                "bounceType": "Permanent",
+                                "bounceSubType": "General",
+                            },
+                        }
+                    )
+                }
+            },
+        ]
+    }
+
+    response = lambda_function.lambda_handler(event, None)
+    body = json.loads(response["body"])
+
+    assert response["statusCode"] == 200
+    assert body["updated"] == 2
+    assert body["skipped"] == 0
+    assert body["failedUpdates"] == []
+    assert calls == [
+        ("https://example.com", "ses-delivery-1", "DELIVERY", None),
+        (
+            "https://example.com",
+            "ses-bounce-1",
+            "BOUNCE",
+            "SES bounce: Permanent/General",
+        ),
+    ]
+
+
 def test_lambda_handler_skips_invalid_and_reports_partial_failures(monkeypatch):
     monkeypatch.setenv("LOG_API_BASE_URL", "https://example.com")
 

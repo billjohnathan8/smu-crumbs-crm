@@ -31,6 +31,7 @@ import com.scroogebank.crm.client_service.dto.ClientCreateRequest;
 import com.scroogebank.crm.client_service.dto.ClientDto;
 import com.scroogebank.crm.client_service.dto.ClientListResponse;
 import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
+import com.scroogebank.crm.client_service.dto.VerifyClientRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
 import com.scroogebank.crm.client_service.entity.Gender;
 import com.scroogebank.crm.client_service.exception.ApiExceptionHandler;
@@ -240,6 +241,49 @@ class ClientControllerTest {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.error").value("validation_error"))
 			.andExpect(jsonPath("$.message").value("Invalid request parameter: limit"));
+	}
+
+	@Test
+	void verifyClient_returnsPendingStatus() throws Exception {
+		setUp();
+		when(clientService.verifyClient(any(), eq("clt_7"), any(), any(), any()))
+			.thenReturn(new VerifyClientResponse("clt_7", IdentityVerificationStatus.pending));
+
+		mockMvc.perform(post("/api/clients/clt_7/verify")
+				.header("Authorization", AUTH_HEADER)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "nric": "S1234567D",
+					  "documentType": "NRIC",
+					  "documentRef": "s3://docs/nric-1"
+					}
+					"""))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.clientId").value("clt_7"))
+			.andExpect(jsonPath("$.identityVerificationStatus").value("pending"));
+
+		ArgumentCaptor<VerifyClientRequest> captor = ArgumentCaptor.forClass(VerifyClientRequest.class);
+		verify(clientService).verifyClient(any(), eq("clt_7"), captor.capture(), eq(AUTH_HEADER), any());
+		assertThat(captor.getValue().nric()).isEqualTo("S1234567D");
+		assertThat(captor.getValue().documentType()).isEqualTo("NRIC");
+	}
+
+	@Test
+	void verifyClient_invalidNricOrDocumentType_returnsBadRequest() throws Exception {
+		setUp();
+
+		mockMvc.perform(post("/api/clients/clt_7/verify")
+				.header("Authorization", AUTH_HEADER)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "nric": "BAD_NRIC",
+					  "documentType": "PASSPORT"
+					}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error").value("validation_error"));
 	}
 
 	@Test

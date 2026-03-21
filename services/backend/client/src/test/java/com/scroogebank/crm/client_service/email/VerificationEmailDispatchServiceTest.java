@@ -18,6 +18,7 @@ import static org.mockito.Mockito.when;
 
 import com.scroogebank.crm.client_service.communication.CommunicationRecord;
 import com.scroogebank.crm.client_service.communication.CommunicationStatus;
+import com.scroogebank.crm.client_service.communication.CreateCommunicationRequest;
 import com.scroogebank.crm.client_service.communication.LogServiceCommunicationClient;
 import com.scroogebank.crm.client_service.config.AppProperties;
 import com.scroogebank.crm.client_service.security.JwtService;
@@ -150,6 +151,35 @@ class VerificationEmailDispatchServiceTest {
 
 		verify(communicationClient).listQueuedCommunications(eq(50), eq("Bearer svc-token"));
 		verify(communicationClient).updateCommunicationStatus(eq("com_10"), any(), eq("Bearer svc-token"));
+	}
+
+	@Test
+	void queueAndDispatchVerificationEmail_blankCallerAuth_usesServiceAuthAndVerificationIdempotencyKey() {
+		CommunicationRecord queued = communication(
+			"com_11",
+			CommunicationStatus.queued,
+			0,
+			null
+		);
+		when(communicationClient.createCommunication(any(), eq("Bearer svc-token"))).thenReturn(queued);
+		when(verificationEmailSender.send(any())).thenReturn("ses-200");
+
+		dispatchService.queueAndDispatchVerificationEmail(
+			"clt_7",
+			"usr_1",
+			new VerificationEmail("to@example.com", "subject", "body"),
+			"   ",
+			"req-2"
+		);
+
+		ArgumentCaptor<CreateCommunicationRequest> createCaptor = ArgumentCaptor.forClass(CreateCommunicationRequest.class);
+		verify(communicationClient).createCommunication(createCaptor.capture(), eq("Bearer svc-token"));
+		assertThat(createCaptor.getValue().clientId()).isEqualTo("clt_7");
+		assertThat(createCaptor.getValue().userId()).isEqualTo("usr_1");
+		assertThat(createCaptor.getValue().toEmail()).isEqualTo("to@example.com");
+		assertThat(createCaptor.getValue().channel()).isEqualTo("email");
+		assertThat(createCaptor.getValue().idempotencyKey()).isEqualTo("verification-email:clt_7");
+		verify(communicationClient).updateCommunicationStatus(eq("com_11"), any(), eq("Bearer svc-token"));
 	}
 
 	private static CommunicationRecord communication(

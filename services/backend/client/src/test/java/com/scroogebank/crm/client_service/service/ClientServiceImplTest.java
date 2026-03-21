@@ -19,6 +19,7 @@ import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -32,6 +33,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -759,5 +762,110 @@ class ClientServiceImplTest {
 			.hasMessageContaining("not in pending state");
 
 		verify(clientRepository, never()).save(any());
+	}
+
+	@Test
+	void verificationFlow_createThenVerifyThenApprove_persistsStateAndDispatchesBothEmails() {
+		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "user");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		ClientPayload payload = samplePayload();
+		ClientCreateRequest createRequest = new ClientCreateRequest(
+			payload.firstName(),
+			payload.lastName(),
+			payload.dateOfBirth(),
+			payload.gender(),
+			payload.emailAddress(),
+			payload.phoneNumber(),
+			payload.address(),
+			payload.city(),
+			payload.state(),
+			payload.country(),
+			payload.postalCode()
+		);
+		AtomicReference<ClientEntity> stored = new AtomicReference<>();
+
+		when(clientRepository.existsByEmailAddressIgnoreCase(payload.emailAddress())).thenReturn(false);
+		when(clientRepository.existsByPhoneNumber(payload.phoneNumber())).thenReturn(false);
+		when(clientRepository.save(any())).thenAnswer(inv -> {
+			ClientEntity entity = inv.getArgument(0);
+			if (entity.getId() == null) {
+				entity.setId(1L);
+			}
+			stored.set(entity);
+			return entity;
+		});
+		when(clientRepository.findById(1L)).thenAnswer(inv -> Optional.ofNullable(stored.get()));
+		when(verificationEmailTemplateRenderer.render("jordan.taylor@example.com", "Jordan", "clt_1"))
+			.thenReturn(new VerificationEmail(
+				"jordan.taylor@example.com",
+				"Verification status update",
+				"Body"
+			));
+
+		var created = clientService.createClient(agent, createRequest, "Bearer agent", "req-create");
+		assertThat(created.clientId()).isEqualTo("clt_1");
+
+		var pending = clientService.verifyClient(
+			agent,
+			"clt_1",
+			new VerifyClientRequest("S1234567D", "NRIC", "s3://docs/nric-1"),
+			"Bearer client",
+			"req-verify"
+		);
+		assertThat(pending.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.pending);
+		assertThat(stored.get().getVerificationDocumentType()).isEqualTo("NRIC");
+		assertThat(stored.get().getVerificationDocumentRef()).isEqualTo("s3://docs/nric-1");
+
+		var approved = clientService.reviewVerification(
+			admin,
+			"clt_1",
+			new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.approve),
+			"Bearer admin",
+			"req-review"
+		);
+		assertThat(approved.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.verified);
+		assertThat(stored.get().getVerificationVerifiedAt()).isNotNull();
+
+		ArgumentCaptor<String> userIdCaptor = ArgumentCaptor.forClass(String.class);
+		verify(verificationEmailDispatchService, times(2)).queueAndDispatchVerificationEmail(
+			eq("clt_1"),
+			userIdCaptor.capture(),
+			any(VerificationEmail.class),
+			any(),
+			any()
+		);
+		assertThat(userIdCaptor.getAllValues()).containsExactly("usr_1", "usr_admin");
+
+		var auditOrder = inOrder(clientAuditLogger);
+		auditOrder.verify(clientAuditLogger).logAuditEvent(
+			eq("CREATE"),
+			any(),
+			any(),
+			eq("clt_1"),
+			eq("usr_1"),
+			eq("clt_1"),
+			eq("req-create"),
+			eq("Bearer agent")
+		);
+		auditOrder.verify(clientAuditLogger).logAuditEvent(
+			eq("UPDATE"),
+			eq("identityVerificationStatus"),
+			eq("unverified"),
+			eq("pending"),
+			eq("usr_1"),
+			eq("clt_1"),
+			eq("req-verify"),
+			eq("Bearer client")
+		);
+		auditOrder.verify(clientAuditLogger).logAuditEvent(
+			eq("UPDATE"),
+			eq("identityVerificationStatus"),
+			eq("pending"),
+			eq("verified"),
+			eq("usr_admin"),
+			eq("clt_1"),
+			eq("req-review"),
+			eq("Bearer admin")
+		);
 	}
 }
