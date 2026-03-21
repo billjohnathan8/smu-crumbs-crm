@@ -7,4 +7,4 @@ branch = true
 source = ["app", "lambda_function"]
 
 [tool.coverage.report]
-fail_under = 60
+fail_under = 80

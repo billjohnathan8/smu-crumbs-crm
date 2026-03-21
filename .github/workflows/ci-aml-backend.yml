@@ -71,7 +71,7 @@ jobs:
           --junitxml=build/reports/tests/junit.xml \
           --cov=lambda_function \
           --cov-branch \
-          --cov-fail-under=60 \
+          --cov-fail-under=80 \
           --cov-report=term-missing \
           --cov-report=xml:build/reports/coverage/coverage.xml \
           --cov-report=html:build/reports/coverage/html
