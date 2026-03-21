@@ -38,16 +38,25 @@ python scripts/pipelines/test_frontend.py
 
 ## Runtime Baseline (Latest Local Runs)
 
-Runtime numbers below are from the latest build logs on `2026-03-13`.
+Runtime numbers below are from the latest build logs on `2026-03-21`.
 
 | Command | Observed runtime | Result |
 |---|---:|---|
-| `python scripts/pipelines/test_all.py` | `656.1s` (~10m 56s) | Failed at Layer 4 (`Fullstack integration (full)` after `175.8s`) |
-| `bash scripts/ci/run-fullstack-integration-e2e.sh` | `407s` (~6m 47s) | Passed |
+| `python scripts/pipelines/test_all.py` | `776.5s` (~12m 57s) | Passed (`ok: true`) |
+| Layer 4 step in `test_all.py` (`Fullstack integration (full)`) | `246.5s` (~4m 7s) | Passed |
+
+Layer totals from the same run:
+
+| Layer | Duration |
+|---|---:|
+| Layer 1 - Lint / Format / Typecheck | `355.4s` |
+| Layer 2 - Unit / Component Tests | `182.3s` |
+| Layer 3 - Frontend Mocked E2E | `108.3s` |
+| Layer 4 - Fullstack Integration E2E | `246.5s` |
 
 Source logs:
 - `build-logs/test-all/last-run-summary.md`
-- `build-logs/fullstack-integration/20260313_224929-18799/docker-compose.log`
+- `build-logs/test-all/last-run-summary.json`
 
 Expect runtime variance from Docker image cache state, npm/pip cache state, and LocalStack cold starts.
 
