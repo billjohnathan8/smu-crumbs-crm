@@ -326,9 +326,7 @@ def test_update_communication_status_empty_patch_returns_existing() -> None:
     repo = FakeRepository()
     service = LogService(repo)
 
-    result = service.update_communication_status(
-        8, UpdateCommunicationStatusRequest()
-    )
+    result = service.update_communication_status(8, UpdateCommunicationStatusRequest())
 
     assert result == {"id": 8}
 

@@ -18,7 +18,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from lambda_function import (
+from lambda_function import (  # noqa: E402
     _b64url_encode,
     _load_service_jwt_secret,
     _mint_service_jwt,
@@ -101,7 +101,8 @@ class TestLoadServiceJwtSecret:
     def test_loads_from_secrets_manager_via_primary_arn(self, monkeypatch):
         monkeypatch.delenv("CRM_API_JWT_HMAC_SECRET", raising=False)
         monkeypatch.setenv(
-            "CRM_API_JWT_HMAC_SECRET_ARN", "arn:aws:secretsmanager:us-east-1:123:secret:jwt"
+            "CRM_API_JWT_HMAC_SECRET_ARN",
+            "arn:aws:secretsmanager:us-east-1:123:secret:jwt",
         )
         mock_boto3 = MagicMock()
         mock_boto3.client.return_value.get_secret_value.return_value = {
@@ -115,7 +116,8 @@ class TestLoadServiceJwtSecret:
         monkeypatch.delenv("CRM_API_JWT_HMAC_SECRET", raising=False)
         monkeypatch.delenv("CRM_API_JWT_HMAC_SECRET_ARN", raising=False)
         monkeypatch.setenv(
-            "JWT_HMAC_SECRET_ARN", "arn:aws:secretsmanager:us-east-1:123:secret:fallback"
+            "JWT_HMAC_SECRET_ARN",
+            "arn:aws:secretsmanager:us-east-1:123:secret:fallback",
         )
         mock_boto3 = MagicMock()
         mock_boto3.client.return_value.get_secret_value.return_value = {
@@ -276,7 +278,9 @@ class TestResolveLogWriteBaseUrl:
         monkeypatch.delenv("CRM_WRITE_API_BASE_URL", raising=False)
         monkeypatch.setenv("CRM_LOG_API_URL_PARAM", "/crm/log-api-url")
         mock_boto3 = MagicMock()
-        mock_boto3.client.return_value.get_parameter.side_effect = Exception("SSM error")
+        mock_boto3.client.return_value.get_parameter.side_effect = Exception(
+            "SSM error"
+        )
         with patch.dict("sys.modules", {"boto3": mock_boto3}):
             result = _resolve_log_write_base_url("https://fallback.example.com")
         assert result == "https://fallback.example.com"
@@ -328,8 +332,22 @@ class TestLoadAccountsForActiveClients:
         from lambda_function import Transaction, TransactionType, TransactionStatus
 
         txns = [
-            Transaction("T1", "C1", TransactionType.DEPOSIT, 100.0, date(2026, 1, 1), TransactionStatus.COMPLETED),
-            Transaction("T2", "C2", TransactionType.DEPOSIT, 200.0, date(2026, 1, 1), TransactionStatus.COMPLETED),
+            Transaction(
+                "T1",
+                "C1",
+                TransactionType.DEPOSIT,
+                100.0,
+                date(2026, 1, 1),
+                TransactionStatus.COMPLETED,
+            ),
+            Transaction(
+                "T2",
+                "C2",
+                TransactionType.DEPOSIT,
+                200.0,
+                date(2026, 1, 1),
+                TransactionStatus.COMPLETED,
+            ),
         ]
 
         class PartialRepo:
@@ -426,19 +444,21 @@ class TestAccountRepository:
         monkeypatch.delenv("JWT_HMAC_SECRET_ARN", raising=False)
         repo = AccountRepository()
 
-        mock_response_data = json.dumps({
-            "data": [
-                {
-                    "accountId": "ACC1",
-                    "clientId": "C1",
-                    "accountType": "Savings",
-                    "accountStatus": "Active",
-                    "openingDate": "2020-01-01",
-                    "initialDeposit": 1000.0,
-                    "currency": "SGD",
-                }
-            ]
-        }).encode()
+        mock_response_data = json.dumps(
+            {
+                "data": [
+                    {
+                        "accountId": "ACC1",
+                        "clientId": "C1",
+                        "accountType": "Savings",
+                        "accountStatus": "Active",
+                        "openingDate": "2020-01-01",
+                        "initialDeposit": 1000.0,
+                        "currency": "SGD",
+                    }
+                ]
+            }
+        ).encode()
 
         mock_resp = MagicMock()
         mock_resp.read.return_value = mock_response_data
@@ -460,18 +480,20 @@ class TestAccountRepository:
         monkeypatch.delenv("JWT_HMAC_SECRET_ARN", raising=False)
         repo = AccountRepository()
 
-        mock_response_data = json.dumps({
-            "data": [
-                {
-                    "accountId": "ACC1",
-                    "clientId": "C1",
-                    "accountType": "Savings",
-                    "accountStatus": "Active",
-                    "openingDate": "2020-01-01",
-                    "initialDeposit": 1000.0,
-                }
-            ]
-        }).encode()
+        mock_response_data = json.dumps(
+            {
+                "data": [
+                    {
+                        "accountId": "ACC1",
+                        "clientId": "C1",
+                        "accountType": "Savings",
+                        "accountStatus": "Active",
+                        "openingDate": "2020-01-01",
+                        "initialDeposit": 1000.0,
+                    }
+                ]
+            }
+        ).encode()
 
         mock_resp = MagicMock()
         mock_resp.read.return_value = mock_response_data
@@ -582,13 +604,15 @@ class TestHistoricalTransactionRepository:
         repo = HistoricalTransactionRepository()
 
         # Use dates before current month start
-        mock_response_data = json.dumps({
-            "data": [
-                {"amount": 100.0, "date": "2025-12-01"},
-                {"amount": 200.0, "date": "2025-11-15"},
-                {"amount": 300.0, "date": "2025-10-20"},
-            ]
-        }).encode()
+        mock_response_data = json.dumps(
+            {
+                "data": [
+                    {"amount": 100.0, "date": "2025-12-01"},
+                    {"amount": 200.0, "date": "2025-11-15"},
+                    {"amount": 300.0, "date": "2025-10-20"},
+                ]
+            }
+        ).encode()
 
         mock_resp = MagicMock()
         mock_resp.read.return_value = mock_response_data
@@ -628,12 +652,14 @@ class TestHistoricalTransactionRepository:
 
         # All dates are in current month (no historical data before month start)
         today = date.today()
-        mock_response_data = json.dumps({
-            "data": [
-                {"amount": 500.0, "date": today.isoformat()},
-                {"amount": 600.0, "date": today.isoformat()},
-            ]
-        }).encode()
+        mock_response_data = json.dumps(
+            {
+                "data": [
+                    {"amount": 500.0, "date": today.isoformat()},
+                    {"amount": 600.0, "date": today.isoformat()},
+                ]
+            }
+        ).encode()
 
         mock_resp = MagicMock()
         mock_resp.read.return_value = mock_response_data
