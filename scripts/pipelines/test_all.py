@@ -420,6 +420,24 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                     command=["terraform", "fmt", "-check", "-recursive"],
                 )
             )
+            # Remove stale .terraform cache (may contain S3 backend state
+            # from a previous deployment init, which causes -backend=false
+            # to still attempt AWS authentication).
+            steps.append(
+                Step(
+                    phase=phase,
+                    name="Terraform clean .terraform cache",
+                    cwd=terraform_dir,
+                    command=[
+                        py,
+                        "-c",
+                        "import shutil, pathlib; "
+                        "p = pathlib.Path('.terraform'); "
+                        "shutil.rmtree(p, ignore_errors=True); "
+                        "print('Cleaned .terraform cache' if not p.exists() else 'Nothing to clean')",
+                    ],
+                )
+            )
             steps.append(
                 Step(
                     phase=phase,
