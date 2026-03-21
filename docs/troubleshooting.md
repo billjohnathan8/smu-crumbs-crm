@@ -43,3 +43,21 @@ If `bash scripts/dev/stack-up.sh` fails:
 2. Check `build-logs/dev-stack/docker-build.log` for Docker image build errors.
 3. Tear down any leftover containers before retrying: `bash scripts/dev/stack-down.sh`.
 4. Re-run `bash scripts/dev/stack-up.sh`.
+
+## Too many stopped containers / disk usage growing
+
+LocalStack spawns a container per Lambda invocation. After repeated pipeline runs these accumulate (visible in Docker Desktop as many `crm-fullstack-it-local-localstack-1-lamb…` entries).
+
+Quick fix:
+
+```bash
+docker container prune
+```
+
+Targeted removal (Lambda containers only):
+
+```bash
+docker rm $(docker ps -a -q --filter "ancestor=lambda/python:3.12" --filter "status=exited")
+```
+
+See [infrastructure/localstack-setup.md](infrastructure/localstack-setup.md#7-cleaning-up-leftover-lambda-containers) for the full cleanup reference.
