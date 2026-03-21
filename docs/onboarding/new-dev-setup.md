@@ -49,7 +49,39 @@ python scripts/pipelines/setup_dev_env.py
 
 Use `python3` where required.
 
-## 3. Start local infra (LocalStack + Postgres)
+## 3. Start local dev stack
+
+To spin up the full local stack (LocalStack, Postgres, all backend services, frontend, gateway, and all Lambda functions) and leave it running:
+
+```bash
+bash scripts/dev/stack-up.sh
+```
+
+Tear down when done:
+
+```bash
+bash scripts/dev/stack-down.sh
+```
+
+Services after startup:
+
+| Service | URL |
+|---|---|
+| Gateway (UI entry point) | http://127.0.0.1:18088 |
+| User service | http://127.0.0.1:18081 |
+| Client service | http://127.0.0.1:18082 |
+| Transaction service | http://127.0.0.1:18083 |
+| Frontend container | http://127.0.0.1:18085 |
+| LocalStack | http://127.0.0.1:14566 |
+
+Root Admin Credentials (seeded by stack-up):
+
+```
+username:         admin@crm.local
+default_password: Scrooge@Bank2026!
+```
+
+**Infra-only alternative** (LocalStack + Postgres only, no app services):
 
 ```bash
 docker compose -f docker-compose.localstack.yml up -d
@@ -84,6 +116,26 @@ python scripts/pipelines/test_all.py --fullstack-mode smoke
 python scripts/pipelines/test_all.py --local-phase5
 python scripts/pipelines/test_all.py --dry-run
 ```
+
+## 5. Deploy to AWS Learner Lab (optional)
+
+To deploy the full application to AWS Learner Lab:
+
+```powershell
+.\scripts\deploy-learnerlab.ps1
+```
+
+Or on Linux/macOS/WSL:
+
+```bash
+./scripts/deploy-learnerlab.sh
+```
+
+This builds all backend services, provisions AWS infrastructure via Terraform, pushes Docker images to ECR, builds and deploys the frontend to S3, and runs health checks. The script prompts for AWS credentials interactively.
+
+Prerequisites: AWS CLI, Terraform >= 1.10.0 (in addition to the tools above).
+
+Full runbook: [../diff/prep-learnerlab/BILL_LEARNERLAB_RUNBOOK.md](../diff/prep-learnerlab/BILL_LEARNERLAB_RUNBOOK.md)
 
 ## Windows + WSL
 

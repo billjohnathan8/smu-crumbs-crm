@@ -33,6 +33,62 @@ On Linux/macOS/WSL, use `python3` if `python` is not available.
 
 Note: `setup_dev_env.py` can install `inframap` without Docker (portable binary download). Docker Desktop is still required for container-based workflows and Docker fallback paths.
 
+# Local Dev Stack
+
+Spin up the full local stack (LocalStack, Postgres, all three Java backend services, frontend, nginx gateway, and all Lambda functions) and leave it running — no tests:
+
+```bash
+bash scripts/dev/stack-up.sh
+```
+
+Tear down:
+
+```bash
+bash scripts/dev/stack-down.sh
+```
+
+Services after startup:
+
+| Service | URL |
+|---|---|
+| Gateway (UI entry point) | http://127.0.0.1:18088 |
+| User service | http://127.0.0.1:18081 |
+| Client service | http://127.0.0.1:18082 |
+| Transaction service | http://127.0.0.1:18083 |
+| Frontend container | http://127.0.0.1:18085 |
+| LocalStack | http://127.0.0.1:14566 |
+
+Root Admin Credentials (seeded by stack-up):
+
+```
+username:         admin@crm.local
+default_password: Scrooge@Bank2026!
+```
+
+# AWS Learner Lab Deployment
+
+One-command deployment to AWS Learner Lab (builds images, provisions infrastructure, pushes to ECR, deploys frontend):
+
+```powershell
+.\scripts\deploy-learnerlab.ps1
+```
+
+Bash (Linux/macOS/WSL):
+
+```bash
+./scripts/deploy-learnerlab.sh
+```
+
+The script is interactive — it prompts for AWS credentials and pauses for Terraform plan approval. Use skip flags for subsequent deploys (`-SkipBuild`, `-SkipInfra`, `-SkipFrontend`).
+
+For Terraform-only operations (plan/apply/destroy) across any environment:
+
+```powershell
+.\scripts\deploy\deploy-aws.ps1 -Env lab
+```
+
+Full runbook: [docs/diff/prep-learnerlab/BILL_LEARNERLAB_RUNBOOK.md](docs/diff/prep-learnerlab/BILL_LEARNERLAB_RUNBOOK.md)
+
 # Infrastructure Visualization
 Use these commands from repo root to visualize Terraform infrastructure:
 

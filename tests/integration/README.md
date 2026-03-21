@@ -28,10 +28,32 @@ bash scripts/ci/run-fullstack-integration-e2e.sh
 The script will:
 1. Build backend artifacts.
 2. Start `postgres` and `localstack`.
-3. Package/deploy the log Lambda and provision a LocalStack HTTP API.
+3. Package/deploy all Lambda functions and provision a LocalStack HTTP API.
 4. Start application containers and integration gateway.
 5. Run HTTP smoke checks and this Playwright suite.
 6. Tear down containers on exit.
+
+## Stack Up Without Tests
+
+To spin up the full stack and leave it running (for manual testing, JMeter, etc.) without running any Playwright assertions:
+
+```bash
+bash scripts/dev/stack-up.sh
+```
+
+Tear down:
+
+```bash
+bash scripts/dev/stack-down.sh
+```
+
+Then run the Playwright suite against the live stack:
+
+```bash
+cd tests/integration
+npm ci
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:18088 npm test
+```
 
 ## Runtime Snapshot (Latest Local Runs)
 

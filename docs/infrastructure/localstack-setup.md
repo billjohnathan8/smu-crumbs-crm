@@ -85,15 +85,44 @@ pip install awscli-local
 awslocal sqs list-queues
 ```
 
-## 4. Run Fullstack Integration (Recommended)
+## 4. Local Dev Stack (No Tests)
+
+Spin up the full stack (all services, gateway, and all Lambda functions) and leave it running — no assertions, no Playwright:
+
+```bash
+bash scripts/dev/stack-up.sh
+```
+
+Tear down:
+
+```bash
+bash scripts/dev/stack-down.sh
+```
+
+Root Admin Credentials (seeded by stack-up):
+
+```
+username:         admin@crm.local
+default_password: Scrooge@Bank2026!
+```
+
+## 5. Run Fullstack Integration E2E (CI / Test Pipeline)
 
 ```bash
 bash scripts/ci/run-fullstack-integration-e2e.sh
 ```
 
-This script handles service startup, standardized DB migrate/seed orchestration, log Lambda/API provisioning, smoke checks, and integration Playwright tests.
+This script handles service startup, standardized DB migrate/seed orchestration, all Lambda/API provisioning, smoke checks, and integration Playwright tests. Containers are torn down automatically on exit.
 
-## 5. Teardown
+## 6. Teardown
+
+If you used `stack-up.sh`:
+
+```bash
+bash scripts/dev/stack-down.sh
+```
+
+If you only started infra (`docker-compose.localstack.yml`):
 
 ```bash
 docker compose -f docker-compose.localstack.yml down -v
@@ -103,3 +132,4 @@ docker compose -f docker-compose.localstack.yml down -v
 
 - If startup fails, inspect `docker compose logs localstack`.
 - If fullstack tests fail, inspect `build-logs/fullstack-integration/`.
+- If `stack-up.sh` fails at gateway health check, check `build-logs/dev-stack/docker-build.log` for Docker build errors.

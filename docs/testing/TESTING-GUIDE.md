@@ -51,6 +51,22 @@ Source logs:
 
 Expect runtime variance from Docker image cache state, npm/pip cache state, and LocalStack cold starts.
 
+## Local Dev Stack (No Tests)
+
+Spin up the full stack and leave it running — no assertions, no Playwright:
+
+```bash
+bash scripts/dev/stack-up.sh
+```
+
+Tear down:
+
+```bash
+bash scripts/dev/stack-down.sh
+```
+
+Use this for manual exploration, performance testing (e.g. JMeter), or debugging individual services without the full CI test suite.
+
 ## Fullstack Entry Points
 
 ```bash

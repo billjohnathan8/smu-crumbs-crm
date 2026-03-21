@@ -34,3 +34,12 @@ Symptoms usually include failed health checks for gateway or LocalStack.
 1. Ensure Docker is running.
 2. Re-run `bash scripts/ci/run-fullstack-integration-e2e.sh`.
 3. Check logs in `build-logs/fullstack-integration/`.
+
+## Local dev stack fails to start
+
+If `bash scripts/dev/stack-up.sh` fails:
+
+1. Ensure Docker is running.
+2. Check `build-logs/dev-stack/docker-build.log` for Docker image build errors.
+3. Tear down any leftover containers before retrying: `bash scripts/dev/stack-down.sh`.
+4. Re-run `bash scripts/dev/stack-up.sh`.
