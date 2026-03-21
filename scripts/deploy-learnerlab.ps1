@@ -63,6 +63,7 @@ $NAME_PREFIX = "$PROJECT_NAME-$ENVIRONMENT"
 $ECS_CLUSTER = "$NAME_PREFIX-ecs"
 
 $SERVICES = @("user", "client", "transaction")
+$BUILT_SERVICES = @()
 $IMAGE_TAGS = @{
     user        = "user-lab-001"
     client      = "client-lab-001"
@@ -322,9 +323,10 @@ if (-not $SkipBuild) {
         Invoke-Checked "Build Docker image: ${repo}:${tag}" {
             docker build --provenance=false --platform linux/amd64 -t "${repo}:${tag}" "$svcDir"
         }
+        $script:BUILT_SERVICES += $svc
     }
 
-    Write-OK "All 3 backend images built and stored in local Docker."
+    Write-OK "All $($BUILT_SERVICES.Count) backend images built and stored in local Docker."
 }
 else {
     Write-Host "Skipping build (-SkipBuild flag)." -ForegroundColor DarkGray
@@ -400,35 +402,44 @@ else {
 # ============================================================
 # PHASE 3 - PUSH IMAGES TO ECR
 # ============================================================
-Write-Phase "Phase 3" "Push images to ECR + force ECS redeploy"
+if ($BUILT_SERVICES.Count -gt 0) {
+    Write-Phase "Phase 3" "Push images to ECR + ECS redeploy"
 
-# ECR login - use cmd /c on Windows to avoid PowerShell pipe adding \r\n to token
-if ($IsLinux -or $IsMacOS) {
-    Invoke-Checked "Docker login to ECR" {
-        aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $REGISTRY
+    # ECR login - use cmd /c on Windows to avoid PowerShell pipe adding \r\n to token
+    if ($IsLinux -or $IsMacOS) {
+        Invoke-Checked "Docker login to ECR" {
+            aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $REGISTRY
+        }
+    } else {
+        Invoke-Checked "Docker login to ECR" {
+            cmd /c "aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $REGISTRY"
+        }
     }
-} else {
-    Invoke-Checked "Docker login to ECR" {
-        cmd /c "aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $REGISTRY"
+
+    # Push only the images that were built
+    foreach ($svc in $BUILT_SERVICES) {
+        $tag  = $IMAGE_TAGS[$svc]
+        $repo = $ECR_REPOS[$svc]
+
+        Invoke-Checked "Push image: ${repo}:${tag}" {
+            docker push "${repo}:${tag}"
+        }
+    }
+
+    # Redeploy only the services whose images were pushed (one at a time,
+    # max 1 task running per service to avoid over-provisioning).
+    foreach ($svc in $BUILT_SERVICES) {
+        $ecsService = "$NAME_PREFIX-$svc"
+        Invoke-Checked "Redeploy: $ecsService" {
+            aws ecs update-service --cluster $ECS_CLUSTER --service $ecsService --desired-count 1 --deployment-configuration "minimumHealthyPercent=0,maximumPercent=100" --region $REGION --output text --query "service.serviceName"
+        }
+        Invoke-Checked "Wait for $ecsService to stabilize" {
+            aws ecs wait services-stable --cluster $ECS_CLUSTER --services $ecsService --region $REGION
+        }
     }
 }
-
-# Push images
-foreach ($svc in $SERVICES) {
-    $tag  = $IMAGE_TAGS[$svc]
-    $repo = $ECR_REPOS[$svc]
-
-    Invoke-Checked "Push image: ${repo}:${tag}" {
-        docker push "${repo}:${tag}"
-    }
-}
-
-# Force ECS redeploy
-foreach ($svc in $SERVICES) {
-    $ecsService = "$NAME_PREFIX-$svc"
-    Invoke-Checked "Force redeploy: $ecsService" {
-        aws ecs update-service --cluster $ECS_CLUSTER --service $ecsService --force-new-deployment --region $REGION --output text --query "service.serviceName"
-    }
+else {
+    Write-Host "Skipping Phase 3 (no images were built)." -ForegroundColor DarkGray
 }
 
 # ============================================================

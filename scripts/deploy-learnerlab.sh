@@ -58,6 +58,7 @@ NAME_PREFIX="${PROJECT_NAME}-${ENVIRONMENT}"
 ECS_CLUSTER="${NAME_PREFIX}-ecs"
 
 SERVICES=(user client transaction)
+BUILT_SERVICES=()
 declare -A IMAGE_TAGS=(
     [user]="user-lab-001"
     [client]="client-lab-001"
@@ -275,9 +276,10 @@ if [[ "$SKIP_BUILD" == "false" ]]; then
 
         run_checked "Build JAR: $svc" bash -c "cd '$svc_dir' && ./gradlew build -x test"
         run_checked "Build Docker image: ${repo}:${tag}" docker build --provenance=false --platform linux/amd64 -t "${repo}:${tag}" "$svc_dir"
+        BUILT_SERVICES+=("$svc")
     done
 
-    ok "All 3 backend images built and stored in local Docker."
+    ok "All ${#BUILT_SERVICES[@]} backend images built and stored in local Docker."
 else
     echo "Skipping build (--skip-build flag)."
 fi
@@ -349,31 +351,41 @@ fi
 # ============================================================
 # PHASE 3 - PUSH IMAGES TO ECR
 # ============================================================
-phase "Phase 3" "Push images to ECR + force ECS redeploy"
+if [[ ${#BUILT_SERVICES[@]} -gt 0 ]]; then
+    phase "Phase 3" "Push images to ECR + ECS redeploy"
 
-# ECR login
-step "Docker login to ECR"
-aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$REGISTRY"
-ok "Docker login to ECR"
+    # ECR login
+    step "Docker login to ECR"
+    aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$REGISTRY"
+    ok "Docker login to ECR"
 
-# Push images
-for svc in "${SERVICES[@]}"; do
-    tag="${IMAGE_TAGS[$svc]}"
-    repo="${ECR_REPOS[$svc]}"
-    run_checked "Push image: ${repo}:${tag}" docker push "${repo}:${tag}"
-done
+    # Push only the images that were built
+    for svc in "${BUILT_SERVICES[@]}"; do
+        tag="${IMAGE_TAGS[$svc]}"
+        repo="${ECR_REPOS[$svc]}"
+        run_checked "Push image: ${repo}:${tag}" docker push "${repo}:${tag}"
+    done
 
-# Force ECS redeploy
-for svc in "${SERVICES[@]}"; do
-    ecs_service="${NAME_PREFIX}-${svc}"
-    run_checked "Force redeploy: $ecs_service" aws ecs update-service \
-        --cluster "$ECS_CLUSTER" \
-        --service "$ecs_service" \
-        --force-new-deployment \
-        --region "$REGION" \
-        --output text \
-        --query "service.serviceName"
-done
+    # Redeploy only the services whose images were pushed (one at a time,
+    # max 1 task running per service to avoid over-provisioning).
+    for svc in "${BUILT_SERVICES[@]}"; do
+        ecs_service="${NAME_PREFIX}-${svc}"
+        run_checked "Redeploy: $ecs_service" aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ecs_service" \
+            --desired-count 1 \
+            --deployment-configuration "minimumHealthyPercent=0,maximumPercent=100" \
+            --region "$REGION" \
+            --output text \
+            --query "service.serviceName"
+        run_checked "Wait for $ecs_service to stabilize" aws ecs wait services-stable \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ecs_service" \
+            --region "$REGION"
+    done
+else
+    echo "Skipping Phase 3 (no images were built)."
+fi
 
 # ============================================================
 # PHASE 4 - FRONTEND DEPLOYMENT
