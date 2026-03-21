@@ -14,6 +14,10 @@ on:
       - '**/*.md'
       - 'docs/**'
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   # Detect which services have changed
   detect-changes:
@@ -21,13 +25,13 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
-      user-backend: ${{ steps.filter.outputs.user-backend }}
-      aml-backend: ${{ steps.filter.outputs.aml-backend }}
-      client-backend: ${{ steps.filter.outputs.client-backend }}
-      log-backend: ${{ steps.filter.outputs.log-backend }}
-      verification-backend: ${{ steps.filter.outputs.verification-backend }}
-      transaction-ingestion-lambda-backend: ${{ steps.filter.outputs.transaction-ingestion-lambda-backend }}
-      transaction-backend: ${{ steps.filter.outputs.transaction-backend }}
+      user_backend: ${{ steps.filter.outputs['user-backend'] }}
+      aml_backend: ${{ steps.filter.outputs['aml-backend'] }}
+      client_backend: ${{ steps.filter.outputs['client-backend'] }}
+      log_backend: ${{ steps.filter.outputs['log-backend'] }}
+      verification_backend: ${{ steps.filter.outputs['verification-backend'] }}
+      transaction_ingestion_lambda_backend: ${{ steps.filter.outputs['transaction-ingestion-lambda-backend'] }}
+      transaction_backend: ${{ steps.filter.outputs['transaction-backend'] }}
       platform: ${{ steps.filter.outputs.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -71,43 +75,43 @@ jobs:
   ci-user-backend:
     name: CI - User Backend
     needs: [detect-changes]
-    if: needs.detect-changes.outputs.user-backend == 'true'
+    if: needs.detect-changes.outputs.user_backend == 'true'
     uses: ./.github/workflows/ci-user-backend.yml
 
   ci-aml-backend:
     name: CI - AML Backend
     needs: [detect-changes]
-    if: needs.detect-changes.outputs.aml-backend == 'true'
+    if: needs.detect-changes.outputs.aml_backend == 'true'
     uses: ./.github/workflows/ci-aml-backend.yml
 
   ci-client-backend:
     name: CI - Client Backend
     needs: [detect-changes]
-    if: needs.detect-changes.outputs.client-backend == 'true'
+    if: needs.detect-changes.outputs.client_backend == 'true'
     uses: ./.github/workflows/ci-client-backend.yml
 
   ci-log-backend:
     name: CI - Log Backend
     needs: [detect-changes]
-    if: needs.detect-changes.outputs.log-backend == 'true'
+    if: needs.detect-changes.outputs.log_backend == 'true'
     uses: ./.github/workflows/ci-log-backend.yml
 
   ci-verification-backend:
     name: CI - Verification Backend
     needs: [detect-changes]
-    if: needs.detect-changes.outputs.verification-backend == 'true'
+    if: needs.detect-changes.outputs.verification_backend == 'true'
     uses: ./.github/workflows/ci-verification-backend.yml
 
   ci-transaction-ingestion-lambda-backend:
     name: CI - Transaction Ingestion Lambda Backend
     needs: [detect-changes]
-    if: needs.detect-changes.outputs.transaction-ingestion-lambda-backend == 'true'
+    if: needs.detect-changes.outputs.transaction_ingestion_lambda_backend == 'true'
     uses: ./.github/workflows/ci-transaction-ingestion-lambda-backend.yml
 
   ci-transaction-backend:
     name: CI - Transaction Backend
     needs: [detect-changes]
-    if: needs.detect-changes.outputs.transaction-backend == 'true'
+    if: needs.detect-changes.outputs.transaction_backend == 'true'
     uses: ./.github/workflows/ci-transaction-backend.yml
 
   ci-terraform:

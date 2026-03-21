@@ -15,7 +15,7 @@ public class ClockConfig {
 	 * @return UTC clock
 	 */
 	@Bean
-	Clock clock() {
+	public Clock clock() {
 		return Clock.systemUTC();
 	}
 }

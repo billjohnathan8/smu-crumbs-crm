@@ -110,16 +110,19 @@ Docs:
 - Python 3.12+
 - Make
 
-# Local/CI Runtime Snapshot (2026-03-13)
-Measured on this repository's latest local runs. Use as planning guidance, not an SLA.
+# Local/CI Runtime Snapshot (2026-03-21)
+Measured on this repository's latest local run. Use as planning guidance, not an SLA.
 
 | Command | Observed runtime | Source log |
 |---|---:|---|
-| `python scripts/pipelines/test_all.py` | `656.1s` (~10m 56s) | `build-logs/test-all/last-run-summary.md` |
-| `bash scripts/ci/run-fullstack-integration-e2e.sh` | `407s` (~6m 47s) | `build-logs/fullstack-integration/20260313_224929-18799/docker-compose.log` |
+| `python scripts/pipelines/test_all.py` | `776.5s` (~12m 57s) | `build-logs/test-all/last-run-summary.md` |
+| `test_all.py` Layer 4 (`Fullstack integration (full)`) | `246.5s` (~4m 7s) | `build-logs/test-all/last-run-summary.md` |
+| `test_all.py` Layer 3 (`Run mocked E2E`) | `80.7s` (~1m 21s) | `build-logs/test-all/last-run-summary.md` |
+| `test_all.py` Layer 1 (`Build operable lambda artifacts`) | `79.8s` (~1m 20s) | `build-logs/test-all/last-run-summary.md` |
 
 Notes:
-- The latest `test_all.py` run reached Layer 4 and failed in fullstack (`175.8s`) after earlier layers passed.
+- Latest `test_all.py` run passed all layers (`ok: true`).
+- Layer totals from the same run: Layer 1 `355.4s`, Layer 2 `182.3s`, Layer 3 `108.3s`, Layer 4 `246.5s`.
 - Runtime varies with Docker cache, dependency cache, and LocalStack/container startup conditions.
 
 # Database (Local Postgres)
