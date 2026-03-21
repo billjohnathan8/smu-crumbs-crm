@@ -6,7 +6,7 @@
 # Automates the entire BILL_LEARNERLAB_RUNBOOK.md:
 #   Phase 1: Build JARs + Docker images (no AWS needed)
 #   Phase 2: Create TF backend, terraform init/plan/apply
-#   Phase 3: ECR login, push images, force ECS redeploy
+#   Phase 3: ECR login, push images, deploy services (CodeDeploy or rolling update)
 #   Phase 4: Build frontend, upload to S3
 #   Phase 5: Health checks + login info
 #
@@ -349,10 +349,10 @@ else
 fi
 
 # ============================================================
-# PHASE 3 - PUSH IMAGES TO ECR
+# PHASE 3 - PUSH IMAGES TO ECR + DEPLOY SERVICES
 # ============================================================
 if [[ ${#BUILT_SERVICES[@]} -gt 0 ]]; then
-    phase "Phase 3" "Push images to ECR + ECS redeploy"
+    phase "Phase 3" "Push images to ECR + deploy services"
 
     # ECR login
     step "Docker login to ECR"
@@ -366,22 +366,126 @@ if [[ ${#BUILT_SERVICES[@]} -gt 0 ]]; then
         run_checked "Push image: ${repo}:${tag}" docker push "${repo}:${tag}"
     done
 
-    # Redeploy only the services whose images were pushed (one at a time,
-    # max 1 task running per service to avoid over-provisioning).
+    # Detect CodeDeploy availability from terraform outputs
+    CODEDEPLOY_APP=""
+    pushd "$TF_DIR" > /dev/null
+    CODEDEPLOY_APP=$(terraform output -raw codedeploy_ecs_application_name 2>/dev/null || true)
+    popd > /dev/null
+    if [[ "$CODEDEPLOY_APP" == "null" || -z "$CODEDEPLOY_APP" ]]; then
+        CODEDEPLOY_APP=""
+    fi
+
+    if [[ -n "$CODEDEPLOY_APP" ]]; then
+        ok "CodeDeploy detected: $CODEDEPLOY_APP (blue/green deployments)"
+    else
+        ok "CodeDeploy not available (ECS rolling updates)"
+    fi
+
+    # Deploy each service: register new task definition, then trigger
+    # either a CodeDeploy blue/green deployment or an ECS rolling update.
     for svc in "${BUILT_SERVICES[@]}"; do
         ecs_service="${NAME_PREFIX}-${svc}"
-        run_checked "Redeploy: $ecs_service" aws ecs update-service \
-            --cluster "$ECS_CLUSTER" \
-            --service "$ecs_service" \
-            --desired-count 1 \
-            --deployment-configuration "minimumHealthyPercent=0,maximumPercent=100" \
-            --region "$REGION" \
-            --output text \
-            --query "service.serviceName"
-        run_checked "Wait for $ecs_service to stabilize" aws ecs wait services-stable \
+        new_image="${ECR_REPOS[$svc]}:${IMAGE_TAGS[$svc]}"
+
+        step "Deploying $ecs_service with image $new_image"
+
+        # --- Get current task definition ARN ---
+        CURRENT_TD_ARN=$(aws ecs describe-services \
             --cluster "$ECS_CLUSTER" \
             --services "$ecs_service" \
-            --region "$REGION"
+            --region "$REGION" \
+            --query "services[0].taskDefinition" \
+            --output text)
+
+        if [[ -z "$CURRENT_TD_ARN" || "$CURRENT_TD_ARN" == "None" ]]; then
+            fail "No task definition found for $ecs_service"
+            exit 1
+        fi
+        ok "Current task definition: $CURRENT_TD_ARN"
+
+        # --- Extract task definition (strip read-only fields via JMESPath) ---
+        TD_TEMP="${RUN_DIR}/td-${svc}.json"
+        aws ecs describe-task-definition \
+            --task-definition "$CURRENT_TD_ARN" \
+            --region "$REGION" \
+            --query "taskDefinition.{family:family,taskRoleArn:taskRoleArn,executionRoleArn:executionRoleArn,networkMode:networkMode,containerDefinitions:containerDefinitions,requiresCompatibilities:requiresCompatibilities,cpu:cpu,memory:memory}" \
+            --output json > "$TD_TEMP"
+
+        # --- Update container image (single container per task definition) ---
+        if sed --version &>/dev/null 2>&1; then
+            sed -i "s|\"image\": \"[^\"]*\"|\"image\": \"${new_image}\"|g" "$TD_TEMP"
+        else
+            # macOS sed requires '' after -i
+            sed -i '' "s|\"image\": \"[^\"]*\"|\"image\": \"${new_image}\"|g" "$TD_TEMP"
+        fi
+
+        # --- Register new task definition revision ---
+        TD_FILE_URI="file://${TD_TEMP}"
+        if command -v cygpath &>/dev/null; then
+            TD_FILE_URI="file://$(cygpath -m "$TD_TEMP")"
+        fi
+
+        started_at="$(date +%s)"
+        NEW_TD_ARN=$(aws ecs register-task-definition \
+            --cli-input-json "$TD_FILE_URI" \
+            --region "$REGION" \
+            --query "taskDefinition.taskDefinitionArn" \
+            --output text)
+        ended_at="$(date +%s)"
+        elapsed=$((ended_at - started_at))
+
+        if [[ -z "$NEW_TD_ARN" || "$NEW_TD_ARN" == "None" ]]; then
+            add_step_timing "Register task definition: $svc" "FAIL" "${elapsed}"
+            fail "Failed to register new task definition for $svc"
+            exit 1
+        fi
+        add_step_timing "Register task definition: $svc" "PASS" "${elapsed}"
+        ok "New task definition: $NEW_TD_ARN"
+        rm -f "$TD_TEMP"
+
+        # --- Deploy ---
+        if [[ -n "$CODEDEPLOY_APP" ]]; then
+            # Blue/green deployment via CodeDeploy
+            DG_NAME="${NAME_PREFIX}-${svc}-ecs"
+
+            started_at="$(date +%s)"
+            DEPLOYMENT_ID=$(aws deploy create-deployment \
+                --application-name "$CODEDEPLOY_APP" \
+                --deployment-group-name "$DG_NAME" \
+                --revision '{"revisionType":"AppSpecContent","appSpecContent":{"content":"{\"version\":0.0,\"Resources\":[{\"TargetService\":{\"Type\":\"AWS::ECS::Service\",\"Properties\":{\"TaskDefinition\":\"'"$NEW_TD_ARN"'\",\"LoadBalancerInfo\":{\"ContainerName\":\"'"$svc"'\",\"ContainerPort\":8080}}}}]}"}}' \
+                --region "$REGION" \
+                --query "deploymentId" \
+                --output text)
+            ended_at="$(date +%s)"
+            elapsed=$((ended_at - started_at))
+
+            if [[ -z "$DEPLOYMENT_ID" || "$DEPLOYMENT_ID" == "None" ]]; then
+                add_step_timing "CodeDeploy create: $svc" "FAIL" "${elapsed}"
+                fail "Failed to create CodeDeploy deployment for $svc"
+                exit 1
+            fi
+            add_step_timing "CodeDeploy create: $svc" "PASS" "${elapsed}"
+            ok "CodeDeploy deployment: $DEPLOYMENT_ID"
+
+            run_checked "Wait for CodeDeploy deployment: $DEPLOYMENT_ID" aws deploy wait deployment-successful \
+                --deployment-id "$DEPLOYMENT_ID" \
+                --region "$REGION"
+        else
+            # ECS rolling update: point service at the new task definition.
+            # ECS will drain old tasks and start new ones automatically.
+            run_checked "Update service: $ecs_service" aws ecs update-service \
+                --cluster "$ECS_CLUSTER" \
+                --service "$ecs_service" \
+                --task-definition "$NEW_TD_ARN" \
+                --region "$REGION" \
+                --output text \
+                --query "service.serviceName"
+
+            run_checked "Wait for $ecs_service to stabilize" aws ecs wait services-stable \
+                --cluster "$ECS_CLUSTER" \
+                --services "$ecs_service" \
+                --region "$REGION"
+        fi
     done
 else
     echo "Skipping Phase 3 (no images were built)."

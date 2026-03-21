@@ -254,6 +254,12 @@ variable "db_password_secret_arn" {
   type        = string
 }
 
+variable "use_codedeploy_controller" {
+  description = "Use CODE_DEPLOY deployment controller for ECS services instead of the default ECS rolling-update controller. Required for CodeDeploy blue/green deployments. WARNING: changing this on an existing service forces service recreation."
+  type        = bool
+  default     = false
+}
+
 variable "enable_deployment_alarms" {
   description = "Enable ECS deployment alarms for CloudWatch-based failed deployment detection and rollback."
   type        = bool

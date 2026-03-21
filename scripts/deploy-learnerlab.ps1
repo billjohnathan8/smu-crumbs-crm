@@ -6,7 +6,7 @@
     Automates the entire BILL_LEARNERLAB_RUNBOOK.md:
       Phase 1: Build JARs + Docker images (no AWS needed)
       Phase 2: Create TF backend, terraform init/plan/apply
-      Phase 3: ECR login, push images, force ECS redeploy
+      Phase 3: ECR login, push images, deploy services (CodeDeploy or rolling update)
       Phase 4: Build frontend, upload to S3
       Phase 5: Health checks + login info
 
@@ -400,10 +400,10 @@ else {
 }
 
 # ============================================================
-# PHASE 3 - PUSH IMAGES TO ECR
+# PHASE 3 - PUSH IMAGES TO ECR + DEPLOY SERVICES
 # ============================================================
 if ($BUILT_SERVICES.Count -gt 0) {
-    Write-Phase "Phase 3" "Push images to ECR + ECS redeploy"
+    Write-Phase "Phase 3" "Push images to ECR + deploy services"
 
     # ECR login - use cmd /c on Windows to avoid PowerShell pipe adding \r\n to token
     if ($IsLinux -or $IsMacOS) {
@@ -426,15 +426,144 @@ if ($BUILT_SERVICES.Count -gt 0) {
         }
     }
 
-    # Redeploy only the services whose images were pushed (one at a time,
-    # max 1 task running per service to avoid over-provisioning).
+    # Detect CodeDeploy availability from terraform outputs
+    $CODEDEPLOY_APP = ""
+    Push-Location $TF_DIR
+    try {
+        $prevEAP = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        $CODEDEPLOY_APP = terraform output -raw codedeploy_ecs_application_name 2>$null
+        $ErrorActionPreference = $prevEAP
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($CODEDEPLOY_APP) -or $CODEDEPLOY_APP -eq "null") {
+            $CODEDEPLOY_APP = ""
+        }
+    }
+    catch {
+        $CODEDEPLOY_APP = ""
+        $ErrorActionPreference = $prevEAP
+    }
+    finally {
+        Pop-Location
+    }
+
+    if ($CODEDEPLOY_APP) {
+        Write-OK "CodeDeploy detected: $CODEDEPLOY_APP (blue/green deployments)"
+    } else {
+        Write-OK "CodeDeploy not available (ECS rolling updates)"
+    }
+
+    # Deploy each service: register new task definition, then trigger
+    # either a CodeDeploy blue/green deployment or an ECS rolling update.
     foreach ($svc in $BUILT_SERVICES) {
         $ecsService = "$NAME_PREFIX-$svc"
-        Invoke-Checked "Redeploy: $ecsService" {
-            aws ecs update-service --cluster $ECS_CLUSTER --service $ecsService --desired-count 1 --deployment-configuration "minimumHealthyPercent=0,maximumPercent=100" --region $REGION --output text --query "service.serviceName"
+        $newImage   = "$($ECR_REPOS[$svc]):$($IMAGE_TAGS[$svc])"
+
+        Write-Step "Deploying $ecsService with image $newImage"
+
+        # --- Get current task definition ARN ---
+        $currentTdArn = aws ecs describe-services `
+            --cluster $ECS_CLUSTER --services $ecsService `
+            --region $REGION `
+            --query "services[0].taskDefinition" --output text
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($currentTdArn) -or $currentTdArn -eq "None") {
+            throw "No task definition found for $ecsService"
         }
-        Invoke-Checked "Wait for $ecsService to stabilize" {
-            aws ecs wait services-stable --cluster $ECS_CLUSTER --services $ecsService --region $REGION
+        Write-OK "Current task definition: $currentTdArn"
+
+        # --- Extract task definition (strip read-only fields via JMESPath) ---
+        $tdTemp = Join-Path ([System.IO.Path]::GetTempPath()) "td-$svc-$PID.json"
+        $tdJson = aws ecs describe-task-definition `
+            --task-definition $currentTdArn --region $REGION `
+            --query "taskDefinition.{family:family,taskRoleArn:taskRoleArn,executionRoleArn:executionRoleArn,networkMode:networkMode,containerDefinitions:containerDefinitions,requiresCompatibilities:requiresCompatibilities,cpu:cpu,memory:memory}" `
+            --output json
+        [System.IO.File]::WriteAllText($tdTemp, ($tdJson -join "`n"), [System.Text.UTF8Encoding]::new($false))
+
+        # --- Update container image ---
+        $tdContent = [System.IO.File]::ReadAllText($tdTemp)
+        $tdContent = [regex]::Replace($tdContent, '"image":\s*"[^"]*"', "`"image`": `"$newImage`"")
+        [System.IO.File]::WriteAllText($tdTemp, $tdContent, [System.Text.UTF8Encoding]::new($false))
+
+        # --- Register new task definition revision ---
+        $tdFileUri = "file://$tdTemp"
+        $timer = [System.Diagnostics.Stopwatch]::StartNew()
+        $newTdArn = aws ecs register-task-definition `
+            --cli-input-json $tdFileUri --region $REGION `
+            --query "taskDefinition.taskDefinitionArn" --output text
+        $timer.Stop()
+
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($newTdArn) -or $newTdArn -eq "None") {
+            Add-StepTiming -Step "Register task definition: $svc" -Status "FAIL" -DurationSeconds $timer.Elapsed.TotalSeconds
+            Remove-Item $tdTemp -Force -ErrorAction SilentlyContinue
+            throw "Failed to register new task definition for $svc"
+        }
+        Add-StepTiming -Step "Register task definition: $svc" -Status "PASS" -DurationSeconds $timer.Elapsed.TotalSeconds
+        Write-OK "New task definition: $newTdArn"
+        Remove-Item $tdTemp -Force -ErrorAction SilentlyContinue
+
+        # --- Deploy ---
+        if ($CODEDEPLOY_APP) {
+            # Blue/green deployment via CodeDeploy
+            $dgName = "$NAME_PREFIX-$svc-ecs"
+
+            # Build AppSpec content as a JSON-escaped string
+            $appSpecObj = @{
+                version   = 0.0
+                Resources = @(@{
+                    TargetService = @{
+                        Type       = "AWS::ECS::Service"
+                        Properties = @{
+                            TaskDefinition   = $newTdArn
+                            LoadBalancerInfo = @{
+                                ContainerName = $svc
+                                ContainerPort = 8080
+                            }
+                        }
+                    }
+                })
+            }
+            $appSpecContent = $appSpecObj | ConvertTo-Json -Depth 10 -Compress
+
+            # Write deployment input JSON to temp file (avoids shell escaping issues)
+            $deployTemp = Join-Path ([System.IO.Path]::GetTempPath()) "deploy-$svc-$PID.json"
+            $deployObj = @{
+                applicationName     = $CODEDEPLOY_APP
+                deploymentGroupName = $dgName
+                revision            = @{
+                    revisionType   = "AppSpecContent"
+                    appSpecContent = @{
+                        content = $appSpecContent
+                    }
+                }
+            }
+            [System.IO.File]::WriteAllText($deployTemp, ($deployObj | ConvertTo-Json -Depth 10), [System.Text.UTF8Encoding]::new($false))
+
+            $deployFileUri = "file://$deployTemp"
+            $timer = [System.Diagnostics.Stopwatch]::StartNew()
+            $deploymentId = aws deploy create-deployment `
+                --cli-input-json $deployFileUri --region $REGION `
+                --query "deploymentId" --output text
+            $timer.Stop()
+            Remove-Item $deployTemp -Force -ErrorAction SilentlyContinue
+
+            if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($deploymentId) -or $deploymentId -eq "None") {
+                Add-StepTiming -Step "CodeDeploy create: $svc" -Status "FAIL" -DurationSeconds $timer.Elapsed.TotalSeconds
+                throw "Failed to create CodeDeploy deployment for $svc"
+            }
+            Add-StepTiming -Step "CodeDeploy create: $svc" -Status "PASS" -DurationSeconds $timer.Elapsed.TotalSeconds
+            Write-OK "CodeDeploy deployment: $deploymentId"
+
+            Invoke-Checked "Wait for CodeDeploy deployment: $deploymentId" {
+                aws deploy wait deployment-successful --deployment-id $deploymentId --region $REGION
+            }
+        } else {
+            # ECS rolling update: point service at the new task definition.
+            # ECS will drain old tasks and start new ones automatically.
+            Invoke-Checked "Update service: $ecsService" {
+                aws ecs update-service --cluster $ECS_CLUSTER --service $ecsService --task-definition $newTdArn --region $REGION --output text --query "service.serviceName"
+            }
+            Invoke-Checked "Wait for $ecsService to stabilize" {
+                aws ecs wait services-stable --cluster $ECS_CLUSTER --services $ecsService --region $REGION
+            }
         }
     }
 }
