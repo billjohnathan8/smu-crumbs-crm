@@ -1469,13 +1469,51 @@ if payload.get("reviewStatus") != "Pending":
 print("  [OK] AML alert created")
 PY
 
-AML_REVIEW_RESPONSE="$(
-  curl --silent --show-error --fail \
-    --request PUT "${PLAYWRIGHT_BASE_URL}/api/aml/alerts/${ALERT_ID}/review" \
-    --header "Authorization: Bearer ${USER_TOKEN}" \
-    --header "Content-Type: application/json" \
-    --data '{"reviewStatus":"Confirmed"}'
-)"
+AML_REVIEW_RESPONSE=""
+AML_REVIEW_LAST_STATUS=""
+AML_REVIEW_LAST_BODY=""
+for attempt in $(seq 1 5); do
+  review_response_file="$(mktemp)"
+  AML_REVIEW_LAST_STATUS="$(
+    curl --silent --show-error \
+      --request PUT "${PLAYWRIGHT_BASE_URL}/api/aml/alerts/${ALERT_ID}/review" \
+      --header "Authorization: Bearer ${USER_TOKEN}" \
+      --header "Content-Type: application/json" \
+      --data '{"reviewStatus":"Confirmed"}' \
+      --output "${review_response_file}" \
+      --write-out "%{http_code}" \
+      || true
+  )"
+  AML_REVIEW_LAST_STATUS="$(normalize_text "${AML_REVIEW_LAST_STATUS}")"
+  AML_REVIEW_LAST_BODY="$(cat "${review_response_file}" 2>/dev/null || true)"
+  rm -f "${review_response_file}"
+
+  if [[ "${AML_REVIEW_LAST_STATUS}" == "200" ]]; then
+    AML_REVIEW_RESPONSE="${AML_REVIEW_LAST_BODY}"
+    break
+  fi
+
+  if [[ "${AML_REVIEW_LAST_STATUS}" == "503" || "${AML_REVIEW_LAST_STATUS}" == "000" ]]; then
+    if [[ ${attempt} -lt 5 ]]; then
+      echo "  [WARN] AML review attempt ${attempt}/5 returned ${AML_REVIEW_LAST_STATUS}; retrying..."
+      sleep 2
+      continue
+    fi
+  fi
+
+  echo "  [FAIL] AML review request failed (status=${AML_REVIEW_LAST_STATUS})." >&2
+  [[ -n "${AML_REVIEW_LAST_BODY}" ]] && {
+    echo "  [FAIL] AML review response body: ${AML_REVIEW_LAST_BODY}" >&2
+  }
+  exit 1
+done
+[[ -n "${AML_REVIEW_RESPONSE}" ]] || {
+  echo "  [FAIL] AML review request failed after retries (last status=${AML_REVIEW_LAST_STATUS})." >&2
+  [[ -n "${AML_REVIEW_LAST_BODY}" ]] && {
+    echo "  [FAIL] AML review response body: ${AML_REVIEW_LAST_BODY}" >&2
+  }
+  exit 1
+}
 AML_REVIEW_RESPONSE_JSON="${AML_REVIEW_RESPONSE}" ${PYTHON_CMD} - <<'PY'
 import json, os
 payload = json.loads(os.environ["AML_REVIEW_RESPONSE_JSON"])
