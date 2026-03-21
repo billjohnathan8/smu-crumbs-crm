@@ -192,3 +192,153 @@ def test_bootstrap_runs_migrations() -> None:
     service.bootstrap()
 
     assert repo.migrations_ran is True
+
+
+def test_health_delegates_to_repository() -> None:
+    repo = FakeRepository()
+    service = LogService(repo)
+
+    assert service.health() is True
+
+
+def test_create_log_preserves_explicit_datetime() -> None:
+    repo = FakeRepository()
+    service = LogService(repo)
+    explicit_dt = datetime(2026, 1, 15, 10, 0, 0)
+
+    service.create_log(
+        CreateLogRequest(
+            action="UPDATE",
+            attributeName="status",
+            userId="usr_1",
+            clientId="clt_1",
+            dateTime=explicit_dt,
+        )
+    )
+
+    assert repo.created_log_payload["dateTime"] == explicit_dt
+
+
+def test_get_log_returns_entry() -> None:
+    repo = FakeRepository()
+    service = LogService(repo)
+
+    result = service.get_log(42)
+
+    assert result == {"id": 42}
+
+
+def test_delete_log_returns_true() -> None:
+    repo = FakeRepository()
+    service = LogService(repo)
+
+    assert service.delete_log(42) is True
+
+
+def test_create_communication_with_explicit_channel() -> None:
+    repo = FakeRepository()
+    service = LogService(repo)
+
+    service.create_communication(
+        CreateCommunicationRequest(
+            clientId="clt_1",
+            userId="usr_1",
+            toEmail="a@b.com",
+            subject="Hi",
+            body="Body",
+            channel="email",
+        )
+    )
+
+    assert repo.created_communication_payload["channel"] == "email"
+
+
+def test_create_aml_alert_delegates() -> None:
+    from app.schemas import CreateAmlAlertRequest
+
+    repo = FakeRepository()
+    repo.insert_aml_alert = lambda payload: {"alertId": "a1", **payload}
+    service = LogService(repo)
+
+    result = service.create_aml_alert(
+        CreateAmlAlertRequest(
+            alertId="a1",
+            clientId="clt_1",
+            alertType="STATISTICAL_OUTLIER",
+            description="test",
+            detectedAt="2026-01-15T00:00:00Z",
+            reviewStatus="Pending",
+        )
+    )
+
+    assert result["alertId"] == "a1"
+
+
+def test_get_aml_alert_delegates() -> None:
+    repo = FakeRepository()
+    repo.get_aml_alert_by_alert_id = lambda alert_id: {"alertId": alert_id}
+    service = LogService(repo)
+
+    result = service.get_aml_alert("a1")
+
+    assert result == {"alertId": "a1"}
+
+
+def test_list_aml_alerts_delegates() -> None:
+    repo = FakeRepository()
+    repo.list_aml_alerts = lambda **kwargs: ([{"alertId": "a1"}], 1)
+    service = LogService(repo)
+
+    data, total = service.list_aml_alerts(10, 0, None, None, None, None)
+
+    assert total == 1
+
+
+def test_update_aml_alert_review_delegates() -> None:
+    repo = FakeRepository()
+    repo.update_aml_alert_review = lambda aid, rs: {"alertId": aid, "reviewStatus": rs}
+    service = LogService(repo)
+
+    result = service.update_aml_alert_review("a1", "Confirmed")
+
+    assert result["reviewStatus"] == "Confirmed"
+
+
+def test_get_communication_delegates() -> None:
+    repo = FakeRepository()
+    service = LogService(repo)
+
+    result = service.get_communication(3)
+
+    assert result == {"id": 3}
+
+
+def test_get_communication_by_provider_message_id_delegates() -> None:
+    repo = FakeRepository()
+    service = LogService(repo)
+
+    result = service.get_communication_by_provider_message_id("ses-123")
+
+    assert result["provider_message_id"] == "ses-123"
+
+
+def test_update_communication_status_empty_patch_returns_existing() -> None:
+    repo = FakeRepository()
+    service = LogService(repo)
+
+    result = service.update_communication_status(
+        8, UpdateCommunicationStatusRequest()
+    )
+
+    assert result == {"id": 8}
+
+
+def test_update_communication_status_by_provider_empty_patch_returns_existing() -> None:
+    repo = FakeRepository()
+    service = LogService(repo)
+
+    result = service.update_communication_status_by_provider_message_id(
+        "ses-123", UpdateCommunicationStatusRequest()
+    )
+
+    assert result["provider_message_id"] == "ses-123"
