@@ -198,6 +198,8 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
 
     if run_backend:
         phase = "Layer 1 - Lint / Format / Typecheck"
+
+        # -- Checkstyle: 3 independent Gradle projects, safe to parallelize --
         for svc in ("user", "client", "transaction"):
             svc_dir = services_backend / svc
             steps.append(
@@ -213,188 +215,79 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                         "--console=plain",
                     ),
                     env=gradle_env(svc_dir),
+                    parallel_group="lint-checkstyle",
                 )
             )
 
+        # -- Python pip installs: sequential (shared site-packages) --
         log_dir = services_backend / "log"
-        steps.append(
-            Step(
-                phase=phase,
-                name="Python deps install (log)",
-                cwd=log_dir,
-                command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
-            )
-        )
-        steps.append(
-            Step(
-                phase=phase,
-                name="Black check (log)",
-                cwd=log_dir,
-                command=[
-                    py,
-                    "-m",
-                    "black",
-                    "--check",
-                    "--diff",
-                    "app",
-                    "lambda_function.py",
-                    "tests",
-                ],
-            )
-        )
-        steps.append(
-            Step(
-                phase=phase,
-                name="Flake8 (log)",
-                cwd=log_dir,
-                command=[
-                    py,
-                    "-m",
-                    "flake8",
-                    "--jobs",
-                    "1",
-                    "--max-line-length=100",
-                    "--extend-ignore=E501,E203,W503",
-                    "app",
-                    "lambda_function.py",
-                    "tests",
-                ],
-            )
-        )
-
         aml_dir = services_backend / "aml"
-        steps.append(
-            Step(
-                phase=phase,
-                name="Python deps install (aml)",
-                cwd=aml_dir,
-                command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
-            )
-        )
-        steps.append(
-            Step(
-                phase=phase,
-                name="Black check (aml)",
-                cwd=aml_dir,
-                command=[
-                    py,
-                    "-m",
-                    "black",
-                    "--check",
-                    "--diff",
-                    "lambda_function.py",
-                    "tests",
-                ],
-            )
-        )
-        steps.append(
-            Step(
-                phase=phase,
-                name="Flake8 (aml)",
-                cwd=aml_dir,
-                command=[
-                    py,
-                    "-m",
-                    "flake8",
-                    "--jobs",
-                    "1",
-                    "--max-line-length=100",
-                    "--extend-ignore=E501,E203,W503",
-                    "lambda_function.py",
-                    "tests",
-                ],
-            )
-        )
-
         transaction_ingestion_lambda_dir = (
             services_backend / "transaction-ingestion-lambda"
         )
-        steps.append(
-            Step(
-                phase=phase,
-                name="Python deps install (transaction-ingestion-lambda)",
-                cwd=transaction_ingestion_lambda_dir,
-                command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
-            )
-        )
-        steps.append(
-            Step(
-                phase=phase,
-                name="Black check (transaction-ingestion-lambda)",
-                cwd=transaction_ingestion_lambda_dir,
-                command=[
-                    py,
-                    "-m",
-                    "black",
-                    "--check",
-                    "--diff",
-                    "lambda_function.py",
-                    "tests",
-                ],
-            )
-        )
-        steps.append(
-            Step(
-                phase=phase,
-                name="Flake8 (transaction-ingestion-lambda)",
-                cwd=transaction_ingestion_lambda_dir,
-                command=[
-                    py,
-                    "-m",
-                    "flake8",
-                    "--jobs",
-                    "1",
-                    "--max-line-length=100",
-                    "--extend-ignore=E501,E203,W503",
-                    "lambda_function.py",
-                    "tests",
-                ],
-            )
-        )
-
         verification_dir = services_backend / "verification"
-        steps.append(
-            Step(
-                phase=phase,
-                name="Python deps install (verification)",
-                cwd=verification_dir,
-                command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
+
+        for label, svc_dir in [
+            ("log", log_dir),
+            ("aml", aml_dir),
+            ("transaction-ingestion-lambda", transaction_ingestion_lambda_dir),
+            ("verification", verification_dir),
+        ]:
+            steps.append(
+                Step(
+                    phase=phase,
+                    name=f"Python deps install ({label})",
+                    cwd=svc_dir,
+                    command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
+                )
             )
-        )
-        steps.append(
-            Step(
-                phase=phase,
-                name="Black check (verification)",
-                cwd=verification_dir,
-                command=[
-                    py,
-                    "-m",
-                    "black",
-                    "--check",
-                    "--diff",
-                    "lambda_function.py",
-                    "tests",
-                ],
+
+        # -- Black + Flake8: read-only checks, safe to parallelize --
+        _python_lint_targets = [
+            ("log", log_dir, ["app", "lambda_function.py", "tests"]),
+            ("aml", aml_dir, ["lambda_function.py", "tests"]),
+            (
+                "transaction-ingestion-lambda",
+                transaction_ingestion_lambda_dir,
+                ["lambda_function.py", "tests"],
+            ),
+            ("verification", verification_dir, ["lambda_function.py", "tests"]),
+        ]
+        for label, svc_dir, targets in _python_lint_targets:
+            steps.append(
+                Step(
+                    phase=phase,
+                    name=f"Black check ({label})",
+                    cwd=svc_dir,
+                    command=[
+                        py,
+                        "-m",
+                        "black",
+                        "--check",
+                        "--diff",
+                        *targets,
+                    ],
+                    parallel_group="lint-python",
+                )
             )
-        )
-        steps.append(
-            Step(
-                phase=phase,
-                name="Flake8 (verification)",
-                cwd=verification_dir,
-                command=[
-                    py,
-                    "-m",
-                    "flake8",
-                    "--jobs",
-                    "1",
-                    "--max-line-length=100",
-                    "--extend-ignore=E501,E203,W503",
-                    "lambda_function.py",
-                    "tests",
-                ],
+            steps.append(
+                Step(
+                    phase=phase,
+                    name=f"Flake8 ({label})",
+                    cwd=svc_dir,
+                    command=[
+                        py,
+                        "-m",
+                        "flake8",
+                        "--jobs",
+                        "1",
+                        "--max-line-length=100",
+                        "--extend-ignore=E501,E203,W503",
+                        *targets,
+                    ],
+                    parallel_group="lint-python",
+                )
             )
-        )
 
         if not args.skip_terraform:
             # Neutralise any local AWS credentials so the AWS provider does
