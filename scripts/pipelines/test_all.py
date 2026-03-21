@@ -399,13 +399,18 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
         if not args.skip_terraform:
             # Neutralise any local AWS credentials so the AWS provider does
             # not attempt STS validation during offline init/validate.
+            # Empty string ("") → key is removed from subprocess env.
+            # File paths use a non-existent path so the SDK does not
+            # fall back to ~/.aws/credentials or ~/.aws/config.
+            _no_creds_path = str(REPO_ROOT / ".nonexistent-aws-creds")
             _tf_no_aws_env = {
                 "AWS_ACCESS_KEY_ID": "",
                 "AWS_SECRET_ACCESS_KEY": "",
                 "AWS_SESSION_TOKEN": "",
                 "AWS_PROFILE": "",
-                "AWS_SHARED_CREDENTIALS_FILE": "",
-                "AWS_CONFIG_FILE": "",
+                "AWS_DEFAULT_PROFILE": "",
+                "AWS_SHARED_CREDENTIALS_FILE": _no_creds_path,
+                "AWS_CONFIG_FILE": _no_creds_path,
             }
             steps.append(
                 Step(
@@ -901,6 +906,21 @@ def log_file_for_step(step: Step, run_dir: Path, index: int) -> Path:
     return run_dir / f"{index:02d}-{slug}.log"
 
 
+def _build_env(step_env: Dict[str, str]) -> Dict[str, str]:
+    """Build subprocess environment from OS env + step overrides.
+
+    An empty-string value means "remove this key from the environment" so that
+    the child process cannot inherit it (useful for neutralising credentials).
+    """
+    env = os.environ.copy()
+    for k, v in step_env.items():
+        if v == "":
+            env.pop(k, None)
+        else:
+            env[k] = v
+    return env
+
+
 def run_step(step: Step, run_dir: Path, index: int, dry_run: bool) -> StepResult:
     log_file = log_file_for_step(step, run_dir, index)
     cmd_display = display_command(step.command)
@@ -924,8 +944,7 @@ def run_step(step: Step, run_dir: Path, index: int, dry_run: bool) -> StepResult
         )
 
     start = time.monotonic()
-    env = os.environ.copy()
-    env.update(step.env)
+    env = _build_env(step.env)
     run_command = resolve_windows_command(step.command)
 
     with log_file.open("w", encoding="utf-8", errors="replace") as handle:
@@ -995,8 +1014,7 @@ def run_parallel_step(
         )
 
     start = time.monotonic()
-    env = os.environ.copy()
-    env.update(step.env)
+    env = _build_env(step.env)
     run_command = resolve_windows_command(step.command)
 
     with log_file.open("w", encoding="utf-8", errors="replace") as handle:

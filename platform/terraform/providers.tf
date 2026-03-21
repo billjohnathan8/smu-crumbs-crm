@@ -32,6 +32,12 @@ terraform {
 provider "aws" {
   region = var.aws_region
 
+  # Skip STS identity check so that `terraform init -backend=false` and
+  # `terraform validate` work without real AWS credentials (local dev / CI
+  # lint).  Actual API calls during plan/apply still use real credentials.
+  skip_credentials_validation = true
+  skip_requesting_account_id  = true
+
   default_tags {
     tags = local.common_tags
   }
@@ -45,6 +51,9 @@ provider "aws" {
   alias  = "us_east_1"
   region = "us-east-1"
 
+  skip_credentials_validation = true
+  skip_requesting_account_id  = true
+
   default_tags {
     tags = local.common_tags
   }
@@ -57,6 +66,9 @@ provider "aws" {
 provider "aws" {
   alias  = "ap_southeast_1"
   region = "ap-southeast-1"
+
+  skip_credentials_validation = true
+  skip_requesting_account_id  = true
 
   default_tags {
     tags = local.common_tags
