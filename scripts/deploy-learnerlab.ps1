@@ -68,6 +68,8 @@ $IMAGE_TAGS = @{
     client      = "client-lab-001"
     transaction = "transaction-lab-001"
 }
+$LOG_ROOT = Join-Path $ROOT "build-logs" "deploy-learnerlab"
+$LOG_RETENTION_RUNS = 3
 
 # Detect gradlew command based on platform
 if ($IsLinux -or $IsMacOS) {
@@ -104,18 +106,118 @@ function Write-Fail {
     Write-Host "[FAIL] $Msg" -ForegroundColor Red
 }
 
+function Remove-OldRuns {
+    param([int]$Keep = $LOG_RETENTION_RUNS)
+
+    if (-not (Test-Path $LOG_ROOT)) {
+        return
+    }
+
+    $runDirs = @(Get-ChildItem -Path $LOG_ROOT -Directory -ErrorAction SilentlyContinue |
+        Sort-Object -Property Name -Descending)
+
+    if ($runDirs.Count -le $Keep) {
+        return
+    }
+
+    foreach ($oldRun in $runDirs[$Keep..($runDirs.Count - 1)]) {
+        Remove-Item -Path $oldRun.FullName -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Initialize-RunDirectory {
+    New-Item -ItemType Directory -Path $LOG_ROOT -Force | Out-Null
+    Remove-OldRuns -Keep ([Math]::Max(0, $LOG_RETENTION_RUNS - 1))
+
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $runDir = Join-Path $LOG_ROOT $timestamp
+    $collisionIdx = 1
+    while (Test-Path $runDir) {
+        $runDir = Join-Path $LOG_ROOT ("{0}_{1:00}" -f $timestamp, $collisionIdx)
+        $collisionIdx += 1
+    }
+
+    New-Item -ItemType Directory -Path $runDir -Force | Out-Null
+    return $runDir
+}
+
+$script:ScriptTimer = [System.Diagnostics.Stopwatch]::StartNew()
+$script:StepTimings = New-Object 'System.Collections.Generic.List[object]'
+$script:RunStatus = "PASS"
+$script:RunDir = Initialize-RunDirectory
+$script:RunLog = Join-Path $script:RunDir "deploy-learnerlab.log"
+$script:StepTimingsFile = Join-Path $script:RunDir "step-timings.csv"
+$script:SummaryMd = Join-Path $script:RunDir "summary.md"
+$script:LastSummaryMd = Join-Path $LOG_ROOT "last-run-summary.md"
+$script:TranscriptStarted = $false
+
+Set-Content -Path $script:StepTimingsFile -Value "status,duration_seconds,step" -Encoding utf8
+try {
+    Start-Transcript -Path $script:RunLog -Force | Out-Null
+    $script:TranscriptStarted = $true
+}
+catch {
+    Write-Warning "Unable to start transcript logging at '$($script:RunLog)': $($_.Exception.Message)"
+}
+
+function Add-StepTiming {
+    param(
+        [string]$Step,
+        [string]$Status,
+        [double]$DurationSeconds
+    )
+
+    $durationRounded = [Math]::Round($DurationSeconds, 1)
+    $entry = [PSCustomObject]@{
+        status           = $Status
+        duration_seconds = $durationRounded
+        step             = $Step
+    }
+    $script:StepTimings.Add($entry)
+
+    $escapedStep = $Step -replace '"', '""'
+    Add-Content -Path $script:StepTimingsFile -Value "$Status,$durationRounded,""$escapedStep""" -Encoding utf8
+}
+
+function Write-RunSummary {
+    $totalSeconds = [Math]::Round($script:ScriptTimer.Elapsed.TotalSeconds, 1)
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $lines.Add("# Learner Lab Deploy Summary")
+    $lines.Add("")
+    $lines.Add("- Timestamp: ``$(Get-Date -Format o)``")
+    $lines.Add("- Status: ``$($script:RunStatus)``")
+    $lines.Add("- Total duration: ``${totalSeconds}s``")
+    $lines.Add("- Run log: ``$($script:RunLog)``")
+    $lines.Add("- Step timings (csv): ``$($script:StepTimingsFile)``")
+    $lines.Add("")
+    $lines.Add("| Status | Duration (s) | Step |")
+    $lines.Add("|---|---:|---|")
+    foreach ($entry in $script:StepTimings) {
+        $lines.Add("| $($entry.status) | $($entry.duration_seconds) | $($entry.step) |")
+    }
+
+    $summaryContent = $lines -join "`n"
+    Set-Content -Path $script:SummaryMd -Value $summaryContent -Encoding utf8
+    Set-Content -Path $script:LastSummaryMd -Value $summaryContent -Encoding utf8
+}
+
 function Invoke-Checked {
     param([string]$Description, [scriptblock]$Command)
     Write-Step $Description
+    $timer = [System.Diagnostics.Stopwatch]::StartNew()
     try {
         & $Command
         if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
             throw "Command exited with code $LASTEXITCODE"
         }
-        Write-OK $Description
+        $timer.Stop()
+        Add-StepTiming -Step $Description -Status "PASS" -DurationSeconds $timer.Elapsed.TotalSeconds
+        Write-OK ("{0} ({1:N1}s)" -f $Description, $timer.Elapsed.TotalSeconds)
     }
     catch {
-        Write-Fail "$Description`n    $_"
+        $timer.Stop()
+        Add-StepTiming -Step $Description -Status "FAIL" -DurationSeconds $timer.Elapsed.TotalSeconds
+        Write-Fail ("{0} ({1:N1}s)`n    {2}" -f $Description, $timer.Elapsed.TotalSeconds, $_)
         throw
     }
 }
@@ -126,33 +228,34 @@ function Pause-ForApproval {
     Write-Host $Msg -ForegroundColor Magenta
     $response = Read-Host "Continue? (y/n)"
     if ($response -notmatch '^[yY]') {
-        Write-Host "Aborted by user." -ForegroundColor Red
-        exit 1
+        throw "Aborted by user."
     }
 }
 
-# ============================================================
-# PRE-FLIGHT CHECKS
-# ============================================================
-Write-Phase "Phase 0" "Pre-flight checks"
+Write-Host "[*] Deployment logs directory: $($script:RunDir)" -ForegroundColor DarkGray
 
-$requiredTools = @("java", "docker", "terraform", "aws", "node", "npm")
+try {
+    # ============================================================
+    # PRE-FLIGHT CHECKS
+    # ============================================================
+    Write-Phase "Phase 0" "Pre-flight checks"
 
-$missing = @()
-foreach ($tool in $requiredTools) {
-    if (Get-Command $tool -ErrorAction SilentlyContinue) {
-        Write-OK "$tool found"
+    $requiredTools = @("java", "docker", "terraform", "aws", "node", "npm")
+
+    $missing = @()
+    foreach ($tool in $requiredTools) {
+        if (Get-Command $tool -ErrorAction SilentlyContinue) {
+            Write-OK "$tool found"
+        }
+        else {
+            Write-Fail "$tool not found"
+            $missing += $tool
+        }
     }
-    else {
-        Write-Fail "$tool not found"
-        $missing += $tool
-    }
-}
 
-if ($missing.Count -gt 0) {
-    Write-Host "`nMissing tools: $($missing -join ', '). Install them and re-run." -ForegroundColor Red
-    exit 1
-}
+    if ($missing.Count -gt 0) {
+        throw "Missing tools: $($missing -join ', '). Install them and re-run."
+    }
 
 # ============================================================
 # AWS CREDENTIALS
@@ -172,15 +275,20 @@ if ($inputToken)     { $env:AWS_SESSION_TOKEN     = $inputToken.Trim() }
 $env:AWS_DEFAULT_REGION = $REGION
 
 # Validate credentials
-Write-Step "Validating AWS credentials..."
-$callerJson = aws sts get-caller-identity 2>&1
-if ($LASTEXITCODE -ne 0) {
-    Write-Fail "AWS credentials invalid or expired. Re-start Learner Lab session and try again."
-    Write-Host $callerJson -ForegroundColor Red
-    exit 1
+Invoke-Checked "Validating AWS credentials..." {
+    $script:callerJson = aws sts get-caller-identity 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "AWS credentials invalid or expired. Re-start Learner Lab session and try again."
+    }
 }
-Write-Host $callerJson -ForegroundColor DarkGray
-$ACCOUNT_ID = aws sts get-caller-identity --query Account --output text
+Write-Host $script:callerJson -ForegroundColor DarkGray
+Invoke-Checked "Resolving AWS account ID" {
+    $script:ACCOUNT_ID = aws sts get-caller-identity --query Account --output text
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($script:ACCOUNT_ID)) {
+        throw "Unable to resolve AWS account ID."
+    }
+}
+$ACCOUNT_ID = $script:ACCOUNT_ID
 Write-OK "Authenticated. Account ID: $ACCOUNT_ID"
 
 # Set Terraform secret
@@ -231,26 +339,28 @@ if (-not $SkipInfra) {
     # --- 2a: Create remote state backend (idempotent) ---
     $BUCKET_NAME = "scroogebank-crm-lab-tfstate-$ACCOUNT_ID"
 
-    Write-Step "Creating S3 state bucket: $BUCKET_NAME (idempotent)..."
-    $null = aws s3api head-bucket --bucket $BUCKET_NAME 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        aws s3api create-bucket --bucket $BUCKET_NAME --region $REGION
-        aws s3api put-bucket-versioning --bucket $BUCKET_NAME --versioning-configuration Status=Enabled
-        Write-OK "S3 bucket created: $BUCKET_NAME"
-    }
-    else {
-        Write-OK "S3 bucket already exists: $BUCKET_NAME"
+    Invoke-Checked "Creating S3 state bucket: $BUCKET_NAME (idempotent)..." {
+        $null = aws s3api head-bucket --bucket $BUCKET_NAME 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            aws s3api create-bucket --bucket $BUCKET_NAME --region $REGION
+            aws s3api put-bucket-versioning --bucket $BUCKET_NAME --versioning-configuration Status=Enabled
+            Write-OK "S3 bucket created: $BUCKET_NAME"
+        }
+        else {
+            Write-OK "S3 bucket already exists: $BUCKET_NAME"
+        }
     }
 
-    Write-Step "Creating DynamoDB lock table: scroogebank-crm-lab-tflock (idempotent)..."
-    $null = aws dynamodb describe-table --table-name scroogebank-crm-lab-tflock --region $REGION 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        aws dynamodb create-table --table-name scroogebank-crm-lab-tflock --attribute-definitions AttributeName=LockID,AttributeType=S --key-schema AttributeName=LockID,KeyType=HASH --billing-mode PAY_PER_REQUEST --region $REGION
-        aws dynamodb wait table-exists --table-name scroogebank-crm-lab-tflock --region $REGION
-        Write-OK "DynamoDB table created."
-    }
-    else {
-        Write-OK "DynamoDB table already exists."
+    Invoke-Checked "Creating DynamoDB lock table: scroogebank-crm-lab-tflock (idempotent)..." {
+        $null = aws dynamodb describe-table --table-name scroogebank-crm-lab-tflock --region $REGION 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            aws dynamodb create-table --table-name scroogebank-crm-lab-tflock --attribute-definitions AttributeName=LockID,AttributeType=S --key-schema AttributeName=LockID,KeyType=HASH --billing-mode PAY_PER_REQUEST --region $REGION
+            aws dynamodb wait table-exists --table-name scroogebank-crm-lab-tflock --region $REGION
+            Write-OK "DynamoDB table created."
+        }
+        else {
+            Write-OK "DynamoDB table already exists."
+        }
     }
 
     # --- 2b: Terraform init ---
@@ -372,12 +482,14 @@ finally {
 }
 
 # ECS service status
-Write-Step "Checking ECS service status..."
-aws ecs describe-services --cluster $ECS_CLUSTER --services ($SERVICES | ForEach-Object { "$NAME_PREFIX-$_" }) --region $REGION --query "services[*].{name:serviceName,running:runningCount,desired:desiredCount,status:status}" --output table
+Invoke-Checked "Checking ECS service status..." {
+    aws ecs describe-services --cluster $ECS_CLUSTER --services ($SERVICES | ForEach-Object { "$NAME_PREFIX-$_" }) --region $REGION --query "services[*].{name:serviceName,running:runningCount,desired:desiredCount,status:status}" --output table
+}
 
 # Health checks (with retries - ECS tasks may still be starting)
-Write-Step "Waiting 30 seconds for ECS tasks to stabilize..."
-Start-Sleep -Seconds 30
+Invoke-Checked "Waiting 30 seconds for ECS tasks to stabilize..." {
+    Start-Sleep -Seconds 30
+}
 
 $healthEndpoints = @(
     "/api/user/health",
@@ -391,21 +503,31 @@ $curlCmd = if ($IsLinux -or $IsMacOS) { "curl" } else { "curl.exe" }
 $allHealthy = $true
 foreach ($endpoint in $healthEndpoints) {
     $url = "http://$ALB$endpoint"
+    $healthTimer = [System.Diagnostics.Stopwatch]::StartNew()
     Write-Step "Health check: $url"
     try {
         $response = & $curlCmd -s -o NUL -w "%{http_code}" $url 2>&1
+        $healthTimer.Stop()
         if ($response -eq "200") {
             Write-OK "$endpoint -> 200 OK"
+            Add-StepTiming -Step "Health check: $url" -Status "PASS" -DurationSeconds $healthTimer.Elapsed.TotalSeconds
         }
         else {
             Write-Fail "$endpoint -> HTTP $response (ECS tasks may still be starting - check again in a few minutes)"
             $allHealthy = $false
+            Add-StepTiming -Step "Health check: $url" -Status "FAIL" -DurationSeconds $healthTimer.Elapsed.TotalSeconds
         }
     }
     catch {
+        $healthTimer.Stop()
         Write-Fail "$endpoint -> failed: $_"
         $allHealthy = $false
+        Add-StepTiming -Step "Health check: $url" -Status "FAIL" -DurationSeconds $healthTimer.Elapsed.TotalSeconds
     }
+}
+
+if (-not $allHealthy -and $script:RunStatus -eq "PASS") {
+    $script:RunStatus = "PASS_WITH_WARNINGS"
 }
 
 # ============================================================
@@ -418,6 +540,7 @@ Write-Host ("=" * 70) -ForegroundColor Green
 Write-Host ""
 Write-Host "  ALB endpoint:    http://$ALB" -ForegroundColor White
 Write-Host "  Frontend URL:    $FRONTEND_URL" -ForegroundColor White
+Write-Host "  Logs directory:  $($script:RunDir)" -ForegroundColor White
 Write-Host ""
 Write-Host "  Login credentials:" -ForegroundColor White
 Write-Host "    Email:    admin@crm.local" -ForegroundColor White
@@ -438,3 +561,21 @@ Write-Host "    .\scripts\deploy-learnerlab.ps1 -SkipInfra              # rebuil
 Write-Host "    .\scripts\deploy-learnerlab.ps1 -SkipBuild -SkipInfra   # frontend only" -ForegroundColor DarkGray
 Write-Host "    .\scripts\deploy-learnerlab.ps1 -SkipBuild              # infra change only" -ForegroundColor DarkGray
 Write-Host ""
+}
+catch {
+    $script:RunStatus = "FAIL"
+    Write-Fail "Deployment failed: $($_.Exception.Message)"
+    throw
+}
+finally {
+    Write-RunSummary
+    Remove-OldRuns -Keep $LOG_RETENTION_RUNS
+    if ($script:TranscriptStarted) {
+        try {
+            Stop-Transcript | Out-Null
+        }
+        catch {
+            Write-Warning "Unable to stop transcript cleanly: $($_.Exception.Message)"
+        }
+    }
+}

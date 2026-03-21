@@ -64,6 +64,17 @@ declare -A IMAGE_TAGS=(
     [transaction]="transaction-lab-001"
 )
 
+LOG_ROOT="${ROOT}/build-logs/deploy-learnerlab"
+LOG_RETENTION_RUNS=3
+SCRIPT_START_TS="$(date +%s)"
+ALL_HEALTHY=true
+STEP_TIMINGS=()
+RUN_DIR=""
+RUN_LOG=""
+STEP_TIMINGS_FILE=""
+SUMMARY_MD=""
+LAST_SUMMARY_MD=""
+
 # ============================================================
 # Helpers
 # ============================================================
@@ -72,13 +83,105 @@ step()    { echo "[*] $1"; }
 ok()      { echo "[OK] $1"; }
 fail()    { echo "[FAIL] $1"; }
 
+prune_old_runs() {
+    local keep="$1"
+    local run_dirs=()
+    local old_dir
+
+    mkdir -p "${LOG_ROOT}"
+    mapfile -t run_dirs < <(find "${LOG_ROOT}" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -r)
+
+    if [[ "${#run_dirs[@]}" -le "${keep}" ]]; then
+        return
+    fi
+
+    for old_dir in "${run_dirs[@]:${keep}}"; do
+        rm -rf "${LOG_ROOT}/${old_dir}"
+    done
+}
+
+init_run_dir() {
+    local pre_keep timestamp collision_idx candidate
+    pre_keep=$((LOG_RETENTION_RUNS - 1))
+    if (( pre_keep < 0 )); then
+        pre_keep=0
+    fi
+    prune_old_runs "${pre_keep}"
+
+    timestamp="$(date +%Y%m%d_%H%M%S)"
+    candidate="${LOG_ROOT}/${timestamp}"
+    collision_idx=1
+    while [[ -e "${candidate}" ]]; do
+        candidate="${LOG_ROOT}/${timestamp}_$(printf '%02d' "${collision_idx}")"
+        collision_idx=$((collision_idx + 1))
+    done
+
+    mkdir -p "${candidate}"
+    printf "%s" "${candidate}"
+}
+
+add_step_timing() {
+    local step_name="$1"
+    local status="$2"
+    local elapsed="$3"
+    STEP_TIMINGS+=("${status}|${elapsed}|${step_name}")
+    printf "%s\t%s\t%s\n" "${status}" "${elapsed}" "${step_name}" >> "${STEP_TIMINGS_FILE}"
+}
+
+write_summary_files() {
+    local exit_code="$1"
+    local finished_at total_elapsed run_status entry status elapsed step_name
+
+    finished_at="$(date -Iseconds)"
+    total_elapsed=$(( $(date +%s) - SCRIPT_START_TS ))
+    run_status="PASS"
+    if [[ "${exit_code}" -ne 0 ]]; then
+        run_status="FAIL"
+    elif [[ "${ALL_HEALTHY}" == "false" ]]; then
+        run_status="PASS_WITH_WARNINGS"
+    fi
+
+    {
+        echo "# Learner Lab Deploy Summary"
+        echo ""
+        echo "- Timestamp: \`${finished_at}\`"
+        echo "- Status: \`${run_status}\`"
+        echo "- Total duration: \`${total_elapsed}s\`"
+        echo "- Run log: \`${RUN_LOG}\`"
+        echo "- Step timings (tsv): \`${STEP_TIMINGS_FILE}\`"
+        echo ""
+        echo "| Status | Duration (s) | Step |"
+        echo "|---|---:|---|"
+        for entry in "${STEP_TIMINGS[@]}"; do
+            IFS='|' read -r status elapsed step_name <<< "${entry}"
+            echo "| ${status} | ${elapsed} | ${step_name} |"
+        done
+    } > "${SUMMARY_MD}"
+
+    cp "${SUMMARY_MD}" "${LAST_SUMMARY_MD}"
+}
+
+finalize_logging() {
+    local exit_code="$1"
+    write_summary_files "${exit_code}"
+    prune_old_runs "${LOG_RETENTION_RUNS}"
+}
+
 run_checked() {
     local desc="$1"; shift
+    local started_at ended_at elapsed
     step "$desc"
+    started_at="$(date +%s)"
     if "$@"; then
-        ok "$desc"
+        ended_at="$(date +%s)"
+        elapsed=$((ended_at - started_at))
+        add_step_timing "$desc" "PASS" "${elapsed}"
+        ok "$desc (${elapsed}s)"
     else
-        fail "$desc"
+        ended_at="$(date +%s)"
+        elapsed=$((ended_at - started_at))
+        add_step_timing "$desc" "FAIL" "${elapsed}"
+        fail "$desc (${elapsed}s)"
         exit 1
     fi
 }
@@ -92,6 +195,16 @@ pause_for_approval() {
         exit 1
     fi
 }
+
+RUN_DIR="$(init_run_dir)"
+RUN_LOG="${RUN_DIR}/deploy-learnerlab.log"
+STEP_TIMINGS_FILE="${RUN_DIR}/step-timings.tsv"
+SUMMARY_MD="${RUN_DIR}/summary.md"
+LAST_SUMMARY_MD="${LOG_ROOT}/last-run-summary.md"
+printf "status\tduration_seconds\tstep\n" > "${STEP_TIMINGS_FILE}"
+exec > >(tee -a "${RUN_LOG}") 2>&1
+trap 'finalize_logging $?' EXIT
+step "Deployment logs directory: ${RUN_DIR}"
 
 # ============================================================
 # PRE-FLIGHT CHECKS
@@ -134,11 +247,7 @@ read -rp "AWS_SESSION_TOKEN     (current: [hidden]): " input_token
 export AWS_DEFAULT_REGION="$REGION"
 
 # Validate credentials
-step "Validating AWS credentials..."
-if ! aws sts get-caller-identity; then
-    fail "AWS credentials invalid or expired. Re-start Learner Lab session and try again."
-    exit 1
-fi
+run_checked "Validating AWS credentials..." aws sts get-caller-identity
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 ok "Authenticated. Account ID: $ACCOUNT_ID"
 
@@ -182,28 +291,33 @@ if [[ "$SKIP_INFRA" == "false" ]]; then
     # --- 2a: Create remote state backend (idempotent) ---
     BUCKET_NAME="scroogebank-crm-lab-tfstate-${ACCOUNT_ID}"
 
-    step "Creating S3 state bucket: $BUCKET_NAME (idempotent)..."
-    if ! aws s3api head-bucket --bucket "$BUCKET_NAME" 2>/dev/null; then
-        aws s3api create-bucket --bucket "$BUCKET_NAME" --region "$REGION"
-        aws s3api put-bucket-versioning --bucket "$BUCKET_NAME" --versioning-configuration Status=Enabled
-        ok "S3 bucket created: $BUCKET_NAME"
-    else
-        ok "S3 bucket already exists: $BUCKET_NAME"
-    fi
+    ensure_state_bucket() {
+        if ! aws s3api head-bucket --bucket "$BUCKET_NAME" 2>/dev/null; then
+            aws s3api create-bucket --bucket "$BUCKET_NAME" --region "$REGION"
+            aws s3api put-bucket-versioning --bucket "$BUCKET_NAME" --versioning-configuration Status=Enabled
+            ok "S3 bucket created: $BUCKET_NAME"
+        else
+            ok "S3 bucket already exists: $BUCKET_NAME"
+        fi
+    }
 
-    step "Creating DynamoDB lock table: scroogebank-crm-lab-tflock (idempotent)..."
-    if ! aws dynamodb describe-table --table-name scroogebank-crm-lab-tflock --region "$REGION" &>/dev/null; then
-        aws dynamodb create-table \
-            --table-name scroogebank-crm-lab-tflock \
-            --attribute-definitions AttributeName=LockID,AttributeType=S \
-            --key-schema AttributeName=LockID,KeyType=HASH \
-            --billing-mode PAY_PER_REQUEST \
-            --region "$REGION"
-        aws dynamodb wait table-exists --table-name scroogebank-crm-lab-tflock --region "$REGION"
-        ok "DynamoDB table created."
-    else
-        ok "DynamoDB table already exists."
-    fi
+    ensure_lock_table() {
+        if ! aws dynamodb describe-table --table-name scroogebank-crm-lab-tflock --region "$REGION" &>/dev/null; then
+            aws dynamodb create-table \
+                --table-name scroogebank-crm-lab-tflock \
+                --attribute-definitions AttributeName=LockID,AttributeType=S \
+                --key-schema AttributeName=LockID,KeyType=HASH \
+                --billing-mode PAY_PER_REQUEST \
+                --region "$REGION"
+            aws dynamodb wait table-exists --table-name scroogebank-crm-lab-tflock --region "$REGION"
+            ok "DynamoDB table created."
+        else
+            ok "DynamoDB table already exists."
+        fi
+    }
+
+    run_checked "Creating S3 state bucket: $BUCKET_NAME (idempotent)..." ensure_state_bucket
+    run_checked "Creating DynamoDB lock table: scroogebank-crm-lab-tflock (idempotent)..." ensure_lock_table
 
     # --- 2b: Terraform init / plan / apply ---
     pushd "$TF_DIR" > /dev/null
@@ -296,8 +410,7 @@ FRONTEND_URL=$(terraform output -raw frontend_website_url)
 popd > /dev/null
 
 # ECS service status
-step "Checking ECS service status..."
-aws ecs describe-services \
+run_checked "Checking ECS service status..." aws ecs describe-services \
     --cluster "$ECS_CLUSTER" \
     --services "${SERVICES[@]/#/${NAME_PREFIX}-}" \
     --region "$REGION" \
@@ -305,21 +418,24 @@ aws ecs describe-services \
     --output table
 
 # Health checks
-step "Waiting 30 seconds for ECS tasks to stabilize..."
-sleep 30
+run_checked "Waiting 30 seconds for ECS tasks to stabilize..." sleep 30
 
 HEALTH_ENDPOINTS=( "/api/user/health" "/api/clients/health" "/api/transactions/health" )
-ALL_HEALTHY=true
 
 for endpoint in "${HEALTH_ENDPOINTS[@]}"; do
     url="http://${ALB}${endpoint}"
+    started_at="$(date +%s)"
     step "Health check: $url"
     http_code=$(curl -s -o /dev/null -w "%{http_code}" "$url" 2>&1 || true)
+    ended_at="$(date +%s)"
+    elapsed=$((ended_at - started_at))
     if [[ "$http_code" == "200" ]]; then
         ok "$endpoint -> 200 OK"
+        add_step_timing "Health check: $url" "PASS" "${elapsed}"
     else
         fail "$endpoint -> HTTP $http_code (ECS tasks may still be starting - check again in a few minutes)"
         ALL_HEALTHY=false
+        add_step_timing "Health check: $url" "FAIL" "${elapsed}"
     fi
 done
 
@@ -333,6 +449,7 @@ echo "======================================================================"
 echo ""
 echo "  ALB endpoint:    http://$ALB"
 echo "  Frontend URL:    $FRONTEND_URL"
+echo "  Logs directory:  $RUN_DIR"
 echo ""
 echo "  Login credentials:"
 echo "    Email:    admin@crm.local"
