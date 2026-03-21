@@ -186,7 +186,9 @@ describe('AdminCommunications behavior', () => {
     await user.click(screen.getByRole('button', { name: 'Update' }))
 
     await waitFor(() => {
-      expect(screen.getByText('You are not authorized to update communications.')).toBeInTheDocument()
+      expect(
+        screen.getByText('You are not authorized to update communications.')
+      ).toBeInTheDocument()
     })
   })
 
@@ -239,7 +241,9 @@ describe('AdminCommunications behavior', () => {
     await user.click(screen.getAllByRole('button', { name: 'Lookup' })[0])
 
     await waitFor(() => {
-      expect(screen.getByText('You are not authorized to view this communication.')).toBeInTheDocument()
+      expect(
+        screen.getByText('You are not authorized to view this communication.')
+      ).toBeInTheDocument()
     })
   })
 
@@ -292,7 +296,9 @@ describe('AdminCommunications behavior', () => {
         'provider_1',
         {}
       )
-      expect(screen.getByText('You are not authorized to view this communication.')).toBeInTheDocument()
+      expect(
+        screen.getByText('You are not authorized to view this communication.')
+      ).toBeInTheDocument()
     })
   })
 

@@ -9,12 +9,7 @@ import { RecentTransactionsTable } from '../RecentTransactionsTable'
 import { SidebarLayout, type NavItem } from '../SidebarDrawer'
 import { VerificationForm } from '../VerificationForm'
 import { VerificationReviewPanel } from '../VerificationReviewPanel'
-import type {
-  Account,
-  AccountCreateRequest,
-  Communication,
-  VerifyClientRequest,
-} from '@/api/types'
+import type { Account, AccountCreateRequest, Communication, VerifyClientRequest } from '@/api/types'
 
 const baseFormData: AccountCreateRequest = {
   clientId: 'clt_1',
@@ -158,7 +153,11 @@ describe('core components', () => {
     const formatAmount = vi.fn((amount: number) => `SGD ${amount}`)
 
     const { rerender } = render(
-      <RecentTransactionsTable transactions={[]} formatAmount={formatAmount} onViewAll={onViewAll} />
+      <RecentTransactionsTable
+        transactions={[]}
+        formatAmount={formatAmount}
+        onViewAll={onViewAll}
+      />
     )
 
     expect(screen.getByText('No transactions found')).toBeInTheDocument()
