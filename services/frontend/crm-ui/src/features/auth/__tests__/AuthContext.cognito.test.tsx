@@ -6,7 +6,7 @@ const mockApiLogin = vi.fn()
 const mockGetCurrentUser = vi.fn()
 const mockSetAuthToken = vi.fn()
 const mockClearAuthToken = vi.fn()
-const mockGetAuthToken = vi.fn(() => null)
+const mockGetAuthToken = vi.fn<() => string | null>(() => null)
 const mockExchangeCodeForTokens = vi.fn()
 const mockBuildCognitoLogoutUrl = vi.fn(() => 'https://cognito.example/logout')
 
