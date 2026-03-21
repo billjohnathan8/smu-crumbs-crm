@@ -4,6 +4,7 @@ import {
   getTransactionById,
   createTransaction,
   deleteTransaction,
+  listClientTransactions,
   startTransactionImport,
   getTransactionImportBatch,
 } from '../transactions'
@@ -203,6 +204,27 @@ describe('transactions API', () => {
   })
 
   describe('startTransactionImport', () => {
+    it('should treat empty import payload as undefined', async () => {
+      const mockBatch: ImportBatch = {
+        importBatchId: 'imp_empty',
+        status: 'queued',
+        requestedClientId: null,
+        requestedAt: '2026-03-20T12:00:00Z',
+        startedAt: null,
+        finishedAt: null,
+        totalRecords: 0,
+        importedRecords: 0,
+        failedRecords: 0,
+        errorMessage: null,
+      }
+
+      vi.spyOn(client, 'apiPost').mockResolvedValue(mockBatch)
+
+      await startTransactionImport({})
+
+      expect(client.apiPost).toHaveBeenCalledWith('/api/transactions/import', undefined)
+    })
+
     it('should trigger transaction import without payload', async () => {
       const mockBatch: ImportBatch = {
         importBatchId: 'imp_7',
@@ -250,6 +272,32 @@ describe('transactions API', () => {
 
       expect(client.apiPost).toHaveBeenCalledWith('/api/transactions/import', payload)
       expect(result).toEqual(mockBatch)
+    })
+  })
+
+  describe('listClientTransactions', () => {
+    it('should list client transactions without pagination params', async () => {
+      vi.spyOn(client, 'apiGet').mockResolvedValue({
+        data: [],
+        pagination: { total: 0, limit: 10, offset: 0 },
+      })
+
+      await listClientTransactions('client-abc')
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/clients/client-abc/transactions')
+    })
+
+    it('should list client transactions with pagination params', async () => {
+      vi.spyOn(client, 'apiGet').mockResolvedValue({
+        data: [],
+        pagination: { total: 0, limit: 5, offset: 10 },
+      })
+
+      await listClientTransactions('client-abc', { limit: 5, offset: 10 })
+
+      expect(client.apiGet).toHaveBeenCalledWith(
+        '/api/clients/client-abc/transactions?limit=5&offset=10'
+      )
     })
   })
 

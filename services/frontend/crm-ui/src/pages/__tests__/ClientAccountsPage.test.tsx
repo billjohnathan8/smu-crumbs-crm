@@ -11,9 +11,10 @@ import type { Client, Account } from '@/api/types'
 vi.mock('@/api/clients')
 
 const mockLogout = vi.fn()
+let mockRole: 'user' | 'admin' | 'super_admin' = 'user'
 vi.mock('@/features/auth/AuthContext', () => ({
   useAuth: () => ({
-    user: { id: '1', firstName: 'John', lastName: 'Doe', role: 'user' },
+    user: { id: '1', firstName: 'John', lastName: 'Doe', role: mockRole },
     logout: mockLogout,
   }),
 }))
@@ -73,6 +74,7 @@ const mockAccounts: Account[] = [
 describe('ClientAccountsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockRole = 'user'
     vi.spyOn(clientsApi, 'getClientById').mockResolvedValue(mockClient)
     vi.spyOn(clientsApi, 'listClientAccounts').mockResolvedValue(mockAccounts)
   })
@@ -258,6 +260,119 @@ describe('ClientAccountsPage', () => {
 
     await waitFor(() => {
       expect(mockLogout).toHaveBeenCalled()
+    })
+  })
+
+  it('should show role-specific 403 load errors for user and admin roles', async () => {
+    vi.spyOn(clientsApi, 'getClientById').mockRejectedValue(
+      new ApiError(403, 'forbidden', 'Forbidden')
+    )
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByText('You are not allowed to access this client.')).toBeInTheDocument()
+    })
+
+    mockRole = 'admin'
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByText('You are not allowed to access these accounts.')).toBeInTheDocument()
+    })
+  })
+
+  it('should validate create account form for required branch id', async () => {
+    renderComponent()
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(screen.getByText('+ New Account')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByText('+ New Account'))
+    await user.click(screen.getByRole('button', { name: /Create Account/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Branch ID is required')).toBeInTheDocument()
+    })
+  })
+
+  it('should update account successfully in edit mode', async () => {
+    vi.spyOn(clientsApi, 'updateAccount').mockResolvedValue({
+      ...mockAccounts[0],
+      branchId: 'branch-updated',
+    })
+
+    renderComponent()
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Edit')).toHaveLength(2)
+    })
+
+    await user.click(screen.getAllByText('Edit')[0])
+    await waitFor(() => {
+      expect(screen.getByText('Edit Account')).toBeInTheDocument()
+    })
+
+    await user.clear(screen.getByDisplayValue('branch-001'))
+    await user.type(screen.getByDisplayValue(''), 'branch-updated')
+    await user.click(screen.getByRole('button', { name: /Save Changes/i }))
+
+    await waitFor(() => {
+      expect(clientsApi.updateAccount).toHaveBeenCalledWith('account-001-xxxx-yyyy', {
+        accountType: 'Savings',
+        accountStatus: 'Active',
+        branchId: 'branch-updated',
+      })
+    })
+  })
+
+  it('should show forbidden action error on create account 403', async () => {
+    vi.spyOn(clientsApi, 'createAccount').mockRejectedValue(
+      new ApiError(403, 'forbidden', 'Forbidden')
+    )
+
+    renderComponent()
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(screen.getByText('+ New Account')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByText('+ New Account'))
+    await user.type(screen.getByDisplayValue(''), 'branch-009')
+    await user.click(screen.getByRole('button', { name: /Create Account/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('You are not allowed to perform this action.')).toBeInTheDocument()
+    })
+  })
+
+  it('should show delete errors for forbidden and unexpected failures', async () => {
+    vi.spyOn(clientsApi, 'deleteAccount')
+      .mockRejectedValueOnce(new ApiError(403, 'forbidden', 'Forbidden'))
+      .mockRejectedValueOnce(new Error('boom'))
+
+    renderComponent()
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Delete')).toHaveLength(2)
+    })
+
+    await user.click(screen.getAllByText('Delete')[0])
+    await user.click(screen.getByRole('button', { name: /Delete Account/i }))
+    await waitFor(() => {
+      expect(screen.getByText('You are not allowed to delete this account.')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /Cancel/i }))
+    await user.click(screen.getAllByText('Delete')[0])
+    await user.click(screen.getByRole('button', { name: /Delete Account/i }))
+    await waitFor(() => {
+      expect(screen.getByText('An unexpected error occurred')).toBeInTheDocument()
     })
   })
 })

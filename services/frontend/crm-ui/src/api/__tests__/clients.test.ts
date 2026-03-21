@@ -84,6 +84,17 @@ describe('clients API', () => {
 
       expect(client.apiGet).toHaveBeenCalledWith('/api/clients?limit=10&offset=20&q=search+term')
     })
+
+    it('should include zero-valued pagination params', async () => {
+      vi.spyOn(client, 'apiGet').mockResolvedValue({
+        data: [],
+        pagination: { total: 0, limit: 0, offset: 0 },
+      })
+
+      await listClients({ limit: 0, offset: 0 })
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/clients?limit=0&offset=0')
+    })
   })
 
   describe('getClientById', () => {
@@ -336,6 +347,20 @@ describe('clients API', () => {
   })
 
   describe('listClientAccountsPaginated', () => {
+    it('should return account response without pagination query', async () => {
+      const mockResponse: PaginatedResponse<Account> = {
+        data: [],
+        pagination: { limit: 10, offset: 0, total: 0 },
+      }
+
+      vi.spyOn(client, 'apiGet').mockResolvedValue(mockResponse)
+
+      const result = await listClientAccountsPaginated('client-123')
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/clients/client-123/accounts')
+      expect(result).toEqual(mockResponse)
+    })
+
     it('should return paginated account response', async () => {
       const mockResponse: PaginatedResponse<Account> = {
         data: [],
@@ -354,6 +379,18 @@ describe('clients API', () => {
   })
 
   describe('listClientAccounts', () => {
+    it('should get account data helper result without pagination params', async () => {
+      vi.spyOn(client, 'apiGet').mockResolvedValue({
+        data: [],
+        pagination: { limit: 10, offset: 0, total: 0 },
+      })
+
+      const result = await listClientAccounts('client-123')
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/clients/client-123/accounts')
+      expect(result).toEqual([])
+    })
+
     it('should get all accounts for a client', async () => {
       const mockAccounts: Account[] = [
         {

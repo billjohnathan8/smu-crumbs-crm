@@ -177,6 +177,18 @@ describe('UserEditClient', () => {
     })
   })
 
+  it('should call logout on 401 error during initial load', async () => {
+    vi.spyOn(clientsApi, 'getClientById').mockRejectedValue(
+      new ApiError(401, 'unauthorized', 'Unauthorized')
+    )
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(mockLogout).toHaveBeenCalled()
+    })
+  })
+
   it('should show error for duplicate email (409)', async () => {
     vi.spyOn(clientsApi, 'updateClient').mockRejectedValue(
       new ApiError(409, 'conflict', 'Conflict')
@@ -194,6 +206,91 @@ describe('UserEditClient', () => {
 
     await waitFor(() => {
       expect(screen.getByText('A client with this email already exists')).toBeInTheDocument()
+    })
+  })
+
+  it('should show validation errors for invalid email and phone formats', async () => {
+    renderComponent()
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('john@example.com')).toBeInTheDocument()
+    })
+
+    const emailInput = screen.getByDisplayValue('john@example.com')
+    const phoneInput = screen.getByDisplayValue('+65 1234 5678')
+    await user.clear(emailInput)
+    await user.type(emailInput, 'invalid-email')
+    await user.clear(phoneInput)
+    await user.type(phoneInput, '123')
+    await user.click(screen.getByRole('button', { name: /Save Changes/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Invalid email format')).toBeInTheDocument()
+      expect(screen.getByText('Invalid phone format (min 8 digits)')).toBeInTheDocument()
+    })
+  })
+
+  it('should validate date of birth age boundaries', async () => {
+    renderComponent()
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('1990-01-15')).toBeInTheDocument()
+    })
+
+    const dateInput = screen.getByDisplayValue('1990-01-15')
+    const underageYear = new Date().getFullYear() - 10
+    await user.clear(dateInput)
+    await user.type(dateInput, `${underageYear}-01-01`)
+    await user.click(screen.getByRole('button', { name: /Save Changes/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Client must be at least 18 years old')).toBeInTheDocument()
+    })
+
+    await user.clear(dateInput)
+    await user.type(dateInput, '1900-01-01')
+    await user.click(screen.getByRole('button', { name: /Save Changes/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Client age cannot exceed 100 years')).toBeInTheDocument()
+    })
+  })
+
+  it('should show specific update error for 422 responses', async () => {
+    const user = userEvent.setup()
+
+    vi.spyOn(clientsApi, 'updateClient').mockRejectedValue(
+      new ApiError(422, 'validation_error', 'Validation failed')
+    )
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('John')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /Save Changes/i }))
+    await waitFor(() => {
+      expect(
+        screen.getByText('Invalid data provided. Please check your inputs.')
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('should show generic update error for unexpected failures', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(clientsApi, 'updateClient').mockRejectedValue(new Error('boom'))
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('John')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /Save Changes/i }))
+    await waitFor(() => {
+      expect(screen.getByText('An unexpected error occurred')).toBeInTheDocument()
     })
   })
 })
