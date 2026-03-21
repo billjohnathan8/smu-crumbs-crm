@@ -23,6 +23,9 @@
 .PARAMETER SkipFrontend
     Skip Phase 4 (frontend build + S3 upload).
 
+.PARAMETER NoDestroyOnFail
+    Skip automatic 'terraform destroy' when a step fails after infrastructure is provisioned.
+
 .EXAMPLE
     # Full first-time deployment (interactive - prompts for AWS creds):
     .\scripts\deploy-learnerlab.ps1
@@ -43,7 +46,8 @@
 param(
     [switch]$SkipBuild,
     [switch]$SkipInfra,
-    [switch]$SkipFrontend
+    [switch]$SkipFrontend,
+    [switch]$NoDestroyOnFail
 )
 
 Set-StrictMode -Version Latest
@@ -145,6 +149,7 @@ function Initialize-RunDirectory {
 $script:ScriptTimer = [System.Diagnostics.Stopwatch]::StartNew()
 $script:StepTimings = New-Object 'System.Collections.Generic.List[object]'
 $script:RunStatus = "PASS"
+$script:InfraProvisioned = $false
 $script:RunDir = Initialize-RunDirectory
 $script:RunLog = Join-Path $script:RunDir "deploy-learnerlab.log"
 $script:StepTimingsFile = Join-Path $script:RunDir "step-timings.csv"
@@ -383,6 +388,7 @@ if (-not $SkipInfra) {
         Pause-ForApproval "Review the plan above. Ready to apply? (This takes 15-25 minutes)"
 
         # --- 2d: Terraform apply ---
+        $script:InfraProvisioned = $true  # set before apply so partial failures also trigger cleanup
         Invoke-Checked "terraform apply" {
             terraform apply "lab.tfplan"
         }
@@ -400,10 +406,10 @@ else {
 }
 
 # ============================================================
-# PHASE 3 - PUSH IMAGES TO ECR + DEPLOY SERVICES
+# PHASE 3 - PUSH IMAGES TO ECR
 # ============================================================
 if ($BUILT_SERVICES.Count -gt 0) {
-    Write-Phase "Phase 3" "Push images to ECR + deploy services"
+    Write-Phase "Phase 3" "Push images to ECR"
 
     # ECR login - use cmd /c on Windows to avoid PowerShell pipe adding \r\n to token
     if ($IsLinux -or $IsMacOS) {
@@ -426,146 +432,7 @@ if ($BUILT_SERVICES.Count -gt 0) {
         }
     }
 
-    # Detect CodeDeploy availability from terraform outputs
-    $CODEDEPLOY_APP = ""
-    Push-Location $TF_DIR
-    try {
-        $prevEAP = $ErrorActionPreference
-        $ErrorActionPreference = "Continue"
-        $CODEDEPLOY_APP = terraform output -raw codedeploy_ecs_application_name 2>$null
-        $ErrorActionPreference = $prevEAP
-        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($CODEDEPLOY_APP) -or $CODEDEPLOY_APP -eq "null") {
-            $CODEDEPLOY_APP = ""
-        }
-    }
-    catch {
-        $CODEDEPLOY_APP = ""
-        $ErrorActionPreference = $prevEAP
-    }
-    finally {
-        Pop-Location
-    }
-
-    if ($CODEDEPLOY_APP) {
-        Write-OK "CodeDeploy detected: $CODEDEPLOY_APP (blue/green deployments)"
-    } else {
-        Write-OK "CodeDeploy not available (ECS rolling updates)"
-    }
-
-    # Deploy each service: register new task definition, then trigger
-    # either a CodeDeploy blue/green deployment or an ECS rolling update.
-    foreach ($svc in $BUILT_SERVICES) {
-        $ecsService = "$NAME_PREFIX-$svc"
-        $newImage   = "$($ECR_REPOS[$svc]):$($IMAGE_TAGS[$svc])"
-
-        Write-Step "Deploying $ecsService with image $newImage"
-
-        # --- Get current task definition ARN ---
-        $currentTdArn = aws ecs describe-services `
-            --cluster $ECS_CLUSTER --services $ecsService `
-            --region $REGION `
-            --query "services[0].taskDefinition" --output text
-        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($currentTdArn) -or $currentTdArn -eq "None") {
-            throw "No task definition found for $ecsService"
-        }
-        Write-OK "Current task definition: $currentTdArn"
-
-        # --- Extract task definition (strip read-only fields via JMESPath) ---
-        $tdTemp = Join-Path ([System.IO.Path]::GetTempPath()) "td-$svc-$PID.json"
-        $tdJson = aws ecs describe-task-definition `
-            --task-definition $currentTdArn --region $REGION `
-            --query "taskDefinition.{family:family,taskRoleArn:taskRoleArn,executionRoleArn:executionRoleArn,networkMode:networkMode,containerDefinitions:containerDefinitions,requiresCompatibilities:requiresCompatibilities,cpu:cpu,memory:memory}" `
-            --output json
-        [System.IO.File]::WriteAllText($tdTemp, ($tdJson -join "`n"), [System.Text.UTF8Encoding]::new($false))
-
-        # --- Update container image ---
-        $tdContent = [System.IO.File]::ReadAllText($tdTemp)
-        $tdContent = [regex]::Replace($tdContent, '"image":\s*"[^"]*"', "`"image`": `"$newImage`"")
-        [System.IO.File]::WriteAllText($tdTemp, $tdContent, [System.Text.UTF8Encoding]::new($false))
-
-        # --- Register new task definition revision ---
-        $tdFileUri = "file://$tdTemp"
-        $timer = [System.Diagnostics.Stopwatch]::StartNew()
-        $newTdArn = aws ecs register-task-definition `
-            --cli-input-json $tdFileUri --region $REGION `
-            --query "taskDefinition.taskDefinitionArn" --output text
-        $timer.Stop()
-
-        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($newTdArn) -or $newTdArn -eq "None") {
-            Add-StepTiming -Step "Register task definition: $svc" -Status "FAIL" -DurationSeconds $timer.Elapsed.TotalSeconds
-            Remove-Item $tdTemp -Force -ErrorAction SilentlyContinue
-            throw "Failed to register new task definition for $svc"
-        }
-        Add-StepTiming -Step "Register task definition: $svc" -Status "PASS" -DurationSeconds $timer.Elapsed.TotalSeconds
-        Write-OK "New task definition: $newTdArn"
-        Remove-Item $tdTemp -Force -ErrorAction SilentlyContinue
-
-        # --- Deploy ---
-        if ($CODEDEPLOY_APP) {
-            # Blue/green deployment via CodeDeploy
-            $dgName = "$NAME_PREFIX-$svc-ecs"
-
-            # Build AppSpec content as a JSON-escaped string
-            $appSpecObj = @{
-                version   = 0.0
-                Resources = @(@{
-                    TargetService = @{
-                        Type       = "AWS::ECS::Service"
-                        Properties = @{
-                            TaskDefinition   = $newTdArn
-                            LoadBalancerInfo = @{
-                                ContainerName = $svc
-                                ContainerPort = 8080
-                            }
-                        }
-                    }
-                })
-            }
-            $appSpecContent = $appSpecObj | ConvertTo-Json -Depth 10 -Compress
-
-            # Write deployment input JSON to temp file (avoids shell escaping issues)
-            $deployTemp = Join-Path ([System.IO.Path]::GetTempPath()) "deploy-$svc-$PID.json"
-            $deployObj = @{
-                applicationName     = $CODEDEPLOY_APP
-                deploymentGroupName = $dgName
-                revision            = @{
-                    revisionType   = "AppSpecContent"
-                    appSpecContent = @{
-                        content = $appSpecContent
-                    }
-                }
-            }
-            [System.IO.File]::WriteAllText($deployTemp, ($deployObj | ConvertTo-Json -Depth 10), [System.Text.UTF8Encoding]::new($false))
-
-            $deployFileUri = "file://$deployTemp"
-            $timer = [System.Diagnostics.Stopwatch]::StartNew()
-            $deploymentId = aws deploy create-deployment `
-                --cli-input-json $deployFileUri --region $REGION `
-                --query "deploymentId" --output text
-            $timer.Stop()
-            Remove-Item $deployTemp -Force -ErrorAction SilentlyContinue
-
-            if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($deploymentId) -or $deploymentId -eq "None") {
-                Add-StepTiming -Step "CodeDeploy create: $svc" -Status "FAIL" -DurationSeconds $timer.Elapsed.TotalSeconds
-                throw "Failed to create CodeDeploy deployment for $svc"
-            }
-            Add-StepTiming -Step "CodeDeploy create: $svc" -Status "PASS" -DurationSeconds $timer.Elapsed.TotalSeconds
-            Write-OK "CodeDeploy deployment: $deploymentId"
-
-            Invoke-Checked "Wait for CodeDeploy deployment: $deploymentId" {
-                aws deploy wait deployment-successful --deployment-id $deploymentId --region $REGION
-            }
-        } else {
-            # ECS rolling update: point service at the new task definition.
-            # ECS will drain old tasks and start new ones automatically.
-            Invoke-Checked "Update service: $ecsService" {
-                aws ecs update-service --cluster $ECS_CLUSTER --service $ecsService --task-definition $newTdArn --region $REGION --output text --query "service.serviceName"
-            }
-            Invoke-Checked "Wait for $ecsService to stabilize" {
-                aws ecs wait services-stable --cluster $ECS_CLUSTER --services $ecsService --region $REGION
-            }
-        }
-    }
+    Write-OK "All $($BUILT_SERVICES.Count) images pushed. ECS tasks will pull from ECR on next retry."
 }
 else {
     Write-Host "Skipping Phase 3 (no images were built)." -ForegroundColor DarkGray
@@ -705,6 +572,44 @@ Write-Host ""
 catch {
     $script:RunStatus = "FAIL"
     Write-Fail "Deployment failed: $($_.Exception.Message)"
+
+    if ($script:InfraProvisioned -and -not $NoDestroyOnFail) {
+        Write-Host ""
+        Write-Host ("=" * 70) -ForegroundColor Red
+        Write-Host "  DEPLOYMENT FAILED - Destroying Terraform infrastructure..." -ForegroundColor Red
+        Write-Host "  (Use -NoDestroyOnFail to skip automatic cleanup)" -ForegroundColor DarkGray
+        Write-Host ("=" * 70) -ForegroundColor Red
+        Write-Host ""
+
+        $destroyTimer = [System.Diagnostics.Stopwatch]::StartNew()
+        Push-Location $TF_DIR
+        try {
+            $prevEAP = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+            terraform destroy -var-file="env/lab.tfvars" -auto-approve
+            $ErrorActionPreference = $prevEAP
+            $destroyTimer.Stop()
+            if ($LASTEXITCODE -eq 0) {
+                Add-StepTiming -Step "terraform destroy (auto-cleanup)" -Status "PASS" -DurationSeconds $destroyTimer.Elapsed.TotalSeconds
+                Write-OK ("Terraform infrastructure destroyed ({0:N1}s)." -f $destroyTimer.Elapsed.TotalSeconds)
+            }
+            else {
+                Add-StepTiming -Step "terraform destroy (auto-cleanup)" -Status "FAIL" -DurationSeconds $destroyTimer.Elapsed.TotalSeconds
+                Write-Fail "terraform destroy failed. Run manually:"
+                Write-Fail "  terraform -chdir='$TF_DIR' destroy -var-file='env/lab.tfvars'"
+            }
+        }
+        catch {
+            $destroyTimer.Stop()
+            Add-StepTiming -Step "terraform destroy (auto-cleanup)" -Status "FAIL" -DurationSeconds $destroyTimer.Elapsed.TotalSeconds
+            Write-Warning "Failed to destroy Terraform infrastructure: $($_.Exception.Message)"
+            Write-Warning "Run manually: terraform -chdir='$TF_DIR' destroy -var-file='env/lab.tfvars'"
+        }
+        finally {
+            Pop-Location
+        }
+    }
+
     throw
 }
 finally {

@@ -16,6 +16,7 @@
 #   ./scripts/deploy-learnerlab.sh --skip-infra             # skip Terraform
 #   ./scripts/deploy-learnerlab.sh --skip-frontend          # skip frontend
 #   ./scripts/deploy-learnerlab.sh --skip-build --skip-infra  # frontend only
+#   ./scripts/deploy-learnerlab.sh --no-destroy-on-fail     # skip auto terraform destroy on failure
 # ============================================================
 set -euo pipefail
 
@@ -25,19 +26,22 @@ set -euo pipefail
 SKIP_BUILD=false
 SKIP_INFRA=false
 SKIP_FRONTEND=false
+NO_DESTROY_ON_FAIL=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --skip-build)    SKIP_BUILD=true; shift ;;
-        --skip-infra)    SKIP_INFRA=true; shift ;;
-        --skip-frontend) SKIP_FRONTEND=true; shift ;;
+        --skip-build)         SKIP_BUILD=true; shift ;;
+        --skip-infra)         SKIP_INFRA=true; shift ;;
+        --skip-frontend)      SKIP_FRONTEND=true; shift ;;
+        --no-destroy-on-fail) NO_DESTROY_ON_FAIL=true; shift ;;
         -h|--help)
-            echo "Usage: $0 [--skip-build] [--skip-infra] [--skip-frontend]"
+            echo "Usage: $0 [--skip-build] [--skip-infra] [--skip-frontend] [--no-destroy-on-fail]"
             echo ""
             echo "Flags:"
-            echo "  --skip-build     Skip Phase 1 (JAR + Docker image build)"
-            echo "  --skip-infra     Skip Phase 2 (Terraform init/plan/apply)"
-            echo "  --skip-frontend  Skip Phase 4 (frontend build + S3 upload)"
+            echo "  --skip-build          Skip Phase 1 (JAR + Docker image build)"
+            echo "  --skip-infra          Skip Phase 2 (Terraform init/plan/apply)"
+            echo "  --skip-frontend       Skip Phase 4 (frontend build + S3 upload)"
+            echo "  --no-destroy-on-fail  Skip automatic 'terraform destroy' when a step fails"
             exit 0
             ;;
         *) echo "Unknown flag: $1"; exit 1 ;;
@@ -69,6 +73,7 @@ LOG_ROOT="${ROOT}/build-logs/deploy-learnerlab"
 LOG_RETENTION_RUNS=3
 SCRIPT_START_TS="$(date +%s)"
 ALL_HEALTHY=true
+INFRA_PROVISIONED=false
 STEP_TIMINGS=()
 RUN_DIR=""
 RUN_LOG=""
@@ -168,6 +173,35 @@ finalize_logging() {
     prune_old_runs "${LOG_RETENTION_RUNS}"
 }
 
+destroy_infra_on_fail() {
+    local exit_code="$1"
+    [[ "$exit_code" -eq 0 ]] && return
+    [[ "$INFRA_PROVISIONED" != "true" ]] && return
+    [[ "$NO_DESTROY_ON_FAIL" == "true" ]] && return
+
+    echo ""
+    echo "======================================================================"
+    echo "  DEPLOYMENT FAILED - Destroying provisioned Terraform infrastructure"
+    echo "  (Add --no-destroy-on-fail flag to disable auto-cleanup)"
+    echo "======================================================================"
+    echo ""
+
+    local destroy_start destroy_end destroy_elapsed
+    destroy_start="$(date +%s)"
+    if terraform -chdir="$TF_DIR" destroy -var-file="env/lab.tfvars" -auto-approve; then
+        destroy_end="$(date +%s)"
+        destroy_elapsed=$((destroy_end - destroy_start))
+        add_step_timing "terraform destroy (auto-cleanup)" "PASS" "${destroy_elapsed}"
+        ok "Terraform infrastructure destroyed (${destroy_elapsed}s)."
+    else
+        destroy_end="$(date +%s)"
+        destroy_elapsed=$((destroy_end - destroy_start))
+        add_step_timing "terraform destroy (auto-cleanup)" "FAIL" "${destroy_elapsed}"
+        fail "terraform destroy failed. Run manually:"
+        fail "  terraform -chdir='${TF_DIR}' destroy -var-file='env/lab.tfvars'"
+    fi
+}
+
 run_checked() {
     local desc="$1"; shift
     local started_at ended_at elapsed
@@ -204,7 +238,7 @@ SUMMARY_MD="${RUN_DIR}/summary.md"
 LAST_SUMMARY_MD="${LOG_ROOT}/last-run-summary.md"
 printf "status\tduration_seconds\tstep\n" > "${STEP_TIMINGS_FILE}"
 exec > >(tee -a "${RUN_LOG}") 2>&1
-trap 'finalize_logging $?' EXIT
+trap 'trap_code=$?; destroy_infra_on_fail "$trap_code"; finalize_logging "$trap_code"' EXIT
 step "Deployment logs directory: ${RUN_DIR}"
 
 # ============================================================
@@ -338,6 +372,7 @@ if [[ "$SKIP_INFRA" == "false" ]]; then
 
     pause_for_approval "Review the plan above. Ready to apply? (This takes 15-25 minutes)"
 
+    INFRA_PROVISIONED=true  # set before apply so partial failures also trigger cleanup
     run_checked "terraform apply" terraform apply "lab.tfplan"
 
     terraform output -json > lab-outputs.json
@@ -349,10 +384,10 @@ else
 fi
 
 # ============================================================
-# PHASE 3 - PUSH IMAGES TO ECR + DEPLOY SERVICES
+# PHASE 3 - PUSH IMAGES TO ECR
 # ============================================================
 if [[ ${#BUILT_SERVICES[@]} -gt 0 ]]; then
-    phase "Phase 3" "Push images to ECR + deploy services"
+    phase "Phase 3" "Push images to ECR"
 
     # ECR login
     step "Docker login to ECR"
@@ -366,127 +401,7 @@ if [[ ${#BUILT_SERVICES[@]} -gt 0 ]]; then
         run_checked "Push image: ${repo}:${tag}" docker push "${repo}:${tag}"
     done
 
-    # Detect CodeDeploy availability from terraform outputs
-    CODEDEPLOY_APP=""
-    pushd "$TF_DIR" > /dev/null
-    CODEDEPLOY_APP=$(terraform output -raw codedeploy_ecs_application_name 2>/dev/null || true)
-    popd > /dev/null
-    if [[ "$CODEDEPLOY_APP" == "null" || -z "$CODEDEPLOY_APP" ]]; then
-        CODEDEPLOY_APP=""
-    fi
-
-    if [[ -n "$CODEDEPLOY_APP" ]]; then
-        ok "CodeDeploy detected: $CODEDEPLOY_APP (blue/green deployments)"
-    else
-        ok "CodeDeploy not available (ECS rolling updates)"
-    fi
-
-    # Deploy each service: register new task definition, then trigger
-    # either a CodeDeploy blue/green deployment or an ECS rolling update.
-    for svc in "${BUILT_SERVICES[@]}"; do
-        ecs_service="${NAME_PREFIX}-${svc}"
-        new_image="${ECR_REPOS[$svc]}:${IMAGE_TAGS[$svc]}"
-
-        step "Deploying $ecs_service with image $new_image"
-
-        # --- Get current task definition ARN ---
-        CURRENT_TD_ARN=$(aws ecs describe-services \
-            --cluster "$ECS_CLUSTER" \
-            --services "$ecs_service" \
-            --region "$REGION" \
-            --query "services[0].taskDefinition" \
-            --output text)
-
-        if [[ -z "$CURRENT_TD_ARN" || "$CURRENT_TD_ARN" == "None" ]]; then
-            fail "No task definition found for $ecs_service"
-            exit 1
-        fi
-        ok "Current task definition: $CURRENT_TD_ARN"
-
-        # --- Extract task definition (strip read-only fields via JMESPath) ---
-        TD_TEMP="${RUN_DIR}/td-${svc}.json"
-        aws ecs describe-task-definition \
-            --task-definition "$CURRENT_TD_ARN" \
-            --region "$REGION" \
-            --query "taskDefinition.{family:family,taskRoleArn:taskRoleArn,executionRoleArn:executionRoleArn,networkMode:networkMode,containerDefinitions:containerDefinitions,requiresCompatibilities:requiresCompatibilities,cpu:cpu,memory:memory}" \
-            --output json > "$TD_TEMP"
-
-        # --- Update container image (single container per task definition) ---
-        if sed --version &>/dev/null 2>&1; then
-            sed -i "s|\"image\": \"[^\"]*\"|\"image\": \"${new_image}\"|g" "$TD_TEMP"
-        else
-            # macOS sed requires '' after -i
-            sed -i '' "s|\"image\": \"[^\"]*\"|\"image\": \"${new_image}\"|g" "$TD_TEMP"
-        fi
-
-        # --- Register new task definition revision ---
-        TD_FILE_URI="file://${TD_TEMP}"
-        if command -v cygpath &>/dev/null; then
-            TD_FILE_URI="file://$(cygpath -m "$TD_TEMP")"
-        fi
-
-        started_at="$(date +%s)"
-        NEW_TD_ARN=$(aws ecs register-task-definition \
-            --cli-input-json "$TD_FILE_URI" \
-            --region "$REGION" \
-            --query "taskDefinition.taskDefinitionArn" \
-            --output text)
-        ended_at="$(date +%s)"
-        elapsed=$((ended_at - started_at))
-
-        if [[ -z "$NEW_TD_ARN" || "$NEW_TD_ARN" == "None" ]]; then
-            add_step_timing "Register task definition: $svc" "FAIL" "${elapsed}"
-            fail "Failed to register new task definition for $svc"
-            exit 1
-        fi
-        add_step_timing "Register task definition: $svc" "PASS" "${elapsed}"
-        ok "New task definition: $NEW_TD_ARN"
-        rm -f "$TD_TEMP"
-
-        # --- Deploy ---
-        if [[ -n "$CODEDEPLOY_APP" ]]; then
-            # Blue/green deployment via CodeDeploy
-            DG_NAME="${NAME_PREFIX}-${svc}-ecs"
-
-            started_at="$(date +%s)"
-            DEPLOYMENT_ID=$(aws deploy create-deployment \
-                --application-name "$CODEDEPLOY_APP" \
-                --deployment-group-name "$DG_NAME" \
-                --revision '{"revisionType":"AppSpecContent","appSpecContent":{"content":"{\"version\":0.0,\"Resources\":[{\"TargetService\":{\"Type\":\"AWS::ECS::Service\",\"Properties\":{\"TaskDefinition\":\"'"$NEW_TD_ARN"'\",\"LoadBalancerInfo\":{\"ContainerName\":\"'"$svc"'\",\"ContainerPort\":8080}}}}]}"}}' \
-                --region "$REGION" \
-                --query "deploymentId" \
-                --output text)
-            ended_at="$(date +%s)"
-            elapsed=$((ended_at - started_at))
-
-            if [[ -z "$DEPLOYMENT_ID" || "$DEPLOYMENT_ID" == "None" ]]; then
-                add_step_timing "CodeDeploy create: $svc" "FAIL" "${elapsed}"
-                fail "Failed to create CodeDeploy deployment for $svc"
-                exit 1
-            fi
-            add_step_timing "CodeDeploy create: $svc" "PASS" "${elapsed}"
-            ok "CodeDeploy deployment: $DEPLOYMENT_ID"
-
-            run_checked "Wait for CodeDeploy deployment: $DEPLOYMENT_ID" aws deploy wait deployment-successful \
-                --deployment-id "$DEPLOYMENT_ID" \
-                --region "$REGION"
-        else
-            # ECS rolling update: point service at the new task definition.
-            # ECS will drain old tasks and start new ones automatically.
-            run_checked "Update service: $ecs_service" aws ecs update-service \
-                --cluster "$ECS_CLUSTER" \
-                --service "$ecs_service" \
-                --task-definition "$NEW_TD_ARN" \
-                --region "$REGION" \
-                --output text \
-                --query "service.serviceName"
-
-            run_checked "Wait for $ecs_service to stabilize" aws ecs wait services-stable \
-                --cluster "$ECS_CLUSTER" \
-                --services "$ecs_service" \
-                --region "$REGION"
-        fi
-    done
+    ok "All ${#BUILT_SERVICES[@]} images pushed. ECS tasks will pull from ECR on next retry."
 else
     echo "Skipping Phase 3 (no images were built)."
 fi
