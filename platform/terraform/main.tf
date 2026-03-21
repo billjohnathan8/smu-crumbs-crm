@@ -144,6 +144,7 @@ module "alb" {
   route53_zone_id           = var.route53_hosted_zone_id
   alb_subdomain             = var.alb_origin_subdomain
   manage_route53_record     = local.manage_route53_records
+  enable_blue_green_tg      = var.enable_codedeploy
 
   depends_on = [module.acm]
 }

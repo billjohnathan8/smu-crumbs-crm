@@ -57,3 +57,9 @@ variable "manage_route53_record" {
   type        = bool
   default     = false
 }
+
+variable "enable_blue_green_tg" {
+  description = "Create green target group pairs alongside blue ones. Required for CodeDeploy blue/green deployments; set false to avoid naming collisions when CodeDeploy is disabled."
+  type        = bool
+  default     = true
+}

@@ -54,7 +54,7 @@ resource "aws_lb_target_group" "service" {
 }
 
 resource "aws_lb_target_group" "service_green" {
-  for_each = local.service_routing
+  for_each = var.enable_blue_green_tg ? local.service_routing : {}
 
   name        = trim(substr("${var.name_prefix}-${each.key}-tg-green", 0, 32), "-")
   port        = 8080

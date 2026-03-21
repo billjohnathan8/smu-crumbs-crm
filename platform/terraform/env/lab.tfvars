@@ -44,7 +44,7 @@ enable_transaction_ingestion_lambda = false # Depends on Lambda + internal auth 
 enable_audit_pipeline               = false # Partial scaffold only: runtime artifact absent in repository.
 enable_aml_pipeline                 = false # Partial scaffold only: runtime artifact absent in repository.
 enable_verification_pipeline        = false # Requires SES sender ownership/verification; covered in local/integration.
-ses_sender_email                    = "verification@crm.local"
+ses_sender_email                    = ""    # LabRole lacks ses:VerifyEmailIdentity — leave empty to skip aws_ses_email_identity creation.
 
 # --- Observability & Security (reduced for cost) ---
 enable_waf                    = false
@@ -68,8 +68,7 @@ lab_role_name         = "LabRole"
 # Provide lab_role_arn at runtime via TF_VAR_lab_role_arn (or local helper scripts).
 enable_cloudfront     = false
 enable_cloudfront_oac = false # moot when enable_cloudfront=false, kept for clarity
-enable_service_discovery = false
-enable_codedeploy        = false # CodeDeploy module creates IAM role; disabled under LabRole restrictions
+enable_codedeploy     = false # CodeDeploy module creates IAM role; disabled under LabRole restrictions
 
 # --- Route53 / ACM ---
 manage_route53_records            = false
