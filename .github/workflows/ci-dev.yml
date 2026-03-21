@@ -14,6 +14,10 @@ on:
       - '**/*.md'
       - 'docs/**'
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   # Detect which services have changed
   detect-changes:
