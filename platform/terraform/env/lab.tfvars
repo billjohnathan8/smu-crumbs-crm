@@ -64,7 +64,7 @@ auth_mode      = "local"
 
 # --- Learner Lab LabRole restrictions ---
 # LabRole cannot create IAM roles, CloudFront distributions, or Cloud Map namespaces.
-lab_role_name         = "LabRole"
+lab_role_name = "LabRole"
 # Provide lab_role_arn at runtime via TF_VAR_lab_role_arn (or local helper scripts).
 enable_cloudfront     = false
 enable_cloudfront_oac = false # moot when enable_cloudfront=false, kept for clarity
