@@ -89,9 +89,18 @@ build_jar() {
   local log="${LOG_DIR}/build-${name}.log"
   echo "  Building ${name}..."
   pushd "${svc_dir}" >/dev/null
-  if [[ -n "${MSYSTEM:-}" ]]; then
-    # Git Bash on Windows
+  # WSL on Windows filesystem: Windows java.exe (found via WSL interop) cannot
+  # interpret /mnt/c/... paths, so fall through to cmd.exe/gradlew.bat instead.
+  local is_wsl_win=false
+  if grep -qi microsoft /proc/version 2>/dev/null && [[ "$(pwd)" == /mnt/* ]]; then
+    is_wsl_win=true
+  fi
+  if [[ -n "${MSYSTEM:-}" ]] || [[ "${is_wsl_win}" == "true" && ! -f "./gradlew.bat" ]]; then
+    # Git Bash on Windows (MSYSTEM set), or WSL but no gradlew.bat fallback
     ./gradlew bootJar --no-daemon --console=plain > "${log}" 2>&1
+  elif [[ "${is_wsl_win}" == "true" ]] && command -v cmd.exe >/dev/null 2>&1 && [ -f "./gradlew.bat" ]; then
+    # WSL on Windows filesystem — delegate to cmd.exe so Windows Java handles paths correctly
+    cmd.exe /c "gradlew.bat bootJar --no-daemon --console=plain" > "${log}" 2>&1
   elif command -v java >/dev/null 2>&1; then
     ./gradlew bootJar --no-daemon --console=plain > "${log}" 2>&1
   elif command -v cmd.exe >/dev/null 2>&1 && [ -f "./gradlew.bat" ]; then
@@ -396,9 +405,22 @@ deploy_transaction_ingestion_lambda() {
 echo ""
 echo "=== Phase 1: Building backend JARs ==="
 build_jar "${ROOT_DIR}/services/backend/user"        "user"        &
+JAR_PID_user=$!
 build_jar "${ROOT_DIR}/services/backend/client"      "client"      &
+JAR_PID_client=$!
 build_jar "${ROOT_DIR}/services/backend/transaction" "transaction" &
-wait
+JAR_PID_transaction=$!
+
+JAR_FAIL=false
+for svc in user client transaction; do
+  pid_var="JAR_PID_${svc}"
+  if ! wait "${!pid_var}"; then
+    echo "[FAIL] ${svc} JAR build failed. Build log:" >&2
+    cat "${LOG_DIR}/build-${svc}.log" >&2
+    JAR_FAIL=true
+  fi
+done
+[[ "${JAR_FAIL}" == "true" ]] && exit 1
 echo "[OK] All JARs built"
 
 # ---------------------------------------------------------------------------
