@@ -117,9 +117,19 @@ export interface ClientUpdateRequest {
 }
 
 export interface VerifyClientRequest {
-  nric: string
-  documentType?: 'NRIC'
-  documentRef?: string
+  verificationToken?: string
+
+  // Primary Identity Document
+  primaryDocumentType: 'NRIC' | 'PASSPORT' | 'EMPLOYMENT_PASS'
+  primaryDocumentRef: string // original filename
+  primaryDocumentBase64: string // base64-encoded file content
+  primaryDocumentMimeType: string // e.g. "image/jpeg"
+
+  // Proof of Address Document
+  addressDocumentType: 'UTILITY_BILL' | 'BANK_STATEMENT' | 'GOVERNMENT_LETTER' | 'TENANCY_AGREEMENT'
+  addressDocumentRef: string
+  addressDocumentBase64: string
+  addressDocumentMimeType: string
 }
 
 export interface VerifyClientResponse {

@@ -7,6 +7,7 @@ import { AdminManageAccounts } from '@/pages/AdminManageAccounts'
 import { AgentDashboard } from '@/pages/AgentDashboard'
 import { AgentCreateClient } from '@/pages/AgentCreateClient'
 import { AgentViewTransactions } from '@/pages/AgentViewTransactions'
+import { ClientVerifyPage } from '@/pages/ClientVerifyPage'
 
 function RootRedirect() {
   const { user, isAuthenticated, isLoading } = useAuth()
@@ -36,6 +37,7 @@ export function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/verify-client" element={<ClientVerifyPage />} />
 
           <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
             <Route path="/admin" element={<AdminDashboard />} />
