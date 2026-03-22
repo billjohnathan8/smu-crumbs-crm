@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import zipfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 
@@ -95,14 +96,27 @@ def build_artifact(
 
 def main() -> int:
     print("Building operable lambda artifacts...")
-    for spec in ARTIFACT_SPECS:
-        artifact = build_artifact(
-            service_dir=spec["service_dir"],
-            zip_name=spec["zip_name"],
-            packages=spec["packages"],
-            include_app=spec["include_app"],
-        )
-        print(f"[OK] {artifact}")
+    with ThreadPoolExecutor(max_workers=len(ARTIFACT_SPECS)) as executor:
+        futures = {
+            executor.submit(
+                build_artifact,
+                spec["service_dir"],
+                spec["zip_name"],
+                spec["packages"],
+                spec["include_app"],
+            ): spec["zip_name"]
+            for spec in ARTIFACT_SPECS
+        }
+        failed = False
+        for future in as_completed(futures):
+            try:
+                artifact = future.result()
+                print(f"[OK] {artifact}")
+            except Exception as exc:
+                print(f"[FAIL] {futures[future]}: {exc}")
+                failed = True
+    if failed:
+        return 1
     print("All operable lambda artifacts are built and ready.")
     return 0
 
