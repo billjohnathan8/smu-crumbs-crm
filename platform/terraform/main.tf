@@ -298,6 +298,7 @@ module "ecs" {
   enable_stateful_service_scale_out               = var.enable_stateful_service_scale_out
   enable_service_discovery                        = var.enable_service_discovery
   alb_dns_name                                    = module.alb.alb_dns_name
+  use_codedeploy_controller                       = var.enable_codedeploy
   enable_deployment_alarms                        = var.enable_cloudwatch_alarms
   deployment_alarm_names = var.enable_cloudwatch_alarms ? {
     for svc in ["user", "client", "transaction"] :

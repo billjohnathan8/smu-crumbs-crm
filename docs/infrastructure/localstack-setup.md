@@ -128,6 +128,36 @@ If you only started infra (`docker-compose.localstack.yml`):
 docker compose -f docker-compose.localstack.yml down -v
 ```
 
+## 7. Cleaning Up Leftover Lambda Containers
+
+LocalStack creates a separate Docker container for each Lambda invocation. These containers accumulate across repeated pipeline runs and can grow to dozens or hundreds of stopped containers.
+
+**Check for leftover containers:**
+
+```bash
+docker ps -a --filter "ancestor=lambda/python:3.12" --filter "status=exited"
+```
+
+**Remove only LocalStack Lambda containers:**
+
+```bash
+docker rm $(docker ps -a -q --filter "ancestor=lambda/python:3.12" --filter "status=exited")
+```
+
+**Remove all stopped containers (broader cleanup):**
+
+```bash
+docker container prune
+```
+
+**Full cleanup (stopped containers, unused images, networks, and build cache):**
+
+```bash
+docker system prune
+```
+
+> **Tip:** Always tear down with `stack-down.sh` or `docker compose down -v` when you are done. This removes the LocalStack container and its spawned Lambda containers. If you kill Docker or containers without a proper teardown, orphaned Lambda containers will remain.
+
 ## Troubleshooting
 
 - If startup fails, inspect `docker compose logs localstack`.

@@ -76,6 +76,8 @@ bash scripts/dev/stack-down.sh
 
 Use this for manual exploration, performance testing (e.g. JMeter), or debugging individual services without the full CI test suite.
 
+> **Cleanup:** Repeated pipeline runs leave behind stopped LocalStack Lambda containers. Run `docker container prune` periodically to remove them, or see [../infrastructure/localstack-setup.md](../infrastructure/localstack-setup.md#7-cleaning-up-leftover-lambda-containers) for targeted cleanup commands.
+
 ## Fullstack Entry Points
 
 ```bash

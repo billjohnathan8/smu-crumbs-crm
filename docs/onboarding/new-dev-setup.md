@@ -63,6 +63,8 @@ Tear down when done:
 bash scripts/dev/stack-down.sh
 ```
 
+> **Note:** Each pipeline run creates Lambda containers that persist after exit. If you notice many stopped containers in Docker Desktop, run `docker container prune` to clean them up. See [../infrastructure/localstack-setup.md](../infrastructure/localstack-setup.md#7-cleaning-up-leftover-lambda-containers) for details.
+
 Services after startup:
 
 | Service | URL |

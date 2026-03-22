@@ -43,21 +43,32 @@ resource "aws_ecs_service" "service" {
   desired_count                      = each.value.desired_count
   task_definition                    = aws_ecs_task_definition.service[each.key].arn
   health_check_grace_period_seconds  = 60
-  deployment_minimum_healthy_percent = 50
-  deployment_maximum_percent         = 200
+  deployment_minimum_healthy_percent = var.use_codedeploy_controller ? null : 50
+  deployment_maximum_percent         = var.use_codedeploy_controller ? null : 200
 
-  # Circuit breaker for automatic rollback on failed deployments
-  deployment_circuit_breaker {
-    enable   = true
-    rollback = true
+  # CODE_DEPLOY controller enables CodeDeploy blue/green deployments.
+  # Default ECS controller uses rolling updates.
+  dynamic "deployment_controller" {
+    for_each = var.use_codedeploy_controller ? [1] : []
+    content {
+      type = "CODE_DEPLOY"
+    }
+  }
+
+  # Circuit breaker for automatic rollback on failed deployments.
+  # Only compatible with the default ECS (rolling-update) controller.
+  dynamic "deployment_circuit_breaker" {
+    for_each = var.use_codedeploy_controller ? [] : [1]
+    content {
+      enable   = true
+      rollback = true
+    }
   }
 
   # CloudWatch alarm-based deployment monitoring (complements circuit breaker).
-  # Circuit breaker catches task startup failures; deployment alarms catch
-  # cases where tasks start but serve errors (e.g. unhealthy ALB targets).
-  # AWS ECS does not validate alarm existence at create time.
+  # Only compatible with the default ECS controller.
   dynamic "alarms" {
-    for_each = var.enable_deployment_alarms && contains(keys(var.deployment_alarm_names), each.key) ? [1] : []
+    for_each = !var.use_codedeploy_controller && var.enable_deployment_alarms && contains(keys(var.deployment_alarm_names), each.key) ? [1] : []
     content {
       alarm_names = var.deployment_alarm_names[each.key]
       enable      = true

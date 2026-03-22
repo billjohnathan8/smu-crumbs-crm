@@ -1,3 +1,6 @@
+# Brainboard export
+tf-import/
+
 # Terraform Files
 # Local .terraform directories
 .terraform/
@@ -53,7 +56,10 @@ planout
 inframap.json
 inframap.dot
 platform/terraform/plan.txt
+platform/terraform/plan.out
+platform/terraform/plan.json
 platform/terraform/lab-outputs.json
+tf-import/*
 
 # Generated infrastructure diagrams
 docs/infrastructure/generated/*
