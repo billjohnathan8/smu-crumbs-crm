@@ -5,8 +5,10 @@
 # Bash equivalent of deploy-learnerlab.ps1.
 # Automates the entire BILL_LEARNERLAB_RUNBOOK.md:
 #   Phase 1: Build JARs + Docker images (no AWS needed)
-#   Phase 2: Create TF backend, terraform init/plan/apply
-#   Phase 3: ECR login, push images, deploy services (CodeDeploy or rolling update)
+#   Phase 2: Create TF backend, terraform init, create ECR repos (targeted apply),
+#            push images, then full terraform plan/apply
+#            (images are in ECR before ECS services are created, preventing double-deployment)
+#   Phase 3: ECR login, push images (only when --skip-infra; push done in Phase 2 otherwise)
 #   Phase 4: Build frontend, upload to S3
 #   Phase 5: Health checks + login info
 #
@@ -74,6 +76,7 @@ LOG_RETENTION_RUNS=3
 SCRIPT_START_TS="$(date +%s)"
 ALL_HEALTHY=true
 INFRA_PROVISIONED=false
+ECR_PUSHED=false
 STEP_TIMINGS=()
 RUN_DIR=""
 RUN_LOG=""
@@ -363,17 +366,45 @@ if [[ "$SKIP_INFRA" == "false" ]]; then
         -backend-config "bucket=$BUCKET_NAME" \
         -reconfigure
 
+    # --- 2c: Create ECR repositories before pushing images ---
+    # Images must be in ECR before ECS services are created. If we let the full
+    # apply create ECS services first, tasks fail on image pull, the circuit breaker
+    # fires a rollback, and you end up with two running tasks (old + rollback).
+    run_checked "terraform apply (ECR repos only)" terraform apply \
+        -target=module.ecr \
+        -var-file="env/lab.tfvars" \
+        -auto-approve
+
+    # --- 2d: Push images now that ECR repos exist ---
+    if [[ ${#BUILT_SERVICES[@]} -gt 0 ]]; then
+        step "Docker login to ECR"
+        aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$REGISTRY"
+        ok "Docker login to ECR"
+
+        for svc in "${BUILT_SERVICES[@]}"; do
+            tag="${IMAGE_TAGS[$svc]}"
+            repo="${ECR_REPOS[$svc]}"
+            run_checked "Push image: ${repo}:${tag}" docker push "${repo}:${tag}"
+        done
+
+        ok "All ${#BUILT_SERVICES[@]} images pre-loaded into ECR before ECS services are created."
+        ECR_PUSHED=true
+    fi
+
+    # --- 2e: Full plan + apply (ECS services find images in ECR immediately) ---
     run_checked "terraform plan" terraform plan \
         -var-file="env/lab.tfvars" \
-        -out="lab.tfplan"
+        -out="plan.out"
 
-    terraform show -no-color lab.tfplan > plan.txt
+    terraform show -no-color plan.out > plan.txt
     echo "Plan saved to platform/terraform/plan.txt"
+    terraform show -json plan.out > plan.json
+    echo "Plan JSON saved to platform/terraform/plan.json"
 
     pause_for_approval "Review the plan above. Ready to apply? (This takes 15-25 minutes)"
 
     INFRA_PROVISIONED=true  # set before apply so partial failures also trigger cleanup
-    run_checked "terraform apply" terraform apply "lab.tfplan"
+    run_checked "terraform apply" terraform apply "plan.out"
 
     terraform output -json > lab-outputs.json
     ok "Terraform outputs saved to lab-outputs.json"
@@ -386,24 +417,25 @@ fi
 # ============================================================
 # PHASE 3 - PUSH IMAGES TO ECR
 # ============================================================
-if [[ ${#BUILT_SERVICES[@]} -gt 0 ]]; then
+if [[ ${#BUILT_SERVICES[@]} -gt 0 && "$ECR_PUSHED" == "false" ]]; then
+    # Only runs when --skip-infra is set; otherwise images were already pushed in Phase 2.
     phase "Phase 3" "Push images to ECR"
 
-    # ECR login
     step "Docker login to ECR"
     aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$REGISTRY"
     ok "Docker login to ECR"
 
-    # Push only the images that were built
     for svc in "${BUILT_SERVICES[@]}"; do
         tag="${IMAGE_TAGS[$svc]}"
         repo="${ECR_REPOS[$svc]}"
         run_checked "Push image: ${repo}:${tag}" docker push "${repo}:${tag}"
     done
 
-    ok "All ${#BUILT_SERVICES[@]} images pushed. ECS tasks will pull from ECR on next retry."
-else
+    ok "All ${#BUILT_SERVICES[@]} images pushed."
+elif [[ ${#BUILT_SERVICES[@]} -eq 0 ]]; then
     echo "Skipping Phase 3 (no images were built)."
+else
+    echo "Skipping Phase 3 (images already pushed in Phase 2)."
 fi
 
 # ============================================================
@@ -469,6 +501,62 @@ for endpoint in "${HEALTH_ENDPOINTS[@]}"; do
         add_step_timing "Health check: $url" "FAIL" "${elapsed}"
     fi
 done
+
+# ============================================================
+# PHASE 6 - INFRASTRUCTURE DIAGRAMS
+# ============================================================
+phase "Phase 6" "Infrastructure diagrams"
+
+PYTHON_CMD=""
+if command -v python3 > /dev/null 2>&1; then
+    PYTHON_CMD="python3"
+elif command -v python > /dev/null 2>&1; then
+    PYTHON_CMD="python"
+fi
+
+if [[ -n "$PYTHON_CMD" ]]; then
+    TF_STATE_FILE="$TF_DIR/terraform.tfstate"
+
+    started_at="$(date +%s)"
+    step "Pulling Terraform state..."
+    if ( cd "$TF_DIR" && terraform state pull > "$TF_STATE_FILE" ); then
+        elapsed=$(( $(date +%s) - started_at ))
+        add_step_timing "terraform state pull (inframap)" "PASS" "${elapsed}"
+        ok "State pulled to $TF_STATE_FILE (${elapsed}s)"
+
+        started_at="$(date +%s)"
+        step "Generating inframap diagram..."
+        if "$PYTHON_CMD" "$ROOT/scripts/pipelines/generate_inframap.py" \
+            --source "$TF_STATE_FILE" \
+            --install-portable; then
+            elapsed=$(( $(date +%s) - started_at ))
+            add_step_timing "generate inframap" "PASS" "${elapsed}"
+            ok "Inframap diagram generated -> docs/infrastructure/generated/inframap/ (${elapsed}s)"
+        else
+            elapsed=$(( $(date +%s) - started_at ))
+            add_step_timing "generate inframap" "WARN" "${elapsed}"
+            echo "[WARN] Inframap diagram generation failed (non-fatal, ${elapsed}s)."
+        fi
+    else
+        elapsed=$(( $(date +%s) - started_at ))
+        add_step_timing "terraform state pull (inframap)" "WARN" "${elapsed}"
+        echo "[WARN] Could not pull Terraform state for inframap (non-fatal). Credentials may have expired."
+    fi
+
+    started_at="$(date +%s)"
+    step "Generating full Terraform dependency graph..."
+    if "$PYTHON_CMD" "$ROOT/scripts/pipelines/generate_inframap.py" --full-graph; then
+        elapsed=$(( $(date +%s) - started_at ))
+        add_step_timing "generate terraform-graph" "PASS" "${elapsed}"
+        ok "Full graph generated -> docs/infrastructure/generated/terraform-graph/ (${elapsed}s)"
+    else
+        elapsed=$(( $(date +%s) - started_at ))
+        add_step_timing "generate terraform-graph" "WARN" "${elapsed}"
+        echo "[WARN] Full Terraform graph generation failed (non-fatal, ${elapsed}s)."
+    fi
+else
+    echo "[WARN] Python not found; skipping infrastructure diagram generation."
+fi
 
 # ============================================================
 # SUMMARY

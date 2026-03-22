@@ -5,8 +5,10 @@
 .DESCRIPTION
     Automates the entire BILL_LEARNERLAB_RUNBOOK.md:
       Phase 1: Build JARs + Docker images (no AWS needed)
-      Phase 2: Create TF backend, terraform init/plan/apply
-      Phase 3: ECR login, push images, deploy services (CodeDeploy or rolling update)
+      Phase 2: Create TF backend, terraform init, create ECR repos (targeted apply),
+               push images, then full terraform plan/apply
+               (images are in ECR before ECS services are created, preventing double-deployment)
+      Phase 3: ECR login, push images (only when -SkipInfra; push done in Phase 2 otherwise)
       Phase 4: Build frontend, upload to S3
       Phase 5: Health checks + login info
 
@@ -150,6 +152,7 @@ $script:ScriptTimer = [System.Diagnostics.Stopwatch]::StartNew()
 $script:StepTimings = New-Object 'System.Collections.Generic.List[object]'
 $script:RunStatus = "PASS"
 $script:InfraProvisioned = $false
+$script:EcrPushed = $false
 $script:RunDir = Initialize-RunDirectory
 $script:RunLog = Join-Path $script:RunDir "deploy-learnerlab.log"
 $script:StepTimingsFile = Join-Path $script:RunDir "step-timings.csv"
@@ -377,20 +380,54 @@ if (-not $SkipInfra) {
             terraform init -backend-config "env/lab.backend.hcl" -backend-config "bucket=$BUCKET_NAME" -reconfigure
         }
 
-        # --- 2c: Terraform plan (with review) ---
-        Invoke-Checked "terraform plan" {
-            terraform plan -var-file="env/lab.tfvars" -out="lab.tfplan"
+        # --- 2c: Create ECR repositories before pushing images ---
+        # Images must be in ECR before ECS services are created. If we let the full
+        # apply create ECS services first, tasks fail on image pull, the circuit breaker
+        # fires a rollback, and you end up with two running tasks (old + rollback).
+        Invoke-Checked "terraform apply (ECR repos only)" {
+            terraform apply -target=module.ecr -var-file="env/lab.tfvars" -auto-approve
         }
 
-        terraform show -no-color lab.tfplan > plan.txt
+        # --- 2d: Push images now that ECR repos exist ---
+        if ($script:BUILT_SERVICES.Count -gt 0) {
+            if ($IsLinux -or $IsMacOS) {
+                Invoke-Checked "Docker login to ECR" {
+                    aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $REGISTRY
+                }
+            } else {
+                Invoke-Checked "Docker login to ECR" {
+                    cmd /c "aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $REGISTRY"
+                }
+            }
+
+            foreach ($svc in $script:BUILT_SERVICES) {
+                $tag  = $IMAGE_TAGS[$svc]
+                $repo = $ECR_REPOS[$svc]
+                Invoke-Checked "Push image: ${repo}:${tag}" {
+                    docker push "${repo}:${tag}"
+                }
+            }
+
+            Write-OK "All $($script:BUILT_SERVICES.Count) images pre-loaded into ECR before ECS services are created."
+            $script:EcrPushed = $true
+        }
+
+        # --- 2e: Full plan + apply (ECS services find images in ECR immediately) ---
+        Invoke-Checked "terraform plan" {
+            terraform plan -var-file="env/lab.tfvars" -out="plan.out"
+        }
+
+        terraform show -no-color plan.out | Out-File plan.txt -Encoding utf8
         Write-Host "`nPlan saved to platform/terraform/plan.txt" -ForegroundColor DarkGray
+        terraform show -json plan.out | Set-Content plan.json -Encoding utf8
+        Write-Host "Plan JSON saved to platform/terraform/plan.json" -ForegroundColor DarkGray
 
         Pause-ForApproval "Review the plan above. Ready to apply? (This takes 15-25 minutes)"
 
-        # --- 2d: Terraform apply ---
+        # --- 2f: Terraform apply ---
         $script:InfraProvisioned = $true  # set before apply so partial failures also trigger cleanup
         Invoke-Checked "terraform apply" {
-            terraform apply "lab.tfplan"
+            terraform apply "plan.out"
         }
 
         # Save outputs
@@ -408,7 +445,8 @@ else {
 # ============================================================
 # PHASE 3 - PUSH IMAGES TO ECR
 # ============================================================
-if ($BUILT_SERVICES.Count -gt 0) {
+if ($script:BUILT_SERVICES.Count -gt 0 -and -not $script:EcrPushed) {
+    # Only runs when -SkipInfra is set; otherwise images were already pushed in Phase 2.
     Write-Phase "Phase 3" "Push images to ECR"
 
     # ECR login - use cmd /c on Windows to avoid PowerShell pipe adding \r\n to token
@@ -422,20 +460,21 @@ if ($BUILT_SERVICES.Count -gt 0) {
         }
     }
 
-    # Push only the images that were built
-    foreach ($svc in $BUILT_SERVICES) {
+    foreach ($svc in $script:BUILT_SERVICES) {
         $tag  = $IMAGE_TAGS[$svc]
         $repo = $ECR_REPOS[$svc]
-
         Invoke-Checked "Push image: ${repo}:${tag}" {
             docker push "${repo}:${tag}"
         }
     }
 
-    Write-OK "All $($BUILT_SERVICES.Count) images pushed. ECS tasks will pull from ECR on next retry."
+    Write-OK "All $($script:BUILT_SERVICES.Count) images pushed."
+}
+elseif ($script:BUILT_SERVICES.Count -eq 0) {
+    Write-Host "Skipping Phase 3 (no images were built)." -ForegroundColor DarkGray
 }
 else {
-    Write-Host "Skipping Phase 3 (no images were built)." -ForegroundColor DarkGray
+    Write-Host "Skipping Phase 3 (images already pushed in Phase 2)." -ForegroundColor DarkGray
 }
 
 # ============================================================
@@ -535,6 +574,91 @@ foreach ($endpoint in $healthEndpoints) {
 
 if (-not $allHealthy -and $script:RunStatus -eq "PASS") {
     $script:RunStatus = "PASS_WITH_WARNINGS"
+}
+
+# ============================================================
+# PHASE 6 - INFRASTRUCTURE DIAGRAMS
+# ============================================================
+Write-Phase "Phase 6" "Infrastructure diagrams"
+
+$pythonCmd = $null
+if (Get-Command python -ErrorAction SilentlyContinue) { $pythonCmd = "python" }
+elseif (Get-Command python3 -ErrorAction SilentlyContinue) { $pythonCmd = "python3" }
+
+if ($pythonCmd) {
+    $tfStateFile = Join-Path $TF_DIR "terraform.tfstate"
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+
+    # --- Pull state ---
+    Write-Step "Pulling Terraform state..."
+    $diagramTimer = [System.Diagnostics.Stopwatch]::StartNew()
+    try {
+        Push-Location $TF_DIR
+        try {
+            $stateLines = terraform state pull
+            $statePullExit = $LASTEXITCODE
+        }
+        finally {
+            Pop-Location
+        }
+        $diagramTimer.Stop()
+        if ($statePullExit -eq 0 -and $stateLines) {
+            $stateJson = $stateLines -join "`n"
+            [System.IO.File]::WriteAllText($tfStateFile, $stateJson, (New-Object System.Text.UTF8Encoding $false))
+            Add-StepTiming -Step "terraform state pull (inframap)" -Status "PASS" -DurationSeconds $diagramTimer.Elapsed.TotalSeconds
+            Write-OK ("State pulled to $tfStateFile ({0:N1}s)" -f $diagramTimer.Elapsed.TotalSeconds)
+
+            # --- Inframap diagram ---
+            Write-Step "Generating inframap diagram..."
+            $diagramTimer.Restart()
+            & $pythonCmd "$ROOT\scripts\pipelines\generate_inframap.py" --source $tfStateFile --install-portable
+            $diagramTimer.Stop()
+            if ($LASTEXITCODE -eq 0) {
+                Add-StepTiming -Step "generate inframap" -Status "PASS" -DurationSeconds $diagramTimer.Elapsed.TotalSeconds
+                Write-OK ("Inframap diagram generated -> docs/infrastructure/generated/inframap/ ({0:N1}s)" -f $diagramTimer.Elapsed.TotalSeconds)
+            }
+            else {
+                Add-StepTiming -Step "generate inframap" -Status "WARN" -DurationSeconds $diagramTimer.Elapsed.TotalSeconds
+                Write-Host ("[WARN] Inframap diagram generation failed (non-fatal, {0:N1}s)." -f $diagramTimer.Elapsed.TotalSeconds) -ForegroundColor Yellow
+            }
+        }
+        else {
+            Add-StepTiming -Step "terraform state pull (inframap)" -Status "WARN" -DurationSeconds $diagramTimer.Elapsed.TotalSeconds
+            Write-Host "[WARN] Could not pull Terraform state for inframap (non-fatal). Credentials may have expired." -ForegroundColor Yellow
+        }
+    }
+    catch {
+        $diagramTimer.Stop()
+        Add-StepTiming -Step "terraform state pull (inframap)" -Status "WARN" -DurationSeconds $diagramTimer.Elapsed.TotalSeconds
+        Write-Host "[WARN] Inframap state pull failed: $($_.Exception.Message) (non-fatal)." -ForegroundColor Yellow
+    }
+
+    # --- Full Terraform dependency graph ---
+    Write-Step "Generating full Terraform dependency graph..."
+    $diagramTimer.Restart()
+    try {
+        & $pythonCmd "$ROOT\scripts\pipelines\generate_inframap.py" --full-graph
+        $diagramTimer.Stop()
+        if ($LASTEXITCODE -eq 0) {
+            Add-StepTiming -Step "generate terraform-graph" -Status "PASS" -DurationSeconds $diagramTimer.Elapsed.TotalSeconds
+            Write-OK ("Full graph generated -> docs/infrastructure/generated/terraform-graph/ ({0:N1}s)" -f $diagramTimer.Elapsed.TotalSeconds)
+        }
+        else {
+            Add-StepTiming -Step "generate terraform-graph" -Status "WARN" -DurationSeconds $diagramTimer.Elapsed.TotalSeconds
+            Write-Host ("[WARN] Full Terraform graph generation failed (non-fatal, {0:N1}s)." -f $diagramTimer.Elapsed.TotalSeconds) -ForegroundColor Yellow
+        }
+    }
+    catch {
+        $diagramTimer.Stop()
+        Add-StepTiming -Step "generate terraform-graph" -Status "WARN" -DurationSeconds $diagramTimer.Elapsed.TotalSeconds
+        Write-Host "[WARN] Full graph generation failed: $($_.Exception.Message) (non-fatal)." -ForegroundColor Yellow
+    }
+
+    $ErrorActionPreference = $prevEAP
+}
+else {
+    Write-Host "[WARN] Python not found; skipping infrastructure diagram generation." -ForegroundColor Yellow
 }
 
 # ============================================================
