@@ -150,6 +150,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
     bash = detect_bash()
     actionlint_cmd = detect_actionlint()
     tflint_available = shutil.which("tflint") is not None
+    infracost_available = shutil.which("infracost") is not None
 
     services_backend = REPO_ROOT / "services" / "backend"
     frontend_dir = REPO_ROOT / "services" / "frontend" / "crm-ui"
@@ -378,6 +379,25 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                     "[WARN] tflint not found in PATH; skipping TFLint init/run. "
                     "Install tflint to enable these Terraform lint checks."
                 )
+            if infracost_available and os.environ.get("INFRACOST_API_KEY"):
+                steps.append(
+                    Step(
+                        phase=phase,
+                        name="Infracost breakdown",
+                        cwd=terraform_dir,
+                        command=["infracost", "breakdown", "--path=.", "--format=table"],
+                    )
+                )
+            else:
+                if not infracost_available:
+                    print(
+                        "[WARN] infracost not found in PATH; skipping Infracost cost report. "
+                        "Install infracost to enable cloud cost estimation."
+                    )
+                else:
+                    print(
+                        "[WARN] INFRACOST_API_KEY is not set; skipping Infracost cost report."
+                    )
             steps.append(
                 Step(
                     phase=phase,
