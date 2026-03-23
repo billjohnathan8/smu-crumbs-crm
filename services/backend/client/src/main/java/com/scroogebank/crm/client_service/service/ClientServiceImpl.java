@@ -6,8 +6,10 @@ import com.scroogebank.crm.client_service.dto.ClientDto;
 import com.scroogebank.crm.client_service.dto.ClientListResponse;
 import com.scroogebank.crm.client_service.dto.ClientUpdateRequest;
 import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
+import com.scroogebank.crm.client_service.dto.UploadVerificationDocsRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
+// import com.scroogebank.crm.client_service.email.SnsEmailPublisher;
 import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
 import com.scroogebank.crm.client_service.exception.DuplicateClientException;
@@ -15,7 +17,10 @@ import com.scroogebank.crm.client_service.logging.ClientAuditLogger;
 import com.scroogebank.crm.client_service.logging.PiiMasker;
 import com.scroogebank.crm.client_service.repository.ClientRepository;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
+import com.scroogebank.crm.client_service.security.UnauthorizedException;
 import com.scroogebank.crm.client_service.util.IdCodec;
+
+import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -35,10 +40,22 @@ public class ClientServiceImpl implements ClientService {
 
 	private final ClientRepository clientRepository;
 	private final ClientAuditLogger clientAuditLogger;
+    // private final SnsEmailPublisher snsEmailPublisher;
+	private final DocumentStorageService documentStorageService;
+	private final VerificationTokenService verificationTokenService;
 
-	public ClientServiceImpl(ClientRepository clientRepository, ClientAuditLogger clientAuditLogger) {
+	public ClientServiceImpl(
+		ClientRepository clientRepository,
+		ClientAuditLogger clientAuditLogger,
+		// SnsEmailPublisher snsEmailPublisher,
+		DocumentStorageService documentStorageService,
+		VerificationTokenService verificationTokenService
+	) {
 		this.clientRepository = clientRepository;
 		this.clientAuditLogger = clientAuditLogger;
+		// this.snsEmailPublisher = snsEmailPublisher;
+		this.documentStorageService = documentStorageService;
+		this.verificationTokenService = verificationTokenService;
 	}
 
 	/**
@@ -131,6 +148,14 @@ public class ClientServiceImpl implements ClientService {
 			requestId,
 			authorizationHeader
 		);
+
+		// Publish verification event to SNS (downstream SNS -> SES will send the email)
+		// try {
+		// 	snsEmailPublisher.publishVerificationEmail(apiClientId, saved.getEmailAddress(), saved.getFirstName(), requestId);
+		// } catch (Exception e) {
+        //     LOGGER.warn("Create succeeded but SNS publish failed for clientId={}", apiClientId, e);
+		// }
+
 		return toDto(saved);
 	}
 
@@ -243,6 +268,7 @@ public class ClientServiceImpl implements ClientService {
 	 * @param authorizationHeader bearer token for downstream audit logging
 	 * @param requestId request correlation id
 	 * @return verification response
+	 * 
 	 */
 	@Override
 	@Transactional
@@ -254,9 +280,16 @@ public class ClientServiceImpl implements ClientService {
 		String requestId
 	) {
 		ClientEntity entity = loadOwnedClient(user, clientId);
-		request.nric(); // validation-only; do not store raw document refs in this mock service
 		IdentityVerificationStatus before = entity.getIdentityVerificationStatus();
-		entity.setIdentityVerificationStatus(IdentityVerificationStatus.verified);
+		
+		// Check approved
+		if (request.approved()) {
+			entity.setIdentityVerificationStatus(IdentityVerificationStatus.verified);
+		} else {
+			entity.setIdentityVerificationStatus(IdentityVerificationStatus.rejected);
+		}
+		entity.setVerificationVerifiedAt(Instant.now());
+
 		ClientEntity saved = clientRepository.save(entity);
 
 		publishAuditSafe(
@@ -269,6 +302,78 @@ public class ClientServiceImpl implements ClientService {
 			requestId,
 			authorizationHeader
 		);
+
+		return new VerifyClientResponse(clientId(saved.getId()), saved.getIdentityVerificationStatus());
+	}
+
+	/**
+	 * Client upload documents for verification
+	 *
+	 * @param clientId public client identifier
+	 * @param request verification payload
+	 * @param requestId request correlation id
+	 * @return verification response
+	 * 
+	 */
+	@Override
+	@Transactional
+	public VerifyClientResponse uploadVerificationDocs (
+		String clientId,
+		UploadVerificationDocsRequest request,
+		String requestId
+	) {
+		// Validate Verification Token
+		if (!verificationTokenService.isValid(clientId, request.verificationToken())) {
+			throw new UnauthorizedException("Invalid or expired verification token");
+		}
+
+		// Load client
+		long dbId = decodeClientId(clientId);
+		ClientEntity entity = clientRepository.findById(dbId)
+        	.orElseThrow(() -> new ClientNotFoundException(clientId));
+		IdentityVerificationStatus before = entity.getIdentityVerificationStatus();
+
+		// Upload documents to S3
+		String primaryKey = documentStorageService.upload(
+			clientId,
+			"primary",
+			request.primaryDocumentRef(),
+			request.primaryDocumentBase64(),
+			request.primaryDocumentMimeType()
+		);
+
+		String addressKey = documentStorageService.upload(
+			clientId,
+			"address",
+			request.addressDocumentRef(),
+			request.addressDocumentBase64(),
+			request.addressDocumentMimeType()
+		);
+
+		// Persist document metadata and set status to pending
+		entity.setPrimaryDocumentType(request.primaryDocumentType());
+		entity.setPrimaryDocumentRef(primaryKey);   // store S3 key, not raw filename
+
+		entity.setAddressDocumentType(request.addressDocumentType());
+		entity.setAddressDocumentRef(addressKey);   // store S3 key, not raw filename
+
+		entity.setIdentityVerificationStatus(IdentityVerificationStatus.pending);
+		entity.setVerificationVerifiedAt(null);
+
+		ClientEntity saved = clientRepository.save(entity);
+
+		/// NO AUTHORIZATION HEADER and AGENT_ID
+		// Publish audit event (for logging)
+		// publishAuditSafe(
+		// 	"UPDATE",
+		// 	"identityVerificationStatus",
+		// 	before == null ? null : before.name(),
+		// 	saved.getIdentityVerificationStatus().name(),
+		// 	null,
+		// 	clientId(saved.getId()),
+		// 	requestId,
+		// 	null
+		// );
 
 		return new VerifyClientResponse(clientId(saved.getId()), saved.getIdentityVerificationStatus());
 	}

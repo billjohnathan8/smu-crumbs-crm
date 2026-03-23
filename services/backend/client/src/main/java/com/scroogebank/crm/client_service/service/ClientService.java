@@ -4,6 +4,7 @@ import com.scroogebank.crm.client_service.dto.ClientCreateRequest;
 import com.scroogebank.crm.client_service.dto.ClientDto;
 import com.scroogebank.crm.client_service.dto.ClientListResponse;
 import com.scroogebank.crm.client_service.dto.ClientUpdateRequest;
+import com.scroogebank.crm.client_service.dto.UploadVerificationDocsRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
@@ -93,6 +94,15 @@ public interface ClientService {
 		String clientId,
 		VerifyClientRequest request,
 		String authorizationHeader,
+		String requestId
+	);
+
+	/**
+	 * 
+	 */
+	VerifyClientResponse uploadVerificationDocs(
+		String clientId,
+		UploadVerificationDocsRequest request,
 		String requestId
 	);
 }

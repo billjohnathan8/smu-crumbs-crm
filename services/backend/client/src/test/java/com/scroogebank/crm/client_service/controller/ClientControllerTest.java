@@ -5,12 +5,14 @@ import com.scroogebank.crm.client_service.dto.ClientDto;
 import com.scroogebank.crm.client_service.dto.ClientListResponse;
 import com.scroogebank.crm.client_service.dto.ClientCreateRequest;
 import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
+import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
 import com.scroogebank.crm.client_service.entity.Gender;
 import com.scroogebank.crm.client_service.exception.ApiExceptionHandler;
 import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
 import com.scroogebank.crm.client_service.exception.DuplicateClientException;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 import com.scroogebank.crm.client_service.security.RequestAuth;
+import com.scroogebank.crm.client_service.security.UnauthorizedException;
 import com.scroogebank.crm.client_service.service.ClientService;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -103,6 +105,22 @@ class ClientControllerTest {
 			""";
 	}
 
+	private String uploadVerificationDocsRequestJson(String token) throws Exception {
+		return """
+			{
+				"primaryDocumentType": "NRIC",
+				"primaryDocumentRef": "nric_front.jpg",
+				"primaryDocumentBase64": "iVBORw0KGgoAAAANSUhEUgAAAAUA",
+				"primaryDocumentMimeType": "image/jpeg",
+				"addressDocumentType": "UTILITY_BILL",
+				"addressDocumentRef": "sp_services_bill.pdf",
+				"addressDocumentBase64": "JVBERi0xLjUKJcTl8uXrp",
+				"addressDocumentMimeType": "application/pdf",
+				"verificationToken": "%s"
+				}
+			""".formatted(token);
+	}
+
 	@Test
 	void listClients_returnsPaginatedShape() throws Exception {
 		when(clientService.listClients(any(), eq(50), eq(0), eq(null))).thenReturn(
@@ -180,5 +198,30 @@ class ClientControllerTest {
 
 		mockMvc.perform(delete("/api/clients/clt_55").header("Authorization", AUTH_HEADER))
 			.andExpect(status().isNoContent());
+	}
+
+	// Client Upload Verification Documents
+	@Test
+	void uploadVerificationDocs_returnPendingStatus() throws Exception {
+		when(clientService.uploadVerificationDocs(eq("clt_1"), any(), any()))
+			.thenReturn(new VerifyClientResponse("clt_1", IdentityVerificationStatus.pending));
+
+		mockMvc.perform(post("/api/clients/clt_1/upload-verify")
+			.contentType(MediaType.APPLICATION_JSON)
+			.content(uploadVerificationDocsRequestJson("valid-token")))
+		.andExpect(status().isOk())
+		.andExpect(jsonPath("$.clientId").value("clt_1"))
+		.andExpect(jsonPath("$.identityVerificationStatus").value("pending"));
+	}
+
+	@Test
+	void uploadVerificationDocs_returnUnauthorizedException() throws Exception {
+		when(clientService.uploadVerificationDocs(any(), any(), any()))
+			.thenThrow(new UnauthorizedException("Invalid or expired verification token"));
+
+		mockMvc.perform(post("/api/clients/clt_1/upload-verify")
+			.contentType(MediaType.APPLICATION_JSON)
+			.content(uploadVerificationDocsRequestJson("bad-token")))
+		.andExpect(status().isUnauthorized());
 	}
 }

@@ -4,6 +4,7 @@ import com.scroogebank.crm.client_service.dto.ClientCreateRequest;
 import com.scroogebank.crm.client_service.dto.ClientPayload;
 import com.scroogebank.crm.client_service.dto.ClientUpdateRequest;
 import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
+import com.scroogebank.crm.client_service.dto.UploadVerificationDocsRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientRequest;
 import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.entity.Gender;
@@ -12,6 +13,8 @@ import com.scroogebank.crm.client_service.exception.DuplicateClientException;
 import com.scroogebank.crm.client_service.logging.ClientAuditLogger;
 import com.scroogebank.crm.client_service.repository.ClientRepository;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
+import com.scroogebank.crm.client_service.security.UnauthorizedException;
+
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -39,6 +42,8 @@ class ClientServiceImplTest {
 
 	private ClientRepository clientRepository;
 	private ClientAuditLogger clientAuditLogger;
+	private DocumentStorageService documentStorageService;
+	private VerificationTokenService verificationTokenService;
 	private ClientServiceImpl clientService;
 
 	private static ClientPayload samplePayload() {
@@ -76,11 +81,23 @@ class ClientServiceImplTest {
 		return e;
 	}
 
+	private static UploadVerificationDocsRequest validUploadRequest(String token) {
+		return new UploadVerificationDocsRequest(
+			"NRIC",         "nric_front.jpg", "base64PrimaryData==", "image/jpeg",
+			"UTILITY_BILL", "bill.pdf",       "base64AddressData==", "application/pdf",
+			token
+		);
+	}
+
 	@BeforeEach
 	void setUp() {
 		clientRepository = org.mockito.Mockito.mock(ClientRepository.class);
 		clientAuditLogger = org.mockito.Mockito.mock(ClientAuditLogger.class);
-		clientService = new ClientServiceImpl(clientRepository, clientAuditLogger);
+		documentStorageService = org.mockito.Mockito.mock(DocumentStorageService.class);
+		verificationTokenService = org.mockito.Mockito.mock(VerificationTokenService.class);
+		clientService = new ClientServiceImpl(
+			clientRepository, clientAuditLogger, documentStorageService, verificationTokenService
+		);
 	}
 
 	/** Verifies that listClients() returns all entities from the repository mapped to DTOs. */
@@ -557,7 +574,7 @@ class ClientServiceImplTest {
 		var response = clientService.verifyClient(
 			agent,
 			"clt_7",
-			new VerifyClientRequest("S1234567A", "NRIC", null),
+			new VerifyClientRequest(true),
 			"Bearer x",
 			"req-1"
 		);
@@ -574,5 +591,79 @@ class ClientServiceImplTest {
 			eq("req-1"),
 			eq("Bearer x")
 		);
+	}
+
+	// Upload Verification Documents
+	@Test
+	void uploadVerificationDocs_tokenValid_uploadsBothDocumentsToS3() {
+		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
+		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
+		when(verificationTokenService.isValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(documentStorageService.upload(eq("clt_7"), eq("primary"), any(), any(), any()))
+			.thenReturn("clients/clt_7/primary/nric_front.jpg");
+		when(documentStorageService.upload(eq("clt_7"), eq("address"), any(), any(), any()))
+			.thenReturn("clients/clt_7/address/bill.pdf");
+		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		clientService.uploadVerificationDocs("clt_7", validUploadRequest("valid-token-abc"), "req-1");
+
+		verify(documentStorageService).upload(
+			"clt_7", "primary", "nric_front.jpg", "base64PrimaryData==", "image/jpeg"
+		);
+		verify(documentStorageService).upload(
+			"clt_7", "address", "bill.pdf", "base64AddressData==", "application/pdf"
+		);
+	}
+
+	@Test
+	void uploadVerificationDocs_tokenValid_persistsS3KeysAndSetsPending() {
+		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
+		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
+		when(verificationTokenService.isValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(documentStorageService.upload(eq("clt_7"), eq("primary"), any(), any(), any()))
+			.thenReturn("clients/clt_7/primary/nric_front.jpg");
+		when(documentStorageService.upload(eq("clt_7"), eq("address"), any(), any(), any()))
+			.thenReturn("clients/clt_7/address/bill.pdf");
+
+		ArgumentCaptor<ClientEntity> captor = ArgumentCaptor.forClass(ClientEntity.class);
+		when(clientRepository.save(captor.capture())).thenAnswer(inv -> inv.getArgument(0));
+
+		clientService.uploadVerificationDocs("clt_7", validUploadRequest("valid-token-abc"), "req-1");
+
+		ClientEntity saved = captor.getValue();
+		assertThat(saved.getIdentityVerificationStatus()).isEqualTo(IdentityVerificationStatus.pending);
+		assertThat(saved.getPrimaryDocumentType()).isEqualTo("NRIC");
+		assertThat(saved.getPrimaryDocumentRef()).isEqualTo("clients/clt_7/primary/nric_front.jpg");
+		assertThat(saved.getAddressDocumentType()).isEqualTo("UTILITY_BILL");
+		assertThat(saved.getAddressDocumentRef()).isEqualTo("clients/clt_7/address/bill.pdf");
+		assertThat(saved.getVerificationVerifiedAt()).isNull();
+	}
+
+	@Test
+	void uploadVerificationDocs_tokenValid_returnsClientIdAndPendingStatus() {
+		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
+		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
+		when(verificationTokenService.isValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(documentStorageService.upload(any(), any(), any(), any(), any())).thenReturn("s3-key");
+		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		var response = clientService.uploadVerificationDocs(
+			"clt_7", validUploadRequest("valid-token-abc"), "req-1"
+		);
+
+		assertThat(response.clientId()).isEqualTo("clt_7");
+		assertThat(response.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.pending);
+	}
+
+	@Test
+	void uploadVerificationDocs_tokenInvalid_throwsUnauthorizedException() {
+		when(verificationTokenService.isValid("clt_7", "bad-token")).thenReturn(false);
+
+		assertThatThrownBy(() ->
+			clientService.uploadVerificationDocs("clt_7", validUploadRequest("bad-token"), "req-1")
+		).isInstanceOf(UnauthorizedException.class);
+
+		verify(documentStorageService, never()).upload(any(), any(), any(), any(), any());
+		verify(clientRepository, never()).save(any());
 	}
 }

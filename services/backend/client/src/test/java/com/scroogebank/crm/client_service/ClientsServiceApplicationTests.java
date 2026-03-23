@@ -2,7 +2,9 @@ package com.scroogebank.crm.client_service;
 
 import com.scroogebank.crm.client_service.repository.AccountRepository;
 import com.scroogebank.crm.client_service.repository.ClientRepository;
-import tools.jackson.databind.json.JsonMapper;
+import com.scroogebank.crm.client_service.service.DocumentStorageService;
+import com.scroogebank.crm.client_service.service.VerificationTokenService;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -30,6 +32,12 @@ class ClientsServiceApplicationTests {
 
 	@MockitoBean
 	private JsonMapper objectMapper;
+
+	@MockitoBean
+	private DocumentStorageService documentStorageService;
+
+	@MockitoBean
+	private VerificationTokenService verificationTokenService;
 
 	@Test
 	void contextLoads() {
