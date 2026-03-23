@@ -131,7 +131,9 @@ export function ForgotPasswordPage() {
               data-testid="forgot-password-submit-button"
               disabled={isLoading}
               className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                isLoading ? 'gradient-dark-red/50 cursor-not-allowed' : 'gradient-dark-red hover:bg-primary-hover'
+                isLoading
+                  ? 'gradient-dark-red/50 cursor-not-allowed'
+                  : 'gradient-dark-red hover:bg-primary-hover'
               } text-white`}
             >
               {isLoading ? 'Sending...' : 'Send Reset Link'}

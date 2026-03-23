@@ -152,9 +152,7 @@ export function LoginPage() {
                     disabled={isLoading}
                     autoComplete="current-password"
                   />
-                  {errors.password && (
-                    <p className="text-danger text-sm mt-1">{errors.password}</p>
-                  )}
+                  {errors.password && <p className="text-danger text-sm mt-1">{errors.password}</p>}
                 </div>
 
                 <button

@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
-import { useTheme } from '@/features/theme/ThemeContext'
 import { isRootAdminUser } from '@/features/auth/authorization'
 import { createUser } from '@/api/users'
 import type { CreateUserRequest, UserRole } from '@/api/types'
@@ -31,7 +30,6 @@ const adminNav: NavItem[] = [
 export function CreateNewUserPage() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
-  const { theme } = useTheme()
 
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')

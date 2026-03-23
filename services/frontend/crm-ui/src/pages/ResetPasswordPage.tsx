@@ -182,9 +182,7 @@ export function ResetPasswordPage() {
               data-testid="reset-password-submit-button"
               disabled={isLoading || !token}
               className={`w-full py-3 px-4 rounded-lg font-normal transition-colors ${
-                isLoading || !token
-                  ? 'gradient-dark-red'
-                  : 'gradient-dark-red'
+                isLoading || !token ? 'gradient-dark-red' : 'gradient-dark-red'
               } text-white`}
             >
               {isLoading ? 'Resetting...' : 'Reset Password'}
