@@ -320,7 +320,9 @@ describe('CreateNewUserPage', () => {
     await user.click(screen.getByRole('button', { name: /Create User/i }))
 
     await waitFor(() => {
-      expect(screen.getByText('You are not authorized to create this user role')).toBeInTheDocument()
+      expect(
+        screen.getByText('You are not authorized to create this user role')
+      ).toBeInTheDocument()
     })
   })
 
