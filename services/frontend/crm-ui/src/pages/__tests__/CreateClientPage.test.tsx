@@ -398,5 +398,14 @@ describe('CreateClientPage', () => {
       identityVerificationStatus: 'unverified' as const,
       createdAt: '2024-01-01T00:00:00Z',
     })
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/user', {
+        replace: true,
+        state: {
+          successMessage: 'Client John Doe created successfully',
+        },
+      })
+    })
   })
 })

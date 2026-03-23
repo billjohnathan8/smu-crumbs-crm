@@ -31,11 +31,15 @@ const mockSuperAdminUser: User = {
   status: 'active',
 }
 
-const renderCreateNewUserPage = (user: User = mockAdminUser, useStrictRoutes: boolean = false) => {
+const renderCreateNewUserPage = async (
+  user: User = mockAdminUser,
+  useStrictRoutes: boolean = false
+) => {
   localStorage.setItem('authToken', 'test-token')
   localStorage.setItem('currentUser', JSON.stringify(user))
+  let rendered
   if (useStrictRoutes) {
-    return render(
+    rendered = render(
       <ThemeProvider>
         <MemoryRouter initialEntries={['/admin/users/new']}>
           <AuthProvider>
@@ -47,17 +51,23 @@ const renderCreateNewUserPage = (user: User = mockAdminUser, useStrictRoutes: bo
         </MemoryRouter>
       </ThemeProvider>
     )
+  } else {
+    rendered = render(
+      <ThemeProvider>
+        <BrowserRouter>
+          <AuthProvider>
+            <CreateNewUserPage />
+          </AuthProvider>
+        </BrowserRouter>
+      </ThemeProvider>
+    )
   }
 
-  return render(
-    <ThemeProvider>
-      <BrowserRouter>
-        <AuthProvider>
-          <CreateNewUserPage />
-        </AuthProvider>
-      </BrowserRouter>
-    </ThemeProvider>
-  )
+  await waitFor(() => {
+    expect(authApi.getCurrentUser).toHaveBeenCalled()
+  })
+
+  return rendered
 }
 
 describe('CreateNewUserPage', () => {
@@ -69,7 +79,7 @@ describe('CreateNewUserPage', () => {
   })
 
   it('should render create user form for admin', async () => {
-    renderCreateNewUserPage()
+    await renderCreateNewUserPage()
 
     await waitFor(() => {
       expect(screen.getByText('Create New User')).toBeInTheDocument()
@@ -80,7 +90,7 @@ describe('CreateNewUserPage', () => {
 
   it('should show validation errors for empty required fields', async () => {
     const user = userEvent.setup()
-    renderCreateNewUserPage()
+    await renderCreateNewUserPage()
 
     const submitButton = screen.getByRole('button', { name: /Create User/i })
     await user.click(submitButton)
@@ -94,7 +104,7 @@ describe('CreateNewUserPage', () => {
 
   it('should show validation error for invalid email', async () => {
     const user = userEvent.setup()
-    renderCreateNewUserPage()
+    await renderCreateNewUserPage()
 
     const firstNameInput = screen.getByLabelText(/First Name/i)
     const lastNameInput = screen.getByLabelText(/Last Name/i)
@@ -123,7 +133,7 @@ describe('CreateNewUserPage', () => {
       status: 'active',
     })
 
-    renderCreateNewUserPage()
+    await renderCreateNewUserPage()
 
     const firstNameInput = screen.getByLabelText(/First Name/i)
     const lastNameInput = screen.getByLabelText(/Last Name/i)
@@ -162,7 +172,7 @@ describe('CreateNewUserPage', () => {
       status: 'active',
     })
 
-    renderCreateNewUserPage(mockSuperAdminUser)
+    await renderCreateNewUserPage(mockSuperAdminUser)
 
     const firstNameInput = screen.getByLabelText(/First Name/i)
     const lastNameInput = screen.getByLabelText(/Last Name/i)
@@ -190,7 +200,7 @@ describe('CreateNewUserPage', () => {
   })
 
   it('should not allow admin to create admin role', async () => {
-    renderCreateNewUserPage()
+    await renderCreateNewUserPage()
 
     screen.getByLabelText(/Role/i)
     const options = screen.getAllByRole('option')
@@ -201,7 +211,8 @@ describe('CreateNewUserPage', () => {
   })
 
   it('should allow super admin to create both admin and user roles', async () => {
-    renderCreateNewUserPage(mockSuperAdminUser)
+    vi.mocked(authApi.getCurrentUser).mockResolvedValue(mockSuperAdminUser)
+    await renderCreateNewUserPage(mockSuperAdminUser)
 
     screen.getByLabelText(/Role/i)
     const options = screen.getAllByRole('option')
@@ -217,7 +228,7 @@ describe('CreateNewUserPage', () => {
       new ApiError(409, 'User already exists', 'User already exists')
     )
 
-    renderCreateNewUserPage()
+    await renderCreateNewUserPage()
 
     const firstNameInput = screen.getByLabelText(/First Name/i)
     const lastNameInput = screen.getByLabelText(/Last Name/i)
@@ -241,7 +252,7 @@ describe('CreateNewUserPage', () => {
       new ApiError(401, 'Unauthorized', 'Unauthorized')
     )
 
-    renderCreateNewUserPage()
+    await renderCreateNewUserPage()
 
     await waitFor(() => {
       expect(screen.getByLabelText(/First Name/i)).toBeInTheDocument()
@@ -276,7 +287,7 @@ describe('CreateNewUserPage', () => {
     }
 
     vi.mocked(authApi.getCurrentUser).mockResolvedValue(normalUser)
-    renderCreateNewUserPage(normalUser, true)
+    await renderCreateNewUserPage(normalUser, true)
 
     await waitFor(() => {
       expect(screen.getByText('Mock Unauthorized Page')).toBeInTheDocument()
@@ -285,7 +296,7 @@ describe('CreateNewUserPage', () => {
 
   it('should toggle send invite email checkbox', async () => {
     const user = userEvent.setup()
-    renderCreateNewUserPage()
+    await renderCreateNewUserPage()
 
     const checkbox = screen.getByLabelText(/Send invitation/i)
     expect(checkbox).toBeChecked()
@@ -295,5 +306,39 @@ describe('CreateNewUserPage', () => {
 
     await user.click(checkbox)
     expect(checkbox).toBeChecked()
+  })
+
+  it('should handle forbidden error', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(usersApi, 'createUser').mockRejectedValue(new ApiError(403, 'Forbidden', 'Forbidden'))
+
+    await renderCreateNewUserPage()
+
+    await user.type(screen.getByLabelText(/First Name/i), 'John')
+    await user.type(screen.getByLabelText(/Last Name/i), 'Doe')
+    await user.type(screen.getByLabelText(/^Email/i), 'john@example.com')
+    await user.click(screen.getByRole('button', { name: /Create User/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('You are not authorized to create this user role')).toBeInTheDocument()
+    })
+  })
+
+  it('should handle validation error status 422', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(usersApi, 'createUser').mockRejectedValue(new ApiError(422, 'Invalid data', 'Invalid'))
+
+    await renderCreateNewUserPage()
+
+    await user.type(screen.getByLabelText(/First Name/i), 'John')
+    await user.type(screen.getByLabelText(/Last Name/i), 'Doe')
+    await user.type(screen.getByLabelText(/^Email/i), 'john@example.com')
+    await user.click(screen.getByRole('button', { name: /Create User/i }))
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Invalid data provided. Please check your inputs.')
+      ).toBeInTheDocument()
+    })
   })
 })
