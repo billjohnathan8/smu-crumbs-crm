@@ -414,7 +414,7 @@ export function ViewTransactionsPage() {
               <button
                 onClick={() => void refreshImportBatchHistory(trackedImportBatchIds)}
                 disabled={isRefreshingImportHistory || trackedImportBatchIds.length === 0}
-                className="px-4 py-2 rounded bg-background-light text-text hover:bg-background-lighter text-sm font-normal transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 rounded bg-background-lighter border border-border text-text hover:bg-background-lighter text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isRefreshingImportHistory ? 'Refreshing...' : 'Refresh Batch Status'}
               </button>
