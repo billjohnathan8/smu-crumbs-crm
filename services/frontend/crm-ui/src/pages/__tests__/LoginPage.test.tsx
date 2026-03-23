@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { LoginPage } from '../LoginPage'
 import { AuthProvider } from '@/features/auth/AuthContext'
+import { ThemeProvider } from '@/features/theme/ThemeContext'
 import * as authApi from '@/api/auth'
 import { ApiError } from '@/api/client'
 import type { TokenResponse, User } from '@/api/types'
@@ -20,11 +21,13 @@ vi.mock('react-router-dom', async () => {
 
 const renderLoginPage = () => {
   return render(
-    <BrowserRouter>
-      <AuthProvider>
-        <LoginPage />
-      </AuthProvider>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <LoginPage />
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   )
 }
 

@@ -4,6 +4,7 @@ import { within } from '@testing-library/dom'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { ClientAccountsPage } from '../ClientAccountsPage'
+import { ThemeProvider } from '@/features/theme/ThemeContext'
 import * as clientsApi from '@/api/clients'
 import { ApiError } from '@/api/client'
 import type { Client, Account } from '@/api/types'
@@ -81,9 +82,11 @@ describe('ClientAccountsPage', () => {
 
   const renderComponent = () =>
     render(
-      <BrowserRouter>
-        <ClientAccountsPage />
-      </BrowserRouter>
+      <ThemeProvider>
+        <BrowserRouter>
+          <ClientAccountsPage />
+        </BrowserRouter>
+      </ThemeProvider>
     )
 
   it('should render the accounts page with header', async () => {

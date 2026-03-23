@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { AdminDashboard } from '../AdminDashboard'
 import { AuthProvider } from '@/features/auth/AuthContext'
+import { ThemeProvider } from '@/features/theme/ThemeContext'
 import * as usersApi from '@/api/users'
 import * as clientsApi from '@/api/clients'
 import * as logsApi from '@/api/logs'
@@ -29,11 +30,13 @@ const renderAdminDashboard = () => {
   localStorage.setItem('currentUser', JSON.stringify(mockUser))
 
   return render(
-    <BrowserRouter>
-      <AuthProvider>
-        <AdminDashboard />
-      </AuthProvider>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <AdminDashboard />
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   )
 }
 
@@ -225,7 +228,7 @@ describe('AdminDashboard', () => {
     })
   })
 
-  it('should render manage accounts link', async () => {
+  it('should render user management link', async () => {
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
       data: [],
       pagination: { total: 0, limit: 1, offset: 0 },
@@ -242,9 +245,9 @@ describe('AdminDashboard', () => {
     renderAdminDashboard()
 
     await waitFor(() => {
-      const links = screen.getAllByRole('link', { name: /Manage Accounts/i })
+      const links = screen.getAllByRole('link', { name: /User Management/i })
       expect(links.length).toBeGreaterThanOrEqual(1)
-      expect(links[0]).toHaveAttribute('href', '/admin/accounts')
+      expect(links[0]).toHaveAttribute('href', '/admin/users')
     })
   })
 

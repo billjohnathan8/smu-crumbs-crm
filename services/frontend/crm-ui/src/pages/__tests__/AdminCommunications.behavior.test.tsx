@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { AdminCommunications } from '../AdminCommunications'
+import { ThemeProvider } from '@/features/theme/ThemeContext'
 import * as communicationsApi from '@/api/communications'
 import { ApiError } from '@/api/client'
 import type { Communication, PaginatedResponse, User } from '@/api/types'
@@ -53,9 +54,11 @@ const queuedResponse: PaginatedResponse<Communication> = {
 
 const renderPage = () =>
   render(
-    <MemoryRouter>
-      <AdminCommunications />
-    </MemoryRouter>
+    <ThemeProvider>
+      <MemoryRouter>
+        <AdminCommunications />
+      </MemoryRouter>
+    </ThemeProvider>
   )
 
 describe('AdminCommunications behavior', () => {

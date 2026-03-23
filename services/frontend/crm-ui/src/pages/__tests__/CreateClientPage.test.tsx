@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { CreateClientPage } from '../CreateClientPage'
+import { ThemeProvider } from '@/features/theme/ThemeContext'
 import * as clientsApi from '@/api/clients'
 import { ApiError } from '@/api/client'
 import type { Client } from '@/api/types'
@@ -33,9 +34,11 @@ describe('CreateClientPage', () => {
 
   const renderComponent = () => {
     return render(
-      <BrowserRouter>
-        <CreateClientPage />
-      </BrowserRouter>
+      <ThemeProvider>
+        <BrowserRouter>
+          <CreateClientPage />
+        </BrowserRouter>
+      </ThemeProvider>
     )
   }
 

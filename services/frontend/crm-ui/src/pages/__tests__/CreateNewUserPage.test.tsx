@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route, BrowserRouter } from 'react-router-dom'
 import { CreateNewUserPage } from '../CreateNewUserPage'
 import { AuthProvider } from '@/features/auth/AuthContext'
+import { ThemeProvider } from '@/features/theme/ThemeContext'
 import * as usersApi from '@/api/users'
 import * as authApi from '@/api/auth'
 import { ApiError } from '@/api/client'
@@ -35,23 +36,27 @@ const renderCreateNewUserPage = (user: User = mockAdminUser, useStrictRoutes: bo
   localStorage.setItem('currentUser', JSON.stringify(user))
   if (useStrictRoutes) {
     return render(
-      <MemoryRouter initialEntries={['/admin/users/new']}>
-        <AuthProvider>
-          <Routes>
-            <Route path="/admin/users/new" element={<CreateNewUserPage />} />
-            <Route path="/unauthorized" element={<h1>Mock Unauthorized Page</h1>} />
-          </Routes>
-        </AuthProvider>
-      </MemoryRouter>
+      <ThemeProvider>
+        <MemoryRouter initialEntries={['/admin/users/new']}>
+          <AuthProvider>
+            <Routes>
+              <Route path="/admin/users/new" element={<CreateNewUserPage />} />
+              <Route path="/unauthorized" element={<h1>Mock Unauthorized Page</h1>} />
+            </Routes>
+          </AuthProvider>
+        </MemoryRouter>
+      </ThemeProvider>
     )
   }
 
   return render(
-    <BrowserRouter>
-      <AuthProvider>
-        <CreateNewUserPage />
-      </AuthProvider>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <CreateNewUserPage />
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   )
 }
 

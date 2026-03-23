@@ -9,6 +9,8 @@ import { RecentTransactionsTable } from '../RecentTransactionsTable'
 import { SidebarLayout, type NavItem } from '../SidebarDrawer'
 import { VerificationForm } from '../VerificationForm'
 import { VerificationReviewPanel } from '../VerificationReviewPanel'
+import { AuthProvider } from '@/features/auth/AuthContext'
+import { ThemeProvider } from '@/features/theme/ThemeContext'
 import type { Account, AccountCreateRequest, Communication, VerifyClientRequest } from '@/api/types'
 
 const baseFormData: AccountCreateRequest = {
@@ -466,21 +468,25 @@ describe('core components', () => {
     ]
 
     render(
-      <MemoryRouter initialEntries={['/admin']}>
-        <SidebarLayout items={items}>
-          <p>Page body</p>
-        </SidebarLayout>
-      </MemoryRouter>
+      <ThemeProvider>
+        <AuthProvider>
+          <MemoryRouter initialEntries={['/admin']}>
+            <SidebarLayout items={items}>
+              <p>Page body</p>
+            </SidebarLayout>
+          </MemoryRouter>
+        </AuthProvider>
+      </ThemeProvider>
     )
 
-    expect(screen.getByText('ScroogeBank')).toBeInTheDocument()
+    expect(screen.getByAltText('ScroogeBank')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/admin')
     expect(screen.getByText('Page body')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button'))
-    expect(screen.queryByText('ScroogeBank')).not.toBeInTheDocument()
+    await user.click(screen.getAllByRole('button')[1])
+    expect(screen.queryByAltText('ScroogeBank')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button'))
-    expect(screen.getByText('ScroogeBank')).toBeInTheDocument()
+    expect(screen.getByAltText('ScroogeBank')).toBeInTheDocument()
   })
 })

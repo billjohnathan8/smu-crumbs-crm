@@ -46,7 +46,10 @@ vi.mock('@/components/ClientTable', () => ({
 // 5. Mock SidebarLayout to bypass complex UI wrappers
 vi.mock('@/components/SidebarDrawer', () => ({
   SidebarLayout: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="sidebar-layout">{children}</div>
+    <div data-testid="sidebar-layout">
+      <button onClick={mockLogout}>Logout</button>
+      {children}
+    </div>
   ),
 }))
 

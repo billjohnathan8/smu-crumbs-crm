@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { UserDashboard } from '../UserDashboard'
 import { AuthProvider } from '@/features/auth/AuthContext'
+import { ThemeProvider } from '@/features/theme/ThemeContext'
 import * as clientsApi from '@/api/clients'
 import * as logsApi from '@/api/logs'
 import * as authApi from '@/api/auth'
@@ -28,11 +29,13 @@ const renderUserDashboard = () => {
   localStorage.setItem('currentUser', JSON.stringify(mockUser))
 
   return render(
-    <BrowserRouter>
-      <AuthProvider>
-        <UserDashboard />
-      </AuthProvider>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <UserDashboard />
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   )
 }
 

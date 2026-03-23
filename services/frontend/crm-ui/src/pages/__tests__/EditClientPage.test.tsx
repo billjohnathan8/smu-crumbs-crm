@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { EditClientPage } from '../EditClientPage'
+import { ThemeProvider } from '@/features/theme/ThemeContext'
 import * as clientsApi from '@/api/clients'
 import { ApiError } from '@/api/client'
 import type { Client } from '@/api/types'
@@ -52,9 +53,11 @@ describe('UserEditClient', () => {
 
   const renderComponent = () =>
     render(
-      <BrowserRouter>
-        <EditClientPage />
-      </BrowserRouter>
+      <ThemeProvider>
+        <BrowserRouter>
+          <EditClientPage />
+        </BrowserRouter>
+      </ThemeProvider>
     )
 
   it('should render the edit form with client data pre-filled', async () => {

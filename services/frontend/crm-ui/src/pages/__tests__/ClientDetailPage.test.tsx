@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { ClientDetailPage } from '../ClientDetailPage'
+import { ThemeProvider } from '@/features/theme/ThemeContext'
 import * as clientsApi from '@/api/clients'
 import * as transactionsApi from '@/api/transactions'
 import * as communicationsApi from '@/api/communications'
@@ -76,9 +77,11 @@ describe('ClientDetailPage', () => {
 
   const renderComponent = () =>
     render(
-      <BrowserRouter>
-        <ClientDetailPage />
-      </BrowserRouter>
+      <ThemeProvider>
+        <BrowserRouter>
+          <ClientDetailPage />
+        </BrowserRouter>
+      </ThemeProvider>
     )
 
   it('should render client profile with name', async () => {

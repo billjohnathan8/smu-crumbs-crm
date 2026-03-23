@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Routes, Route, BrowserRouter } from 'react-router-dom'
 import { AdminUserManagementPage } from '../AdminUserManagementPage'
 import { AuthProvider } from '@/features/auth/AuthContext'
+import { ThemeProvider } from '@/features/theme/ThemeContext'
 import * as usersApi from '@/api/users'
 import * as authApi from '@/api/auth'
 import { ApiError } from '@/api/client'
@@ -45,24 +46,28 @@ const renderAdminUserManagementPage = (user: User = mockAdminUser, useStrictRout
 
   if (useStrictRoutes) {
     return render(
-      <MemoryRouter initialEntries={['/admin/users']}>
-        <AuthProvider>
-          <Routes>
-            <Route path="/admin/users" element={<AdminUserManagementPage />} />
-            <Route path="/unauthorized" element={<h1>Mock Unauthorized Page</h1>} />
-          </Routes>
-        </AuthProvider>
-      </MemoryRouter>
+      <ThemeProvider>
+        <MemoryRouter initialEntries={['/admin/users']}>
+          <AuthProvider>
+            <Routes>
+              <Route path="/admin/users" element={<AdminUserManagementPage />} />
+              <Route path="/unauthorized" element={<h1>Mock Unauthorized Page</h1>} />
+            </Routes>
+          </AuthProvider>
+        </MemoryRouter>
+      </ThemeProvider>
     )
   }
 
   // The default fallback for your standard UI tests
   return render(
-    <BrowserRouter>
-      <AuthProvider>
-        <AdminUserManagementPage />
-      </AuthProvider>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <AdminUserManagementPage />
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   )
 }
 

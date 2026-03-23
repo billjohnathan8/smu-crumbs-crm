@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { ViewTransactionsPage } from '../ViewTransactionsPage'
+import { ThemeProvider } from '@/features/theme/ThemeContext'
 import * as transactionsApi from '@/api/transactions'
 import { ApiError } from '@/api/client'
 import type { Transaction, ImportBatch } from '@/api/types'
@@ -62,9 +63,11 @@ describe('ViewTransactionsPage', () => {
 
   const renderComponent = () =>
     render(
-      <BrowserRouter>
-        <ViewTransactionsPage />
-      </BrowserRouter>
+      <ThemeProvider>
+        <BrowserRouter>
+          <ViewTransactionsPage />
+        </BrowserRouter>
+      </ThemeProvider>
     )
 
   it('renders transaction list for user role without import controls', async () => {

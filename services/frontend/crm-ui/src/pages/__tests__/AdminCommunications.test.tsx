@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { AdminCommunications } from '../AdminCommunications'
 import { AuthProvider } from '@/features/auth/AuthContext'
+import { ThemeProvider } from '@/features/theme/ThemeContext'
 import * as communicationsApi from '@/api/communications'
 import * as authApi from '@/api/auth'
 import { ApiError } from '@/api/client'
@@ -38,11 +39,13 @@ const renderPage = () => {
   localStorage.setItem('currentUser', JSON.stringify(mockUser))
 
   return render(
-    <BrowserRouter>
-      <AuthProvider>
-        <AdminCommunications />
-      </AuthProvider>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <AdminCommunications />
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   )
 }
 
