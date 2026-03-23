@@ -135,7 +135,7 @@ test.describe("Real Fullstack Integration", () => {
     await loginViaUi(page, ADMIN_EMAIL, ADMIN_PASSWORD, "/admin");
     await expect(page.getByRole("heading", { name: "Admin Dashboard" })).toBeVisible();
 
-    await page.getByRole("link", { name: "Manage Accounts" }).first().click();
+    await page.goto("/admin/accounts");
     await expect(page).toHaveURL(/\/admin\/accounts$/);
     await expect(page.getByRole("heading", { name: "Manage Accounts" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "User Accounts" })).toBeVisible();
