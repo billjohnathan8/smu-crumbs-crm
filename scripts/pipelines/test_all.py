@@ -432,6 +432,22 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
 
     if run_frontend:
         phase = "Layer 1 - Lint / Format / Typecheck"
+        if is_windows():
+            # On Windows, node.exe (Vite dev server, previous builds) can hold a file lock
+            # on esbuild.exe inside node_modules, causing npm ci to fail with EPERM.
+            # Terminate any stale node processes before reinstalling.
+            steps.append(
+                Step(
+                    phase=phase,
+                    name="Kill stale node processes (Windows pre-npm-ci)",
+                    cwd=frontend_dir,
+                    command=[
+                        "cmd.exe",
+                        "/c",
+                        "taskkill /F /IM node.exe /T 2>nul & exit 0",
+                    ],
+                )
+            )
         steps.append(
             Step(
                 phase=phase,
