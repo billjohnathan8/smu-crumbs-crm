@@ -23,16 +23,18 @@ const userNav: NavItem[] = [
   { label: 'Create Client', to: '/user/clients/new' },
   { label: 'Transactions', to: '/user/transactions' },
   { label: 'AML Alerts', to: '/user/aml-alerts' },
+  { label: 'Settings', to: '/user/settings' },
 ]
 
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients' },
+  { label: 'All Clients', to: '/admin/clients', end: true },
   { label: 'Create Client', to: '/admin/clients/new' },
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
   { label: 'User Management', to: '/admin/users' },
+  { label: 'Settings', to: '/admin/settings' },
 ]
 
 export function ClientAccountsPage() {
@@ -262,17 +264,20 @@ export function ClientAccountsPage() {
       <nav>
         <div className="flex h-16 items-center justify-between px-4">
           <div className="flex items-center space-x-4">
-            <button onClick={() => navigate(basePath)} className="text-text-muted hover:text-text">
+            <button
+              onClick={() => navigate(basePath)}
+              className="text-text-muted hover:text-text text-2xl"
+            >
               Dashboard
             </button>
-            <span className="text-text-muted">/</span>
+            <span className="text-text-muted text-2xl">/</span>
             <button
               onClick={() => navigate(listPagePath)}
-              className="text-text-muted hover:text-text"
+              className="text-text-muted hover:text-text text-2xl"
             >
               {isManagementUser ? 'All Clients' : 'My Clients'}
             </button>
-            <span className="text-text-muted">/</span>
+            <span className="text-text-muted text-2xl">/</span>
             <button
               onClick={() => navigate(clientDetailsPath)}
               className="text-text-muted hover:text-text"
@@ -280,25 +285,18 @@ export function ClientAccountsPage() {
               {client.firstName} {client.lastName}
             </button>
             <span className="text-text-muted">/</span>
-            <h1 className="text-xl font-bold text-text">Bank Accounts</h1>
+            <h1 className="text-2xl font-medium text-text">Bank Accounts</h1>
           </div>
-
-          <button
-            onClick={logout}
-            className="rounded-lg bg-danger px-4 py-2 font-medium text-white transition-colors hover:bg-danger-hover"
-          >
-            Logout
-          </button>
         </div>
       </nav>
 
       <main className="mt-6 space-y-6">
-        <div className="rounded-lg border border-border bg-card">
+        <div className="rounded-lg  bg-card">
           <div className="flex items-center justify-between border-b border-border px-6 py-4">
-            <h2 className="text-lg font-bold text-text">Accounts</h2>
+            <h2 className="text-lg font-normal text-text">Accounts</h2>
             <button
               onClick={openCreateModal}
-              className="rounded bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
+              className="rounded bg-primary px-4 py-2 text-sm font-normal text-white hover:bg-primary-hover"
             >
               + New Account
             </button>

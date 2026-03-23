@@ -64,7 +64,7 @@ export function ForgotPasswordPage() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="w-full max-w-md">
-          <div className="bg-card border border-border rounded-lg shadow-xl p-8">
+          <div className="bg-card  rounded-lg p-8">
             <h1 className="text-3xl font-bold text-text mb-2 text-center">Check Your Email</h1>
             <p className="text-text-muted text-center mb-6">
               If an account with that email exists, we've sent you a password reset link.
@@ -72,7 +72,7 @@ export function ForgotPasswordPage() {
             <button
               type="button"
               onClick={() => navigate('/login')}
-              className="w-full py-3 px-4 rounded-lg font-semibold transition-colors bg-primary hover:bg-primary-hover text-white"
+              className="w-full py-3 px-4 rounded-lg font-normal transition-colors bg-primary hover:bg-primary-hover text-white"
             >
               Back to Login
             </button>
@@ -85,8 +85,8 @@ export function ForgotPasswordPage() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="bg-card border border-border rounded-lg shadow-xl p-8">
-          <h1 className="text-3xl font-bold text-text mb-2 text-center">
+        <div className="bg-card  rounded-lg p-8">
+          <h1 className="text-2xl font-medium text-text mb-2 text-center">
             Get back into your account
           </h1>
           <p className="text-text-muted text-center mb-6">
@@ -102,7 +102,7 @@ export function ForgotPasswordPage() {
 
           <form onSubmit={handleSubmit} className="space-y-6" noValidate>
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-text mb-2">
+              <label htmlFor="email" className="block text-sm font-normal text-text mb-2">
                 Email
               </label>
               <input
@@ -130,8 +130,8 @@ export function ForgotPasswordPage() {
               type="submit"
               data-testid="forgot-password-submit-button"
               disabled={isLoading}
-              className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
-                isLoading ? 'bg-primary/50 cursor-not-allowed' : 'bg-primary hover:bg-primary-hover'
+              className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
+                isLoading ? 'gradient-dark-red/50 cursor-not-allowed' : 'gradient-dark-red hover:bg-primary-hover'
               } text-white`}
             >
               {isLoading ? 'Sending...' : 'Send Reset Link'}

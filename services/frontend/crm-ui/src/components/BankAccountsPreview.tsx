@@ -12,7 +12,7 @@ export function BankAccountsPreview({
   onManageAccounts,
 }: BankAccountsPreviewProps) {
   return (
-    <div className="bg-card border border-border rounded-lg">
+    <div className="bg-card  rounded-lg">
       <div className="px-6 py-4 border-b border-border flex items-center justify-between">
         <h2 className="text-lg font-bold text-text">Bank Accounts</h2>
         <button onClick={onManageAccounts} className="text-primary hover:underline text-sm">
@@ -27,16 +27,16 @@ export function BankAccountsPreview({
           <table className="w-full">
             <thead className="bg-background-light">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                   Account ID
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                   Type
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-text-muted uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-normal text-text-muted uppercase tracking-wider">
                   Initial Deposit
                 </th>
               </tr>
@@ -50,7 +50,7 @@ export function BankAccountsPreview({
                   <td className="px-6 py-3 text-sm text-text">{acct.accountType}</td>
                   <td className="px-6 py-3">
                     <span
-                      className={`px-2 py-1 rounded text-xs font-medium ${
+                      className={`px-2 py-1 rounded text-xs font-normal ${
                         acct.accountStatus === 'Active'
                           ? 'bg-success/20 text-success'
                           : acct.accountStatus === 'Pending'
@@ -61,7 +61,7 @@ export function BankAccountsPreview({
                       {acct.accountStatus}
                     </span>
                   </td>
-                  <td className="px-6 py-3 text-sm text-text text-right font-medium">
+                  <td className="px-6 py-3 text-sm text-text text-right font-normal">
                     {formatAmount(acct.initialDeposit)}
                   </td>
                 </tr>

@@ -19,7 +19,7 @@ export function VerificationForm({
   onCancel,
 }: VerificationFormProps) {
   return (
-    <div className="bg-card border border-border rounded-lg p-6">
+    <div className="bg-card  rounded-lg p-6">
       <h2 className="text-lg font-bold text-text mb-4">KYC Verification</h2>
 
       {verifyError && (
@@ -30,7 +30,7 @@ export function VerificationForm({
 
       <form onSubmit={onSubmit} className="space-y-4 max-w-md">
         <div>
-          <label className="block text-sm font-medium text-text mb-1">
+          <label className="block text-sm font-normal text-text mb-1">
             NRIC <span className="text-danger">*</span>
           </label>
           <input
@@ -38,7 +38,7 @@ export function VerificationForm({
             placeholder="e.g. S1234567D"
             value={verifyData.nric}
             onChange={e => setVerifyData({ ...verifyData, nric: e.target.value.toUpperCase() })}
-            className="w-full px-4 py-2 bg-background-light border border-border rounded-lg text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full px-4 py-2 bg-background-light  rounded-lg text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             disabled={isVerifying}
           />
           <p className="text-xs text-text-muted mt-1">
@@ -47,13 +47,13 @@ export function VerificationForm({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-text mb-1">Document Reference</label>
+          <label className="block text-sm font-normal text-text mb-1">Document Reference</label>
           <input
             type="text"
             placeholder="Optional scan/document reference ID"
             value={verifyData.documentRef || ''}
             onChange={e => setVerifyData({ ...verifyData, documentRef: e.target.value })}
-            className="w-full px-4 py-2 bg-background-light border border-border rounded-lg text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full px-4 py-2 bg-background-light  rounded-lg text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             disabled={isVerifying}
           />
         </div>
@@ -62,14 +62,14 @@ export function VerificationForm({
           <button
             type="submit"
             disabled={isVerifying}
-            className="px-6 py-2 bg-success hover:bg-success-hover text-white rounded-lg text-sm font-medium disabled:opacity-50"
+            className="px-6 py-2 bg-success hover:bg-success-hover text-white rounded-lg text-sm font-normal disabled:opacity-50"
           >
             {isVerifying ? 'Submitting...' : 'Submit for Review'}
           </button>
           <button
             type="button"
             onClick={onCancel}
-            className="px-6 py-2 bg-background-light hover:bg-background-lighter text-text rounded-lg text-sm font-medium"
+            className="px-6 py-2 bg-background-light hover:bg-background-lighter text-text rounded-lg text-sm font-normal"
           >
             Cancel
           </button>

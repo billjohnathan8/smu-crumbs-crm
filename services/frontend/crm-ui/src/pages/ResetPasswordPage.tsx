@@ -83,7 +83,7 @@ export function ResetPasswordPage() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="w-full max-w-md">
-          <div className="bg-card border border-border rounded-lg shadow-xl p-8">
+          <div className="bg-card  rounded-lg p-8">
             <h1 className="text-3xl font-bold text-text mb-2 text-center">
               Password Reset Successful
             </h1>
@@ -93,7 +93,7 @@ export function ResetPasswordPage() {
             <button
               type="button"
               onClick={() => navigate('/login')}
-              className="w-full py-3 px-4 rounded-lg font-semibold transition-colors bg-primary hover:bg-primary-hover text-white"
+              className="w-full py-3 px-4 rounded-lg font-normal transition-colors bg-primary hover:bg-primary-hover text-white"
             >
               Go to Login
             </button>
@@ -106,9 +106,9 @@ export function ResetPasswordPage() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="bg-card border border-border rounded-lg shadow-xl p-8">
-          <h1 className="text-3xl font-bold text-text mb-2 text-center">Reset Password</h1>
-          <p className="text-text-muted text-center mb-6">Enter your new password below.</p>
+        <div className="bg-card  rounded-lg p-8">
+          <h1 className="text-3xl font-medium text-text mb-2 text-center">Reset Password</h1>
+          <p className="text-text-muted text-center mb-8">Enter your new password below</p>
 
           {generalError && (
             <div className="bg-danger/10 border border-danger rounded-lg p-4 mb-6">
@@ -124,7 +124,7 @@ export function ResetPasswordPage() {
 
           <form onSubmit={handleSubmit} className="space-y-6" noValidate>
             <div>
-              <label htmlFor="newPassword" className="block text-sm font-medium text-text mb-2">
+              <label htmlFor="newPassword" className="block text-sm font-normal text-text mb-2">
                 New Password
               </label>
               <input
@@ -151,7 +151,7 @@ export function ResetPasswordPage() {
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-text mb-2">
+              <label htmlFor="confirmPassword" className="block text-sm font-normal text-text mb-2">
                 Confirm Password
               </label>
               <input
@@ -181,21 +181,21 @@ export function ResetPasswordPage() {
               type="submit"
               data-testid="reset-password-submit-button"
               disabled={isLoading || !token}
-              className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
+              className={`w-full py-3 px-4 rounded-lg font-normal transition-colors ${
                 isLoading || !token
-                  ? 'bg-primary/50 cursor-not-allowed'
-                  : 'bg-primary hover:bg-primary-hover'
+                  ? 'gradient-dark-red'
+                  : 'gradient-dark-red'
               } text-white`}
             >
               {isLoading ? 'Resetting...' : 'Reset Password'}
             </button>
           </form>
 
-          <p className="text-sm text-center mt-6">
+          <p className="text-sm text-center">
             <button
               type="button"
               onClick={() => navigate('/login')}
-              className="text-primary underline-hover"
+              className="text-primary underline-hover mt-4 mb-4"
             >
               Back to Login
             </button>

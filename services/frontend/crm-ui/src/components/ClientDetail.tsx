@@ -20,26 +20,26 @@ export function ClientDetail({
   showVerifyForm,
 }: ClientDetailProps) {
   return (
-    <div className="bg-card border border-border rounded-lg p-6">
+    <div className="bg-card  rounded-lg p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-bold text-text">Client Profile</h2>
         <div className="flex items-center space-x-2">
           <button
             onClick={onEdit}
-            className="px-4 py-2 rounded bg-primary hover:bg-primary-hover text-white text-sm font-medium"
+            className="px-4 py-2 rounded bg-primary hover:bg-primary-hover text-white text-sm font-normal"
           >
             Edit Client
           </button>
           <button
             onClick={onDelete}
-            className="px-4 py-2 rounded bg-danger hover:bg-danger-hover text-white text-sm font-medium"
+            className="px-4 py-2 rounded bg-danger hover:bg-danger-hover text-white text-sm font-normal"
           >
             Delete Client
           </button>
           {showVerifyButton && (
             <button
               onClick={onToggleVerify}
-              className="px-4 py-2 rounded bg-success hover:bg-success-hover text-white text-sm font-medium"
+              className="px-4 py-2 rounded bg-success hover:bg-success-hover text-white text-sm font-normal"
             >
               {showVerifyForm ? 'Cancel Verification' : 'Submit for KYC Verification'}
             </button>
@@ -62,7 +62,7 @@ export function ClientDetail({
           ['Postal Code', client.postalCode],
         ].map(([label, value]) => (
           <div key={label}>
-            <dt className="text-xs text-text-muted font-medium uppercase tracking-wider">
+            <dt className="text-xs text-text-muted font-normal uppercase tracking-wider">
               {label}
             </dt>
             <dd className="text-sm text-text mt-1">{value || '-'}</dd>

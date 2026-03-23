@@ -24,16 +24,18 @@ const userNav: NavItem[] = [
   { label: 'Create Client', to: '/user/clients/new' },
   { label: 'Transactions', to: '/user/transactions' },
   { label: 'AML Alerts', to: '/user/aml-alerts' },
+  { label: 'Settings', to: '/user/settings' },
 ]
 
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients' },
+  { label: 'All Clients', to: '/admin/clients', end: true },
   { label: 'Create Client', to: '/admin/clients/new' },
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
   { label: 'User Management', to: '/admin/users' },
+  { label: 'Settings', to: '/admin/settings' },
 ]
 
 const ITEMS_PER_PAGE = 20
@@ -379,20 +381,17 @@ export function ViewTransactionsPage() {
   return (
     <SidebarLayout items={sidebarNav}>
       <nav>
-        <div className="flex justify-between h-16 items-center px-4">
+        <div className="flex justify-between h-16 items-center">
           <div className="flex items-center space-x-4">
-            <button onClick={() => navigate(basePath)} className="text-text-muted hover:text-text">
+            <button
+              onClick={() => navigate(basePath)}
+              className="text-text-subtle hover:text-text text-2xl"
+            >
               Dashboard
             </button>
-            <span className="text-text-muted">/</span>
-            <h1 className="text-xl font-bold text-text">Transactions</h1>
+            <span className="text-text-subtle text-2xl">/</span>
+            <h1 className="text-2xl font-medium text-text">Transactions</h1>
           </div>
-          <button
-            onClick={logout}
-            className="px-4 py-2 rounded-lg bg-danger hover:bg-danger-hover text-white font-medium transition-colors"
-          >
-            Logout
-          </button>
         </div>
       </nav>
 
@@ -404,13 +403,10 @@ export function ViewTransactionsPage() {
         )}
 
         {isManagementUser && (
-          <div
-            className="bg-card border border-border rounded-lg mb-6 p-4"
-            data-testid="transaction-import-panel"
-          >
+          <div className="bg-card  rounded-lg mb-6 p-4" data-testid="transaction-import-panel">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
-                <h3 className="text-text font-medium">Transaction Import</h3>
+                <h3 className="text-text font-normal">Transaction Import</h3>
                 <p className="text-xs text-text-muted mt-1">
                   Trigger imports and track their batch status from this page.
                 </p>
@@ -418,7 +414,7 @@ export function ViewTransactionsPage() {
               <button
                 onClick={() => void refreshImportBatchHistory(trackedImportBatchIds)}
                 disabled={isRefreshingImportHistory || trackedImportBatchIds.length === 0}
-                className="px-4 py-2 rounded bg-background-light text-text hover:bg-background-lighter text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 rounded bg-background-light text-text hover:bg-background-lighter text-sm font-normal transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isRefreshingImportHistory ? 'Refreshing...' : 'Refresh Batch Status'}
               </button>
@@ -432,7 +428,7 @@ export function ViewTransactionsPage() {
                   placeholder="Import for one client"
                   value={importClientId}
                   onChange={event => setImportClientId(event.target.value)}
-                  className="w-full px-3 py-2 bg-background-light border border-border rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 bg-background-light  rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
               <div>
@@ -442,7 +438,7 @@ export function ViewTransactionsPage() {
                   placeholder="Override source path"
                   value={importSourcePath}
                   onChange={event => setImportSourcePath(event.target.value)}
-                  className="w-full px-3 py-2 bg-background-light border border-border rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 bg-background-light  rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
             </div>
@@ -451,7 +447,7 @@ export function ViewTransactionsPage() {
               <button
                 onClick={() => void handleStartImport()}
                 disabled={isImporting}
-                className="px-4 py-2 rounded bg-primary hover:bg-primary-hover text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 rounded gradient-dark-red hover:bg-primary-hover text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isImporting ? 'Starting Import...' : 'Start Import'}
               </button>
@@ -475,9 +471,9 @@ export function ViewTransactionsPage() {
               </div>
             )}
 
-            <div className="mt-6 border border-border rounded-lg">
+            <div className="mt-6  rounded-lg">
               <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-                <h4 className="font-medium text-text">Import Batch History</h4>
+                <h4 className="font-normal text-text">Import Batch History</h4>
                 {hasActiveImports && (
                   <span className="text-xs text-text-muted">Auto-refresh every 5s</span>
                 )}
@@ -494,25 +490,25 @@ export function ViewTransactionsPage() {
                   <table className="w-full">
                     <thead className="bg-background-light">
                       <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-4 py-2 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           Batch ID
                         </th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-4 py-2 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           Status
                         </th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-4 py-2 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           Requested Client
                         </th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-4 py-2 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           Requested At
                         </th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-4 py-2 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           Imported
                         </th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-4 py-2 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           Failed
                         </th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-4 py-2 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           Finished / Error
                         </th>
                       </tr>
@@ -525,7 +521,7 @@ export function ViewTransactionsPage() {
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             <span
-                              className={`px-2 py-1 rounded text-xs font-medium ${importStatusColors[batch.status]}`}
+                              className={`px-2 py-1 rounded text-xs font-normal ${importStatusColors[batch.status]}`}
                             >
                               {batch.status}
                             </span>
@@ -563,17 +559,17 @@ export function ViewTransactionsPage() {
           </div>
         )}
 
-        <div className="bg-card border border-border rounded-lg mb-6 p-4">
-          <h3 className="text-text font-medium mb-4">Filters</h3>
+        <div className="bg-card  rounded-lg mb-6 p-4">
+          <h3 className="text-text font-normal mb-4">Filters</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             <div>
               <label className="block text-xs text-text-muted mb-1">Client ID</label>
               <input
                 type="text"
-                placeholder="Filter by client ID"
+                placeholder="Client ID"
                 value={filters.clientId}
                 onChange={e => handleFilterChange('clientId', e.target.value)}
-                className="w-full px-3 py-2 bg-background-light border border-border rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 bg-background-light  rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
 
@@ -584,7 +580,7 @@ export function ViewTransactionsPage() {
                 placeholder="Transaction ID"
                 value={filters.search}
                 onChange={e => handleFilterChange('search', e.target.value)}
-                className="w-full px-3 py-2 bg-background-light border border-border rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 bg-background-light  rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
 
@@ -593,7 +589,7 @@ export function ViewTransactionsPage() {
               <select
                 value={filters.status}
                 onChange={e => handleFilterChange('status', e.target.value)}
-                className="w-full px-3 py-2 bg-background-light border border-border rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 bg-background-light  rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="">All</option>
                 <option value="Completed">Completed</option>
@@ -607,7 +603,7 @@ export function ViewTransactionsPage() {
               <select
                 value={filters.transaction}
                 onChange={e => handleFilterChange('transaction', e.target.value)}
-                className="w-full px-3 py-2 bg-background-light border border-border rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 bg-background-light  rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="">All</option>
                 <option value="D">Deposit</option>
@@ -621,7 +617,7 @@ export function ViewTransactionsPage() {
                 type="date"
                 value={filters.fromDate}
                 onChange={e => handleFilterChange('fromDate', e.target.value)}
-                className="w-full px-3 py-2 bg-background-light border border-border rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 bg-background-light  rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
 
@@ -631,7 +627,7 @@ export function ViewTransactionsPage() {
                 type="date"
                 value={filters.toDate}
                 onChange={e => handleFilterChange('toDate', e.target.value)}
-                className="w-full px-3 py-2 bg-background-light border border-border rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 bg-background-light  rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
           </div>
@@ -639,16 +635,16 @@ export function ViewTransactionsPage() {
           <div className="mt-4 flex justify-end">
             <button
               onClick={resetFilters}
-              className="px-4 py-2 rounded bg-background-light text-text hover:bg-background-lighter text-sm font-medium transition-colors"
+              className="px-4 py-2 rounded bg-background-lighter border border-border text-text hover:bg-background-lighter text-sm font-medium transition-colors"
             >
               Reset Filters
             </button>
           </div>
         </div>
 
-        <div className="bg-card border border-border rounded-lg">
+        <div className="bg-card  rounded-lg">
           <div className="px-6 py-4 border-b border-border">
-            <h2 className="text-xl font-bold text-text">Transaction List</h2>
+            <h2 className="text-xl font-normal text-text">Transaction List</h2>
           </div>
 
           {isLoading ? (
@@ -666,22 +662,22 @@ export function ViewTransactionsPage() {
                 <table className="w-full">
                   <thead className="bg-background-light">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                         Date
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                         Transaction ID
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                         Client ID
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                         Type
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-text-muted uppercase tracking-wider">
+                      <th className="px-6 py-3 text-right text-xs font-normal text-text-muted uppercase tracking-wider">
                         Amount
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                         Status
                       </th>
                     </tr>
@@ -700,7 +696,7 @@ export function ViewTransactionsPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
-                            className={`px-2 py-1 rounded text-xs font-medium ${
+                            className={`px-2 py-1 rounded text-xs font-normal ${
                               transaction.transaction === 'D'
                                 ? 'bg-success/20 text-success'
                                 : 'bg-warning/20 text-warning'
@@ -709,12 +705,12 @@ export function ViewTransactionsPage() {
                             {transaction.transaction === 'D' ? 'Deposit' : 'Withdrawal'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-text text-right font-medium">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-text text-right font-normal">
                           {formatAmount(transaction.amount)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
-                            className={`px-2 py-1 rounded text-xs font-medium ${
+                            className={`px-2 py-1 rounded text-xs font-normal ${
                               transaction.status === 'Completed'
                                 ? 'bg-success/20 text-success'
                                 : transaction.status === 'Pending'

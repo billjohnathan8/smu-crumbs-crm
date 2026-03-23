@@ -12,6 +12,7 @@ const userNav: NavItem[] = [
   { label: 'Create Client', to: '/user/clients/new' },
   { label: 'Transactions', to: '/user/transactions' },
   { label: 'AML Alerts', to: '/user/aml-alerts' },
+  { label: 'Settings', to: '/user/settings' },
 ]
 
 export function UserDashboard() {
@@ -66,7 +67,7 @@ export function UserDashboard() {
     <SidebarLayout items={userNav}>
       <div className="flex justify-between h-16 items-center">
         <div>
-          <h1 className="text-xl font-bold text-text">User Dashboard</h1>
+          <h1 className="text-2xl font-normal text-text">User Dashboard</h1>
           <p className="text-sm text-text-muted">
             Welcome, {user?.firstName} {user?.lastName}
           </p>
@@ -75,28 +76,22 @@ export function UserDashboard() {
         <div className="flex space-x-4">
           <a
             href="/user/clients/new"
-            className="px-4 py-2 rounded-lg bg-success hover:bg-success-hover text-white font-medium transition-colors"
+            className="px-4 py-2 rounded-lg bg-success hover:bg-success-hover text-white font-normal transition-colors"
           >
             Create Client
           </a>
           <a
             href="/user/transactions"
-            className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white font-medium transition-colors"
+            className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white font-normal transition-colors"
           >
             View Transactions
           </a>
           <a
             href="/user/aml-alerts"
-            className="px-4 py-2 rounded-lg bg-warning hover:bg-warning-hover text-white font-medium transition-colors"
+            className="px-4 py-2 rounded-lg bg-warning hover:bg-warning-hover text-white font-normal transition-colors"
           >
             AML Alerts
           </a>
-          <button
-            onClick={logout}
-            className="px-4 py-2 rounded-lg bg-danger hover:bg-danger-hover text-white font-medium transition-colors"
-          >
-            Logout
-          </button>
         </div>
       </div>
 
@@ -114,17 +109,17 @@ export function UserDashboard() {
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-              <div className="bg-card border border-border rounded-lg p-6">
-                <h3 className="text-text-muted text-sm font-medium mb-2">My Clients</h3>
+              <div className="bg-card  rounded-lg p-6">
+                <h3 className="text-text-muted text-sm font-normal mb-2">My Clients</h3>
                 <p className="text-4xl font-bold text-text">{clientCount}</p>
               </div>
-              <div className="bg-card border border-border rounded-lg p-6">
-                <h3 className="text-text-muted text-sm font-medium mb-2">Recent Activities</h3>
+              <div className="bg-card  rounded-lg p-6">
+                <h3 className="text-text-muted text-sm font-normal mb-2">Recent Activities</h3>
                 <p className="text-4xl font-bold text-text">{recentActivities.length}</p>
               </div>
             </div>
 
-            <div className="bg-card border border-border rounded-lg">
+            <div className="bg-card  rounded-lg">
               <div className="px-6 py-4 border-b border-border">
                 <h2 className="text-xl font-bold text-text">My Recent Activities</h2>
               </div>
@@ -136,22 +131,22 @@ export function UserDashboard() {
                   <table className="w-full">
                     <thead className="bg-background-light">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           Date/Time
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           Action
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           Attribute
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           Client ID
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           Before
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           After
                         </th>
                       </tr>
@@ -164,7 +159,7 @@ export function UserDashboard() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
-                              className={`px-2 py-1 rounded text-xs font-medium ${
+                              className={`px-2 py-1 rounded text-xs font-normal ${
                                 log.action === 'CREATE'
                                   ? 'bg-success/20 text-success'
                                   : log.action === 'UPDATE'

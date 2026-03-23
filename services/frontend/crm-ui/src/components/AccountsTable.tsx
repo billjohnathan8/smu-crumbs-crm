@@ -34,31 +34,31 @@ export function AccountsTable({
       <table className="w-full">
         <thead className="bg-background-light">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
               Account ID
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
               Client ID
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
               Type
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
               Status
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
               Opened
             </th>
-            <th className="px-6 py-3 text-right text-xs font-medium text-text-muted uppercase tracking-wider">
+            <th className="px-6 py-3 text-right text-xs font-normal text-text-muted uppercase tracking-wider">
               Initial Deposit
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
               Currency
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
               Branch
             </th>
-            <th className="px-6 py-3 text-right text-xs font-medium text-text-muted uppercase tracking-wider">
+            <th className="px-6 py-3 text-right text-xs font-normal text-text-muted uppercase tracking-wider">
               Actions
             </th>
           </tr>
@@ -73,7 +73,7 @@ export function AccountsTable({
               <td className="px-6 py-3 text-sm text-text">{acct.accountType}</td>
               <td className="px-6 py-3">
                 <span
-                  className={`px-2 py-1 rounded text-xs font-medium ${
+                  className={`px-2 py-1 rounded text-xs font-normal ${
                     accountStatusColors[acct.accountStatus] ?? ''
                   }`}
                 >
@@ -81,7 +81,7 @@ export function AccountsTable({
                 </span>
               </td>
               <td className="px-6 py-3 text-sm text-text">{formatDate(acct.openingDate)}</td>
-              <td className="px-6 py-3 text-sm text-text text-right font-medium">
+              <td className="px-6 py-3 text-sm text-text text-right font-normal">
                 {formatAmount(acct.initialDeposit)}
               </td>
               <td className="px-6 py-3 text-sm text-text">{acct.currency}</td>

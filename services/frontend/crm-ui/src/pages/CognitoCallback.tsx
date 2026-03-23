@@ -56,12 +56,12 @@ export function CognitoCallback() {
   if (error) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="bg-card border border-border rounded-lg shadow-xl p-8 max-w-md w-full">
+        <div className="bg-card  rounded-lg shadow-xl p-8 max-w-md w-full">
           <h1 className="text-2xl font-bold text-danger mb-4">Authentication Failed</h1>
           <p className="text-text-muted mb-6">{error}</p>
           <button
             onClick={() => navigate('/login', { replace: true })}
-            className="w-full py-3 px-4 rounded-lg font-semibold bg-primary hover:bg-primary-hover text-white"
+            className="w-full py-3 px-4 rounded-lg font-normal bg-primary hover:bg-primary-hover text-white"
           >
             Return to Login
           </button>

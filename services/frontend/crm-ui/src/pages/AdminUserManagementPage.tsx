@@ -13,16 +13,18 @@ const userNav: NavItem[] = [
   { label: 'Create Client', to: '/user/clients/new' },
   { label: 'Transactions', to: '/user/transactions' },
   { label: 'AML Alerts', to: '/user/aml-alerts' },
+  { label: 'Settings', to: '/user/settings' },
 ]
 
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients' },
+  { label: 'All Clients', to: '/admin/clients', end: true },
   { label: 'Create Client', to: '/admin/clients/new' },
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
   { label: 'User Management', to: '/admin/users' },
+  { label: 'Settings', to: '/admin/settings' },
 ]
 
 export function AdminUserManagementPage() {
@@ -126,13 +128,16 @@ export function AdminUserManagementPage() {
   return (
     <SidebarLayout items={sidebarNav}>
       <nav>
-        <div className="flex justify-between h-16 items-center px-4">
+        <div className="flex justify-between h-16 items-center">
           <div className="flex items-center space-x-4">
-            <button onClick={() => navigate(homePath)} className="text-text-muted hover:text-text">
+            <button
+              onClick={() => navigate(homePath)}
+              className="text-text-subtle hover:text-text text-2xl"
+            >
               Dashboard
             </button>
-            <span className="text-text-muted">/</span>
-            <h1 className="text-xl font-bold text-text">User Management</h1>
+            <span className="text-text-subtle text-2xl">/</span>
+            <h1 className="text-2xl font-medium text-text">User Management</h1>
           </div>
 
           <div className="flex items-center space-x-4">
@@ -142,12 +147,6 @@ export function AdminUserManagementPage() {
               className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white font-medium transition-colors"
             >
               Create New User
-            </button>
-            <button
-              onClick={logout}
-              className="px-4 py-2 rounded-lg bg-danger hover:bg-danger-hover text-white font-medium transition-colors"
-            >
-              Logout
             </button>
           </div>
         </div>
@@ -167,17 +166,17 @@ export function AdminUserManagementPage() {
         ) : (
           <div className="space-y-8">
             {isRootAdmin && admins.length > 0 && (
-              <div className="bg-card border border-border rounded-lg p-6">
+              <div className="bg-card  rounded-lg p-6">
                 <h2 className="text-xl font-bold text-text mb-4">Admins</h2>
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-border">
-                        <th className="text-left py-2 px-4 font-medium text-text">First Name</th>
-                        <th className="text-left py-2 px-4 font-medium text-text">Last Name</th>
-                        <th className="text-left py-2 px-4 font-medium text-text">Email</th>
-                        <th className="text-left py-2 px-4 font-medium text-text">Role</th>
-                        <th className="text-left py-2 px-4 font-medium text-text">Actions</th>
+                        <th className="text-left py-2 px-4 font-normal text-text">First Name</th>
+                        <th className="text-left py-2 px-4 font-normal text-text">Last Name</th>
+                        <th className="text-left py-2 px-4 font-normal text-text">Email</th>
+                        <th className="text-left py-2 px-4 font-normal text-text">Role</th>
+                        <th className="text-left py-2 px-4 font-normal text-text">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -192,7 +191,7 @@ export function AdminUserManagementPage() {
                               <button
                                 onClick={() => handleDeleteUser(admin.id, admin.role)}
                                 disabled={deletingUserId === admin.id}
-                                className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                                className={`px-3 py-1 rounded text-sm font-normal transition-colors ${
                                   deletingUserId === admin.id
                                     ? 'bg-danger/50 cursor-not-allowed text-white'
                                     : 'bg-danger hover:bg-danger-hover text-white'
@@ -210,23 +209,23 @@ export function AdminUserManagementPage() {
               </div>
             )}
 
-            <div className="bg-card border border-border rounded-lg p-6">
-              <h2 className="text-xl font-bold text-text mb-4">
+            <div className="bg-card  rounded-lg p-6">
+              <h2 className="text-xl font-normal text-text mb-4">
                 {isRootAdmin ? 'My Users' : 'My Users'}
               </h2>
 
               {regularUsers.length === 0 ? (
-                <p className="text-text-muted">No users found</p>
+                <p className="text-text-subtle">No users found</p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-border">
-                        <th className="text-left py-2 px-4 font-medium text-text">First Name</th>
-                        <th className="text-left py-2 px-4 font-medium text-text">Last Name</th>
-                        <th className="text-left py-2 px-4 font-medium text-text">Email</th>
-                        <th className="text-left py-2 px-4 font-medium text-text">Role</th>
-                        <th className="text-left py-2 px-4 font-medium text-text">Actions</th>
+                        <th className="text-left py-2 px-4 font-normal text-text">First Name</th>
+                        <th className="text-left py-2 px-4 font-normal text-text">Last Name</th>
+                        <th className="text-left py-2 px-4 font-normal text-text">Email</th>
+                        <th className="text-left py-2 px-4 font-normal text-text">Role</th>
+                        <th className="text-left py-2 px-4 font-normal text-text">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -240,7 +239,7 @@ export function AdminUserManagementPage() {
                             <button
                               onClick={() => handleDeleteUser(u.id, u.role)}
                               disabled={deletingUserId === u.id}
-                              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                              className={`px-3 py-1 rounded text-sm font-normal transition-colors ${
                                 deletingUserId === u.id
                                   ? 'bg-danger/50 cursor-not-allowed text-white'
                                   : 'bg-danger hover:bg-danger-hover text-white'

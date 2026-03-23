@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
+import { useTheme } from '@/features/theme/ThemeContext'
 import { isRootAdminUser } from '@/features/auth/authorization'
 import { createUser } from '@/api/users'
 import type { CreateUserRequest, UserRole } from '@/api/types'
@@ -13,21 +14,24 @@ const userNav: NavItem[] = [
   { label: 'Create Client', to: '/user/clients/new' },
   { label: 'Transactions', to: '/user/transactions' },
   { label: 'AML Alerts', to: '/user/aml-alerts' },
+  { label: 'Settings', to: '/user/settings' },
 ]
 
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients' },
+  { label: 'All Clients', to: '/admin/clients', end: true },
   { label: 'Create Client', to: '/admin/clients/new' },
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
   { label: 'User Management', to: '/admin/users' },
+  { label: 'Settings', to: '/admin/settings' },
 ]
 
 export function CreateNewUserPage() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
+  const { theme } = useTheme()
 
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
@@ -142,25 +146,24 @@ export function CreateNewUserPage() {
   return (
     <SidebarLayout items={sidebarNav}>
       <nav>
-        <div className="flex justify-between h-16 items-center px-4">
+        <div className="flex justify-between h-16 items-center">
           <div className="flex items-center space-x-4">
-            <button onClick={() => navigate(homePath)} className="text-text-muted hover:text-text">
+            <button
+              onClick={() => navigate(homePath)}
+              className="text-text-subtle hover:text-text text-2xl"
+            >
               Dashboard
             </button>
-            <span className="text-text-muted">/</span>
-            <button onClick={() => navigate(listPath)} className="text-text-muted hover:text-text">
+            <span className="text-text-subtle text-2xl">/</span>
+            <button
+              onClick={() => navigate(listPath)}
+              className="text-text-subtle hover:text-text text-2xl"
+            >
               {breadcrumbLabel}
             </button>
-            <span className="text-text-muted">/</span>
-            <h1 className="text-xl font-bold text-text">Create New User</h1>
+            <span className="text-text-subtle text-2xl">/</span>
+            <h1 className="text-2xl font-medium text-text">Create New User</h1>
           </div>
-
-          <button
-            onClick={logout}
-            className="px-4 py-2 rounded-lg bg-danger hover:bg-danger-hover text-white font-medium transition-colors"
-          >
-            Logout
-          </button>
         </div>
       </nav>
 
@@ -177,12 +180,12 @@ export function CreateNewUserPage() {
           </div>
         )}
 
-        <div className="bg-card border border-border rounded-lg p-6">
-          <h2 className="text-xl font-bold text-text mb-6">User Details</h2>
+        <div className="bg-card rounded-lg p-6">
+          <h2 className="text-xl font-medium text-text mb-6">User Details</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div>
-              <label htmlFor="firstName" className="block text-sm font-medium text-text mb-1">
+              <label htmlFor="firstName" className="block text-sm font-normal text-text mb-1">
                 First Name <span className="text-danger">*</span>
               </label>
               <input
@@ -191,7 +194,7 @@ export function CreateNewUserPage() {
                 type="text"
                 value={formData.firstName}
                 onChange={e => updateField('firstName', e.target.value)}
-                className={`w-full px-3 py-2 bg-background-light border ${
+                className={`w-full px-3 py-2 bg-background-light ${
                   formErrors.firstName ? 'border-danger' : 'border-border'
                 } rounded text-text focus:outline-none focus:ring-2 focus:ring-primary`}
                 disabled={isSubmitting}
@@ -202,7 +205,7 @@ export function CreateNewUserPage() {
             </div>
 
             <div>
-              <label htmlFor="lastName" className="block text-sm font-medium text-text mb-1">
+              <label htmlFor="lastName" className="block text-sm font-normal text-text mb-1">
                 Last Name <span className="text-danger">*</span>
               </label>
               <input
@@ -211,7 +214,7 @@ export function CreateNewUserPage() {
                 type="text"
                 value={formData.lastName}
                 onChange={e => updateField('lastName', e.target.value)}
-                className={`w-full px-3 py-2 bg-background-light border ${
+                className={`w-full px-3 py-2 bg-background-light ${
                   formErrors.lastName ? 'border-danger' : 'border-border'
                 } rounded text-text focus:outline-none focus:ring-2 focus:ring-primary`}
                 disabled={isSubmitting}
@@ -222,7 +225,7 @@ export function CreateNewUserPage() {
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-text mb-1">
+              <label htmlFor="email" className="block text-sm font-normal text-text mb-1">
                 Email <span className="text-danger">*</span>
               </label>
               <input
@@ -231,7 +234,7 @@ export function CreateNewUserPage() {
                 type="email"
                 value={formData.email}
                 onChange={e => updateField('email', e.target.value)}
-                className={`w-full px-3 py-2 bg-background-light border ${
+                className={`w-full px-3 py-2 bg-background-light ${
                   formErrors.email ? 'border-danger' : 'border-border'
                 } rounded text-text focus:outline-none focus:ring-2 focus:ring-primary`}
                 disabled={isSubmitting}
@@ -240,7 +243,7 @@ export function CreateNewUserPage() {
             </div>
 
             <div>
-              <label htmlFor="role" className="block text-sm font-medium text-text mb-1">
+              <label htmlFor="role" className="block text-sm font-normal text-text mb-1">
                 Role <span className="text-danger">*</span>
               </label>
               <select
@@ -248,7 +251,7 @@ export function CreateNewUserPage() {
                 data-testid="role-select"
                 value={formData.role}
                 onChange={e => updateField('role', e.target.value as UserRole)}
-                className={`w-full px-3 py-2 bg-background-light border ${
+                className={`w-full px-3 py-2 bg-background-light ${
                   formErrors.role ? 'border-danger' : 'border-border'
                 } rounded text-text focus:outline-none focus:ring-2 focus:ring-primary`}
                 disabled={isSubmitting}
@@ -265,7 +268,7 @@ export function CreateNewUserPage() {
             <div>
               <label
                 htmlFor="temporaryPassword"
-                className="block text-sm font-medium text-text mb-1"
+                className="block text-sm font-normal text-text mb-1"
               >
                 Temporary Password
               </label>
@@ -275,7 +278,7 @@ export function CreateNewUserPage() {
                 type="password"
                 value={formData.temporaryPassword ?? ''}
                 onChange={e => updateField('temporaryPassword', e.target.value)}
-                className="w-full px-3 py-2 bg-background-light border border-border rounded text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 bg-background-light  rounded text-text focus:outline-none focus:ring-2 focus:ring-primary"
                 disabled={isSubmitting}
                 placeholder="Leave blank to auto-generate"
               />

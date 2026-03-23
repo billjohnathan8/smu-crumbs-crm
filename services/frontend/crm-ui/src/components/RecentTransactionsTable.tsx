@@ -12,7 +12,7 @@ export function RecentTransactionsTable({
   onViewAll,
 }: RecentTransactionsTableProps) {
   return (
-    <div className="bg-card border border-border rounded-lg">
+    <div className="bg-card  rounded-lg">
       <div className="px-6 py-4 border-b border-border flex items-center justify-between">
         <h2 className="text-lg font-bold text-text">Recent Transactions</h2>
         <button onClick={onViewAll} className="text-primary hover:underline text-sm">
@@ -27,16 +27,16 @@ export function RecentTransactionsTable({
           <table className="w-full">
             <thead className="bg-background-light">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                   Date
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                   Type
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-text-muted uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-normal text-text-muted uppercase tracking-wider">
                   Amount
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                   Status
                 </th>
               </tr>
@@ -49,7 +49,7 @@ export function RecentTransactionsTable({
                   </td>
                   <td className="px-6 py-3">
                     <span
-                      className={`px-2 py-1 rounded text-xs font-medium ${
+                      className={`px-2 py-1 rounded text-xs font-normal ${
                         tx.transaction === 'D'
                           ? 'bg-success/20 text-success'
                           : 'bg-warning/20 text-warning'
@@ -58,12 +58,12 @@ export function RecentTransactionsTable({
                       {tx.transaction === 'D' ? 'Deposit' : 'Withdrawal'}
                     </span>
                   </td>
-                  <td className="px-6 py-3 text-sm text-text text-right font-medium">
+                  <td className="px-6 py-3 text-sm text-text text-right font-normal">
                     {formatAmount(tx.amount)}
                   </td>
                   <td className="px-6 py-3">
                     <span
-                      className={`px-2 py-1 rounded text-xs font-medium ${
+                      className={`px-2 py-1 rounded text-xs font-normal ${
                         tx.status === 'Completed'
                           ? 'bg-success/20 text-success'
                           : tx.status === 'Pending'

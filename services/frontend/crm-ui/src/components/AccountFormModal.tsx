@@ -27,7 +27,7 @@ export function AccountFormModal({
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
       data-testid="account-modal"
     >
-      <div className="bg-card border border-border rounded-lg p-6 w-full max-w-lg mx-4">
+      <div className="bg-card  rounded-lg p-6 w-full max-w-lg mx-4">
         <h2 className="text-lg font-bold text-text mb-4">
           {modalMode === 'create' ? 'Create Account' : 'Edit Account'}
         </h2>
@@ -40,23 +40,23 @@ export function AccountFormModal({
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-text mb-1">Client ID</label>
+            <label className="block text-sm font-normal text-text mb-1">Client ID</label>
             <input
               type="text"
               value={formData.clientId}
               readOnly
-              className="w-full px-4 py-2 bg-background-light border border-border rounded-lg text-text-muted"
+              className="w-full px-4 py-2 bg-background-light  rounded-lg text-text-muted"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-text mb-1">Account Type</label>
+            <label className="block text-sm font-normal text-text mb-1">Account Type</label>
             <select
               value={formData.accountType}
               onChange={e =>
                 setFormData({ ...formData, accountType: e.target.value as AccountType })
               }
-              className="w-full px-4 py-2 bg-background-light border border-border rounded-lg text-text"
+              className="w-full px-4 py-2 bg-background-light  rounded-lg text-text"
               disabled={isSubmitting}
             >
               <option value="Savings">Savings</option>
@@ -66,13 +66,13 @@ export function AccountFormModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-text mb-1">Account Status</label>
+            <label className="block text-sm font-normal text-text mb-1">Account Status</label>
             <select
               value={formData.accountStatus}
               onChange={e =>
                 setFormData({ ...formData, accountStatus: e.target.value as AccountStatus })
               }
-              className="w-full px-4 py-2 bg-background-light border border-border rounded-lg text-text"
+              className="w-full px-4 py-2 bg-background-light  rounded-lg text-text"
               disabled={isSubmitting}
             >
               <option value="Active">Active</option>
@@ -84,7 +84,7 @@ export function AccountFormModal({
           {modalMode === 'create' && (
             <>
               <div>
-                <label className="block text-sm font-medium text-text mb-1">
+                <label className="block text-sm font-normal text-text mb-1">
                   Initial Deposit (SGD)
                 </label>
                 <input
@@ -98,29 +98,29 @@ export function AccountFormModal({
                       initialDeposit: parseFloat(e.target.value) || 0,
                     })
                   }
-                  className="w-full px-4 py-2 bg-background-light border border-border rounded-lg text-text"
+                  className="w-full px-4 py-2 bg-background-light  rounded-lg text-text"
                   disabled={isSubmitting}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-text mb-1">Currency</label>
+                <label className="block text-sm font-normal text-text mb-1">Currency</label>
                 <input
                   type="text"
                   value={formData.currency}
                   onChange={e => setFormData({ ...formData, currency: e.target.value })}
-                  className="w-full px-4 py-2 bg-background-light border border-border rounded-lg text-text"
+                  className="w-full px-4 py-2 bg-background-light  rounded-lg text-text"
                   disabled={isSubmitting}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-text mb-1">Opening Date</label>
+                <label className="block text-sm font-normal text-text mb-1">Opening Date</label>
                 <input
                   type="date"
                   value={formData.openingDate}
                   onChange={e => setFormData({ ...formData, openingDate: e.target.value })}
-                  className="w-full px-4 py-2 bg-background-light border border-border rounded-lg text-text"
+                  className="w-full px-4 py-2 bg-background-light  rounded-lg text-text"
                   disabled={isSubmitting}
                 />
               </div>
@@ -128,14 +128,14 @@ export function AccountFormModal({
           )}
 
           <div>
-            <label className="block text-sm font-medium text-text mb-1">
+            <label className="block text-sm font-normal text-text mb-1">
               Branch ID <span className="text-danger">*</span>
             </label>
             <input
               type="text"
               value={formData.branchId}
               onChange={e => setFormData({ ...formData, branchId: e.target.value })}
-              className="w-full px-4 py-2 bg-background-light border border-border rounded-lg text-text"
+              className="w-full px-4 py-2 bg-background-light  rounded-lg text-text"
               disabled={isSubmitting}
             />
           </div>
@@ -144,7 +144,7 @@ export function AccountFormModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-background-light hover:bg-background-lighter text-text rounded-lg text-sm font-medium"
+              className="px-4 py-2 bg-background-light hover:bg-background-lighter text-text rounded-lg text-sm font-normal"
               disabled={isSubmitting}
             >
               Cancel
@@ -152,7 +152,7 @@ export function AccountFormModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-medium disabled:opacity-50"
+              className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-normal disabled:opacity-50"
             >
               {isSubmitting
                 ? 'Saving...'

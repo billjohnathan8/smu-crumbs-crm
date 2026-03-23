@@ -9,20 +9,22 @@ import { ClientTable } from '@/components/ClientTable'
 
 const userNav: NavItem[] = [
   { label: 'Home', to: '/user', end: true },
-  { label: 'My Clients', to: '/user/clients' },
+  { label: 'My Clients', to: '/user/clients', end: true },
   { label: 'Create Client', to: '/user/clients/new' },
   { label: 'Transactions', to: '/user/transactions' },
   { label: 'AML Alerts', to: '/user/aml-alerts' },
+  { label: 'Settings', to: '/user/settings' },
 ]
 
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients' },
+  { label: 'All Clients', to: '/admin/clients', end: true },
   { label: 'Create Client', to: '/admin/clients/new' },
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
   { label: 'User Management', to: '/admin/users' },
+  { label: 'Settings', to: '/admin/settings' },
 ]
 
 const ITEMS_PER_PAGE = 20
@@ -107,22 +109,15 @@ export function ClientListPage() {
   return (
     <SidebarLayout items={sidebarNav}>
       <nav>
-        <div className="flex h-16 items-center justify-between px-4">
-          <h1 className="text-xl font-bold text-text">{pageTitle}</h1>
+        <div className="flex h-16 items-center justify-between">
+          <h1 className="text-2xl font-medium text-text">{pageTitle}</h1>
 
           <div className="flex space-x-3">
             <button
               onClick={() => navigate(createClientPath)}
-              className="rounded-lg bg-success px-4 py-2 font-medium text-white transition-colors hover:bg-success-hover"
+              className="rounded-lg gradient-dark-red px-4 py-2 font-medium text-white transition-colors hover:bg-success-hover"
             >
               + New Client
-            </button>
-
-            <button
-              onClick={logout}
-              className="rounded-lg bg-danger px-4 py-2 font-medium text-white transition-colors hover:bg-danger-hover"
-            >
-              Logout
             </button>
           </div>
         </div>
@@ -141,7 +136,7 @@ export function ClientListPage() {
             placeholder="Search by name, email or phone..."
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
-            className="flex-1 rounded-lg border border-border bg-background-light px-4 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+            className="flex-1 rounded-lg  bg-background-lighter px-4 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
           />
 
           <button
@@ -159,16 +154,16 @@ export function ClientListPage() {
                 setSearchInput('')
                 setCurrentPage(0)
               }}
-              className="rounded-lg bg-background-light px-4 py-2 text-sm font-medium text-text transition-colors hover:bg-background-lighter"
+              className="rounded-lg bg-background-light px-4 py-2 text-sm font-normal text-text transition-colors hover:bg-background-lighter"
             >
               Clear
             </button>
           )}
         </form>
 
-        <div className="rounded-lg border border-border bg-card">
+        <div className="rounded-lg  bg-card">
           <div className="flex items-center justify-between border-b border-border px-6 py-4">
-            <h2 className="text-xl font-bold text-text">Client List</h2>
+            <h2 className="text-xl font-normal text-text">Client List</h2>
             <span className="text-sm text-text-muted">{total} clients</span>
           </div>
 

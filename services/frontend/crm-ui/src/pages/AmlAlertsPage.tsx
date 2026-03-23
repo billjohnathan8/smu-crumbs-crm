@@ -9,12 +9,13 @@ const ITEMS_PER_PAGE = 20
 
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients' },
+  { label: 'All Clients', to: '/admin/clients', end: true },
   { label: 'Create Client', to: '/admin/clients/new' },
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
   { label: 'User Management', to: '/admin/users' },
+  { label: 'Settings', to: '/admin/settings' },
 ]
 
 const userNav: NavItem[] = [
@@ -23,6 +24,7 @@ const userNav: NavItem[] = [
   { label: 'Create Client', to: '/user/clients/new' },
   { label: 'Transactions', to: '/user/transactions' },
   { label: 'AML Alerts', to: '/user/aml-alerts' },
+  { label: 'Settings', to: '/user/settings' },
 ]
 
 export function AmlAlertsPage() {
@@ -141,18 +143,12 @@ export function AmlAlertsPage() {
     <SidebarLayout items={navItems}>
       <div className="flex justify-between h-16 items-center">
         <div className="flex items-center space-x-4">
-          <a href={homePath} className="text-text-muted hover:text-text">
+          <a href={homePath} className="text-text-subtle hover:text-text text-2xl">
             Dashboard
           </a>
-          <span className="text-text-muted">/</span>
-          <h1 className="text-xl font-bold text-text">AML Alerts</h1>
+          <span className="text-text-subtle text-2xl">/</span>
+          <h1 className="text-2xl font-medium text-text">AML Alerts</h1>
         </div>
-        <button
-          onClick={logout}
-          className="px-4 py-2 rounded-lg bg-danger hover:bg-danger-hover text-white font-medium transition-colors"
-        >
-          Logout
-        </button>
       </div>
 
       <main className="mt-6">
@@ -162,8 +158,8 @@ export function AmlAlertsPage() {
           </div>
         )}
 
-        <div className="bg-card border border-border rounded-lg mb-6 p-4">
-          <h3 className="text-text font-medium mb-4">Filters</h3>
+        <div className="bg-card  rounded-lg mb-6 p-4">
+          <h3 className="text-text font-normal mb-4">Filters</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs text-text-muted mb-1">Client ID</label>
@@ -171,7 +167,7 @@ export function AmlAlertsPage() {
                 type="text"
                 value={filters.clientId}
                 onChange={e => setFilter('clientId', e.target.value)}
-                className="w-full px-3 py-2 bg-background-light border border-border rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 bg-background-light  rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="clt_..."
               />
             </div>
@@ -180,7 +176,7 @@ export function AmlAlertsPage() {
               <select
                 value={filters.alertType}
                 onChange={e => setFilter('alertType', e.target.value)}
-                className="w-full px-3 py-2 bg-background-light border border-border rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 bg-background-light  rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="">All</option>
                 <option value="STATISTICAL_OUTLIER">Statistical Outlier</option>
@@ -194,7 +190,7 @@ export function AmlAlertsPage() {
               <select
                 value={filters.reviewStatus}
                 onChange={e => setFilter('reviewStatus', e.target.value)}
-                className="w-full px-3 py-2 bg-background-light border border-border rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 bg-background-light  rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="">All</option>
                 <option value="Pending">Pending</option>
@@ -206,16 +202,16 @@ export function AmlAlertsPage() {
           <div className="mt-4 flex justify-end">
             <button
               onClick={resetFilters}
-              className="px-4 py-2 rounded bg-background-light text-text hover:bg-background-lighter text-sm font-medium transition-colors"
+              className="px-4 py-2 rounded bg-background-lighter border border-border text-text hover:bg-background-lighter text-sm font-medium transition-colors"
             >
               Reset Filters
             </button>
           </div>
         </div>
 
-        <div className="bg-card border border-border rounded-lg">
+        <div className="bg-card  rounded-lg">
           <div className="px-6 py-4 border-b border-border">
-            <h2 className="text-xl font-bold text-text">AML Alerts</h2>
+            <h2 className="text-xl font-normal text-text">AML Alerts</h2>
           </div>
 
           {isLoading ? (
@@ -230,22 +226,22 @@ export function AmlAlertsPage() {
                 <table className="w-full">
                   <thead className="bg-background-light">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                         Alert ID
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                         Client ID
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                         Type
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                         Detected
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                         Review
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                         Description
                       </th>
                     </tr>
@@ -275,7 +271,7 @@ export function AmlAlertsPage() {
                                   [alert.alertId]: e.target.value as AmlReviewStatus,
                                 }))
                               }
-                              className="px-2 py-1 bg-background-light border border-border rounded text-sm"
+                              className="px-2 py-1 bg-background-light  rounded text-sm"
                             >
                               <option value="Pending">Pending</option>
                               <option value="Confirmed">Confirmed</option>

@@ -69,16 +69,16 @@ export function CommunicationsPanel({
   }
 
   return (
-    <div className="rounded-lg border border-border bg-card">
+    <div className="rounded-lg  bg-card">
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
-        <h2 className="text-lg font-bold text-text">{title}</h2>
+        <h2 className="text-lg font-normal text-text">{title}</h2>
 
         <div className="flex items-center gap-2">
           {onRefresh && (
             <button
               onClick={onRefresh}
               disabled={isRefreshing}
-              className="rounded bg-background-light px-4 py-2 text-sm font-medium text-text transition-colors hover:bg-background-lighter disabled:opacity-50"
+              className="rounded bg-background-lighter border border-border px-4 py-2 text-sm font-medium text-text transition-colors hover:bg-background-lighter disabled:opacity-50"
             >
               {refreshLabel}
             </button>
@@ -88,7 +88,7 @@ export function CommunicationsPanel({
             <button
               onClick={toggleCompose}
               disabled={isSending}
-              className="rounded bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
+              className="rounded bg-primary px-4 py-2 text-sm font-normal text-white hover:bg-primary-hover disabled:opacity-50"
             >
               {showComposeForm ? 'Cancel' : 'Compose Email'}
             </button>
@@ -112,40 +112,40 @@ export function CommunicationsPanel({
 
           <form onSubmit={onSubmit} className="max-w-lg space-y-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-text">
+              <label className="mb-1 block text-sm font-normal text-text">
                 To Email <span className="text-danger">*</span>
               </label>
               <input
                 type="email"
                 value={composeData.toEmail}
                 onChange={e => setComposeData(prev => ({ ...prev, toEmail: e.target.value }))}
-                className="w-full rounded-lg border border-border bg-background-light px-4 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-lg  bg-background-light px-4 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
                 disabled={isSending}
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-text">
+              <label className="mb-1 block text-sm font-normal text-text">
                 Subject <span className="text-danger">*</span>
               </label>
               <input
                 type="text"
                 value={composeData.subject}
                 onChange={e => setComposeData(prev => ({ ...prev, subject: e.target.value }))}
-                className="w-full rounded-lg border border-border bg-background-light px-4 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-lg  bg-background-light px-4 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
                 disabled={isSending}
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-text">
+              <label className="mb-1 block text-sm font-normal text-text">
                 Body <span className="text-danger">*</span>
               </label>
               <textarea
                 rows={4}
                 value={composeData.body}
                 onChange={e => setComposeData(prev => ({ ...prev, body: e.target.value }))}
-                className="w-full rounded-lg border border-border bg-background-light px-4 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-lg  bg-background-light px-4 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
                 disabled={isSending}
               />
             </div>
@@ -154,7 +154,7 @@ export function CommunicationsPanel({
               <button
                 type="submit"
                 disabled={isSending}
-                className="rounded-lg bg-primary px-6 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
+                className="rounded-lg bg-primary px-6 py-2 text-sm font-normal text-white hover:bg-primary-hover disabled:opacity-50"
               >
                 {isSending ? 'Sending...' : 'Send Email'}
               </button>
@@ -162,7 +162,7 @@ export function CommunicationsPanel({
                 type="button"
                 onClick={() => setShowComposeForm(false)}
                 disabled={isSending}
-                className="rounded-lg bg-background-light px-6 py-2 text-sm font-medium text-text hover:bg-background-lighter disabled:opacity-50"
+                className="rounded-lg bg-background-light px-6 py-2 text-sm font-normal text-text hover:bg-background-lighter disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -178,22 +178,22 @@ export function CommunicationsPanel({
           <table className="w-full">
             <thead className="bg-background-light">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted">
+                <th className="px-6 py-3 text-left text-xs font-normal uppercase tracking-wider text-text-muted">
                   ID
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted">
+                <th className="px-6 py-3 text-left text-xs font-normal uppercase tracking-wider text-text-muted">
                   To
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted">
+                <th className="px-6 py-3 text-left text-xs font-normal uppercase tracking-wider text-text-muted">
                   Subject
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted">
+                <th className="px-6 py-3 text-left text-xs font-normal uppercase tracking-wider text-text-muted">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted">
+                <th className="px-6 py-3 text-left text-xs font-normal uppercase tracking-wider text-text-muted">
                   Created
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-muted">
+                <th className="px-6 py-3 text-left text-xs font-normal uppercase tracking-wider text-text-muted">
                   Actions
                 </th>
               </tr>
@@ -216,7 +216,7 @@ export function CommunicationsPanel({
                           [comm.communicationId]: e.target.value as CommunicationStatus,
                         }))
                       }
-                      className="rounded border border-border bg-background-light px-2 py-1 text-sm text-text"
+                      className="rounded  bg-background-light px-2 py-1 text-sm text-text"
                     >
                       <option value="queued">queued</option>
                       <option value="sent">sent</option>
@@ -245,9 +245,9 @@ export function CommunicationsPanel({
           {communications.map(comm => (
             <div key={comm.communicationId} className="px-6 py-4 hover:bg-background-light">
               <div className="mb-1 flex items-center justify-between">
-                <p className="text-sm font-medium text-text">{comm.subject}</p>
+                <p className="text-sm font-normal text-text">{comm.subject}</p>
                 <span
-                  className={`rounded px-2 py-1 text-xs font-medium ${
+                  className={`rounded px-2 py-1 text-xs font-normal ${
                     comm.status === 'sent'
                       ? 'bg-success/20 text-success'
                       : comm.status === 'queued'

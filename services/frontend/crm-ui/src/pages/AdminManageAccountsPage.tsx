@@ -8,12 +8,13 @@ import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients' },
+  { label: 'All Clients', to: '/admin/clients', end: true },
   { label: 'Create Client', to: '/admin/clients/new' },
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
   { label: 'User Management', to: '/admin/users' },
+  { label: 'Settings', to: '/admin/settings' },
 ]
 
 const PAGE_SIZE = 10
@@ -181,26 +182,23 @@ export function AdminManageAccountsPage() {
   return (
     <SidebarLayout items={adminNav}>
       <nav>
-        <div className="flex justify-between h-16 items-center px-4">
+        <div className="flex justify-between h-16 items-center">
           <div className="flex items-center space-x-4">
-            <button onClick={() => navigate('/admin')} className="text-text-muted hover:text-text">
+            <button
+              onClick={() => navigate('/admin')}
+              className="text-text-muted hover:text-text text-2xl"
+            >
               Dashboard
             </button>
-            <span className="text-text-muted">/</span>
-            <h1 className="text-xl font-bold text-text">Manage Accounts</h1>
+            <span className="text-text-muted text-2xl">/</span>
+            <h1 className="text-2xl font-normal text-text">Manage Accounts</h1>
           </div>
           <div className="flex items-center space-x-4">
             <button
               onClick={openModal}
-              className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white font-medium transition-colors"
+              className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white font-normal transition-colors"
             >
               Create New User
-            </button>
-            <button
-              onClick={logout}
-              className="px-4 py-2 rounded-lg bg-danger hover:bg-danger-hover text-white font-medium transition-colors"
-            >
-              Logout
             </button>
           </div>
         </div>
@@ -223,7 +221,7 @@ export function AdminManageAccountsPage() {
             <p className="text-text-muted">Loading users...</p>
           </div>
         ) : (
-          <div className="bg-card border border-border rounded-lg">
+          <div className="bg-card  rounded-lg">
             <div className="px-6 py-4 border-b border-border">
               <h2 className="text-xl font-bold text-text">User Accounts</h2>
             </div>
@@ -234,12 +232,12 @@ export function AdminManageAccountsPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="text-left py-2 px-4 font-medium text-text">First Name</th>
-                      <th className="text-left py-2 px-4 font-medium text-text">Last Name</th>
-                      <th className="text-left py-2 px-4 font-medium text-text">Email</th>
-                      <th className="text-left py-2 px-4 font-medium text-text">Role</th>
-                      <th className="text-left py-2 px-4 font-medium text-text">Status</th>
-                      <th className="text-left py-2 px-4 font-medium text-text">Actions</th>
+                      <th className="text-left py-2 px-4 font-normal text-text">First Name</th>
+                      <th className="text-left py-2 px-4 font-normal text-text">Last Name</th>
+                      <th className="text-left py-2 px-4 font-normal text-text">Email</th>
+                      <th className="text-left py-2 px-4 font-normal text-text">Role</th>
+                      <th className="text-left py-2 px-4 font-normal text-text">Status</th>
+                      <th className="text-left py-2 px-4 font-normal text-text">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -255,7 +253,7 @@ export function AdminManageAccountsPage() {
                             {u.status !== 'disabled' && u.id !== user?.id && (
                               <button
                                 onClick={() => handleDisableUser(u)}
-                                className="px-3 py-1 rounded text-sm font-medium bg-warning hover:bg-warning-hover text-white transition-colors"
+                                className="px-3 py-1 rounded text-sm font-normal bg-warning hover:bg-warning-hover text-white transition-colors"
                               >
                                 Disable
                               </button>
@@ -263,14 +261,14 @@ export function AdminManageAccountsPage() {
                             {u.id !== user?.id && (
                               <button
                                 onClick={() => handleDeleteUser(u)}
-                                className="px-3 py-1 rounded text-sm font-medium bg-danger hover:bg-danger-hover text-white transition-colors"
+                                className="px-3 py-1 rounded text-sm font-normal bg-danger hover:bg-danger-hover text-white transition-colors"
                               >
                                 Delete
                               </button>
                             )}
                             <button
                               onClick={() => handleResetPassword(u)}
-                              className="px-3 py-1 rounded text-sm font-medium bg-primary hover:bg-primary-hover text-white transition-colors"
+                              className="px-3 py-1 rounded text-sm font-normal bg-primary hover:bg-primary-hover text-white transition-colors"
                             >
                               Reset Password
                             </button>
@@ -310,7 +308,7 @@ export function AdminManageAccountsPage() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-card border border-border rounded-lg p-6 w-full max-w-md">
+          <div className="bg-card  rounded-lg p-6 w-full max-w-md">
             <h2 className="text-xl font-bold text-text mb-4">Create New User</h2>
 
             {modalError && (
@@ -321,7 +319,7 @@ export function AdminManageAccountsPage() {
 
             <form onSubmit={handleCreateUser} className="space-y-4">
               <div>
-                <label htmlFor="firstName" className="block text-sm font-medium text-text mb-1">
+                <label htmlFor="firstName" className="block text-sm font-normal text-text mb-1">
                   First Name
                 </label>
                 <input
@@ -329,7 +327,7 @@ export function AdminManageAccountsPage() {
                   type="text"
                   value={modalForm.firstName}
                   onChange={e => setModalForm({ ...modalForm, firstName: e.target.value })}
-                  className="w-full px-3 py-2 bg-background-light border border-border rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 bg-background-light  rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary"
                 />
                 {modalErrors.firstName && (
                   <p className="text-danger text-xs mt-1">{modalErrors.firstName}</p>
@@ -337,7 +335,7 @@ export function AdminManageAccountsPage() {
               </div>
 
               <div>
-                <label htmlFor="lastName" className="block text-sm font-medium text-text mb-1">
+                <label htmlFor="lastName" className="block text-sm font-normal text-text mb-1">
                   Last Name
                 </label>
                 <input
@@ -345,7 +343,7 @@ export function AdminManageAccountsPage() {
                   type="text"
                   value={modalForm.lastName}
                   onChange={e => setModalForm({ ...modalForm, lastName: e.target.value })}
-                  className="w-full px-3 py-2 bg-background-light border border-border rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 bg-background-light  rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary"
                 />
                 {modalErrors.lastName && (
                   <p className="text-danger text-xs mt-1">{modalErrors.lastName}</p>
@@ -353,7 +351,7 @@ export function AdminManageAccountsPage() {
               </div>
 
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-text mb-1">
+                <label htmlFor="email" className="block text-sm font-normal text-text mb-1">
                   Email
                 </label>
                 <input
@@ -361,7 +359,7 @@ export function AdminManageAccountsPage() {
                   type="text"
                   value={modalForm.email}
                   onChange={e => setModalForm({ ...modalForm, email: e.target.value })}
-                  className="w-full px-3 py-2 bg-background-light border border-border rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 bg-background-light  rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary"
                 />
                 {modalErrors.email && (
                   <p className="text-danger text-xs mt-1">{modalErrors.email}</p>
@@ -369,14 +367,14 @@ export function AdminManageAccountsPage() {
               </div>
 
               <div>
-                <label htmlFor="role" className="block text-sm font-medium text-text mb-1">
+                <label htmlFor="role" className="block text-sm font-normal text-text mb-1">
                   Role
                 </label>
                 <select
                   id="role"
                   value={modalForm.role}
                   onChange={e => setModalForm({ ...modalForm, role: e.target.value })}
-                  className="w-full px-3 py-2 bg-background-light border border-border rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 bg-background-light  rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="user">User</option>
                   <option value="admin">Admin</option>
@@ -387,14 +385,14 @@ export function AdminManageAccountsPage() {
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="px-4 py-2 rounded-lg bg-background-light text-text font-medium transition-colors"
+                  className="px-4 py-2 rounded-lg bg-background-light text-text font-normal transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white font-medium transition-colors disabled:opacity-50"
+                  className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white font-normal transition-colors disabled:opacity-50"
                 >
                   Create User
                 </button>

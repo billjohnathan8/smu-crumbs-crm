@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
+import { useTheme } from '@/features/theme/ThemeContext'
 import { getClientById, updateClient } from '@/api/clients'
 import type { ClientUpdateRequest, Gender } from '@/api/types'
 import { ApiError } from '@/api/client'
@@ -12,21 +13,24 @@ const userNav: NavItem[] = [
   { label: 'Create Client', to: '/user/clients/new' },
   { label: 'Transactions', to: '/user/transactions' },
   { label: 'AML Alerts', to: '/user/aml-alerts' },
+  { label: 'Settings', to: '/user/settings' },
 ]
 
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients' },
+  { label: 'All Clients', to: '/admin/clients', end: true },
   { label: 'Create Client', to: '/admin/clients/new' },
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
   { label: 'User Management', to: '/admin/users' },
+  { label: 'Settings', to: '/admin/settings' },
 ]
 
 export function EditClientPage() {
   const { clientId } = useParams<{ clientId: string }>()
   const { user, logout } = useAuth()
+  const { theme } = useTheme()
   const navigate = useNavigate()
 
   const isAdmin = user?.role === 'admin'
@@ -189,23 +193,29 @@ export function EditClientPage() {
   }
 
   const inputCls = (field: keyof ClientUpdateRequest) =>
-    `w-full px-4 py-2 bg-background-light border ${
-      errors[field] ? 'border-danger' : 'border-border'
-    } rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent`
+    `w-full px-4 py-2 rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent ${
+      errors[field] ? 'ring-2 ring-danger' : ''
+    }` + (theme === 'dark' ? ' bg-[var(--gray)]' : ' bg-[var(--off-white)]')
 
   return (
     <SidebarLayout items={sidebarNav}>
       <nav>
         <div className="flex justify-between h-16 items-center px-4">
           <div className="flex items-center space-x-4">
-            <button onClick={() => navigate(basePath)} className="text-text-muted hover:text-text">
+            <button
+              onClick={() => navigate(basePath)}
+              className="text-text-muted hover:text-text text-2xl"
+            >
               Dashboard
             </button>
-            <span className="text-text-muted">/</span>
-            <button onClick={() => navigate(listPath)} className="text-text-muted hover:text-text">
+            <span className="text-text-muted text-2xl">/</span>
+            <button
+              onClick={() => navigate(listPath)}
+              className="text-text-muted hover:text-text text-2xl"
+            >
               {breadcrumbLabel}
             </button>
-            <span className="text-text-muted">/</span>
+            <span className="text-text-muted text-2xl">/</span>
             <button
               onClick={() => navigate(detailPath)}
               className="text-text-muted hover:text-text"
@@ -213,19 +223,13 @@ export function EditClientPage() {
               Client Details
             </button>
             <span className="text-text-muted">/</span>
-            <h1 className="text-xl font-bold text-text">Edit Client</h1>
+            <h1 className="text-2xl font-normal text-text">Edit Client</h1>
           </div>
-          <button
-            onClick={logout}
-            className="px-4 py-2 rounded-lg bg-danger hover:bg-danger-hover text-white font-medium transition-colors"
-          >
-            Logout
-          </button>
         </div>
       </nav>
 
       <main className="mt-6">
-        <div className="bg-card border border-border rounded-lg p-6">
+        <div className="bg-card  rounded-lg p-6">
           {generalError && (
             <div className="bg-danger/10 border border-danger rounded-lg p-4 mb-6">
               <p className="text-danger text-sm">{generalError}</p>
@@ -235,7 +239,7 @@ export function EditClientPage() {
           <form onSubmit={handleSubmit} noValidate className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-text mb-2">
+                <label className="block text-sm font-normal text-text mb-2">
                   First Name <span className="text-danger">*</span>
                 </label>
                 <input
@@ -249,7 +253,7 @@ export function EditClientPage() {
                 {errors.firstName && <p className="text-danger text-xs mt-1">{errors.firstName}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-text mb-2">
+                <label className="block text-sm font-normal text-text mb-2">
                   Last Name <span className="text-danger">*</span>
                 </label>
                 <input
@@ -263,7 +267,7 @@ export function EditClientPage() {
                 {errors.lastName && <p className="text-danger text-xs mt-1">{errors.lastName}</p>}
               </div>
               <div>
-                <label htmlFor="dateOfBirth" className="block text-sm font-medium text-text mb-2">
+                <label htmlFor="dateOfBirth" className="block text-sm font-normal text-text mb-2">
                   Date of Birth <span className="text-danger">*</span>
                 </label>
                 <input
@@ -280,14 +284,14 @@ export function EditClientPage() {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-text mb-2">
+                <label className="block text-sm font-normal text-text mb-2">
                   Gender <span className="text-danger">*</span>
                 </label>
                 <select
                   name="gender"
                   value={formData.gender || 'Prefer not to say'}
                   onChange={e => updateField('gender', e.target.value as Gender)}
-                  className="w-full px-4 py-2 bg-background-light border border-border rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="w-full px-4 py-2 bg-background-light  rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   disabled={isSubmitting}
                 >
                   <option value="Male">Male</option>
@@ -297,7 +301,7 @@ export function EditClientPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-text mb-2">
+                <label className="block text-sm font-normal text-text mb-2">
                   Email <span className="text-danger">*</span>
                 </label>
                 <input
@@ -313,7 +317,7 @@ export function EditClientPage() {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-text mb-2">
+                <label className="block text-sm font-normal text-text mb-2">
                   Phone Number <span className="text-danger">*</span>
                 </label>
                 <input
@@ -332,7 +336,7 @@ export function EditClientPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-text mb-2">
+              <label className="block text-sm font-normal text-text mb-2">
                 Address <span className="text-danger">*</span>
               </label>
               <input
@@ -348,7 +352,7 @@ export function EditClientPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-text mb-2">
+                <label className="block text-sm font-normal text-text mb-2">
                   City <span className="text-danger">*</span>
                 </label>
                 <input
@@ -362,7 +366,7 @@ export function EditClientPage() {
                 {errors.city && <p className="text-danger text-xs mt-1">{errors.city}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-text mb-2">
+                <label className="block text-sm font-normal text-text mb-2">
                   State <span className="text-danger">*</span>
                 </label>
                 <input
@@ -376,7 +380,7 @@ export function EditClientPage() {
                 {errors.state && <p className="text-danger text-xs mt-1">{errors.state}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-text mb-2">
+                <label className="block text-sm font-normal text-text mb-2">
                   Country <span className="text-danger">*</span>
                 </label>
                 <input
@@ -390,7 +394,7 @@ export function EditClientPage() {
                 {errors.country && <p className="text-danger text-xs mt-1">{errors.country}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-text mb-2">
+                <label className="block text-sm font-normal text-text mb-2">
                   Postal Code <span className="text-danger">*</span>
                 </label>
                 <input
@@ -411,7 +415,7 @@ export function EditClientPage() {
               <button
                 type="button"
                 onClick={() => navigate(detailPath)}
-                className="px-6 py-3 rounded-lg bg-background-light text-text hover:bg-background-lighter font-medium transition-colors"
+                className="px-6 py-3 rounded-lg bg-background-light text-text hover:bg-background-lighter font-normal transition-colors"
                 disabled={isSubmitting}
               >
                 Cancel
@@ -419,7 +423,7 @@ export function EditClientPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                className={`px-6 py-3 rounded-lg font-normal transition-colors ${
                   isSubmitting
                     ? 'bg-primary/50 cursor-not-allowed text-white'
                     : 'bg-primary hover:bg-primary-hover text-white'

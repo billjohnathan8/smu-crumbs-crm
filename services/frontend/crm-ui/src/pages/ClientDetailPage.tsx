@@ -35,16 +35,18 @@ const userNav: NavItem[] = [
   { label: 'Create Client', to: '/user/clients/new' },
   { label: 'Transactions', to: '/user/transactions' },
   { label: 'AML Alerts', to: '/user/aml-alerts' },
+  { label: 'Settings', to: '/user/settings' },
 ]
 
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients' },
+  { label: 'All Clients', to: '/admin/clients', end: true },
   { label: 'Create Client', to: '/admin/clients/new' },
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
   { label: 'User Management', to: '/admin/users' },
+  { label: 'Settings', to: '/admin/settings' },
 ]
 
 const statusColors: Record<string, string> = {
@@ -353,11 +355,11 @@ export function ClientDetailPage() {
               ← {canViewAllClients ? 'All Clients' : 'My Clients'}
             </button>
             <span className="text-text-muted">/</span>
-            <h1 className="text-xl font-bold text-text">
+            <h1 className="text-2xl font-normal text-text">
               {client.firstName} {client.lastName}
             </h1>
             <span
-              className={`rounded px-2 py-1 text-xs font-medium ${
+              className={`rounded px-2 py-1 text-xs font-normal ${
                 statusColors[client.identityVerificationStatus] ??
                 'bg-background-light text-text-muted'
               }`}
@@ -365,13 +367,6 @@ export function ClientDetailPage() {
               {client.identityVerificationStatus}
             </span>
           </div>
-
-          <button
-            onClick={logout}
-            className="rounded-lg bg-danger px-4 py-2 font-medium text-white transition-colors hover:bg-danger-hover"
-          >
-            Logout
-          </button>
         </div>
       </nav>
 

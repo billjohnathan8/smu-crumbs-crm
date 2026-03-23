@@ -16,12 +16,13 @@ interface Stats {
 
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients' },
+  { label: 'All Clients', to: '/admin/clients', end: true },
   { label: 'Create Client', to: '/admin/clients/new' },
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
   { label: 'User Management', to: '/admin/users' },
+  { label: 'Settings', to: '/admin/settings' },
 ]
 
 export function AdminDashboard() {
@@ -117,30 +118,10 @@ export function AdminDashboard() {
       <div>
         <div className="flex justify-between h-16 items-center">
           <div>
-            <h1 className="text-xl font-bold text-text">Admin Dashboard</h1>
-            <p className="text-sm text-text-muted">
+            <h1 className="text-2xl font-medium text-text">Admin Dashboard</h1>
+            <p className="text-lg text-text-muted">
               Welcome, {user?.firstName} {user?.lastName}
             </p>
-          </div>
-          <div className="flex space-x-4">
-            <a
-              href="/admin/aml-alerts"
-              className="px-4 py-2 rounded-lg bg-warning hover:bg-warning-hover text-white font-medium transition-colors"
-            >
-              AML Alerts
-            </a>
-            <a
-              href="/admin/accounts"
-              className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white font-medium transition-colors"
-            >
-              Manage Accounts
-            </a>
-            <button
-              onClick={logout}
-              className="px-4 py-2 rounded-lg bg-danger hover:bg-danger-hover text-white font-medium transition-colors"
-            >
-              Logout
-            </button>
           </div>
         </div>
       </div>
@@ -159,16 +140,16 @@ export function AdminDashboard() {
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-card border border-border rounded-lg p-6">
-                <h3 className="text-text-muted text-sm font-medium mb-2">Total Agents</h3>
-                <p className="text-4xl font-bold text-text">{stats.totalAgents}</p>
+              <div className="gradient-dark-red rounded-2xl p-6">
+                <h3 className="text-white text-sm font-normal mb-2">Total Agents</h3>
+                <p className="text-4xl font-bold text-white">{stats.totalAgents}</p>
               </div>
-              <div className="bg-card border border-border rounded-lg p-6">
-                <h3 className="text-text-muted text-sm font-medium mb-2">Total Clients</h3>
-                <p className="text-4xl font-bold text-text">{stats.totalClients}</p>
+              <div className="gradient-light-red rounded-2xl p-6">
+                <h3 className="text-white text-sm font-normal mb-2">Total Clients</h3>
+                <p className="text-4xl font-bold text-white">{stats.totalClients}</p>
               </div>
-              <div className="bg-card border border-border rounded-lg p-6">
-                <h3 className="text-text-muted text-sm font-medium mb-2">Recent Activities</h3>
+              <div className="bg-card  rounded-2xl p-6">
+                <h3 className="text-text-muted text-sm font-normal mb-2">Recent Activities</h3>
                 <p className="text-4xl font-bold text-text">{stats.recentActivities}</p>
               </div>
             </div>
@@ -185,13 +166,13 @@ export function AdminDashboard() {
                   <table className="w-full">
                     <thead className="bg-background-light">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           Client
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           Email
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           Action
                         </th>
                       </tr>
@@ -211,7 +192,7 @@ export function AdminDashboard() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
                             <button
                               onClick={() => navigate(`/admin/clients/${c.clientId}`)}
-                              className="text-primary hover:underline font-medium"
+                              className="text-primary hover:underline font-normal"
                             >
                               Review →
                             </button>
@@ -224,30 +205,30 @@ export function AdminDashboard() {
               </div>
             )}
 
-            <div className="bg-card border border-border rounded-lg">
+            <div className="bg-card  rounded-lg">
               <div className="px-6 py-4 border-b border-border">
-                <h2 className="text-xl font-bold text-text">Recent Activity Logs</h2>
+                <h2 className="text-xl font-normal text-text">Recent Activity Logs</h2>
               </div>
               <div className="overflow-x-auto">
                 {recentLogs.length === 0 ? (
-                  <div className="p-6 text-center text-text-muted">No activity logs found</div>
+                  <div className="p-6 text-center text-text-subtle">No activity logs found</div>
                 ) : (
                   <table className="w-full">
                     <thead className="bg-background-light">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           Date/Time
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           Action
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           Attribute
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           User ID
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           Client ID
                         </th>
                       </tr>
@@ -260,7 +241,7 @@ export function AdminDashboard() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
-                              className={`px-2 py-1 rounded text-xs font-medium ${
+                              className={`px-2 py-1 rounded text-xs font-normal ${
                                 log.action === 'CREATE'
                                   ? 'bg-success/20 text-success'
                                   : log.action === 'UPDATE'

@@ -22,19 +22,19 @@ export function ClientTable({ clients, onView }: ClientTableProps) {
       <table className="w-full">
         <thead className="bg-background-light">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
               Name
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
               Email
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
               Phone
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
               KYC Status
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
               Actions
             </th>
           </tr>
@@ -46,14 +46,14 @@ export function ClientTable({ clients, onView }: ClientTableProps) {
               className="hover:bg-background-light cursor-pointer"
               onClick={() => onView(client.clientId)}
             >
-              <td className="px-6 py-4 text-sm font-medium text-text">
+              <td className="px-6 py-4 text-sm font-normal text-text">
                 {client.firstName} {client.lastName}
               </td>
               <td className="px-6 py-4 text-sm text-text-muted">{client.emailAddress}</td>
               <td className="px-6 py-4 text-sm text-text-muted">{client.phoneNumber}</td>
               <td className="px-6 py-4">
                 <span
-                  className={`px-2 py-1 rounded text-xs font-medium ${
+                  className={`px-2 py-1 rounded text-xs font-normal ${
                     statusColors[client.identityVerificationStatus] ??
                     'bg-background-light text-text-muted'
                   }`}

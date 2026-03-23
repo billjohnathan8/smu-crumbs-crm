@@ -18,12 +18,13 @@ import { CommunicationsPanel } from '@/components/CommunicationsPanel'
 
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients' },
+  { label: 'All Clients', to: '/admin/clients', end: true },
   { label: 'Create Client', to: '/admin/clients/new' },
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
   { label: 'User Management', to: '/admin/users' },
+  { label: 'Settings', to: '/admin/settings' },
 ]
 
 const statusColors: Record<CommunicationStatus, string> = {
@@ -191,8 +192,8 @@ export function AdminCommunications() {
   }
 
   const renderCommunicationDetail = (comm: Communication, label: string) => (
-    <div className="mt-4 rounded-lg border border-border bg-card p-4">
-      <h4 className="mb-3 font-medium text-text">{label}</h4>
+    <div className="mt-4 rounded-lg  bg-card p-4">
+      <h4 className="mb-3 font-normal text-text">{label}</h4>
       <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2 xl:grid-cols-3">
         <div>
           <span className="text-text-muted">ID:</span>{' '}
@@ -216,7 +217,7 @@ export function AdminCommunications() {
         </div>
         <div>
           <span className="text-text-muted">Status:</span>{' '}
-          <span className={`rounded px-2 py-0.5 text-xs font-medium ${statusColors[comm.status]}`}>
+          <span className={`rounded px-2 py-0.5 text-xs font-normal ${statusColors[comm.status]}`}>
             {comm.status}
           </span>
         </div>
@@ -261,7 +262,7 @@ export function AdminCommunications() {
         <div className="flex h-64 items-center justify-center">
           <div
             data-testid="loading-spinner"
-            className="inline-block h-12 w-12 animate-spin rounded-full border-b-2 border-primary"
+            className="inline-block h-12 w-12 animate-spin rounded-full"
           />
         </div>
       </SidebarLayout>
@@ -271,21 +272,14 @@ export function AdminCommunications() {
   return (
     <SidebarLayout items={adminNav}>
       <nav>
-        <div className="flex h-16 items-center justify-between px-4">
+        <div className="flex h-16 items-center justify-between">
           <div className="flex items-center space-x-4">
-            <button onClick={() => navigate('/admin')} className="text-text-muted hover:text-text">
+            <button onClick={() => navigate('/admin')} className="text-text-subtle text-2xl">
               Dashboard
             </button>
-            <span className="text-text-muted">/</span>
-            <h1 className="text-xl font-bold text-text">Communications</h1>
+            <span className="text-text-subtle text-2xl">/</span>
+            <h1 className="text-2xl font-medium text-text">Communications</h1>
           </div>
-
-          <button
-            onClick={logout}
-            className="rounded-lg bg-danger px-4 py-2 font-medium text-white transition-colors hover:bg-danger-hover"
-          >
-            Logout
-          </button>
         </div>
       </nav>
 
@@ -297,14 +291,14 @@ export function AdminCommunications() {
         )}
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div className="rounded-lg border border-border bg-card p-4">
-            <h3 className="mb-3 font-medium text-text">Lookup by Communication ID</h3>
+          <div className="rounded-lg  bg-card p-4">
+            <h3 className="mb-3 font-normal text-text">Lookup by Communication ID</h3>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={commLookupId}
                 onChange={e => setCommLookupId(e.target.value)}
-                className="flex-1 rounded border border-border bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                className="flex-1 rounded  bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="com_..."
               />
               <button
@@ -319,14 +313,14 @@ export function AdminCommunications() {
             {commLookupResult && renderCommunicationDetail(commLookupResult, 'Result')}
           </div>
 
-          <div className="rounded-lg border border-border bg-card p-4">
-            <h3 className="mb-3 font-medium text-text">Lookup by Provider Message ID</h3>
+          <div className="rounded-lg  bg-card p-4">
+            <h3 className="mb-3 font-normal text-text">Lookup by Provider Message ID</h3>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={providerLookupId}
                 onChange={e => setProviderLookupId(e.target.value)}
-                className="flex-1 rounded border border-border bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                className="flex-1 rounded  bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="Provider message ID..."
               />
               <button
