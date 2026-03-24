@@ -9,7 +9,6 @@ import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
 import com.scroogebank.crm.client_service.dto.UploadVerificationDocsRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
-// import com.scroogebank.crm.client_service.email.SnsEmailPublisher;
 import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
 import com.scroogebank.crm.client_service.exception.DuplicateClientException;
@@ -40,22 +39,22 @@ public class ClientServiceImpl implements ClientService {
 
 	private final ClientRepository clientRepository;
 	private final ClientAuditLogger clientAuditLogger;
-    // private final SnsEmailPublisher snsEmailPublisher;
 	private final DocumentStorageService documentStorageService;
 	private final VerificationTokenService verificationTokenService;
+    private final SnsEmailPublisherService snsEmailPublisherService;
 
 	public ClientServiceImpl(
 		ClientRepository clientRepository,
 		ClientAuditLogger clientAuditLogger,
-		// SnsEmailPublisher snsEmailPublisher,
 		DocumentStorageService documentStorageService,
-		VerificationTokenService verificationTokenService
+		VerificationTokenService verificationTokenService,
+		SnsEmailPublisherService snsEmailPublisherService
 	) {
 		this.clientRepository = clientRepository;
 		this.clientAuditLogger = clientAuditLogger;
-		// this.snsEmailPublisher = snsEmailPublisher;
 		this.documentStorageService = documentStorageService;
 		this.verificationTokenService = verificationTokenService;
+		this.snsEmailPublisherService = snsEmailPublisherService;
 	}
 
 	/**
@@ -133,11 +132,14 @@ public class ClientServiceImpl implements ClientService {
 		String requestId
 	) {
 		checkCreateConflicts(request.emailAddress(), request.phoneNumber());
+
+		// create and save to db		
 		ClientEntity entity = new ClientEntity();
 		applyCreate(entity, request);
 		entity.setAssignedAgentId(user.userId());
 		ClientEntity saved = clientRepository.save(entity);
 		String apiClientId = clientId(saved.getId());
+		
 		publishAuditSafe(
 			"CREATE",
 			"Client ID",
@@ -149,12 +151,15 @@ public class ClientServiceImpl implements ClientService {
 			authorizationHeader
 		);
 
+		// generate token
+		String token = verificationTokenService.generateVerificationToken(apiClientId, 7200);
+
 		// Publish verification event to SNS (downstream SNS -> SES will send the email)
-		// try {
-		// 	snsEmailPublisher.publishVerificationEmail(apiClientId, saved.getEmailAddress(), saved.getFirstName(), requestId);
-		// } catch (Exception e) {
-        //     LOGGER.warn("Create succeeded but SNS publish failed for clientId={}", apiClientId, e);
-		// }
+		try {
+			snsEmailPublisherService.publishVerificationEmail(apiClientId, saved.getEmailAddress(), token, saved.getFirstName(), requestId);
+		} catch (Exception e) {
+            LOGGER.warn("Create succeeded but SNS publish failed for clientId={}", apiClientId, e);
+		}
 
 		return toDto(saved);
 	}

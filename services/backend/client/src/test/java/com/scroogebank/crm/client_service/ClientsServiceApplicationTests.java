@@ -3,6 +3,7 @@ package com.scroogebank.crm.client_service;
 import com.scroogebank.crm.client_service.repository.AccountRepository;
 import com.scroogebank.crm.client_service.repository.ClientRepository;
 import com.scroogebank.crm.client_service.service.DocumentStorageService;
+import com.scroogebank.crm.client_service.service.SnsEmailPublisherService;
 import com.scroogebank.crm.client_service.service.VerificationTokenService;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 
@@ -38,6 +39,9 @@ class ClientsServiceApplicationTests {
 
 	@MockitoBean
 	private VerificationTokenService verificationTokenService;
+
+	@MockitoBean
+	private SnsEmailPublisherService snsEmailPublisherService;
 
 	@Test
 	void contextLoads() {

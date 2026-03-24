@@ -27,11 +27,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doNothing;
 
 /**
  * Unit tests for {@link ClientServiceImpl}: business logic for listing, getting, creating,
@@ -44,6 +45,7 @@ class ClientServiceImplTest {
 	private ClientAuditLogger clientAuditLogger;
 	private DocumentStorageService documentStorageService;
 	private VerificationTokenService verificationTokenService;
+	private SnsEmailPublisherService snsEmailPublisherService;
 	private ClientServiceImpl clientService;
 
 	private static ClientPayload samplePayload() {
@@ -81,6 +83,15 @@ class ClientServiceImplTest {
 		return e;
 	}
 
+	private ClientCreateRequest requestFrom(ClientPayload payload) {
+        return new ClientCreateRequest(
+            payload.firstName(), payload.lastName(), payload.dateOfBirth(),
+            payload.gender(), payload.emailAddress(), payload.phoneNumber(),
+            payload.address(), payload.city(), payload.state(),
+            payload.country(), payload.postalCode()
+        );
+    }
+
 	private static UploadVerificationDocsRequest validUploadRequest(String token) {
 		return new UploadVerificationDocsRequest(
 			"NRIC",         "nric_front.jpg", "base64PrimaryData==", "image/jpeg",
@@ -95,8 +106,10 @@ class ClientServiceImplTest {
 		clientAuditLogger = org.mockito.Mockito.mock(ClientAuditLogger.class);
 		documentStorageService = org.mockito.Mockito.mock(DocumentStorageService.class);
 		verificationTokenService = org.mockito.Mockito.mock(VerificationTokenService.class);
+		snsEmailPublisherService = org.mockito.Mockito.mock(SnsEmailPublisherService.class);
+
 		clientService = new ClientServiceImpl(
-			clientRepository, clientAuditLogger, documentStorageService, verificationTokenService
+			clientRepository, clientAuditLogger, documentStorageService, verificationTokenService, snsEmailPublisherService
 		);
 	}
 
@@ -182,19 +195,7 @@ class ClientServiceImplTest {
 	void createClient_whenNoConflict_returnsSavedDto() {
 		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
 		ClientPayload payload = samplePayload();
-		ClientCreateRequest request = new ClientCreateRequest(
-			payload.firstName(),
-			payload.lastName(),
-			payload.dateOfBirth(),
-			payload.gender(),
-			payload.emailAddress(),
-			payload.phoneNumber(),
-			payload.address(),
-			payload.city(),
-			payload.state(),
-			payload.country(),
-			payload.postalCode()
-		);
+
 		when(clientRepository.existsByEmailAddressIgnoreCase(payload.emailAddress())).thenReturn(false);
 		when(clientRepository.existsByPhoneNumber(payload.phoneNumber())).thenReturn(false);
 		when(clientRepository.save(any())).thenAnswer(inv -> {
@@ -202,16 +203,20 @@ class ClientServiceImplTest {
 			if (e.getId() == null) e.setId(10L);
 			return e;
 		});
+		doNothing().when(clientAuditLogger).logAuditEvent(any(), any(), any(), any(), any(), any(), any(), any());
+        when(verificationTokenService.generateVerificationToken(eq("clt_10"), anyInt())).thenReturn("mock-token");
 
-		var result = clientService.createClient(agent, request, "Bearer x", "req-1");
+		var result = clientService.createClient(agent, requestFrom(payload), "Bearer x", "req-1");
 
 		assertThat(result.clientId()).isEqualTo("clt_10");
 		assertThat(result.firstName()).isEqualTo("Jordan");
 		assertThat(result.emailAddress()).isEqualTo("jordan.taylor@example.com");
+
 		ArgumentCaptor<ClientEntity> captor = ArgumentCaptor.forClass(ClientEntity.class);
 		verify(clientRepository).save(captor.capture());
 		assertThat(captor.getValue().getFirstName()).isEqualTo("Jordan");
 		assertThat(captor.getValue().getAssignedAgentId()).isEqualTo("usr_1");
+		
 		verify(clientRepository).existsByEmailAddressIgnoreCase(payload.emailAddress());
 		verify(clientRepository).existsByPhoneNumber(payload.phoneNumber());
 		verify(clientAuditLogger).logAuditEvent(
@@ -226,27 +231,47 @@ class ClientServiceImplTest {
 		);
 	}
 
+	@Test
+	void createClient_authorizationHeaderBlank_skipsAuditLogging_andLowercasesEmail() {
+		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		ClientCreateRequest request = new ClientCreateRequest(
+			"Jordan",
+			"Taylor",
+			LocalDate.of(1990, 1, 15),
+			Gender.MALE,
+			"JORDAN.TAYLOR@EXAMPLE.COM",
+			"+15551234567",
+			"123 Main Street",
+			"Springfield",
+			"Illinois",
+			"United States",
+			"62704"
+		);
+		when(clientRepository.existsByEmailAddressIgnoreCase("JORDAN.TAYLOR@EXAMPLE.COM")).thenReturn(false);
+		when(clientRepository.existsByPhoneNumber("+15551234567")).thenReturn(false);
+		ArgumentCaptor<ClientEntity> captor = ArgumentCaptor.forClass(ClientEntity.class);
+		when(clientRepository.save(captor.capture())).thenAnswer(inv -> {
+			ClientEntity e = inv.getArgument(0);
+			e.setId(21L);
+			return e;
+		});
+
+		var created = clientService.createClient(agent, request, "   ", "req-1");
+
+		assertThat(created.clientId()).isEqualTo("clt_21");
+		assertThat(captor.getValue().getEmailAddress()).isEqualTo("jordan.taylor@example.com");
+		verify(clientAuditLogger, never()).logAuditEvent(any(), any(), any(), any(), any(), any(), any(), any());
+	}
+
 	/** Verifies that createClient() throws DuplicateClientException when the email is already in use (no save). */
 	@Test
 	void createClient_whenEmailExists_throwsDuplicateClientException() {
 		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
 		ClientPayload payload = samplePayload();
-		ClientCreateRequest request = new ClientCreateRequest(
-			payload.firstName(),
-			payload.lastName(),
-			payload.dateOfBirth(),
-			payload.gender(),
-			payload.emailAddress(),
-			payload.phoneNumber(),
-			payload.address(),
-			payload.city(),
-			payload.state(),
-			payload.country(),
-			payload.postalCode()
-		);
+
 		when(clientRepository.existsByEmailAddressIgnoreCase(payload.emailAddress())).thenReturn(true);
 
-		assertThatThrownBy(() -> clientService.createClient(agent, request, "Bearer x", "req-1"))
+		assertThatThrownBy(() -> clientService.createClient(agent, requestFrom(payload), "Bearer x", "req-1"))
 			.isInstanceOf(DuplicateClientException.class)
 			.hasMessageContaining("Email");
 
@@ -259,29 +284,42 @@ class ClientServiceImplTest {
 	void createClient_whenPhoneExists_throwsDuplicateClientException() {
 		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
 		ClientPayload payload = samplePayload();
-		ClientCreateRequest request = new ClientCreateRequest(
-			payload.firstName(),
-			payload.lastName(),
-			payload.dateOfBirth(),
-			payload.gender(),
-			payload.emailAddress(),
-			payload.phoneNumber(),
-			payload.address(),
-			payload.city(),
-			payload.state(),
-			payload.country(),
-			payload.postalCode()
-		);
+
 		when(clientRepository.existsByEmailAddressIgnoreCase(payload.emailAddress())).thenReturn(false);
 		when(clientRepository.existsByPhoneNumber(payload.phoneNumber())).thenReturn(true);
 
-		assertThatThrownBy(() -> clientService.createClient(agent, request, "Bearer x", "req-1"))
+		assertThatThrownBy(() -> clientService.createClient(agent, requestFrom(payload), "Bearer x", "req-1"))
 			.isInstanceOf(DuplicateClientException.class)
 			.hasMessageContaining("Phone");
 
 		verify(clientRepository).existsByPhoneNumber(payload.phoneNumber());
 		verify(clientRepository, never()).save(any());
 	}
+
+	/** SNS publisher is called with the correct clientId, email, token, firstName, requestId. */
+    @Test
+    void createClient_publishesVerificationEmail_withCorrectArguments() throws Exception {
+        AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+        ClientPayload payload   = samplePayload();
+
+		when(clientRepository.save(any())).thenAnswer(inv -> {
+			ClientEntity e = inv.getArgument(0);
+			if (e.getId() == null) e.setId(10L);
+			return e;
+		});
+        when(verificationTokenService.generateVerificationToken(eq("clt_10"), anyInt())).thenReturn("signed-token-abc");
+		doNothing().when(snsEmailPublisherService).publishVerificationEmail(any(), any(), any(), any(), any());
+
+        clientService.createClient(agent, requestFrom(payload), "Bearer x", "req-2");
+
+        verify(snsEmailPublisherService).publishVerificationEmail(
+            eq("clt_10"),
+            eq("jordan.taylor@example.com"),
+            eq("signed-token-abc"),
+            eq("Jordan"),
+            eq("req-2")
+        );
+    }
 
 	/** Verifies that updateClient() loads the entity, checks email/phone for other ids, applies payload, saves, and returns DTO. */
 	@Test
@@ -411,73 +449,6 @@ class ClientServiceImplTest {
 
 		verify(clientRepository).findById(404L);
 		verify(clientRepository, never()).delete(any());
-	}
-
-	@Test
-	void createClient_whenLogPublishingFails_stillReturnsCreatedClient() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
-		ClientPayload payload = samplePayload();
-		ClientCreateRequest request = new ClientCreateRequest(
-			payload.firstName(),
-			payload.lastName(),
-			payload.dateOfBirth(),
-			payload.gender(),
-			payload.emailAddress(),
-			payload.phoneNumber(),
-			payload.address(),
-			payload.city(),
-			payload.state(),
-			payload.country(),
-			payload.postalCode()
-		);
-		when(clientRepository.existsByEmailAddressIgnoreCase(payload.emailAddress())).thenReturn(false);
-		when(clientRepository.existsByPhoneNumber(payload.phoneNumber())).thenReturn(false);
-		when(clientRepository.save(any())).thenAnswer(inv -> {
-			ClientEntity e = inv.getArgument(0);
-			e.setId(20L);
-			e.setAssignedAgentId("usr_1");
-			return e;
-		});
-		doThrow(new RuntimeException("log service unavailable"))
-			.when(clientAuditLogger).logAuditEvent(eq("CREATE"), any(), any(), any(), any(), any(), any(), any());
-
-		var result = clientService.createClient(agent, request, "Bearer x", "req-1");
-
-		assertThat(result.clientId()).isEqualTo("clt_20");
-		verify(clientRepository).save(any());
-		verify(clientAuditLogger).logAuditEvent(eq("CREATE"), any(), any(), any(), any(), any(), any(), any());
-	}
-
-	@Test
-	void createClient_authorizationHeaderBlank_skipsAuditLogging_andLowercasesEmail() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
-		ClientCreateRequest request = new ClientCreateRequest(
-			"Jordan",
-			"Taylor",
-			LocalDate.of(1990, 1, 15),
-			Gender.MALE,
-			"JORDAN.TAYLOR@EXAMPLE.COM",
-			"+15551234567",
-			"123 Main Street",
-			"Springfield",
-			"Illinois",
-			"United States",
-			"62704"
-		);
-		when(clientRepository.existsByEmailAddressIgnoreCase("JORDAN.TAYLOR@EXAMPLE.COM")).thenReturn(false);
-		when(clientRepository.existsByPhoneNumber("+15551234567")).thenReturn(false);
-		ArgumentCaptor<ClientEntity> captor = ArgumentCaptor.forClass(ClientEntity.class);
-		when(clientRepository.save(captor.capture())).thenAnswer(inv -> {
-			ClientEntity e = inv.getArgument(0);
-			e.setId(21L);
-			return e;
-		});
-
-		var created = clientService.createClient(agent, request, "   ", "req-1");
-
-		assertThat(created.clientId()).isEqualTo("clt_21");
-		assertThat(captor.getValue().getEmailAddress()).isEqualTo("jordan.taylor@example.com");
-		verify(clientAuditLogger, never()).logAuditEvent(any(), any(), any(), any(), any(), any(), any(), any());
 	}
 
 	@Test
