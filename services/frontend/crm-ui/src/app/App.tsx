@@ -10,7 +10,6 @@ import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 
 import { AdminDashboard } from '@/pages/AdminDashboard'
 import { AdminCommunications } from '@/pages/AdminCommunications'
-import { AdminManageAccountsPage } from '@/pages/AdminManageAccountsPage'
 import { AdminUserManagementPage } from '@/pages/AdminUserManagementPage'
 import { UserDashboard } from '@/pages/UserDashboard'
 import { AmlAlertsPage } from '@/pages/AmlAlertsPage'
@@ -66,7 +65,7 @@ export function App() {
               <Route path="/admin/communications" element={<AdminCommunications />} />
               <Route path="/admin/transactions" element={<ViewTransactionsPage />} />
               <Route path="/admin/aml-alerts" element={<AmlAlertsPage />} />
-              <Route path="/admin/accounts" element={<AdminManageAccountsPage />} />
+              <Route path="/admin/accounts" element={<Navigate to="/admin/users" replace />} />
               <Route path="/admin/users" element={<AdminUserManagementPage />} />
               <Route path="/admin/users/new" element={<CreateNewUserPage />} />
               <Route path="/admin/settings" element={<SettingsPage />} />
