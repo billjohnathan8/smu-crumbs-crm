@@ -13,10 +13,9 @@ public class ClockConfig {
 	 * Exposes a UTC clock for the application.
 	 */
 	@Bean
-	Clock clock() {
+	public Clock clock() {
 		return Clock.systemUTC();
 	}
 }
-
 
 

@@ -32,8 +32,18 @@ output "ecs_cluster_name" {
 }
 
 output "ecr_repository_url" {
-  description = "ECR repository URL for service images."
+  description = "Compatibility output for the user service ECR repository URL."
   value       = module.ecr.repository_url
+}
+
+output "ecr_repository_urls" {
+  description = "ECR repository URLs keyed by service name."
+  value       = module.ecr.repository_urls
+}
+
+output "ecr_repository_names" {
+  description = "ECR repository names keyed by service name."
+  value       = module.ecr.repository_names
 }
 
 #--------------------------------------------------------------
@@ -46,7 +56,7 @@ output "alb_dns_name" {
 
 output "log_api_invoke_url" {
   description = "API Gateway invoke URL for log Lambda routes."
-  value       = module.apigateway.log_api_base_url
+  value       = var.enable_log_lambda ? module.apigateway[0].log_api_base_url : null
 }
 
 #--------------------------------------------------------------
@@ -72,17 +82,31 @@ output "database_name" {
 #--------------------------------------------------------------
 output "cloudfront_distribution_id" {
   description = "CloudFront distribution ID."
-  value       = module.cloudfront.cloudfront_distribution_id
+  value       = try(module.cloudfront[0].cloudfront_distribution_id, null)
 }
 
 output "cloudfront_distribution_domain_name" {
   description = "CloudFront distribution domain name."
-  value       = module.cloudfront.cloudfront_distribution_domain_name
+  value       = try(module.cloudfront[0].cloudfront_distribution_domain_name, null)
 }
 
 output "app_url" {
-  description = "Primary app URL."
-  value       = module.cloudfront.app_url
+  description = "Primary app URL (CloudFront when enabled, ALB otherwise)."
+  value       = try(module.cloudfront[0].app_url, "http://${module.alb.alb_dns_name}")
+}
+
+output "custom_domain_mode" {
+  description = "How custom-domain certificates are sourced."
+  value = local.use_custom_domain ? (
+    local.use_existing_acm_certificates ? "external_acm_certificates" : (
+      local.create_acm_certificates ? "terraform_acm_certificates" : "invalid_custom_domain_contract"
+    )
+  ) : "disabled"
+}
+
+output "terraform_manages_route53_records" {
+  description = "Whether Terraform is configured to manage Route53 records for this deployment."
+  value       = local.manage_route53_records
 }
 
 #--------------------------------------------------------------
@@ -96,12 +120,12 @@ output "external_dns_frontend_name" {
 
 output "external_dns_frontend_target" {
   description = "CloudFront domain to target from external DNS."
-  value       = module.cloudfront.cloudfront_distribution_domain_name
+  value       = try(module.cloudfront[0].cloudfront_distribution_domain_name, null)
 }
 
 output "external_dns_alb_origin_name" {
   description = "DNS name to create externally for CloudFront-to-ALB origin."
-  value       = local.use_custom_domain ? module.acm[0].alb_origin_domain_name : null
+  value       = local.alb_origin_domain_name
 }
 
 output "external_dns_alb_origin_target" {
@@ -109,9 +133,29 @@ output "external_dns_alb_origin_target" {
   value       = module.alb.alb_dns_name
 }
 
+output "acm_us_certificate_validation_records" {
+  description = "DNS records to create for validating the CloudFront ACM certificate (when Terraform creates certs)."
+  value       = local.create_acm_certificates ? module.acm[0].us_certificate_validation_records : []
+}
+
+output "acm_ap_certificate_validation_records" {
+  description = "DNS records to create for validating the regional ALB ACM certificate (when Terraform creates certs)."
+  value       = local.create_acm_certificates ? module.acm[0].ap_certificate_validation_records : []
+}
+
 output "frontend_bucket_name" {
   description = "Frontend S3 bucket name."
   value       = module.s3.frontend_bucket_name
+}
+
+output "frontend_website_url" {
+  description = "S3 static website hosting URL (when CloudFront is disabled and public access is enabled)."
+  value       = module.s3.frontend_website_endpoint
+}
+
+output "transaction_sftp_bucket_name" {
+  description = "Transaction ingestion source S3 bucket name (legacy 'sftp' naming)."
+  value       = module.s3.transaction_sftp_bucket_name
 }
 
 #--------------------------------------------------------------
@@ -148,6 +192,11 @@ output "log_lambda_name" {
 output "aml_lambda_name" {
   description = "AML Lambda function name."
   value       = module.lambda.aml_lambda_name
+}
+
+output "transaction_ingestion_lambda_name" {
+  description = "Scheduled transaction ingestion Lambda function name."
+  value       = module.lambda.transaction_ingestion_lambda_name
 }
 
 #--------------------------------------------------------------
@@ -189,6 +238,16 @@ output "cognito_user_pool_endpoint" {
   value       = var.enable_cognito ? module.cognito[0].user_pool_endpoint : null
 }
 
+output "cognito_issuer_url" {
+  description = "Cognito issuer URL used for JWT verification."
+  value       = var.enable_cognito ? module.cognito[0].issuer_url : null
+}
+
+output "cognito_jwks_url" {
+  description = "Cognito JWKS URL used for JWT verification."
+  value       = var.enable_cognito ? module.cognito[0].jwks_url : null
+}
+
 #--------------------------------------------------------------
 # Messaging Outputs (SQS / SNS)
 #--------------------------------------------------------------
@@ -205,6 +264,11 @@ output "aml_queue_url" {
 output "verification_topic_arn" {
   description = "Verification SNS topic ARN."
   value       = module.sns.verification_topic_arn
+}
+
+output "alarm_notification_topic_arn" {
+  description = "Effective SNS topic ARN used by CloudWatch alarm actions."
+  value       = trimspace(var.alarm_notification_topic_arn) != "" ? trimspace(var.alarm_notification_topic_arn) : module.sns.alarm_topic_arn
 }
 
 #--------------------------------------------------------------
@@ -267,9 +331,36 @@ output "cloudtrail_arn" {
   value       = module.observability.cloudtrail_arn
 }
 
+output "cloudwatch_dashboard_name" {
+  description = "CloudWatch dashboard name for ECS and ALB monitoring."
+  value       = module.observability.dashboard_name
+}
+
 # --- Backup ---
 
 output "backup_vault_arn" {
   description = "AWS Backup vault ARN."
   value       = module.backup.backup_vault_arn
+}
+
+# --- CodeDeploy ---
+
+output "codedeploy_ecs_application_name" {
+  description = "CodeDeploy ECS application name."
+  value       = module.codedeploy.ecs_application_name
+}
+
+output "codedeploy_lambda_application_name" {
+  description = "CodeDeploy Lambda application name."
+  value       = module.codedeploy.lambda_application_name
+}
+
+output "codedeploy_ecs_deployment_group_names" {
+  description = "CodeDeploy ECS deployment group names keyed by service."
+  value       = module.codedeploy.ecs_deployment_group_names
+}
+
+output "codedeploy_lambda_deployment_group_names" {
+  description = "CodeDeploy Lambda deployment group names keyed by logical lambda service."
+  value       = module.codedeploy.lambda_deployment_group_names
 }

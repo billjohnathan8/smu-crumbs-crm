@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 /**
- * HTTP-backed audit logger that posts to the log service.
+ * HTTP-backed audit logger that posts to the Lambda-backed log API.
  */
 @Component
 public class HttpClientAuditLogger implements ClientAuditLogger {
@@ -28,14 +28,14 @@ public class HttpClientAuditLogger implements ClientAuditLogger {
 		String attributeName,
 		String beforeValue,
 		String afterValue,
-		String agentId,
+		String userId,
 		String clientId,
 		String correlationId,
 		String authorizationHeader
 	) {
 		try {
 			LogEventRequest request = new LogEventRequest(
-				action, attributeName, beforeValue, afterValue, agentId, clientId, Instant.now(), correlationId
+				action, attributeName, beforeValue, afterValue, userId, clientId, Instant.now(), correlationId
 			);
 
 			logServiceRestClient.post()

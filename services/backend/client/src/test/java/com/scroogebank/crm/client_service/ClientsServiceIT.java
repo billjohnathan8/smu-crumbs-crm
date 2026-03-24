@@ -97,7 +97,7 @@ class ClientsServiceIT {
 
 		HttpHeaders headers = new HttpHeaders();
 		headers.setContentType(MediaType.APPLICATION_JSON);
-		headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + mintToken("usr_it_agent", "agent"));
+		headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + mintToken("usr_it_agent", "user"));
 		ResponseEntity<String> createResponse = restTemplate.postForEntity(
 			baseUrl() + "/api/clients",
 			new HttpEntity<>(createBody, headers),

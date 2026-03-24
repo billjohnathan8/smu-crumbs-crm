@@ -7,7 +7,7 @@ import type {
   UserRole,
 } from './types'
 
-const BASE = '/api/agents'
+const BASE = '/api/users'
 
 export interface ListUsersParams {
   limit?: number

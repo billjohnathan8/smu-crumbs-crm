@@ -7,21 +7,21 @@ export interface ListLogsParams {
   limit?: number
   offset?: number
   clientId?: string
-  agentId?: string
+  userId?: string
   action?: LogAction
   from?: string
   to?: string
 }
 
 /**
- * List logs (agents see only their own logs, admins see all)
+ * List logs (users see only their own logs, admins see all)
  */
 export async function listLogs(params?: ListLogsParams): Promise<PaginatedResponse<LogEntry>> {
   const query = new URLSearchParams()
   if (params?.limit) query.append('limit', params.limit.toString())
   if (params?.offset) query.append('offset', params.offset.toString())
   if (params?.clientId) query.append('clientId', params.clientId)
-  if (params?.agentId) query.append('agentId', params.agentId)
+  if (params?.userId) query.append('userId', params.userId)
   if (params?.action) query.append('action', params.action)
   if (params?.from) query.append('from', params.from)
   if (params?.to) query.append('to', params.to)

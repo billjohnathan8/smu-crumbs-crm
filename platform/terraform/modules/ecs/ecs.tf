@@ -18,7 +18,7 @@ resource "aws_ecs_task_definition" "service" {
 
   container_definitions = templatefile(local.task_definition_template, {
     container_name    = each.key
-    image             = "${var.ecr_repository_url}:${each.value.image_tag}"
+    image             = "${var.ecr_repository_urls[each.key]}:${each.value.image_tag}"
     container_port    = 8080
     environment_json  = jsonencode(each.value.environment)
     secrets_json      = jsonencode(each.value.secrets)
@@ -36,26 +36,51 @@ resource "aws_ecs_task_definition" "service" {
 resource "aws_ecs_service" "service" {
   for_each = local.service_configs
 
-  name                               = "${var.name_prefix}-${each.key}"
-  cluster                            = aws_ecs_cluster.this.id
-  launch_type                        = "FARGATE"
+  name        = "${var.name_prefix}-${each.key}"
+  cluster     = aws_ecs_cluster.this.id
+  launch_type = "FARGATE"
+  # desired_count already reflects statefulness rules from local.service_configs.
   desired_count                      = each.value.desired_count
   task_definition                    = aws_ecs_task_definition.service[each.key].arn
   health_check_grace_period_seconds  = 60
-  deployment_minimum_healthy_percent = 50
-  deployment_maximum_percent         = 200
+  deployment_minimum_healthy_percent = var.use_codedeploy_controller ? null : 50
+  deployment_maximum_percent         = var.use_codedeploy_controller ? null : 200
 
-  # Circuit breaker for automatic rollback on failed deployments
-  deployment_circuit_breaker {
-    enable   = true
-    rollback = true
+  # CODE_DEPLOY controller enables CodeDeploy blue/green deployments.
+  # Default ECS controller uses rolling updates.
+  dynamic "deployment_controller" {
+    for_each = var.use_codedeploy_controller ? [1] : []
+    content {
+      type = "CODE_DEPLOY"
+    }
+  }
+
+  # Circuit breaker for automatic rollback on failed deployments.
+  # Only compatible with the default ECS (rolling-update) controller.
+  dynamic "deployment_circuit_breaker" {
+    for_each = var.use_codedeploy_controller ? [] : [1]
+    content {
+      enable   = true
+      rollback = true
+    }
+  }
+
+  # CloudWatch alarm-based deployment monitoring (complements circuit breaker).
+  # Only compatible with the default ECS controller.
+  dynamic "alarms" {
+    for_each = !var.use_codedeploy_controller && var.enable_deployment_alarms && contains(keys(var.deployment_alarm_names), each.key) ? [1] : []
+    content {
+      alarm_names = var.deployment_alarm_names[each.key]
+      enable      = true
+      rollback    = true
+    }
   }
 
   # Network configuration for Fargate tasks
   network_configuration {
-    subnets          = var.private_subnet_ids
+    subnets          = var.service_subnet_ids
     security_groups  = [var.ecs_service_security_group_id]
-    assign_public_ip = false
+    assign_public_ip = var.assign_public_ip
   }
 
   # Load balancer integration
@@ -65,11 +90,14 @@ resource "aws_ecs_service" "service" {
     container_port   = 8080
   }
 
-  # Service discovery registration
-  service_registries {
-    registry_arn   = aws_service_discovery_service.service[each.key].arn
-    container_name = each.key
-    container_port = 8080
+  # Service discovery registration (disabled when Cloud Map is not available)
+  dynamic "service_registries" {
+    for_each = var.enable_service_discovery ? [1] : []
+    content {
+      registry_arn   = aws_service_discovery_service.service[each.key].arn
+      container_name = each.key
+      container_port = 8080
+    }
   }
 }
 
@@ -78,4 +106,11 @@ resource "aws_ssm_parameter" "client_service_url" {
   name  = "/${var.project_name}/${var.environment}/service/client/internal_url"
   type  = "String"
   value = local.client_service_internal_url
+
+  lifecycle {
+    precondition {
+      condition     = var.enable_service_discovery || var.alb_dns_name != ""
+      error_message = "alb_dns_name must be provided when enable_service_discovery is false; CLIENT_SERVICE_URL would otherwise be empty."
+    }
+  }
 }

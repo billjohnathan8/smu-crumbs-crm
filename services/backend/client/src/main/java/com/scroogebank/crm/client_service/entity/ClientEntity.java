@@ -1,7 +1,11 @@
 package com.scroogebank.crm.client_service.entity;
 
+import java.time.Instant;
+import java.time.LocalDate;
+
 import com.scroogebank.crm.client_service.crypto.EncryptedStringConverter;
 import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
@@ -14,8 +18,6 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import java.time.Instant;
-import java.time.LocalDate;
 
 /**
  * JPA entity representing a client profile and verification state.
@@ -72,8 +74,8 @@ public class ClientEntity {
 	@Column(name = "postal_code", nullable = false, length = 512)
 	private String postalCode;
 
-	@Column(name = "assigned_agent_id", nullable = false, length = 64)
-	private String assignedAgentId;
+	@Column(name = "assigned_user_id", nullable = false, length = 64)
+	private String assignedUserId;
 
 	@Enumerated(EnumType.STRING)
 	@Column(name = "identity_verification_status", nullable = false, length = 20)
@@ -220,11 +222,11 @@ public class ClientEntity {
 	}
 
 	public String getAssignedAgentId() {
-		return assignedAgentId;
+		return assignedUserId;
 	}
 
-	public void setAssignedAgentId(String assignedAgentId) {
-		this.assignedAgentId = assignedAgentId;
+	public void setAssignedAgentId(String assignedUserId) {
+		this.assignedUserId = assignedUserId;
 	}
 
 	public IdentityVerificationStatus getIdentityVerificationStatus() {

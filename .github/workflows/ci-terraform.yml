@@ -1,31 +1,32 @@
 name: CI - Terraform
 
-# Component pipeline for terraform configuration validation and security scanning.
-# Runs terraform fmt, validate, tflint, and checkov checks.
+# Component pipeline for terraform configuration validation, planning, and security scanning.
+# Runs terraform fmt, validate, integration-contract plan artifact generation,
+# tflint, and checkov checks.
 
 on:
   pull_request:
     branches:
       - dev
       - main
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
     paths:
       - 'platform/terraform/**'
+      - '!**/*.md'
+      - '!docs/**'
   push:
     branches:
       - dev
       - main
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
     paths:
       - 'platform/terraform/**'
+      - '!**/*.md'
+      - '!docs/**'
   workflow_dispatch:
   workflow_call:
     secrets:
       INFRACOST_API_KEY:
+        required: false
+      AWS_ROLE_ARN:
         required: false
 
 concurrency:
@@ -34,12 +35,17 @@ concurrency:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   terraform-lint:
     name: Terraform Static Analysis
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      TF_PLAN_ENV: integration
     defaults:
       run:
         working-directory: platform/terraform
@@ -52,7 +58,7 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         timeout-minutes: 2
         with:
-          terraform_version: "~1.6"
+          terraform_version: "~1.10"
 
       - name: terraform fmt check
         timeout-minutes: 2
@@ -65,6 +71,71 @@ jobs:
       - name: terraform validate
         timeout-minutes: 2
         run: terraform validate
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        timeout-minutes: 2
+        with:
+          python-version: '3.13'
+
+      - name: Build operable lambda artifacts
+        timeout-minutes: 6
+        run: bash ../../scripts/ci/build-lambda-artifacts.sh
+
+      - name: terraform validate (operable lambda feature flags)
+        timeout-minutes: 2
+        env:
+          TF_VAR_enable_log_lambda: "true"
+          TF_VAR_enable_aml_lambda: "true"
+          TF_VAR_enable_transaction_ingestion_lambda: "true"
+          TF_VAR_enable_verification_pipeline: "true"
+          TF_VAR_ses_sender_email: "verification@crm.local"
+        run: terraform validate
+
+      - name: Prepare Terraform plan artifact directory
+        timeout-minutes: 1
+        run: mkdir -p .tfplan
+
+      - name: Configure AWS credentials for Terraform plan
+        if: ${{ env.AWS_ROLE_ARN != '' && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ap-southeast-1
+
+      - name: terraform init (integration backend)
+        if: ${{ env.AWS_ROLE_ARN != '' && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) }}
+        timeout-minutes: 5
+        run: terraform init -reconfigure -backend-config=env/${{ env.TF_PLAN_ENV }}.backend.hcl
+
+      - name: terraform plan (integration contract)
+        if: ${{ env.AWS_ROLE_ARN != '' && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) }}
+        timeout-minutes: 8
+        run: |
+          terraform plan \
+            -input=false \
+            -lock-timeout=300s \
+            "-var-file=env/${TF_PLAN_ENV}.tfvars" \
+            "-out=.tfplan/${TF_PLAN_ENV}.tfplan"
+          terraform show -no-color ".tfplan/${TF_PLAN_ENV}.tfplan" > ".tfplan/${TF_PLAN_ENV}.plan.txt"
+
+      - name: Record skipped Terraform plan reason
+        if: ${{ !(env.AWS_ROLE_ARN != '' && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork)) }}
+        timeout-minutes: 1
+        run: |
+          cat <<'EOF' > .tfplan/README.txt
+          Terraform plan was skipped because AWS_ROLE_ARN is not configured for this run
+          or this run is from a forked pull request where repository secrets are unavailable.
+          Static terraform checks still ran successfully.
+          EOF
+
+      - name: Upload Terraform plan artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: platform/terraform/.tfplan/
+          retention-days: 7
 
       - name: Set up TFLint
         uses: terraform-linters/setup-tflint@v4
@@ -85,21 +156,21 @@ jobs:
         run: mkdir -p .infracost
 
       - name: Set up Infracost
-        if: ${{ secrets.INFRACOST_API_KEY != '' }}
+        if: ${{ env.INFRACOST_API_KEY != '' }}
         uses: infracost/actions/setup@v3
         timeout-minutes: 2
         with:
-          api-key: ${{ secrets.INFRACOST_API_KEY }}
+          api-key: ${{ env.INFRACOST_API_KEY }}
 
       - name: Generate Infracost report
-        if: ${{ secrets.INFRACOST_API_KEY != '' }}
+        if: ${{ env.INFRACOST_API_KEY != '' }}
         timeout-minutes: 5
         run: |
           infracost breakdown --path=. --format=json --out-file=.infracost/infracost-report.json
           infracost breakdown --path=. --format=table --out-file=.infracost/infracost-report.txt
 
       - name: Record skipped Infracost reason
-        if: ${{ secrets.INFRACOST_API_KEY == '' }}
+        if: ${{ env.INFRACOST_API_KEY == '' }}
         timeout-minutes: 1
         run: echo "INFRACOST_API_KEY is not configured; Infracost cost report was skipped." > .infracost/README.txt
 
@@ -111,20 +182,13 @@ jobs:
           path: platform/terraform/.infracost/
           retention-days: 7
 
-      - name: Set up Python for Checkov
-        uses: actions/setup-python@v5
-        timeout-minutes: 2
-        with:
-          python-version: '3.13'
-
       - name: Install Checkov
         timeout-minutes: 3
         run: pip install checkov
 
       - name: Run Checkov (security & compliance scan)
-        # --soft-fail reports findings without blocking the pipeline.
-        # Remove --soft-fail once critical findings are resolved and
-        # enforcement is desired on every merge.
+        # CRITICAL and HIGH findings block the pipeline (exit 1).
+        # LOW and MEDIUM findings are reported but non-blocking (--soft-fail).
         timeout-minutes: 5
         run: |
           checkov \
@@ -133,4 +197,5 @@ jobs:
             --output cli \
             --compact \
             --quiet \
-            --soft-fail
+            --soft-fail \
+            --hard-fail-on CRITICAL,HIGH

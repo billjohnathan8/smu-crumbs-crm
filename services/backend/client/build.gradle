@@ -20,6 +20,9 @@ repositories {
 	mavenCentral()
 }
 
+ext {
+}
+
 dependencies {
 	implementation platform('software.amazon.awssdk:bom:2.31.49')
 	implementation platform('io.awspring.cloud:spring-cloud-aws-dependencies:4.0.0')
@@ -90,6 +93,17 @@ tasks.named('jacocoTestReport') {
 	}
 }
 
+tasks.named('jacocoTestCoverageVerification') {
+	dependsOn tasks.named('jacocoTestReport')
+	violationRules {
+		rule {
+			limit {
+				minimum = 0.80
+			}
+		}
+	}
+}
+
 tasks.named('assemble') {
 	mustRunAfter tasks.named('checkstyleMain'), tasks.named('checkstyleTest')
 }
@@ -113,5 +127,5 @@ tasks.named('jar') {
 tasks.register('localTestPipeline') {
 	group = 'verification'
 	description = 'Runs lint, build, tests, and coverage reports for local CI.'
-	dependsOn 'checkstyleMain', 'checkstyleTest', 'assemble', 'test', 'jacocoTestReport'
+	dependsOn 'checkstyleMain', 'checkstyleTest', 'assemble', 'test', 'jacocoTestReport', 'jacocoTestCoverageVerification'
 }

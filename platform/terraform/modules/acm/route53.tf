@@ -8,13 +8,13 @@
 # DNS records required to validate the CloudFront certificate.
 #--------------------------------------------------------------
 resource "aws_route53_record" "us_cert_validation" {
-  for_each = {
+  for_each = var.manage_dns_validation_records ? {
     for dvo in aws_acm_certificate.us_cert.domain_validation_options : dvo.domain_name => {
       name   = dvo.resource_record_name
       record = dvo.resource_record_value
       type   = dvo.resource_record_type
     }
-  }
+  } : {}
 
   allow_overwrite = true
   name            = each.value.name
@@ -29,13 +29,13 @@ resource "aws_route53_record" "us_cert_validation" {
 # DNS records required to validate the ALB certificate.
 #--------------------------------------------------------------
 resource "aws_route53_record" "ap_cert_validation" {
-  for_each = {
+  for_each = var.manage_dns_validation_records ? {
     for dvo in aws_acm_certificate.ap_cert.domain_validation_options : dvo.domain_name => {
       name   = dvo.resource_record_name
       record = dvo.resource_record_value
       type   = dvo.resource_record_type
     }
-  }
+  } : {}
 
   allow_overwrite = true
   name            = each.value.name

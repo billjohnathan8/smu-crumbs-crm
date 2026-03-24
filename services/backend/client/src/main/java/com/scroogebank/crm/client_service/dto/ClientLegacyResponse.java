@@ -22,7 +22,7 @@ public record ClientLegacyResponse(
 	String country,
 	String postalCode,
 	IdentityVerificationStatus identityVerificationStatus,
-	String assignedAgentId,
+	String assignedUserId,
 	Instant createdAt,
 	Instant updatedAt
 ) {}

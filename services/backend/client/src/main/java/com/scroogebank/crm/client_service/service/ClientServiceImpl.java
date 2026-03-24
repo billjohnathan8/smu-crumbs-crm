@@ -1,5 +1,15 @@
 package com.scroogebank.crm.client_service.service;
 
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.StringJoiner;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.scroogebank.crm.client_service.api.Pagination;
 import com.scroogebank.crm.client_service.dto.ClientCreateRequest;
 import com.scroogebank.crm.client_service.dto.ClientDto;
@@ -9,6 +19,9 @@ import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
 import com.scroogebank.crm.client_service.dto.UploadVerificationDocsRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
+import com.scroogebank.crm.client_service.email.VerificationEmail;
+import com.scroogebank.crm.client_service.email.VerificationEmailDispatchService;
+import com.scroogebank.crm.client_service.email.VerificationEmailTemplateRenderer;
 import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
 import com.scroogebank.crm.client_service.exception.DuplicateClientException;
@@ -115,7 +128,7 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	/**
-	 * Creates a new client, assigns it to the requesting agent, and logs an audit event.
+	 * Creates a new client, assigns it to the requesting user, and logs an audit event.
 	 *
 	 * @param user authenticated user
 	 * @param request create payload
@@ -501,6 +514,9 @@ public class ClientServiceImpl implements ClientService {
 			entity.getPostalCode(),
 			entity.getIdentityVerificationStatus(),
 			entity.getAssignedAgentId(),
+			entity.getVerificationDocumentType(),
+			entity.getVerificationDocumentRef(),
+			entity.getVerificationVerifiedAt(),
 			entity.getCreatedAt(),
 			entity.getUpdatedAt()
 		);
@@ -552,7 +568,7 @@ public class ClientServiceImpl implements ClientService {
 	 * @param attributeName attribute being changed or observed
 	 * @param beforeValue previous value (nullable)
 	 * @param afterValue new value (nullable)
-	 * @param agentId authenticated agent id
+	 * @param userId authenticated user id
 	 * @param clientId associated client id
 	 * @param correlationId request correlation id
 	 * @param authorizationHeader bearer token for downstream auth
@@ -562,7 +578,7 @@ public class ClientServiceImpl implements ClientService {
 		String attributeName,
 		String beforeValue,
 		String afterValue,
-		String agentId,
+		String userId,
 		String clientId,
 		String correlationId,
 		String authorizationHeader
@@ -576,7 +592,7 @@ public class ClientServiceImpl implements ClientService {
 				attributeName,
 				beforeValue,
 				afterValue,
-				agentId,
+				userId,
 				clientId,
 				correlationId,
 				authorizationHeader
@@ -584,6 +600,51 @@ public class ClientServiceImpl implements ClientService {
 		}
 		catch (Exception ex) {
 			LOGGER.warn("Client operation completed but audit logging failed. action={} clientId={}", action, clientId, ex);
+		}
+	}
+
+	/**
+	 * Sends verification confirmation email and keeps verification flow non-blocking.
+	 *
+	 * @param client verified client entity
+	 * @param clientId public client identifier
+	 * @param userId authenticated user id
+	 * @param authorizationHeader inbound authorization header
+	 * @param requestId request correlation id
+	 */
+	private void sendVerificationEmailSafe(
+		ClientEntity client,
+		String clientId,
+		String userId,
+		String authorizationHeader,
+		String requestId
+	) {
+		try {
+			VerificationEmail email = verificationEmailTemplateRenderer.render(
+				client.getEmailAddress(),
+				client.getFirstName(),
+				clientId
+			);
+			verificationEmailDispatchService.queueAndDispatchVerificationEmail(
+				clientId,
+				userId,
+				email,
+				authorizationHeader,
+				requestId
+			);
+			LOGGER.info(
+				"Verification email dispatch triggered for clientId={} requestId={}",
+				clientId,
+				requestId
+			);
+		}
+		catch (Exception ex) {
+			LOGGER.warn(
+				"Client verification completed but verification email failed. clientId={} requestId={}",
+				clientId,
+				requestId,
+				ex
+			);
 		}
 	}
 }

@@ -17,7 +17,7 @@ export async function setupAdminRoutes(page: Page) {
       });
     }
 
-    if (url.includes("/api/agents/me")) {
+    if (url.includes("/api/users/me")) {
       return route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -32,26 +32,26 @@ export async function setupAdminRoutes(page: Page) {
       });
     }
 
-    if (url.includes("/api/agents") && route.request().method() === "GET") {
+    if (url.includes("/api/users") && route.request().method() === "GET") {
       return route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
           data: [
             {
-              id: "agent-1",
-              firstName: "Agent",
+              id: "user-1",
+              firstName: "User",
               lastName: "One",
-              email: "agent1@example.com",
-              role: "agent",
+              email: "user1@example.com",
+              role: "user",
               status: "active",
             },
             {
-              id: "agent-2",
-              firstName: "Agent",
+              id: "user-2",
+              firstName: "User",
               lastName: "Two",
-              email: "agent2@example.com",
-              role: "agent",
+              email: "user2@example.com",
+              role: "user",
               status: "active",
             },
           ],
@@ -85,7 +85,7 @@ export async function setupAdminRoutes(page: Page) {
               logId: "log-1",
               action: "CREATE",
               attributeName: "client",
-              agentId: "agent-1",
+              userId: "user-1",
               clientId: "client-1",
               dateTime: "2024-01-15T10:30:00Z",
             },
@@ -108,7 +108,7 @@ export async function setupAgentRoutes(page: Page) {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          accessToken: "mock-agent-token",
+          accessToken: "mock-user-token",
           refreshToken: "mock-refresh-token",
           expiresIn: 3600,
           tokenType: "Bearer",
@@ -116,16 +116,16 @@ export async function setupAgentRoutes(page: Page) {
       });
     }
 
-    if (url.includes("/api/agents/me")) {
+    if (url.includes("/api/users/me")) {
       return route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          id: "agent-1",
-          firstName: "Agent",
+          id: "user-1",
+          firstName: "User",
           lastName: "User",
-          email: "agent@example.com",
-          role: "agent",
+          email: "user@example.com",
+          role: "user",
           status: "active",
         }),
       });

@@ -11,6 +11,7 @@
 set -euo pipefail
 
 REGION="${AWS_DEFAULT_REGION:-ap-southeast-1}"
+SES_SENDER_EMAIL="${SES_SENDER_EMAIL:-verification@crm.local}"
 
 echo "==> [LocalStack init] Starting resource provisioning (region: ${REGION})..."
 
@@ -61,6 +62,7 @@ echo "==> Creating S3 buckets..."
 
 awslocal s3 mb s3://scroogebank-crm-dev-frontend  --region "${REGION}"
 awslocal s3 mb s3://scroogebank-crm-dev-verification --region "${REGION}"
+awslocal s3 mb s3://scroogebank-crm-dev-transaction-sftp --region "${REGION}"
 
 # --------------------------------------------------------------------------
 # SNS topics
@@ -70,6 +72,27 @@ echo "==> Creating SNS topics..."
 awslocal sns create-topic \
   --name scroogebank-crm-dev-verification \
   --region "${REGION}"
+
+# --------------------------------------------------------------------------
+# SES sender identity (used by client-service verification email path)
+# --------------------------------------------------------------------------
+echo "==> Creating SES sender identity..."
+if awslocal sesv2 get-email-identity \
+  --email-identity "${SES_SENDER_EMAIL}" \
+  --region "${REGION}" >/dev/null 2>&1; then
+  echo "    SES identity already exists: ${SES_SENDER_EMAIL}"
+elif awslocal sesv2 create-email-identity \
+  --email-identity "${SES_SENDER_EMAIL}" \
+  --region "${REGION}" >/dev/null 2>&1; then
+  echo "    SESv2 identity created: ${SES_SENDER_EMAIL}"
+elif awslocal ses verify-email-identity \
+  --email-address "${SES_SENDER_EMAIL}" \
+  --region "${REGION}" >/dev/null 2>&1; then
+  echo "    SES identity verified (v1 API): ${SES_SENDER_EMAIL}"
+else
+  echo "[FAIL] Unable to create SES sender identity in LocalStack: ${SES_SENDER_EMAIL}" >&2
+  exit 1
+fi
 
 # --------------------------------------------------------------------------
 # Secrets Manager — seed dev secrets

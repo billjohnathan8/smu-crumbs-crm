@@ -2,8 +2,8 @@ name: CI - Integration Pipeline
 
 # Lean pipeline for integration.
 # Purpose:
-# - Avoid rerunning lint/unit/mock checks already enforced earlier in dev/component pipelines.
-# - Keep only integration-specific validation before merging to main.
+# - Avoid rerunning full lint/unit/mock suites already enforced earlier.
+# - Enforce DB-backed Postgres checks for stateful services, then run fullstack validation.
 
 on:
   pull_request:
@@ -26,15 +26,141 @@ concurrency:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
+  # Early gate: skip the entire CI graph for PR-merge push commits.
+  precheck:
+    name: Decide CI Execution
+    runs-on: ubuntu-latest
+    outputs:
+      should-run: ${{ steps.decision.outputs.should-run }}
+    steps:
+      - id: decision
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message || '' }}
+        run: |
+          SHOULD_RUN="true"
+          if [[ "${EVENT_NAME}" == "push" ]] && [[ "${HEAD_COMMIT_MESSAGE}" == "Merge pull request"* ]]; then
+            SHOULD_RUN="false"
+          fi
+          echo "should-run=${SHOULD_RUN}" >> "$GITHUB_OUTPUT"
+
   # Keep a lightweight CI-config sanity check.
   actionlint:
+    if: ${{ needs.precheck.outputs.should-run == 'true' }}
+    needs:
+      - precheck
     uses: ./.github/workflows/reusable-actionlint.yml
 
-  # Integration-only validation: real stack (containers + LocalStack + Playwright).
-  fullstack-integration-e2e:
-    if: ${{ !failure() && !cancelled() }}
+  # Detect changed scopes so expensive fullstack runs only when relevant.
+  changes:
+    if: ${{ needs.precheck.outputs.should-run == 'true' }}
+    needs:
+      - precheck
+    uses: ./.github/workflows/reusable-changes.yml
+
+  # DB-backed Postgres coverage for stateful services before fullstack.
+  db-test-user:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-user == 'true' ||
+           needs.changes.outputs.ci-config == 'true') }}
     needs:
       - actionlint
+      - changes
+    uses: ./.github/workflows/reusable-test-component-db.yml
+    with:
+      component: user
+      runtime: java
+      working-directory: services/backend/user
+      test-command: |
+        chmod +x gradlew
+        ./gradlew test \
+          --tests "com.scroogebank.crm.userservice.service.PersistentUserStoreTest" \
+          --no-daemon --console=plain
+      timeout-minutes: 12
+      artifact-paths: services/backend/user/build/reports/**
+
+  db-test-client:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-client == 'true' ||
+           needs.changes.outputs.ci-config == 'true') }}
+    needs:
+      - actionlint
+      - changes
+    uses: ./.github/workflows/reusable-test-component-db.yml
+    with:
+      component: client
+      runtime: java
+      working-directory: services/backend/client
+      test-command: |
+        chmod +x gradlew
+        ./gradlew test \
+          --tests "com.scroogebank.crm.client_service.ClientsServiceIT" \
+          -PincludeIntegration=true \
+          --no-daemon --console=plain
+      timeout-minutes: 15
+      artifact-paths: services/backend/client/build/reports/**
+
+  db-test-transaction:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-transaction == 'true' ||
+           needs.changes.outputs.ci-config == 'true') }}
+    needs:
+      - actionlint
+      - changes
+    uses: ./.github/workflows/reusable-test-component-db.yml
+    with:
+      component: transaction
+      runtime: java
+      working-directory: services/backend/transaction
+      test-command: |
+        chmod +x gradlew
+        ./gradlew test \
+          --tests "com.scroogebank.crm.transaction_service.service.PersistentTransactionsStoreTest" \
+          --no-daemon --console=plain
+      timeout-minutes: 12
+      artifact-paths: services/backend/transaction/build/reports/**
+
+  db-test-log:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-log == 'true' ||
+           needs.changes.outputs.ci-config == 'true') }}
+    needs:
+      - actionlint
+      - changes
+    uses: ./.github/workflows/reusable-test-component-db.yml
+    with:
+      component: log
+      runtime: python
+      working-directory: services/backend/log
+      test-command: |
+        RUN_DB_INTEGRATION_TESTS=true python -m pytest tests/test_repository_postgres_integration.py \
+          --junitxml=build/reports/tests/junit-postgres.xml
+      timeout-minutes: 10
+      artifact-paths: services/backend/log/build/reports/**
+
+  # Integration validation: real stack (containers + LocalStack), with Playwright in full mode.
+  fullstack-integration-e2e:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.any-service == 'true' ||
+           needs.changes.outputs.integration-tests == 'true' ||
+           needs.changes.outputs.scripts == 'true' ||
+           needs.changes.outputs.platform == 'true' ||
+           needs.changes.outputs.ci-config == 'true') }}
+    needs:
+      - actionlint
+      - changes
+      - db-test-user
+      - db-test-client
+      - db-test-transaction
+      - db-test-log
     uses: ./.github/workflows/reusable-fullstack-integration.yml
+    with:
+      fullstack-mode: ${{ github.event_name == 'pull_request' && 'smoke' || 'full' }}

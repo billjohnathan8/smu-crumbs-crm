@@ -5,11 +5,15 @@
 #--------------------------------------------------------------
 
 resource "aws_cloudwatch_log_group" "log_lambda" {
+  count = var.enable_log_lambda ? 1 : 0
+
   name              = "/aws/lambda/${var.name_prefix}-log-service"
   retention_in_days = var.cloudwatch_log_retention_days
 }
 
 resource "aws_lambda_function" "log" {
+  count = var.enable_log_lambda ? 1 : 0
+
   function_name    = "${var.name_prefix}-log-service"
   filename         = var.log_lambda_zip_path
   source_code_hash = filebase64sha256(var.log_lambda_zip_path)
@@ -18,6 +22,7 @@ resource "aws_lambda_function" "log" {
   runtime          = "python3.13"
   memory_size      = var.log_lambda_memory_size
   timeout          = var.log_lambda_timeout_seconds
+  publish          = true
 
   vpc_config {
     subnet_ids         = var.private_subnet_ids
@@ -32,18 +37,26 @@ resource "aws_lambda_function" "log" {
       DB_USER_SECRET_ARN     = var.db_username_secret_arn
       DB_PASSWORD_SECRET_ARN = var.db_password_secret_arn
       JWT_HMAC_SECRET_ARN    = var.jwt_hmac_secret_arn
+      AUTH_MODE              = var.auth_mode
+      COGNITO_ISSUER         = var.cognito_issuer_url
+      COGNITO_JWKS_URL       = var.cognito_jwks_url
+      COGNITO_CLIENT_ID      = var.cognito_audience
     }
   }
 
-  depends_on = [aws_cloudwatch_log_group.log_lambda]
+  depends_on = [aws_cloudwatch_log_group.log_lambda[0]]
 }
 
 resource "aws_cloudwatch_log_group" "aml_lambda" {
+  count = var.enable_aml_lambda ? 1 : 0
+
   name              = "/aws/lambda/${var.name_prefix}-aml"
   retention_in_days = var.cloudwatch_log_retention_days
 }
 
 resource "aws_lambda_function" "aml" {
+  count = var.enable_aml_lambda ? 1 : 0
+
   function_name    = "${var.name_prefix}-aml"
   filename         = var.aml_lambda_zip_path
   source_code_hash = filebase64sha256(var.aml_lambda_zip_path)
@@ -52,23 +65,29 @@ resource "aws_lambda_function" "aml" {
   runtime          = "python3.13"
   memory_size      = var.aml_lambda_memory_size
   timeout          = var.aml_lambda_timeout_seconds
+  publish          = true
 
   environment {
     variables = {
-      SFTP_HOST        = var.aml_sftp_host
-      SFTP_PORT        = tostring(var.aml_sftp_port)
-      SFTP_USER        = var.aml_sftp_user
-      SFTP_KEY_SECRET  = var.aml_sftp_key_secret_arn
-      SFTP_REMOTE_PATH = var.aml_sftp_remote_path
-      CRM_API_BASE_URL = var.crm_api_base_url
-      ENTITY_ID        = var.aml_entity_id
+      SFTP_HOST                   = var.aml_sftp_host
+      SFTP_PORT                   = tostring(var.aml_sftp_port)
+      SFTP_USER                   = var.aml_sftp_user
+      SFTP_KEY_SECRET             = var.aml_sftp_key_secret_arn
+      SFTP_REMOTE_PATH            = var.aml_sftp_remote_path
+      CRM_API_BASE_URL            = var.crm_api_base_url
+      CRM_LOG_API_URL_PARAM       = "/${var.project_name}/${var.environment}/service/log/url"
+      CRM_API_JWT_HMAC_SECRET_ARN = var.jwt_hmac_secret_arn
+      JWT_HMAC_SECRET_ARN         = var.jwt_hmac_secret_arn
+      ENTITY_ID                   = var.aml_entity_id
     }
   }
 
-  depends_on = [aws_cloudwatch_log_group.aml_lambda]
+  depends_on = [aws_cloudwatch_log_group.aml_lambda[0]]
 }
 
 resource "aws_cloudwatch_event_rule" "aml_schedule" {
+  count = var.enable_aml_lambda ? 1 : 0
+
   name                = "${var.name_prefix}-aml-schedule"
   description         = "Schedule for AML Lambda batch processing."
   schedule_expression = var.aml_schedule_expression
@@ -76,21 +95,87 @@ resource "aws_cloudwatch_event_rule" "aml_schedule" {
 }
 
 resource "aws_cloudwatch_event_target" "aml_lambda" {
-  rule      = aws_cloudwatch_event_rule.aml_schedule.name
+  count = var.enable_aml_lambda ? 1 : 0
+
+  rule      = aws_cloudwatch_event_rule.aml_schedule[0].name
   target_id = "aml-lambda"
-  arn       = aws_lambda_function.aml.arn
+  arn       = aws_lambda_function.aml[0].arn
   input     = "{}"
 }
 
 resource "aws_lambda_permission" "allow_eventbridge_invoke_aml" {
+  count = var.enable_aml_lambda ? 1 : 0
+
   statement_id  = "AllowExecutionFromEventBridge"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.aml.function_name
+  function_name = aws_lambda_function.aml[0].function_name
   principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.aml_schedule.arn
+  source_arn    = aws_cloudwatch_event_rule.aml_schedule[0].arn
 }
 
 # --- Audit consumer Lambda (SQS → DynamoDB) ---
+
+resource "aws_cloudwatch_log_group" "transaction_ingestion_lambda" {
+  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+
+  name              = "/aws/lambda/${var.name_prefix}-transaction-ingestion"
+  retention_in_days = var.cloudwatch_log_retention_days
+}
+
+resource "aws_lambda_function" "transaction_ingestion" {
+  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+
+  function_name    = "${var.name_prefix}-transaction-ingestion"
+  filename         = var.transaction_ingestion_lambda_zip_path
+  source_code_hash = filebase64sha256(var.transaction_ingestion_lambda_zip_path)
+  role             = var.transaction_ingestion_lambda_role_arn
+  handler          = "lambda_function.lambda_handler"
+  runtime          = "python3.13"
+  memory_size      = var.transaction_ingestion_lambda_memory_size
+  timeout          = var.transaction_ingestion_lambda_timeout_seconds
+  publish          = true
+
+  environment {
+    variables = {
+      # Legacy naming retained for compatibility; bucket/prefix are S3-backed mock ingestion inputs.
+      TRANSACTION_SFTP_BUCKET                = var.transaction_sftp_bucket_id
+      TRANSACTION_SFTP_PREFIX                = var.transaction_sftp_remote_prefix
+      TRANSACTION_IMPORT_URL                 = var.transaction_import_api_url
+      TRANSACTION_IMPORT_JWT_HMAC_SECRET_ARN = var.jwt_hmac_secret_arn
+      JWT_HMAC_SECRET_ARN                    = var.jwt_hmac_secret_arn
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_group.transaction_ingestion_lambda[0]]
+}
+
+resource "aws_cloudwatch_event_rule" "transaction_ingestion_schedule" {
+  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+
+  name                = "${var.name_prefix}-transaction-ingestion-schedule"
+  description         = "Schedule for transaction ingestion Lambda."
+  schedule_expression = var.transaction_ingestion_schedule_expression
+  state               = "ENABLED"
+}
+
+resource "aws_cloudwatch_event_target" "transaction_ingestion_lambda" {
+  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+
+  rule      = aws_cloudwatch_event_rule.transaction_ingestion_schedule[0].name
+  target_id = "transaction-ingestion-lambda"
+  arn       = aws_lambda_function.transaction_ingestion[0].arn
+  input     = "{}"
+}
+
+resource "aws_lambda_permission" "allow_eventbridge_invoke_transaction_ingestion" {
+  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+
+  statement_id  = "AllowExecutionFromEventBridgeTransactionIngestion"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.transaction_ingestion[0].function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.transaction_ingestion_schedule[0].arn
+}
 
 resource "aws_cloudwatch_log_group" "audit_consumer" {
   count = var.enable_audit_consumer ? 1 : 0
@@ -188,38 +273,69 @@ resource "aws_lambda_function" "verification" {
   runtime          = "python3.13"
   memory_size      = var.verification_memory_size
   timeout          = var.verification_timeout_seconds
+  publish          = true
 
   environment {
     variables = {
-      SNS_TOPIC_ARN    = var.verification_sns_topic_arn
-      SES_SENDER_EMAIL = var.ses_sender_email
-      S3_BUCKET_NAME   = var.verification_bucket_id
+      LOG_API_BASE_URL                 = var.log_api_base_url
+      VERIFICATION_JWT_HMAC_SECRET_ARN = var.verification_jwt_hmac_secret_arn
+      VERIFICATION_JWT_SUB             = "SYSTEM_VERIFICATION_FEEDBACK"
+      VERIFICATION_JWT_ROLE            = "admin"
     }
   }
 
   depends_on = [aws_cloudwatch_log_group.verification]
 }
 
-resource "aws_lambda_permission" "allow_s3_invoke_verification" {
+resource "aws_lambda_permission" "allow_sns_invoke_verification" {
   count = var.enable_verification_lambda ? 1 : 0
 
-  statement_id  = "AllowExecutionFromS3"
+  statement_id  = "AllowExecutionFromSns"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.verification[0].function_name
-  principal     = "s3.amazonaws.com"
-  source_arn    = var.verification_bucket_arn
+  principal     = "sns.amazonaws.com"
+  source_arn    = var.verification_sns_topic_arn
 }
 
-resource "aws_s3_bucket_notification" "verification" {
+resource "aws_sns_topic_subscription" "verification_feedback" {
   count = var.enable_verification_lambda ? 1 : 0
 
-  bucket = var.verification_bucket_id
+  topic_arn = var.verification_sns_topic_arn
+  protocol  = "lambda"
+  endpoint  = aws_lambda_function.verification[0].arn
 
-  lambda_function {
-    lambda_function_arn = aws_lambda_function.verification[0].arn
-    events              = ["s3:ObjectCreated:*"]
-    filter_prefix       = "uploads/"
-  }
+  depends_on = [aws_lambda_permission.allow_sns_invoke_verification]
+}
 
-  depends_on = [aws_lambda_permission.allow_s3_invoke_verification]
+# Stable aliases for safe Lambda traffic shifting via CodeDeploy
+resource "aws_lambda_alias" "log_live" {
+  count = var.enable_log_lambda ? 1 : 0
+
+  name             = "live"
+  function_name    = aws_lambda_function.log[0].function_name
+  function_version = aws_lambda_function.log[0].version
+}
+
+resource "aws_lambda_alias" "aml_live" {
+  count = var.enable_aml_lambda ? 1 : 0
+
+  name             = "live"
+  function_name    = aws_lambda_function.aml[0].function_name
+  function_version = aws_lambda_function.aml[0].version
+}
+
+resource "aws_lambda_alias" "transaction_ingestion_live" {
+  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+
+  name             = "live"
+  function_name    = aws_lambda_function.transaction_ingestion[0].function_name
+  function_version = aws_lambda_function.transaction_ingestion[0].version
+}
+
+resource "aws_lambda_alias" "verification_live" {
+  count = var.enable_verification_lambda ? 1 : 0
+
+  name             = "live"
+  function_name    = aws_lambda_function.verification[0].function_name
+  function_version = aws_lambda_function.verification[0].version
 }

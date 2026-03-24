@@ -1,1 +1,1 @@
-DEPRECATED
+K8s has been DEPRECATED from this project.

@@ -5,8 +5,25 @@
 
 ## Runtime modes
 
-- Local HTTP server: FastAPI + Uvicorn (`app.main:app`)
-- AWS Lambda: entrypoint module `lambda_function.py` with handler `lambda_function.lambda_handler`
+- Canonical runtime: AWS Lambda via entrypoint module `lambda_function.py` and handler
+  `lambda_function.lambda_handler`
+- Request handling is implemented directly in Lambda (`app.lambda_router.LambdaRouter`)
+  with explicit API Gateway event routing (HTTP API v2 + REST proxy shapes).
+- Includes AML alert endpoints at `/api/aml/alerts` for Feature 5 persistence/review.
+
+## Configuration safety
+
+- Dev/local/test convenience defaults are available when `APP_ENV` (or `ENVIRONMENT`) is `dev`, `local`, or `test`.
+- For `APP_ENV=prod`, the service requires explicit DB and JWT secrets via direct env vars or `*_SECRET_ARN` inputs.
+- Use `services/backend/log/.env.example` as the baseline local/dev template.
+- Cross-environment contract is documented in [Configuration Guide](../../../docs/configuration.md).
+
+Local DB defaults used by the Lambda runtime:
+- `DB_HOST=localhost` (or `postgres` in compose network)
+- `DB_PORT=5432`
+- `DB_NAME=crm`
+- `DB_USER=crm_app`
+- `DB_PASSWORD=devpassword`
 
 ## Local test pipeline (service root)
 
@@ -43,7 +60,7 @@ Reports:
 
 ## Deploy as AWS Lambda
 
-This service is Lambda-ready using Mangum and a root Lambda entrypoint module.
+This service is a direct API Gateway-proxy Lambda.
 
 ### Handler
 
@@ -67,3 +84,10 @@ Use Terraform `aws_lambda_function` with:
 - `filename = "log-lambda.zip"`
 - `handler = "lambda_function.lambda_handler"`
 - `runtime = "python3.13"`
+
+## Local/CI topology note
+
+The repository's local/CI integration topology does not run this service as a dedicated
+long-running HTTP container. Instead, tests provision and invoke this service through a
+Lambda-compatible HTTP integration path in LocalStack (see
+`scripts/ci/run-fullstack-integration-e2e.sh`).

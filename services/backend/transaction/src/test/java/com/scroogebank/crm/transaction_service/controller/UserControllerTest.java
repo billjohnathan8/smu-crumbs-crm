@@ -28,7 +28,6 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.http.MediaType;
@@ -38,23 +37,14 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 /**
  * Exercises authorization and validation behavior for transaction endpoints.
  */
-class TransactionsControllerTest {
-	private MockMvc mockMvc;
-	private TransactionsService transactionsService;
-	private RequestAuth requestAuth;
-	private ClientAccessValidator clientAccessValidator;
-
-	@BeforeEach
-	void setUp() {
-		transactionsService = mock(TransactionsService.class);
-		requestAuth = mock(RequestAuth.class);
-		clientAccessValidator = mock(ClientAccessValidator.class);
-
-		mockMvc = MockMvcBuilders
-			.standaloneSetup(new TransactionsController(transactionsService, requestAuth, clientAccessValidator))
-			.setControllerAdvice(new ApiExceptionHandler())
-			.build();
-	}
+class UserControllerTest {
+	private final TransactionsService transactionsService = mock(TransactionsService.class);
+	private final RequestAuth requestAuth = mock(RequestAuth.class);
+	private final ClientAccessValidator clientAccessValidator = mock(ClientAccessValidator.class);
+	private final MockMvc mockMvc = MockMvcBuilders
+		.standaloneSetup(new TransactionsController(transactionsService, requestAuth, clientAccessValidator))
+		.setControllerAdvice(new ApiExceptionHandler())
+		.build();
 
 	@Test
 	void listTransactions_requiresAuth() throws Exception {
@@ -65,7 +55,7 @@ class TransactionsControllerTest {
 
 	@Test
 	void listTransactions_agentWithoutClientId_returnsOk() throws Exception {
-		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "agent"));
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "user"));
 		mockMvc.perform(get("/api/transactions").header("Authorization", "Bearer x"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data").isArray())
@@ -75,7 +65,7 @@ class TransactionsControllerTest {
 
 	@Test
 	void listTransactions_agentWithClientId_checksOwnershipAndReturnsData() throws Exception {
-		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "agent"));
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "user"));
 		when(transactionsService.list(
 			any(Integer.class),
 			any(Integer.class),
@@ -106,7 +96,7 @@ class TransactionsControllerTest {
 			.andExpect(jsonPath("$.pagination.total").value(1));
 
 		verify(clientAccessValidator).requireClientAccessible(
-			new AuthenticatedUser("usr_1", "agent"),
+			new AuthenticatedUser("usr_1", "user"),
 			"Bearer x",
 			"clt_1"
 		);
@@ -168,7 +158,7 @@ class TransactionsControllerTest {
 	@Test
 	void importTransactions_adminAccepted() throws Exception {
 		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
-		when(transactionsService.importFromSftp(any())).thenReturn(new ImportBatchDto(
+		when(transactionsService.importTransactions(any())).thenReturn(new ImportBatchDto(
 			"imp_1",
 			ImportBatchStatus.completed,
 			null,
@@ -190,7 +180,7 @@ class TransactionsControllerTest {
 
 	@Test
 	void getTransaction_agentWithoutClientAccess_returnsNotFound() throws Exception {
-		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "agent"));
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "user"));
 		when(transactionsService.get("txn_1")).thenReturn(new TransactionDto(
 			"txn_1",
 			"clt_private",

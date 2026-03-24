@@ -30,7 +30,7 @@ resource "random_password" "root_admin_password" {
 resource "random_password" "db_password" {
   length           = 24
   special          = true
-  override_special = "!@#$%*-_=+?"
+  override_special = "!#$%*-_=+?" # @ is not allowed in RDS master passwords
 }
 
 # AWS Secrets Manager secrets - securely store application credentials
@@ -38,7 +38,7 @@ resource "random_password" "db_password" {
 
 resource "aws_secretsmanager_secret" "jwt_hmac" {
   name                    = "/${var.project_name}/${var.environment}/jwt/hmac_secret"
-  description             = "Shared JWT HMAC secret for agent/client/transaction/log."
+  description             = "Shared JWT HMAC secret for user/client/transaction/log."
   recovery_window_in_days = 0
 
   tags = {
@@ -54,8 +54,8 @@ resource "aws_secretsmanager_secret_version" "jwt_hmac" {
 }
 
 resource "aws_secretsmanager_secret" "root_admin_password" {
-  name                    = "/${var.project_name}/${var.environment}/agent/root_admin_password"
-  description             = "Initial root admin password for agent service."
+  name                    = "/${var.project_name}/${var.environment}/user/root_admin_password"
+  description             = "Initial root admin password for user service."
   recovery_window_in_days = 0
 
   tags = {

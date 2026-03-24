@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { listLogs } from '@/api/logs'
 import { listUsers } from '@/api/users'
 import { listClients } from '@/api/clients'
-import type { LogEntry } from '@/api/types'
+import type { LogEntry, Client } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 
@@ -15,17 +16,25 @@ interface Stats {
 
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
-  { label: 'Manage Accounts', to: '/admin/accounts' },
+  { label: 'All Clients', to: '/admin/clients', end: true },
+  { label: 'Create Client', to: '/admin/clients/new' },
+  { label: 'Communications', to: '/admin/communications' },
+  { label: 'Transactions', to: '/admin/transactions' },
+  { label: 'AML Alerts', to: '/admin/aml-alerts' },
+  { label: 'User Management', to: '/admin/users' },
+  { label: 'Settings', to: '/admin/settings' },
 ]
 
 export function AdminDashboard() {
   const { user, logout } = useAuth()
+  const navigate = useNavigate()
   const [stats, setStats] = useState<Stats>({
     totalAgents: 0,
     totalClients: 0,
     recentActivities: 0,
   })
   const [recentLogs, setRecentLogs] = useState<LogEntry[]>([])
+  const [pendingClients, setPendingClients] = useState<Client[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string>('')
 
@@ -35,19 +44,47 @@ export function AdminDashboard() {
       setError('')
 
       try {
-        const [usersResponse, clientsResponse, logsResponse] = await Promise.all([
-          listUsers({ limit: 1 }),
-          listClients({ limit: 1 }),
-          listLogs({ limit: 10 }),
-        ])
+        const [usersResult, clientsResult, logsResult, allClientsResult] = await Promise.allSettled(
+          [
+            listUsers({ limit: 1 }),
+            listClients({ limit: 1 }),
+            listLogs({ limit: 10 }),
+            listClients({ limit: 100 }),
+          ]
+        )
+
+        if (usersResult.status === 'rejected') {
+          const reason = usersResult.reason
+          if (reason instanceof ApiError && reason.status === 401) {
+            logout()
+            return
+          }
+          setError(
+            reason instanceof ApiError
+              ? reason.message || 'Failed to load dashboard data'
+              : 'Failed to load dashboard data'
+          )
+        }
+
+        const usersResponse = usersResult.status === 'fulfilled' ? usersResult.value : null
+        const clientsResponse = clientsResult.status === 'fulfilled' ? clientsResult.value : null
+        const logsResponse = logsResult.status === 'fulfilled' ? logsResult.value : null
+        const allClientsResponse =
+          allClientsResult.status === 'fulfilled' ? allClientsResult.value : null
 
         setStats({
-          totalAgents: usersResponse.pagination?.total || 0,
-          totalClients: clientsResponse.pagination?.total || 0,
-          recentActivities: logsResponse.pagination?.total || 0,
+          totalAgents: usersResponse?.pagination?.total || 0,
+          totalClients: clientsResponse?.pagination?.total || 0,
+          recentActivities: logsResponse?.pagination?.total || 0,
         })
 
-        setRecentLogs(logsResponse.data)
+        setRecentLogs(logsResponse?.data || [])
+
+        // Filter for clients with pending verification
+        const pending = (allClientsResponse?.data || []).filter(
+          (c: Client) => c.identityVerificationStatus === 'pending'
+        )
+        setPendingClients(pending)
       } catch (err) {
         if (err instanceof ApiError) {
           if (err.status === 401) {
@@ -81,24 +118,10 @@ export function AdminDashboard() {
       <div>
         <div className="flex justify-between h-16 items-center">
           <div>
-            <h1 className="text-xl font-bold text-text">Admin Dashboard</h1>
-            <p className="text-sm text-text-muted">
+            <h1 className="text-2xl font-medium text-text">Admin Dashboard</h1>
+            <p className="text-lg text-text-muted">
               Welcome, {user?.firstName} {user?.lastName}
             </p>
-          </div>
-          <div className="flex space-x-4">
-            <a
-              href="/admin/accounts"
-              className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white font-medium transition-colors"
-            >
-              Manage Accounts
-            </a>
-            <button
-              onClick={logout}
-              className="px-4 py-2 rounded-lg bg-danger hover:bg-danger-hover text-white font-medium transition-colors"
-            >
-              Logout
-            </button>
           </div>
         </div>
       </div>
@@ -117,44 +140,95 @@ export function AdminDashboard() {
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-card border border-border rounded-lg p-6">
-                <h3 className="text-text-muted text-sm font-medium mb-2">Total Agents</h3>
-                <p className="text-4xl font-bold text-text">{stats.totalAgents}</p>
+              <div className="gradient-dark-red rounded-2xl p-6">
+                <h3 className="text-white text-sm font-normal mb-2">Total Agents</h3>
+                <p className="text-4xl font-bold text-white">{stats.totalAgents}</p>
               </div>
-              <div className="bg-card border border-border rounded-lg p-6">
-                <h3 className="text-text-muted text-sm font-medium mb-2">Total Clients</h3>
-                <p className="text-4xl font-bold text-text">{stats.totalClients}</p>
+              <div className="gradient-light-red rounded-2xl p-6">
+                <h3 className="text-white text-sm font-normal mb-2">Total Clients</h3>
+                <p className="text-4xl font-bold text-white">{stats.totalClients}</p>
               </div>
-              <div className="bg-card border border-border rounded-lg p-6">
-                <h3 className="text-text-muted text-sm font-medium mb-2">Recent Activities</h3>
+              <div className="bg-card  rounded-2xl p-6">
+                <h3 className="text-text-muted text-sm font-normal mb-2">Recent Activities</h3>
                 <p className="text-4xl font-bold text-text">{stats.recentActivities}</p>
               </div>
             </div>
 
-            <div className="bg-card border border-border rounded-lg">
+            {/* Pending Verifications */}
+            {pendingClients.length > 0 && (
+              <div className="bg-card border border-warning rounded-lg">
+                <div className="px-6 py-4 border-b border-border">
+                  <h2 className="text-xl font-bold text-text">
+                    Pending Verifications ({pendingClients.length})
+                  </h2>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-background-light">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
+                          Client
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
+                          Email
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {pendingClients.map(c => (
+                        <tr
+                          key={c.clientId}
+                          className="hover:bg-background-light transition-colors"
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-text">
+                            {c.firstName} {c.lastName}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-text-muted">
+                            {c.emailAddress}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <button
+                              onClick={() => navigate(`/admin/clients/${c.clientId}`)}
+                              className="text-primary hover:underline font-normal"
+                            >
+                              Review →
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-card  rounded-lg">
               <div className="px-6 py-4 border-b border-border">
-                <h2 className="text-xl font-bold text-text">Recent Activity Logs</h2>
+                <h2 className="text-xl font-normal text-text">Recent Activity Logs</h2>
               </div>
               <div className="overflow-x-auto">
                 {recentLogs.length === 0 ? (
-                  <div className="p-6 text-center text-text-muted">No activity logs found</div>
+                  <div className="p-6 text-center text-text-subtle">No activity logs found</div>
                 ) : (
                   <table className="w-full">
                     <thead className="bg-background-light">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           Date/Time
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           Action
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           Attribute
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
-                          Agent ID
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
+                          User ID
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                           Client ID
                         </th>
                       </tr>
@@ -167,7 +241,7 @@ export function AdminDashboard() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
-                              className={`px-2 py-1 rounded text-xs font-medium ${
+                              className={`px-2 py-1 rounded text-xs font-normal ${
                                 log.action === 'CREATE'
                                   ? 'bg-success/20 text-success'
                                   : log.action === 'UPDATE'
@@ -182,7 +256,7 @@ export function AdminDashboard() {
                           </td>
                           <td className="px-6 py-4 text-sm text-text">{log.attributeName}</td>
                           <td className="px-6 py-4 text-sm text-text-muted font-mono text-xs">
-                            {log.agentId.substring(0, 8)}...
+                            {log.userId.substring(0, 8)}...
                           </td>
                           <td className="px-6 py-4 text-sm text-text-muted font-mono text-xs">
                             {log.clientId.substring(0, 8)}...

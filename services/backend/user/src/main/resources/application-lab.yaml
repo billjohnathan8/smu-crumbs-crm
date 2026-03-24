@@ -1,0 +1,4 @@
+app:
+  jwt:
+    auth-mode: ${AUTH_MODE:cognito}
+    allow-hybrid: ${APP_JWT_ALLOW_HYBRID:false}

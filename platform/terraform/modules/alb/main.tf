@@ -1,18 +1,21 @@
 #--------------------------------------------------------------
 # ALB Module
 # Internet-facing Application Load Balancer with path-based routing
-# to agent, client, and transaction ECS services.
+# to user, client, and transaction ECS services.
 #--------------------------------------------------------------
 
 locals {
+  # Route groups are ordered by listener-rule priority (lower value = evaluated first).
+  # A dedicated exception for `/api/clients/*/transactions*` is defined below with a
+  # higher precedence than generic client routes.
   service_routing = {
-    agent = {
+    user = {
       priority      = 10
-      path_patterns = ["/api/auth*", "/api/agents*", "/api/v1/agents*", "/api/v1/health"]
+      path_patterns = ["/api/auth*", "/api/users*", "/api/v1/users*", "/api/v1/health", "/api/logs*"]
     }
     client = {
       priority      = 20
-      path_patterns = ["/api/clients*", "/api/accounts*", "/api/v1/clients*"]
+      path_patterns = ["/api/clients*", "/api/accounts*", "/api/v1/clients*", "/api/communications*", "/api/aml*"]
     }
     transaction = {
       priority      = 30
@@ -34,7 +37,26 @@ resource "aws_lb" "crm" {
 resource "aws_lb_target_group" "service" {
   for_each = local.service_routing
 
-  name        = substr("${var.name_prefix}-${each.key}-tg", 0, 32)
+  name        = trim(substr("${var.name_prefix}-${each.key}-tg", 0, 32), "-")
+  port        = 8080
+  protocol    = "HTTP"
+  target_type = "ip"
+  vpc_id      = var.vpc_id
+
+  health_check {
+    path                = var.service_health_check_path
+    matcher             = "200"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+  }
+}
+
+resource "aws_lb_target_group" "service_green" {
+  for_each = var.enable_blue_green_tg ? local.service_routing : {}
+
+  name        = trim(substr("${var.name_prefix}-${each.key}-tg-green", 0, 32), "-")
   port        = 8080
   protocol    = "HTTP"
   target_type = "ip"
@@ -100,25 +122,22 @@ resource "aws_lb_listener" "https" {
 }
 
 #--------------------------------------------------------------
-# OPTIONS Preflight Rule
-# Returns 200 for CORS preflight requests from browsers.
+# Special-case route precedence
+# `/api/clients/{clientId}/transactions` belongs to transaction API.
+# This must match before generic `/api/clients*` (client service).
 #--------------------------------------------------------------
-resource "aws_lb_listener_rule" "options_preflight" {
+resource "aws_lb_listener_rule" "client_transactions" {
   listener_arn = var.use_custom_domain ? aws_lb_listener.https[0].arn : aws_lb_listener.http.arn
-  priority     = 1
+  priority     = 15
 
   action {
-    type = "fixed-response"
-    fixed_response {
-      content_type = "text/plain"
-      message_body = ""
-      status_code  = "200"
-    }
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.service["transaction"].arn
   }
 
   condition {
-    http_request_method {
-      values = ["OPTIONS"]
+    path_pattern {
+      values = ["/api/clients/*/transactions*"]
     }
   }
 }

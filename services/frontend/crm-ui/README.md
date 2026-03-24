@@ -59,9 +59,20 @@ If the pipeline fails:
 From `services/frontend/crm-ui/`:
 
 - `npm run dev` - Start dev server with hot reload
+- `npm run format` - Auto-format all files with Prettier
+- `npm run format:check` - Check formatting without modifying files
+- `npm run lint` - Run ESLint
+- `npm run lint:fix` - Auto-fix ESLint issues
 - `npm run test:watch` - Run tests in watch mode
 - `npm run test -- <pattern>` - Run specific tests
 - `npm run e2e` - Run E2E tests with Playwright (manual only)
+
+### API Routing Configuration
+
+Frontend code keeps relative API paths (`/api/...`), and routing is environment-driven:
+
+- Local Vite dev: `/api/*` proxies to `VITE_API_PROXY_TARGET` (default `http://localhost:8080`) when `VITE_API_PROXY_ENABLED` is not `false`.
+- Container runtime: nginx proxies `/api/*` only when `FRONTEND_API_UPSTREAM` is set. Default is empty, so external gateway/ingress owns `/api/*`.
 
 ### Prerequisites
 

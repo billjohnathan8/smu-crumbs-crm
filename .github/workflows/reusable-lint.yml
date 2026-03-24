@@ -12,7 +12,7 @@ on:
         type: boolean
         default: false
       run-backend-python:
-        description: 'Run Black + Flake8 for Python log service'
+        description: 'Run Black + Flake8 for Python backend services'
         required: false
         type: boolean
         default: false
@@ -22,7 +22,12 @@ on:
         type: boolean
         default: false
       run-terraform:
-        description: 'Run terraform fmt, validate, tflint, and checkov for platform/terraform'
+        description: 'Run terraform fmt, validate, integration-contract plan artifact, tflint, and checkov for platform/terraform'
+        required: false
+        type: boolean
+        default: false
+      run-openapi:
+        description: 'Run Spectral OpenAPI contract linting'
         required: false
         type: boolean
         default: false
@@ -34,15 +39,18 @@ on:
     secrets:
       INFRACOST_API_KEY:
         required: false
+      AWS_ROLE_ARN:
+        required: false
 
 permissions:
   contents: read
+  id-token: write
 
 env:
   GRADLE_USER_HOME: ${{ github.workspace }}/.gradle-user-home
 
 jobs:
-  # ---- Java Checkstyle (agent, client, transaction) ----
+  # ---- Java Checkstyle (user, client, transaction) ----
   java-checkstyle:
     name: Checkstyle (Java)
     if: inputs.run-backend-java
@@ -51,7 +59,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        service: [agent, client, transaction]
+        service: [user, client, transaction]
     defaults:
       run:
         working-directory: services/backend/${{ matrix.service }}
@@ -87,6 +95,10 @@ jobs:
           - service: log
             source-dirs: app tests
           - service: aml
+            source-dirs: lambda_function.py tests
+          - service: transaction-ingestion-lambda
+            source-dirs: lambda_function.py tests
+          - service: verification
             source-dirs: lambda_function.py tests
     defaults:
       run:
@@ -154,12 +166,16 @@ jobs:
         timeout-minutes: 2
         run: npm run lint
 
-  # ---- Terraform fmt + validate + tflint + checkov ----
+  # ---- Terraform fmt + validate + plan artifact + tflint + checkov ----
   terraform-lint:
     name: Terraform Static Analysis
     if: inputs.run-terraform
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      TF_PLAN_ENV: integration
     defaults:
       run:
         working-directory: platform/terraform
@@ -172,7 +188,7 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         timeout-minutes: 2
         with:
-          terraform_version: "~1.6"
+          terraform_version: "~1.10"
 
       - name: terraform fmt check
         timeout-minutes: 2
@@ -185,6 +201,75 @@ jobs:
       - name: terraform validate
         timeout-minutes: 2
         run: terraform validate
+
+      - name: Prepare lambda zip artifacts for feature-gated validate
+        timeout-minutes: 1
+        run: |
+          python - <<'PY'
+          import pathlib
+          import zipfile
+
+          out = pathlib.Path(".ci-artifacts")
+          out.mkdir(exist_ok=True)
+          for name in ("verification-lambda.zip", "log-lambda.zip"):
+              with zipfile.ZipFile(out / name, "w", zipfile.ZIP_DEFLATED) as zf:
+                  zf.writestr("README.txt", "temporary CI artifact for terraform validate")
+          PY
+
+      - name: terraform validate (verification + ses path)
+        timeout-minutes: 2
+        env:
+          TF_VAR_enable_log_lambda: "true"
+          TF_VAR_log_lambda_zip_path: ".ci-artifacts/log-lambda.zip"
+          TF_VAR_enable_verification_pipeline: "true"
+          TF_VAR_verification_zip_path: ".ci-artifacts/verification-lambda.zip"
+          TF_VAR_ses_sender_email: "verification@crm.local"
+        run: terraform validate
+
+      - name: Prepare Terraform plan artifact directory
+        timeout-minutes: 1
+        run: mkdir -p .tfplan
+
+      - name: Configure AWS credentials for Terraform plan
+        if: ${{ env.AWS_ROLE_ARN != '' && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ap-southeast-1
+
+      - name: terraform init (integration backend)
+        if: ${{ env.AWS_ROLE_ARN != '' && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) }}
+        timeout-minutes: 5
+        run: terraform init -reconfigure -backend-config=env/${{ env.TF_PLAN_ENV }}.backend.hcl
+
+      - name: terraform plan (integration contract)
+        if: ${{ env.AWS_ROLE_ARN != '' && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) }}
+        timeout-minutes: 8
+        run: |
+          terraform plan \
+            -input=false \
+            -lock-timeout=300s \
+            "-var-file=env/${TF_PLAN_ENV}.tfvars" \
+            "-out=.tfplan/${TF_PLAN_ENV}.tfplan"
+          terraform show -no-color ".tfplan/${TF_PLAN_ENV}.tfplan" > ".tfplan/${TF_PLAN_ENV}.plan.txt"
+
+      - name: Record skipped Terraform plan reason
+        if: ${{ !(env.AWS_ROLE_ARN != '' && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork)) }}
+        timeout-minutes: 1
+        run: |
+          cat <<'EOF' > .tfplan/README.txt
+          Terraform plan was skipped because AWS_ROLE_ARN is not configured for this run
+          or this run is from a forked pull request where repository secrets are unavailable.
+          Static terraform checks still ran successfully.
+          EOF
+
+      - name: Upload Terraform plan artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: platform/terraform/.tfplan/
+          retention-days: 7
 
       - name: Set up TFLint
         uses: terraform-linters/setup-tflint@v4
@@ -205,21 +290,21 @@ jobs:
         run: mkdir -p .infracost
 
       - name: Set up Infracost
-        if: ${{ secrets.INFRACOST_API_KEY != '' }}
+        if: ${{ env.INFRACOST_API_KEY != '' }}
         uses: infracost/actions/setup@v3
         timeout-minutes: 2
         with:
-          api-key: ${{ secrets.INFRACOST_API_KEY }}
+          api-key: ${{ env.INFRACOST_API_KEY }}
 
       - name: Generate Infracost report
-        if: ${{ secrets.INFRACOST_API_KEY != '' }}
+        if: ${{ env.INFRACOST_API_KEY != '' }}
         timeout-minutes: 5
         run: |
           infracost breakdown --path=. --format=json --out-file=.infracost/infracost-report.json
           infracost breakdown --path=. --format=table --out-file=.infracost/infracost-report.txt
 
       - name: Record skipped Infracost reason
-        if: ${{ secrets.INFRACOST_API_KEY == '' }}
+        if: ${{ env.INFRACOST_API_KEY == '' }}
         timeout-minutes: 1
         run: echo "INFRACOST_API_KEY is not configured; Infracost cost report was skipped." > .infracost/README.txt
 
@@ -242,9 +327,8 @@ jobs:
         run: pip install checkov
 
       - name: Run Checkov (security & compliance scan)
-        # --soft-fail reports findings without blocking the pipeline.
-        # Remove --soft-fail once critical findings are resolved and
-        # enforcement is desired on every merge.
+        # CRITICAL and HIGH findings block the pipeline (exit 1).
+        # LOW and MEDIUM findings are reported but non-blocking (--soft-fail).
         timeout-minutes: 5
         run: |
           checkov \
@@ -253,7 +337,33 @@ jobs:
             --output cli \
             --compact \
             --quiet \
-            --soft-fail
+            --soft-fail \
+            --hard-fail-on CRITICAL,HIGH
+
+  # ---- OpenAPI Spectral lint ----
+  openapi-spectral:
+    name: Spectral (OpenAPI)
+    if: inputs.run-openapi
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        timeout-minutes: 2
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        timeout-minutes: 2
+        with:
+          node-version: '20'
+
+      - name: Install Spectral
+        timeout-minutes: 1
+        run: npm install -g @stoplight/spectral-cli
+
+      - name: Lint OpenAPI specs
+        timeout-minutes: 1
+        run: spectral lint docs/api-contracts/openapi/*.yaml --fail-severity error
 
   # ---- Gitleaks secret scanner ----
   gitleaks:
@@ -268,16 +378,19 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install Gitleaks
+        timeout-minutes: 2
+        run: |
+          GITLEAKS_VERSION=8.24.3
+          curl -sSL \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz gitleaks
+          sudo install -m 0755 gitleaks /usr/local/bin/gitleaks
+
       - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        continue-on-error: true  # Allow to fail without license key for org repos
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
-          # Required for private repos in GitHub org accounts.
-          # Obtain a free licence at https://gitleaks.io and store it as a
-          # repo/org secret named GITLEAKS_LICENSE if scans fail with a
-          # licence error.
+        # Uses the open-source CLI directly — no org licence required.
+        # Exits 1 if any unallowlisted secrets are detected.
+        run: gitleaks detect --source=. --config=.gitleaks.toml --redact --verbose
 
   # ---- TruffleHog secret scanner ----
   trufflehog:

@@ -1,0 +1,272 @@
+name: InfrastructureTeardown
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        type: choice
+        options:
+          - lab
+          - prod
+      tombstone_ssm:
+        description: Write tombstone marker after SSM cleanup
+        required: true
+        default: true
+        type: boolean
+      aws_auth_mode:
+        description: AWS auth mode (runtime is manual lab fallback)
+        required: true
+        default: runtime
+        type: choice
+        options:
+          - runtime
+          - oidc
+      runtime_aws_access_key_id:
+        description: Runtime AWS_ACCESS_KEY_ID (required when aws_auth_mode=runtime)
+        required: false
+        type: string
+      runtime_aws_secret_access_key:
+        description: Runtime AWS_SECRET_ACCESS_KEY (required when aws_auth_mode=runtime)
+        required: false
+        type: string
+      runtime_aws_session_token:
+        description: Runtime AWS_SESSION_TOKEN (required for lab runtime auth)
+        required: false
+        type: string
+      tf_var_root_admin_password:
+        description: Runtime TF_VAR_root_admin_password (required)
+        required: false
+        type: string
+      tf_var_jwt_hmac_secret:
+        description: Runtime TF_VAR_jwt_hmac_secret (optional in lab)
+        required: false
+        type: string
+      aws_lab_role_arn:
+        description: Runtime AWS_LAB_ROLE_ARN (required for lab, validated against current account)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  infrastructure-teardown:
+    name: Terraform destroy + SSM cleanup
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: ${{ inputs.environment }}
+
+    env:
+      TF_IN_AUTOMATION: "1"
+      TF_INPUT: "0"
+      TF_DIR: platform/terraform
+      DEPLOY_ENV: ${{ inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate runtime input contract
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DEPLOY_ENV="${{ inputs.environment }}"
+          AUTH_MODE="${{ inputs.aws_auth_mode }}"
+
+          test -n "${{ inputs.tf_var_root_admin_password }}"
+
+          if [[ "$AUTH_MODE" == "runtime" ]]; then
+            test -n "${{ inputs.runtime_aws_access_key_id }}"
+            test -n "${{ inputs.runtime_aws_secret_access_key }}"
+            if [[ "$DEPLOY_ENV" == "lab" ]]; then
+              test -n "${{ inputs.runtime_aws_session_token }}"
+            fi
+          fi
+
+          if [[ "$DEPLOY_ENV" == "lab" ]]; then
+            test -n "${{ inputs.aws_lab_role_arn }}"
+          fi
+
+      - name: Configure AWS credentials (runtime fallback)
+        if: ${{ inputs.aws_auth_mode == 'runtime' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ inputs.runtime_aws_access_key_id }}
+          aws-secret-access-key: ${{ inputs.runtime_aws_secret_access_key }}
+          aws-session-token: ${{ inputs.runtime_aws_session_token }}
+          aws-region: ${{ inputs.environment == 'lab' && 'us-east-1' || 'ap-southeast-1' }}
+
+      - name: Configure AWS credentials (OIDC)
+        if: ${{ inputs.aws_auth_mode == 'oidc' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Validate caller identity and lab role account
+        id: caller
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+          echo "account_id=${ACCOUNT_ID}" >> "$GITHUB_OUTPUT"
+
+          if [[ "${{ inputs.environment }}" == "lab" ]]; then
+            LAB_ROLE_ARN="${{ inputs.aws_lab_role_arn }}"
+            if [[ ! "${LAB_ROLE_ARN}" =~ ^arn:aws:iam::([0-9]{12}):role/.+ ]]; then
+              echo "Invalid AWS_LAB_ROLE_ARN format: ${LAB_ROLE_ARN}"
+              exit 1
+            fi
+
+            LAB_ACCOUNT_ID="${BASH_REMATCH[1]}"
+            if [[ "${LAB_ACCOUNT_ID}" != "${ACCOUNT_ID}" ]]; then
+              echo "AWS_LAB_ROLE_ARN account (${LAB_ACCOUNT_ID}) does not match caller account (${ACCOUNT_ID})"
+              exit 1
+            fi
+          fi
+
+      - name: Create runtime terraform override file
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ROOT_ADMIN_PASSWORD='${{ inputs.tf_var_root_admin_password }}'
+          JWT_HMAC_SECRET='${{ inputs.tf_var_jwt_hmac_secret }}'
+          LAB_ROLE_ARN='${{ inputs.aws_lab_role_arn }}'
+
+          {
+            echo "root_admin_password = $(jq -Rn --arg v "$ROOT_ADMIN_PASSWORD" '$v')"
+            if [[ -n "$JWT_HMAC_SECRET" ]]; then
+              echo "jwt_hmac_secret = $(jq -Rn --arg v "$JWT_HMAC_SECRET" '$v')"
+            fi
+            if [[ "${{ inputs.environment }}" == "lab" && -n "$LAB_ROLE_ARN" ]]; then
+              echo "lab_role_arn = $(jq -Rn --arg v "$LAB_ROLE_ARN" '$v')"
+            fi
+          } > runtime.auto.tfvars
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.10"
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform init -reconfigure -backend-config="env/${DEPLOY_ENV}.backend.hcl"
+
+      - name: Terraform destroy plan
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform plan -destroy \
+            -var-file="env/${DEPLOY_ENV}.tfvars" \
+            -var-file="runtime.auto.tfvars" \
+            -out=tfplan-destroy
+
+      - name: Export destroy plan text
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform show -no-color tfplan-destroy > terraform-destroy-plan.txt
+
+      - name: Terraform destroy apply
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform apply -auto-approve tfplan-destroy
+
+      - name: Cleanup deployment metadata in SSM
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE_PATH="/scroogebank-crm/${DEPLOY_ENV}/deploy"
+          REPORT_FILE="ssm-cleanup-report.json"
+          TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          KEYS=(
+            "aws-region"
+            "ecs/cluster-name"
+            "ecr/repository-urls"
+            "ecr/repository-names"
+            "codedeploy/ecs/application-name"
+            "codedeploy/ecs/deployment-groups"
+            "codedeploy/lambda/application-name"
+            "codedeploy/lambda/deployment-groups"
+            "lambda/function-names"
+            "frontend/s3-bucket"
+            "frontend/cloudfront-distribution-id"
+            "frontend/app-url"
+          )
+
+          removed=()
+          missing=()
+
+          for key in "${KEYS[@]}"; do
+            full_key="${BASE_PATH}/${key}"
+            if aws ssm get-parameter --name "${full_key}" >/dev/null 2>&1; then
+              aws ssm delete-parameter --name "${full_key}" >/dev/null
+              removed+=("${full_key}")
+            else
+              missing+=("${full_key}")
+            fi
+          done
+
+          if [[ "${{ inputs.tombstone_ssm }}" == "true" ]]; then
+            aws ssm put-parameter \
+              --name "${BASE_PATH}/status" \
+              --type String \
+              --overwrite \
+              --value "destroyed:${TS}" >/dev/null
+          fi
+
+          jq -n \
+            --arg environment "${DEPLOY_ENV}" \
+            --arg cleaned_at "${TS}" \
+            --argjson removed "$(printf '%s\n' "${removed[@]:-}" | jq -R . | jq -s .)" \
+            --argjson missing "$(printf '%s\n' "${missing[@]:-}" | jq -R . | jq -s .)" \
+            --arg tombstone_enabled "${{ inputs.tombstone_ssm }}" \
+            '{
+              environment: $environment,
+              cleaned_at: $cleaned_at,
+              tombstone_enabled: ($tombstone_enabled == "true"),
+              removed_keys: $removed,
+              missing_keys: $missing
+            }' > "${REPORT_FILE}"
+
+      - name: Upload teardown artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-destroy-${{ inputs.environment }}-${{ github.run_id }}
+          path: |
+            platform/terraform/tfplan-destroy
+            platform/terraform/terraform-destroy-plan.txt
+            platform/terraform/ssm-cleanup-report.json
+          retention-days: 14
+
+      - name: Run summary
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REMOVED_COUNT="$(jq '.removed_keys | length' ssm-cleanup-report.json)"
+          MISSING_COUNT="$(jq '.missing_keys | length' ssm-cleanup-report.json)"
+
+          {
+            echo "## InfrastructureTeardown Summary"
+            echo ""
+            echo "- Environment: ${DEPLOY_ENV}"
+            echo "- AWS auth mode: ${{ inputs.aws_auth_mode }}"
+            echo "- Caller account: ${{ steps.caller.outputs.account_id }}"
+            echo "- Tombstone enabled: ${{ inputs.tombstone_ssm }}"
+            echo "- SSM keys removed: ${REMOVED_COUNT}"
+            echo "- SSM keys already missing: ${MISSING_COUNT}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Cleanup runtime terraform override file
+        if: ${{ always() }}
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: rm -f runtime.auto.tfvars

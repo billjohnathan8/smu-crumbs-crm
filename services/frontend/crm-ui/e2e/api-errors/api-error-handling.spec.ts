@@ -12,7 +12,7 @@ test.describe("API Error Handling (Flow 10)", () => {
   }) => {
     await test.step("Set up authenticated state", async () => {
       await page.goto("/login");
-      await setAuthState(page, "agent");
+      await setAuthState(page, "user");
     });
 
     await test.step("Set up route to return 401", async () => {
@@ -45,8 +45,8 @@ test.describe("API Error Handling (Flow 10)", () => {
       });
     });
 
-    await test.step("Navigate to agent dashboard (triggers API call)", async () => {
-      await page.goto("/agent");
+    await test.step("Navigate to user dashboard (triggers API call)", async () => {
+      await page.goto("/user");
       await page.waitForLoadState("domcontentloaded");
     });
 
@@ -66,9 +66,9 @@ test.describe("API Error Handling (Flow 10)", () => {
   test("should display 403 Forbidden error when creating user without permission", async ({
     page,
   }) => {
-    await test.step("Set up authenticated agent state", async () => {
+    await test.step("Set up authenticated user state", async () => {
       await page.goto("/login");
-      await setAuthState(page, "agent");
+      await setAuthState(page, "user");
     });
 
     await test.step("Set up routes", async () => {
@@ -88,7 +88,7 @@ test.describe("API Error Handling (Flow 10)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -103,7 +103,7 @@ test.describe("API Error Handling (Flow 10)", () => {
           });
         }
 
-        if (url.includes("/api/agents") && route.request().method() === "GET") {
+        if (url.includes("/api/users") && route.request().method() === "GET") {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -116,7 +116,7 @@ test.describe("API Error Handling (Flow 10)", () => {
 
         // Return 403 for POST requests (create user)
         if (
-          url.includes("/api/agents") &&
+          url.includes("/api/users") &&
           route.request().method() === "POST"
         ) {
           return route.fulfill({
@@ -142,7 +142,7 @@ test.describe("API Error Handling (Flow 10)", () => {
       await page.waitForLoadState("domcontentloaded");
 
       // Open create modal
-      await page.click('button:has-text("Create New Agent")');
+      await page.click('button:has-text("Create New User")');
 
       // Fill form
       await page.fill("#firstName", "Test");
@@ -188,7 +188,7 @@ test.describe("API Error Handling (Flow 10)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -203,7 +203,7 @@ test.describe("API Error Handling (Flow 10)", () => {
           });
         }
 
-        if (url.includes("/api/agents") && route.request().method() === "GET") {
+        if (url.includes("/api/users") && route.request().method() === "GET") {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -216,7 +216,7 @@ test.describe("API Error Handling (Flow 10)", () => {
 
         // Return 409 for duplicate user creation
         if (
-          url.includes("/api/agents") &&
+          url.includes("/api/users") &&
           route.request().method() === "POST"
         ) {
           return route.fulfill({
@@ -241,7 +241,7 @@ test.describe("API Error Handling (Flow 10)", () => {
       await page.goto("/admin/accounts");
       await page.waitForLoadState("domcontentloaded");
 
-      await page.click('button:has-text("Create New Agent")');
+      await page.click('button:has-text("Create New User")');
       await page.fill("#firstName", "Duplicate");
       await page.fill("#lastName", "User");
       await page.fill("#email", "duplicate@example.com");
@@ -258,9 +258,9 @@ test.describe("API Error Handling (Flow 10)", () => {
   test("should handle 422 Validation error and display field errors", async ({
     page,
   }) => {
-    await test.step("Set up agent authentication", async () => {
+    await test.step("Set up user authentication", async () => {
       await page.goto("/login");
-      await setAuthState(page, "agent");
+      await setAuthState(page, "user");
     });
 
     await test.step("Set up routes to return 422 validation error", async () => {
@@ -280,16 +280,16 @@ test.describe("API Error Handling (Flow 10)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              id: "agent-1",
-              firstName: "Agent",
+              id: "user-1",
+              firstName: "User",
               lastName: "User",
-              email: "agent@example.com",
-              role: "agent",
+              email: "user@example.com",
+              role: "user",
               status: "active",
             }),
           });
@@ -322,7 +322,7 @@ test.describe("API Error Handling (Flow 10)", () => {
     });
 
     await test.step("Navigate to create client and submit invalid data", async () => {
-      await page.goto("/agent/clients/new");
+      await page.goto("/user/clients/new");
       await page.waitForLoadState("domcontentloaded");
 
       // Fill minimal valid form (client-side validation passes but server rejects)
@@ -348,9 +348,9 @@ test.describe("API Error Handling (Flow 10)", () => {
   });
 
   test("should handle 500 Server Error gracefully", async ({ page }) => {
-    await test.step("Set up agent authentication", async () => {
+    await test.step("Set up user authentication", async () => {
       await page.goto("/login");
-      await setAuthState(page, "agent");
+      await setAuthState(page, "user");
     });
 
     await test.step("Set up routes to return 500 error", async () => {
@@ -370,16 +370,16 @@ test.describe("API Error Handling (Flow 10)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              id: "agent-1",
-              firstName: "Agent",
+              id: "user-1",
+              firstName: "User",
               lastName: "User",
-              email: "agent@example.com",
-              role: "agent",
+              email: "user@example.com",
+              role: "user",
               status: "active",
             }),
           });
@@ -411,8 +411,8 @@ test.describe("API Error Handling (Flow 10)", () => {
       });
     });
 
-    await test.step("Navigate to agent dashboard (triggers clients API)", async () => {
-      await page.goto("/agent");
+    await test.step("Navigate to user dashboard (triggers clients API)", async () => {
+      await page.goto("/user");
       await page.waitForLoadState("domcontentloaded");
     });
 
@@ -442,16 +442,16 @@ test.describe("API Error Handling (Flow 10)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              id: "agent-1",
-              firstName: "Agent",
+              id: "user-1",
+              firstName: "User",
               lastName: "User",
-              email: "agent@example.com",
-              role: "agent",
+              email: "user@example.com",
+              role: "user",
               status: "active",
             }),
           });
@@ -473,13 +473,13 @@ test.describe("API Error Handling (Flow 10)", () => {
       });
     });
 
-    await test.step("Set up agent authentication", async () => {
+    await test.step("Set up user authentication", async () => {
       await page.goto("/login");
-      await setAuthState(page, "agent");
+      await setAuthState(page, "user");
     });
 
-    await test.step("Navigate to agent dashboard", async () => {
-      await page.goto("/agent");
+    await test.step("Navigate to user dashboard", async () => {
+      await page.goto("/user");
       await page.waitForLoadState("domcontentloaded");
     });
 
@@ -528,16 +528,16 @@ test.describe("API Error Handling (Flow 10)", () => {
           return route.continue();
         }
 
-        if (url.includes("/api/agents/me")) {
+        if (url.includes("/api/users/me")) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              id: "agent-1",
-              firstName: "Agent",
+              id: "user-1",
+              firstName: "User",
               lastName: "User",
-              email: "agent@example.com",
-              role: "agent",
+              email: "user@example.com",
+              role: "user",
               status: "active",
             }),
           });
@@ -567,13 +567,13 @@ test.describe("API Error Handling (Flow 10)", () => {
       });
     });
 
-    await test.step("Set up agent authentication", async () => {
+    await test.step("Set up user authentication", async () => {
       await page.goto("/login");
-      await setAuthState(page, "agent");
+      await setAuthState(page, "user");
     });
 
-    await test.step("Navigate to agent dashboard", async () => {
-      await page.goto("/agent");
+    await test.step("Navigate to user dashboard", async () => {
+      await page.goto("/user");
       await page.waitForLoadState("domcontentloaded");
     });
 
@@ -614,7 +614,7 @@ test.describe("API Error Handling (Flow 10)", () => {
       // If none of the above are shown, verify the page at least loaded
       if (!hasLoadingOrError) {
         // Page should at least be at the dashboard
-        await expect(page).toHaveURL(/\/agent/);
+        await expect(page).toHaveURL(/\/user/);
       } else {
         expect(hasLoadingOrError).toBe(true);
       }

@@ -6,8 +6,11 @@ import {
   updateClient,
   deleteClient,
   verifyClient,
+  reviewVerification,
   createAccount,
+  updateAccount,
   listClientAccounts,
+  listClientAccountsPaginated,
 } from '../clients'
 import * as client from '../client'
 import type {
@@ -16,8 +19,10 @@ import type {
   ClientUpdateRequest,
   VerifyClientRequest,
   VerifyClientResponse,
+  ReviewVerificationRequest,
   Account,
   AccountCreateRequest,
+  AccountUpdateRequest,
   PaginatedResponse,
 } from '../types'
 
@@ -79,6 +84,17 @@ describe('clients API', () => {
 
       expect(client.apiGet).toHaveBeenCalledWith('/api/clients?limit=10&offset=20&q=search+term')
     })
+
+    it('should include zero-valued pagination params', async () => {
+      vi.spyOn(client, 'apiGet').mockResolvedValue({
+        data: [],
+        pagination: { total: 0, limit: 0, offset: 0 },
+      })
+
+      await listClients({ limit: 0, offset: 0 })
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/clients?limit=0&offset=0')
+    })
   })
 
   describe('getClientById', () => {
@@ -97,7 +113,7 @@ describe('clients API', () => {
         country: 'Singapore',
         postalCode: '123456',
         identityVerificationStatus: 'verified',
-        assignedAgentId: 'agent-456',
+        assignedUserId: 'user-456',
         createdAt: '2024-01-01T00:00:00Z',
         updatedAt: '2024-01-01T00:00:00Z',
       }
@@ -131,7 +147,7 @@ describe('clients API', () => {
         clientId: 'client-new',
         ...createRequest,
         identityVerificationStatus: 'unverified',
-        assignedAgentId: 'agent-123',
+        assignedUserId: 'user-123',
         createdAt: '2024-01-15T00:00:00Z',
         updatedAt: '2024-01-15T00:00:00Z',
       }
@@ -166,7 +182,7 @@ describe('clients API', () => {
         country: 'Singapore',
         postalCode: '123456',
         identityVerificationStatus: 'verified',
-        assignedAgentId: 'agent-456',
+        assignedUserId: 'user-456',
         createdAt: '2024-01-01T00:00:00Z',
         updatedAt: '2024-01-16T00:00:00Z',
       }
@@ -243,6 +259,46 @@ describe('clients API', () => {
     })
   })
 
+  describe('reviewVerification', () => {
+    it('should review pending verification with approve action', async () => {
+      const reviewRequest: ReviewVerificationRequest = {
+        action: 'approve',
+      }
+
+      const mockResponse: VerifyClientResponse = {
+        clientId: 'client-123',
+        identityVerificationStatus: 'verified',
+      }
+
+      vi.spyOn(client, 'apiPatch').mockResolvedValue(mockResponse)
+
+      const result = await reviewVerification('client-123', reviewRequest)
+
+      expect(client.apiPatch).toHaveBeenCalledWith(
+        '/api/clients/client-123/verify/review',
+        reviewRequest
+      )
+      expect(result).toEqual(mockResponse)
+    })
+
+    it('should review pending verification with reject action', async () => {
+      const reviewRequest: ReviewVerificationRequest = {
+        action: 'reject',
+      }
+
+      const mockResponse: VerifyClientResponse = {
+        clientId: 'client-123',
+        identityVerificationStatus: 'rejected',
+      }
+
+      vi.spyOn(client, 'apiPatch').mockResolvedValue(mockResponse)
+
+      const result = await reviewVerification('client-123', reviewRequest)
+
+      expect(result.identityVerificationStatus).toBe('rejected')
+    })
+  })
+
   describe('createAccount', () => {
     it('should create account for client', async () => {
       const accountRequest: AccountCreateRequest = {
@@ -276,7 +332,79 @@ describe('clients API', () => {
     })
   })
 
+  describe('updateAccount', () => {
+    it('should update account details', async () => {
+      const updateRequest: AccountUpdateRequest = {
+        accountStatus: 'Inactive',
+        branchId: 'branch-002',
+      }
+
+      const mockAccount: Account = {
+        accountId: 'account-1',
+        clientId: 'client-123',
+        accountType: 'Savings',
+        accountStatus: 'Inactive',
+        openingDate: '2024-01-15',
+        initialDeposit: 1000,
+        currency: 'SGD',
+        branchId: 'branch-002',
+        createdAt: '2024-01-15T00:00:00Z',
+      }
+
+      vi.spyOn(client, 'apiPut').mockResolvedValue(mockAccount)
+
+      const result = await updateAccount('account-1', updateRequest)
+
+      expect(client.apiPut).toHaveBeenCalledWith('/api/accounts/account-1', updateRequest)
+      expect(result).toEqual(mockAccount)
+    })
+  })
+
+  describe('listClientAccountsPaginated', () => {
+    it('should return account response without pagination query', async () => {
+      const mockResponse: PaginatedResponse<Account> = {
+        data: [],
+        pagination: { limit: 10, offset: 0, total: 0 },
+      }
+
+      vi.spyOn(client, 'apiGet').mockResolvedValue(mockResponse)
+
+      const result = await listClientAccountsPaginated('client-123')
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/clients/client-123/accounts')
+      expect(result).toEqual(mockResponse)
+    })
+
+    it('should return paginated account response', async () => {
+      const mockResponse: PaginatedResponse<Account> = {
+        data: [],
+        pagination: { limit: 20, offset: 40, total: 0 },
+      }
+
+      vi.spyOn(client, 'apiGet').mockResolvedValue(mockResponse)
+
+      const result = await listClientAccountsPaginated('client-123', { limit: 20, offset: 40 })
+
+      expect(client.apiGet).toHaveBeenCalledWith(
+        '/api/clients/client-123/accounts?limit=20&offset=40'
+      )
+      expect(result).toEqual(mockResponse)
+    })
+  })
+
   describe('listClientAccounts', () => {
+    it('should get account data helper result without pagination params', async () => {
+      vi.spyOn(client, 'apiGet').mockResolvedValue({
+        data: [],
+        pagination: { limit: 10, offset: 0, total: 0 },
+      })
+
+      const result = await listClientAccounts('client-123')
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/clients/client-123/accounts')
+      expect(result).toEqual([])
+    })
+
     it('should get all accounts for a client', async () => {
       const mockAccounts: Account[] = [
         {
@@ -308,9 +436,11 @@ describe('clients API', () => {
         pagination: { limit: 50, offset: 0, total: 2 },
       })
 
-      const result = await listClientAccounts('client-123')
+      const result = await listClientAccounts('client-123', { limit: 50, offset: 0 })
 
-      expect(client.apiGet).toHaveBeenCalledWith('/api/clients/client-123/accounts')
+      expect(client.apiGet).toHaveBeenCalledWith(
+        '/api/clients/client-123/accounts?limit=50&offset=0'
+      )
       expect(result).toEqual(mockAccounts)
       expect(result).toHaveLength(2)
     })

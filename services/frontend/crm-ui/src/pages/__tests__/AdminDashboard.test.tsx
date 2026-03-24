@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { AdminDashboard } from '../AdminDashboard'
 import { AuthProvider } from '@/features/auth/AuthContext'
+import { ThemeProvider } from '@/features/theme/ThemeContext'
 import * as usersApi from '@/api/users'
 import * as clientsApi from '@/api/clients'
 import * as logsApi from '@/api/logs'
@@ -29,11 +30,13 @@ const renderAdminDashboard = () => {
   localStorage.setItem('currentUser', JSON.stringify(mockUser))
 
   return render(
-    <BrowserRouter>
-      <AuthProvider>
-        <AdminDashboard />
-      </AuthProvider>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <AdminDashboard />
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   )
 }
 
@@ -67,7 +70,7 @@ describe('AdminDashboard', () => {
     })
   })
 
-  it('should display total agents count', async () => {
+  it('should display total users count', async () => {
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
       data: [],
       pagination: { total: 25, limit: 1, offset: 0 },
@@ -137,7 +140,7 @@ describe('AdminDashboard', () => {
     const mockLogs: LogEntry[] = [
       {
         logId: 'log-1',
-        agentId: 'agent-abc123',
+        userId: 'user-abc123',
         clientId: 'client-xyz789',
         action: 'CREATE',
         attributeName: 'email',
@@ -147,7 +150,7 @@ describe('AdminDashboard', () => {
       },
       {
         logId: 'log-2',
-        agentId: 'agent-def456',
+        userId: 'user-def456',
         clientId: 'client-uvw321',
         action: 'UPDATE',
         attributeName: 'phoneNumber',
@@ -225,7 +228,7 @@ describe('AdminDashboard', () => {
     })
   })
 
-  it('should render manage accounts link', async () => {
+  it('should render user management link', async () => {
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
       data: [],
       pagination: { total: 0, limit: 1, offset: 0 },
@@ -242,9 +245,9 @@ describe('AdminDashboard', () => {
     renderAdminDashboard()
 
     await waitFor(() => {
-      const links = screen.getAllByRole('link', { name: /Manage Accounts/i })
+      const links = screen.getAllByRole('link', { name: /User Management/i })
       expect(links.length).toBeGreaterThanOrEqual(1)
-      expect(links[0]).toHaveAttribute('href', '/admin/accounts')
+      expect(links[0]).toHaveAttribute('href', '/admin/users')
     })
   })
 
@@ -252,7 +255,7 @@ describe('AdminDashboard', () => {
     const mockLogs: LogEntry[] = [
       {
         logId: 'log-1',
-        agentId: 'agent-verylongid123456789',
+        userId: 'user-verylongid123456789',
         clientId: 'client-verylongid987654321',
         action: 'CREATE',
         attributeName: 'email',

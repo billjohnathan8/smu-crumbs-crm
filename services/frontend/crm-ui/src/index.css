@@ -1,8 +1,106 @@
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap');
-
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --white: #ffffff;
+  --off-white: #f6f6f6;
+
+  --black: #212121;
+  --dark-gray: #303030;
+  --gray: #424242;
+
+  --red: #e60100;
+  --green: #18d681;
+  --yellow: #ffde3b;
+  --purple: #7b3dd9;
+
+  --light-red: #fc5e5e;
+  --dark-red: #a80100;
+  --light-green: #48f3a7;
+  --light-yellow: #fbff80;
+  --light-purple: #ae7cfa;
+
+  --background: var(--off-white);
+  --background-light: #f6f6f6;
+  --background-lighter: #ffffff;
+
+  --card: var(--white);
+  --card-hover: #f9f9f9;
+
+  --border: #e5e5e5;
+  --border-light: #ededed;
+
+  --text: var(--black);
+  --text-muted: var(--gray);
+  --text-subtle: #a3a3a3;
+
+  --primary: var(--red);
+  --primary-hover: var(--light-red);
+  --primary-light: var(--light-red);
+
+  --success: var(--green);
+  --success-hover: var(--light-green);
+
+  --danger: var(--red);
+  --danger-hover: var(--light-red);
+
+  --warning: var(--yellow);
+  --warning-hover: var(--light-yellow);
+}
+
+.dark {
+  --background: var(--black);
+  --background-light: var(--gray);
+  --background-lighter: var(--dark-gray);
+
+  --card: var(--dark-gray);
+  --card-hover: #4d4d4d;
+
+  --border: var(--gray);
+
+  --text: var(--white);
+  --text-muted: var(--off-white);
+  --text-subtle: #d1d5db;
+
+  --primary: var(--red);
+  --primary-hover: var(--light-red);
+  --primary-light: var(--light-red);
+
+  --success: var(--green);
+  --success-hover: var(--light-green);
+
+  --danger: var(--red);
+  --danger-hover: var(--light-red);
+
+  --warning: var(--yellow);
+  --warning-hover: var(--light-yellow);
+}
+
+.gradient-purple {
+  background: linear-gradient(135deg, #7b3dd9, #ae7cfa);
+}
+
+.gradient-green {
+  background: linear-gradient(135deg, #18d681, #48f3a7);
+}
+
+.gradient-light-red {
+  background: linear-gradient(135deg, #e60100, #fc5e5e);
+}
+
+.gradient-dark-red {
+  background: linear-gradient(135deg, #a80100, #e60100);
+}
+
+.gradient-yellow {
+  background: linear-gradient(135deg, #ffde3b, #fbff80);
+}
+
+.gradient-gray {
+  background: linear-gradient(135deg, #424242, #303030);
+}
 
 @layer base {
   * {
@@ -11,7 +109,7 @@
 
   body {
     @apply bg-background text-text antialiased;
-    font-family: 'Instrument Sans', sans-serif;
+    font-family: 'IBM Plex Sans', sans-serif;
   }
 
   h1,
@@ -20,8 +118,7 @@
   h4,
   h5,
   h6 {
-    font-family: 'Instrument Sans', sans-serif;
-    font-weight: 600;
+    font-family: 'IBM Plex Sans', sans-serif;
   }
 }
 
@@ -60,13 +157,15 @@
     @apply bg-success hover:bg-success-hover text-white focus:ring-success;
   }
 
-  /* Form components */
   .form-label {
     @apply block text-sm font-medium text-text mb-1;
   }
 
   .form-input {
-    @apply w-full px-3 py-2 bg-background-light border border-border rounded-md text-text placeholder-text-subtle focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+    @apply w-full px-4 py-2 rounded-lg text-text placeholder-text-subtle
+         focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+
+    background-color: var(--background-light);
   }
 
   .form-error {
@@ -85,5 +184,25 @@
   /* Box/Terminal style */
   .box {
     @apply border-2 border-border bg-card p-6 rounded-lg;
+  }
+
+  .underline-hover {
+    position: relative;
+    cursor: pointer;
+  }
+
+  .underline-hover::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: -2px;
+    width: 0;
+    height: 1.5px;
+    background: var(--primary);
+    transition: width 0.2s ease;
+  }
+
+  .underline-hover:hover::after {
+    width: 100%;
   }
 }

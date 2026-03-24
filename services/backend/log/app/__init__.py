@@ -1,5 +1,5 @@
-"""Log service application package."""
+﻿"""Log service application package."""
 
-from .main import app
+from .lambda_router import LambdaRouter
 
-__all__ = ["app"]
+__all__ = ["LambdaRouter"]

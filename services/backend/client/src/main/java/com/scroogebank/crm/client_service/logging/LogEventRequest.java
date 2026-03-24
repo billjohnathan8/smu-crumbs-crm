@@ -12,7 +12,7 @@ public record LogEventRequest(
 	String attributeName,
 	String beforeValue,
 	String afterValue,
-	String agentId,
+	String userId,
 	String clientId,
 	Instant dateTime,
 	String correlationId

@@ -1,9 +1,9 @@
 openapi: 3.0.3
 info:
   title: log
-  version: 0.2.0
+  version: 1.0.1
   description: |
-    Feature 3: Logging of Agent Interactions and Client Communications.
+    Feature 3: Logging of User Interactions and Client Communications.
 
     Provides CRUD for audit logs of client profile actions (Create/Read/Update/Delete),
     and APIs to create client communications (email) and query communication status.
@@ -13,15 +13,22 @@ info:
     - Attribute name
     - Before Value
     - After Value
-    - Agent ID
+    - User ID
     - Client ID
     - DateTime (ISO 8601)
+
+    Deployment note:
+    - Endpoint shapes are runtime-independent.
+    - Local/CI topology serves this contract through LocalStack API Gateway -> Lambda.
+    - Infrastructure topology serves this contract through API Gateway -> Lambda.
+    - Validation failures (body/query/path) return HTTP 400 with ErrorResponse.
 servers:
   - url: http://localhost
-    description: Local / ingress base URL.
+    description: Local gateway/ingress base URL (deployment-specific upstream).
 tags:
   - name: health
   - name: logs
+  - name: aml-alerts
   - name: communications
 
 paths:
@@ -40,6 +47,11 @@ paths:
                   status: { type: string, example: ok }
                   service: { type: string, example: log }
                 required: [status]
+        "503":
+          description: Service dependency unavailable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /api/v1/health:
     get:
@@ -55,29 +67,45 @@ paths:
       tags: [health]
       summary: (Deprecated) Logs route health check
       responses:
-        "200": { description: OK }
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  service: { type: string, example: log }
+                required: [status]
+        "503":
+          description: Service dependency unavailable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /api/logs:
     get:
       tags: [logs]
       summary: List logs
       description: |
-        Lists audit logs. Admins can view all logs. Agents can view logs for their own client activities.
+        Lists audit logs. Admins can view all logs. Users can view logs for their own client activities.
       security: [{ BearerAuth: [] }]
-      x-required-roles: [admin, agent]
+      x-required-roles: [admin, user]
       parameters:
         - name: limit
           in: query
+          description: Requested page size. Values outside 1..200 are clamped by the service.
           schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
         - name: offset
           in: query
+          description: Requested start offset. Negative values are clamped to 0 by the service.
           schema: { type: integer, minimum: 0, default: 0 }
         - name: clientId
           in: query
           schema: { $ref: "#/components/schemas/ClientId" }
-        - name: agentId
+        - name: userId
           in: query
-          schema: { $ref: "#/components/schemas/AgentId" }
+          schema: { $ref: "#/components/schemas/UserId" }
         - name: action
           in: query
           schema: { $ref: "#/components/schemas/LogAction" }
@@ -119,7 +147,7 @@ paths:
         Creates an audit log entry for a client action.
         Typically called internally by other services (client-service, users-service, transaction-service).
       security: [{ BearerAuth: [] }]
-      x-required-roles: [admin, agent]
+      x-required-roles: [admin, user]
       requestBody:
         required: true
         content:
@@ -147,7 +175,7 @@ paths:
       tags: [logs]
       summary: Get log entry by ID
       security: [{ BearerAuth: [] }]
-      x-required-roles: [admin, agent]
+      x-required-roles: [admin, user]
       parameters:
         - name: logId
           in: path
@@ -265,7 +293,7 @@ paths:
       tags: [logs]
       summary: List logs for a specific client
       security: [{ BearerAuth: [] }]
-      x-required-roles: [admin, agent]
+      x-required-roles: [admin, user]
       parameters:
         - name: clientId
           in: path
@@ -273,9 +301,11 @@ paths:
           schema: { $ref: "#/components/schemas/ClientId" }
         - name: limit
           in: query
+          description: Requested page size. Values outside 1..200 are clamped by the service.
           schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
         - name: offset
           in: query
+          description: Requested start offset. Negative values are clamped to 0 by the service.
           schema: { type: integer, minimum: 0, default: 0 }
       responses:
         "200":
@@ -306,6 +336,163 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
 
+  /api/aml/alerts:
+    post:
+      tags: [aml-alerts]
+      summary: Create AML alert
+      description: |
+        Persists an AML alert generated by the AML batch engine.
+      security: [{ BearerAuth: [] }]
+      x-required-roles: [admin, user]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateAmlAlertRequest" }
+      responses:
+        "201":
+          description: AML alert created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AmlAlert" }
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409":
+          description: Duplicate alert id
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    get:
+      tags: [aml-alerts]
+      summary: List AML alerts
+      security: [{ BearerAuth: [] }]
+      x-required-roles: [admin, user]
+      parameters:
+        - name: limit
+          in: query
+          description: Requested page size. Values outside 1..200 are clamped by the service.
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: offset
+          in: query
+          description: Requested start offset. Negative values are clamped to 0 by the service.
+          schema: { type: integer, minimum: 0, default: 0 }
+        - name: clientId
+          in: query
+          schema: { $ref: "#/components/schemas/ClientId" }
+        - name: alertType
+          in: query
+          schema: { $ref: "#/components/schemas/AmlAlertType" }
+        - name: reviewStatus
+          in: query
+          schema: { $ref: "#/components/schemas/AmlReviewStatus" }
+      responses:
+        "200":
+          description: List of AML alerts.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/AmlAlert" }
+                  pagination: { $ref: "#/components/schemas/Pagination" }
+                required: [data]
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /api/aml/alerts/{alertId}:
+    get:
+      tags: [aml-alerts]
+      summary: Get AML alert by id
+      security: [{ BearerAuth: [] }]
+      x-required-roles: [admin, user]
+      parameters:
+        - name: alertId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: AML alert found.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AmlAlert" }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /api/aml/alerts/{alertId}/review:
+    put:
+      tags: [aml-alerts]
+      summary: Update AML alert review status
+      security: [{ BearerAuth: [] }]
+      x-required-roles: [admin, user]
+      parameters:
+        - name: alertId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateAmlAlertReviewRequest" }
+      responses:
+        "200":
+          description: AML alert updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AmlAlert" }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
   /api/communications:
     post:
       tags: [communications]
@@ -314,7 +501,7 @@ paths:
         Creates a client communication (email) request.
         Used by other services when notifying clients (e.g., after profile changes).
       security: [{ BearerAuth: [] }]
-      x-required-roles: [admin, agent]
+      x-required-roles: [admin, user]
       requestBody:
         required: true
         content:
@@ -342,12 +529,46 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
 
+  /api/communications/queued:
+    get:
+      tags: [communications]
+      summary: List queued communications due for dispatch
+      security: [{ BearerAuth: [] }]
+      x-required-roles: [admin]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        "200":
+          description: Queued communications.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Communication" }
+                  pagination: { $ref: "#/components/schemas/Pagination" }
+                required: [data]
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
   /api/communications/{communicationId}:
     get:
       tags: [communications]
       summary: Get communication status
       security: [{ BearerAuth: [] }]
-      x-required-roles: [admin, agent]
+      x-required-roles: [admin, user]
       parameters:
         - name: communicationId
           in: path
@@ -380,12 +601,88 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
 
+  /api/communications/{communicationId}/status:
+    patch:
+      tags: [communications]
+      summary: Update communication delivery status
+      security: [{ BearerAuth: [] }]
+      x-required-roles: [admin]
+      parameters:
+        - name: communicationId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/CommunicationId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateCommunicationStatusRequest" }
+      responses:
+        "200":
+          description: Updated communication.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Communication" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /api/communications/provider/{providerMessageId}/status:
+    patch:
+      tags: [communications]
+      summary: Update communication status by provider message id
+      security: [{ BearerAuth: [] }]
+      x-required-roles: [admin]
+      parameters:
+        - name: providerMessageId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateCommunicationStatusRequest" }
+      responses:
+        "200":
+          description: Updated communication.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Communication" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
   /api/clients/{clientId}/communications:
     get:
       tags: [communications]
       summary: List communications for a client
       security: [{ BearerAuth: [] }]
-      x-required-roles: [admin, agent]
+      x-required-roles: [admin, user]
       parameters:
         - name: clientId
           in: path
@@ -393,9 +690,11 @@ paths:
           schema: { $ref: "#/components/schemas/ClientId" }
         - name: limit
           in: query
+          description: Requested page size. Values outside 1..200 are clamped by the service.
           schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
         - name: offset
           in: query
+          description: Requested start offset. Negative values are clamped to 0 by the service.
           schema: { type: integer, minimum: 0, default: 0 }
       responses:
         "200":
@@ -434,7 +733,7 @@ components:
       type: object
       properties:
         error: { type: string, example: validation_error }
-        message: { type: string, example: "Field 'clientId' is required" }
+        message: { type: string, example: "attributeName: Field required" }
         requestId: { type: string, example: 7f1d2c3b-0c44-4ce9-a7ed-4c0c0c8edc1d }
       required: [error, message]
 
@@ -448,16 +747,16 @@ components:
     LogId:
       type: string
       description: System-generated unique log identifier.
-      example: log_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+      example: log_42
 
     ClientId:
       type: string
       description: Unique identifier for each client (auto-generated).
       example: clt_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
 
-    AgentId:
+    UserId:
       type: string
-      description: Unique identifier for the agent user.
+      description: Unique identifier for the user.
       example: usr_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
 
     LogAction:
@@ -470,7 +769,7 @@ components:
       description: |
         Audit log entry for client actions.
 
-        Appendix 2: Attribute name, before value, after value, agent id, client id, datetime (ISO 8601).
+        Appendix 2: Attribute name, before value, after value, user id, client id, datetime (ISO 8601).
       properties:
         logId: { $ref: "#/components/schemas/LogId" }
         action: { $ref: "#/components/schemas/LogAction" }
@@ -490,7 +789,7 @@ components:
           nullable: true
           description: Example "TAN|XX"
           example: TAN
-        agentId: { $ref: "#/components/schemas/AgentId" }
+        userId: { $ref: "#/components/schemas/UserId" }
         clientId: { $ref: "#/components/schemas/ClientId" }
         dateTime:
           type: string
@@ -502,7 +801,7 @@ components:
           nullable: true
           description: Optional correlation/request id for tracing across services.
           example: 7f1d2c3b-0c44-4ce9-a7ed-4c0c0c8edc1d
-      required: [logId, action, attributeName, agentId, clientId, dateTime]
+      required: [logId, action, attributeName, userId, clientId, dateTime]
 
     CreateLogRequest:
       type: object
@@ -520,7 +819,7 @@ components:
           type: string
           nullable: true
           maxLength: 2000
-        agentId: { $ref: "#/components/schemas/AgentId" }
+        userId: { $ref: "#/components/schemas/UserId" }
         clientId: { $ref: "#/components/schemas/ClientId" }
         dateTime:
           type: string
@@ -529,7 +828,7 @@ components:
         correlationId:
           type: string
           nullable: true
-      required: [action, attributeName, agentId, clientId]
+      required: [action, attributeName, userId, clientId]
       additionalProperties: false
 
     UpdateLogRequest:
@@ -555,7 +854,7 @@ components:
     CommunicationId:
       type: string
       description: System-generated unique communication identifier.
-      example: com_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+      example: com_42
 
     CommunicationChannel:
       type: string
@@ -572,11 +871,12 @@ components:
       properties:
         communicationId: { $ref: "#/components/schemas/CommunicationId" }
         clientId: { $ref: "#/components/schemas/ClientId" }
-        agentId: { $ref: "#/components/schemas/AgentId" }
+        userId: { $ref: "#/components/schemas/UserId" }
         channel: { $ref: "#/components/schemas/CommunicationChannel" }
         toEmail:
           type: string
           format: email
+          pattern: "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
           example: client@example.com
         subject:
           type: string
@@ -592,26 +892,45 @@ components:
         errorMessage:
           type: string
           nullable: true
+        idempotencyKey:
+          type: string
+          nullable: true
+        retryCount:
+          type: integer
+          minimum: 0
+          default: 0
+        nextAttemptAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastAttemptAt:
+          type: string
+          format: date-time
+          nullable: true
+        deliveryEvent:
+          type: string
+          nullable: true
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
-      required: [communicationId, clientId, agentId, channel, toEmail, subject, body, status]
+      required: [communicationId, clientId, userId, channel, toEmail, subject, body, status]
 
     CreateCommunicationRequest:
       type: object
       properties:
         clientId: { $ref: "#/components/schemas/ClientId" }
-        agentId:
-          $ref: "#/components/schemas/AgentId"
+        userId:
+          $ref: "#/components/schemas/UserId"
           description: |
-            Agent initiating the communication. In production this should be derived from the bearer token,
+            User initiating the communication. In production this should be derived from the bearer token,
             but is accepted here for service-to-service calls.
         toEmail:
           type: string
           format: email
+          pattern: "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
         subject:
           type: string
           maxLength: 200
@@ -620,6 +939,117 @@ components:
           maxLength: 20000
         channel:
           $ref: "#/components/schemas/CommunicationChannel"
-      required: [clientId, agentId, toEmail, subject, body]
+        idempotencyKey:
+          type: string
+          maxLength: 160
+      required: [clientId, userId, toEmail, subject, body]
       additionalProperties: false
 
+    UpdateCommunicationStatusRequest:
+      type: object
+      properties:
+        status: { $ref: "#/components/schemas/CommunicationStatus" }
+        providerMessageId:
+          type: string
+          maxLength: 200
+          nullable: true
+        errorMessage:
+          type: string
+          maxLength: 2000
+          nullable: true
+        retryCount:
+          type: integer
+          minimum: 0
+        nextAttemptAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastAttemptAt:
+          type: string
+          format: date-time
+          nullable: true
+        deliveryEvent:
+          type: string
+          maxLength: 80
+          nullable: true
+      additionalProperties: false
+
+    AmlAlertType:
+      type: string
+      enum: [STATISTICAL_OUTLIER, STRUCTURING, PASSTHROUGH, INCEPTION_SPIKE]
+
+    AmlReviewStatus:
+      type: string
+      enum: [Pending, Confirmed, Dismissed]
+      default: Pending
+
+    AmlAlert:
+      type: object
+      properties:
+        alertId:
+          type: string
+          example: aml_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+        clientId: { $ref: "#/components/schemas/ClientId" }
+        transactionId:
+          type: string
+          nullable: true
+          example: txn_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+        alertType: { $ref: "#/components/schemas/AmlAlertType" }
+        description:
+          type: string
+          maxLength: 2000
+        detectedAt:
+          type: string
+          format: date-time
+        reviewStatus: { $ref: "#/components/schemas/AmlReviewStatus" }
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - alertId
+        - clientId
+        - alertType
+        - description
+        - detectedAt
+        - reviewStatus
+        - createdAt
+        - updatedAt
+
+    CreateAmlAlertRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        alertId:
+          type: string
+          minLength: 1
+          maxLength: 64
+        clientId: { $ref: "#/components/schemas/ClientId" }
+        transactionId:
+          type: string
+          nullable: true
+          maxLength: 255
+        alertType: { $ref: "#/components/schemas/AmlAlertType" }
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        detectedAt:
+          type: string
+          format: date-time
+        reviewStatus: { $ref: "#/components/schemas/AmlReviewStatus" }
+      required:
+        - alertId
+        - clientId
+        - alertType
+        - description
+        - detectedAt
+
+    UpdateAmlAlertReviewRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reviewStatus: { $ref: "#/components/schemas/AmlReviewStatus" }
+      required: [reviewStatus]

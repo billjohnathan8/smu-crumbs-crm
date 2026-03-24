@@ -1,10 +1,16 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { login as apiLogin, getCurrentUser } from '@/api/auth'
 import { setAuthToken, clearAuthToken, getAuthToken } from '@/api/client'
+import {
+  isCognitoEnabled,
+  AUTH_MODE,
+  exchangeCodeForTokens,
+  buildCognitoLogoutUrl,
+} from '@/api/cognito'
 import type { User, LoginRequest } from '@/api/types'
 
 const DEV_BYPASS_AUTH = import.meta.env.DEV && import.meta.env.VITE_BYPASS_AUTH === 'true'
-const DEV_ROLE = (import.meta.env.VITE_BYPASS_ROLE ?? 'admin') as 'admin' | 'agent'
+const DEV_ROLE = (import.meta.env.VITE_BYPASS_ROLE ?? 'admin') as 'admin' | 'user' | 'super_admin'
 
 const DEV_USERS = {
   admin: {
@@ -15,12 +21,20 @@ const DEV_USERS = {
     role: 'admin',
     status: 'active',
   },
-  agent: {
+  super_admin: {
+    id: 'usr_1',
+    firstName: 'Super',
+    lastName: 'Admin',
+    email: 'super-admin@example.com',
+    role: 'super_admin',
+    status: 'active',
+  },
+  user: {
     id: 'user-123',
     firstName: 'John',
     lastName: 'Doe',
-    email: 'agent@example.com',
-    role: 'agent',
+    email: 'user@example.com',
+    role: 'user',
     status: 'active',
   },
 } as const
@@ -30,6 +44,7 @@ interface AuthContextValue {
   isAuthenticated: boolean
   isLoading: boolean
   login: (credentials: LoginRequest) => Promise<void>
+  loginWithCognitoCode: (code: string) => Promise<void>
   logout: () => void
 }
 
@@ -79,8 +94,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const devUser =
         email === 'admin@example.com' && password === 'password123'
           ? DEV_USERS.admin
-          : email === 'agent@example.com' && password === 'password123'
-            ? DEV_USERS.agent
+          : email === 'user@example.com' && password === 'password123'
+            ? DEV_USERS.user
             : null
 
       if (!devUser) throw new Error('Invalid email or password')
@@ -102,9 +117,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('currentUser', JSON.stringify(user))
   }, [])
 
+  const loginWithCognitoCode = useCallback(async (code: string) => {
+    const tokens = await exchangeCodeForTokens(code)
+    // Cognito access_token is used for API calls to backend services
+    setAuthToken(tokens.access_token)
+    if (tokens.refresh_token) {
+      localStorage.setItem('refreshToken', tokens.refresh_token)
+    }
+    // Store id_token for potential client-side use
+    if (tokens.id_token) {
+      localStorage.setItem('idToken', tokens.id_token)
+    }
+
+    const user = await getCurrentUser()
+    setUser(user)
+    localStorage.setItem('currentUser', JSON.stringify(user))
+  }, [])
+
   const logout = useCallback(() => {
     clearAuthToken()
+    localStorage.removeItem('idToken')
     setUser(null)
+
+    // If Cognito is active, redirect to Cognito logout to clear SSO session
+    if (isCognitoEnabled && AUTH_MODE === 'cognito') {
+      window.location.href = buildCognitoLogoutUrl()
+    }
   }, [])
 
   return (
@@ -114,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         isLoading,
         login,
+        loginWithCognitoCode,
         logout,
       }}
     >

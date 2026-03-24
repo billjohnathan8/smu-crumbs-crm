@@ -1,0 +1,170 @@
+name: Reusable - Lambda Artifact Deploy
+
+on:
+  workflow_call:
+    inputs:
+      service:
+        description: Lambda service folder name under services/backend
+        required: true
+        type: string
+      python_version:
+        description: Python version used to build the Lambda artifact
+        required: false
+        type: string
+        default: '3.13'
+    secrets:
+      AWS_ROLE_ARN:
+        required: true
+      AWS_REGION:
+        required: true
+      LAMBDA_ARTIFACT_BUCKET:
+        required: true
+      TF_LAMBDA_FUNCTION_NAMES_JSON:
+        required: true
+      TF_CODEDEPLOY_LAMBDA_APPLICATION_NAME:
+        required: true
+      TF_CODEDEPLOY_LAMBDA_DEPLOYMENT_GROUP_NAMES_JSON:
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  package-upload:
+    name: Package and upload (${{ inputs.service }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      LAMBDA_ARTIFACT_BUCKET: ${{ secrets.LAMBDA_ARTIFACT_BUCKET }}
+      LAMBDA_SERVICE_NAME: ${{ inputs.service }}
+      LAMBDA_WORKING_DIRECTORY: services/backend/${{ inputs.service }}
+      LAMBDA_FUNCTION_NAMES_JSON: ${{ secrets.TF_LAMBDA_FUNCTION_NAMES_JSON }}
+      CODEDEPLOY_LAMBDA_APPLICATION_NAME: ${{ secrets.TF_CODEDEPLOY_LAMBDA_APPLICATION_NAME }}
+      CODEDEPLOY_LAMBDA_DEPLOYMENT_GROUP_NAMES_JSON: ${{ secrets.TF_CODEDEPLOY_LAMBDA_DEPLOYMENT_GROUP_NAMES_JSON }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        timeout-minutes: 2
+
+      - name: Validate required secrets
+        run: |
+          test -n "${{ secrets.AWS_ROLE_ARN }}"
+          test -n "${{ secrets.AWS_REGION }}"
+          test -n "${{ secrets.LAMBDA_ARTIFACT_BUCKET }}"
+          test -n "${{ secrets.TF_LAMBDA_FUNCTION_NAMES_JSON }}"
+          test -n "${{ secrets.TF_CODEDEPLOY_LAMBDA_APPLICATION_NAME }}"
+          test -n "${{ secrets.TF_CODEDEPLOY_LAMBDA_DEPLOYMENT_GROUP_NAMES_JSON }}"
+
+      - name: Resolve Terraform deployment metadata
+        id: metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SERVICE="${LAMBDA_SERVICE_NAME}"
+          SERVICE_UNDERSCORE="${SERVICE//-/_}"
+          SERVICE_TRIMMED="${SERVICE%-lambda}"
+          SERVICE_TRIMMED_UNDERSCORE="${SERVICE_TRIMMED//-/_}"
+
+          resolve_map_value() {
+            local json_payload="$1"
+            local value
+            for key in "$SERVICE" "$SERVICE_UNDERSCORE" "$SERVICE_TRIMMED" "$SERVICE_TRIMMED_UNDERSCORE"; do
+              value="$(jq -er --arg key "$key" '.[$key] // empty' <<< "$json_payload" 2>/dev/null || true)"
+              if [[ -n "$value" && "$value" != "null" ]]; then
+                echo "$value"
+                return 0
+              fi
+            done
+            return 1
+          }
+
+          FUNCTION_NAME="$(resolve_map_value "$LAMBDA_FUNCTION_NAMES_JSON")" || {
+            echo "Missing Lambda function name for service '$SERVICE' in lambda_function_names_json contract"
+            exit 1
+          }
+
+          DEPLOYMENT_GROUP_NAME="$(resolve_map_value "$CODEDEPLOY_LAMBDA_DEPLOYMENT_GROUP_NAMES_JSON")" || {
+            echo "Missing CodeDeploy deployment group for service '$SERVICE' in codedeploy_lambda_deployment_group_names_json contract"
+            exit 1
+          }
+
+          {
+            echo "function_name=${FUNCTION_NAME}"
+            echo "deployment_group_name=${DEPLOYMENT_GROUP_NAME}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        timeout-minutes: 2
+        with:
+          python-version: ${{ inputs.python_version }}
+          cache: 'pip'
+          cache-dependency-path: ${{ env.LAMBDA_WORKING_DIRECTORY }}/requirements.txt
+
+      - name: Build Lambda zip artifact
+        id: package
+        working-directory: ${{ env.LAMBDA_WORKING_DIRECTORY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build
+          mkdir -p build/package
+
+          python -m pip install --upgrade pip
+
+          if [[ -f requirements.txt ]]; then
+            pip install -r requirements.txt --target build/package
+          fi
+
+          rsync -a ./ build/package/ \
+            --exclude build \
+            --exclude tests \
+            --exclude venv \
+            --exclude .pytest_cache \
+            --exclude __pycache__ \
+            --exclude '*.zip' \
+            --exclude pyproject.toml \
+            --exclude README.md
+
+          artifact_name="${GITHUB_SHA}.zip"
+          artifact_path="build/${artifact_name}"
+          s3_key="services/lambda/${LAMBDA_SERVICE_NAME}/${artifact_name}"
+
+          (
+            cd build/package
+            zip -r "../${artifact_name}" . \
+              -x "*.pyc" \
+              -x "*/__pycache__/*"
+          )
+
+          {
+            echo "artifact_name=${artifact_name}"
+            echo "artifact_path=${artifact_path}"
+            echo "s3_key=${s3_key}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload Lambda zip to S3
+        run: |
+          aws s3 cp \
+            "${{ env.LAMBDA_WORKING_DIRECTORY }}/${{ steps.package.outputs.artifact_path }}" \
+            "s3://${{ env.LAMBDA_ARTIFACT_BUCKET }}/${{ steps.package.outputs.s3_key }}"
+
+      - name: Deployment summary
+        run: |
+          echo "Lambda: ${{ env.LAMBDA_SERVICE_NAME }}"
+          echo "Resolved function name: ${{ steps.metadata.outputs.function_name }}"
+          echo "Resolved CodeDeploy app: ${{ env.CODEDEPLOY_LAMBDA_APPLICATION_NAME }}"
+          echo "Resolved CodeDeploy group: ${{ steps.metadata.outputs.deployment_group_name }}"
+          echo "Artifact: ${{ steps.package.outputs.artifact_name }}"
+          echo "Uploaded to: s3://${{ env.LAMBDA_ARTIFACT_BUCKET }}/${{ steps.package.outputs.s3_key }}"

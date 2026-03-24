@@ -1,7 +1,7 @@
 name: CI - Transaction Backend
 
 # Component pipeline for the transaction-backend trunk.
-# Runs Java checkstyle + unit tests with JaCoCo coverage.
+# Runs Java checkstyle + fast unit tests + DB-backed persistence tests.
 
 on:
   pull_request:
@@ -25,6 +25,7 @@ concurrency:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   lint:
@@ -43,6 +44,22 @@ jobs:
       working-directory: services/backend/transaction
       test-command: |
         chmod +x gradlew
-        ./gradlew test jacocoTestReport --no-daemon --console=plain
+        ./gradlew test jacocoTestReport jacocoTestCoverageVerification --no-daemon --console=plain
       timeout-minutes: 10
+      artifact-paths: services/backend/transaction/build/reports/**
+
+  # DB-backed persistence coverage against ephemeral PostgreSQL.
+  test-db:
+    needs: lint
+    uses: ./.github/workflows/reusable-test-component-db.yml
+    with:
+      component: transaction
+      runtime: java
+      working-directory: services/backend/transaction
+      test-command: |
+        chmod +x gradlew
+        ./gradlew test \
+          --tests "com.scroogebank.crm.transaction_service.service.PersistentTransactionsStoreTest" \
+          --no-daemon --console=plain
+      timeout-minutes: 12
       artifact-paths: services/backend/transaction/build/reports/**

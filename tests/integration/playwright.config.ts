@@ -5,7 +5,7 @@ import { defineConfig, devices } from '@playwright/test';
  * 
  * These tests require the full system to be running:
  * - Frontend (React UI) on localhost:4173
- * - All backend microservices (agent, client, transaction, log, etc.) on localhost:8080
+ * - All backend microservices (user, client, transaction, log, etc.) on localhost:8080
  * - PostgreSQL database
  * - LocalStack for AWS services
  * 
@@ -27,7 +27,7 @@ export default defineConfig({
   ],
   
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:4173',
+    baseURL: (process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:4173').trim(),
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
