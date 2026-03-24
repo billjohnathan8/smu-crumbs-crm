@@ -40,8 +40,8 @@ export function CreateClientPage() {
   const basePath = canViewAllClients ? '/admin' : '/user'
   const sidebarNav = canViewAllClients ? adminNav : userNav
   const homePath = basePath
-  const listPath = canViewAllClients ? '/admin/accounts' : '/user/clients'
-  const breadcrumbLabel = canViewAllClients ? 'Manage Accounts' : 'My Clients'
+  const listPath = canViewAllClients ? '/admin/clients' : '/user/clients'
+  const breadcrumbLabel = canViewAllClients ? 'All Clients' : 'My Clients'
 
   const [formData, setFormData] = useState<ClientCreateRequest>({
     firstName: '',
@@ -175,10 +175,7 @@ export function CreateClientPage() {
               Dashboard
             </Link>
             <span className="text-text-subtle text-2xl">/</span>
-            <button
-              onClick={() => navigate(listPath)}
-              className="text-text-subtle text-2xl"
-            >
+            <button onClick={() => navigate(listPath)} className="text-text-subtle text-2xl">
               {breadcrumbLabel}
             </button>
             <span className="text-text-subtle text-2xl">/</span>

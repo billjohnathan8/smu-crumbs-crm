@@ -187,7 +187,7 @@
   }
 
   #dateOfBirth::-webkit-calendar-picker-indicator {
-    filter: invert(16%) sepia(96%) saturate(7109%) hue-rotate(359deg) brightness(102%) contrast(106%);
+    filter: invert(16%) sepia(96%) saturate(7109%) hue-rotate(359deg) brightness(80%) contrast(106%);
     cursor: pointer;
   }
 
