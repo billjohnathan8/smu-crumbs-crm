@@ -115,7 +115,7 @@ export function ClientListPage() {
           <div className="flex space-x-3">
             <button
               onClick={() => navigate(createClientPath)}
-              className="rounded-lg gradient-dark-red px-4 py-2 font-medium text-white transition-colors hover:bg-success-hover"
+              className="rounded-lg gradient-dark-red px-4 py-2 font-medium text-white transition-all duration-200 hover:brightness-[0.85]"
             >
               + New Client
             </button>
@@ -141,7 +141,8 @@ export function ClientListPage() {
 
           <button
             type="submit"
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
+            className="rounded-lg gradient-dark-red px-4 py-2 text-sm font-medium text-white
+           transition-all duration-200 hover:brightness-[0.85]"
           >
             Search
           </button>

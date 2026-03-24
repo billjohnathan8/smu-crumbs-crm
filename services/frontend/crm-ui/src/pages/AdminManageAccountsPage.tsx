@@ -261,7 +261,7 @@ export function AdminManageAccountsPage() {
                             {u.id !== user?.id && (
                               <button
                                 onClick={() => handleDeleteUser(u)}
-                                className="px-3 py-1 rounded text-sm font-normal bg-danger hover:bg-danger-hover text-white transition-colors"
+                                className="px-3 py-1 rounded text-sm font-normal gradient-dark-red hover:opacity-80 text-white transition-opacity"
                               >
                                 Delete
                               </button>

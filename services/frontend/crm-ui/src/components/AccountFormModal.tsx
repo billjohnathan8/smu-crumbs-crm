@@ -144,7 +144,7 @@ export function AccountFormModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-background-light hover:bg-background-lighter text-text rounded-lg text-sm font-normal"
+              className="px-4 py-2 bg-background-light hover:bg-gray-200 text-text rounded-lg text-sm font-normal border-2 border-border hover:border-text-muted transition-colors"
               disabled={isSubmitting}
             >
               Cancel

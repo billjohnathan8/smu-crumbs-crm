@@ -14,7 +14,7 @@ type ClientTableProps = {
 
 export function ClientTable({ clients, onView }: ClientTableProps) {
   if (clients.length === 0) {
-    return <div className="p-6 text-center text-text-muted">No clients found</div>
+    return <div className="p-6 text-center text-text-subtle">No clients found</div>
   }
 
   return (

@@ -159,7 +159,7 @@ export function LoginPage() {
                   type="submit"
                   data-testid="login-submit-button"
                   disabled={isLoading}
-                  className={`w-full py-3 px-4 rounded-lg font-medium transition-colors text-white ${
+                  className={`w-full py-3 px-4 rounded-lg font-medium hover:brightness-[0.8] transition-all duration-200 text-white ${
                     isLoading
                       ? 'opacity-50 cursor-not-allowed gradient-dark-red'
                       : 'gradient-dark-red'
@@ -173,7 +173,7 @@ export function LoginPage() {
                 <button
                   type="button"
                   onClick={() => navigate('/forgot-password')}
-                  className="text-primary underline-hover"
+                  className="text-primary underline-hover font-medium"
                 >
                   Forgot your password?
                 </button>
@@ -197,7 +197,7 @@ export function LoginPage() {
                     onClick={() => {
                       window.location.href = buildCognitoLoginUrl()
                     }}
-                    className="w-full py-3 px-4 rounded-lg font-normal transition-colors bg-background-light hover:bg-background-lighter text-text border border-border"
+                    className="w-full py-3 px-4 rounded-lg font-normal transition-colors bg-background-light hover:bg-gray-200 text-text border-2 border-border hover:border-text-muted"
                   >
                     Sign in with Cognito SSO
                   </button>

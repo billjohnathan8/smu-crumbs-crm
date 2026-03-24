@@ -32,7 +32,7 @@ export function ClientDetail({
           </button>
           <button
             onClick={onDelete}
-            className="px-4 py-2 rounded bg-danger hover:bg-danger-hover text-white text-sm font-normal"
+            className="px-4 py-2 rounded gradient-dark-red hover:opacity-80 text-white text-sm font-normal transition-opacity"
           >
             Delete Client
           </button>

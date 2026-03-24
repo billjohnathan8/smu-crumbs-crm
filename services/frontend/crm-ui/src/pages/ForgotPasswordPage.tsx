@@ -130,10 +130,10 @@ export function ForgotPasswordPage() {
               type="submit"
               data-testid="forgot-password-submit-button"
               disabled={isLoading}
-              className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
+              className={`w-full py-3 px-4 rounded-lg font-medium ${
                 isLoading
                   ? 'gradient-dark-red/50 cursor-not-allowed'
-                  : 'gradient-dark-red hover:bg-primary-hover'
+                  : 'gradient-dark-red hover:brightness-[0.8] transition-all duration-200'
               } text-white`}
             >
               {isLoading ? 'Sending...' : 'Send Reset Link'}
@@ -144,7 +144,7 @@ export function ForgotPasswordPage() {
             <button
               type="button"
               onClick={() => navigate('/login')}
-              className="text-primary underline-hover"
+              className="text-primary underline-hover font-medium"
             >
               Back to Login
             </button>

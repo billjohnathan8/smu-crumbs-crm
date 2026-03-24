@@ -94,6 +94,10 @@
   background: linear-gradient(135deg, #a80100, #e60100);
 }
 
+.gradient-dark-red-hover {
+  background: linear-gradient(135deg, #c40000, #7a0000);
+}
+
 .gradient-yellow {
   background: linear-gradient(135deg, #ffde3b, #fbff80);
 }
@@ -166,6 +170,25 @@
          focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
 
     background-color: var(--background-light);
+  }
+
+  .form-input:-webkit-autofill,
+  .form-input:-webkit-autofill:hover,
+  .form-input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 30px var(--background-light) inset !important;
+    -webkit-text-fill-color: var(--text) !important;
+  }
+
+  .dark .form-input:-webkit-autofill,
+  .dark .form-input:-webkit-autofill:hover,
+  .dark .form-input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 30px var(--background-light) inset !important;
+    -webkit-text-fill-color: var(--text) !important;
+  }
+
+  #dateOfBirth::-webkit-calendar-picker-indicator {
+    filter: invert(16%) sepia(96%) saturate(7109%) hue-rotate(359deg) brightness(102%) contrast(106%);
+    cursor: pointer;
   }
 
   .form-error {
