@@ -31,7 +31,7 @@ rds_performance_insights_enabled = false
 
 # --- Feature Contract (integration) ---
 enable_log_lambda                   = true
-enable_transaction_ingestion_lambda = true
+enable_sftp_transaction_collector = true
 enable_verification_pipeline        = true
 ses_sender_email                    = "verification@crm.local" # replace with a verified sender in real AWS integration
 

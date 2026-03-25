@@ -104,8 +104,8 @@ variable "enable_verification_pipeline" {
   default     = false
 }
 
-variable "enable_transaction_ingestion_lambda" {
-  description = "Create IAM role and policies for scheduled transaction ingestion Lambda."
+variable "enable_sftp_transaction_collector" {
+  description = "Create IAM role and policies for scheduled sftp-transaction-collector Lambda."
   type        = bool
   default     = false
 }

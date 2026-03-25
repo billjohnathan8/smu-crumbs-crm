@@ -178,50 +178,50 @@ variable "crm_api_base_url" {
   type        = string
 }
 
-variable "enable_transaction_ingestion_lambda" {
-  description = "Create the transaction ingestion Lambda and schedule."
+variable "enable_sftp_transaction_collector" {
+  description = "Create the sftp-transaction-collector Lambda and schedule."
   type        = bool
   default     = false
 }
 
-variable "transaction_ingestion_lambda_zip_path" {
-  description = "Path to transaction ingestion lambda zip."
+variable "sftp_transaction_collector_zip_path" {
+  description = "Path to sftp-transaction-collector lambda zip."
   type        = string
   default     = ""
 }
 
-variable "transaction_ingestion_lambda_memory_size" {
-  description = "Transaction ingestion lambda memory size."
+variable "sftp_transaction_collector_memory_size" {
+  description = "SFTP transaction collector lambda memory size."
   type        = number
   default     = 512
 }
 
-variable "transaction_ingestion_lambda_timeout_seconds" {
-  description = "Transaction ingestion lambda timeout in seconds."
+variable "sftp_transaction_collector_timeout_seconds" {
+  description = "SFTP transaction collector lambda timeout in seconds."
   type        = number
   default     = 60
 }
 
-variable "transaction_ingestion_lambda_role_arn" {
+variable "sftp_transaction_collector_role_arn" {
   description = "Transaction ingestion Lambda IAM role ARN."
   type        = string
   default     = ""
 }
 
-variable "transaction_ingestion_schedule_expression" {
-  description = "EventBridge schedule expression for transaction ingestion Lambda."
+variable "sftp_transaction_collector_schedule_expression" {
+  description = "EventBridge schedule expression for sftp-transaction-collector Lambda."
   type        = string
   default     = "rate(1 hour)"
 }
 
 variable "transaction_sftp_bucket_id" {
-  description = "S3 bucket ID used as transaction ingestion source (legacy 'sftp' naming)."
+  description = "S3 bucket ID used as sftp-transaction-collector source (legacy 'sftp' naming)."
   type        = string
   default     = ""
 }
 
 variable "transaction_sftp_remote_prefix" {
-  description = "S3 object prefix used by transaction ingestion Lambda (legacy 'sftp' naming)."
+  description = "S3 object prefix used by sftp-transaction-collector Lambda (legacy 'sftp' naming)."
   type        = string
   default     = "incoming/"
 }
@@ -408,12 +408,12 @@ check "lambda_artifact_paths_module" {
   }
 
   assert {
-    condition = !var.enable_transaction_ingestion_lambda || (
-      trimspace(var.transaction_ingestion_lambda_zip_path) != "" &&
-      fileexists(var.transaction_ingestion_lambda_zip_path) &&
-      filesize(var.transaction_ingestion_lambda_zip_path) > 0
+    condition = !var.enable_sftp_transaction_collector || (
+      trimspace(var.sftp_transaction_collector_zip_path) != "" &&
+      fileexists(var.sftp_transaction_collector_zip_path) &&
+      filesize(var.sftp_transaction_collector_zip_path) > 0
     )
-    error_message = "When enable_transaction_ingestion_lambda is true, transaction_ingestion_lambda_zip_path must point to an existing, non-empty zip file."
+    error_message = "When enable_sftp_transaction_collector is true, sftp_transaction_collector_zip_path must point to an existing, non-empty zip file."
   }
 
   assert {

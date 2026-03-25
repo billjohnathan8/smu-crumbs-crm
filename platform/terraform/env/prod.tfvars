@@ -40,7 +40,7 @@ rds_performance_insights_enabled = false
 # - verification dispatch + feedback path
 # - transaction ingestion scheduler path
 enable_log_lambda                   = true
-enable_transaction_ingestion_lambda = true
+enable_sftp_transaction_collector = true
 enable_verification_pipeline        = true
 ses_sender_email                    = "verification@crm.local" # override with a verified sender in target AWS account
 

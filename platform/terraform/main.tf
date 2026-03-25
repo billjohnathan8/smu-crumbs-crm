@@ -54,7 +54,7 @@ module "security" {
   enable_audit_pipeline               = var.enable_audit_pipeline
   enable_aml_pipeline                 = var.enable_aml_pipeline
   enable_verification_pipeline        = var.enable_verification_pipeline
-  enable_transaction_ingestion_lambda = var.enable_transaction_ingestion_lambda
+  enable_sftp_transaction_collector = var.enable_sftp_transaction_collector
   audit_sqs_arn                       = module.sqs.audit_queue_arn != null ? module.sqs.audit_queue_arn : ""
   audit_dlq_arn                       = module.sqs.audit_dlq_arn != null ? module.sqs.audit_dlq_arn : ""
   aml_sqs_arn                         = module.sqs.aml_queue_arn != null ? module.sqs.aml_queue_arn : ""
@@ -191,12 +191,12 @@ module "lambda" {
   aml_sftp_remote_path                         = var.aml_sftp_remote_path
   aml_entity_id                                = var.aml_entity_id
   crm_api_base_url                             = local.crm_api_base_url
-  enable_transaction_ingestion_lambda          = var.enable_transaction_ingestion_lambda
-  transaction_ingestion_lambda_zip_path        = var.transaction_ingestion_lambda_zip_path
-  transaction_ingestion_lambda_memory_size     = var.transaction_ingestion_lambda_memory_size
-  transaction_ingestion_lambda_timeout_seconds = var.transaction_ingestion_lambda_timeout_seconds
-  transaction_ingestion_lambda_role_arn        = module.security.transaction_ingestion_lambda_role_arn != null ? module.security.transaction_ingestion_lambda_role_arn : ""
-  transaction_ingestion_schedule_expression    = var.transaction_ingestion_schedule_expression
+  enable_sftp_transaction_collector          = var.enable_sftp_transaction_collector
+  sftp_transaction_collector_zip_path        = var.sftp_transaction_collector_zip_path
+  sftp_transaction_collector_memory_size     = var.sftp_transaction_collector_memory_size
+  sftp_transaction_collector_timeout_seconds = var.sftp_transaction_collector_timeout_seconds
+  sftp_transaction_collector_role_arn        = module.security.sftp_transaction_collector_role_arn != null ? module.security.sftp_transaction_collector_role_arn : ""
+  sftp_transaction_collector_schedule_expression    = var.sftp_transaction_collector_schedule_expression
   transaction_sftp_bucket_id                   = module.s3.transaction_sftp_bucket_id != null ? module.s3.transaction_sftp_bucket_id : ""
   transaction_sftp_remote_prefix               = var.transaction_sftp_remote_prefix
   transaction_import_api_url                   = "${local.transaction_import_api_base_url}${var.transaction_import_api_path}"
@@ -331,7 +331,7 @@ module "s3" {
   frontend_bucket_allow_public   = var.frontend_bucket_allow_public
   enable_verification_bucket     = var.enable_verification_pipeline
   verification_bucket_name       = local.verification_bucket_name
-  enable_transaction_sftp_bucket = var.enable_transaction_ingestion_lambda
+  enable_transaction_sftp_bucket = var.enable_sftp_transaction_collector
   transaction_sftp_bucket_name   = local.transaction_sftp_bucket_name
 }
 
@@ -517,10 +517,10 @@ module "codedeploy" {
       function_name = module.lambda.aml_lambda_name != null ? module.lambda.aml_lambda_name : ""
       alias_name    = module.lambda.aml_lambda_alias_name != null ? module.lambda.aml_lambda_alias_name : ""
     }
-    transaction-ingestion = {
-      enabled       = var.enable_transaction_ingestion_lambda
-      function_name = module.lambda.transaction_ingestion_lambda_name != null ? module.lambda.transaction_ingestion_lambda_name : ""
-      alias_name    = module.lambda.transaction_ingestion_lambda_alias_name != null ? module.lambda.transaction_ingestion_lambda_alias_name : ""
+    sftp-transaction-collector = {
+      enabled       = var.enable_sftp_transaction_collector
+      function_name = module.lambda.sftp_transaction_collector_name != null ? module.lambda.sftp_transaction_collector_name : ""
+      alias_name    = module.lambda.sftp_transaction_collector_alias_name != null ? module.lambda.sftp_transaction_collector_alias_name : ""
     }
     verification = {
       enabled       = var.enable_verification_pipeline
