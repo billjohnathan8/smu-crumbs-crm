@@ -1,15 +1,25 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext'
+import { ThemeProvider } from '@/features/theme/ThemeContext'
 import { ProtectedRoute } from './ProtectedRoute'
 
 import { LoginPage } from '@/pages/LoginPage'
 import { AdminDashboard } from '@/pages/AdminDashboard'
+import { AdminCommunications } from '@/pages/AdminCommunications'
 import { AdminUserManagementPage } from '@/pages/AdminUserManagementPage'
-
+import { CreateNewUserPage } from '@/pages/CreateNewUserPage'
+import { ClientListPage } from '@/pages/ClientListPage'
+import { ClientDetailPage } from '@/pages/ClientDetailPage'
 import { UserDashboard } from '@/pages/UserDashboard'
 import { CreateClientPage } from '@/pages/CreateClientPage'
 import { ViewTransactionsPage } from '@/pages/ViewTransactionsPage'
 import { ClientVerifyPage } from '@/pages/ClientVerifyPage'
+import { AmlAlertsPage } from '@/pages/AmlAlertsPage'
+import { ClientAccountsPage } from '@/pages/ClientAccountsPage'
+import { EditClientPage } from '@/pages/EditClientPage'
+import { SettingsPage } from '@/pages/SettingsPage'
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 
 function RootRedirect() {
   const { user, isAuthenticated, isLoading } = useAuth()
@@ -35,27 +45,42 @@ function RootRedirect() {
 
 export function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/verify-client" element={<ClientVerifyPage />} />
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/verify-client" element={<ClientVerifyPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/accounts" element={<AdminUserManagementPage />} />
-          </Route>
+            <Route element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} />}>
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/clients" element={<ClientListPage />} />
+              <Route path="/admin/clients/new" element={<CreateClientPage />} />
+              <Route path="/admin/clients/:clientId" element={<ClientDetailPage />} />
+              <Route path="/admin/clients/:clientId/edit" element={<EditClientPage />} />
+              <Route path="/admin/clients/:clientId/accounts" element={<ClientAccountsPage />} />
+              <Route path="/admin/communications" element={<AdminCommunications />} />
+              <Route path="/admin/transactions" element={<ViewTransactionsPage />} />
+              <Route path="/admin/aml-alerts" element={<AmlAlertsPage />} />
+              <Route path="/admin/accounts" element={<Navigate to="/admin/users" replace />} />
+              <Route path="/admin/users" element={<AdminUserManagementPage />} />
+              <Route path="/admin/users/new" element={<CreateNewUserPage />} />
+              <Route path="/admin/settings" element={<SettingsPage />} />
+            </Route>
 
-          <Route element={<ProtectedRoute allowedRoles={['user']} />}>
-            <Route path="/user" element={<UserDashboard />} />
-            <Route path="/user/clients/new" element={<CreateClientPage />} />
-            <Route path="/user/transactions" element={<ViewTransactionsPage />} />
-          </Route>
+            <Route element={<ProtectedRoute allowedRoles={['user']} />}>
+              <Route path="/user" element={<UserDashboard />} />
+              <Route path="/user/clients/new" element={<CreateClientPage />} />
+              <Route path="/user/transactions" element={<ViewTransactionsPage />} />
+            </Route>
 
-          <Route path="/" element={<RootRedirect />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+            <Route path="/" element={<RootRedirect />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
   )
 }

@@ -1,10 +1,12 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { ResetPasswordRequest } from '@/api/types'
+import { useTheme } from '@/features/theme/ThemeContext'
 
 export function ResetPasswordPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { theme } = useTheme()
 
   const token = useMemo(() => searchParams.get('token') ?? '', [searchParams])
 
@@ -18,6 +20,10 @@ export function ResetPasswordPage() {
   const [generalError, setGeneralError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
+
+  const inputCls = (field: keyof Omit<ResetPasswordRequest, 'token'>) =>
+    `form-input ${errors[field] ? 'form-input-error' : ''}` +
+    (theme === 'dark' ? ' bg-[var(--gray)]' : ' bg-[var(--off-white)]')
 
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<'token' | keyof Omit<ResetPasswordRequest, 'token'>, string>> =
@@ -138,9 +144,7 @@ export function ResetPasswordPage() {
                     setErrors({ ...errors, newPassword: '' })
                   }
                 }}
-                className={`w-full px-4 py-2 bg-background-light border ${
-                  errors.newPassword ? 'border-danger' : 'border-border'
-                } rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent`}
+                className={inputCls('newPassword')}
                 disabled={isLoading}
                 autoComplete="new-password"
                 placeholder="Enter new password"
@@ -165,9 +169,7 @@ export function ResetPasswordPage() {
                     setErrors({ ...errors, confirmPassword: '' })
                   }
                 }}
-                className={`w-full px-4 py-2 bg-background-light border ${
-                  errors.confirmPassword ? 'border-danger' : 'border-border'
-                } rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent`}
+                className={inputCls('confirmPassword')}
                 disabled={isLoading}
                 autoComplete="new-password"
                 placeholder="Confirm new password"
@@ -181,7 +183,7 @@ export function ResetPasswordPage() {
               type="submit"
               data-testid="reset-password-submit-button"
               disabled={isLoading || !token}
-              className={`w-full py-3 px-4 rounded-lg font-normal transition-colors ${
+              className={`w-full py-3 px-4 rounded-lg font-normal transition-all hover:brightness-[0.8] duration-200 ${
                 isLoading || !token ? 'gradient-dark-red' : 'gradient-dark-red'
               } text-white`}
             >

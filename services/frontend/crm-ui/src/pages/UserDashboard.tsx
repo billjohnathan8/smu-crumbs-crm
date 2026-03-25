@@ -65,33 +65,14 @@ export function UserDashboard() {
 
   return (
     <SidebarLayout items={userNav}>
-      <div className="flex justify-between h-16 items-center">
-        <div>
-          <h1 className="text-2xl font-normal text-text">User Dashboard</h1>
-          <p className="text-sm text-text-muted">
-            Welcome, {user?.firstName} {user?.lastName}
-          </p>
-        </div>
-
-        <div className="flex space-x-4">
-          <a
-            href="/user/clients/new"
-            className="px-4 py-2 rounded-lg bg-success hover:bg-success-hover text-white font-normal transition-colors"
-          >
-            Create Client
-          </a>
-          <a
-            href="/user/transactions"
-            className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white font-normal transition-colors"
-          >
-            View Transactions
-          </a>
-          <a
-            href="/user/aml-alerts"
-            className="px-4 py-2 rounded-lg bg-warning hover:bg-warning-hover text-white font-normal transition-colors"
-          >
-            AML Alerts
-          </a>
+      <div>
+        <div className="flex justify-between h-16 items-center">
+          <div>
+            <h1 className="text-2xl font-medium text-text">User Dashboard</h1>
+            <p className="text-lg text-text-muted">
+              Welcome, {user?.firstName} {user?.lastName}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -109,11 +90,11 @@ export function UserDashboard() {
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-              <div className="bg-card  rounded-lg p-6">
-                <h3 className="text-text-muted text-sm font-normal mb-2">My Clients</h3>
-                <p className="text-4xl font-bold text-text">{clientCount}</p>
+              <div className="gradient-dark-red rounded-2xl p-6">
+                <h3 className="text-white text-sm font-normal mb-2">My Clients</h3>
+                <p className="text-4xl font-bold text-white">{clientCount}</p>
               </div>
-              <div className="bg-card  rounded-lg p-6">
+              <div className="bg-card  rounded-2xl p-6">
                 <h3 className="text-text-muted text-sm font-normal mb-2">Recent Activities</h3>
                 <p className="text-4xl font-bold text-text">{recentActivities.length}</p>
               </div>
@@ -121,7 +102,7 @@ export function UserDashboard() {
 
             <div className="bg-card  rounded-lg">
               <div className="px-6 py-4 border-b border-border">
-                <h2 className="text-xl font-bold text-text">My Recent Activities</h2>
+                <h2 className="text-xl font-normal text-text">My Recent Activities</h2>
               </div>
 
               <div className="overflow-x-auto">

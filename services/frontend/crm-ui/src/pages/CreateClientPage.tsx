@@ -40,8 +40,8 @@ export function CreateClientPage() {
   const basePath = canViewAllClients ? '/admin' : '/user'
   const sidebarNav = canViewAllClients ? adminNav : userNav
   const homePath = basePath
-  const listPath = canViewAllClients ? '/admin/accounts' : '/user/clients'
-  const breadcrumbLabel = canViewAllClients ? 'Manage Accounts' : 'My Clients'
+  const listPath = canViewAllClients ? '/admin/clients' : '/user/clients'
+  const breadcrumbLabel = canViewAllClients ? 'All Clients' : 'My Clients'
 
   const [formData, setFormData] = useState<ClientCreateRequest>({
     firstName: '',
@@ -171,14 +171,11 @@ export function CreateClientPage() {
       <nav>
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center space-x-4">
-            <Link to={homePath} className="text-text-subtle hover:text-text text-2xl">
+            <Link to={homePath} className="text-text-subtle text-2xl">
               Dashboard
             </Link>
             <span className="text-text-subtle text-2xl">/</span>
-            <button
-              onClick={() => navigate(listPath)}
-              className="text-text-subtle hover:text-text text-2xl"
-            >
+            <button onClick={() => navigate(listPath)} className="text-text-subtle text-2xl">
               {breadcrumbLabel}
             </button>
             <span className="text-text-subtle text-2xl">/</span>
@@ -382,7 +379,7 @@ export function CreateClientPage() {
               <button
                 type="button"
                 onClick={() => navigate(listPath)}
-                className="px-6 py-3 rounded-lg bg-background-lighter border border-border text-text font-medium transition-colors"
+                className="px-6 py-3 rounded-lg bg-background-lighter border-[1.5px] border-border text-text font-medium transition-all duration-200 hover:brightness-[0.9]"
                 disabled={isSubmitting}
               >
                 Cancel
@@ -392,8 +389,8 @@ export function CreateClientPage() {
                 disabled={isSubmitting}
                 className={`px-6 py-3 rounded-lg font-medium transition-colors ${
                   isSubmitting
-                    ? 'bg-primary/50 cursor-not-allowed text-white'
-                    : 'bg-primary hover:bg-primary-hover text-white'
+                    ? 'gradient-dark-red/50 cursor-not-allowed text-white'
+                    : 'gradient-dark-red hover:brightness-[0.85] text-white'
                 }`}
               >
                 {isSubmitting ? 'Creating...' : 'Create Client'}

@@ -78,7 +78,7 @@ export function CommunicationsPanel({
             <button
               onClick={onRefresh}
               disabled={isRefreshing}
-              className="rounded bg-background-lighter border border-border px-4 py-2 text-sm font-medium text-text transition-colors hover:bg-background-lighter disabled:opacity-50"
+              className="rounded bg-background-lighter border-[1.5px] border-border px-4 py-2 text-sm font-medium text-text transition-all duration-200 hover:brightness-[0.9] disabled:opacity-50"
             >
               {refreshLabel}
             </button>

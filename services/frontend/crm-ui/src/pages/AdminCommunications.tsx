@@ -304,7 +304,7 @@ export function AdminCommunications() {
               <button
                 onClick={handleCommLookup}
                 disabled={isCommLookingUp || !commLookupId.trim()}
-                className="rounded bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+                className="rounded bg-primary px-4 py-2 text-sm font-medium text-white transition-all duration-200 hover:brightness-[0.8] disabled:opacity-50"
               >
                 {isCommLookingUp ? 'Looking up...' : 'Lookup'}
               </button>
@@ -326,7 +326,7 @@ export function AdminCommunications() {
               <button
                 onClick={handleProviderLookup}
                 disabled={isLookingUp || !providerLookupId.trim()}
-                className="rounded bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+                className="rounded bg-primary px-4 py-2 text-sm font-medium text-white transition-all duration-200 hover:brightness-[0.8] disabled:opacity-50"
               >
                 {isLookingUp ? 'Looking up...' : 'Lookup'}
               </button>

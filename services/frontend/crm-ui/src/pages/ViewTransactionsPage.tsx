@@ -385,7 +385,7 @@ export function ViewTransactionsPage() {
           <div className="flex items-center space-x-4">
             <button
               onClick={() => navigate(basePath)}
-              className="text-text-subtle hover:text-text text-2xl"
+              className="text-text-subtle text-2xl"
             >
               Dashboard
             </button>
@@ -414,7 +414,7 @@ export function ViewTransactionsPage() {
               <button
                 onClick={() => void refreshImportBatchHistory(trackedImportBatchIds)}
                 disabled={isRefreshingImportHistory || trackedImportBatchIds.length === 0}
-                className="px-4 py-2 rounded bg-background-lighter border border-border text-text hover:bg-background-lighter text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 rounded bg-background-lighter border-[1.5px] border-border text-text hover:brightness-[0.8] text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isRefreshingImportHistory ? 'Refreshing...' : 'Refresh Batch Status'}
               </button>
@@ -447,7 +447,7 @@ export function ViewTransactionsPage() {
               <button
                 onClick={() => void handleStartImport()}
                 disabled={isImporting}
-                className="px-4 py-2 rounded gradient-dark-red hover:bg-primary-hover text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 rounded gradient-dark-red hover:brightness-[0.8] text-white text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isImporting ? 'Starting Import...' : 'Start Import'}
               </button>
@@ -635,7 +635,7 @@ export function ViewTransactionsPage() {
           <div className="mt-4 flex justify-end">
             <button
               onClick={resetFilters}
-              className="px-4 py-2 rounded bg-background-lighter border border-border text-text hover:bg-background-lighter text-sm font-medium transition-colors"
+              className="px-4 py-2 rounded bg-background-lighter border-[1.5px] border-border text-text hover:brightness-[0.8] text-sm font-medium transition-all duration-200"
             >
               Reset Filters
             </button>
