@@ -134,6 +134,28 @@ if echo "${AWS_VERSION_STR}" | grep -qi "windows/"; then
   AWS_IS_WINDOWS=true
 fi
 
+# Convert a Unix path to a Windows path for the Windows AWS CLI.
+# Tries cygpath (Git Bash), then wslpath (WSL), then manual /mnt/X → X: fallback.
+to_windows_path() {
+  local p="$1"
+  if command -v cygpath >/dev/null 2>&1; then
+    cygpath -w "$p"
+  elif command -v wslpath >/dev/null 2>&1; then
+    wslpath -w "$p" 2>/dev/null || {
+      # wslpath failed (e.g. file not yet visible in WSL mount); manual fallback
+      if [[ "$p" =~ ^/mnt/([a-zA-Z])/(.*) ]]; then
+        echo "${BASH_REMATCH[1]^^}:/${BASH_REMATCH[2]}"
+      else
+        echo "$p"
+      fi
+    }
+  elif [[ "$p" =~ ^/mnt/([a-zA-Z])/(.*) ]]; then
+    echo "${BASH_REMATCH[1]^^}:/${BASH_REMATCH[2]}"
+  else
+    echo "$p"
+  fi
+}
+
 require_docker_ready() {
   if ! command -v docker >/dev/null 2>&1; then
     echo "[FAIL] Docker CLI not found in PATH." >&2
@@ -181,15 +203,7 @@ aws_local_s3_put_object() {
   local source_path="${body_path}"
 
   if [[ "${AWS_IS_WINDOWS}" == "true" ]]; then
-    if command -v cygpath >/dev/null 2>&1; then
-      local body_windows_path
-      body_windows_path="$(cygpath -w "${body_path}")"
-      source_path="${body_windows_path}"
-    elif command -v wslpath >/dev/null 2>&1; then
-      local body_windows_path
-      body_windows_path="$(wslpath -w "${body_path}")"
-      source_path="${body_windows_path}"
-    fi
+    source_path="$(to_windows_path "${body_path}")"
   fi
 
   aws_local s3 cp "${source_path}" "s3://${bucket}/${key}" \
@@ -583,15 +597,7 @@ deploy_log_lambda() {
   local zip_path="${LOG_DIR}/log-lambda.zip"
   local zip_arg="fileb://${zip_path}"
   if [[ "${AWS_IS_WINDOWS}" == "true" ]]; then
-    if command -v cygpath >/dev/null 2>&1; then
-      local zip_windows_path
-      zip_windows_path="$(cygpath -w "${zip_path}")"
-      zip_arg="fileb://${zip_windows_path}"
-    elif command -v wslpath >/dev/null 2>&1; then
-      local zip_windows_path
-      zip_windows_path="$(wslpath -w "${zip_path}")"
-      zip_arg="fileb://${zip_windows_path}"
-    fi
+    zip_arg="fileb://$(to_windows_path "${zip_path}")"
   fi
   local env_vars="Variables={DB_HOST=${LOCAL_DB_HOST},DB_PORT=${LOCAL_DB_PORT},DB_NAME=${LOCAL_DB_NAME},DB_USER=${LOCAL_DB_USER},DB_PASSWORD=${LOCAL_DB_PASSWORD},JWT_HMAC_SECRET=dev-only-insecure-secret,AWS_DEFAULT_REGION=ap-southeast-1,AWS_ENDPOINT_URL=http://localstack:4566,CLIENT_SERVICE_URL=http://client-service:8080}"
 
@@ -677,15 +683,7 @@ deploy_verification_feedback_lambda() {
   local lambda_internal_log_url=""
 
   if [[ "${AWS_IS_WINDOWS}" == "true" ]]; then
-    if command -v cygpath >/dev/null 2>&1; then
-      local zip_windows_path
-      zip_windows_path="$(cygpath -w "${zip_path}")"
-      zip_arg="fileb://${zip_windows_path}"
-    elif command -v wslpath >/dev/null 2>&1; then
-      local zip_windows_path
-      zip_windows_path="$(wslpath -w "${zip_path}")"
-      zip_arg="fileb://${zip_windows_path}"
-    fi
+    zip_arg="fileb://$(to_windows_path "${zip_path}")"
   fi
 
   topic_arn="$(
@@ -776,15 +774,7 @@ deploy_sftp_transaction_collector() {
   local env_vars="Variables={TRANSACTION_SFTP_BUCKET=scroogebank-crm-dev-transaction-sftp,TRANSACTION_SFTP_PREFIX=incoming/,TRANSACTION_IMPORT_URL=http://transaction-service:8080/api/transactions/import,TRANSACTION_IMPORT_JWT_HMAC_SECRET=dev-only-insecure-secret,TRANSACTION_IMPORT_JWT_SUB=SYSTEM_TRANSACTION_INGESTION,TRANSACTION_IMPORT_JWT_ROLE=admin,TRANSACTION_IMPORT_JWT_TTL_SECONDS=300}"
 
   if [[ "${AWS_IS_WINDOWS}" == "true" ]]; then
-    if command -v cygpath >/dev/null 2>&1; then
-      local zip_windows_path
-      zip_windows_path="$(cygpath -w "${zip_path}")"
-      zip_arg="fileb://${zip_windows_path}"
-    elif command -v wslpath >/dev/null 2>&1; then
-      local zip_windows_path
-      zip_windows_path="$(wslpath -w "${zip_path}")"
-      zip_arg="fileb://${zip_windows_path}"
-    fi
+    zip_arg="fileb://$(to_windows_path "${zip_path}")"
   fi
 
   if aws_local lambda get-function --function-name "${SFTP_TRANSACTION_COLLECTOR_FUNCTION_NAME}" >/dev/null 2>&1; then
@@ -1515,11 +1505,7 @@ aws_local_s3_put_object "scroogebank-crm-dev-transaction-sftp" "${TX_INGESTION_L
 TX_INGESTION_LAMBDA_INVOKE_OUTPUT="${LOG_DIR}/sftp-transaction-collector-invoke.json"
 TX_INGESTION_LAMBDA_INVOKE_OUTPUT_ARG="${TX_INGESTION_LAMBDA_INVOKE_OUTPUT}"
 if [[ "${AWS_IS_WINDOWS}" == "true" ]]; then
-  if command -v cygpath >/dev/null 2>&1; then
-    TX_INGESTION_LAMBDA_INVOKE_OUTPUT_ARG="$(cygpath -w "${TX_INGESTION_LAMBDA_INVOKE_OUTPUT}")"
-  elif command -v wslpath >/dev/null 2>&1; then
-    TX_INGESTION_LAMBDA_INVOKE_OUTPUT_ARG="$(wslpath -w "${TX_INGESTION_LAMBDA_INVOKE_OUTPUT}")"
-  fi
+  TX_INGESTION_LAMBDA_INVOKE_OUTPUT_ARG="$(to_windows_path "${TX_INGESTION_LAMBDA_INVOKE_OUTPUT}")"
 fi
 
 aws_local lambda invoke \
@@ -1689,8 +1675,8 @@ if [[ "${FULLSTACK_MODE}" == "full" ]]; then
     E2E_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}" \
     E2E_USER_PASSWORD="${E2E_USER_PASSWORD:-UserPass123!}" \
     npm test
-  elif command -v cmd.exe >/dev/null 2>&1 && command -v wslpath >/dev/null 2>&1; then
-    win_integration_dir="$(wslpath -w "${INTEGRATION_TEST_DIR}")"
+  elif command -v cmd.exe >/dev/null 2>&1; then
+    win_integration_dir="$(to_windows_path "${INTEGRATION_TEST_DIR}")"
     cmd.exe /c "cd /d ${win_integration_dir} && npm.cmd ci"
     cmd.exe /c "cd /d ${win_integration_dir} && npx.cmd playwright install chromium"
     cmd.exe /c "cd /d ${win_integration_dir} && set PLAYWRIGHT_EXTERNAL_BASE_URL=true&& set PLAYWRIGHT_BASE_URL=${PLAYWRIGHT_BASE_URL}&& set E2E_ADMIN_EMAIL=${E2E_ADMIN_EMAIL:-admin@crm.local}&& set E2E_ADMIN_PASSWORD=${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}&& set E2E_USER_PASSWORD=${E2E_USER_PASSWORD:-UserPass123!}&& npm.cmd test"
