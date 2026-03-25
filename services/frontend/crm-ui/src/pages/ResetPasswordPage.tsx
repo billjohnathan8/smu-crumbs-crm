@@ -1,12 +1,10 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { ResetPasswordRequest } from '@/api/types'
-import { useTheme } from '@/features/theme/useTheme'
 
 export function ResetPasswordPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { theme } = useTheme()
 
   const token = useMemo(() => searchParams.get('token') ?? '', [searchParams])
 
@@ -22,8 +20,7 @@ export function ResetPasswordPage() {
   const [isSuccess, setIsSuccess] = useState(false)
 
   const inputCls = (field: keyof Omit<ResetPasswordRequest, 'token'>) =>
-    `form-input ${errors[field] ? 'form-input-error' : ''}` +
-    (theme === 'dark' ? ' bg-[var(--gray)]' : ' bg-[var(--off-white)]')
+    `form-input ${errors[field] ? 'form-input-error' : ''} bg-[var(--off-white)]`
 
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<'token' | keyof Omit<ResetPasswordRequest, 'token'>, string>> =
