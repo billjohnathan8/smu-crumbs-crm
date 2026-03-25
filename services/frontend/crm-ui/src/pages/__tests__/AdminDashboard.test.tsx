@@ -253,7 +253,6 @@ describe('AdminDashboard', () => {
   })
 
   it('should call logout on 401 when users API returns unauthorized', async () => {
-    const mockLogoutFn = vi.fn()
     // Override the AuthContext mock to capture logout
     vi.spyOn(usersApi, 'listUsers').mockRejectedValue(
       new ApiError(401, 'unauthorized', 'Unauthorized')
