@@ -31,6 +31,7 @@ export AWS_DEFAULT_REGION=ap-southeast-1
 export AWS_PAGER=""
 export LOCAL_DB_HOST="${LOCAL_DB_HOST:-postgres}"
 export LOCAL_DB_PORT="${LOCAL_DB_PORT:-5432}"
+export LOCAL_DB_HOST_PORT="${LOCAL_DB_HOST_PORT:-15432}"
 export LOCAL_DB_NAME="${LOCAL_DB_NAME:-crm}"
 export LOCAL_DB_USER="${LOCAL_DB_USER:-crm_app}"
 export LOCAL_DB_PASSWORD="${LOCAL_DB_PASSWORD:-devpassword}"
@@ -349,6 +350,107 @@ build_java_jar() {
       popd >/dev/null
       return 1
     fi
+  fi
+  popd >/dev/null
+}
+
+run_gradle_db_test() {
+  local service_name="$1"
+  local service_dir="$2"
+  local test_selector="$3"
+  local include_integration="${4:-false}"
+  local gradle_log="${LOG_DIR}/${service_name}-db-tests.log"
+  local gradle_user_home="${service_dir}/.gradle-local"
+  local db_jdbc_url="jdbc:postgresql://127.0.0.1:${LOCAL_DB_HOST_PORT}/${LOCAL_DB_NAME}"
+  local cmd=(
+    ./gradlew
+    test
+    --tests "${test_selector}"
+    --no-daemon
+    --console=plain
+  )
+
+  if [[ "${include_integration}" == "true" ]]; then
+    cmd+=(-PincludeIntegration=true)
+  fi
+
+  pushd "${service_dir}" >/dev/null
+  chmod +x gradlew
+
+  if ! APP_ENV=test \
+    APP_JWT_HMAC_SECRET=dev-only-insecure-secret \
+    APP_MOCK_SFTP_ROOT=build/mock-sftp \
+    APP_CLIENT_SERVICE_URL=http://localhost:8080 \
+    DB_HOST=127.0.0.1 \
+    DB_PORT="${LOCAL_DB_HOST_PORT}" \
+    DB_NAME="${LOCAL_DB_NAME}" \
+    DB_USER="${LOCAL_DB_USER}" \
+    DB_PASSWORD="${LOCAL_DB_PASSWORD}" \
+    PGHOST=127.0.0.1 \
+    PGPORT="${LOCAL_DB_HOST_PORT}" \
+    PGDATABASE="${LOCAL_DB_NAME}" \
+    PGUSER="${LOCAL_DB_USER}" \
+    PGPASSWORD="${LOCAL_DB_PASSWORD}" \
+    SPRING_DATASOURCE_URL="${db_jdbc_url}" \
+    SPRING_DATASOURCE_USERNAME="${LOCAL_DB_USER}" \
+    SPRING_DATASOURCE_PASSWORD="${LOCAL_DB_PASSWORD}" \
+    SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver \
+    GRADLE_USER_HOME="${gradle_user_home}" \
+    "${cmd[@]}" > "${gradle_log}" 2>&1; then
+    popd >/dev/null
+    echo "[FAIL] ${service_name} DB test command failed. See ${gradle_log}" >&2
+    return 1
+  fi
+
+  popd >/dev/null
+}
+
+run_db_backed_component_tests() {
+  local log_service_dir="${ROOT_DIR}/services/backend/log"
+  local log_db_test_log="${LOG_DIR}/log-db-tests.log"
+
+  echo "Running DB-backed checks against postgres://127.0.0.1:${LOCAL_DB_HOST_PORT}/${LOCAL_DB_NAME}"
+
+  run_gradle_db_test \
+    "user" \
+    "${ROOT_DIR}/services/backend/user" \
+    "com.scroogebank.crm.user_service.service.PersistentUserStoreTest"
+
+  run_gradle_db_test \
+    "client" \
+    "${ROOT_DIR}/services/backend/client" \
+    "com.scroogebank.crm.client_service.ClientsServiceIT" \
+    true
+
+  run_gradle_db_test \
+    "transaction" \
+    "${ROOT_DIR}/services/backend/transaction" \
+    "com.scroogebank.crm.transaction_service.service.PersistentTransactionsStoreTest"
+
+  pushd "${log_service_dir}" >/dev/null
+  if ! ${PYTHON_CMD} -m pip install -r requirements.txt > "${log_db_test_log}" 2>&1; then
+    popd >/dev/null
+    echo "[FAIL] log DB test dependency install failed. See ${log_db_test_log}" >&2
+    return 1
+  fi
+
+  if ! RUN_DB_INTEGRATION_TESTS=true \
+    APP_ENV=test \
+    DB_HOST=127.0.0.1 \
+    DB_PORT="${LOCAL_DB_HOST_PORT}" \
+    DB_NAME="${LOCAL_DB_NAME}" \
+    DB_USER="${LOCAL_DB_USER}" \
+    DB_PASSWORD="${LOCAL_DB_PASSWORD}" \
+    PGHOST=127.0.0.1 \
+    PGPORT="${LOCAL_DB_HOST_PORT}" \
+    PGDATABASE="${LOCAL_DB_NAME}" \
+    PGUSER="${LOCAL_DB_USER}" \
+    PGPASSWORD="${LOCAL_DB_PASSWORD}" \
+    ${PYTHON_CMD} -m pytest tests/test_repository_postgres_integration.py \
+      --junitxml=build/reports/tests/junit-postgres.xml >> "${log_db_test_log}" 2>&1; then
+    popd >/dev/null
+    echo "[FAIL] log DB integration test failed. See ${log_db_test_log}" >&2
+    return 1
   fi
   popd >/dev/null
 }
@@ -1032,6 +1134,28 @@ end_phase
 # --------------------------------------------------------------------------
 
 start_phase "Phase 3b: Seed baseline principals"
+USER_BASE_URL="http://127.0.0.1:18081" \
+ROOT_ADMIN_EMAIL="${E2E_ADMIN_EMAIL:-admin@crm.local}" \
+ROOT_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}" \
+SEED_USER_EMAIL="user@crm.local" \
+SEED_AGENT_PASSWORD="${E2E_USER_PASSWORD:-UserPass123!}" \
+bash "${DB_ORCHESTRATOR_SCRIPT}" seed \
+  >> "${LOG_DIR}/docker-compose.log" 2>&1
+end_phase
+
+# --------------------------------------------------------------------------
+# Phase 3c: DB-backed component checks (CI parity gate before E2E smoke)
+# --------------------------------------------------------------------------
+
+start_phase "Phase 3c: DB-backed component checks"
+run_db_backed_component_tests
+end_phase
+
+# --------------------------------------------------------------------------
+# Phase 3d: Re-seed baseline principals after DB-backed checks
+# --------------------------------------------------------------------------
+
+start_phase "Phase 3d: Re-seed baseline principals"
 USER_BASE_URL="http://127.0.0.1:18081" \
 ROOT_ADMIN_EMAIL="${E2E_ADMIN_EMAIL:-admin@crm.local}" \
 ROOT_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}" \

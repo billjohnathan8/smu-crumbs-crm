@@ -1,6 +1,8 @@
 services:
   postgres:
     image: postgres:16
+    ports:
+      - "${LOCAL_DB_HOST_PORT:-15432}:5432"
     environment:
       POSTGRES_DB: ${LOCAL_DB_NAME:-crm}
       POSTGRES_USER: ${LOCAL_DB_USER:-crm_app}
