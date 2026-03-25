@@ -1,0 +1,35 @@
+name: CD - Force Lambda Deploy
+
+on:
+  workflow_dispatch:
+
+# Ensure that only one force Lambda deployment runs at a time.
+concurrency:
+  group: cd-lambda-force
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-aml:
+    if: ${{ !failure() && !cancelled() }}
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
+    with:
+      service: aml
+    secrets: inherit
+
+  deploy-verification:
+    if: ${{ !failure() && !cancelled() }}
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
+    with:
+      service: verification
+    secrets: inherit
+
+  deploy-transaction-ingestion-lambda:
+    if: ${{ !failure() && !cancelled() }}
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
+    with:
+      service: transaction-ingestion-lambda
+    secrets: inherit
