@@ -83,14 +83,16 @@ export function SidebarLayout({ items, children }: SidebarLayoutProps) {
             ))}
           </nav>
 
-          <div className="p-3 flex-shrink-0">
-            <button
-              onClick={handleLogout}
-              className="underline-hover flex items-center gap-2 font-medium rounded-md px-3 py-2 text-md text-danger hover:bg-danger/10 transition-colors w-full text-left"
-            >
-              Logout
-            </button>
-          </div>
+          {!collapsed && (
+            <div className="p-3 flex-shrink-0">
+              <button
+                onClick={handleLogout}
+                className="underline-hover flex items-center gap-2 font-medium rounded-md px-3 py-2 text-md text-danger hover:bg-danger/10 transition-colors w-full text-left"
+              >
+                Logout
+              </button>
+            </div>
+          )}
         </aside>
 
         <main className="flex-1 min-w-0 min-h-screen transition-all duration-300 ease-in-out">
