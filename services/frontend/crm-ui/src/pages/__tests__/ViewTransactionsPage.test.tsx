@@ -361,7 +361,7 @@ describe('ViewTransactionsPage', () => {
 
   it('resets filters when Reset Filters button is clicked', async () => {
     const user = userEvent.setup()
-    const listSpy = vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
       data: [],
       pagination: { limit: 20, offset: 0, total: 0 },
     })
