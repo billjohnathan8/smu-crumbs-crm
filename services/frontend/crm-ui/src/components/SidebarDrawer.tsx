@@ -44,8 +44,7 @@ export function SidebarLayout({ items, children }: SidebarLayoutProps) {
 
   const linkBase =
     'flex items-center gap-2 rounded-md px-3 py-2 text-md transition-all duration-200 ease-out'
-  const inactive =
-    'text-text hover:bg-background-light hover:scale-[1.01]'
+  const inactive = 'text-text hover:bg-background-light hover:scale-[1.01]'
   const active = 'gradient-dark-red text-white font-medium'
 
   const handleLogout = () => {

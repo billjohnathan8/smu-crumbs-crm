@@ -130,10 +130,7 @@ export function AdminUserManagementPage() {
       <nav>
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center space-x-4">
-            <button
-              onClick={() => navigate(homePath)}
-              className="text-text-subtle text-2xl"
-            >
+            <button onClick={() => navigate(homePath)} className="text-text-subtle text-2xl">
               Dashboard
             </button>
             <span className="text-text-subtle text-2xl">/</span>
