@@ -60,13 +60,15 @@ export function SidebarLayout({ items, children }: SidebarLayoutProps) {
             transition-all duration-300 ease-in-out
             ${collapsed ? 'w-0 -translate-x-2 opacity-0' : 'w-64 translate-x-0 opacity-100'}`}
         >
-          <div className="px-4 py-4 flex-shrink-0">
-            <img
-              src={theme === 'dark' ? '/DarkMode_SGB.svg' : '/LightMode_SGB.svg'}
-              alt="ScroogeBank"
-              className="h-14 object-contain"
-            />
-          </div>
+          {!collapsed && (
+            <div className="px-4 py-4 flex-shrink-0">
+              <img
+                src={theme === 'dark' ? '/DarkMode_SGB.svg' : '/LightMode_SGB.svg'}
+                alt="ScroogeBank"
+                className="h-14 object-contain"
+              />
+            </div>
+          )}
 
           <nav className="p-3 space-y-1 flex-1 overflow-y-auto min-h-0">
             {items.map(item => (
