@@ -2,67 +2,67 @@
   "groups": [
     {
       "name": "app",
-      "type": "com.scroogebank.crm.userservice.config.AppProperties",
-      "sourceType": "com.scroogebank.crm.userservice.config.AppProperties"
+      "type": "com.scroogebank.crm.user_service.config.AppProperties",
+      "sourceType": "com.scroogebank.crm.user_service.config.AppProperties"
     },
     {
       "name": "app.jwt",
-      "type": "com.scroogebank.crm.userservice.config.AppProperties$Jwt",
-      "sourceType": "com.scroogebank.crm.userservice.config.AppProperties"
+      "type": "com.scroogebank.crm.user_service.config.AppProperties$Jwt",
+      "sourceType": "com.scroogebank.crm.user_service.config.AppProperties"
     },
     {
       "name": "app.root-admin",
-      "type": "com.scroogebank.crm.userservice.config.AppProperties$RootAdmin",
-      "sourceType": "com.scroogebank.crm.userservice.config.AppProperties"
+      "type": "com.scroogebank.crm.user_service.config.AppProperties$RootAdmin",
+      "sourceType": "com.scroogebank.crm.user_service.config.AppProperties"
     }
   ],
   "properties": [
     {
       "name": "app.jwt.hmac-secret",
       "type": "java.lang.String",
-      "sourceType": "com.scroogebank.crm.userservice.config.AppProperties$Jwt",
+      "sourceType": "com.scroogebank.crm.user_service.config.AppProperties$Jwt",
       "description": "HMAC secret for JWT token signing and validation"
     },
     {
       "name": "app.jwt.auth-mode",
       "type": "java.lang.String",
-      "sourceType": "com.scroogebank.crm.userservice.config.AppProperties$Jwt",
+      "sourceType": "com.scroogebank.crm.user_service.config.AppProperties$Jwt",
       "description": "Authentication token validation mode. Supported values: local, hybrid, cognito."
     },
     {
       "name": "app.jwt.cognito.issuer",
       "type": "java.lang.String",
-      "sourceType": "com.scroogebank.crm.userservice.config.AppProperties$Jwt",
+      "sourceType": "com.scroogebank.crm.user_service.config.AppProperties$Jwt",
       "description": "Expected Cognito issuer URL for RS256 token validation."
     },
     {
       "name": "app.jwt.cognito.audience",
       "type": "java.lang.String",
-      "sourceType": "com.scroogebank.crm.userservice.config.AppProperties$Jwt",
+      "sourceType": "com.scroogebank.crm.user_service.config.AppProperties$Jwt",
       "description": "Expected Cognito app client ID used as token audience/client_id."
     },
     {
       "name": "app.jwt.cognito.jwks-url",
       "type": "java.lang.String",
-      "sourceType": "com.scroogebank.crm.userservice.config.AppProperties$Jwt",
+      "sourceType": "com.scroogebank.crm.user_service.config.AppProperties$Jwt",
       "description": "Cognito JWKS endpoint URL used to resolve RSA verification keys."
     },
     {
       "name": "app.jwt.cognito.jwks-cache-ttl-seconds",
       "type": "java.lang.Long",
-      "sourceType": "com.scroogebank.crm.userservice.config.AppProperties$Jwt",
+      "sourceType": "com.scroogebank.crm.user_service.config.AppProperties$Jwt",
       "description": "JWKS cache TTL in seconds for Cognito key refresh."
     },
     {
       "name": "app.root-admin.email",
       "type": "java.lang.String",
-      "sourceType": "com.scroogebank.crm.userservice.config.AppProperties$RootAdmin",
+      "sourceType": "com.scroogebank.crm.user_service.config.AppProperties$RootAdmin",
       "description": "Email address for the root admin user"
     },
     {
       "name": "app.root-admin.password",
       "type": "java.lang.String",
-      "sourceType": "com.scroogebank.crm.userservice.config.AppProperties$RootAdmin",
+      "sourceType": "com.scroogebank.crm.user_service.config.AppProperties$RootAdmin",
       "description": "Password for the root admin user"
     }
   ]
