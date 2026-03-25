@@ -132,7 +132,7 @@ export function AdminUserManagementPage() {
           <div className="flex items-center space-x-4">
             <button
               onClick={() => navigate(homePath)}
-              className="text-text-subtle hover:text-text text-2xl"
+              className="text-text-subtle text-2xl"
             >
               Dashboard
             </button>
@@ -144,7 +144,7 @@ export function AdminUserManagementPage() {
             <button
               data-testid="create-new-user-button"
               onClick={() => navigate('/admin/users/new')}
-              className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white font-medium transition-colors"
+              className="px-4 py-2 rounded-lg gradient-dark-red hover:brightness-[0.8] text-white font-medium transition-all duration-200"
             >
               Create New User
             </button>
@@ -152,7 +152,7 @@ export function AdminUserManagementPage() {
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-6xl mx-auto py-8">
         {error && (
           <div className="bg-danger/10 border border-danger rounded-lg p-4 mb-6">
             <p className="text-danger text-sm">{error}</p>
@@ -191,10 +191,10 @@ export function AdminUserManagementPage() {
                               <button
                                 onClick={() => handleDeleteUser(admin.id, admin.role)}
                                 disabled={deletingUserId === admin.id}
-                                className={`px-3 py-1 rounded text-sm font-normal transition-colors ${
+                                className={`px-3 py-1 rounded text-sm font-normal transition-opacity ${
                                   deletingUserId === admin.id
-                                    ? 'bg-danger/50 cursor-not-allowed text-white'
-                                    : 'bg-danger hover:bg-danger-hover text-white'
+                                    ? 'gradient-dark-red opacity-50 cursor-not-allowed text-white'
+                                    : 'gradient-dark-red hover:opacity-80 text-white'
                                 }`}
                               >
                                 {deletingUserId === admin.id ? 'Deleting...' : 'Delete'}
@@ -209,7 +209,7 @@ export function AdminUserManagementPage() {
               </div>
             )}
 
-            <div className="bg-card  rounded-lg p-6">
+            <div className="bg-card rounded-lg p-6">
               <h2 className="text-xl font-normal text-text mb-4">
                 {isRootAdmin ? 'My Users' : 'My Users'}
               </h2>
@@ -239,10 +239,10 @@ export function AdminUserManagementPage() {
                             <button
                               onClick={() => handleDeleteUser(u.id, u.role)}
                               disabled={deletingUserId === u.id}
-                              className={`px-3 py-1 rounded text-sm font-normal transition-colors ${
+                              className={`px-3 py-1 rounded text-sm font-normal transition-opacity ${
                                 deletingUserId === u.id
-                                  ? 'bg-danger/50 cursor-not-allowed text-white'
-                                  : 'bg-danger hover:bg-danger-hover text-white'
+                                  ? 'gradient-dark-red opacity-50 cursor-not-allowed text-white'
+                                  : 'gradient-dark-red hover:opacity-80 text-white'
                               }`}
                             >
                               {deletingUserId === u.id ? 'Deleting...' : 'Delete'}

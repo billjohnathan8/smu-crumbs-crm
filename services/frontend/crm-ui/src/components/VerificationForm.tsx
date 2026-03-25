@@ -75,7 +75,7 @@ export function VerificationForm({
           <button
             type="button"
             onClick={onCancel}
-            className="px-6 py-2 bg-background-light hover:bg-background-lighter text-text rounded-lg text-sm font-normal"
+            className="px-6 py-2 bg-background-light hover:bg-gray-200 text-text rounded-lg text-sm font-normal border-2 border-border hover:border-text-muted transition-colors"
           >
             Cancel
           </button>

@@ -6,6 +6,7 @@ import { createUser } from '@/api/users'
 import type { CreateUserRequest, UserRole } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
+import { useTheme } from '@/features/theme/ThemeContext'
 
 const userNav: NavItem[] = [
   { label: 'Home', to: '/user', end: true },
@@ -30,6 +31,7 @@ const adminNav: NavItem[] = [
 export function CreateNewUserPage() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
+  const { theme } = useTheme()
 
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
@@ -141,22 +143,20 @@ export function CreateNewUserPage() {
     }
   }
 
+  const inputCls = (field: keyof CreateUserRequest) =>
+    `form-input ${formErrors[field] ? 'form-input-error' : ''}` +
+    (theme === 'dark' ? ' bg-[var(--gray)]' : ' bg-[var(--off-white)]')
+
   return (
     <SidebarLayout items={sidebarNav}>
       <nav>
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center space-x-4">
-            <button
-              onClick={() => navigate(homePath)}
-              className="text-text-subtle hover:text-text text-2xl"
-            >
+            <button onClick={() => navigate(homePath)} className="text-text-subtle text-2xl">
               Dashboard
             </button>
             <span className="text-text-subtle text-2xl">/</span>
-            <button
-              onClick={() => navigate(listPath)}
-              className="text-text-subtle hover:text-text text-2xl"
-            >
+            <button onClick={() => navigate(listPath)} className="text-text-subtle text-2xl">
               {breadcrumbLabel}
             </button>
             <span className="text-text-subtle text-2xl">/</span>
@@ -192,9 +192,7 @@ export function CreateNewUserPage() {
                 type="text"
                 value={formData.firstName}
                 onChange={e => updateField('firstName', e.target.value)}
-                className={`w-full px-3 py-2 bg-background-light ${
-                  formErrors.firstName ? 'border-danger' : 'border-border'
-                } rounded text-text focus:outline-none focus:ring-2 focus:ring-primary`}
+                className={inputCls('firstName')}
                 disabled={isSubmitting}
               />
               {formErrors.firstName && (
@@ -212,9 +210,7 @@ export function CreateNewUserPage() {
                 type="text"
                 value={formData.lastName}
                 onChange={e => updateField('lastName', e.target.value)}
-                className={`w-full px-3 py-2 bg-background-light ${
-                  formErrors.lastName ? 'border-danger' : 'border-border'
-                } rounded text-text focus:outline-none focus:ring-2 focus:ring-primary`}
+                className={inputCls('lastName')}
                 disabled={isSubmitting}
               />
               {formErrors.lastName && (
@@ -232,9 +228,7 @@ export function CreateNewUserPage() {
                 type="email"
                 value={formData.email}
                 onChange={e => updateField('email', e.target.value)}
-                className={`w-full px-3 py-2 bg-background-light ${
-                  formErrors.email ? 'border-danger' : 'border-border'
-                } rounded text-text focus:outline-none focus:ring-2 focus:ring-primary`}
+                className={inputCls('email')}
                 disabled={isSubmitting}
               />
               {formErrors.email && <p className="text-danger text-xs mt-1">{formErrors.email}</p>}
@@ -249,9 +243,7 @@ export function CreateNewUserPage() {
                 data-testid="role-select"
                 value={formData.role}
                 onChange={e => updateField('role', e.target.value as UserRole)}
-                className={`w-full px-3 py-2 bg-background-light ${
-                  formErrors.role ? 'border-danger' : 'border-border'
-                } rounded text-text focus:outline-none focus:ring-2 focus:ring-primary`}
+                className={inputCls('role')}
                 disabled={isSubmitting}
               >
                 {allowedRoles.map(role => (
@@ -276,7 +268,7 @@ export function CreateNewUserPage() {
                 type="password"
                 value={formData.temporaryPassword ?? ''}
                 onChange={e => updateField('temporaryPassword', e.target.value)}
-                className="w-full px-3 py-2 bg-background-light  rounded text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                className={inputCls('temporaryPassword')}
                 disabled={isSubmitting}
                 placeholder="Leave blank to auto-generate"
               />
