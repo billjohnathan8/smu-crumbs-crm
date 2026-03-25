@@ -27,7 +27,7 @@ jobs:
     uses: ./.github/workflows/reusable-ecs-deploy.yml
     with:
       service: user
-      ecs_cluster: ${{ inputs.ecs_cluster }}
+      ecs_cluster: ${{ inputs.ecs_cluster || 'backend' }}
     secrets: inherit
 
   deploy-client:
@@ -35,7 +35,7 @@ jobs:
     uses: ./.github/workflows/reusable-ecs-deploy.yml
     with:
       service: client
-      ecs_cluster: ${{ inputs.ecs_cluster }}
+      ecs_cluster: ${{ inputs.ecs_cluster || 'backend' }}
     secrets: inherit
 
   deploy-transaction:
@@ -43,5 +43,5 @@ jobs:
     uses: ./.github/workflows/reusable-ecs-deploy.yml
     with:
       service: transaction
-      ecs_cluster: ${{ inputs.ecs_cluster }}
+      ecs_cluster: ${{ inputs.ecs_cluster || 'backend' }}
     secrets: inherit
