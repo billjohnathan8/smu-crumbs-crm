@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
-import { useTheme } from '@/features/theme/ThemeContext'
+import { useTheme } from '@/features/theme/useTheme'
 import type { LoginRequest } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { isCognitoEnabled, AUTH_MODE, buildCognitoLoginUrl } from '@/api/cognito'

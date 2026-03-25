@@ -1,7 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
-import { useTheme } from '@/features/theme/ThemeContext'
+import { useTheme } from '@/features/theme/useTheme'
 import { getClientById, updateClient } from '@/api/clients'
 import type { ClientUpdateRequest, Gender } from '@/api/types'
 import { ApiError } from '@/api/client'
