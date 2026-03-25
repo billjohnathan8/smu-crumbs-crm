@@ -8,6 +8,9 @@ on:
         required: false
         type: string
         default: backend
+  push:
+    branches:
+      - integration
 
 # Ensure that only one force ECS deployment runs at a time.
 concurrency:
