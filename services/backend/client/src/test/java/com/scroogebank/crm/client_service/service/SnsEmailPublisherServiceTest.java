@@ -1,6 +1,6 @@
 package com.scroogebank.crm.client_service.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.sns.SnsClient;
@@ -28,7 +28,7 @@ class SnsEmailPublisherServiceTest {
     private static final String REQUEST_ID = "req_test_001";
 
     private final SnsClient snsClient = mock(SnsClient.class);
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final JsonMapper objectMapper = new JsonMapper();
     private final SnsEmailPublisherService publisher;
 
     SnsEmailPublisherServiceTest() {

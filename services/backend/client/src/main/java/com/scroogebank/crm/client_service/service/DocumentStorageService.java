@@ -1,6 +1,7 @@
 package com.scroogebank.crm.client_service.service;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -9,6 +10,7 @@ import software.amazon.awssdk.services.s3.model.ServerSideEncryption;
 
 import java.util.Base64;
 
+@Service
 public class DocumentStorageService {
 
     private final S3Client s3Client;
@@ -17,7 +19,7 @@ public class DocumentStorageService {
         this.s3Client = s3Client;
     }
 
-    @Value("${app.s3.bucket}")
+    @Value("${app.s3.bucket:${APP_S3_BUCKET:scroogebank-crm-dev-verification}}")
     private String bucket;
 
     /**

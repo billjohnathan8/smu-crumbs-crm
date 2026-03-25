@@ -37,7 +37,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Web MVC tests for {@link ClientController}.
@@ -56,13 +58,14 @@ class ClientControllerTest {
         requestAuth = mock(RequestAuth.class);
         when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "user"));
 
-		ObjectMapper objectMapper = new ObjectMapper()
-			.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true)
-			.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+		JsonMapper objectMapper = JsonMapper.builder()
+			.findAndAddModules()
+			.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true)
+			.build();
 
         mockMvc = MockMvcBuilders.standaloneSetup(new ClientController(clientService, requestAuth))
             .setControllerAdvice(new ApiExceptionHandler())
-        	.setMessageConverters(new org.springframework.http.converter.json.MappingJackson2HttpMessageConverter(objectMapper))
+        	.setMessageConverters(new JacksonJsonHttpMessageConverter(objectMapper))
             .build();
     }
 

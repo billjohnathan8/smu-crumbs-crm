@@ -1,6 +1,5 @@
 package com.scroogebank.crm.client_service.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,7 +10,8 @@ import software.amazon.awssdk.services.sns.model.PublishResponse;
 
 import java.util.Map;
 
-import com.scroogebank.crm.client_service.exception.SnsPublishException;;
+import com.scroogebank.crm.client_service.exception.SnsPublishException;
+import tools.jackson.databind.ObjectMapper;
 
 @Component
 public class SnsEmailPublisherService {
@@ -25,7 +25,7 @@ public class SnsEmailPublisherService {
     public SnsEmailPublisherService(
         SnsClient snsClient,
         ObjectMapper objectMapper,
-        @Value("${aws.sns.verification-topic-arn}") String verificationTopicArn
+        @Value("${aws.sns.verification-topic-arn:arn:aws:sns:ap-southeast-1:000000000000:scroogebank-crm-dev-verification}") String verificationTopicArn
     ) {
         this.snsClient           = snsClient;
         this.objectMapper        = objectMapper;

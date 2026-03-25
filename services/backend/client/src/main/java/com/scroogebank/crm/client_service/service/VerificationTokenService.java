@@ -13,8 +13,8 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 
 // **How the token is structured:**
 // ```
@@ -109,7 +109,7 @@ public class VerificationTokenService {
             String payloadJson  = new String(decodedBytes);
 
             // 4. Parse payload JSON
-            ObjectMapper mapper  = new ObjectMapper();
+            JsonMapper mapper    = new JsonMapper();
             TokenPayload payload = mapper.readValue(payloadJson, TokenPayload.class);
 
             // 5. Check clientId matches
@@ -120,7 +120,7 @@ public class VerificationTokenService {
             // 6. Check token has not expired
             return Instant.now(clock).getEpochSecond() < payload.exp();
 
-		} catch (IllegalArgumentException | JsonProcessingException e) {
+		} catch (IllegalArgumentException | JacksonException e) {
 			return false;
     	}
 	}
