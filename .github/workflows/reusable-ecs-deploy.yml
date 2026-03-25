@@ -97,7 +97,7 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Resolve ECR image URI and validate repository exists
+      - name: Resolve ECR image URI
         id: registry
         shell: bash
         run: |
@@ -105,8 +105,6 @@ jobs:
           ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
           REPOSITORY_NAME="${{ steps.meta.outputs.ecr_repository_name }}"
           IMAGE_URI="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${REPOSITORY_NAME}"
-
-          aws ecr describe-repositories --repository-names "${REPOSITORY_NAME}" >/dev/null
 
           echo "image_uri=${IMAGE_URI}" >> "$GITHUB_OUTPUT"
 
