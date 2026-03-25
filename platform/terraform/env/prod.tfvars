@@ -39,10 +39,10 @@ rds_performance_insights_enabled = false
 # - log API path
 # - verification dispatch + feedback path
 # - transaction ingestion scheduler path
-enable_log_lambda                   = true
+enable_log_lambda                 = true
 enable_sftp_transaction_collector = true
-enable_verification_pipeline        = true
-ses_sender_email                    = "verification@crm.local" # override with a verified sender in target AWS account
+enable_verification_pipeline      = true
+ses_sender_email                  = "verification@crm.local" # override with a verified sender in target AWS account
 
 # Intentionally disabled until prerequisites are available:
 enable_aml_lambda     = false # requires real SFTP source + key management contract

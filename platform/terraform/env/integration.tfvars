@@ -30,10 +30,10 @@ db_max_allocated_storage         = 20
 rds_performance_insights_enabled = false
 
 # --- Feature Contract (integration) ---
-enable_log_lambda                   = true
+enable_log_lambda                 = true
 enable_sftp_transaction_collector = true
-enable_verification_pipeline        = true
-ses_sender_email                    = "verification@crm.local" # replace with a verified sender in real AWS integration
+enable_verification_pipeline      = true
+ses_sender_email                  = "verification@crm.local" # replace with a verified sender in real AWS integration
 
 enable_aml_lambda     = false # requires real SFTP endpoint + key ownership contract
 enable_audit_pipeline = false # partial scaffold only: audit-consumer runtime artifact absent

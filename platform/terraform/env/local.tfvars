@@ -30,10 +30,10 @@ db_max_allocated_storage         = 20
 rds_performance_insights_enabled = false
 
 # --- Feature Contract (local) ---
-enable_log_lambda                   = true
+enable_log_lambda                 = true
 enable_sftp_transaction_collector = true
-enable_verification_pipeline        = true
-ses_sender_email                    = "verification@crm.local"
+enable_verification_pipeline      = true
+ses_sender_email                  = "verification@crm.local"
 
 enable_aml_lambda     = false # external SFTP dependency not part of local contract
 enable_audit_pipeline = false # partial scaffold only: audit-consumer runtime artifact absent
