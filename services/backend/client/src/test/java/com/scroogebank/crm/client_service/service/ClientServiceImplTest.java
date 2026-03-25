@@ -29,12 +29,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.doNothing;
 
 /**
  * Unit tests for {@link ClientServiceImpl}: business logic for listing, getting, creating,
@@ -207,8 +206,7 @@ class ClientServiceImplTest {
 			if (e.getId() == null) e.setId(10L);
 			return e;
 		});
-		doNothing().when(clientAuditLogger).logAuditEvent(any(), any(), any(), any(), any(), any(), any(), any());
-        when(verificationTokenService.generateVerificationToken(eq("clt_10"), anyInt())).thenReturn("mock-token");
+        when(verificationTokenService.generateVerificationToken(any(), anyLong())).thenReturn("signed-token-abc");
 
 		var result = clientService.createClient(user, requestFrom(payload), "Bearer x", "req-1");
 
@@ -225,14 +223,21 @@ class ClientServiceImplTest {
 		verify(clientRepository).existsByPhoneNumber(payload.phoneNumber());
 		verify(clientAuditLogger).logAuditEvent(
 			eq("CREATE"),
-			any(),
-			any(),
-			any(),
+			eq("Client ID"),
+			eq(null),
+			eq("clt_10"),
 			eq("usr_1"),
 			eq("clt_10"),
 			eq("req-1"),
 			eq("Bearer x")
 		);
+		verify(snsEmailPublisherService).publishVerificationEmail(
+            eq("clt_10"),
+            eq("jordan.taylor@example.com"),
+            eq("signed-token-abc"),
+            eq("Jordan"),
+            eq("req-1")
+        );
 	}
 
 	@Test
@@ -299,31 +304,6 @@ class ClientServiceImplTest {
 		verify(clientRepository).existsByPhoneNumber(payload.phoneNumber());
 		verify(clientRepository, never()).save(any());
 	}
-
-	/** SNS publisher is called with the correct clientId, email, token, firstName, requestId. */
-    @Test
-    void createClient_publishesVerificationEmail_withCorrectArguments() throws Exception {
-        AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
-        ClientPayload payload   = samplePayload();
-
-		when(clientRepository.save(any())).thenAnswer(inv -> {
-			ClientEntity e = inv.getArgument(0);
-			if (e.getId() == null) e.setId(10L);
-			return e;
-		});
-        when(verificationTokenService.generateVerificationToken(eq("clt_10"), anyInt())).thenReturn("signed-token-abc");
-		doNothing().when(snsEmailPublisherService).publishVerificationEmail(any(), any(), any(), any(), any());
-
-        clientService.createClient(agent, requestFrom(payload), "Bearer x", "req-2");
-
-        verify(snsEmailPublisherService).publishVerificationEmail(
-            eq("clt_10"),
-            eq("jordan.taylor@example.com"),
-            eq("signed-token-abc"),
-            eq("Jordan"),
-            eq("req-2")
-        );
-    }
 
 	/** Verifies that updateClient() loads the entity, checks email/phone for other ids, applies payload, saves, and returns DTO. */
 	@Test
