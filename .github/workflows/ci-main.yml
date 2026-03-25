@@ -20,7 +20,7 @@ name: CI - Main Pipeline
 #      +---> test-log               |
 #      +---> test-log-db            |
 #      +---> test-verification     |
-#      +---> test-transaction-ingestion-lambda |
+#      +---> test-sftp-transaction-collector |
 #      +---> test-frontend        /
 #      |
 #      v
@@ -79,7 +79,7 @@ jobs:
       run-backend-python: >-
         ${{ needs.changes.outputs.backend-log == 'true'
             || needs.changes.outputs.backend-verification == 'true'
-            || needs.changes.outputs.backend-transaction-ingestion-lambda == 'true'
+            || needs.changes.outputs.backend-sftp-transaction-collector == 'true'
             || needs.changes.outputs.ci-config == 'true' }}
       run-frontend: >-
         ${{ needs.changes.outputs.frontend == 'true'
@@ -122,7 +122,7 @@ jobs:
       test-command: |
         chmod +x gradlew
         ./gradlew test \
-          --tests "com.scroogebank.crm.userservice.service.PersistentUserStoreTest" \
+          --tests "com.scroogebank.crm.user_service.service.PersistentUserStoreTest" \
           --no-daemon --console=plain
       timeout-minutes: 12
       artifact-paths: services/backend/user/build/reports/**
@@ -236,16 +236,16 @@ jobs:
       timeout-minutes: 10
       artifact-paths: services/backend/log/build/reports/**
 
-  test-transaction-ingestion-lambda:
+  test-sftp-transaction-collector:
     needs: [changes, lint]
     if: >-
-      ${{ needs.changes.outputs.backend-transaction-ingestion-lambda == 'true'
+      ${{ needs.changes.outputs.backend-sftp-transaction-collector == 'true'
           || needs.changes.outputs.ci-config == 'true' }}
     uses: ./.github/workflows/reusable-test-component.yml
     with:
-      component: transaction-ingestion-lambda
+      component: sftp-transaction-collector
       runtime: python
-      working-directory: services/backend/transaction-ingestion-lambda
+      working-directory: services/backend/sftp-transaction-collector
       test-command: |
         python -m pytest tests \
           --junitxml=build/reports/tests/junit.xml \
@@ -257,8 +257,8 @@ jobs:
           --cov-report=html:build/reports/coverage/html
       timeout-minutes: 8
       artifact-paths: |
-        services/backend/transaction-ingestion-lambda/build/reports/**
-        services/backend/transaction-ingestion-lambda/build/coverage.xml
+        services/backend/sftp-transaction-collector/build/reports/**
+        services/backend/sftp-transaction-collector/build/coverage.xml
 
   test-verification:
     needs: [changes, lint]
@@ -320,7 +320,7 @@ jobs:
       - test-log
       - test-log-db
       - test-verification
-      - test-transaction-ingestion-lambda
+      - test-sftp-transaction-collector
       - test-frontend
     runs-on: ubuntu-latest
     timeout-minutes: 15

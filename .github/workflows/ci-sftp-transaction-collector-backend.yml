@@ -1,18 +1,18 @@
-name: CI - Transaction Ingestion Lambda Backend
+name: CI - SFTP Transaction Collector Backend
 
-# Component pipeline for the transaction-ingestion-lambda backend.
+# Component pipeline for the sftp-transaction-collector backend.
 # Runs Python Black + Flake8 lint + pytest with coverage.
 
 on:
   pull_request:
     branches:
-      - transaction-ingestion-lambda-backend
+      - sftp-transaction-collector-backend
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
   push:
     branches:
-      - transaction-ingestion-lambda-backend
+      - sftp-transaction-collector-backend
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
@@ -20,7 +20,7 @@ on:
   workflow_call:
 
 concurrency:
-  group: ci-transaction-ingestion-lambda-backend-${{ github.ref }}
+  group: ci-sftp-transaction-collector-backend-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -39,9 +39,9 @@ jobs:
     needs: lint
     uses: ./.github/workflows/reusable-test-component.yml
     with:
-      component: transaction-ingestion-lambda
+      component: sftp-transaction-collector
       runtime: python
-      working-directory: services/backend/transaction-ingestion-lambda
+      working-directory: services/backend/sftp-transaction-collector
       test-command: |
         python -m pytest tests \
           --junitxml=build/reports/tests/junit.xml \
@@ -53,5 +53,5 @@ jobs:
           --cov-report=html:build/reports/coverage/html
       timeout-minutes: 8
       artifact-paths: |
-        services/backend/transaction-ingestion-lambda/build/reports/**
-        services/backend/transaction-ingestion-lambda/build/coverage.xml
+        services/backend/sftp-transaction-collector/build/reports/**
+        services/backend/sftp-transaction-collector/build/coverage.xml

@@ -24,9 +24,9 @@ on:
       backend-verification:
         description: 'true if services/backend/verification changed'
         value: ${{ jobs.detect.outputs.backend-verification }}
-      backend-transaction-ingestion-lambda:
-        description: 'true if services/backend/transaction-ingestion-lambda changed'
-        value: ${{ jobs.detect.outputs.backend-transaction-ingestion-lambda }}
+      backend-sftp-transaction-collector:
+        description: 'true if services/backend/sftp-transaction-collector changed'
+        value: ${{ jobs.detect.outputs.backend-sftp-transaction-collector }}
       frontend:
         description: 'true if services/frontend/crm-ui changed'
         value: ${{ jobs.detect.outputs.frontend }}
@@ -65,7 +65,7 @@ jobs:
       backend-transaction: ${{ steps.filter.outputs.backend-transaction }}
       backend-log: ${{ steps.filter.outputs.backend-log }}
       backend-verification: ${{ steps.filter.outputs.backend-verification }}
-      backend-transaction-ingestion-lambda: ${{ steps.filter.outputs.backend-transaction-ingestion-lambda }}
+      backend-sftp-transaction-collector: ${{ steps.filter.outputs.backend-sftp-transaction-collector }}
       frontend: ${{ steps.filter.outputs.frontend }}
       integration-tests: ${{ steps.filter.outputs.integration-tests }}
       scripts: ${{ steps.filter.outputs.scripts }}
@@ -102,8 +102,8 @@ jobs:
               - 'services/backend/log/**'
             backend-verification:
               - 'services/backend/verification/**'
-            backend-transaction-ingestion-lambda:
-              - 'services/backend/transaction-ingestion-lambda/**'
+            backend-sftp-transaction-collector:
+              - 'services/backend/sftp-transaction-collector/**'
             frontend:
               - 'services/frontend/crm-ui/**'
             integration-tests:
@@ -127,7 +127,7 @@ jobs:
              [[ "${{ steps.filter.outputs.backend-transaction }}" == "true" ]] || \
              [[ "${{ steps.filter.outputs.backend-log }}" == "true" ]] || \
              [[ "${{ steps.filter.outputs.backend-verification }}" == "true" ]] || \
-             [[ "${{ steps.filter.outputs.backend-transaction-ingestion-lambda }}" == "true" ]]; then
+             [[ "${{ steps.filter.outputs.backend-sftp-transaction-collector }}" == "true" ]]; then
             ANY_BACKEND="true"
           fi
 
@@ -166,7 +166,7 @@ jobs:
             echo "| backend-transaction | ${{ steps.filter.outputs.backend-transaction }} |"
             echo "| backend-log | ${{ steps.filter.outputs.backend-log }} |"
             echo "| backend-verification | ${{ steps.filter.outputs.backend-verification }} |"
-            echo "| backend-transaction-ingestion-lambda | ${{ steps.filter.outputs.backend-transaction-ingestion-lambda }} |"
+            echo "| backend-sftp-transaction-collector | ${{ steps.filter.outputs.backend-sftp-transaction-collector }} |"
             echo "| frontend | ${{ steps.filter.outputs.frontend }} |"
             echo "| integration-tests | ${{ steps.filter.outputs.integration-tests }} |"
             echo "| scripts | ${{ steps.filter.outputs.scripts }} |"

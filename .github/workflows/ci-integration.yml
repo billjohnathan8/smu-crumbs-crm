@@ -78,7 +78,7 @@ jobs:
       test-command: |
         chmod +x gradlew
         ./gradlew test \
-          --tests "com.scroogebank.crm.userservice.service.PersistentUserStoreTest" \
+          --tests "com.scroogebank.crm.user_service.service.PersistentUserStoreTest" \
           --no-daemon --console=plain
       timeout-minutes: 12
       artifact-paths: services/backend/user/build/reports/**

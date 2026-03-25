@@ -200,7 +200,7 @@ jobs:
                 lambda_function_names: {
                   log: ($tf.log_lambda_name.value // null),
                   aml: ($tf.aml_lambda_name.value // null),
-                  transaction_ingestion: ($tf.transaction_ingestion_lambda_name.value // null),
+                  sftp_transaction_collector: ($tf.sftp_transaction_collector_name.value // null),
                   verification: ($tf.verification_lambda_name.value // null)
                 },
                 frontend_bucket_name: ($tf.frontend_bucket_name.value // null),
@@ -261,7 +261,7 @@ jobs:
           put_json "codedeploy/ecs/deployment-groups" "$(jq -c '.codedeploy_ecs_deployment_group_names.value // {}' "$TF_JSON")"
           put_string "codedeploy/lambda/application-name" "$(jq -r '.codedeploy_lambda_application_name.value // empty' "$TF_JSON")"
           put_json "codedeploy/lambda/deployment-groups" "$(jq -c '.codedeploy_lambda_deployment_group_names.value // {}' "$TF_JSON")"
-          put_json "lambda/function-names" "$(jq -cn --argjson tf "$(cat "$TF_JSON")" '{log: ($tf.log_lambda_name.value // null), aml: ($tf.aml_lambda_name.value // null), transaction_ingestion: ($tf.transaction_ingestion_lambda_name.value // null), verification: ($tf.verification_lambda_name.value // null)}')"
+          put_json "lambda/function-names" "$(jq -cn --argjson tf "$(cat "$TF_JSON")" '{log: ($tf.log_lambda_name.value // null), aml: ($tf.aml_lambda_name.value // null), sftp_transaction_collector: ($tf.sftp_transaction_collector_name.value // null), verification: ($tf.verification_lambda_name.value // null)}')"
           put_string "frontend/s3-bucket" "$(jq -r '.frontend_bucket_name.value // empty' "$TF_JSON")"
           put_string "frontend/cloudfront-distribution-id" "$(jq -r '.cloudfront_distribution_id.value // empty' "$TF_JSON")"
           put_string "frontend/app-url" "$(jq -r '.app_url.value // empty' "$TF_JSON")"

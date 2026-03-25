@@ -96,7 +96,7 @@ jobs:
             source-dirs: app tests
           - service: aml
             source-dirs: lambda_function.py tests
-          - service: transaction-ingestion-lambda
+          - service: sftp-transaction-collector
             source-dirs: lambda_function.py tests
           - service: verification
             source-dirs: lambda_function.py tests
