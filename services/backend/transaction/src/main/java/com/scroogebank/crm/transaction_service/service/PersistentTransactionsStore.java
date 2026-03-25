@@ -7,6 +7,7 @@ import com.scroogebank.crm.transaction_service.dto.ImportTransactionsRequest;
 import com.scroogebank.crm.transaction_service.dto.TransactionDto;
 import com.scroogebank.crm.transaction_service.dto.TransactionKind;
 import com.scroogebank.crm.transaction_service.dto.TransactionStatus;
+import com.scroogebank.crm.transaction_service.dto.UpdateTransactionRequest;
 import com.scroogebank.crm.transaction_service.entity.TransactionImportBatchEntity;
 import com.scroogebank.crm.transaction_service.entity.TransactionRecordEntity;
 import com.scroogebank.crm.transaction_service.exception.ImportBatchNotFoundException;
@@ -85,6 +86,32 @@ public class PersistentTransactionsStore implements TransactionsStore {
 			throw new TransactionNotFoundException(transactionId);
 		}
 		return toDto(record);
+	}
+
+	@Transactional
+	@Override
+	public TransactionDto update(String transactionId, UpdateTransactionRequest request) {
+		long dbId = decodeTxnId(transactionId);
+		TransactionRecordEntity record = transactionRepository.findById(dbId).orElse(null);
+		if (record == null) {
+			throw new TransactionNotFoundException(transactionId);
+		}
+		if (request.clientId() != null && !request.clientId().isBlank()) {
+			record.setClientId(request.clientId().trim());
+		}
+		if (request.transaction() != null) {
+			record.setKind(request.transaction());
+		}
+		if (request.amount() != null) {
+			record.setAmount(request.amount());
+		}
+		if (request.date() != null) {
+			record.setDate(request.date());
+		}
+		if (request.status() != null) {
+			record.setStatus(request.status());
+		}
+		return toDto(transactionRepository.save(record));
 	}
 
 	@Transactional

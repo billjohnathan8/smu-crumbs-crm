@@ -8,6 +8,7 @@ import com.scroogebank.crm.transaction_service.dto.ImportTransactionsRequest;
 import com.scroogebank.crm.transaction_service.dto.TransactionDto;
 import com.scroogebank.crm.transaction_service.dto.TransactionKind;
 import com.scroogebank.crm.transaction_service.dto.TransactionStatus;
+import com.scroogebank.crm.transaction_service.dto.UpdateTransactionRequest;
 import com.scroogebank.crm.transaction_service.repository.TransactionImportBatchRepository;
 import com.scroogebank.crm.transaction_service.repository.TransactionRecordRepository;
 import com.scroogebank.crm.transaction_service.service.imports.S3BackedTransactionFileSource;
@@ -103,5 +104,37 @@ class PersistentTransactionsStoreTest {
 		assertEquals(2, first.importedRecords());
 		assertEquals(0, second.importedRecords());
 		assertEquals(2, listResult.total());
+	}
+
+	@Test
+	void update_persistsChangedFields() {
+		setUp();
+		TransactionDto created = store.create(
+			new CreateTransactionRequest(
+				"clt_123",
+				TransactionKind.D,
+				new BigDecimal("99.50"),
+				LocalDate.parse("2026-02-10"),
+				TransactionStatus.Completed
+			)
+		);
+
+		TransactionDto updated = store.update(
+			created.id(),
+			new UpdateTransactionRequest(
+				null,
+				TransactionKind.W,
+				new BigDecimal("120.00"),
+				LocalDate.parse("2026-02-11"),
+				TransactionStatus.Pending
+			)
+		);
+
+		assertEquals(created.id(), updated.id());
+		assertEquals("clt_123", updated.clientId());
+		assertEquals(TransactionKind.W, updated.transaction());
+		assertEquals(0, new BigDecimal("120.00").compareTo(updated.amount()));
+		assertEquals(LocalDate.parse("2026-02-11"), updated.date());
+		assertEquals(TransactionStatus.Pending, updated.status());
 	}
 }

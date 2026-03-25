@@ -6,6 +6,7 @@ import com.scroogebank.crm.transaction_service.dto.ImportTransactionsRequest;
 import com.scroogebank.crm.transaction_service.dto.TransactionDto;
 import com.scroogebank.crm.transaction_service.dto.TransactionKind;
 import com.scroogebank.crm.transaction_service.dto.TransactionStatus;
+import com.scroogebank.crm.transaction_service.dto.UpdateTransactionRequest;
 import java.time.LocalDate;
 import org.springframework.stereotype.Service;
 
@@ -32,6 +33,13 @@ public class TransactionsService {
 	 */
 	public TransactionDto get(String transactionId) {
 		return store.get(transactionId);
+	}
+
+	/**
+	 * Updates an existing transaction by id.
+	 */
+	public TransactionDto update(String transactionId, UpdateTransactionRequest request) {
+		return store.update(transactionId, request);
 	}
 
 	/**

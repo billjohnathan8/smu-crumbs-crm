@@ -18,6 +18,7 @@ import com.scroogebank.crm.transaction_service.dto.TransactionDto;
 import com.scroogebank.crm.transaction_service.dto.TransactionKind;
 import com.scroogebank.crm.transaction_service.dto.TransactionStatus;
 import com.scroogebank.crm.transaction_service.exception.ApiExceptionHandler;
+import com.scroogebank.crm.transaction_service.logging.TransactionAuditLogger;
 import com.scroogebank.crm.transaction_service.security.AuthenticatedUser;
 import com.scroogebank.crm.transaction_service.security.RequestAuth;
 import com.scroogebank.crm.transaction_service.security.ForbiddenException;
@@ -41,8 +42,16 @@ class UserControllerTest {
 	private final TransactionsService transactionsService = mock(TransactionsService.class);
 	private final RequestAuth requestAuth = mock(RequestAuth.class);
 	private final ClientAccessValidator clientAccessValidator = mock(ClientAccessValidator.class);
+	private final TransactionAuditLogger transactionAuditLogger = mock(TransactionAuditLogger.class);
 	private final MockMvc mockMvc = MockMvcBuilders
-		.standaloneSetup(new TransactionsController(transactionsService, requestAuth, clientAccessValidator))
+		.standaloneSetup(
+			new TransactionsController(
+				transactionsService,
+				requestAuth,
+				clientAccessValidator,
+				transactionAuditLogger
+			)
+		)
 		.setControllerAdvice(new ApiExceptionHandler())
 		.build();
 

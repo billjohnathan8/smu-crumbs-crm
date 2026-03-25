@@ -7,6 +7,7 @@ import com.scroogebank.crm.transaction_service.dto.ImportTransactionsRequest;
 import com.scroogebank.crm.transaction_service.dto.TransactionDto;
 import com.scroogebank.crm.transaction_service.dto.TransactionKind;
 import com.scroogebank.crm.transaction_service.dto.TransactionStatus;
+import com.scroogebank.crm.transaction_service.dto.UpdateTransactionRequest;
 import com.scroogebank.crm.transaction_service.exception.ImportBatchNotFoundException;
 import com.scroogebank.crm.transaction_service.exception.TransactionNotFoundException;
 import com.scroogebank.crm.transaction_service.service.imports.TransactionFileSource;
@@ -95,6 +96,30 @@ public class InMemoryTransactionsStore implements TransactionsStore {
 			throw new TransactionNotFoundException(transactionId);
 		}
 		return toDto(record);
+	}
+
+	/**
+	 * Updates selected fields on an existing transaction record.
+	 */
+	@Override
+	public TransactionDto update(String transactionId, UpdateTransactionRequest request) {
+		long dbId = decodeTxnId(transactionId);
+		TxnRecord existing = transactions.get(dbId);
+		if (existing == null) {
+			throw new TransactionNotFoundException(transactionId);
+		}
+		TxnRecord updated = new TxnRecord(
+			existing.id,
+			normalizeClientId(request.clientId(), existing.clientId),
+			request.transaction() == null ? existing.kind : request.transaction(),
+			request.amount() == null ? existing.amount : request.amount(),
+			request.date() == null ? existing.date : request.date(),
+			request.status() == null ? existing.status : request.status(),
+			existing.importedAt,
+			existing.importBatchId
+		);
+		transactions.put(dbId, updated);
+		return toDto(updated);
 	}
 
 	/**
@@ -249,6 +274,14 @@ public class InMemoryTransactionsStore implements TransactionsStore {
 			return DEFAULT_SOURCE_PATH;
 		}
 		return sourcePath.trim();
+	}
+
+	private static String normalizeClientId(String candidate, String fallback) {
+		if (candidate == null) {
+			return fallback;
+		}
+		String trimmed = candidate.trim();
+		return trimmed.isEmpty() ? fallback : trimmed;
 	}
 
 	private static TransactionDto toDto(TxnRecord r) {
