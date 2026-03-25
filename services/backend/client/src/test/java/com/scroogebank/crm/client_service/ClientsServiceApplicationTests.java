@@ -7,6 +7,7 @@ import com.scroogebank.crm.client_service.service.SnsEmailPublisherService;
 import com.scroogebank.crm.client_service.service.VerificationTokenService;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
@@ -45,6 +46,12 @@ class ClientsServiceApplicationTests {
 
 	@Test
 	void contextLoads() {
+		assertThat(clientRepository).isNotNull();
+		assertThat(accountRepository).isNotNull();
+		assertThat(objectMapper).isNotNull();
+		assertThat(documentStorageService).isNotNull();
+		assertThat(verificationTokenService).isNotNull();
+		assertThat(snsEmailPublisherService).isNotNull();
 	}
 
 }
