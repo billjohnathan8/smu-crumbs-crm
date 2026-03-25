@@ -75,7 +75,7 @@ export async function verifyClient(
   data: VerifyClientRequest
 ): Promise<VerifyClientResponse> {
   return apiPost<VerifyClientResponse, VerifyClientRequest>(
-    `${CLIENTS_BASE}/${clientId}/upload-verify`,
+    `${CLIENTS_BASE}/${clientId}/verify`,
     data
   )
 }
