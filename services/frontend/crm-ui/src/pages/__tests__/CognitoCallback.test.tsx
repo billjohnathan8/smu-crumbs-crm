@@ -49,9 +49,7 @@ describe('CognitoCallback', () => {
     renderWithUrl('')
 
     expect(screen.getByText('Authentication Failed')).toBeInTheDocument()
-    expect(
-      screen.getByText('No authorization code received from Cognito.')
-    ).toBeInTheDocument()
+    expect(screen.getByText('No authorization code received from Cognito.')).toBeInTheDocument()
   })
 
   it('shows error when error_description is in URL', () => {

@@ -278,10 +278,13 @@ describe('ClientVerifyPage', () => {
     await user.click(screen.getByRole('button', { name: 'Upload & Verify' }))
 
     await waitFor(() => {
-      expect(mockVerifyClient).toHaveBeenCalledWith('c_valid_1', expect.objectContaining({
-        primaryDocumentRef: 'id.jpg',
-        addressDocumentRef: 'bill.pdf',
-      }))
+      expect(mockVerifyClient).toHaveBeenCalledWith(
+        'c_valid_1',
+        expect.objectContaining({
+          primaryDocumentRef: 'id.jpg',
+          addressDocumentRef: 'bill.pdf',
+        })
+      )
     })
 
     vi.unstubAllGlobals()

@@ -190,9 +190,7 @@ describe('ClientDetailPage (admin role)', () => {
     await user.click(screen.getByRole('button', { name: /Approve/i }))
 
     await waitFor(() => {
-      expect(
-        screen.getByText('You are not allowed to review verification.')
-      ).toBeInTheDocument()
+      expect(screen.getByText('You are not allowed to review verification.')).toBeInTheDocument()
     })
   })
 

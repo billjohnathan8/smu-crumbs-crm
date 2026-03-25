@@ -399,9 +399,7 @@ describe('ViewTransactionsPage', () => {
     await user.type(clientIdInput, 'clt_abc')
 
     await waitFor(() => {
-      expect(listSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ clientId: 'clt_abc' })
-      )
+      expect(listSpy).toHaveBeenCalledWith(expect.objectContaining({ clientId: 'clt_abc' }))
     })
   })
 

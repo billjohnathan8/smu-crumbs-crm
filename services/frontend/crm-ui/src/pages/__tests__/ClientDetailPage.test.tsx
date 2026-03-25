@@ -174,9 +174,7 @@ describe('ClientDetailPage', () => {
     renderComponent()
 
     await waitFor(() => {
-      expect(
-        screen.getByText('You are not allowed to access this client.')
-      ).toBeInTheDocument()
+      expect(screen.getByText('You are not allowed to access this client.')).toBeInTheDocument()
     })
   })
 

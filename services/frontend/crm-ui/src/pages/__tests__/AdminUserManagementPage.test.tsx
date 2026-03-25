@@ -279,7 +279,6 @@ it('should show loading state', async () => {
   })
 })
 
-
 it('should redirect unauthorized users', async () => {
   const normalUser: User = {
     id: 'user-123',
