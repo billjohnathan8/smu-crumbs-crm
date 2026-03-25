@@ -1,6 +1,5 @@
 package com.scroogebank.crm.client_service.service;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
@@ -17,14 +16,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class VerificationTokenServiceTest {
 
-    private VerificationTokenService verificationTokenService;
-
     private static final String CLIENT_ID = "clt_7";
+    private static final String HMAC_SECRET = "dev-only-insecure-secret";
 
-    @BeforeEach
-    void setUp() {
+    private final VerificationTokenService verificationTokenService;
+
+    VerificationTokenServiceTest() {
         Clock clock = Clock.fixed(Instant.now(), ZoneOffset.UTC);
-        verificationTokenService = new VerificationTokenService(clock);
+        verificationTokenService = new VerificationTokenService(clock, HMAC_SECRET);
     }
 
     // ── Helper ───────────────────────────────────────────────────────────────
@@ -155,13 +154,11 @@ class VerificationTokenServiceTest {
     @Test
     void isValid_tokenExpired_returnsFalse() {
         Clock fixedClock = Clock.fixed(Instant.now(), ZoneOffset.UTC);
-
-        VerificationTokenService service = new VerificationTokenService(fixedClock);
         String expiredToken = generateToken(CLIENT_ID, 3600); // valid for 1 hour
 
         // Move time forward 2 hours
         Clock futureClock = Clock.offset(fixedClock, Duration.ofHours(2));
-        service = new VerificationTokenService(futureClock);
+        VerificationTokenService service = new VerificationTokenService(futureClock, HMAC_SECRET);
 
         assertThat(service.isValid(CLIENT_ID, expiredToken)).isFalse();
     }
