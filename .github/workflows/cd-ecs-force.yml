@@ -1,0 +1,44 @@
+name: CD - Force ECS Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      ecs_cluster:
+        description: ECS cluster name hosting backend services
+        required: false
+        type: string
+        default: backend
+
+# Ensure that only one force ECS deployment runs at a time.
+concurrency:
+  group: cd-ecs-force
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-user:
+    if: ${{ !failure() && !cancelled() }}
+    uses: ./.github/workflows/reusable-ecs-deploy.yml
+    with:
+      service: user
+      ecs_cluster: ${{ inputs.ecs_cluster }}
+    secrets: inherit
+
+  deploy-client:
+    if: ${{ !failure() && !cancelled() }}
+    uses: ./.github/workflows/reusable-ecs-deploy.yml
+    with:
+      service: client
+      ecs_cluster: ${{ inputs.ecs_cluster }}
+    secrets: inherit
+
+  deploy-transaction:
+    if: ${{ !failure() && !cancelled() }}
+    uses: ./.github/workflows/reusable-ecs-deploy.yml
+    with:
+      service: transaction
+      ecs_cluster: ${{ inputs.ecs_cluster }}
+    secrets: inherit
