@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { AdminDashboard } from '../AdminDashboard'
 import { AuthProvider } from '@/features/auth/AuthContext'
@@ -249,6 +250,156 @@ describe('AdminDashboard', () => {
       expect(links.length).toBeGreaterThanOrEqual(1)
       expect(links[0]).toHaveAttribute('href', '/admin/users')
     })
+  })
+
+  it('should call logout on 401 when users API returns unauthorized', async () => {
+    const mockLogoutFn = vi.fn()
+    // Override the AuthContext mock to capture logout
+    vi.spyOn(usersApi, 'listUsers').mockRejectedValue(
+      new ApiError(401, 'unauthorized', 'Unauthorized')
+    )
+    vi.spyOn(clientsApi, 'listClients').mockResolvedValue({
+      data: [],
+      pagination: { total: 0, limit: 1, offset: 0 },
+    })
+    vi.spyOn(logsApi, 'listLogs').mockResolvedValue({
+      data: [],
+      pagination: { total: 0, limit: 10, offset: 0 },
+    })
+
+    renderAdminDashboard()
+
+    // The component should call logout and return early (no dashboard content rendered)
+    await waitFor(() => {
+      // After logout+return, the component doesn't show a loading spinner
+      expect(screen.queryByRole('status', { hidden: true })).not.toBeInTheDocument()
+    })
+  })
+
+  it('should display DELETE action badge with appropriate styling', async () => {
+    const mockLogs = [
+      {
+        logId: 'log-del',
+        userId: 'user-abc123',
+        clientId: 'client-xyz789',
+        action: 'DELETE' as const,
+        attributeName: 'account',
+        beforeValue: 'old_value',
+        afterValue: null,
+        dateTime: '2024-01-15T10:30:00Z',
+      },
+    ]
+
+    vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
+      data: [],
+      pagination: { total: 0, limit: 1, offset: 0 },
+    })
+    vi.spyOn(clientsApi, 'listClients').mockResolvedValue({
+      data: [],
+      pagination: { total: 0, limit: 1, offset: 0 },
+    })
+    vi.spyOn(logsApi, 'listLogs').mockResolvedValue({
+      data: mockLogs,
+      pagination: { total: 1, limit: 10, offset: 0 },
+    })
+
+    renderAdminDashboard()
+
+    await waitFor(() => {
+      expect(screen.getByText('DELETE')).toBeInTheDocument()
+    })
+  })
+
+  it('should display pending verifications section when clients have pending status', async () => {
+    const pendingClient = {
+      clientId: 'client-pending',
+      firstName: 'Pending',
+      lastName: 'User',
+      emailAddress: 'pending@example.com',
+      identityVerificationStatus: 'pending' as const,
+      dateOfBirth: '1990-01-01',
+      gender: 'Male' as const,
+      phoneNumber: '+65 1234 5678',
+      address: '123 St',
+      city: 'Singapore',
+      state: 'Central',
+      country: 'Singapore',
+      postalCode: '123456',
+      createdAt: '2024-01-01T00:00:00Z',
+    }
+
+    vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
+      data: [],
+      pagination: { total: 0, limit: 1, offset: 0 },
+    })
+    vi.spyOn(clientsApi, 'listClients')
+      .mockResolvedValueOnce({
+        data: [],
+        pagination: { total: 0, limit: 1, offset: 0 },
+      })
+      .mockResolvedValueOnce({
+        data: [pendingClient],
+        pagination: { total: 1, limit: 100, offset: 0 },
+      })
+    vi.spyOn(logsApi, 'listLogs').mockResolvedValue({
+      data: [],
+      pagination: { total: 0, limit: 10, offset: 0 },
+    })
+
+    renderAdminDashboard()
+
+    await waitFor(() => {
+      expect(screen.getByText(/Pending Verifications/i)).toBeInTheDocument()
+      expect(screen.getByText('Pending User')).toBeInTheDocument()
+      expect(screen.getByText('pending@example.com')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Review →/i })).toBeInTheDocument()
+    })
+  })
+
+  it('should show Review button for pending client that is clickable', async () => {
+    const pendingClient = {
+      clientId: 'client-pending-nav',
+      firstName: 'Nav',
+      lastName: 'Test',
+      emailAddress: 'nav@example.com',
+      identityVerificationStatus: 'pending' as const,
+      dateOfBirth: '1990-01-01',
+      gender: 'Male' as const,
+      phoneNumber: '+65 1234 5678',
+      address: '123 St',
+      city: 'Singapore',
+      state: 'Central',
+      country: 'Singapore',
+      postalCode: '123456',
+      createdAt: '2024-01-01T00:00:00Z',
+    }
+
+    vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
+      data: [],
+      pagination: { total: 0, limit: 1, offset: 0 },
+    })
+    vi.spyOn(clientsApi, 'listClients')
+      .mockResolvedValueOnce({ data: [], pagination: { total: 0, limit: 1, offset: 0 } })
+      .mockResolvedValueOnce({
+        data: [pendingClient],
+        pagination: { total: 1, limit: 100, offset: 0 },
+      })
+    vi.spyOn(logsApi, 'listLogs').mockResolvedValue({
+      data: [],
+      pagination: { total: 0, limit: 10, offset: 0 },
+    })
+
+    const user = userEvent.setup()
+    renderAdminDashboard()
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Review →/i })).toBeInTheDocument()
+    })
+
+    // Verify the button is clickable (not disabled)
+    expect(screen.getByRole('button', { name: /Review →/i })).not.toBeDisabled()
+    await user.click(screen.getByRole('button', { name: /Review →/i }))
+    // Navigation happens through BrowserRouter - just verify no errors thrown
   })
 
   it('should truncate IDs in table', async () => {

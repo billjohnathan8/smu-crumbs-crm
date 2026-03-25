@@ -274,6 +274,137 @@ describe('ViewTransactionsPage', () => {
     })
   })
 
+  it('shows previous page button and navigates to previous page', async () => {
+    const user = userEvent.setup()
+    const listSpy = vi.spyOn(transactionsApi, 'listTransactions')
+    listSpy
+      .mockResolvedValueOnce({
+        data: Array.from({ length: 20 }, (_, i) => ({
+          id: `txn-${i}`,
+          clientId: `client-${i}`,
+          transaction: 'D' as const,
+          amount: 100,
+          date: '2024-01-15T10:30:00Z',
+          status: 'Completed' as const,
+        })),
+        pagination: { limit: 20, offset: 0, total: 25 },
+      })
+      .mockResolvedValueOnce({
+        data: Array.from({ length: 5 }, (_, i) => ({
+          id: `txn-p2-${i}`,
+          clientId: `client-p2-${i}`,
+          transaction: 'W' as const,
+          amount: 120,
+          date: '2024-01-16T10:30:00Z',
+          status: 'Pending' as const,
+        })),
+        pagination: { limit: 20, offset: 20, total: 25 },
+      })
+      .mockResolvedValueOnce({
+        data: Array.from({ length: 20 }, (_, i) => ({
+          id: `txn-back-${i}`,
+          clientId: `client-back-${i}`,
+          transaction: 'D' as const,
+          amount: 100,
+          date: '2024-01-15T10:30:00Z',
+          status: 'Completed' as const,
+        })),
+        pagination: { limit: 20, offset: 0, total: 25 },
+      })
+
+    renderComponent()
+
+    await waitFor(() => expect(screen.getByText('Page 1 of 2')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Next' }))
+    await waitFor(() => expect(screen.getByText('Page 2 of 2')).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: 'Previous' }))
+    await waitFor(() => expect(listSpy).toHaveBeenLastCalledWith({ limit: 20, offset: 0 }))
+  })
+
+  it('shows generic error for non-ApiError during fetch', async () => {
+    vi.spyOn(transactionsApi, 'listTransactions').mockRejectedValue(new Error('network error'))
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByText('An unexpected error occurred')).toBeInTheDocument()
+    })
+  })
+
+  it('shows non-401 ApiError message during fetch', async () => {
+    vi.spyOn(transactionsApi, 'listTransactions').mockRejectedValue(
+      new ApiError(500, 'server_error', 'Server failed')
+    )
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByText('Server failed')).toBeInTheDocument()
+    })
+  })
+
+  it('shows import controls for super_admin', async () => {
+    mockRole = 'super_admin'
+
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: [],
+      pagination: { limit: 20, offset: 0, total: 0 },
+    })
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByTestId('transaction-import-panel')).toBeInTheDocument()
+    })
+  })
+
+  it('resets filters when Reset Filters button is clicked', async () => {
+    const user = userEvent.setup()
+    const listSpy = vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: [],
+      pagination: { limit: 20, offset: 0, total: 0 },
+    })
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Transaction ID')).toBeInTheDocument()
+    })
+
+    const searchInput = screen.getByPlaceholderText('Transaction ID')
+    await user.type(searchInput, 'test-search')
+
+    await user.click(screen.getByRole('button', { name: 'Reset Filters' }))
+
+    await waitFor(() => {
+      expect((searchInput as HTMLInputElement).value).toBe('')
+    })
+  })
+
+  it('filters transactions by client ID when clientId filter is set', async () => {
+    const user = userEvent.setup()
+    const listSpy = vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: [],
+      pagination: { limit: 20, offset: 0, total: 0 },
+    })
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Client ID')).toBeInTheDocument()
+    })
+
+    const clientIdInput = screen.getByPlaceholderText('Client ID')
+    await user.type(clientIdInput, 'clt_abc')
+
+    await waitFor(() => {
+      expect(listSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ clientId: 'clt_abc' })
+      )
+    })
+  })
+
   it('tracks import batch ids discovered in transaction rows', async () => {
     mockRole = 'admin'
 
