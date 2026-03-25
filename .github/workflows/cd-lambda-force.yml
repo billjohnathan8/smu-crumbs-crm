@@ -2,6 +2,9 @@ name: CD - Force Lambda Deploy
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - integration
 
 # Ensure that only one force Lambda deployment runs at a time.
 concurrency:
