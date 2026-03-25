@@ -1,13 +1,5 @@
-import { createContext, useEffect, useState, type ReactNode } from 'react'
-
-export type Theme = 'light' | 'dark'
-
-export interface ThemeContextValue {
-  theme: Theme
-  toggleTheme: () => void
-}
-
-export const ThemeContext = createContext<ThemeContextValue | undefined>(undefined)
+import { useEffect, useState, type ReactNode } from 'react'
+import { ThemeContext, type Theme } from './theme-context'
 
 const THEME_KEY = 'scroogebank-theme'
 
