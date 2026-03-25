@@ -1,6 +1,19 @@
 import type { FormEvent } from 'react'
 import type { VerifyClientRequest } from '@/api/types'
 
+const PRIMARY_ID_TYPES = [
+  { value: 'NRIC', label: 'Singapore NRIC' },
+  { value: 'PASSPORT', label: 'Passport' },
+  { value: 'EMPLOYMENT_PASS', label: 'Employment Pass / S Pass / Work Permit' },
+] as const
+
+const PROOF_OF_ADDRESS_TYPES = [
+  { value: 'UTILITY_BILL', label: 'Utility Bill (within 3 months)' },
+  { value: 'BANK_STATEMENT', label: 'Bank Statement (within 3 months)' },
+  { value: 'GOVERNMENT_LETTER', label: 'Government-issued Letter (CPF / IRAS / HDB)' },
+  { value: 'TENANCY_AGREEMENT', label: 'Tenancy Agreement' },
+] as const
+
 type VerificationFormProps = {
   verifyData: VerifyClientRequest
   setVerifyData: React.Dispatch<React.SetStateAction<VerifyClientRequest>>
@@ -18,15 +31,60 @@ export function VerificationForm({
   onSubmit,
   onCancel,
 }: VerificationFormProps) {
+  const toBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(',')[1]
+        resolve(base64)
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+
+  const handlePrimaryFileChange = async (file: File | null) => {
+    if (!file) {
+      setVerifyData(prev => ({
+        ...prev,
+        primaryDocumentRef: '',
+        primaryDocumentBase64: '',
+        primaryDocumentMimeType: '',
+      }))
+      return
+    }
+
+    const base64 = await toBase64(file)
+    setVerifyData(prev => ({
+      ...prev,
+      primaryDocumentRef: file.name,
+      primaryDocumentBase64: base64,
+      primaryDocumentMimeType: file.type,
+    }))
+  }
+
+  const handleAddressFileChange = async (file: File | null) => {
+    if (!file) {
+      setVerifyData(prev => ({
+        ...prev,
+        addressDocumentRef: '',
+        addressDocumentBase64: '',
+        addressDocumentMimeType: '',
+      }))
+      return
+    }
+
+    const base64 = await toBase64(file)
+    setVerifyData(prev => ({
+      ...prev,
+      addressDocumentRef: file.name,
+      addressDocumentBase64: base64,
+      addressDocumentMimeType: file.type,
+    }))
+  }
+
   return (
     <div className="bg-card  rounded-lg p-6">
-      {/* BOILER PLATE TO MERGE TT_TT */}
-      {verifyError}
-      {isVerifying}
-      <button onClick={() => setVerifyData({ ...verifyData })} />
-      <button onClick={onSubmit} />
-      <button onClick={onCancel} />
-      {/* <h2 className="text-lg font-bold text-text mb-4">KYC Verification</h2>
+      <h2 className="text-lg font-bold text-text mb-4">KYC Verification</h2>
 
       {verifyError && (
         <div className="bg-danger/10 border border-danger rounded-lg p-3 mb-4">
@@ -34,34 +92,83 @@ export function VerificationForm({
         </div>
       )}
 
-      <form onSubmit={onSubmit} className="space-y-4 max-w-md">
+      <form onSubmit={onSubmit} className="space-y-6">
         <div>
           <label className="block text-sm font-normal text-text mb-1">
-            NRIC <span className="text-danger">*</span>
+            Primary Identity Document <span className="text-danger">*</span>
+          </label>
+          <select
+            value={verifyData.primaryDocumentType}
+            onChange={e =>
+              setVerifyData(prev => ({
+                ...prev,
+                primaryDocumentType: e.target.value as VerifyClientRequest['primaryDocumentType'],
+              }))
+            }
+            className="w-full px-4 py-2 bg-background-light rounded-lg text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            disabled={isVerifying}
+          >
+            {PRIMARY_ID_TYPES.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-normal text-text mb-1">
+            Upload Primary Document <span className="text-danger">*</span>
           </label>
           <input
-            type="text"
-            placeholder="e.g. S1234567D"
-            value={verifyData.nric}
-            onChange={e => setVerifyData({ ...verifyData, nric: e.target.value.toUpperCase() })}
-            className="w-full px-4 py-2 bg-background-light  rounded-lg text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            type="file"
+            accept="image/*,application/pdf"
+            onChange={e => void handlePrimaryFileChange(e.target.files?.[0] ?? null)}
+            className="w-full px-4 py-2 bg-background-light rounded-lg text-text text-sm file:mr-3 file:rounded file:border-0 file:bg-primary file:px-3 file:py-1 file:text-sm file:text-white"
             disabled={isVerifying}
           />
           <p className="text-xs text-text-muted mt-1">
-            Singapore NRIC format: S/T/F/G/M + 7 digits + letter
+            {verifyData.primaryDocumentRef || 'No file chosen'}
           </p>
         </div>
 
         <div>
-          <label className="block text-sm font-normal text-text mb-1">Document Reference</label>
+          <label className="block text-sm font-normal text-text mb-1">
+            Proof of Address Document <span className="text-danger">*</span>
+          </label>
+          <select
+            value={verifyData.addressDocumentType}
+            onChange={e =>
+              setVerifyData(prev => ({
+                ...prev,
+                addressDocumentType: e.target.value as VerifyClientRequest['addressDocumentType'],
+              }))
+            }
+            className="w-full px-4 py-2 bg-background-light rounded-lg text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            disabled={isVerifying}
+          >
+            {PROOF_OF_ADDRESS_TYPES.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-normal text-text mb-1">
+            Upload Proof of Address <span className="text-danger">*</span>
+          </label>
           <input
-            type="text"
-            placeholder="Optional scan/document reference ID"
-            value={verifyData.documentRef || ''}
-            onChange={e => setVerifyData({ ...verifyData, documentRef: e.target.value })}
-            className="w-full px-4 py-2 bg-background-light  rounded-lg text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            type="file"
+            accept="image/*,application/pdf"
+            onChange={e => void handleAddressFileChange(e.target.files?.[0] ?? null)}
+            className="w-full px-4 py-2 bg-background-light rounded-lg text-text text-sm file:mr-3 file:rounded file:border-0 file:bg-primary file:px-3 file:py-1 file:text-sm file:text-white"
             disabled={isVerifying}
           />
+          <p className="text-xs text-text-muted mt-1">
+            {verifyData.addressDocumentRef || 'No file chosen'}
+          </p>
         </div>
 
         <div className="flex space-x-3">
@@ -80,7 +187,7 @@ export function VerificationForm({
             Cancel
           </button>
         </div>
-      </form> */}
+      </form>
     </div>
   )
 }
