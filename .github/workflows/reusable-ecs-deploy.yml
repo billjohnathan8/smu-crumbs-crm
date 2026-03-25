@@ -7,12 +7,15 @@ on:
         description: ECS service folder name under services/backend (user, client, transaction)
         required: true
         type: string
+      ecs_cluster:
+        description: ECS cluster name hosting the service
+        required: false
+        type: string
+        default: backend
     secrets:
       AWS_ROLE_ARN:
         required: true
       AWS_REGION:
-        required: true
-      TF_ECR_REPOSITORY_URLS_JSON:
         required: true
 
     outputs:
@@ -36,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
-      image-uri: ${{ steps.meta.outputs.image_uri }}
+      image-uri: ${{ steps.registry.outputs.image_uri }}
       sha-tag: ${{ steps.meta.outputs.sha_tag }}
       latest-tag: ${{ steps.meta.outputs.latest_tag }}
 
@@ -52,15 +55,14 @@ jobs:
         run: |
           test -n "${{ secrets.AWS_ROLE_ARN }}"
           test -n "${{ secrets.AWS_REGION }}"
-          test -n "${{ secrets.TF_ECR_REPOSITORY_URLS_JSON }}"
+          test -n "${{ inputs.ecs_cluster }}"
 
-      - name: Resolve Terraform metadata and set image metadata
+      - name: Resolve service metadata
         id: meta
         shell: bash
         run: |
           set -euo pipefail
           SERVICE="${{ inputs.service }}"
-          ECR_REPOSITORY_URLS_JSON='${{ secrets.TF_ECR_REPOSITORY_URLS_JSON }}'
 
           case "$SERVICE" in
             user|client|transaction)
@@ -78,20 +80,15 @@ jobs:
             exit 1
           fi
 
-          IMAGE_URI="$(jq -er --arg service "$SERVICE" '.[$service] // empty' <<< "$ECR_REPOSITORY_URLS_JSON")"
-          if [[ -z "$IMAGE_URI" || "$IMAGE_URI" == "null" ]]; then
-            echo "Missing ECR repository URL for service '$SERVICE' in ecr_repository_urls contract"
-            exit 1
-          fi
-
           SHA_TAG="${GITHUB_SHA}"
           LATEST_TAG="latest"
+          ECR_REPOSITORY_NAME="services/${SERVICE}"
 
           {
             echo "working_directory=${WORKING_DIRECTORY}"
-            echo "image_uri=${IMAGE_URI}"
             echo "sha_tag=${SHA_TAG}"
             echo "latest_tag=${LATEST_TAG}"
+            echo "ecr_repository_name=${ECR_REPOSITORY_NAME}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS credentials (OIDC)
@@ -99,6 +96,19 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve ECR image URI and validate repository exists
+        id: registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+          REPOSITORY_NAME="${{ steps.meta.outputs.ecr_repository_name }}"
+          IMAGE_URI="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${REPOSITORY_NAME}"
+
+          aws ecr describe-repositories --repository-names "${REPOSITORY_NAME}" >/dev/null
+
+          echo "image_uri=${IMAGE_URI}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Java 21
         uses: actions/setup-java@v4
@@ -138,19 +148,27 @@ jobs:
         run: |
           docker tag \
             "${{ steps.local_image.outputs.local_image }}" \
-            "${{ steps.meta.outputs.image_uri }}:${{ steps.meta.outputs.sha_tag }}"
+            "${{ steps.registry.outputs.image_uri }}:${{ steps.meta.outputs.sha_tag }}"
           docker tag \
             "${{ steps.local_image.outputs.local_image }}" \
-            "${{ steps.meta.outputs.image_uri }}:${{ steps.meta.outputs.latest_tag }}"
+            "${{ steps.registry.outputs.image_uri }}:${{ steps.meta.outputs.latest_tag }}"
 
       - name: Push Docker image tags
         run: |
-          docker push "${{ steps.meta.outputs.image_uri }}:${{ steps.meta.outputs.sha_tag }}"
-          docker push "${{ steps.meta.outputs.image_uri }}:${{ steps.meta.outputs.latest_tag }}"
+          docker push "${{ steps.registry.outputs.image_uri }}:${{ steps.meta.outputs.sha_tag }}"
+          docker push "${{ steps.registry.outputs.image_uri }}:${{ steps.meta.outputs.latest_tag }}"
+
+      - name: Force ECS service deployment
+        run: |
+          aws ecs update-service \
+            --cluster "${{ inputs.ecs_cluster }}" \
+            --service "${{ inputs.service }}" \
+            --force-new-deployment
 
       - name: Deployment summary
         run: |
           echo "Service: ${{ inputs.service }}"
+          echo "Cluster: ${{ inputs.ecs_cluster }}"
           echo "Trivy gate: passed"
-          echo "Image: ${{ steps.meta.outputs.image_uri }}:${{ steps.meta.outputs.sha_tag }}"
-          echo "Also tagged: ${{ steps.meta.outputs.image_uri }}:${{ steps.meta.outputs.latest_tag }}"
+          echo "Image: ${{ steps.registry.outputs.image_uri }}:${{ steps.meta.outputs.sha_tag }}"
+          echo "Also tagged: ${{ steps.registry.outputs.image_uri }}:${{ steps.meta.outputs.latest_tag }}"
