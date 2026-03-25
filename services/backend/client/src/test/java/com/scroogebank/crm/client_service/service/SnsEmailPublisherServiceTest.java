@@ -1,11 +1,8 @@
 package com.scroogebank.crm.client_service.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.scroogebank.crm.client_service.service.SnsEmailPublisherService;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import software.amazon.awssdk.services.sns.SnsClient;
 import software.amazon.awssdk.services.sns.model.PublishRequest;
 import software.amazon.awssdk.services.sns.model.PublishResponse;
@@ -13,16 +10,14 @@ import software.amazon.awssdk.services.sns.model.PublishResponse;
 import java.util.Map;
 
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-@ExtendWith(MockitoExtension.class)
 class SnsEmailPublisherServiceTest {
 
     private static final String TOPIC_ARN = "arn:aws:sns:us-east-1:123456789012:client-verification-topic";
@@ -32,15 +27,12 @@ class SnsEmailPublisherServiceTest {
     private static final String FIRST_NAME = "Jane";
     private static final String REQUEST_ID = "req_test_001";
 
-    @Mock
-    private SnsClient snsClient;
+    private final SnsClient snsClient = mock(SnsClient.class);
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final SnsEmailPublisherService publisher;
 
-    private SnsEmailPublisherService publisher;
-    private ObjectMapper objectMapper = new ObjectMapper();
-
-    @BeforeEach
-    void setUp() {
-        publisher    = new SnsEmailPublisherService(snsClient, objectMapper, TOPIC_ARN);
+    SnsEmailPublisherServiceTest() {
+        publisher = new SnsEmailPublisherService(snsClient, objectMapper, TOPIC_ARN);
 
         when(snsClient.publish(any(PublishRequest.class)))
             .thenReturn(PublishResponse.builder().messageId("mock-sns-message-id").build());
