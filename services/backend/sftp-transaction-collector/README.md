@@ -1,4 +1,4 @@
-# Transaction Ingestion Lambda
+# SFTP Transaction Collector
 
 Scheduled Lambda that drives the official transaction ingestion path in deployed environments:
 
@@ -9,9 +9,9 @@ This Lambda does not use a real SFTP client. It scans an S3 bucket used as the m
 ## Package Artifact
 
 - Terraform artifact path:
-  - `transaction-ingestion-lambda.zip`
+  - `sftp-transaction-collector.zip`
 - Root Terraform default:
-  - `transaction_ingestion_lambda_zip_path = ../../services/backend/transaction-ingestion-lambda/transaction-ingestion-lambda.zip`
+  - `sftp_transaction_collector_zip_path = ../../services/backend/sftp-transaction-collector/sftp-transaction-collector.zip`
 
 ## Environment Variables
 

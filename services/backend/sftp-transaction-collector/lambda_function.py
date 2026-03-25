@@ -1,5 +1,5 @@
 """
-Scheduled transaction ingestion Lambda.
+SFTP Transaction Collector Lambda.
 
 Flow:
 1. Triggered by EventBridge schedule.
@@ -14,8 +14,10 @@ Environment variables:
     TRANSACTION_IMPORT_URL      Required. Full URL for POST /api/transactions/import.
     TRANSACTION_IMPORT_AUTH_HEADER Optional. Full Authorization header.
     TRANSACTION_IMPORT_BEARER_TOKEN Optional. Bearer token fallback.
-    TRANSACTION_IMPORT_JWT_HMAC_SECRET Optional. Inline JWT HMAC secret for service JWT minting.
-    TRANSACTION_IMPORT_JWT_HMAC_SECRET_ARN Optional. Secrets Manager ARN for service JWT minting.
+    TRANSACTION_IMPORT_JWT_HMAC_SECRET Optional. Inline JWT HMAC secret
+        for service JWT minting.
+    TRANSACTION_IMPORT_JWT_HMAC_SECRET_ARN Optional. Secrets Manager ARN
+        for service JWT minting.
     JWT_HMAC_SECRET_ARN         Fallback JWT secret ARN.
 """
 
