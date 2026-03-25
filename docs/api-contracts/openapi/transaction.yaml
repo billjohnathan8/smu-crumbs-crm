@@ -10,7 +10,7 @@ info:
     Transaction table.
     This API supports viewing transactions and triggering imports.
     In runtime, ingestion can be triggered manually, by the transaction-service
-    scheduler, or by the transaction-ingestion Lambda calling this API.
+    scheduler, or by the sftp-transaction-collector Lambda calling this API.
 
     Appendix 2 (Transaction attributes) requires:
     - ID

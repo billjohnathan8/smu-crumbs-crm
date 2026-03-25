@@ -87,7 +87,7 @@ Canonical Terraform env profiles:
 | `enable_ecs_container_insights` | `false` | `false` | `false` | `false` |
 | `enable_log_lambda` | `true` | `true` | `false` | `true` |
 | `enable_aml_lambda` | `false` | `false` | `false` | `false` |
-| `enable_transaction_ingestion_lambda` | `true` | `true` | `false` | `true` |
+| `enable_sftp_transaction_collector` | `true` | `true` | `false` | `true` |
 | `enable_waf` | `false` | `false` | `false` | `false` |
 | `enable_cloudfront` | `false` | `true` | `false` | `true` |
 | `enable_cloudfront_oac` | `false` | `true` | `false` | `true` |

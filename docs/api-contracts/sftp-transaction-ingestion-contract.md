@@ -5,7 +5,7 @@
 The official transaction ingestion path for this repository is:
 
 1. Source files are dropped in an S3 bucket (mock ingestion transport).
-2. Scheduled `transaction-ingestion` Lambda scans the bucket and selects a CSV object.
+2. Scheduled `sftp-transaction-collector` Lambda scans the bucket and selects a CSV object.
 3. Lambda calls `POST /api/transactions/import` with `{"sourcePath":"s3://<bucket>/<key>"}`.
 4. Transaction service reads the S3 object and imports rows into its transaction store.
 
