@@ -87,7 +87,10 @@ class TestModuleA_OutlierFlagged:
     def test_non_outlier_transactions_not_flagged(
         self, transactions_outlier, historical_repo_outlier
     ):
-        """Only the extreme outlier transaction should appear; the ~$200 ones must not."""
+        """Only the extreme outlier transaction should appear.
+
+        The ~$200 ones must not.
+        """
         alerts = detect_statistical_outliers(
             transactions_outlier, historical_repo_outlier
         )
@@ -133,8 +136,12 @@ class TestModuleA_ThinHistoryFallback:
     """When a client has < MIN_HISTORY_TRANSACTIONS samples, use global baseline."""
 
     def test_fallback_to_global_baseline(self):
-        """A client with no history should still be checked against the global std."""
-        # Build a batch where one client has nothing suspicious and one has a massive spike
+        """A client with no history should still be checked.
+
+        Uses the global std as fallback.
+        """
+        # Build a batch where one client has nothing suspicious
+        # and one has a massive spike
         normal_txns = [
             make_deposit(
                 f"G{i}", "CLIENT_GLOBAL", float(1000 + i * 10), date(2026, 1, i + 1)

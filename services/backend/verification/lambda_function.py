@@ -10,10 +10,14 @@ Environment variables:
     LOG_API_BASE_URL                        Required. Base URL for log API.
     VERIFICATION_LOG_AUTH_HEADER            Optional. Full Authorization header.
     VERIFICATION_LOG_BEARER_TOKEN           Optional. Bearer token fallback.
-    VERIFICATION_JWT_HMAC_SECRET            Optional. Inline JWT HMAC secret for service JWT minting.
-    VERIFICATION_JWT_HMAC_SECRET_ARN        Optional. Secrets Manager ARN for service JWT minting.
-    JWT_HMAC_SECRET_ARN                     Optional fallback secret ARN.
-    VERIFICATION_JWT_SUB                    Optional JWT subject (default: SYSTEM_VERIFICATION_FEEDBACK).
+    VERIFICATION_JWT_HMAC_SECRET
+        Optional. Inline JWT HMAC secret for service JWT minting.
+    VERIFICATION_JWT_HMAC_SECRET_ARN
+        Optional. Secrets Manager ARN for service JWT minting.
+    JWT_HMAC_SECRET_ARN
+        Optional fallback secret ARN.
+    VERIFICATION_JWT_SUB
+        Optional JWT subject (default: SYSTEM_VERIFICATION_FEEDBACK).
     VERIFICATION_JWT_ROLE                   Optional JWT role (default: admin).
     VERIFICATION_JWT_TTL_SECONDS            Optional token TTL seconds (default: 300).
 """
@@ -157,7 +161,8 @@ def _update_communication_feedback(
     error_message: str | None,
 ) -> tuple[int, str]:
     encoded_provider_message_id = urllib.parse.quote(provider_message_id, safe="")
-    url = f"{log_api_base_url.rstrip('/')}/api/communications/provider/{encoded_provider_message_id}/status"
+    base = log_api_base_url.rstrip("/")
+    url = f"{base}/api/communications" f"/provider/{encoded_provider_message_id}/status"
     body = {
         "status": _status_for_event(event_type),
         "deliveryEvent": event_type,
@@ -210,7 +215,9 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                 error_message,
             )
             logger.info(
-                "Updated communication from SES feedback providerMessageId=%s eventType=%s status=%s body=%s",
+                "Updated communication from SES feedback "
+                "providerMessageId=%s eventType=%s "
+                "status=%s body=%s",
                 provider_message_id,
                 event_type,
                 status_code,

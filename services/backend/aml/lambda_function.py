@@ -30,8 +30,10 @@ Environment variables (production):
     CRM_API_BEARER_TOKEN - Optional bearer token fallback for outbound calls
     CRM_API_JWT_HMAC_SECRET_ARN - Optional Secrets Manager ARN used to mint service JWTs
     JWT_HMAC_SECRET_ARN - Fallback secret ARN for service JWT minting
-    CRM_CLIENT_ACCOUNTS_PATH_TEMPLATE - Optional path template for client accounts lookup
-    CRM_CLIENT_TRANSACTIONS_PATH_TEMPLATE - Optional path template for client transactions lookup
+    CRM_CLIENT_ACCOUNTS_PATH_TEMPLATE - Optional path template for
+        client accounts lookup
+    CRM_CLIENT_TRANSACTIONS_PATH_TEMPLATE - Optional path template
+        for client transactions lookup
     CRM_AML_ALERTS_PATH - Optional override for AML alert write endpoint
     CRM_LOGS_PATH       - Optional override for audit log write endpoint
 """
@@ -447,7 +449,10 @@ class AccountRepository:
 
 
 class HistoricalTransactionRepository:
-    """Production historical transaction repository — queries the CRM history endpoint."""
+    """Production historical transaction repository.
+
+    Queries the CRM history endpoint.
+    """
 
     def __init__(self) -> None:
         self._base_url = os.environ["CRM_API_BASE_URL"].rstrip("/")
@@ -698,7 +703,8 @@ def detect_structuring(transactions: list[Transaction]) -> list[AMLAlert]:
     Logic:
       For each client, scan their deposits for windows of STRUCTURING_WINDOW_DAYS
       days where:
-        - Each individual deposit is within [STRUCTURING_MIN_AMOUNT, STRUCTURING_THRESHOLD)
+        - Each individual deposit is within
+          [STRUCTURING_MIN_AMOUNT, STRUCTURING_THRESHOLD)
         - The cumulative total for the window >= STRUCTURING_THRESHOLD
 
     A sliding-window approach is used: for each deposit (anchor), all

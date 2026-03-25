@@ -409,7 +409,11 @@ class TestSFTPClient:
         client = SFTPClient()
         mock_boto3 = MagicMock()
         mock_boto3.client.return_value.get_secret_value.return_value = {
-            "SecretString": "-----BEGIN RSA PRIVATE KEY-----\ntest\n-----END RSA PRIVATE KEY-----"
+            "SecretString": (
+                "-----BEGIN RSA PRIVATE KEY-----"
+                "\ntest\n"
+                "-----END RSA PRIVATE KEY-----"
+            )
         }
         with patch.dict("sys.modules", {"boto3": mock_boto3}):
             key = client._fetch_key()

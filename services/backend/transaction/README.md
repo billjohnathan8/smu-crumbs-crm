@@ -15,7 +15,7 @@ The only supported ingestion transport is:
    - explicit `s3://bucket/key`, or
    - configured S3 default bucket (`TRANSACTION_IMPORT_S3_BUCKET`) + relative key.
 2. Optional polling scheduler (`TRANSACTION_SFTP_POLL_ENABLED=true`) lists CSV files and calls the same import API internally.
-3. In Terraform-managed environments, the scheduled `transaction-ingestion` Lambda selects a CSV object from S3 and calls this API with `sourcePath=s3://...`.
+3. In Terraform-managed environments, the scheduled `sftp-transaction-collector` Lambda selects a CSV object from S3 and calls this API with `sourcePath=s3://...`.
 
 Not supported:
 - Real SFTP host/user/password/private-key transport.
