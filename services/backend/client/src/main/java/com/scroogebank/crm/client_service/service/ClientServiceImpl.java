@@ -30,14 +30,6 @@ import com.scroogebank.crm.client_service.security.UnauthorizedException;
 import com.scroogebank.crm.client_service.util.IdCodec;
 
 import java.time.Instant;
-import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
-import java.util.StringJoiner;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Default client service implementation with ownership checks and audit logging.
@@ -346,8 +338,6 @@ public class ClientServiceImpl implements ClientService {
 		long dbId = decodeClientId(clientId);
 		ClientEntity entity = clientRepository.findById(dbId)
         	.orElseThrow(() -> new ClientNotFoundException(clientId));
-		IdentityVerificationStatus before = entity.getIdentityVerificationStatus();
-
 		// Upload documents to S3
 		String primaryKey = documentStorageService.upload(
 			clientId,
