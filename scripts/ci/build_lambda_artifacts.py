@@ -31,8 +31,8 @@ ARTIFACT_SPECS = [
         "include_app": False,
     },
     {
-        "service_dir": ROOT_DIR / "services" / "backend" / "transaction-ingestion-lambda",
-        "zip_name": "transaction-ingestion-lambda.zip",
+        "service_dir": ROOT_DIR / "services" / "backend" / "sftp-transaction-collector",
+        "zip_name": "sftp-transaction-collector.zip",
         "packages": ["boto3==1.39.9"],
         "include_app": False,
     },

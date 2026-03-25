@@ -41,8 +41,8 @@ LOG_HTTP_API_STAGE="local"
 LOG_LAMBDA_RUNTIME="${LOG_LAMBDA_RUNTIME:-python3.12}"
 VERIFICATION_LAMBDA_FUNCTION_NAME="scroogebank-crm-dev-verification"
 VERIFICATION_LAMBDA_RUNTIME="${VERIFICATION_LAMBDA_RUNTIME:-python3.12}"
-TRANSACTION_INGESTION_LAMBDA_FUNCTION_NAME="scroogebank-crm-dev-transaction-ingestion"
-TRANSACTION_INGESTION_LAMBDA_RUNTIME="${TRANSACTION_INGESTION_LAMBDA_RUNTIME:-python3.12}"
+SFTP_TRANSACTION_COLLECTOR_FUNCTION_NAME="scroogebank-crm-dev-sftp-transaction-collector"
+SFTP_TRANSACTION_COLLECTOR_RUNTIME="${SFTP_TRANSACTION_COLLECTOR_RUNTIME:-python3.12}"
 VERIFICATION_SNS_TOPIC_NAME="scroogebank-crm-dev-verification"
 export VERIFICATION_EMAIL_PROVIDER="${VERIFICATION_EMAIL_PROVIDER:-mock}"
 export SES_SENDER_EMAIL="${SES_SENDER_EMAIL:-verification@crm.local}"
@@ -446,14 +446,14 @@ PY
   fi
 }
 
-package_transaction_ingestion_lambda() {
-  local package_dir="${LOG_DIR}/transaction-ingestion-lambda-package"
-  local zip_path="${LOG_DIR}/transaction-ingestion-lambda.zip"
+package_sftp_transaction_collector() {
+  local package_dir="${LOG_DIR}/sftp-transaction-collector-package"
+  local zip_path="${LOG_DIR}/sftp-transaction-collector.zip"
 
   rm -rf "${package_dir}" "${zip_path}"
   mkdir -p "${package_dir}"
 
-  cp "${ROOT_DIR}/services/backend/transaction-ingestion-lambda/lambda_function.py" "${package_dir}/"
+  cp "${ROOT_DIR}/services/backend/sftp-transaction-collector/lambda_function.py" "${package_dir}/"
 
   if command -v zip >/dev/null 2>&1; then
     (
@@ -668,8 +668,8 @@ deploy_verification_feedback_lambda() {
     >/dev/null 2>&1 || true
 }
 
-deploy_transaction_ingestion_lambda() {
-  local zip_path="${LOG_DIR}/transaction-ingestion-lambda.zip"
+deploy_sftp_transaction_collector() {
+  local zip_path="${LOG_DIR}/sftp-transaction-collector.zip"
   local zip_arg="fileb://${zip_path}"
   local env_vars="Variables={TRANSACTION_SFTP_BUCKET=scroogebank-crm-dev-transaction-sftp,TRANSACTION_SFTP_PREFIX=incoming/,TRANSACTION_IMPORT_URL=http://transaction-service:8080/api/transactions/import,TRANSACTION_IMPORT_JWT_HMAC_SECRET=dev-only-insecure-secret,TRANSACTION_IMPORT_JWT_SUB=SYSTEM_TRANSACTION_INGESTION,TRANSACTION_IMPORT_JWT_ROLE=admin,TRANSACTION_IMPORT_JWT_TTL_SECONDS=300}"
 
@@ -685,23 +685,23 @@ deploy_transaction_ingestion_lambda() {
     fi
   fi
 
-  if aws_local lambda get-function --function-name "${TRANSACTION_INGESTION_LAMBDA_FUNCTION_NAME}" >/dev/null 2>&1; then
+  if aws_local lambda get-function --function-name "${SFTP_TRANSACTION_COLLECTOR_FUNCTION_NAME}" >/dev/null 2>&1; then
     aws_local lambda update-function-code \
-      --function-name "${TRANSACTION_INGESTION_LAMBDA_FUNCTION_NAME}" \
+      --function-name "${SFTP_TRANSACTION_COLLECTOR_FUNCTION_NAME}" \
       --zip-file "${zip_arg}" \
       >/dev/null
     aws_local lambda update-function-configuration \
-      --function-name "${TRANSACTION_INGESTION_LAMBDA_FUNCTION_NAME}" \
+      --function-name "${SFTP_TRANSACTION_COLLECTOR_FUNCTION_NAME}" \
       --handler lambda_function.lambda_handler \
-      --runtime "${TRANSACTION_INGESTION_LAMBDA_RUNTIME}" \
+      --runtime "${SFTP_TRANSACTION_COLLECTOR_RUNTIME}" \
       --timeout 30 \
       --memory-size 256 \
       --environment "${env_vars}" \
       >/dev/null
   else
     aws_local lambda create-function \
-      --function-name "${TRANSACTION_INGESTION_LAMBDA_FUNCTION_NAME}" \
-      --runtime "${TRANSACTION_INGESTION_LAMBDA_RUNTIME}" \
+      --function-name "${SFTP_TRANSACTION_COLLECTOR_FUNCTION_NAME}" \
+      --runtime "${SFTP_TRANSACTION_COLLECTOR_RUNTIME}" \
       --handler lambda_function.lambda_handler \
       --zip-file "${zip_arg}" \
       --role arn:aws:iam::000000000000:role/lambda-role \
@@ -715,7 +715,7 @@ deploy_transaction_ingestion_lambda() {
     local state
     state="$(
       aws_local lambda get-function-configuration \
-        --function-name "${TRANSACTION_INGESTION_LAMBDA_FUNCTION_NAME}" \
+        --function-name "${SFTP_TRANSACTION_COLLECTOR_FUNCTION_NAME}" \
         --query "State" \
         --output text 2>/dev/null || true
     )"
@@ -932,8 +932,8 @@ package_log_lambda &
 lambda_package_pid=$!
 package_verification_lambda &
 verification_lambda_package_pid=$!
-package_transaction_ingestion_lambda &
-transaction_ingestion_lambda_package_pid=$!
+package_sftp_transaction_collector &
+sftp_transaction_collector_package_pid=$!
 
 wait_for_jobs \
   "${infra_pid}" "base-infra-up (postgres + localstack)" \
@@ -942,7 +942,7 @@ wait_for_jobs \
   "${transaction_build_pid}" "bootJar-transaction" \
   "${lambda_package_pid}" "package-log-lambda" \
   "${verification_lambda_package_pid}" "package-verification-lambda" \
-  "${transaction_ingestion_lambda_package_pid}" "package-transaction-ingestion-lambda"
+  "${sftp_transaction_collector_package_pid}" "package-sftp-transaction-collector"
 end_phase
 
 # --------------------------------------------------------------------------
@@ -990,7 +990,7 @@ provision_log_http_api
 echo "Deploying verification feedback Lambda + SNS subscription..."
 deploy_verification_feedback_lambda
 echo "Deploying transaction ingestion Lambda..."
-deploy_transaction_ingestion_lambda
+deploy_sftp_transaction_collector
 wait_for_http "${LOG_SERVICE_PUBLIC_URL}/health" "log-service-lambda"
 end_phase
 
@@ -1377,7 +1377,7 @@ done
   exit 1
 }
 
-echo "  Smoke: transaction-ingestion Lambda -> transaction-service import API"
+echo "  Smoke: sftp-transaction-collector Lambda -> transaction-service import API"
 TX_INGESTION_LAMBDA_CLIENT_ID="clt_s3_ci_ingestion_lambda"
 TX_INGESTION_LAMBDA_KEY="incoming/ci-ingestion-lambda-${RUN_ID}.csv"
 TX_INGESTION_LAMBDA_FILE="${LOG_DIR}/ci-ingestion-lambda.csv"
@@ -1388,7 +1388,7 @@ CSV
 
 aws_local_s3_put_object "scroogebank-crm-dev-transaction-sftp" "${TX_INGESTION_LAMBDA_KEY}" "${TX_INGESTION_LAMBDA_FILE}"
 
-TX_INGESTION_LAMBDA_INVOKE_OUTPUT="${LOG_DIR}/transaction-ingestion-lambda-invoke.json"
+TX_INGESTION_LAMBDA_INVOKE_OUTPUT="${LOG_DIR}/sftp-transaction-collector-invoke.json"
 TX_INGESTION_LAMBDA_INVOKE_OUTPUT_ARG="${TX_INGESTION_LAMBDA_INVOKE_OUTPUT}"
 if [[ "${AWS_IS_WINDOWS}" == "true" ]]; then
   if command -v cygpath >/dev/null 2>&1; then
@@ -1399,7 +1399,7 @@ if [[ "${AWS_IS_WINDOWS}" == "true" ]]; then
 fi
 
 aws_local lambda invoke \
-  --function-name "${TRANSACTION_INGESTION_LAMBDA_FUNCTION_NAME}" \
+  --function-name "${SFTP_TRANSACTION_COLLECTOR_FUNCTION_NAME}" \
   --cli-binary-format raw-in-base64-out \
   --payload '{}' \
   "${TX_INGESTION_LAMBDA_INVOKE_OUTPUT_ARG}" \
@@ -1411,8 +1411,8 @@ import json, os
 payload = json.loads(os.environ["TX_INGESTION_LAMBDA_INVOKE_JSON"])
 status_code = int(payload.get("statusCode", 0))
 if status_code not in (200, 202):
-    raise SystemExit(f"transaction-ingestion lambda returned unexpected statusCode={status_code}")
-print("  [OK] transaction-ingestion lambda invoked transaction import API")
+    raise SystemExit(f"sftp-transaction-collector lambda returned unexpected statusCode={status_code}")
+print("  [OK] sftp-transaction-collector lambda invoked transaction import API")
 PY
 
 LAMBDA_IMPORT_APPLIED=false
@@ -1432,13 +1432,13 @@ if len(rows) >= 1:
 raise SystemExit(1)
 PY
     LAMBDA_IMPORT_APPLIED=true
-    echo "  [OK] transaction-ingestion lambda path imported transaction rows"
+    echo "  [OK] sftp-transaction-collector lambda path imported transaction rows"
     break
   fi
   sleep 2
 done
 [[ "${LAMBDA_IMPORT_APPLIED}" == "true" ]] || {
-  echo "  [FAIL] transaction-ingestion lambda did not import transaction rows" >&2
+  echo "  [FAIL] sftp-transaction-collector lambda did not import transaction rows" >&2
   exit 1
 }
 

@@ -203,15 +203,15 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
         # -- Python pip installs: sequential (shared site-packages) --
         log_dir = services_backend / "log"
         aml_dir = services_backend / "aml"
-        transaction_ingestion_lambda_dir = (
-            services_backend / "transaction-ingestion-lambda"
+        sftp_transaction_collector_dir = (
+            services_backend / "sftp-transaction-collector"
         )
         verification_dir = services_backend / "verification"
 
         for label, svc_dir in [
             ("log", log_dir),
             ("aml", aml_dir),
-            ("transaction-ingestion-lambda", transaction_ingestion_lambda_dir),
+            ("sftp-transaction-collector", sftp_transaction_collector_dir),
             ("verification", verification_dir),
         ]:
             steps.append(
@@ -228,8 +228,8 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
             ("log", log_dir, ["app", "lambda_function.py", "tests"]),
             ("aml", aml_dir, ["lambda_function.py", "tests"]),
             (
-                "transaction-ingestion-lambda",
-                transaction_ingestion_lambda_dir,
+                "sftp-transaction-collector",
+                sftp_transaction_collector_dir,
                 ["lambda_function.py", "tests"],
             ),
             ("verification", verification_dir, ["lambda_function.py", "tests"]),
@@ -351,7 +351,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                         **_tf_no_aws_env,
                         "TF_VAR_enable_log_lambda": "true",
                         "TF_VAR_enable_aml_lambda": "true",
-                        "TF_VAR_enable_transaction_ingestion_lambda": "true",
+                        "TF_VAR_enable_sftp_transaction_collector": "true",
                         "TF_VAR_enable_verification_pipeline": "true",
                         "TF_VAR_ses_sender_email": "verification@crm.local",
                     },
@@ -556,14 +556,14 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                 command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
             )
         )
-        transaction_ingestion_lambda_dir = (
-            services_backend / "transaction-ingestion-lambda"
+        sftp_transaction_collector_dir = (
+            services_backend / "sftp-transaction-collector"
         )
         steps.append(
             Step(
                 phase=phase,
-                name="Python deps install (transaction-ingestion-lambda test stage)",
-                cwd=transaction_ingestion_lambda_dir,
+                name="Python deps install (sftp-transaction-collector test stage)",
+                cwd=sftp_transaction_collector_dir,
                 command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
             )
         )
@@ -625,8 +625,8 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
         steps.append(
             Step(
                 phase=phase,
-                name="Unit tests (transaction-ingestion-lambda)",
-                cwd=transaction_ingestion_lambda_dir,
+                name="Unit tests (sftp-transaction-collector)",
+                cwd=sftp_transaction_collector_dir,
                 command=[
                     py,
                     "-m",
