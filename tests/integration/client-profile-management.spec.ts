@@ -218,7 +218,7 @@ test.describe("Client Profile Management (Feature 2)", () => {
     expectUnder(Date.now() - startTime, 10000, "Update client profile");
   });
 
-  test("should verify a client identity via API", async ({ request }) => {
+  test("should submit a client verification via API and set pending status", async ({ request }) => {
     const startTime = Date.now();
     const { clientId } = await createClientViaApi(request, baseURL, agentToken);
 
@@ -234,7 +234,7 @@ test.describe("Client Profile Management (Feature 2)", () => {
     };
 
     expect(verifyPayload.clientId).toBe(clientId);
-    expect(verifyPayload.identityVerificationStatus).toBe("verified");
+    expect(verifyPayload.identityVerificationStatus).toBe("pending");
 
     expectUnder(Date.now() - startTime, 10000, "Client identity verification");
   });
