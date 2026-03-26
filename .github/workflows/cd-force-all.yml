@@ -10,7 +10,7 @@ on:
         default: backend
   push:
     branches:
-      -integration
+      - integration
 
 # Ensure that only one full force deployment runs at a time.
 concurrency:
