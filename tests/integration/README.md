@@ -1,128 +1,134 @@
-# Integration Tests
+# Integration Test Inventory (Current)
 
-Full-stack Playwright tests for the Scroogebank CRM platform.
+This folder currently contains 13 spec files and 76 tests.
 
-## Purpose
+Most tests are live fullstack integration tests (UI + real backend APIs via `PLAYWRIGHT_BASE_URL`).
+Exception: `protected-routes.spec.ts` mocks `**/api/**` responses and validates frontend route-guard behavior only.
 
-These tests validate the live stack end-to-end:
-- Frontend UI (React)
-- Backend services (`user`, `client`, `transaction`)
-- Log API contract served through LocalStack API Gateway -> Lambda (no dedicated log container)
-- PostgreSQL and LocalStack infrastructure
+## account-management.spec.ts (5)
+Services/APIs: Auth, User, Client, Account, Log (`/api/auth/login`, `/api/users`, `/api/clients`, `/api/accounts`, `/api/clients/{clientId}/accounts`, `/api/logs`).
 
-Unlike mocked frontend tests in `services/frontend/crm-ui/e2e/`, these tests exercise real service integrations.
+1. `should create a bank account for a client`: API flow is admin login -> create agent -> agent login -> create client -> create account; validates account creation, client linkage, and response shape.
+2. `should list accounts for a specific client`: creates an account then calls `/api/clients/{clientId}/accounts`; validates list scope to the client.
+3. `should retrieve a single account by ID`: creates account then calls `/api/accounts/{accountId}`; validates record lookup and fields.
+4. `should delete a bank account`: creates then deletes account via `/api/accounts/{accountId}`; validates deleted account is no longer retrievable.
+5. `account creation should generate an audit log entry`: creates account then polls `/api/logs?clientId=...`; validates asynchronous CREATE log emission.
 
-## Local Run (Recommended)
+## admin-flows.spec.ts (8)
+Services/APIs: UI-driven auth and user-management flows (indirect backend calls from `/login`, `/admin`, `/admin/users`, `/admin/users/new`).
 
-From the repository root:
+1. `should login as root admin and see admin dashboard`: user flow is root admin login -> dashboard widgets render.
+2. `root admin should navigate to user management page`: root admin login -> open `/admin/users`; validates route and page render.
+3. `root admin should create a new admin`: root admin creates admin user in UI; validates success toast.
+4. `root admin should logout successfully`: root admin logout path from dashboard; validates redirect to login.
+5. `new admin should login and access user management`: newly created admin signs in and accesses `/admin/users`.
+6. `should create a new agent account and verify it appears in the list`: normal admin creates role=`user` account via UI create-user flow.
+7. `normal admin should not be able to create admin role in UI`: normal admin opens create-user page; validates admin role option is hidden.
+8. `admin should logout successfully`: normal admin logout path; validates redirect to login.
 
-```python
-python scripts/pipelines/test_all.py
-```
-or
+## api-error-handling.spec.ts (8)
+Services/APIs: UI-driven auth, authorization, client form, admin pages, transactions; plus browser offline simulation.
 
-```bash
-bash scripts/ci/run-fullstack-integration-e2e.sh
-```
+1. `should handle 401 Unauthorized when auth token expires`: submits bad credentials; validates login failure state/message.
+2. `should handle permission errors when user tries unauthorized actions`: logs in as user then opens `/admin`; validates redirect or access-denied behavior.
+3. `should handle validation errors when submitting invalid data`: user opens create-client and submits empty form; validates required-field errors.
+4. `should handle invalid email format`: user submits invalid client email; validates email format error messaging.
+5. `should handle network errors gracefully when backend is unreachable`: browser set offline before login submit; validates resilient error/login state.
+6. `should handle slow API responses`: admin loads `/admin/accounts`; validates page eventually resolves within timeout.
+7. `should properly display server error messages`: user opens transactions page; validates app shows a valid state (data/empty/error/loading).
+8. `should handle duplicate email validation`: admin attempts create flow using existing email; validates duplicate/conflict handling if form path is present.
 
-The script will:
-1. Build backend artifacts.
-2. Start `postgres` and `localstack`.
-3. Package/deploy all Lambda functions and provision a LocalStack HTTP API.
-4. Start application containers and integration gateway.
-5. Run HTTP smoke checks and this Playwright suite.
-6. Tear down containers on exit.
+## audit-logging.spec.ts (7)
+Services/APIs: Auth, User, Client, Log (`/api/auth/login`, `/api/users`, `/api/clients`, `/api/logs`, `/api/clients/{clientId}/logs`).
 
-## Stack Up Without Tests
+1. `should create a log entry via API`: creates explicit log row with action metadata; validates persisted log payload.
+2. `should retrieve logs filtered by clientId`: calls `/api/logs?clientId=...`; validates filter and pagination contract.
+3. `should retrieve a single log entry by ID`: create then fetch by `/api/logs/{logId}`.
+4. `should update a log entry via API`: create log then admin updates `/api/logs/{logId}`; validates updated fields.
+5. `should delete a log entry via API`: create then delete log; validates 404/410 on follow-up read.
+6. `should retrieve logs for a specific client via /api/clients/{clientId}/logs`: validates client-scoped log endpoint contract.
+7. `client profile create should auto-generate an audit log`: creates client then polls logs; validates system-generated CREATE audit trail.
 
-To spin up the full stack and leave it running (for manual testing, JMeter, etc.) without running any Playwright assertions:
+## client-profile-management.spec.ts (6)
+Services/APIs: Auth, User, Client, Log (`/api/auth/login`, `/api/users`, `/api/clients`, `/api/clients/{id}`, `/api/clients/{id}/verify`, `/api/logs`).
 
-```bash
-bash scripts/dev/stack-up.sh
-```
+1. `agent should create a client profile via UI and receive a client ID`: agent logs in, submits create-client form, and returns to dashboard.
+2. `should retrieve a client profile by ID via API`: create client then fetch `/api/clients/{clientId}`; validates identity fields.
+3. `should update a client profile via API`: create then update `/api/clients/{clientId}`; validates changed profile fields.
+4. `should verify a client identity via API`: calls `/api/clients/{clientId}/verify`; validates verification status transition.
+5. `should delete a client profile via API`: delete via `/api/clients/{clientId}`; validates post-delete unavailability.
+6. `client CRUD operations should generate audit log entries`: create/update client then poll `/api/logs`; validates CREATE and UPDATE audit events.
 
-Tear down:
+## communication-tracking.spec.ts (5)
+Services/APIs: Auth, User, Client, Communication (`/api/auth/login`, `/api/users`, `/api/clients`, `/api/communications`, `/api/clients/{clientId}/communications`, `/api/communications/queued`, `/api/communications/{id}/status`).
 
-```bash
-bash scripts/dev/stack-down.sh
-```
+1. `should create a communication record via API`: agent creates outbound communication linked to client.
+2. `should retrieve a communication by ID`: create then fetch `/api/communications/{communicationId}`.
+3. `should list communications for a specific client`: validates client-scoped communications listing endpoint.
+4. `should list queued communications`: admin queries queued communication workload endpoint.
+5. `should update communication status`: create communication then admin PATCHes status to `sent`.
 
-Then run the Playwright suite against the live stack:
+## forgot-password.spec.ts (2)
+Services/APIs: Auth + test helper (`/api/auth/forgot-password`, `/api/auth/reset-password`, `/api/test/password-reset/latest-token`).
 
-```bash
-cd tests/integration
-npm ci
-PLAYWRIGHT_BASE_URL=http://127.0.0.1:18088 npm test
-```
+1. `should request reset, reset password with token, and login with new password`: UI flow is login -> forgot password -> fetch test token -> reset password -> login with new password.
+2. `should restore original password after reset flow`: repeats reset flow using new password session, then restores original admin password.
 
-## Runtime Snapshot (Latest Local Runs)
+## protected-routes.spec.ts (10, mocked APIs)
+Services/APIs: Frontend route guard with mocked `**/api/**` responses (`/api/users/me`, `/api/users`, `/api/clients`, `/api/transactions`, `/api/logs`).
 
-Measured on `2026-03-26`:
+1. `should redirect unauthenticated user to login when accessing /admin`: validates guard redirect for admin route.
+2. `should redirect unauthenticated user to login when accessing /user`: validates guard redirect for user route.
+3. `should redirect unauthenticated user to login when accessing /admin/accounts`: validates nested admin route guard.
+4. `should redirect unauthenticated user to login when accessing /user/clients/new`: validates nested user route guard.
+5. `should show Access Denied when admin tries to access user routes`: mocked admin session -> `/user`; validates role guard denial UI.
+6. `should show Access Denied when admin tries to access /user/clients/new`: validates admin blocked from user-only create-client route.
+7. `should show Access Denied when user tries to access admin routes`: mocked user session -> `/admin`; validates denial UI.
+8. `should show Access Denied when user tries to access /admin/accounts`: validates denial on nested admin route.
+9. `should allow admin to access admin routes`: mocked admin session can load admin dashboard.
+10. `should allow user to access user routes`: mocked user session can load user dashboard.
 
-| Scope | Command | Observed runtime | Result |
-|---|---|---:|---|
-| Full local pipeline | `python scripts/pipelines/test_all.py` | `902.8s` (~15m 3s) | Passed |
-| Fullstack integration only (`mode=full`) | `bash scripts/ci/run-fullstack-integration-e2e.sh` | `436s` (~7m 16s) | Passed |
-| Fullstack Phase 5 | `Playwright integration E2E` | `77s` (~1m 17s) | Passed |
+## real-fullstack.spec.ts (2)
+Services/APIs: Full cross-service live path across Auth, User, Client, Log, AML, Transactions, plus UI route transitions.
 
-Timing source logs:
-- `build-logs/test-all/last-run-summary.md`
-- Latest fullstack build log output (`[timing] Phase 5: Playwright integration E2E: 77s`, `[timing] total-runtime: 436s (mode=full)`)
+1. `admin can sign in and load manage accounts from live backend`: admin UI login and navigation into admin account-management area.
+2. `user can create client and exercise cross-service APIs without mocks`: API flow is admin login -> create user -> user UI login -> create client via UI -> fetch created client -> verify CREATE audit log -> create AML alert -> review AML alert -> list client transactions -> open transactions UI.
 
-In CI, these runtimes usually increase because of colder caches and shared runners.
+## transaction-management.spec.ts (8)
+Services/APIs: Auth, User, Client, Transaction (`/api/auth/login`, `/api/users`, `/api/clients`, `/api/transactions`, `/api/transactions/{id}`, `/api/clients/{clientId}/transactions`, `/api/transactions/import`).
 
-## Manual Test Run (Stack Already Running)
+1. `should list all transactions via API`: validates paginated `/api/transactions` list contract.
+2. `should list transactions for a specific client`: validates `/api/clients/{clientId}/transactions` contract.
+3. `admin should create a transaction via API`: creates transaction record and validates fields.
+4. `should retrieve a single transaction by ID`: create then read `/api/transactions/{id}`.
+5. `admin should delete a transaction via API`: create -> delete -> verify 404/410 on read.
+6. `agent should view transactions page via UI`: user login and navigation to transactions UI view.
+7. `should filter transactions by status via API`: validates `status` query filtering behavior.
+8. `transaction import endpoint should be accessible to admin`: calls import endpoint and validates endpoint reachability/response.
 
-```bash
-cd tests/integration
-npm ci
-PLAYWRIGHT_BASE_URL=http://127.0.0.1:18088 npm test
-```
+## user-flows.spec.ts (6)
+Services/APIs: UI-driven user flows using live auth/client/transaction-backed pages.
 
-Other commands:
+1. `should login as user and view dashboard`: validates user login and dashboard rendering.
+2. `should display clients and transactions on user dashboard`: user creates client from UI then navigates to transactions page.
+3. `should validate client creation form`: submit empty create-client form; validates required-field errors.
+4. `should display user dashboard stats`: validates dashboard data sections load from backend.
+5. `should navigate to create client page`: validates dashboard -> create-client route navigation.
+6. `should navigate between pages successfully`: validates user route transitions across dashboard/create-client/transactions.
 
-```bash
-npm run test:ui
-npm run test:headed
-npm run test:debug
-npm run report
-```
+## user-logout.spec.ts (3)
+Services/APIs: UI auth/session handling on live routes (`/login`, `/user`, `/user/clients/new`, `/user/transactions`).
 
-## Runtime Endpoints (CI/Script Topology)
+1. `should logout from user dashboard`: login -> dashboard -> logout; validates redirect, localStorage clear, and protected-route lockout.
+2. `should logout from user create client page`: login -> create-client page -> logout; validates redirect and token clear.
+3. `should logout from user transactions page`: login -> transactions page -> logout; validates redirect and token clear.
 
-- Integration gateway (Playwright base URL): `http://127.0.0.1:18088`
-- User service: `http://127.0.0.1:18081`
-- Client service: `http://127.0.0.1:18082`
-- Transaction service: `http://127.0.0.1:18083`
-- Frontend container: `http://127.0.0.1:18085`
-- LocalStack: `http://127.0.0.1:14566`
+## user-management-advanced.spec.ts (6)
+Services/APIs: Auth + User service (`/api/auth/login`, `/api/users`, `/api/users/{id}`, `/api/users/{id}/disable`, `/api/users/me`) plus admin UI page check.
 
-Routing note:
-- The frontend container runs with `FRONTEND_API_UPSTREAM=""` in this stack, so `/api/*` is intentionally owned by `integration-gateway` (`http://127.0.0.1:18088`).
-
-## Test Credentials
-
-- Admin: `admin@crm.local` / `admin123`
-- User: `user@crm.local` / `UserPass123!`
-
-The user account is created during the fullstack script warm-up step.
-
-## CI Integration
-
-Integration E2E runs via `scripts/ci/run-fullstack-integration-e2e.sh` from the reusable workflow:
-- `.github/workflows/reusable-fullstack-integration.yml`
-
-## Troubleshooting
-
-### `ECONNREFUSED` or gateway health failures
-- Ensure `run-fullstack-integration-e2e.sh` completed LocalStack/Lambda provisioning.
-- Check `build-logs/fullstack-integration/docker-compose.log`.
-- Confirm `http://127.0.0.1:18088/health` and `http://127.0.0.1:18088/api/v1/logs/health` respond.
-
-### Authentication failures
-- Verify credentials above.
-- Re-run the fullstack script to reseed/warm up auth state.
-
-### Slow or flaky runs
-- Integration tests are sequential and slower than mocked tests.
-- Ensure Docker has enough CPU/memory allocated.
+1. `should update user information via API`: create user then update profile fields via `/api/users/{id}`.
+2. `should disable a user via API`: create user then disable via `/api/users/{id}/disable`; validates disabled status.
+3. `disabled user should not be able to login`: create+disable user then login attempt; validates 401/403 rejection.
+4. `should delete a non-root user via API`: create then delete user; validates soft-delete or hard-delete behavior.
+5. `root admin must not be deletable`: fetch `/api/users/me`, attempt self-delete, then verify root admin still exists.
+6. `admin should view user management page via UI`: admin login -> `/admin/users`; validates page content/render states.
