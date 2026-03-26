@@ -78,6 +78,13 @@ jobs:
           REPO_SHA="${GITHUB_SHA}"
           NOW_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
+          # --- DEBUG: Print individual source manifests ---
+          echo "--- DEBUG: ECS Source Manifest ---"
+          cat manifests/manifest-ecs.json || echo "ECS file not found"
+          echo -e "\n--- DEBUG: Lambda Source Manifest ---"
+          cat manifests/manifest-lambda.json || echo "Lambda file not found"
+          echo "----------------------------------"
+
           if [[ ! -f manifests/manifest-ecs.json ]]; then
             echo "Missing merged ECS manifest artifact"
             exit 1
@@ -99,6 +106,11 @@ jobs:
               ecs: ($ecs[0].ecs // {}),
               lambda: ($lambda[0].lambda // {})
             }' > manifest.json
+
+          # --- DEBUG: Print the final merged manifest ---
+          echo -e "\n--- DEBUG: Final Merged Manifest ---"
+          cat manifest.json
+          echo "------------------------------------"
 
       - name: Upload merged manifest to S3
         shell: bash
