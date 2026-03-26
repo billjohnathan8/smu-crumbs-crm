@@ -1,4 +1,16 @@
+# Default to LF for all text files.
+* text=auto eol=lf
+
+# Keep common Unix tooling/scripts explicitly LF.
 *.sh text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
 gradlew text eol=lf
+
+# Keep Windows-native scripts in CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Treat archives as binary (no EOL normalization).
+*.zip -text
