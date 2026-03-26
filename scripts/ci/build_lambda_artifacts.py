@@ -48,6 +48,12 @@ ARTIFACT_SPECS = [
         "packages": ["boto3==1.38.21"],
         "include_app": False,
     },
+    {
+        "service_dir": ROOT_DIR / "services" / "backend" / "aml-consumer",
+        "zip_name": "aml-consumer-lambda.zip",
+        "packages": ["boto3==1.38.21"],
+        "include_app": False,
+    },
 ]
 
 
