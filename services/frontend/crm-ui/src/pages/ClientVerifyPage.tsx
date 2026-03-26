@@ -1,4 +1,5 @@
-import { verifyClient, type VerifyClientRequest } from '@/api'
+import { uploadVerificationDocs, type VerifyClientRequest } from '@/api'
+import { ApiError } from '@/api/client'
 import { useState, useEffect, type FormEvent } from 'react'
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024 // 5 MB
@@ -126,17 +127,19 @@ export function ClientVerifyPage() {
         addressDocumentMimeType: proofOfAddress.file!.type,
       }
 
-      try {
-        await verifyClient(clientId, body)
-        setMessage({
-          type: 'success',
-          text: 'Documents uploaded and verification requested. Thank you.',
-        })
-      } catch {
-        return
+      await uploadVerificationDocs(clientId, body)
+      setMessage({
+        type: 'success',
+        text: 'Documents uploaded and verification requested. Thank you.',
+      })
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setMessage({ type: 'error', text: error.message || 'Upload failed. Please try again.' })
+      } else {
+        setMessage({ type: 'error', text: 'Upload failed. Please try again.' })
       }
     } finally {
-      setMessage({ type: 'error', text: 'Upload failed. Please try again.' })
+      setIsLoading(false)
     }
   }
 

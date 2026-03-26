@@ -81,6 +81,20 @@ export async function verifyClient(
 }
 
 /**
+ * Upload verification documents from public verify link flow (no bearer auth).
+ */
+export async function uploadVerificationDocs(
+  clientId: string,
+  data: VerifyClientRequest
+): Promise<VerifyClientResponse> {
+  return apiPost<VerifyClientResponse, VerifyClientRequest>(
+    `${CLIENTS_BASE}/${clientId}/upload-verify`,
+    data,
+    { skipAuth: true }
+  )
+}
+
+/**
  * Review a pending verification (admin only — approve or reject)
  */
 export async function reviewVerification(
