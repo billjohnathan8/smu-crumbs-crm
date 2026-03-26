@@ -242,7 +242,7 @@ test.describe("Transaction Management (Feature 4)", () => {
     await loginViaUi(page, agentEmail, USER_PASSWORD, "/user");
     await expect(page.getByRole("heading", { name: "User Dashboard" })).toBeVisible();
 
-    await page.getByRole("link", { name: "View Transactions" }).click();
+    await page.getByRole("link", { name: "Transactions" }).first().click();
     await expect(page).toHaveURL(/\/user\/transactions$/);
     await expect(page.getByRole("heading", { name: "Transactions" })).toBeVisible();
 
