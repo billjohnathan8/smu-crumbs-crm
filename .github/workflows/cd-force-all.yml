@@ -95,7 +95,7 @@ jobs:
             exit 1
           fi
 
-          jq \
+          jq -n \
             --arg repo_sha "${REPO_SHA}" \
             --arg created_at "${NOW_UTC}" \
             --slurpfile ecs manifests/manifest-ecs.json \
