@@ -1,9 +1,7 @@
 # Integration Test Inventory (Current)
 
-This folder currently contains 13 spec files and 76 tests.
-
-Most tests are live fullstack integration tests (UI + real backend APIs via `PLAYWRIGHT_BASE_URL`).
-Exception: `protected-routes.spec.ts` mocks `**/api/**` responses and validates frontend route-guard behavior only.
+This folder contains the Playwright live fullstack integration specs (UI + real backend APIs via `PLAYWRIGHT_BASE_URL`).
+Mocked protected-route coverage is maintained in `services/frontend/crm-ui/e2e/auth/protected-routes.spec.ts`.
 
 ## account-management.spec.ts (5)
 Services/APIs: Auth, User, Client, Account, Log (`/api/auth/login`, `/api/users`, `/api/clients`, `/api/accounts`, `/api/clients/{clientId}/accounts`, `/api/logs`).
@@ -73,20 +71,6 @@ Services/APIs: Auth + test helper (`/api/auth/forgot-password`, `/api/auth/reset
 
 1. `should request reset, reset password with token, and login with new password`: UI flow is login -> forgot password -> fetch test token -> reset password -> login with new password.
 2. `should restore original password after reset flow`: repeats reset flow using new password session, then restores original admin password.
-
-## protected-routes.spec.ts (10, mocked APIs)
-Services/APIs: Frontend route guard with mocked `**/api/**` responses (`/api/users/me`, `/api/users`, `/api/clients`, `/api/transactions`, `/api/logs`).
-
-1. `should redirect unauthenticated user to login when accessing /admin`: validates guard redirect for admin route.
-2. `should redirect unauthenticated user to login when accessing /user`: validates guard redirect for user route.
-3. `should redirect unauthenticated user to login when accessing /admin/accounts`: validates nested admin route guard.
-4. `should redirect unauthenticated user to login when accessing /user/clients/new`: validates nested user route guard.
-5. `should show Access Denied when admin tries to access user routes`: mocked admin session -> `/user`; validates role guard denial UI.
-6. `should show Access Denied when admin tries to access /user/clients/new`: validates admin blocked from user-only create-client route.
-7. `should show Access Denied when user tries to access admin routes`: mocked user session -> `/admin`; validates denial UI.
-8. `should show Access Denied when user tries to access /admin/accounts`: validates denial on nested admin route.
-9. `should allow admin to access admin routes`: mocked admin session can load admin dashboard.
-10. `should allow user to access user routes`: mocked user session can load user dashboard.
 
 ## real-fullstack.spec.ts (2)
 Services/APIs: Full cross-service live path across Auth, User, Client, Log, AML, Transactions, plus UI route transitions.
