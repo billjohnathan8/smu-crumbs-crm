@@ -18,6 +18,7 @@ import {
   type APIResponse,
   type Page,
 } from "@playwright/test";
+import { authHeaders, loginViaApi, refreshViaApi } from "./helpers/apiClient";
 
 const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.local").trim();
 const ADMIN_PASSWORD = (process.env.E2E_ADMIN_PASSWORD ?? "admin123").trim();
@@ -46,6 +47,34 @@ async function loginAsAdmin(request: APIRequestContext, baseURL: string): Promis
   const payload = (await expectOkJson(res, "admin login")) as { accessToken: string };
   expect(payload.accessToken).toBeTruthy();
   return payload.accessToken;
+}
+
+async function createUserAsAdmin(
+  request: APIRequestContext,
+  baseURL: string,
+  adminToken: string,
+  role: "user" | "admin",
+  emailPrefix: string,
+  password: string,
+): Promise<{ id: string; email: string; role: string }> {
+  const email = `${emailPrefix}-${uniqueSuffix()}@example.com`;
+  const createRes = await request.post(`${baseURL}/api/users`, {
+    headers: authHeaders(adminToken),
+    data: {
+      firstName: role === "admin" ? "Admin" : "User",
+      lastName: "Contract",
+      email,
+      role,
+      sendInviteEmail: false,
+      temporaryPassword: password,
+    },
+  });
+
+  return (await expectOkJson(createRes, `create ${role} user ${email}`)) as {
+    id: string;
+    email: string;
+    role: string;
+  };
 }
 
 async function loginViaUi(page: Page, email: string, password: string, expectedPath: string): Promise<void> {
@@ -227,6 +256,167 @@ test.describe("User Management Advanced (Feature 1)", () => {
     expect(verifyPayload.id).toBe(me.id);
 
     expectUnder(Date.now() - startTime, 10000, "Root admin delete protection");
+  });
+
+  test("should enforce refresh-token rotation lifecycle and reject replay", async ({ request }) => {
+    const createdUser = await createUserAsAdmin(
+      request,
+      baseURL,
+      adminToken,
+      "user",
+      "refresh-contract-user",
+      USER_PASSWORD,
+    );
+
+    const loginTokens = await loginViaApi(request, baseURL, createdUser.email, USER_PASSWORD);
+    expect(loginTokens.refreshToken, "login must return refreshToken").toBeTruthy();
+    const refreshToken1 = loginTokens.refreshToken as string;
+
+    const refreshedTokens = await refreshViaApi(request, baseURL, refreshToken1);
+    expect(refreshedTokens.refreshToken, "refresh must return rotated refreshToken").toBeTruthy();
+    expect(refreshedTokens.refreshToken).not.toBe(refreshToken1);
+
+    const replayRes = await request.post(`${baseURL}/api/auth/refresh`, {
+      data: { refreshToken: refreshToken1 },
+    });
+    expect(replayRes.status(), "replaying refreshToken_1 must be rejected").toBe(401);
+
+    const protectedRes = await request.get(`${baseURL}/api/users/me`, {
+      headers: authHeaders(refreshedTokens.accessToken),
+    });
+    const me = (await expectOkJson(protectedRes, "get /api/users/me with refreshed token")) as {
+      id: string;
+      email: string;
+    };
+    expect(me.id).toBe(createdUser.id);
+    expect(me.email).toBe(createdUser.email);
+  });
+
+  test("should enforce admin reset-password revocation and root/self reset guards", async ({
+    request,
+  }) => {
+    const targetUser = await createUserAsAdmin(
+      request,
+      baseURL,
+      adminToken,
+      "user",
+      "reset-target-user",
+      USER_PASSWORD,
+    );
+    const targetLogin = await loginViaApi(request, baseURL, targetUser.email, USER_PASSWORD);
+    expect(targetLogin.refreshToken, "target login must return refreshToken").toBeTruthy();
+    const targetRefreshToken = targetLogin.refreshToken as string;
+
+    const resetTargetRes = await request.post(`${baseURL}/api/users/${targetUser.id}/reset-password`, {
+      headers: authHeaders(adminToken),
+      data: { email: targetUser.email },
+    });
+    expect(resetTargetRes.status(), "admin reset-password should return 202").toBe(202);
+
+    const targetRefreshAfterResetRes = await request.post(`${baseURL}/api/auth/refresh`, {
+      data: { refreshToken: targetRefreshToken },
+    });
+    expect(
+      targetRefreshAfterResetRes.status(),
+      "old refresh token must fail after admin reset-password",
+    ).toBe(401);
+
+    const resetRootRes = await request.post(`${baseURL}/api/users/usr_1/reset-password`, {
+      headers: authHeaders(adminToken),
+      data: { email: ADMIN_EMAIL },
+    });
+    expect(resetRootRes.status(), "reset-password on usr_1 must be forbidden").toBe(403);
+
+    const delegatedAdminPassword = "AdminResetSelf123!";
+    const delegatedAdmin = await createUserAsAdmin(
+      request,
+      baseURL,
+      adminToken,
+      "admin",
+      "reset-self-admin",
+      delegatedAdminPassword,
+    );
+    const delegatedAdminLogin = await loginViaApi(
+      request,
+      baseURL,
+      delegatedAdmin.email,
+      delegatedAdminPassword,
+    );
+
+    const selfResetRes = await request.post(`${baseURL}/api/users/${delegatedAdmin.id}/reset-password`, {
+      headers: authHeaders(delegatedAdminLogin.accessToken),
+      data: { email: delegatedAdmin.email },
+    });
+    expect(selfResetRes.status(), "self-reset via admin reset endpoint must be forbidden").toBe(403);
+  });
+
+  test("should enforce role=user contract for user-list permissions", async ({ request }) => {
+    const rootListRes = await request.get(`${baseURL}/api/users`, {
+      headers: authHeaders(adminToken),
+    });
+    expect(rootListRes.status(), "root admin list without role filter should succeed").toBe(200);
+    const rootList = (await expectOkJson(rootListRes, "root admin list users")) as {
+      data: Array<{ id: string; role: string }>;
+    };
+    expect(Array.isArray(rootList.data)).toBeTruthy();
+    expect(rootList.data.length).toBeGreaterThan(0);
+
+    const nonRootAdminPassword = "NonRootListAdmin123!";
+    const nonRootAdmin = await createUserAsAdmin(
+      request,
+      baseURL,
+      adminToken,
+      "admin",
+      "list-contract-admin",
+      nonRootAdminPassword,
+    );
+    const nonRootAdminLogin = await loginViaApi(
+      request,
+      baseURL,
+      nonRootAdmin.email,
+      nonRootAdminPassword,
+    );
+
+    const userPassword = "ListContractUser123!";
+    await createUserAsAdmin(request, baseURL, adminToken, "user", "list-contract-user", userPassword);
+
+    const nonRootUnfilteredRes = await request.get(`${baseURL}/api/users`, {
+      headers: authHeaders(nonRootAdminLogin.accessToken),
+    });
+    expect(
+      nonRootUnfilteredRes.status(),
+      "non-root admin list without role filter should be forbidden",
+    ).toBe(403);
+
+    const nonRootRoleUserRes = await request.get(`${baseURL}/api/users?role=user`, {
+      headers: authHeaders(nonRootAdminLogin.accessToken),
+    });
+    expect(
+      nonRootRoleUserRes.status(),
+      "non-root admin list with role=user should succeed",
+    ).toBe(200);
+    const nonRootRoleUserList = (await expectOkJson(
+      nonRootRoleUserRes,
+      "non-root admin list users with role=user",
+    )) as {
+      data: Array<{ id: string; role: string }>;
+    };
+    expect(nonRootRoleUserList.data.length).toBeGreaterThan(0);
+    expect(nonRootRoleUserList.data.every((user) => user.role === "user")).toBeTruthy();
+
+    const normalUser = await createUserAsAdmin(
+      request,
+      baseURL,
+      adminToken,
+      "user",
+      "list-contract-normal-user",
+      userPassword,
+    );
+    const normalUserLogin = await loginViaApi(request, baseURL, normalUser.email, userPassword);
+    const normalUserListRes = await request.get(`${baseURL}/api/users`, {
+      headers: authHeaders(normalUserLogin.accessToken),
+    });
+    expect(normalUserListRes.status(), "normal user list attempt should be forbidden").toBe(403);
   });
 
   test("admin should view user management page via UI", async ({ page }) => {
