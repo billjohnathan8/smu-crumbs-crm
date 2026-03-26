@@ -51,9 +51,8 @@ class ClientControllerTest {
     private ClientService clientService;
     private RequestAuth requestAuth;
 
-    @SuppressWarnings("removal")
     @BeforeEach
-    void setUp() {
+    public void setUp() {
         clientService = mock(ClientService.class);
         requestAuth = mock(RequestAuth.class);
         when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "user"));

@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,7 +50,7 @@ class PersistentUserStoreTest {
 	private JdbcTemplate jdbcTemplate;
 
 	@BeforeEach
-	void setUp() {
+	public void setUp() {
 		jdbcTemplate.execute("DELETE FROM refresh_tokens");
 		jdbcTemplate.execute("DELETE FROM users");
 		jdbcTemplate.execute("ALTER TABLE refresh_tokens ALTER COLUMN token_id RESTART WITH 1");
@@ -90,7 +90,8 @@ class PersistentUserStoreTest {
 
 		assertFalse(store.isRefreshTokenValid(refreshToken));
 		assertTrue(store.verifyPassword(store.findByEmail("ava@example.com"), "NewPass!123"));
-		assertThrows(IllegalArgumentException.class, () -> store.resetPasswordWithToken(resetToken, "OtherPass!123"));
+		assertThatThrownBy(() -> store.resetPasswordWithToken(resetToken, "OtherPass!123"))
+				.isInstanceOf(IllegalArgumentException.class);
 	}
 
 	@Test
@@ -102,11 +103,9 @@ class PersistentUserStoreTest {
 
 	@Test
 	void rootAdmin_mutatingAdminEndpoints_areForbidden() {
-		assertThrows(
-			AccessDeniedException.class,
-			() -> store.updateUser("usr_1", new UpdateUserRequest("Root", "Admin", "root@example.com", UserRole.admin))
-		);
-		assertThrows(AccessDeniedException.class, () -> store.disableUser("usr_1"));
-		assertThrows(AccessDeniedException.class, () -> store.resetPassword("usr_1"));
+		assertThatThrownBy(() -> store.updateUser("usr_1", new UpdateUserRequest("Root", "Admin", "root@example.com", UserRole.admin)))
+				.isInstanceOf(AccessDeniedException.class);
+		assertThatThrownBy(() -> store.disableUser("usr_1")).isInstanceOf(AccessDeniedException.class);
+		assertThatThrownBy(() -> store.resetPassword("usr_1")).isInstanceOf(AccessDeniedException.class);
 	}
 }
