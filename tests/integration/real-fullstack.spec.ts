@@ -136,9 +136,8 @@ test.describe("Real Fullstack Integration", () => {
     await expect(page.getByRole("heading", { name: "Admin Dashboard" })).toBeVisible();
 
     await page.goto("/admin/accounts");
-    await expect(page).toHaveURL(/\/admin\/accounts$/);
-    await expect(page.getByRole("heading", { name: "Manage Accounts" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "User Accounts" })).toBeVisible();
+    await expect(page).toHaveURL(/\/admin\/users$/);
+    await expect(page.getByRole("heading", { name: "User Management" })).toBeVisible();
   });
 
   test("user can create client and exercise cross-service APIs without mocks", async ({
@@ -154,7 +153,7 @@ test.describe("Real Fullstack Integration", () => {
     await loginViaUi(page, normalUser.email, normalUser.password, "/user");
     await expect(page.getByRole("heading", { name: "User Dashboard" })).toBeVisible();
 
-    await page.locator("main").getByRole("link", { name: "Create Client" }).first().click();
+    await page.getByRole("link", { name: "Create Client" }).first().click();
     await expect(page).toHaveURL(/\/user\/clients\/new$/);
 
     const clientEmail = `integration-client-${uniqueSuffix()}@example.com`;
@@ -222,7 +221,7 @@ test.describe("Real Fullstack Integration", () => {
     expect(Array.isArray(txPayload.data)).toBeTruthy();
     expect(txPayload.pagination).toBeTruthy();
 
-    await page.getByRole("link", { name: "View Transactions" }).click();
+    await page.getByRole("link", { name: "Transactions" }).first().click();
     await expect(page).toHaveURL(/\/user\/transactions$/);
     await expect(page.getByRole("heading", { name: "Transactions" })).toBeVisible();
   });

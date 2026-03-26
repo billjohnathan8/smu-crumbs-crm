@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
-import { useTheme } from '@/features/theme/ThemeContext'
+import { useTheme } from '@/features/theme/useTheme'
 
 export type NavItem = {
   label: string
@@ -44,8 +44,7 @@ export function SidebarLayout({ items, children }: SidebarLayoutProps) {
 
   const linkBase =
     'flex items-center gap-2 rounded-md px-3 py-2 text-md transition-all duration-200 ease-out'
-  const inactive =
-    'text-text hover:bg-background-light hover:scale-[1.01]'
+  const inactive = 'text-text hover:bg-background-light hover:scale-[1.01]'
   const active = 'gradient-dark-red text-white font-medium'
 
   const handleLogout = () => {
@@ -61,13 +60,15 @@ export function SidebarLayout({ items, children }: SidebarLayoutProps) {
             transition-all duration-300 ease-in-out
             ${collapsed ? 'w-0 -translate-x-2 opacity-0' : 'w-64 translate-x-0 opacity-100'}`}
         >
-          <div className="px-4 py-4 flex-shrink-0">
-            <img
-              src={theme === 'dark' ? '/DarkMode_SGB.svg' : '/LightMode_SGB.svg'}
-              alt="ScroogeBank"
-              className="h-14 object-contain"
-            />
-          </div>
+          {!collapsed && (
+            <div className="px-4 py-4 flex-shrink-0">
+              <img
+                src={theme === 'dark' ? '/DarkMode_SGB.svg' : '/LightMode_SGB.svg'}
+                alt="ScroogeBank"
+                className="h-14 object-contain"
+              />
+            </div>
+          )}
 
           <nav className="p-3 space-y-1 flex-1 overflow-y-auto min-h-0">
             {items.map(item => (
@@ -82,14 +83,16 @@ export function SidebarLayout({ items, children }: SidebarLayoutProps) {
             ))}
           </nav>
 
-          <div className="p-3 flex-shrink-0">
-            <button
-              onClick={handleLogout}
-              className="underline-hover flex items-center gap-2 font-medium rounded-md px-3 py-2 text-md text-danger hover:bg-danger/10 transition-colors w-full text-left"
-            >
-              Logout
-            </button>
-          </div>
+          {!collapsed && (
+            <div className="p-3 flex-shrink-0">
+              <button
+                onClick={handleLogout}
+                className="underline-hover flex items-center gap-2 font-medium rounded-md px-3 py-2 text-md text-danger hover:bg-danger/10 transition-colors w-full text-left"
+              >
+                Logout
+              </button>
+            </div>
+          )}
         </aside>
 
         <main className="flex-1 min-w-0 min-h-screen transition-all duration-300 ease-in-out">

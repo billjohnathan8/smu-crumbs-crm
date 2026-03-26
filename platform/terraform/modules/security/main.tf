@@ -303,22 +303,22 @@ resource "aws_iam_role_policy" "aml_lambda_secrets" {
 
 # --- Transaction ingestion Lambda role ---
 
-resource "aws_iam_role" "transaction_ingestion_lambda" {
-  count = var.enable_transaction_ingestion_lambda && !local.use_lab_role ? 1 : 0
+resource "aws_iam_role" "sftp_transaction_collector" {
+  count = var.enable_sftp_transaction_collector && !local.use_lab_role ? 1 : 0
 
-  name               = "${var.name_prefix}-transaction-ingestion-lambda"
+  name               = "${var.name_prefix}-sftp-transaction-collector"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
 }
 
-resource "aws_iam_role_policy_attachment" "transaction_ingestion_lambda_basic" {
-  count = var.enable_transaction_ingestion_lambda && !local.use_lab_role ? 1 : 0
+resource "aws_iam_role_policy_attachment" "sftp_transaction_collector_basic" {
+  count = var.enable_sftp_transaction_collector && !local.use_lab_role ? 1 : 0
 
-  role       = aws_iam_role.transaction_ingestion_lambda[0].name
+  role       = aws_iam_role.sftp_transaction_collector[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-data "aws_iam_policy_document" "transaction_ingestion_lambda_s3" {
-  count = var.enable_transaction_ingestion_lambda && !local.use_lab_role ? 1 : 0
+data "aws_iam_policy_document" "sftp_transaction_collector_s3" {
+  count = var.enable_sftp_transaction_collector && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "ReadTransactionSftpBucket"
@@ -334,16 +334,16 @@ data "aws_iam_policy_document" "transaction_ingestion_lambda_s3" {
   }
 }
 
-resource "aws_iam_role_policy" "transaction_ingestion_lambda_s3" {
-  count = var.enable_transaction_ingestion_lambda && !local.use_lab_role ? 1 : 0
+resource "aws_iam_role_policy" "sftp_transaction_collector_s3" {
+  count = var.enable_sftp_transaction_collector && !local.use_lab_role ? 1 : 0
 
-  name   = "${var.name_prefix}-transaction-ingestion-lambda-s3"
-  role   = aws_iam_role.transaction_ingestion_lambda[0].id
-  policy = data.aws_iam_policy_document.transaction_ingestion_lambda_s3[0].json
+  name   = "${var.name_prefix}-sftp-transaction-collector-s3"
+  role   = aws_iam_role.sftp_transaction_collector[0].id
+  policy = data.aws_iam_policy_document.sftp_transaction_collector_s3[0].json
 }
 
-data "aws_iam_policy_document" "transaction_ingestion_lambda_secrets" {
-  count = var.enable_transaction_ingestion_lambda && !local.use_lab_role ? 1 : 0
+data "aws_iam_policy_document" "sftp_transaction_collector_secrets" {
+  count = var.enable_sftp_transaction_collector && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "ReadTransactionIngestionJwtSecret"
@@ -357,12 +357,12 @@ data "aws_iam_policy_document" "transaction_ingestion_lambda_secrets" {
   }
 }
 
-resource "aws_iam_role_policy" "transaction_ingestion_lambda_secrets" {
-  count = var.enable_transaction_ingestion_lambda && !local.use_lab_role ? 1 : 0
+resource "aws_iam_role_policy" "sftp_transaction_collector_secrets" {
+  count = var.enable_sftp_transaction_collector && !local.use_lab_role ? 1 : 0
 
-  name   = "${var.name_prefix}-transaction-ingestion-lambda-secrets"
-  role   = aws_iam_role.transaction_ingestion_lambda[0].id
-  policy = data.aws_iam_policy_document.transaction_ingestion_lambda_secrets[0].json
+  name   = "${var.name_prefix}-sftp-transaction-collector-secrets"
+  role   = aws_iam_role.sftp_transaction_collector[0].id
+  policy = data.aws_iam_policy_document.sftp_transaction_collector_secrets[0].json
 }
 
 # --- Audit consumer Lambda role ---
@@ -586,7 +586,7 @@ resource "aws_iam_role_policy" "ecs_task_sqs" {
 }
 
 data "aws_iam_policy_document" "ecs_transaction_s3_read" {
-  count = var.enable_transaction_ingestion_lambda && var.transaction_sftp_bucket_arn != "" && !local.use_lab_role ? 1 : 0
+  count = var.enable_sftp_transaction_collector && var.transaction_sftp_bucket_arn != "" && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "ReadTransactionIngestionS3Source"
@@ -603,7 +603,7 @@ data "aws_iam_policy_document" "ecs_transaction_s3_read" {
 }
 
 resource "aws_iam_role_policy" "ecs_task_transaction_s3_read" {
-  count = var.enable_transaction_ingestion_lambda && var.transaction_sftp_bucket_arn != "" && !local.use_lab_role ? 1 : 0
+  count = var.enable_sftp_transaction_collector && var.transaction_sftp_bucket_arn != "" && !local.use_lab_role ? 1 : 0
 
   name   = "${var.name_prefix}-ecs-task-transaction-s3-read"
   role   = aws_iam_role.ecs_task["transaction"].id

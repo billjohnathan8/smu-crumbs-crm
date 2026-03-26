@@ -78,6 +78,52 @@ describe('AdminUserManagementPage', () => {
     // Mock getCurrentUser to prevent AuthProvider from hanging
   })
 
+  it('should handle delete user cancel when window.confirm returns false', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const deleteSpy = vi.spyOn(usersApi, 'deleteUser').mockResolvedValue()
+
+    vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
+      data: [mockAgentUser],
+      pagination: { total: 1, limit: 10, offset: 0 },
+    })
+
+    renderAdminUserManagementPage()
+
+    await waitFor(() => {
+      expect(screen.getByText('Delete')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('Delete'))
+
+    expect(deleteSpy).not.toHaveBeenCalled()
+    confirmSpy.mockRestore()
+  })
+
+  it('should show error message when delete fails', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
+      data: [mockAgentUser],
+      pagination: { total: 1, limit: 10, offset: 0 },
+    })
+    vi.spyOn(usersApi, 'deleteUser').mockRejectedValue(
+      new ApiError(500, 'server_error', 'Delete failed')
+    )
+
+    renderAdminUserManagementPage()
+
+    await waitFor(() => {
+      expect(screen.getByText('Delete')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('Delete'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Delete failed')).toBeInTheDocument()
+    })
+
+    confirmSpy.mockRestore()
+  })
+
   it('should render user management page for admin', async () => {
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
       data: [mockAgentUser],
@@ -89,7 +135,7 @@ describe('AdminUserManagementPage', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'User Management', level: 1 })).toBeInTheDocument()
     })
-    expect(screen.getByText('My Users')).toBeInTheDocument()
+    expect(await screen.findByText('My Users')).toBeInTheDocument()
   })
 })
 

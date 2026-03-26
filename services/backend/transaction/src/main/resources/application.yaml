@@ -41,6 +41,7 @@ app:
       jwks-url: ${COGNITO_JWKS_URL:}
       jwks-cache-ttl-seconds: ${COGNITO_JWKS_CACHE_TTL_SECONDS:300}
   client-service-url: ${CLIENT_SERVICE_URL:http://localhost:8080}
+  log-service-url: ${TRANSACTION_LOG_SERVICE_URL:${LOG_SERVICE_URL:http://localhost:4566/_aws/execute-api/local/local}}
   mock-sftp:
     root: ${MOCK_SFTP_ROOT:./mock-sftp}
   # Legacy naming: app.sftp.* controls polling only. Transport is filesystem/S3 mock ingestion.

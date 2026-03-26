@@ -31,28 +31,33 @@ python scripts/pipelines/test_frontend.py
 
 ## Layer Order (`test_all.py`)
 
-1. Lint / format / static checks
-2. Unit and component tests
-3. Frontend mocked E2E
-4. Fullstack integration E2E (containers + LocalStack + Playwright)
+1. Backend lint / format / typecheck
+2. Backend unit / component tests
+3. Frontend lint / format / typecheck
+4. Frontend unit / component tests
+5. Frontend mocked E2E
+6. Fullstack integration E2E (containers + LocalStack + HTTP smoke + Playwright)
 
 ## Runtime Baseline (Latest Local Runs)
 
-Runtime numbers below are from the latest build logs on `2026-03-21`.
+Runtime numbers below are from the latest build logs on `2026-03-26`.
 
 | Command | Observed runtime | Result |
 |---|---:|---|
-| `python scripts/pipelines/test_all.py` | `776.5s` (~12m 57s) | Passed (`ok: true`) |
-| Layer 4 step in `test_all.py` (`Fullstack integration (full)`) | `246.5s` (~4m 7s) | Passed |
+| `python scripts/pipelines/test_all.py` | `902.8s` (~15m 3s) | Passed (`ok: true`) |
+| Layer 6 step in `test_all.py` (`Fullstack integration (full)`) | `436.4s` (~7m 16s) | Passed |
+| Fullstack script Phase 5 (`Playwright integration E2E`) | `77s` (~1m 17s) | Passed |
 
 Layer totals from the same run:
 
 | Layer | Duration |
 |---|---:|
-| Layer 1 - Lint / Format / Typecheck | `355.4s` |
-| Layer 2 - Unit / Component Tests | `182.3s` |
-| Layer 3 - Frontend Mocked E2E | `108.3s` |
-| Layer 4 - Fullstack Integration E2E | `246.5s` |
+| Layer 1 - Backend Lint / Format / Typecheck | `182.6s` |
+| Layer 2 - Backend Unit / Component Tests | `213.8s` |
+| Layer 3 - Frontend Lint / Format / Typecheck | `73.6s` |
+| Layer 4 - Frontend Unit / Component Tests | `89.0s` |
+| Layer 5 - Frontend Mocked E2E | `94.8s` |
+| Layer 6 - Fullstack Integration E2E | `436.4s` |
 
 Source logs:
 - `build-logs/test-all/last-run-summary.md`

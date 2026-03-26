@@ -5,10 +5,12 @@ Local CI-equivalent runner for the main GitHub Actions pipeline.
 This script is local-only and does not modify any GitHub Actions workflow.
 It runs the same logical layers as `.github/workflows/ci-main.yml`:
 
-1) Lint / format / typecheck
-2) Unit/component tests
-3) Frontend mocked E2E
-4) Fullstack integration E2E (LocalStack + containers + Playwright)
+1) Backend lint / format / typecheck
+2) Backend unit / component tests
+3) Frontend lint / format / typecheck
+4) Frontend unit / component tests
+5) Frontend mocked E2E
+6) Fullstack integration E2E (LocalStack + containers + Playwright)
 """
 
 from __future__ import annotations
@@ -161,7 +163,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
     run_backend = args.suite in ("all", "backend")
     run_frontend = args.suite in ("all", "frontend")
 
-    phase = "Layer 1 - Lint / Format / Typecheck"
+    phase = "Layer 1 - Backend Lint / Format / Typecheck"
     if actionlint_cmd:
         steps.append(
             Step(
@@ -178,7 +180,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
         )
 
     if run_backend:
-        phase = "Layer 1 - Lint / Format / Typecheck"
+        phase = "Layer 1 - Backend Lint / Format / Typecheck"
 
         # -- Checkstyle: 3 independent Gradle projects, safe to parallelize --
         for svc in ("user", "client", "transaction"):
@@ -203,15 +205,15 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
         # -- Python pip installs: sequential (shared site-packages) --
         log_dir = services_backend / "log"
         aml_dir = services_backend / "aml"
-        transaction_ingestion_lambda_dir = (
-            services_backend / "transaction-ingestion-lambda"
+        sftp_transaction_collector_dir = (
+            services_backend / "sftp-transaction-collector"
         )
         verification_dir = services_backend / "verification"
 
         for label, svc_dir in [
             ("log", log_dir),
             ("aml", aml_dir),
-            ("transaction-ingestion-lambda", transaction_ingestion_lambda_dir),
+            ("sftp-transaction-collector", sftp_transaction_collector_dir),
             ("verification", verification_dir),
         ]:
             steps.append(
@@ -228,8 +230,8 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
             ("log", log_dir, ["app", "lambda_function.py", "tests"]),
             ("aml", aml_dir, ["lambda_function.py", "tests"]),
             (
-                "transaction-ingestion-lambda",
-                transaction_ingestion_lambda_dir,
+                "sftp-transaction-collector",
+                sftp_transaction_collector_dir,
                 ["lambda_function.py", "tests"],
             ),
             ("verification", verification_dir, ["lambda_function.py", "tests"]),
@@ -351,7 +353,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                         **_tf_no_aws_env,
                         "TF_VAR_enable_log_lambda": "true",
                         "TF_VAR_enable_aml_lambda": "true",
-                        "TF_VAR_enable_transaction_ingestion_lambda": "true",
+                        "TF_VAR_enable_sftp_transaction_collector": "true",
                         "TF_VAR_enable_verification_pipeline": "true",
                         "TF_VAR_ses_sender_email": "verification@crm.local",
                     },
@@ -430,8 +432,195 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                 )
             )
 
+    if run_backend:
+        phase = "Layer 2 - Backend Unit / Component Tests"
+        backend_parallel_group = "backend-unit-tests"
+
+        log_dir = services_backend / "log"
+        steps.append(
+            Step(
+                phase=phase,
+                name="Python deps install (log test stage)",
+                cwd=log_dir,
+                command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
+            )
+        )
+        sftp_transaction_collector_dir = (
+            services_backend / "sftp-transaction-collector"
+        )
+        steps.append(
+            Step(
+                phase=phase,
+                name="Python deps install (sftp-transaction-collector test stage)",
+                cwd=sftp_transaction_collector_dir,
+                command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
+            )
+        )
+        verification_dir = services_backend / "verification"
+        steps.append(
+            Step(
+                phase=phase,
+                name="Python deps install (verification test stage)",
+                cwd=verification_dir,
+                command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
+            )
+        )
+
+        for svc in ("user", "client", "transaction"):
+            svc_dir = services_backend / svc
+            steps.append(
+                Step(
+                    phase=phase,
+                    name=f"Unit tests ({svc})",
+                    cwd=svc_dir,
+                    command=gradle_command(
+                        svc_dir,
+                        "test",
+                        "jacocoTestReport",
+                        "jacocoTestCoverageVerification",
+                        "--no-daemon",
+                        "--console=plain",
+                    ),
+                    env=gradle_env(svc_dir),
+                    parallel_group=backend_parallel_group,
+                )
+            )
+
+        steps.append(
+            Step(
+                phase=phase,
+                name="Unit tests (log)",
+                cwd=log_dir,
+                command=[
+                    py,
+                    "-m",
+                    "pytest",
+                    "tests",
+                    "-o",
+                    "cache_dir=build/.pytest_cache",
+                    "--junitxml=build/reports/tests/junit.xml",
+                    "--cov=app",
+                    "--cov=lambda_function",
+                    "--cov-branch",
+                    "--cov-fail-under=80",
+                    "--cov-report=term-missing",
+                    "--cov-report=xml:build/reports/coverage/coverage.xml",
+                    "--cov-report=html:build/reports/coverage/html",
+                ],
+                parallel_group=backend_parallel_group,
+            )
+        )
+
+        steps.append(
+            Step(
+                phase=phase,
+                name="Unit tests (sftp-transaction-collector)",
+                cwd=sftp_transaction_collector_dir,
+                command=[
+                    py,
+                    "-m",
+                    "pytest",
+                    "tests",
+                    "-o",
+                    "cache_dir=build/.pytest_cache",
+                    "--junitxml=build/reports/tests/junit.xml",
+                    "--cov=lambda_function",
+                    "--cov-branch",
+                    "--cov-fail-under=80",
+                    "--cov-report=term-missing",
+                    "--cov-report=xml:build/reports/coverage/coverage.xml",
+                    "--cov-report=html:build/reports/coverage/html",
+                ],
+                parallel_group=backend_parallel_group,
+            )
+        )
+        steps.append(
+            Step(
+                phase=phase,
+                name="Unit tests (verification)",
+                cwd=verification_dir,
+                command=[
+                    py,
+                    "-m",
+                    "pytest",
+                    "tests",
+                    "-o",
+                    "cache_dir=build/.pytest_cache",
+                    "--junitxml=build/reports/tests/junit.xml",
+                    "--cov=lambda_function",
+                    "--cov-branch",
+                    "--cov-fail-under=80",
+                    "--cov-report=term-missing",
+                    "--cov-report=xml:build/reports/coverage/coverage.xml",
+                    "--cov-report=html:build/reports/coverage/html",
+                ],
+                parallel_group=backend_parallel_group,
+            )
+        )
+        steps.append(
+            Step(
+                phase=phase,
+                name="Unit tests (aml)",
+                cwd=aml_dir,
+                command=[
+                    py,
+                    "-m",
+                    "pytest",
+                    "tests",
+                    "-o",
+                    "cache_dir=build/.pytest_cache",
+                    "--junitxml=build/reports/tests/junit.xml",
+                    "--cov=lambda_function",
+                    "--cov-branch",
+                    "--cov-fail-under=80",
+                    "--cov-report=term-missing",
+                    "--cov-report=xml:build/reports/coverage/coverage.xml",
+                    "--cov-report=html:build/reports/coverage/html",
+                ],
+                parallel_group=backend_parallel_group,
+            )
+        )
+
+    if not args.skip_openapi:
+        phase = "Layer 3 - Frontend Lint / Format / Typecheck"
+        openapi_dir = REPO_ROOT / "docs" / "api-contracts" / "openapi"
+        spectral_available = shutil.which("spectral") is not None
+        if spectral_available:
+            steps.append(
+                Step(
+                    phase=phase,
+                    name="Spectral OpenAPI lint",
+                    cwd=REPO_ROOT,
+                    command=[
+                        "spectral",
+                        "lint",
+                        str(openapi_dir / "*.yaml"),
+                        "--fail-severity",
+                        "error",
+                    ],
+                )
+            )
+        else:
+            # Fall back to npx (slower but doesn't require global install).
+            steps.append(
+                Step(
+                    phase=phase,
+                    name="Spectral OpenAPI lint (npx)",
+                    cwd=REPO_ROOT,
+                    command=[
+                        "npx",
+                        "--yes",
+                        "@stoplight/spectral-cli",
+                        "lint",
+                        str(openapi_dir / "*.yaml"),
+                        "--fail-severity",
+                        "error",
+                    ],
+                )
+            )
+
     if run_frontend:
-        phase = "Layer 1 - Lint / Format / Typecheck"
+        phase = "Layer 3 - Frontend Lint / Format / Typecheck"
         if is_windows():
             # On Windows, node.exe (Vite dev server, previous builds) can hold a file lock
             # on esbuild.exe inside node_modules, causing npm ci to fail with EPERM.
@@ -505,195 +694,8 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
             )
         )
 
-    if not args.skip_openapi:
-        phase = "Layer 1 - Lint / Format / Typecheck"
-        openapi_dir = REPO_ROOT / "docs" / "api-contracts" / "openapi"
-        spectral_available = shutil.which("spectral") is not None
-        if spectral_available:
-            steps.append(
-                Step(
-                    phase=phase,
-                    name="Spectral OpenAPI lint",
-                    cwd=REPO_ROOT,
-                    command=[
-                        "spectral",
-                        "lint",
-                        str(openapi_dir / "*.yaml"),
-                        "--fail-severity",
-                        "error",
-                    ],
-                )
-            )
-        else:
-            # Fall back to npx (slower but doesn't require global install).
-            steps.append(
-                Step(
-                    phase=phase,
-                    name="Spectral OpenAPI lint (npx)",
-                    cwd=REPO_ROOT,
-                    command=[
-                        "npx",
-                        "--yes",
-                        "@stoplight/spectral-cli",
-                        "lint",
-                        str(openapi_dir / "*.yaml"),
-                        "--fail-severity",
-                        "error",
-                    ],
-                )
-            )
-
-    if run_backend:
-        phase = "Layer 2 - Unit / Component Tests"
-        backend_parallel_group = "backend-unit-tests"
-
-        log_dir = services_backend / "log"
-        steps.append(
-            Step(
-                phase=phase,
-                name="Python deps install (log test stage)",
-                cwd=log_dir,
-                command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
-            )
-        )
-        transaction_ingestion_lambda_dir = (
-            services_backend / "transaction-ingestion-lambda"
-        )
-        steps.append(
-            Step(
-                phase=phase,
-                name="Python deps install (transaction-ingestion-lambda test stage)",
-                cwd=transaction_ingestion_lambda_dir,
-                command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
-            )
-        )
-        verification_dir = services_backend / "verification"
-        steps.append(
-            Step(
-                phase=phase,
-                name="Python deps install (verification test stage)",
-                cwd=verification_dir,
-                command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
-            )
-        )
-
-        for svc in ("user", "client", "transaction"):
-            svc_dir = services_backend / svc
-            steps.append(
-                Step(
-                    phase=phase,
-                    name=f"Unit tests ({svc})",
-                    cwd=svc_dir,
-                    command=gradle_command(
-                        svc_dir,
-                        "test",
-                        "jacocoTestReport",
-                        "jacocoTestCoverageVerification",
-                        "--no-daemon",
-                        "--console=plain",
-                    ),
-                    env=gradle_env(svc_dir),
-                    parallel_group=backend_parallel_group,
-                )
-            )
-
-        steps.append(
-            Step(
-                phase=phase,
-                name="Unit tests (log)",
-                cwd=log_dir,
-                command=[
-                    py,
-                    "-m",
-                    "pytest",
-                    "tests",
-                    "-o",
-                    "cache_dir=build/.pytest_cache",
-                    "--junitxml=build/reports/tests/junit.xml",
-                    "--cov=app",
-                    "--cov=lambda_function",
-                    "--cov-branch",
-                    "--cov-fail-under=80",
-                    "--cov-report=term-missing",
-                    "--cov-report=xml:build/reports/coverage/coverage.xml",
-                    "--cov-report=html:build/reports/coverage/html",
-                ],
-                parallel_group=backend_parallel_group,
-            )
-        )
-
-        steps.append(
-            Step(
-                phase=phase,
-                name="Unit tests (transaction-ingestion-lambda)",
-                cwd=transaction_ingestion_lambda_dir,
-                command=[
-                    py,
-                    "-m",
-                    "pytest",
-                    "tests",
-                    "-o",
-                    "cache_dir=build/.pytest_cache",
-                    "--junitxml=build/reports/tests/junit.xml",
-                    "--cov=lambda_function",
-                    "--cov-branch",
-                    "--cov-fail-under=80",
-                    "--cov-report=term-missing",
-                    "--cov-report=xml:build/reports/coverage/coverage.xml",
-                    "--cov-report=html:build/reports/coverage/html",
-                ],
-                parallel_group=backend_parallel_group,
-            )
-        )
-        steps.append(
-            Step(
-                phase=phase,
-                name="Unit tests (verification)",
-                cwd=verification_dir,
-                command=[
-                    py,
-                    "-m",
-                    "pytest",
-                    "tests",
-                    "-o",
-                    "cache_dir=build/.pytest_cache",
-                    "--junitxml=build/reports/tests/junit.xml",
-                    "--cov=lambda_function",
-                    "--cov-branch",
-                    "--cov-fail-under=80",
-                    "--cov-report=term-missing",
-                    "--cov-report=xml:build/reports/coverage/coverage.xml",
-                    "--cov-report=html:build/reports/coverage/html",
-                ],
-                parallel_group=backend_parallel_group,
-            )
-        )
-        steps.append(
-            Step(
-                phase=phase,
-                name="Unit tests (aml)",
-                cwd=aml_dir,
-                command=[
-                    py,
-                    "-m",
-                    "pytest",
-                    "tests",
-                    "-o",
-                    "cache_dir=build/.pytest_cache",
-                    "--junitxml=build/reports/tests/junit.xml",
-                    "--cov=lambda_function",
-                    "--cov-branch",
-                    "--cov-fail-under=80",
-                    "--cov-report=term-missing",
-                    "--cov-report=xml:build/reports/coverage/coverage.xml",
-                    "--cov-report=html:build/reports/coverage/html",
-                ],
-                parallel_group=backend_parallel_group,
-            )
-        )
-
     if run_frontend:
-        phase = "Layer 2 - Unit / Component Tests"
+        phase = "Layer 4 - Frontend Unit / Component Tests"
         steps.append(
             Step(
                 phase=phase,
@@ -712,7 +714,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
         )
 
         if not args.skip_mocked_e2e:
-            phase = "Layer 3 - Frontend Mocked E2E"
+            phase = "Layer 5 - Frontend Mocked E2E"
             steps.append(
                 Step(
                     phase=phase,
@@ -755,7 +757,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                 "Install Git Bash (Windows) or a Unix shell, or run with --skip-fullstack."
             )
 
-        phase = "Layer 4 - Fullstack Integration E2E"
+        phase = "Layer 6 - Fullstack Integration E2E"
         steps.append(
             Step(
                 phase=phase,

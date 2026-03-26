@@ -115,24 +115,24 @@ resource "aws_lambda_permission" "allow_eventbridge_invoke_aml" {
 
 # --- Audit consumer Lambda (SQS → DynamoDB) ---
 
-resource "aws_cloudwatch_log_group" "transaction_ingestion_lambda" {
-  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+resource "aws_cloudwatch_log_group" "sftp_transaction_collector" {
+  count = var.enable_sftp_transaction_collector ? 1 : 0
 
-  name              = "/aws/lambda/${var.name_prefix}-transaction-ingestion"
+  name              = "/aws/lambda/${var.name_prefix}-sftp-transaction-collector"
   retention_in_days = var.cloudwatch_log_retention_days
 }
 
-resource "aws_lambda_function" "transaction_ingestion" {
-  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+resource "aws_lambda_function" "sftp_transaction_collector" {
+  count = var.enable_sftp_transaction_collector ? 1 : 0
 
-  function_name    = "${var.name_prefix}-transaction-ingestion"
-  filename         = var.transaction_ingestion_lambda_zip_path
-  source_code_hash = filebase64sha256(var.transaction_ingestion_lambda_zip_path)
-  role             = var.transaction_ingestion_lambda_role_arn
+  function_name    = "${var.name_prefix}-sftp-transaction-collector"
+  filename         = var.sftp_transaction_collector_zip_path
+  source_code_hash = filebase64sha256(var.sftp_transaction_collector_zip_path)
+  role             = var.sftp_transaction_collector_role_arn
   handler          = "lambda_function.lambda_handler"
   runtime          = "python3.13"
-  memory_size      = var.transaction_ingestion_lambda_memory_size
-  timeout          = var.transaction_ingestion_lambda_timeout_seconds
+  memory_size      = var.sftp_transaction_collector_memory_size
+  timeout          = var.sftp_transaction_collector_timeout_seconds
   publish          = true
 
   environment {
@@ -146,35 +146,35 @@ resource "aws_lambda_function" "transaction_ingestion" {
     }
   }
 
-  depends_on = [aws_cloudwatch_log_group.transaction_ingestion_lambda[0]]
+  depends_on = [aws_cloudwatch_log_group.sftp_transaction_collector[0]]
 }
 
-resource "aws_cloudwatch_event_rule" "transaction_ingestion_schedule" {
-  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+resource "aws_cloudwatch_event_rule" "sftp_transaction_collector_schedule" {
+  count = var.enable_sftp_transaction_collector ? 1 : 0
 
-  name                = "${var.name_prefix}-transaction-ingestion-schedule"
-  description         = "Schedule for transaction ingestion Lambda."
-  schedule_expression = var.transaction_ingestion_schedule_expression
+  name                = "${var.name_prefix}-sftp-transaction-collector-schedule"
+  description         = "Schedule for sftp-transaction-collector Lambda."
+  schedule_expression = var.sftp_transaction_collector_schedule_expression
   state               = "ENABLED"
 }
 
-resource "aws_cloudwatch_event_target" "transaction_ingestion_lambda" {
-  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+resource "aws_cloudwatch_event_target" "sftp_transaction_collector" {
+  count = var.enable_sftp_transaction_collector ? 1 : 0
 
-  rule      = aws_cloudwatch_event_rule.transaction_ingestion_schedule[0].name
-  target_id = "transaction-ingestion-lambda"
-  arn       = aws_lambda_function.transaction_ingestion[0].arn
+  rule      = aws_cloudwatch_event_rule.sftp_transaction_collector_schedule[0].name
+  target_id = "sftp-transaction-collector"
+  arn       = aws_lambda_function.sftp_transaction_collector[0].arn
   input     = "{}"
 }
 
-resource "aws_lambda_permission" "allow_eventbridge_invoke_transaction_ingestion" {
-  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+resource "aws_lambda_permission" "allow_eventbridge_invoke_sftp_transaction_collector" {
+  count = var.enable_sftp_transaction_collector ? 1 : 0
 
   statement_id  = "AllowExecutionFromEventBridgeTransactionIngestion"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.transaction_ingestion[0].function_name
+  function_name = aws_lambda_function.sftp_transaction_collector[0].function_name
   principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.transaction_ingestion_schedule[0].arn
+  source_arn    = aws_cloudwatch_event_rule.sftp_transaction_collector_schedule[0].arn
 }
 
 resource "aws_cloudwatch_log_group" "audit_consumer" {
@@ -324,12 +324,12 @@ resource "aws_lambda_alias" "aml_live" {
   function_version = aws_lambda_function.aml[0].version
 }
 
-resource "aws_lambda_alias" "transaction_ingestion_live" {
-  count = var.enable_transaction_ingestion_lambda ? 1 : 0
+resource "aws_lambda_alias" "sftp_transaction_collector_live" {
+  count = var.enable_sftp_transaction_collector ? 1 : 0
 
   name             = "live"
-  function_name    = aws_lambda_function.transaction_ingestion[0].function_name
-  function_version = aws_lambda_function.transaction_ingestion[0].version
+  function_name    = aws_lambda_function.sftp_transaction_collector[0].function_name
+  function_version = aws_lambda_function.sftp_transaction_collector[0].version
 }
 
 resource "aws_lambda_alias" "verification_live" {

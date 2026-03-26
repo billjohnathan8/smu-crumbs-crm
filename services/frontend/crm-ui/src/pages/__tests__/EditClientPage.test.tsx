@@ -296,4 +296,78 @@ describe('UserEditClient', () => {
       expect(screen.getByText('An unexpected error occurred')).toBeInTheDocument()
     })
   })
+
+  it('should show generic ApiError message for other status codes (e.g. 500)', async () => {
+    vi.spyOn(clientsApi, 'updateClient').mockRejectedValue(
+      new ApiError(500, 'server_error', 'Service unavailable')
+    )
+    const user = userEvent.setup()
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('John')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /Save Changes/i }))
+    await waitFor(() => {
+      expect(screen.getByText('Service unavailable')).toBeInTheDocument()
+    })
+  })
+
+  it('should show validation error for missing last name', async () => {
+    renderComponent()
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Doe')).toBeInTheDocument()
+    })
+
+    const lastNameInput = screen.getByDisplayValue('Doe')
+    await user.clear(lastNameInput)
+    await user.click(screen.getByRole('button', { name: /Save Changes/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Last name is required')).toBeInTheDocument()
+    })
+  })
+
+  it('should show validation error for missing date of birth', async () => {
+    renderComponent()
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('1990-01-15')).toBeInTheDocument()
+    })
+
+    const dobInput = screen.getByDisplayValue('1990-01-15')
+    await user.clear(dobInput)
+    await user.click(screen.getByRole('button', { name: /Save Changes/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Date of birth is required')).toBeInTheDocument()
+    })
+  })
+
+  it('should clear field error when user types in the field', async () => {
+    renderComponent()
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('John')).toBeInTheDocument()
+    })
+
+    const firstNameInput = screen.getByDisplayValue('John')
+    await user.clear(firstNameInput)
+    await user.click(screen.getByRole('button', { name: /Save Changes/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('First name is required')).toBeInTheDocument()
+    })
+
+    await user.type(firstNameInput, 'Jane')
+
+    await waitFor(() => {
+      expect(screen.queryByText('First name is required')).not.toBeInTheDocument()
+    })
+  })
 })

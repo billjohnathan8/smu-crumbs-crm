@@ -150,7 +150,10 @@ class TestModuleC_InceptionSpike:
         assert all(a.client_id == account_checking_new.client_id for a in spikes)
 
     def test_old_account_no_inception_spike(self, account_savings_old):
-        """Account older than INCEPTION_MONTHS threshold must never trigger inception spike."""
+        """Account older than INCEPTION_MONTHS threshold.
+
+        Must never trigger inception spike.
+        """
         txns = [
             make_deposit(
                 "OS1", account_savings_old.client_id, 999_999.0, date(2026, 1, 1)
@@ -161,7 +164,10 @@ class TestModuleC_InceptionSpike:
         assert AlertType.INCEPTION_SPIKE not in types
 
     def test_new_account_below_initial_deposit_not_flagged(self, account_checking_new):
-        """New account whose monthly volume stays below initial deposit must not flag."""
+        """New account whose monthly volume stays below initial deposit.
+
+        Must not flag.
+        """
         txns = [
             make_deposit(
                 "NL1", account_checking_new.client_id, 500.0, date(2026, 1, 1)

@@ -2,6 +2,11 @@ spring:
   application:
     name: client
 
+  cloud:
+    aws:
+      region:
+        static: ${VERIFICATION_EMAIL_AWS_REGION:${AWS_REGION:ap-southeast-1}}
+
   jackson:
     deserialization:
       fail-on-unknown-properties: true

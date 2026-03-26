@@ -2,8 +2,12 @@ package com.scroogebank.crm.client_service;
 
 import com.scroogebank.crm.client_service.repository.AccountRepository;
 import com.scroogebank.crm.client_service.repository.ClientRepository;
+import com.scroogebank.crm.client_service.service.DocumentStorageService;
+import com.scroogebank.crm.client_service.service.SnsEmailPublisherService;
+import com.scroogebank.crm.client_service.service.VerificationTokenService;
 import tools.jackson.databind.json.JsonMapper;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
@@ -31,8 +35,23 @@ class ClientsServiceApplicationTests {
 	@MockitoBean
 	private JsonMapper objectMapper;
 
+	@MockitoBean
+	private DocumentStorageService documentStorageService;
+
+	@MockitoBean
+	private VerificationTokenService verificationTokenService;
+
+	@MockitoBean
+	private SnsEmailPublisherService snsEmailPublisherService;
+
 	@Test
 	void contextLoads() {
+		assertThat(clientRepository).isNotNull();
+		assertThat(accountRepository).isNotNull();
+		assertThat(objectMapper).isNotNull();
+		assertThat(documentStorageService).isNotNull();
+		assertThat(verificationTokenService).isNotNull();
+		assertThat(snsEmailPublisherService).isNotNull();
 	}
 
 }

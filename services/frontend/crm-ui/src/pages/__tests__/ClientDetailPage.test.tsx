@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { ClientDetailPage } from '../ClientDetailPage'
@@ -84,110 +84,16 @@ describe('ClientDetailPage', () => {
       </ThemeProvider>
     )
 
-  it('should render client profile with name', async () => {
+  it('renders client profile', async () => {
     renderComponent()
 
     await waitFor(() => {
       expect(screen.getAllByText('John Doe').length).toBeGreaterThan(0)
+      expect(screen.getByText('Client Profile')).toBeInTheDocument()
     })
   })
 
-  it('should show loading spinner initially', () => {
-    vi.spyOn(clientsApi, 'getClientById').mockReturnValue(new Promise(() => {}))
-    renderComponent()
-
-    expect(screen.getByTestId('loading-spinner')).toBeInTheDocument()
-  })
-
-  it('should display Edit Client button', async () => {
-    renderComponent()
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Edit Client/i })).toBeInTheDocument()
-    })
-  })
-
-  it('should navigate to edit page when Edit Client is clicked', async () => {
-    renderComponent()
-    const user = userEvent.setup()
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Edit Client/i })).toBeInTheDocument()
-    })
-
-    await user.click(screen.getByRole('button', { name: /Edit Client/i }))
-    expect(mockNavigate).toHaveBeenCalledWith('/user/clients/client-123/edit')
-  })
-
-  it('should display Delete Client button', async () => {
-    renderComponent()
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Delete Client/i })).toBeInTheDocument()
-    })
-  })
-
-  it('should show delete confirmation modal when Delete Client is clicked', async () => {
-    renderComponent()
-    const user = userEvent.setup()
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Delete Client/i })).toBeInTheDocument()
-    })
-
-    await user.click(screen.getByRole('button', { name: /Delete Client/i }))
-
-    await waitFor(() => {
-      expect(screen.getByTestId('delete-client-modal')).toBeInTheDocument()
-      expect(screen.getByText(/Are you sure you want to delete/i)).toBeInTheDocument()
-    })
-  })
-
-  it('should delete client and navigate to client list', async () => {
-    vi.spyOn(clientsApi, 'deleteClient').mockResolvedValue(undefined)
-
-    renderComponent()
-    const user = userEvent.setup()
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Delete Client/i })).toBeInTheDocument()
-    })
-
-    // Open modal
-    await user.click(screen.getByRole('button', { name: /Delete Client/i }))
-
-    await waitFor(() => {
-      expect(screen.getByTestId('delete-client-modal')).toBeInTheDocument()
-    })
-
-    // Confirm delete - find the delete button inside the modal
-    const modalDeleteButton = screen
-      .getByTestId('delete-client-modal')
-      .querySelector('button.bg-danger')
-    expect(modalDeleteButton).not.toBeNull()
-    await user.click(modalDeleteButton!)
-
-    await waitFor(() => {
-      expect(clientsApi.deleteClient).toHaveBeenCalledWith('client-123')
-      expect(mockNavigate).toHaveBeenCalledWith(
-        '/user/clients',
-        expect.objectContaining({
-          replace: true,
-        })
-      )
-    })
-  })
-
-  it('should display Bank Accounts section with manage link', async () => {
-    renderComponent()
-
-    await waitFor(() => {
-      expect(screen.getByText('Bank Accounts')).toBeInTheDocument()
-      expect(screen.getByText('Manage accounts →')).toBeInTheDocument()
-    })
-  })
-
-  it('should navigate to accounts page when manage accounts is clicked', async () => {
+  it('navigates to account management', async () => {
     renderComponent()
     const user = userEvent.setup()
 
@@ -199,115 +105,56 @@ describe('ClientDetailPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/user/clients/client-123/accounts')
   })
 
-  it('should display Communications section', async () => {
-    renderComponent()
-
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /Communications/i, level: 2 })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /Compose Email/i })).toBeInTheDocument()
-    })
-  })
-
-  it('should show compose email form when Compose Email is clicked', async () => {
+  it('shows verification upload form when verify is clicked', async () => {
     renderComponent()
     const user = userEvent.setup()
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Compose Email/i })).toBeInTheDocument()
-    })
-
-    await user.click(screen.getByRole('button', { name: /Compose Email/i }))
-
-    await waitFor(() => {
-      expect(screen.getByText('To Email')).toBeInTheDocument()
-      expect(screen.getByText('Subject')).toBeInTheDocument()
-      expect(screen.getByText('Body')).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /Send Email/i })).toBeInTheDocument()
-    })
-  })
-
-  it('should send email successfully', async () => {
-    const mockComm: Communication = {
-      communicationId: 'comm-1',
-      clientId: 'client-123',
-      userId: 'user-1',
-      channel: 'email',
-      toEmail: 'john@example.com',
-      subject: 'Test Subject',
-      body: 'Test body',
-      status: 'queued',
-      createdAt: '2024-01-01T00:00:00Z',
-      updatedAt: '2024-01-01T00:00:00Z',
-    }
-    vi.spyOn(communicationsApi, 'sendCommunication').mockResolvedValue(mockComm)
-
-    renderComponent()
-    const user = userEvent.setup()
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Compose Email/i })).toBeInTheDocument()
-    })
-
-    await user.click(screen.getByRole('button', { name: /Compose Email/i }))
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Send Email/i })).toBeInTheDocument()
-    })
-
-    // The toEmail field should be pre-filled with client's email
-    // Fill subject and body
-    // Use more specific selectors
-    const inputs = screen.getAllByRole('textbox')
-    const emailInput = inputs[0]
-    const subInput = inputs[1]
-
-    await user.clear(emailInput)
-    await user.type(emailInput, 'john@example.com')
-    await user.type(subInput, 'Test Subject')
-
-    const textareas = document.querySelectorAll('textarea')
-    await user.type(textareas[0], 'Test body')
-
-    await user.click(screen.getByRole('button', { name: /Send Email/i }))
-
-    await waitFor(() => {
-      expect(communicationsApi.sendCommunication).toHaveBeenCalledWith(
-        expect.objectContaining({
-          clientId: 'client-123',
-          channel: 'email',
-          subject: 'Test Subject',
-          body: 'Test body',
-        })
-      )
-    })
-  })
-
-  it('should show Submit for KYC Verification button for unverified clients', async () => {
-    renderComponent()
 
     await waitFor(() => {
       expect(
         screen.getByRole('button', { name: /Submit for KYC Verification/i })
       ).toBeInTheDocument()
     })
+
+    await user.click(screen.getByRole('button', { name: /Submit for KYC Verification/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('KYC Verification')).toBeInTheDocument()
+      expect(screen.getByText('Primary Identity Document')).toBeInTheDocument()
+      expect(screen.getByText('Proof of Address Document')).toBeInTheDocument()
+    })
   })
 
-  it('should not show Verify button for verified clients', async () => {
-    vi.spyOn(clientsApi, 'getClientById').mockResolvedValue({
-      ...mockClient,
-      identityVerificationStatus: 'verified',
+  it('validates required verification documents before submit', async () => {
+    renderComponent()
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Submit for KYC Verification/i })
+      ).toBeInTheDocument()
     })
+
+    await user.click(screen.getByRole('button', { name: /Submit for KYC Verification/i }))
+    await user.click(screen.getByRole('button', { name: /Submit for Review/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Please upload both required documents.')).toBeInTheDocument()
+    })
+  })
+
+  it('calls logout on 401 error', async () => {
+    vi.spyOn(clientsApi, 'getClientById').mockRejectedValue(
+      new ApiError(401, 'unauthorized', 'Unauthorized')
+    )
 
     renderComponent()
 
     await waitFor(() => {
-      expect(screen.getAllByText('John Doe').length).toBeGreaterThan(0)
+      expect(mockLogout).toHaveBeenCalled()
     })
-
-    expect(screen.queryByRole('button', { name: /Verify Client/i })).not.toBeInTheDocument()
   })
 
-  it('should show error when client not found', async () => {
+  it('shows not found error for missing client', async () => {
     vi.spyOn(clientsApi, 'getClientById').mockRejectedValue(
       new ApiError(404, 'not_found', 'Client not found')
     )
@@ -319,15 +166,237 @@ describe('ClientDetailPage', () => {
     })
   })
 
-  it('should call logout on 401 error', async () => {
+  it('shows 403 forbidden error message for user role', async () => {
     vi.spyOn(clientsApi, 'getClientById').mockRejectedValue(
-      new ApiError(401, 'unauthorized', 'Unauthorized')
+      new ApiError(403, 'forbidden', 'Forbidden')
     )
 
     renderComponent()
 
     await waitFor(() => {
+      expect(screen.getByText('You are not allowed to access this client.')).toBeInTheDocument()
+    })
+  })
+
+  it('shows generic ApiError message for unexpected status codes', async () => {
+    vi.spyOn(clientsApi, 'getClientById').mockRejectedValue(
+      new ApiError(500, 'server_error', 'Internal Server Error')
+    )
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByText('Internal Server Error')).toBeInTheDocument()
+    })
+  })
+
+  it('shows unexpected error for non-ApiError during load', async () => {
+    vi.spyOn(clientsApi, 'getClientById').mockRejectedValue(new Error('network failure'))
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByText('An unexpected error occurred')).toBeInTheDocument()
+    })
+  })
+
+  it('navigates back to client list via back button when error shown', async () => {
+    vi.spyOn(clientsApi, 'getClientById').mockRejectedValue(
+      new ApiError(404, 'not_found', 'Client not found')
+    )
+    const user = userEvent.setup()
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Back to Clients' })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Back to Clients' }))
+    expect(mockNavigate).toHaveBeenCalledWith('/user/clients')
+  })
+
+  it('shows delete confirm modal when Delete button is clicked', async () => {
+    renderComponent()
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Delete Client/i })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /Delete Client/i }))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('delete-client-modal')).toBeInTheDocument()
+    })
+  })
+
+  it('deletes client and navigates on confirm delete', async () => {
+    vi.spyOn(clientsApi, 'deleteClient').mockResolvedValue(undefined)
+    renderComponent()
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Delete Client/i })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /Delete Client/i }))
+    await waitFor(() => {
+      expect(screen.getByTestId('delete-client-modal')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Delete Account' }))
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith(
+        '/user/clients',
+        expect.objectContaining({ replace: true })
+      )
+    })
+  })
+
+  it('shows delete error on 403 during delete', async () => {
+    vi.spyOn(clientsApi, 'deleteClient').mockRejectedValue(
+      new ApiError(403, 'forbidden', 'Forbidden')
+    )
+    renderComponent()
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Delete Client/i })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /Delete Client/i }))
+    await waitFor(() => {
+      expect(screen.getByTestId('delete-client-modal')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Delete Account' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('You are not allowed to delete this client.')).toBeInTheDocument()
+    })
+  })
+
+  it('cancels delete modal without deleting', async () => {
+    renderComponent()
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Delete Client/i })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /Delete Client/i }))
+    await waitFor(() => {
+      expect(screen.getByTestId('delete-client-modal')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('delete-client-modal')).not.toBeInTheDocument()
+    })
+  })
+
+  it('calls logout on 401 during delete', async () => {
+    vi.spyOn(clientsApi, 'deleteClient').mockRejectedValue(
+      new ApiError(401, 'unauthorized', 'Unauthorized')
+    )
+    renderComponent()
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Delete Client/i })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /Delete Client/i }))
+    await waitFor(() => {
+      expect(screen.getByTestId('delete-client-modal')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Delete Account' }))
+
+    await waitFor(() => {
       expect(mockLogout).toHaveBeenCalled()
+    })
+  })
+
+  it('renders client profile with correct nav breadcrumb for user role', async () => {
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByText(/← My Clients/)).toBeInTheDocument()
+    })
+  })
+
+  it('navigates to all transactions when View All is clicked', async () => {
+    vi.spyOn(transactionsApi, 'listClientTransactions').mockResolvedValue({
+      data: [],
+      pagination: { limit: 10, offset: 0, total: 0 },
+    })
+    renderComponent()
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /View all →/i })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /View all →/i }))
+    expect(mockNavigate).toHaveBeenCalledWith('/user/transactions?clientId=client-123')
+  })
+
+  it('sends communication and shows success', async () => {
+    vi.spyOn(communicationsApi, 'sendCommunication').mockResolvedValue({} as never)
+    vi.spyOn(communicationsApi, 'listClientCommunications').mockResolvedValue({
+      data: [],
+      pagination: { limit: 10, offset: 0, total: 0 },
+    })
+    renderComponent()
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Compose Email/i })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /Compose Email/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Send Email/i })).toBeInTheDocument()
+    })
+
+    // Use fireEvent.change for reliable controlled input updates
+    const emailInput = document.querySelector('input[type="email"]') as HTMLInputElement
+    const subjectInput = document.querySelector('input[type="text"]') as HTMLInputElement
+    const bodyTextarea = document.querySelector('textarea') as HTMLTextAreaElement
+
+    fireEvent.change(emailInput, { target: { value: 'test@example.com' } })
+    fireEvent.change(subjectInput, { target: { value: 'Hello' } })
+    fireEvent.change(bodyTextarea, { target: { value: 'Body text' } })
+
+    await user.click(screen.getByRole('button', { name: /Send Email/i }))
+
+    await waitFor(() => {
+      expect(communicationsApi.sendCommunication).toHaveBeenCalled()
+    })
+  })
+
+  it('shows send communication validation error when fields are empty', async () => {
+    renderComponent()
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Compose Email/i })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /Compose Email/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Send Email/i })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /Send Email/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('All fields are required')).toBeInTheDocument()
     })
   })
 })

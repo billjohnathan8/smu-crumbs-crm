@@ -209,8 +209,15 @@ describe('clients API', () => {
   describe('verifyClient', () => {
     it('should verify client identity', async () => {
       const verifyRequest: VerifyClientRequest = {
-        nric: 'S1234567A',
-        documentType: 'NRIC',
+        verificationToken: '123123123123',
+        primaryDocumentType: 'NRIC',
+        primaryDocumentRef: 'asdfasdfasdf',
+        primaryDocumentBase64: 'asdfasdfasdf',
+        primaryDocumentMimeType: 'image/jpeg',
+        addressDocumentType: 'UTILITY_BILL',
+        addressDocumentRef: 'asdfasdfasdf',
+        addressDocumentBase64: 'asdfasdfasdf',
+        addressDocumentMimeType: 'image/jpeg',
       }
 
       const mockResponse: VerifyClientResponse = {
@@ -228,8 +235,15 @@ describe('clients API', () => {
 
     it('should return pending verification response', async () => {
       const verifyRequest: VerifyClientRequest = {
-        nric: 'S9999999Z',
-        documentType: 'NRIC',
+        verificationToken: '123123123123',
+        primaryDocumentType: 'NRIC',
+        primaryDocumentRef: 'asdfasdfasdf',
+        primaryDocumentBase64: 'asdfasdfasdf',
+        primaryDocumentMimeType: 'image/jpeg',
+        addressDocumentType: 'UTILITY_BILL',
+        addressDocumentRef: 'asdfasdfasdf',
+        addressDocumentBase64: 'asdfasdfasdf',
+        addressDocumentMimeType: 'image/jpeg',
       }
 
       const mockResponse: VerifyClientResponse = {

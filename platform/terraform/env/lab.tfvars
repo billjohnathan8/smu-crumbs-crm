@@ -38,13 +38,13 @@ rds_performance_insights_enabled = false
 # --- Feature Contract (Learner Lab) ---
 # Keep runtime-heavy/externally-dependent features disabled in learner-lab.
 # Coverage for these paths is provided by local/integration smoke profiles.
-enable_log_lambda                   = false # LabRole execution-role path for VPC Lambda is not guaranteed.
-enable_aml_lambda                   = false # Requires external SFTP endpoint/key ownership not provided in lab.
-enable_transaction_ingestion_lambda = false # Depends on Lambda + internal auth path that is out of learner-lab scope.
-enable_audit_pipeline               = false # Partial scaffold only: runtime artifact absent in repository.
-enable_aml_pipeline                 = false # Partial scaffold only: runtime artifact absent in repository.
-enable_verification_pipeline        = false # Requires SES sender ownership/verification; covered in local/integration.
-ses_sender_email                    = ""    # LabRole lacks ses:VerifyEmailIdentity — leave empty to skip aws_ses_email_identity creation.
+enable_log_lambda                 = false # LabRole execution-role path for VPC Lambda is not guaranteed.
+enable_aml_lambda                 = false # Requires external SFTP endpoint/key ownership not provided in lab.
+enable_sftp_transaction_collector = false # Depends on Lambda + internal auth path that is out of learner-lab scope.
+enable_audit_pipeline             = false # Partial scaffold only: runtime artifact absent in repository.
+enable_aml_pipeline               = false # Partial scaffold only: runtime artifact absent in repository.
+enable_verification_pipeline      = false # Requires SES sender ownership/verification; covered in local/integration.
+ses_sender_email                  = ""    # LabRole lacks ses:VerifyEmailIdentity — leave empty to skip aws_ses_email_identity creation.
 
 # --- Observability & Security (reduced for cost) ---
 enable_waf                    = false

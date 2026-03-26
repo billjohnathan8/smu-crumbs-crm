@@ -30,7 +30,7 @@ jobs:
       client_backend: ${{ steps.filter.outputs['client-backend'] }}
       log_backend: ${{ steps.filter.outputs['log-backend'] }}
       verification_backend: ${{ steps.filter.outputs['verification-backend'] }}
-      transaction_ingestion_lambda_backend: ${{ steps.filter.outputs['transaction-ingestion-lambda-backend'] }}
+      sftp_transaction_collector_backend: ${{ steps.filter.outputs['sftp-transaction-collector-backend'] }}
       transaction_backend: ${{ steps.filter.outputs['transaction-backend'] }}
       platform: ${{ steps.filter.outputs.platform }}
     steps:
@@ -56,8 +56,8 @@ jobs:
               - 'services/backend/log/**'
             verification-backend:
               - 'services/backend/verification/**'
-            transaction-ingestion-lambda-backend:
-              - 'services/backend/transaction-ingestion-lambda/**'
+            sftp-transaction-collector-backend:
+              - 'services/backend/sftp-transaction-collector/**'
             transaction-backend:
               - 'services/backend/transaction/**'
             platform:
@@ -102,11 +102,11 @@ jobs:
     if: needs.detect-changes.outputs.verification_backend == 'true'
     uses: ./.github/workflows/ci-verification-backend.yml
 
-  ci-transaction-ingestion-lambda-backend:
-    name: CI - Transaction Ingestion Lambda Backend
+  ci-sftp-transaction-collector-backend:
+    name: CI - SFTP Transaction Collector Backend
     needs: [detect-changes]
-    if: needs.detect-changes.outputs.transaction_ingestion_lambda_backend == 'true'
-    uses: ./.github/workflows/ci-transaction-ingestion-lambda-backend.yml
+    if: needs.detect-changes.outputs.sftp_transaction_collector_backend == 'true'
+    uses: ./.github/workflows/ci-sftp-transaction-collector-backend.yml
 
   ci-transaction-backend:
     name: CI - Transaction Backend
@@ -146,7 +146,7 @@ jobs:
       - ci-client-backend
       - ci-log-backend
       - ci-verification-backend
-      - ci-transaction-ingestion-lambda-backend
+      - ci-sftp-transaction-collector-backend
       - ci-transaction-backend
       - ci-terraform
       - openapi-lint

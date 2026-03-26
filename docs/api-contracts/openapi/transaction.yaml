@@ -10,7 +10,7 @@ info:
     Transaction table.
     This API supports viewing transactions and triggering imports.
     In runtime, ingestion can be triggered manually, by the transaction-service
-    scheduler, or by the transaction-ingestion Lambda calling this API.
+    scheduler, or by the sftp-transaction-collector Lambda calling this API.
 
     Appendix 2 (Transaction attributes) requires:
     - ID
@@ -197,6 +197,57 @@ paths:
                 $ref: "#/components/schemas/Transaction"
         "400":
           description: Validation error (for example invalid transactionId format).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    put:
+      tags: [transactions]
+      summary: Update transaction
+      description: Admin-only. Updates one or more transaction fields.
+      security:
+        - BearerAuth: []
+      x-required-roles: [admin]
+      parameters:
+        - name: transactionId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/TransactionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTransactionRequest"
+      responses:
+        "200":
+          description: Transaction updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        "400":
+          description: Validation error
           content:
             application/json:
               schema:
@@ -522,6 +573,24 @@ components:
         status:
           $ref: "#/components/schemas/TransactionStatus"
       required: [clientId, transaction, amount, date, status]
+      additionalProperties: false
+
+    UpdateTransactionRequest:
+      type: object
+      properties:
+        clientId:
+          $ref: "#/components/schemas/ClientId"
+        transaction:
+          $ref: "#/components/schemas/TransactionKind"
+        amount:
+          type: number
+          format: float
+          minimum: 0
+        date:
+          type: string
+          format: date
+        status:
+          $ref: "#/components/schemas/TransactionStatus"
       additionalProperties: false
 
     ImportBatchId:

@@ -1,6 +1,8 @@
 services:
   postgres:
     image: postgres:16
+    ports:
+      - "${LOCAL_DB_HOST_PORT:-15432}:5432"
     environment:
       POSTGRES_DB: ${LOCAL_DB_NAME:-crm}
       POSTGRES_USER: ${LOCAL_DB_USER:-crm_app}
@@ -61,6 +63,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${LOCAL_DB_NAME:-crm}
       SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-crm_app}
       SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASSWORD:-devpassword}
+      SPRING_PROFILES_ACTIVE: local
+      LOCALSTACK_ENDPOINT: http://localstack:4566
       # Lambda-backed log API endpoint (provisioned by run-fullstack-integration-e2e.sh)
       CLIENT_LOG_SERVICE_URL: ${CLIENT_LOG_SERVICE_URL}
       AUTH_MODE: local
@@ -95,6 +99,7 @@ services:
       TRANSACTION_SFTP_POLL_ENABLED: "true"
       TRANSACTION_SFTP_POLL_FIXED_DELAY_MS: "5000"
       TRANSACTION_SFTP_POLL_INITIAL_DELAY_MS: "2000"
+      TRANSACTION_SFTP_REMOTE_DIR: scheduled
       TRANSACTION_IMPORT_S3_BUCKET: scroogebank-crm-dev-transaction-sftp
       TRANSACTION_IMPORT_S3_REGION: ap-southeast-1
       TRANSACTION_IMPORT_S3_ENDPOINT: http://localstack:4566

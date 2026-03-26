@@ -168,7 +168,7 @@ try {
             lambda_function_names = [ordered]@{
                 log = $tf.log_lambda_name.value
                 aml = $tf.aml_lambda_name.value
-                transaction_ingestion = $tf.transaction_ingestion_lambda_name.value
+                sftp_transaction_collector = $tf.sftp_transaction_collector_name.value
                 verification = $tf.verification_lambda_name.value
             }
             frontend_bucket_name = $tf.frontend_bucket_name.value
@@ -211,7 +211,7 @@ try {
         & $put "lambda/function-names" ((@{
             log = $tf.log_lambda_name.value
             aml = $tf.aml_lambda_name.value
-            transaction_ingestion = $tf.transaction_ingestion_lambda_name.value
+            sftp_transaction_collector = $tf.sftp_transaction_collector_name.value
             verification = $tf.verification_lambda_name.value
         } | ConvertTo-Json -Compress))
         & $put "frontend/s3-bucket" $tf.frontend_bucket_name.value

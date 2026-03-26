@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
-import { useTheme } from '@/features/theme/ThemeContext'
+import { useTheme } from '@/features/theme/useTheme'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 
 const adminNav: NavItem[] = [

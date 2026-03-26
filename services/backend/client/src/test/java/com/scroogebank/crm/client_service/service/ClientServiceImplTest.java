@@ -4,11 +4,8 @@ import com.scroogebank.crm.client_service.dto.ClientCreateRequest;
 import com.scroogebank.crm.client_service.dto.ClientPayload;
 import com.scroogebank.crm.client_service.dto.ClientUpdateRequest;
 import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
-import com.scroogebank.crm.client_service.dto.ReviewVerificationRequest;
+import com.scroogebank.crm.client_service.dto.UploadVerificationDocsRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientRequest;
-import com.scroogebank.crm.client_service.email.VerificationEmail;
-import com.scroogebank.crm.client_service.email.VerificationEmailDispatchService;
-import com.scroogebank.crm.client_service.email.VerificationEmailTemplateRenderer;
 import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.entity.Gender;
 import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
@@ -16,25 +13,25 @@ import com.scroogebank.crm.client_service.exception.DuplicateClientException;
 import com.scroogebank.crm.client_service.logging.ClientAuditLogger;
 import com.scroogebank.crm.client_service.repository.ClientRepository;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
+import com.scroogebank.crm.client_service.security.UnauthorizedException;
+
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -49,11 +46,9 @@ class ClientServiceImplTest {
 	private ClientRepository clientRepository;
 	@Mock
 	private ClientAuditLogger clientAuditLogger;
-	@Mock
-	private VerificationEmailTemplateRenderer verificationEmailTemplateRenderer;
-	@Mock
-	private VerificationEmailDispatchService verificationEmailDispatchService;
-	@InjectMocks
+	private DocumentStorageService documentStorageService;
+	private VerificationTokenService verificationTokenService;
+	private SnsEmailPublisherService snsEmailPublisherService;
 	private ClientServiceImpl clientService;
 
 	private static ClientPayload samplePayload() {
@@ -89,6 +84,36 @@ class ClientServiceImplTest {
 		e.setAssignedAgentId(assignedUserId);
 		e.setIdentityVerificationStatus(IdentityVerificationStatus.unverified);
 		return e;
+	}
+
+	private ClientCreateRequest requestFrom(ClientPayload payload) {
+        return new ClientCreateRequest(
+            payload.firstName(), payload.lastName(), payload.dateOfBirth(),
+            payload.gender(), payload.emailAddress(), payload.phoneNumber(),
+            payload.address(), payload.city(), payload.state(),
+            payload.country(), payload.postalCode()
+        );
+    }
+
+	private static UploadVerificationDocsRequest validUploadRequest(String token) {
+		return new UploadVerificationDocsRequest(
+			"NRIC",         "nric_front.jpg", "base64PrimaryData==", "image/jpeg",
+			"UTILITY_BILL", "bill.pdf",       "base64AddressData==", "application/pdf",
+			token
+		);
+	}
+
+	@BeforeEach
+	void setUp() {
+		clientRepository = org.mockito.Mockito.mock(ClientRepository.class);
+		clientAuditLogger = org.mockito.Mockito.mock(ClientAuditLogger.class);
+		documentStorageService = org.mockito.Mockito.mock(DocumentStorageService.class);
+		verificationTokenService = org.mockito.Mockito.mock(VerificationTokenService.class);
+		snsEmailPublisherService = org.mockito.Mockito.mock(SnsEmailPublisherService.class);
+
+		clientService = new ClientServiceImpl(
+			clientRepository, clientAuditLogger, documentStorageService, verificationTokenService, snsEmailPublisherService
+		);
 	}
 
 	/** Verifies that listClients() returns all entities from the repository mapped to DTOs. */
@@ -173,19 +198,7 @@ class ClientServiceImplTest {
 	void createClient_whenNoConflict_returnsSavedDto() {
 		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
-		ClientCreateRequest request = new ClientCreateRequest(
-			payload.firstName(),
-			payload.lastName(),
-			payload.dateOfBirth(),
-			payload.gender(),
-			payload.emailAddress(),
-			payload.phoneNumber(),
-			payload.address(),
-			payload.city(),
-			payload.state(),
-			payload.country(),
-			payload.postalCode()
-		);
+
 		when(clientRepository.existsByEmailAddressIgnoreCase(payload.emailAddress())).thenReturn(false);
 		when(clientRepository.existsByPhoneNumber(payload.phoneNumber())).thenReturn(false);
 		when(clientRepository.save(any())).thenAnswer(inv -> {
@@ -193,28 +206,70 @@ class ClientServiceImplTest {
 			if (e.getId() == null) e.setId(10L);
 			return e;
 		});
+        when(verificationTokenService.generateVerificationToken(any(), anyLong())).thenReturn("signed-token-abc");
 
-		var result = clientService.createClient(user, request, "Bearer x", "req-1");
+		var result = clientService.createClient(user, requestFrom(payload), "Bearer x", "req-1");
 
 		assertThat(result.clientId()).isEqualTo("clt_10");
 		assertThat(result.firstName()).isEqualTo("Jordan");
 		assertThat(result.emailAddress()).isEqualTo("jordan.taylor@example.com");
+
 		ArgumentCaptor<ClientEntity> captor = ArgumentCaptor.forClass(ClientEntity.class);
 		verify(clientRepository).save(captor.capture());
 		assertThat(captor.getValue().getFirstName()).isEqualTo("Jordan");
 		assertThat(captor.getValue().getAssignedAgentId()).isEqualTo("usr_1");
+		
 		verify(clientRepository).existsByEmailAddressIgnoreCase(payload.emailAddress());
 		verify(clientRepository).existsByPhoneNumber(payload.phoneNumber());
 		verify(clientAuditLogger).logAuditEvent(
 			eq("CREATE"),
-			any(),
-			any(),
-			any(),
+			eq("Client ID"),
+			eq(null),
+			eq("clt_10"),
 			eq("usr_1"),
 			eq("clt_10"),
 			eq("req-1"),
 			eq("Bearer x")
 		);
+		verify(snsEmailPublisherService).publishVerificationEmail(
+            eq("clt_10"),
+            eq("jordan.taylor@example.com"),
+            eq("signed-token-abc"),
+            eq("Jordan"),
+            eq("req-1")
+        );
+	}
+
+	@Test
+	void createClient_authorizationHeaderBlank_skipsAuditLogging_andLowercasesEmail() {
+		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		ClientCreateRequest request = new ClientCreateRequest(
+			"Jordan",
+			"Taylor",
+			LocalDate.of(1990, 1, 15),
+			Gender.MALE,
+			"JORDAN.TAYLOR@EXAMPLE.COM",
+			"+15551234567",
+			"123 Main Street",
+			"Springfield",
+			"Illinois",
+			"United States",
+			"62704"
+		);
+		when(clientRepository.existsByEmailAddressIgnoreCase("JORDAN.TAYLOR@EXAMPLE.COM")).thenReturn(false);
+		when(clientRepository.existsByPhoneNumber("+15551234567")).thenReturn(false);
+		ArgumentCaptor<ClientEntity> captor = ArgumentCaptor.forClass(ClientEntity.class);
+		when(clientRepository.save(captor.capture())).thenAnswer(inv -> {
+			ClientEntity e = inv.getArgument(0);
+			e.setId(21L);
+			return e;
+		});
+
+		var created = clientService.createClient(agent, request, "   ", "req-1");
+
+		assertThat(created.clientId()).isEqualTo("clt_21");
+		assertThat(captor.getValue().getEmailAddress()).isEqualTo("jordan.taylor@example.com");
+		verify(clientAuditLogger, never()).logAuditEvent(any(), any(), any(), any(), any(), any(), any(), any());
 	}
 
 	/** Verifies that createClient() throws DuplicateClientException when the email is already in use (no save). */
@@ -222,22 +277,10 @@ class ClientServiceImplTest {
 	void createClient_whenEmailExists_throwsDuplicateClientException() {
 		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
-		ClientCreateRequest request = new ClientCreateRequest(
-			payload.firstName(),
-			payload.lastName(),
-			payload.dateOfBirth(),
-			payload.gender(),
-			payload.emailAddress(),
-			payload.phoneNumber(),
-			payload.address(),
-			payload.city(),
-			payload.state(),
-			payload.country(),
-			payload.postalCode()
-		);
+
 		when(clientRepository.existsByEmailAddressIgnoreCase(payload.emailAddress())).thenReturn(true);
 
-		assertThatThrownBy(() -> clientService.createClient(user, request, "Bearer x", "req-1"))
+		assertThatThrownBy(() -> clientService.createClient(user, requestFrom(payload), "Bearer x", "req-1"))
 			.isInstanceOf(DuplicateClientException.class)
 			.hasMessageContaining("Email");
 
@@ -250,23 +293,11 @@ class ClientServiceImplTest {
 	void createClient_whenPhoneExists_throwsDuplicateClientException() {
 		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
-		ClientCreateRequest request = new ClientCreateRequest(
-			payload.firstName(),
-			payload.lastName(),
-			payload.dateOfBirth(),
-			payload.gender(),
-			payload.emailAddress(),
-			payload.phoneNumber(),
-			payload.address(),
-			payload.city(),
-			payload.state(),
-			payload.country(),
-			payload.postalCode()
-		);
+
 		when(clientRepository.existsByEmailAddressIgnoreCase(payload.emailAddress())).thenReturn(false);
 		when(clientRepository.existsByPhoneNumber(payload.phoneNumber())).thenReturn(true);
 
-		assertThatThrownBy(() -> clientService.createClient(user, request, "Bearer x", "req-1"))
+		assertThatThrownBy(() -> clientService.createClient(user, requestFrom(payload), "Bearer x", "req-1"))
 			.isInstanceOf(DuplicateClientException.class)
 			.hasMessageContaining("Phone");
 
@@ -405,73 +436,6 @@ class ClientServiceImplTest {
 	}
 
 	@Test
-	void createClient_whenLogPublishingFails_stillReturnsCreatedClient() {
-		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
-		ClientPayload payload = samplePayload();
-		ClientCreateRequest request = new ClientCreateRequest(
-			payload.firstName(),
-			payload.lastName(),
-			payload.dateOfBirth(),
-			payload.gender(),
-			payload.emailAddress(),
-			payload.phoneNumber(),
-			payload.address(),
-			payload.city(),
-			payload.state(),
-			payload.country(),
-			payload.postalCode()
-		);
-		when(clientRepository.existsByEmailAddressIgnoreCase(payload.emailAddress())).thenReturn(false);
-		when(clientRepository.existsByPhoneNumber(payload.phoneNumber())).thenReturn(false);
-		when(clientRepository.save(any())).thenAnswer(inv -> {
-			ClientEntity e = inv.getArgument(0);
-			e.setId(20L);
-			e.setAssignedAgentId("usr_1");
-			return e;
-		});
-		doThrow(new RuntimeException("log service unavailable"))
-			.when(clientAuditLogger).logAuditEvent(eq("CREATE"), any(), any(), any(), any(), any(), any(), any());
-
-		var result = clientService.createClient(user, request, "Bearer x", "req-1");
-
-		assertThat(result.clientId()).isEqualTo("clt_20");
-		verify(clientRepository).save(any());
-		verify(clientAuditLogger).logAuditEvent(eq("CREATE"), any(), any(), any(), any(), any(), any(), any());
-	}
-
-	@Test
-	void createClient_authorizationHeaderBlank_skipsAuditLogging_andLowercasesEmail() {
-		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
-		ClientCreateRequest request = new ClientCreateRequest(
-			"Jordan",
-			"Taylor",
-			LocalDate.of(1990, 1, 15),
-			Gender.MALE,
-			"JORDAN.TAYLOR@EXAMPLE.COM",
-			"+15551234567",
-			"123 Main Street",
-			"Springfield",
-			"Illinois",
-			"United States",
-			"62704"
-		);
-		when(clientRepository.existsByEmailAddressIgnoreCase("JORDAN.TAYLOR@EXAMPLE.COM")).thenReturn(false);
-		when(clientRepository.existsByPhoneNumber("+15551234567")).thenReturn(false);
-		ArgumentCaptor<ClientEntity> captor = ArgumentCaptor.forClass(ClientEntity.class);
-		when(clientRepository.save(captor.capture())).thenAnswer(inv -> {
-			ClientEntity e = inv.getArgument(0);
-			e.setId(21L);
-			return e;
-		});
-
-		var created = clientService.createClient(user, request, "   ", "req-1");
-
-		assertThat(created.clientId()).isEqualTo("clt_21");
-		assertThat(captor.getValue().getEmailAddress()).isEqualTo("jordan.taylor@example.com");
-		verify(clientAuditLogger, never()).logAuditEvent(any(), any(), any(), any(), any(), any(), any(), any());
-	}
-
-	@Test
 	void updateClient_singleFieldChange_auditLogContainsFieldNameAndValues() {
 		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
@@ -554,318 +518,107 @@ class ClientServiceImplTest {
 	}
 
 	@Test
-	void verifyClient_setsStatusToPending_andAuditsWithNullBeforeValueWhenStatusWasNull() {
-		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
+	void verifyClient_setsStatusToVerified_andAuditsWithNullBeforeValueWhenStatusWasNull() {
+		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
 		ClientPayload payload = samplePayload();
 		ClientEntity entity = entityFromPayload(7L, "usr_1", payload);
 		entity.setIdentityVerificationStatus(null);
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
 		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-		when(verificationEmailTemplateRenderer.render("jordan.taylor@example.com", "Jordan", "clt_7"))
-			.thenReturn(new VerificationEmail(
-				"jordan.taylor@example.com",
-				"Verification complete",
-				"Body"
-			));
 
 		var response = clientService.verifyClient(
-			user,
+			agent,
 			"clt_7",
-			new VerifyClientRequest("S1234567A", "NRIC", null),
-			"Bearer x",
-			"req-1"
-		);
-
-		assertThat(response.clientId()).isEqualTo("clt_7");
-		assertThat(response.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.pending);
-		verify(clientAuditLogger).logAuditEvent(
-			eq("UPDATE"),
-			eq("identityVerificationStatus"),
-			eq(null),
-			eq("pending"),
-			eq("usr_1"),
-			eq("clt_7"),
-			eq("req-1"),
-			eq("Bearer x")
-		);
-		verify(verificationEmailTemplateRenderer).render("jordan.taylor@example.com", "Jordan", "clt_7");
-		verify(verificationEmailDispatchService).queueAndDispatchVerificationEmail(
-			eq("clt_7"),
-			eq("usr_1"),
-			any(VerificationEmail.class),
-			eq("Bearer x"),
-			eq("req-1")
-		);
-	}
-
-	@Test
-	void verifyClient_emailSenderFails_stillReturnsPendingResponse() {
-		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
-		ClientPayload payload = samplePayload();
-		ClientEntity entity = entityFromPayload(7L, "usr_1", payload);
-		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
-		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-		when(verificationEmailTemplateRenderer.render("jordan.taylor@example.com", "Jordan", "clt_7"))
-			.thenReturn(new VerificationEmail(
-				"jordan.taylor@example.com",
-				"Verification complete",
-				"Body"
-			));
-		doThrow(new RuntimeException("dispatch unavailable"))
-			.when(verificationEmailDispatchService)
-			.queueAndDispatchVerificationEmail(any(), any(), any(), any(), any());
-
-		var response = clientService.verifyClient(
-			user,
-			"clt_7",
-			new VerifyClientRequest("S1234567A", "NRIC", null),
-			"Bearer x",
-			"req-1"
-		);
-
-		assertThat(response.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.pending);
-		verify(clientRepository).save(any());
-		verify(clientAuditLogger).logAuditEvent(
-			eq("UPDATE"),
-			eq("identityVerificationStatus"),
-			eq("unverified"),
-			eq("pending"),
-			eq("usr_1"),
-			eq("clt_7"),
-			eq("req-1"),
-			eq("Bearer x")
-		);
-		verify(verificationEmailDispatchService).queueAndDispatchVerificationEmail(
-			eq("clt_7"),
-			eq("usr_1"),
-			any(VerificationEmail.class),
-			eq("Bearer x"),
-			eq("req-1")
-		);
-	}
-
-	@Test
-	void reviewVerification_adminApprove_pendingTransitionsToVerified_andSendsEmail() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
-		ClientPayload payload = samplePayload();
-		ClientEntity entity = entityFromPayload(7L, "usr_1", payload);
-		entity.setIdentityVerificationStatus(IdentityVerificationStatus.pending);
-		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
-		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-		when(verificationEmailTemplateRenderer.render("jordan.taylor@example.com", "Jordan", "clt_7"))
-			.thenReturn(new VerificationEmail(
-				"jordan.taylor@example.com",
-				"Verification complete",
-				"Body"
-			));
-
-		var response = clientService.reviewVerification(
-			admin,
-			"clt_7",
-			new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.approve),
+			new VerifyClientRequest(true),
 			"Bearer x",
 			"req-1"
 		);
 
 		assertThat(response.clientId()).isEqualTo("clt_7");
 		assertThat(response.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.verified);
-		assertThat(entity.getVerificationVerifiedAt()).isNotNull();
 		verify(clientAuditLogger).logAuditEvent(
 			eq("UPDATE"),
 			eq("identityVerificationStatus"),
-			eq("pending"),
+			eq(null),
 			eq("verified"),
-			eq("usr_admin"),
+			eq("usr_1"),
 			eq("clt_7"),
 			eq("req-1"),
 			eq("Bearer x")
 		);
-		verify(verificationEmailDispatchService).queueAndDispatchVerificationEmail(
-			eq("clt_7"),
-			eq("usr_admin"),
-			any(VerificationEmail.class),
-			eq("Bearer x"),
-			eq("req-1")
-		);
 	}
 
+	// Upload Verification Documents
 	@Test
-	void reviewVerification_adminReject_pendingTransitionsToRejected_withoutSendingEmail() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
-		ClientPayload payload = samplePayload();
-		ClientEntity entity = entityFromPayload(8L, "usr_1", payload);
-		entity.setIdentityVerificationStatus(IdentityVerificationStatus.pending);
-		when(clientRepository.findById(8L)).thenReturn(Optional.of(entity));
+	void uploadVerificationDocs_tokenValid_uploadsBothDocumentsToS3() {
+		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
+		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
+		when(verificationTokenService.isValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(documentStorageService.upload(eq("clt_7"), eq("primary"), any(), any(), any()))
+			.thenReturn("clients/clt_7/primary/nric_front.jpg");
+		when(documentStorageService.upload(eq("clt_7"), eq("address"), any(), any(), any()))
+			.thenReturn("clients/clt_7/address/bill.pdf");
 		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-		var response = clientService.reviewVerification(
-			admin,
-			"clt_8",
-			new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.reject),
-			"Bearer x",
-			"req-2"
-		);
+		clientService.uploadVerificationDocs("clt_7", validUploadRequest("valid-token-abc"), "req-1");
 
-		assertThat(response.clientId()).isEqualTo("clt_8");
-		assertThat(response.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.rejected);
-		assertThat(entity.getVerificationVerifiedAt()).isNull();
-		verify(clientAuditLogger).logAuditEvent(
-			eq("UPDATE"),
-			eq("identityVerificationStatus"),
-			eq("pending"),
-			eq("rejected"),
-			eq("usr_admin"),
-			eq("clt_8"),
-			eq("req-2"),
-			eq("Bearer x")
+		verify(documentStorageService).upload(
+			"clt_7", "primary", "nric_front.jpg", "base64PrimaryData==", "image/jpeg"
 		);
-		verify(verificationEmailDispatchService, never()).queueAndDispatchVerificationEmail(
-			any(),
-			any(),
-			any(),
-			any(),
-			any()
+		verify(documentStorageService).upload(
+			"clt_7", "address", "bill.pdf", "base64AddressData==", "application/pdf"
 		);
 	}
 
 	@Test
-	void reviewVerification_nonAdmin_throwsAccessDenied() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "user");
+	void uploadVerificationDocs_tokenValid_persistsS3KeysAndSetsPending() {
+		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
+		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
+		when(verificationTokenService.isValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(documentStorageService.upload(eq("clt_7"), eq("primary"), any(), any(), any()))
+			.thenReturn("clients/clt_7/primary/nric_front.jpg");
+		when(documentStorageService.upload(eq("clt_7"), eq("address"), any(), any(), any()))
+			.thenReturn("clients/clt_7/address/bill.pdf");
 
-		assertThatThrownBy(() -> clientService.reviewVerification(
-			agent,
-			"clt_7",
-			new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.approve),
-			"Bearer x",
-			"req-1"
-		))
-			.isInstanceOf(org.springframework.security.access.AccessDeniedException.class)
-			.hasMessageContaining("Only admins can review verifications");
+		ArgumentCaptor<ClientEntity> captor = ArgumentCaptor.forClass(ClientEntity.class);
+		when(clientRepository.save(captor.capture())).thenAnswer(inv -> inv.getArgument(0));
+
+		clientService.uploadVerificationDocs("clt_7", validUploadRequest("valid-token-abc"), "req-1");
+
+		ClientEntity saved = captor.getValue();
+		assertThat(saved.getIdentityVerificationStatus()).isEqualTo(IdentityVerificationStatus.pending);
+		assertThat(saved.getPrimaryDocumentType()).isEqualTo("NRIC");
+		assertThat(saved.getPrimaryDocumentRef()).isEqualTo("clients/clt_7/primary/nric_front.jpg");
+		assertThat(saved.getAddressDocumentType()).isEqualTo("UTILITY_BILL");
+		assertThat(saved.getAddressDocumentRef()).isEqualTo("clients/clt_7/address/bill.pdf");
+		assertThat(saved.getVerificationVerifiedAt()).isNull();
 	}
 
 	@Test
-	void reviewVerification_nonPendingStatus_throwsConflict() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
-		ClientPayload payload = samplePayload();
-		ClientEntity entity = entityFromPayload(9L, "usr_1", payload);
-		entity.setIdentityVerificationStatus(IdentityVerificationStatus.unverified);
-		when(clientRepository.findById(9L)).thenReturn(Optional.of(entity));
+	void uploadVerificationDocs_tokenValid_returnsClientIdAndPendingStatus() {
+		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
+		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
+		when(verificationTokenService.isValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(documentStorageService.upload(any(), any(), any(), any(), any())).thenReturn("s3-key");
+		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-		assertThatThrownBy(() -> clientService.reviewVerification(
-			admin,
-			"clt_9",
-			new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.approve),
-			"Bearer x",
-			"req-3"
-		))
-			.isInstanceOf(IllegalStateException.class)
-			.hasMessageContaining("not in pending state");
+		var response = clientService.uploadVerificationDocs(
+			"clt_7", validUploadRequest("valid-token-abc"), "req-1"
+		);
 
+		assertThat(response.clientId()).isEqualTo("clt_7");
+		assertThat(response.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.pending);
+	}
+
+	@Test
+	void uploadVerificationDocs_tokenInvalid_throwsUnauthorizedException() {
+		when(verificationTokenService.isValid("clt_7", "bad-token")).thenReturn(false);
+
+		assertThatThrownBy(() ->
+			clientService.uploadVerificationDocs("clt_7", validUploadRequest("bad-token"), "req-1")
+		).isInstanceOf(UnauthorizedException.class);
+
+		verify(documentStorageService, never()).upload(any(), any(), any(), any(), any());
 		verify(clientRepository, never()).save(any());
-	}
-
-	@Test
-	void verificationFlow_createThenVerifyThenApprove_persistsStateAndDispatchesBothEmails() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "user");
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
-		ClientPayload payload = samplePayload();
-		ClientCreateRequest createRequest = new ClientCreateRequest(
-			payload.firstName(),
-			payload.lastName(),
-			payload.dateOfBirth(),
-			payload.gender(),
-			payload.emailAddress(),
-			payload.phoneNumber(),
-			payload.address(),
-			payload.city(),
-			payload.state(),
-			payload.country(),
-			payload.postalCode()
-		);
-		AtomicReference<ClientEntity> stored = new AtomicReference<>();
-
-		when(clientRepository.existsByEmailAddressIgnoreCase(payload.emailAddress())).thenReturn(false);
-		when(clientRepository.existsByPhoneNumber(payload.phoneNumber())).thenReturn(false);
-		when(clientRepository.save(any())).thenAnswer(inv -> {
-			ClientEntity entity = inv.getArgument(0);
-			if (entity.getId() == null) {
-				entity.setId(1L);
-			}
-			stored.set(entity);
-			return entity;
-		});
-		when(clientRepository.findById(1L)).thenAnswer(inv -> Optional.ofNullable(stored.get()));
-		when(verificationEmailTemplateRenderer.render("jordan.taylor@example.com", "Jordan", "clt_1"))
-			.thenReturn(new VerificationEmail(
-				"jordan.taylor@example.com",
-				"Verification status update",
-				"Body"
-			));
-
-		var created = clientService.createClient(agent, createRequest, "Bearer agent", "req-create");
-		assertThat(created.clientId()).isEqualTo("clt_1");
-
-		var pending = clientService.verifyClient(
-			agent,
-			"clt_1",
-			new VerifyClientRequest("S1234567D", "NRIC", "s3://docs/nric-1"),
-			"Bearer client",
-			"req-verify"
-		);
-		assertThat(pending.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.pending);
-		assertThat(stored.get().getVerificationDocumentType()).isEqualTo("NRIC");
-		assertThat(stored.get().getVerificationDocumentRef()).isEqualTo("s3://docs/nric-1");
-
-		var approved = clientService.reviewVerification(
-			admin,
-			"clt_1",
-			new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.approve),
-			"Bearer admin",
-			"req-review"
-		);
-		assertThat(approved.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.verified);
-		assertThat(stored.get().getVerificationVerifiedAt()).isNotNull();
-
-		ArgumentCaptor<String> userIdCaptor = ArgumentCaptor.forClass(String.class);
-		verify(verificationEmailDispatchService, times(2)).queueAndDispatchVerificationEmail(
-			eq("clt_1"),
-			userIdCaptor.capture(),
-			any(VerificationEmail.class),
-			any(),
-			any()
-		);
-		assertThat(userIdCaptor.getAllValues()).containsExactly("usr_1", "usr_admin");
-
-		var auditOrder = inOrder(clientAuditLogger);
-		auditOrder.verify(clientAuditLogger).logAuditEvent(
-			eq("CREATE"),
-			any(),
-			any(),
-			eq("clt_1"),
-			eq("usr_1"),
-			eq("clt_1"),
-			eq("req-create"),
-			eq("Bearer agent")
-		);
-		auditOrder.verify(clientAuditLogger).logAuditEvent(
-			eq("UPDATE"),
-			eq("identityVerificationStatus"),
-			eq("unverified"),
-			eq("pending"),
-			eq("usr_1"),
-			eq("clt_1"),
-			eq("req-verify"),
-			eq("Bearer client")
-		);
-		auditOrder.verify(clientAuditLogger).logAuditEvent(
-			eq("UPDATE"),
-			eq("identityVerificationStatus"),
-			eq("pending"),
-			eq("verified"),
-			eq("usr_admin"),
-			eq("clt_1"),
-			eq("req-review"),
-			eq("Bearer admin")
-		);
 	}
 }

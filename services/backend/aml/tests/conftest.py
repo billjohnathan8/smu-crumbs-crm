@@ -148,7 +148,10 @@ def transactions_normal() -> list[Transaction]:
 
 @pytest.fixture()
 def transactions_outlier() -> list[Transaction]:
-    """CLIENT_OUTLIER has a stable $200 history; the $50,000 deposit is a clear outlier."""
+    """CLIENT_OUTLIER has a stable $200 history.
+
+    The $50,000 deposit is a clear outlier.
+    """
     return [
         make_deposit("O001", "CLIENT_OUTLIER", 190.0, date(2026, 1, 2)),
         make_deposit("O002", "CLIENT_OUTLIER", 205.0, date(2026, 1, 5)),

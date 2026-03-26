@@ -194,9 +194,9 @@ output "aml_lambda_name" {
   value       = module.lambda.aml_lambda_name
 }
 
-output "transaction_ingestion_lambda_name" {
-  description = "Scheduled transaction ingestion Lambda function name."
-  value       = module.lambda.transaction_ingestion_lambda_name
+output "sftp_transaction_collector_name" {
+  description = "Scheduled sftp-transaction-collector Lambda function name."
+  value       = module.lambda.sftp_transaction_collector_name
 }
 
 #--------------------------------------------------------------

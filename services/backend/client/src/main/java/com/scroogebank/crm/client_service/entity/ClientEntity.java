@@ -81,11 +81,19 @@ public class ClientEntity {
 	@Column(name = "identity_verification_status", nullable = false, length = 20)
 	private IdentityVerificationStatus identityVerificationStatus = IdentityVerificationStatus.unverified;
 
-	@Column(name = "verification_document_type", length = 20)
-	private String verificationDocumentType;
+	// Primary identity document
+	@Column(name = "primary_document_type", length = 20)
+	private String primaryDocumentType;
 
-	@Column(name = "verification_document_ref", length = 255)
-	private String verificationDocumentRef;
+	@Column(name = "primary_document_ref", length = 255)
+	private String primaryDocumentRef;
+
+	// Proof of address document
+	@Column(name = "address_document_type", length = 20)
+	private String addressDocumentType;
+
+	@Column(name = "address_document_ref", length = 255)
+	private String addressDocumentRef;
 
 	@Column(name = "verification_verified_at")
 	private Instant verificationVerifiedAt;
@@ -237,20 +245,36 @@ public class ClientEntity {
 		return updatedAt;
 	}
 
-	public String getVerificationDocumentType() {
-		return verificationDocumentType;
+	public String getPrimaryDocumentType() {
+		return primaryDocumentType;
 	}
 
-	public void setVerificationDocumentType(String verificationDocumentType) {
-		this.verificationDocumentType = verificationDocumentType;
+	public void setPrimaryDocumentType(String primaryDocumentType) {
+		this.primaryDocumentType = primaryDocumentType;
 	}
 
-	public String getVerificationDocumentRef() {
-		return verificationDocumentRef;
+	public String getPrimaryDocumentRef() {
+		return primaryDocumentRef;
 	}
 
-	public void setVerificationDocumentRef(String verificationDocumentRef) {
-		this.verificationDocumentRef = verificationDocumentRef;
+	public void setPrimaryDocumentRef(String primaryDocumentRef) {
+		this.primaryDocumentRef = primaryDocumentRef;
+	}
+
+	public String getAddressDocumentType() {
+		return addressDocumentType;
+	}
+
+	public void setAddressDocumentType(String addressDocumentType) {
+		this.addressDocumentType = addressDocumentType;
+	}
+
+	public String getAddressDocumentRef() {
+		return addressDocumentRef;
+	}
+
+	public void setAddressDocumentRef(String addressDocumentRef) {
+		this.addressDocumentRef = addressDocumentRef;
 	}
 
 	public Instant getVerificationVerifiedAt() {

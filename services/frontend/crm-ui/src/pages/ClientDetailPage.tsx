@@ -56,6 +56,17 @@ const statusColors: Record<string, string> = {
   rejected: 'bg-danger/20 text-danger',
 }
 
+const emptyVerifyPayload = (): VerifyClientRequest => ({
+  primaryDocumentType: 'NRIC',
+  primaryDocumentRef: '',
+  primaryDocumentBase64: '',
+  primaryDocumentMimeType: '',
+  addressDocumentType: 'UTILITY_BILL',
+  addressDocumentRef: '',
+  addressDocumentBase64: '',
+  addressDocumentMimeType: '',
+})
+
 export function ClientDetailPage() {
   const { clientId } = useParams<{ clientId: string }>()
   const { user, logout } = useAuth()
@@ -66,7 +77,6 @@ export function ClientDetailPage() {
   const isAdmin = user?.role === 'admin'
   const isSuperAdmin = user?.role === 'super_admin'
   const isManagementUser = isAdmin || isSuperAdmin
-
   const canViewAllClients = isManagementUser
   const canReviewVerification = isManagementUser
   const canDeleteClient = isUser || isManagementUser
@@ -90,16 +100,11 @@ export function ClientDetailPage() {
   const [communications, setCommunications] = useState<Communication[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string>('')
-
   const navSuccessMessage =
     (location.state as { successMessage?: string } | null)?.successMessage || ''
 
   const [showVerifyForm, setShowVerifyForm] = useState(false)
-  const [verifyData, setVerifyData] = useState<VerifyClientRequest>({
-    nric: '',
-    documentType: 'NRIC',
-    documentRef: '',
-  })
+  const [verifyData, setVerifyData] = useState<VerifyClientRequest>(emptyVerifyPayload())
   const [verifyError, setVerifyError] = useState<string>('')
   const [isVerifying, setIsVerifying] = useState(false)
   const [verifySuccess, setVerifySuccess] = useState<string>(navSuccessMessage)
@@ -185,7 +190,6 @@ export function ClientDetailPage() {
           ? `Verification approved (status: ${result.identityVerificationStatus})`
           : `Verification rejected (status: ${result.identityVerificationStatus})`
       )
-
       const updated = await getClientById(clientId)
       setClient(updated)
     } catch (err) {
@@ -205,8 +209,8 @@ export function ClientDetailPage() {
     e.preventDefault()
     if (!clientId || !canVerifyClient) return
 
-    if (!verifyData.nric.trim()) {
-      setVerifyError('NRIC is required')
+    if (!verifyData.primaryDocumentBase64 || !verifyData.addressDocumentBase64) {
+      setVerifyError('Please upload both required documents.')
       return
     }
 
@@ -220,6 +224,7 @@ export function ClientDetailPage() {
         `Verification submitted for review (status: ${result.identityVerificationStatus})`
       )
       setShowVerifyForm(false)
+      setVerifyData(emptyVerifyPayload())
 
       const updated = await getClientById(clientId)
       setClient(updated)
@@ -426,7 +431,7 @@ export function ClientDetailPage() {
           composeSuccess={composeSuccess}
           composeError={composeError}
           showComposeForm={showComposeForm}
-          setShowComposeForm={canSendCommunication ? setShowComposeForm : () => {}}
+          setShowComposeForm={canSendCommunication ? setShowComposeForm : undefined}
           composeData={composeData}
           setComposeData={setComposeData}
           isSending={isSending}

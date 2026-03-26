@@ -92,7 +92,7 @@ output "verification_lambda_role_arn" {
   value       = var.enable_verification_pipeline ? (local.use_lab_role ? local.effective_lab_role_arn : aws_iam_role.verification_lambda[0].arn) : null
 }
 
-output "transaction_ingestion_lambda_role_arn" {
+output "sftp_transaction_collector_role_arn" {
   description = "Transaction ingestion Lambda IAM role ARN."
-  value       = var.enable_transaction_ingestion_lambda ? (local.use_lab_role ? local.effective_lab_role_arn : aws_iam_role.transaction_ingestion_lambda[0].arn) : null
+  value       = var.enable_sftp_transaction_collector ? (local.use_lab_role ? local.effective_lab_role_arn : aws_iam_role.sftp_transaction_collector[0].arn) : null
 }

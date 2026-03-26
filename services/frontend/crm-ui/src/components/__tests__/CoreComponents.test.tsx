@@ -7,11 +7,12 @@ import { BankAccountsPreview } from '../BankAccountsPreview'
 import { CommunicationsPanel } from '../CommunicationsPanel'
 import { RecentTransactionsTable } from '../RecentTransactionsTable'
 import { SidebarLayout, type NavItem } from '../SidebarDrawer'
-import { VerificationForm } from '../VerificationForm'
+// import { VerificationForm } from '../VerificationForm'
 import { VerificationReviewPanel } from '../VerificationReviewPanel'
 import { AuthProvider } from '@/features/auth/AuthContext'
 import { ThemeProvider } from '@/features/theme/ThemeContext'
-import type { Account, AccountCreateRequest, Communication, VerifyClientRequest } from '@/api/types'
+// import type { Account, AccountCreateRequest, Communication, VerifyClientRequest } from '@/api/types'
+import type { Account, AccountCreateRequest, Communication } from '@/api/types'
 
 const baseFormData: AccountCreateRequest = {
   clientId: 'clt_1',
@@ -207,58 +208,58 @@ describe('core components', () => {
     expect(formatAmount).toHaveBeenCalledTimes(3)
   })
 
-  it('handles field updates and actions in VerificationForm', async () => {
-    const user = userEvent.setup()
-    const verifyData: VerifyClientRequest = { nric: '', documentRef: '' }
-    const setVerifyData = vi.fn()
-    const onSubmit = vi.fn(e => e.preventDefault())
-    const onCancel = vi.fn()
+  // it('handles field updates and actions in VerificationForm', async () => {
+  //   const user = userEvent.setup()
+  //   const verifyData: VerifyClientRequest = { nric: '', documentRef: '' }
+  //   const setVerifyData = vi.fn()
+  //   const onSubmit = vi.fn(e => e.preventDefault())
+  //   const onCancel = vi.fn()
 
-    render(
-      <VerificationForm
-        verifyData={verifyData}
-        setVerifyData={setVerifyData}
-        verifyError="Verification failed"
-        isVerifying={false}
-        onSubmit={onSubmit}
-        onCancel={onCancel}
-      />
-    )
+  //   render(
+  //     <VerificationForm
+  //       verifyData={verifyData}
+  //       setVerifyData={setVerifyData}
+  //       verifyError="Verification failed"
+  //       isVerifying={false}
+  //       onSubmit={onSubmit}
+  //       onCancel={onCancel}
+  //     />
+  //   )
 
-    expect(screen.getByText('Verification failed')).toBeInTheDocument()
-    fireEvent.change(screen.getByPlaceholderText('e.g. S1234567D'), {
-      target: { value: 's1234567d' },
-    })
-    expect(setVerifyData).toHaveBeenCalledWith({ ...verifyData, nric: 'S1234567D' })
+  //   expect(screen.getByText('Verification failed')).toBeInTheDocument()
+  //   fireEvent.change(screen.getByPlaceholderText('e.g. S1234567D'), {
+  //     target: { value: 's1234567d' },
+  //   })
+  //   expect(setVerifyData).toHaveBeenCalledWith({ ...verifyData, nric: 'S1234567D' })
 
-    fireEvent.change(screen.getByPlaceholderText('Optional scan/document reference ID'), {
-      target: { value: 'doc-1' },
-    })
-    expect(setVerifyData).toHaveBeenLastCalledWith({ ...verifyData, documentRef: 'doc-1' })
+  //   fireEvent.change(screen.getByPlaceholderText('Optional scan/document reference ID'), {
+  //     target: { value: 'doc-1' },
+  //   })
+  //   expect(setVerifyData).toHaveBeenLastCalledWith({ ...verifyData, documentRef: 'doc-1' })
 
-    await user.click(screen.getByRole('button', { name: 'Submit for Review' }))
-    expect(onSubmit).toHaveBeenCalledTimes(1)
+  //   await user.click(screen.getByRole('button', { name: 'Submit for Review' }))
+  //   expect(onSubmit).toHaveBeenCalledTimes(1)
 
-    await user.click(screen.getByRole('button', { name: 'Cancel' }))
-    expect(onCancel).toHaveBeenCalledTimes(1)
-  })
+  //   await user.click(screen.getByRole('button', { name: 'Cancel' }))
+  //   expect(onCancel).toHaveBeenCalledTimes(1)
+  // })
 
-  it('renders disabled verification form while submitting', () => {
-    render(
-      <VerificationForm
-        verifyData={{ nric: 'S1234567D', documentRef: 'doc' }}
-        setVerifyData={vi.fn()}
-        verifyError=""
-        isVerifying
-        onSubmit={vi.fn()}
-        onCancel={vi.fn()}
-      />
-    )
+  // it('renders disabled verification form while submitting', () => {
+  //   render(
+  //     <VerificationForm
+  //       verifyData={{ nric: 'S1234567D', documentRef: 'doc' }}
+  //       setVerifyData={vi.fn()}
+  //       verifyError=""
+  //       isVerifying
+  //       onSubmit={vi.fn()}
+  //       onCancel={vi.fn()}
+  //     />
+  //   )
 
-    expect(screen.getByRole('button', { name: 'Submitting...' })).toBeDisabled()
-    expect(screen.getByPlaceholderText('e.g. S1234567D')).toBeDisabled()
-    expect(screen.getByPlaceholderText('Optional scan/document reference ID')).toBeDisabled()
-  })
+  //   expect(screen.getByRole('button', { name: 'Submitting...' })).toBeDisabled()
+  //   expect(screen.getByPlaceholderText('e.g. S1234567D')).toBeDisabled()
+  //   expect(screen.getByPlaceholderText('Optional scan/document reference ID')).toBeDisabled()
+  // })
 
   it('handles actions in VerificationReviewPanel', async () => {
     const user = userEvent.setup()

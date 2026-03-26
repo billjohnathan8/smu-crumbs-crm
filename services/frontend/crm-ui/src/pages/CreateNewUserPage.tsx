@@ -6,7 +6,7 @@ import { createUser } from '@/api/users'
 import type { CreateUserRequest, UserRole } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
-import { useTheme } from '@/features/theme/ThemeContext'
+import { useTheme } from '@/features/theme/useTheme'
 
 const userNav: NavItem[] = [
   { label: 'Home', to: '/user', end: true },

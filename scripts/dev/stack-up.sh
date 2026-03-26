@@ -24,8 +24,8 @@ LOG_LAMBDA_RUNTIME="python3.12"
 VERIFICATION_LAMBDA_NAME="scroogebank-crm-dev-verification"
 VERIFICATION_SNS_TOPIC_NAME="scroogebank-crm-dev-verification"
 VERIFICATION_LAMBDA_RUNTIME="python3.12"
-TRANSACTION_INGESTION_LAMBDA_NAME="scroogebank-crm-dev-transaction-ingestion"
-TRANSACTION_INGESTION_LAMBDA_RUNTIME="python3.12"
+SFTP_TRANSACTION_COLLECTOR_NAME="scroogebank-crm-dev-sftp-transaction-collector"
+SFTP_TRANSACTION_COLLECTOR_RUNTIME="python3.12"
 
 export AWS_ACCESS_KEY_ID=test
 export AWS_SECRET_ACCESS_KEY=test
@@ -307,12 +307,12 @@ PY
   fi
 }
 
-package_transaction_ingestion_lambda() {
-  local pkg_dir="${LOG_DIR}/transaction-ingestion-lambda-package"
-  local zip_path="${LOG_DIR}/transaction-ingestion-lambda.zip"
+package_sftp_transaction_collector() {
+  local pkg_dir="${LOG_DIR}/sftp-transaction-collector-package"
+  local zip_path="${LOG_DIR}/sftp-transaction-collector.zip"
   rm -rf "${pkg_dir}" "${zip_path}"
   mkdir -p "${pkg_dir}"
-  cp "${ROOT_DIR}/services/backend/transaction-ingestion-lambda/lambda_function.py" "${pkg_dir}/"
+  cp "${ROOT_DIR}/services/backend/sftp-transaction-collector/lambda_function.py" "${pkg_dir}/"
   if command -v zip >/dev/null 2>&1; then
     (cd "${pkg_dir}" && zip -rq "${zip_path}" .)
   else
@@ -374,28 +374,28 @@ deploy_verification_lambda() {
   fi
 }
 
-deploy_transaction_ingestion_lambda() {
+deploy_sftp_transaction_collector() {
   local zip_arg
-  zip_arg="$(make_zip_arg "${LOG_DIR}/transaction-ingestion-lambda.zip")"
+  zip_arg="$(make_zip_arg "${LOG_DIR}/sftp-transaction-collector.zip")"
   local env_vars="Variables={TRANSACTION_SFTP_BUCKET=scroogebank-crm-dev-transaction-sftp,TRANSACTION_SFTP_PREFIX=incoming/,TRANSACTION_IMPORT_URL=http://transaction-service:8080/api/transactions/import,TRANSACTION_IMPORT_JWT_HMAC_SECRET=dev-only-insecure-secret,TRANSACTION_IMPORT_JWT_SUB=SYSTEM_TRANSACTION_INGESTION,TRANSACTION_IMPORT_JWT_ROLE=admin,TRANSACTION_IMPORT_JWT_TTL_SECONDS=300}"
 
-  if aws_local lambda get-function --function-name "${TRANSACTION_INGESTION_LAMBDA_NAME}" >/dev/null 2>&1; then
+  if aws_local lambda get-function --function-name "${SFTP_TRANSACTION_COLLECTOR_NAME}" >/dev/null 2>&1; then
     aws_local lambda update-function-code \
-      --function-name "${TRANSACTION_INGESTION_LAMBDA_NAME}" --zip-file "${zip_arg}" >/dev/null
+      --function-name "${SFTP_TRANSACTION_COLLECTOR_NAME}" --zip-file "${zip_arg}" >/dev/null
     aws_local lambda update-function-configuration \
-      --function-name "${TRANSACTION_INGESTION_LAMBDA_NAME}" \
-      --handler lambda_function.lambda_handler --runtime "${TRANSACTION_INGESTION_LAMBDA_RUNTIME}" \
+      --function-name "${SFTP_TRANSACTION_COLLECTOR_NAME}" \
+      --handler lambda_function.lambda_handler --runtime "${SFTP_TRANSACTION_COLLECTOR_RUNTIME}" \
       --timeout 30 --memory-size 256 --environment "${env_vars}" >/dev/null
   else
     aws_local lambda create-function \
-      --function-name "${TRANSACTION_INGESTION_LAMBDA_NAME}" \
-      --runtime "${TRANSACTION_INGESTION_LAMBDA_RUNTIME}" \
+      --function-name "${SFTP_TRANSACTION_COLLECTOR_NAME}" \
+      --runtime "${SFTP_TRANSACTION_COLLECTOR_RUNTIME}" \
       --handler lambda_function.lambda_handler \
       --zip-file "${zip_arg}" \
       --role arn:aws:iam::000000000000:role/lambda-role \
       --timeout 30 --memory-size 256 --environment "${env_vars}" >/dev/null
   fi
-  wait_lambda_active "${TRANSACTION_INGESTION_LAMBDA_NAME}"
+  wait_lambda_active "${SFTP_TRANSACTION_COLLECTOR_NAME}"
 }
 
 # ---------------------------------------------------------------------------
@@ -436,7 +436,7 @@ package_log_lambda > /dev/null &
 PKGLOG_PID=$!
 package_verification_lambda &
 PKGV_PID=$!
-package_transaction_ingestion_lambda &
+package_sftp_transaction_collector &
 PKGTXN_PID=$!
 
 # Build service images in background while LocalStack inits and lambdas deploy.
@@ -485,10 +485,10 @@ echo "=== Phase 4: Deploying Lambdas + API Gateway ==="
 deploy_log_lambda
 LOG_SERVICE_URL="$(provision_log_api)"
 echo "[OK] Log API: ${LOCALSTACK_ENDPOINT}/_aws/execute-api/$(echo "${LOG_SERVICE_URL}" | grep -o 'execute-api/[^/]*/[^/]*' | cut -d/ -f2)/${LOG_HTTP_API_STAGE}"
-# Verification and transaction ingestion lambdas are independent — deploy in parallel
+# Verification and sftp-transaction-collector lambdas are independent — deploy in parallel
 deploy_verification_lambda "${LOG_SERVICE_URL}" &
 VERIF_DEPLOY_PID=$!
-deploy_transaction_ingestion_lambda &
+deploy_sftp_transaction_collector &
 TXN_DEPLOY_PID=$!
 wait $VERIF_DEPLOY_PID $TXN_DEPLOY_PID
 echo "[OK] Verification Lambda deployed + SNS subscribed"

@@ -4,23 +4,22 @@ import { ThemeProvider } from '@/features/theme/ThemeContext'
 import { ProtectedRoute } from './ProtectedRoute'
 
 import { LoginPage } from '@/pages/LoginPage'
-import { CognitoCallback } from '@/pages/CognitoCallback'
-import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
-import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
-
 import { AdminDashboard } from '@/pages/AdminDashboard'
 import { AdminCommunications } from '@/pages/AdminCommunications'
 import { AdminUserManagementPage } from '@/pages/AdminUserManagementPage'
+import { CreateNewUserPage } from '@/pages/CreateNewUserPage'
+import { ClientListPage } from '@/pages/ClientListPage'
+import { ClientDetailPage } from '@/pages/ClientDetailPage'
 import { UserDashboard } from '@/pages/UserDashboard'
+import { CreateClientPage } from '@/pages/CreateClientPage'
+import { ViewTransactionsPage } from '@/pages/ViewTransactionsPage'
+import { ClientVerifyPage } from '@/pages/ClientVerifyPage'
 import { AmlAlertsPage } from '@/pages/AmlAlertsPage'
 import { ClientAccountsPage } from '@/pages/ClientAccountsPage'
-import { ClientDetailPage } from '@/pages/ClientDetailPage'
-import { ClientListPage } from '@/pages/ClientListPage'
-import { CreateClientPage } from '@/pages/CreateClientPage'
-import { CreateNewUserPage } from '@/pages/CreateNewUserPage'
 import { EditClientPage } from '@/pages/EditClientPage'
-import { ViewTransactionsPage } from '@/pages/ViewTransactionsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 
 function RootRedirect() {
   const { user, isAuthenticated, isLoading } = useAuth()
@@ -51,7 +50,7 @@ export function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/auth/callback" element={<CognitoCallback />} />
+            <Route path="/verify-client" element={<ClientVerifyPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
 
@@ -73,14 +72,8 @@ export function App() {
 
             <Route element={<ProtectedRoute allowedRoles={['user']} />}>
               <Route path="/user" element={<UserDashboard />} />
-              <Route path="/user/clients" element={<ClientListPage />} />
               <Route path="/user/clients/new" element={<CreateClientPage />} />
-              <Route path="/user/clients/:clientId" element={<ClientDetailPage />} />
-              <Route path="/user/clients/:clientId/edit" element={<EditClientPage />} />
-              <Route path="/user/clients/:clientId/accounts" element={<ClientAccountsPage />} />
               <Route path="/user/transactions" element={<ViewTransactionsPage />} />
-              <Route path="/user/aml-alerts" element={<AmlAlertsPage />} />
-              <Route path="/user/settings" element={<SettingsPage />} />
             </Route>
 
             <Route path="/" element={<RootRedirect />} />

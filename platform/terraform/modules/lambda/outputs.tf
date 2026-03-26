@@ -17,9 +17,9 @@ output "aml_lambda_name" {
   value       = var.enable_aml_lambda ? aws_lambda_function.aml[0].function_name : null
 }
 
-output "transaction_ingestion_lambda_name" {
+output "sftp_transaction_collector_name" {
   description = "Transaction ingestion Lambda function name."
-  value       = var.enable_transaction_ingestion_lambda ? aws_lambda_function.transaction_ingestion[0].function_name : null
+  value       = var.enable_sftp_transaction_collector ? aws_lambda_function.sftp_transaction_collector[0].function_name : null
 }
 
 output "audit_consumer_lambda_name" {
@@ -47,9 +47,9 @@ output "aml_lambda_alias_name" {
   value       = var.enable_aml_lambda ? aws_lambda_alias.aml_live[0].name : null
 }
 
-output "transaction_ingestion_lambda_alias_name" {
-  description = "Deployment alias name for transaction ingestion Lambda."
-  value       = var.enable_transaction_ingestion_lambda ? aws_lambda_alias.transaction_ingestion_live[0].name : null
+output "sftp_transaction_collector_alias_name" {
+  description = "Deployment alias name for sftp-transaction-collector Lambda."
+  value       = var.enable_sftp_transaction_collector ? aws_lambda_alias.sftp_transaction_collector_live[0].name : null
 }
 
 output "verification_lambda_alias_name" {

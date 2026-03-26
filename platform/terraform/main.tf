@@ -51,19 +51,19 @@ module "security" {
   lab_role_arn  = var.lab_role_arn
   lab_role_name = var.lab_role_name
 
-  enable_audit_pipeline               = var.enable_audit_pipeline
-  enable_aml_pipeline                 = var.enable_aml_pipeline
-  enable_verification_pipeline        = var.enable_verification_pipeline
-  enable_transaction_ingestion_lambda = var.enable_transaction_ingestion_lambda
-  audit_sqs_arn                       = module.sqs.audit_queue_arn != null ? module.sqs.audit_queue_arn : ""
-  audit_dlq_arn                       = module.sqs.audit_dlq_arn != null ? module.sqs.audit_dlq_arn : ""
-  aml_sqs_arn                         = module.sqs.aml_queue_arn != null ? module.sqs.aml_queue_arn : ""
-  aml_dlq_arn                         = module.sqs.aml_dlq_arn != null ? module.sqs.aml_dlq_arn : ""
-  audit_dynamodb_table_arn            = module.dynamodb.audit_logs_table_arn != null ? module.dynamodb.audit_logs_table_arn : ""
-  aml_dynamodb_table_arn              = module.dynamodb.aml_reports_table_arn != null ? module.dynamodb.aml_reports_table_arn : ""
-  verification_bucket_arn             = module.s3.verification_bucket_arn != null ? module.s3.verification_bucket_arn : ""
-  transaction_sftp_bucket_arn         = module.s3.transaction_sftp_bucket_arn != null ? module.s3.transaction_sftp_bucket_arn : ""
-  verification_sns_topic_arn          = module.sns.verification_topic_arn != null ? module.sns.verification_topic_arn : ""
+  enable_audit_pipeline             = var.enable_audit_pipeline
+  enable_aml_pipeline               = var.enable_aml_pipeline
+  enable_verification_pipeline      = var.enable_verification_pipeline
+  enable_sftp_transaction_collector = var.enable_sftp_transaction_collector
+  audit_sqs_arn                     = module.sqs.audit_queue_arn != null ? module.sqs.audit_queue_arn : ""
+  audit_dlq_arn                     = module.sqs.audit_dlq_arn != null ? module.sqs.audit_dlq_arn : ""
+  aml_sqs_arn                       = module.sqs.aml_queue_arn != null ? module.sqs.aml_queue_arn : ""
+  aml_dlq_arn                       = module.sqs.aml_dlq_arn != null ? module.sqs.aml_dlq_arn : ""
+  audit_dynamodb_table_arn          = module.dynamodb.audit_logs_table_arn != null ? module.dynamodb.audit_logs_table_arn : ""
+  aml_dynamodb_table_arn            = module.dynamodb.aml_reports_table_arn != null ? module.dynamodb.aml_reports_table_arn : ""
+  verification_bucket_arn           = module.s3.verification_bucket_arn != null ? module.s3.verification_bucket_arn : ""
+  transaction_sftp_bucket_arn       = module.s3.transaction_sftp_bucket_arn != null ? module.s3.transaction_sftp_bucket_arn : ""
+  verification_sns_topic_arn        = module.sns.verification_topic_arn != null ? module.sns.verification_topic_arn : ""
 }
 
 #--------------------------------------------------------------
@@ -157,49 +157,49 @@ module "alb" {
 module "lambda" {
   source = "./modules/lambda"
 
-  enable_log_lambda                            = var.enable_log_lambda
-  project_name                                 = var.project_name
-  environment                                  = var.environment
-  name_prefix                                  = local.name_prefix
-  cloudwatch_log_retention_days                = var.cloudwatch_log_retention_days
-  log_lambda_zip_path                          = var.log_lambda_zip_path
-  log_lambda_memory_size                       = var.log_lambda_memory_size
-  log_lambda_timeout_seconds                   = var.log_lambda_timeout_seconds
-  private_subnet_ids                           = module.network.private_subnet_ids
-  lambda_security_group_id                     = module.security.lambda_security_group_id
-  log_lambda_role_arn                          = module.security.log_lambda_role_arn
-  db_host                                      = module.rds.rds_endpoint
-  db_port                                      = var.db_port
-  db_name                                      = var.db_name
-  db_username_secret_arn                       = module.security.db_username_secret_arn
-  db_password_secret_arn                       = module.security.db_password_secret_arn
-  jwt_hmac_secret_arn                          = module.security.jwt_hmac_secret_arn
-  auth_mode                                    = lower(trimspace(var.auth_mode))
-  cognito_issuer_url                           = var.cognito_issuer_url != "" ? var.cognito_issuer_url : (var.enable_cognito ? module.cognito[0].issuer_url : "")
-  cognito_jwks_url                             = var.cognito_jwks_url != "" ? var.cognito_jwks_url : (var.enable_cognito ? module.cognito[0].jwks_url : "")
-  cognito_audience                             = var.cognito_audience != "" ? var.cognito_audience : (var.enable_cognito ? module.cognito[0].app_client_id : "")
-  enable_aml_lambda                            = var.enable_aml_lambda
-  aml_lambda_zip_path                          = var.aml_lambda_zip_path
-  aml_lambda_memory_size                       = var.aml_lambda_memory_size
-  aml_lambda_timeout_seconds                   = var.aml_lambda_timeout_seconds
-  aml_lambda_role_arn                          = module.security.aml_lambda_role_arn
-  aml_schedule_expression                      = var.aml_schedule_expression
-  aml_sftp_host                                = var.aml_sftp_host
-  aml_sftp_port                                = var.aml_sftp_port
-  aml_sftp_user                                = var.aml_sftp_user
-  aml_sftp_key_secret_arn                      = var.aml_sftp_key_secret_arn
-  aml_sftp_remote_path                         = var.aml_sftp_remote_path
-  aml_entity_id                                = var.aml_entity_id
-  crm_api_base_url                             = local.crm_api_base_url
-  enable_transaction_ingestion_lambda          = var.enable_transaction_ingestion_lambda
-  transaction_ingestion_lambda_zip_path        = var.transaction_ingestion_lambda_zip_path
-  transaction_ingestion_lambda_memory_size     = var.transaction_ingestion_lambda_memory_size
-  transaction_ingestion_lambda_timeout_seconds = var.transaction_ingestion_lambda_timeout_seconds
-  transaction_ingestion_lambda_role_arn        = module.security.transaction_ingestion_lambda_role_arn != null ? module.security.transaction_ingestion_lambda_role_arn : ""
-  transaction_ingestion_schedule_expression    = var.transaction_ingestion_schedule_expression
-  transaction_sftp_bucket_id                   = module.s3.transaction_sftp_bucket_id != null ? module.s3.transaction_sftp_bucket_id : ""
-  transaction_sftp_remote_prefix               = var.transaction_sftp_remote_prefix
-  transaction_import_api_url                   = "${local.transaction_import_api_base_url}${var.transaction_import_api_path}"
+  enable_log_lambda                              = var.enable_log_lambda
+  project_name                                   = var.project_name
+  environment                                    = var.environment
+  name_prefix                                    = local.name_prefix
+  cloudwatch_log_retention_days                  = var.cloudwatch_log_retention_days
+  log_lambda_zip_path                            = var.log_lambda_zip_path
+  log_lambda_memory_size                         = var.log_lambda_memory_size
+  log_lambda_timeout_seconds                     = var.log_lambda_timeout_seconds
+  private_subnet_ids                             = module.network.private_subnet_ids
+  lambda_security_group_id                       = module.security.lambda_security_group_id
+  log_lambda_role_arn                            = module.security.log_lambda_role_arn
+  db_host                                        = module.rds.rds_endpoint
+  db_port                                        = var.db_port
+  db_name                                        = var.db_name
+  db_username_secret_arn                         = module.security.db_username_secret_arn
+  db_password_secret_arn                         = module.security.db_password_secret_arn
+  jwt_hmac_secret_arn                            = module.security.jwt_hmac_secret_arn
+  auth_mode                                      = lower(trimspace(var.auth_mode))
+  cognito_issuer_url                             = var.cognito_issuer_url != "" ? var.cognito_issuer_url : (var.enable_cognito ? module.cognito[0].issuer_url : "")
+  cognito_jwks_url                               = var.cognito_jwks_url != "" ? var.cognito_jwks_url : (var.enable_cognito ? module.cognito[0].jwks_url : "")
+  cognito_audience                               = var.cognito_audience != "" ? var.cognito_audience : (var.enable_cognito ? module.cognito[0].app_client_id : "")
+  enable_aml_lambda                              = var.enable_aml_lambda
+  aml_lambda_zip_path                            = var.aml_lambda_zip_path
+  aml_lambda_memory_size                         = var.aml_lambda_memory_size
+  aml_lambda_timeout_seconds                     = var.aml_lambda_timeout_seconds
+  aml_lambda_role_arn                            = module.security.aml_lambda_role_arn
+  aml_schedule_expression                        = var.aml_schedule_expression
+  aml_sftp_host                                  = var.aml_sftp_host
+  aml_sftp_port                                  = var.aml_sftp_port
+  aml_sftp_user                                  = var.aml_sftp_user
+  aml_sftp_key_secret_arn                        = var.aml_sftp_key_secret_arn
+  aml_sftp_remote_path                           = var.aml_sftp_remote_path
+  aml_entity_id                                  = var.aml_entity_id
+  crm_api_base_url                               = local.crm_api_base_url
+  enable_sftp_transaction_collector              = var.enable_sftp_transaction_collector
+  sftp_transaction_collector_zip_path            = var.sftp_transaction_collector_zip_path
+  sftp_transaction_collector_memory_size         = var.sftp_transaction_collector_memory_size
+  sftp_transaction_collector_timeout_seconds     = var.sftp_transaction_collector_timeout_seconds
+  sftp_transaction_collector_role_arn            = module.security.sftp_transaction_collector_role_arn != null ? module.security.sftp_transaction_collector_role_arn : ""
+  sftp_transaction_collector_schedule_expression = var.sftp_transaction_collector_schedule_expression
+  transaction_sftp_bucket_id                     = module.s3.transaction_sftp_bucket_id != null ? module.s3.transaction_sftp_bucket_id : ""
+  transaction_sftp_remote_prefix                 = var.transaction_sftp_remote_prefix
+  transaction_import_api_url                     = "${local.transaction_import_api_base_url}${var.transaction_import_api_path}"
 
   # Audit consumer Lambda
   enable_audit_consumer     = var.enable_audit_pipeline
@@ -331,7 +331,7 @@ module "s3" {
   frontend_bucket_allow_public   = var.frontend_bucket_allow_public
   enable_verification_bucket     = var.enable_verification_pipeline
   verification_bucket_name       = local.verification_bucket_name
-  enable_transaction_sftp_bucket = var.enable_transaction_ingestion_lambda
+  enable_transaction_sftp_bucket = var.enable_sftp_transaction_collector
   transaction_sftp_bucket_name   = local.transaction_sftp_bucket_name
 }
 
@@ -517,10 +517,10 @@ module "codedeploy" {
       function_name = module.lambda.aml_lambda_name != null ? module.lambda.aml_lambda_name : ""
       alias_name    = module.lambda.aml_lambda_alias_name != null ? module.lambda.aml_lambda_alias_name : ""
     }
-    transaction-ingestion = {
-      enabled       = var.enable_transaction_ingestion_lambda
-      function_name = module.lambda.transaction_ingestion_lambda_name != null ? module.lambda.transaction_ingestion_lambda_name : ""
-      alias_name    = module.lambda.transaction_ingestion_lambda_alias_name != null ? module.lambda.transaction_ingestion_lambda_alias_name : ""
+    sftp-transaction-collector = {
+      enabled       = var.enable_sftp_transaction_collector
+      function_name = module.lambda.sftp_transaction_collector_name != null ? module.lambda.sftp_transaction_collector_name : ""
+      alias_name    = module.lambda.sftp_transaction_collector_alias_name != null ? module.lambda.sftp_transaction_collector_alias_name : ""
     }
     verification = {
       enabled       = var.enable_verification_pipeline

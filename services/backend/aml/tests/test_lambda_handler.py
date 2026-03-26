@@ -299,7 +299,10 @@ class TestLambdaHandler:
         assert result["statusCode"] == 200
 
     def test_sftp_remote_path_env_var_accepted(self, monkeypatch):
-        """Setting SFTP_REMOTE_PATH should not break the handler (it is forwarded to the mock)."""
+        """SFTP_REMOTE_PATH should not break the handler.
+
+        It is forwarded to the mock.
+        """
         monkeypatch.setenv("SFTP_REMOTE_PATH", "/custom/path/transactions.csv")
         result = lambda_handler({}, None)
         assert result["statusCode"] == 200

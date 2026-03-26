@@ -3,6 +3,7 @@ import {
   listTransactions,
   getTransactionById,
   createTransaction,
+  updateTransaction,
   deleteTransaction,
   listClientTransactions,
   startTransactionImport,
@@ -12,6 +13,7 @@ import * as client from '../client'
 import type {
   Transaction,
   CreateTransactionRequest,
+  UpdateTransactionRequest,
   PaginatedResponse,
   ImportBatch,
   ImportTransactionsRequest,
@@ -200,6 +202,31 @@ describe('transactions API', () => {
       await deleteTransaction('txn-123')
 
       expect(client.apiDelete).toHaveBeenCalledWith('/api/transactions/txn-123')
+    })
+  })
+
+  describe('updateTransaction', () => {
+    it('should update transaction fields', async () => {
+      const payload: UpdateTransactionRequest = {
+        status: 'Pending',
+        amount: 750,
+      }
+
+      const updated: Transaction = {
+        id: 'txn-123',
+        clientId: 'client-456',
+        transaction: 'D',
+        amount: 750,
+        date: '2024-01-15',
+        status: 'Pending',
+      }
+
+      vi.spyOn(client, 'apiPut').mockResolvedValue(updated)
+
+      const result = await updateTransaction('txn-123', payload)
+
+      expect(client.apiPut).toHaveBeenCalledWith('/api/transactions/txn-123', payload)
+      expect(result).toEqual(updated)
     })
   })
 

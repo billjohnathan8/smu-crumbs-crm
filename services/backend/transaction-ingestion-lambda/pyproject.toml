@@ -1,6 +1,0 @@
-[tool.coverage.run]
-branch = true
-source = ["lambda_function"]
-
-[tool.coverage.report]
-fail_under = 80

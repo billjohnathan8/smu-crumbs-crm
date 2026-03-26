@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
-import { useTheme } from '@/features/theme/ThemeContext'
+import { useTheme } from '@/features/theme/useTheme'
 import { isRootAdminUser } from '@/features/auth/authorization'
 import { createClient } from '@/api/clients'
 import type { ClientCreateRequest, Gender } from '@/api/types'
