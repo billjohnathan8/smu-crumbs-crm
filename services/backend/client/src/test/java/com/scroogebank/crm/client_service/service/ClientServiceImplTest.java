@@ -20,10 +20,10 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
@@ -48,9 +48,13 @@ class ClientServiceImplTest {
 	private ClientRepository clientRepository;
 	@Mock
 	private ClientAuditLogger clientAuditLogger;
+	@Mock
 	private DocumentStorageService documentStorageService;
+	@Mock
 	private VerificationTokenService verificationTokenService;
+	@Mock
 	private SnsEmailPublisherService snsEmailPublisherService;
+	@InjectMocks
 	private ClientServiceImpl clientService;
 
 	private static ClientPayload samplePayload() {
@@ -102,19 +106,6 @@ class ClientServiceImplTest {
 			"NRIC",         "nric_front.jpg", "base64PrimaryData==", "image/jpeg",
 			"UTILITY_BILL", "bill.pdf",       "base64AddressData==", "application/pdf",
 			token
-		);
-	}
-
-	@BeforeEach
-	void setUp() {
-		clientRepository = org.mockito.Mockito.mock(ClientRepository.class);
-		clientAuditLogger = org.mockito.Mockito.mock(ClientAuditLogger.class);
-		documentStorageService = org.mockito.Mockito.mock(DocumentStorageService.class);
-		verificationTokenService = org.mockito.Mockito.mock(VerificationTokenService.class);
-		snsEmailPublisherService = org.mockito.Mockito.mock(SnsEmailPublisherService.class);
-
-		clientService = new ClientServiceImpl(
-			clientRepository, clientAuditLogger, documentStorageService, verificationTokenService, snsEmailPublisherService
 		);
 	}
 
