@@ -1,0 +1,127 @@
+name: CD - Force Full Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      ecs_cluster:
+        description: ECS cluster name hosting backend services
+        required: false
+        type: string
+        default: backend
+  # push:
+  #   branches:
+  #     - integration
+
+# Ensure that only one full force deployment runs at a time.
+concurrency:
+  group: cd-force-all
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-ecs:
+    if: ${{ !failure() && !cancelled() }}
+    uses: ./.github/workflows/cd-ecs-force.yml
+    with:
+      ecs_cluster: ${{ inputs.ecs_cluster || 'backend' }}
+    secrets: inherit
+
+  deploy-lambda:
+    if: ${{ !failure() && !cancelled() }}
+    uses: ./.github/workflows/cd-lambda-force.yml
+    secrets: inherit
+
+  merge-and-publish-manifest:
+    if: ${{ !failure() && !cancelled() }}
+    needs:
+      - deploy-ecs
+      - deploy-lambda
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      MANIFEST_BUCKET: ${{ secrets.LAMBDA_ARTIFACT_BUCKET }}
+    steps:
+      - name: Validate required secrets
+        run: |
+          test -n "${{ secrets.AWS_ROLE_ARN }}"
+          test -n "${{ secrets.AWS_REGION }}"
+          test -n "${{ secrets.LAMBDA_ARTIFACT_BUCKET }}"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download deploy intent artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: manifest-ecs
+          path: manifests
+
+      - name: Download merged Lambda manifest artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: manifest-lambda
+          path: manifests
+
+      - name: Merge ECS and Lambda manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPO_SHA="${GITHUB_SHA}"
+          NOW_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          # --- DEBUG: Print individual source manifests ---
+          echo "--- DEBUG: ECS Source Manifest ---"
+          cat manifests/manifest-ecs.json || echo "ECS file not found"
+          echo -e "\n--- DEBUG: Lambda Source Manifest ---"
+          cat manifests/manifest-lambda.json || echo "Lambda file not found"
+          echo "----------------------------------"
+
+          if [[ ! -f manifests/manifest-ecs.json ]]; then
+            echo "Missing merged ECS manifest artifact"
+            exit 1
+          fi
+
+          if [[ ! -f manifests/manifest-lambda.json ]]; then
+            echo "Missing merged Lambda manifest artifact"
+            exit 1
+          fi
+
+          jq -n \
+            --arg repo_sha "${REPO_SHA}" \
+            --arg created_at "${NOW_UTC}" \
+            --slurpfile ecs manifests/manifest-ecs.json \
+            --slurpfile lambda manifests/manifest-lambda.json \
+            '{
+              repo_sha: $repo_sha,
+              created_at: $created_at,
+              ecs: ($ecs[0].ecs // {}),
+              lambda: ($lambda[0].lambda // {})
+            }' > manifest.json
+
+          # --- DEBUG: Print the final merged manifest ---
+          echo -e "\n--- DEBUG: Final Merged Manifest ---"
+          cat manifest.json
+          echo "------------------------------------"
+
+      - name: Upload merged manifest to S3
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPO_SHA="${GITHUB_SHA}"
+          aws s3 cp manifest.json "s3://${MANIFEST_BUCKET}/manifests/prod/current.json"
+          aws s3 cp manifest.json "s3://${MANIFEST_BUCKET}/manifests/prod/git/${REPO_SHA}.json"
+
+      - name: Manifest summary
+        run: |
+          echo "Wrote current manifest: s3://${{ env.MANIFEST_BUCKET }}/manifests/prod/current.json"
+          echo "Wrote immutable manifest: s3://${{ env.MANIFEST_BUCKET }}/manifests/prod/git/${{ github.sha }}.json"

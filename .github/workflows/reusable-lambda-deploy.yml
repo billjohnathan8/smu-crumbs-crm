@@ -19,14 +19,9 @@ on:
         required: true
       LAMBDA_ARTIFACT_BUCKET:
         required: true
-      TF_LAMBDA_FUNCTION_NAMES_JSON:
-        required: true
-      TF_CODEDEPLOY_LAMBDA_APPLICATION_NAME:
-        required: true
-      TF_CODEDEPLOY_LAMBDA_DEPLOYMENT_GROUP_NAMES_JSON:
-        required: true
 
 permissions:
+  actions: write
   contents: read
   id-token: write
 
@@ -41,9 +36,6 @@ jobs:
       LAMBDA_ARTIFACT_BUCKET: ${{ secrets.LAMBDA_ARTIFACT_BUCKET }}
       LAMBDA_SERVICE_NAME: ${{ inputs.service }}
       LAMBDA_WORKING_DIRECTORY: services/backend/${{ inputs.service }}
-      LAMBDA_FUNCTION_NAMES_JSON: ${{ secrets.TF_LAMBDA_FUNCTION_NAMES_JSON }}
-      CODEDEPLOY_LAMBDA_APPLICATION_NAME: ${{ secrets.TF_CODEDEPLOY_LAMBDA_APPLICATION_NAME }}
-      CODEDEPLOY_LAMBDA_DEPLOYMENT_GROUP_NAMES_JSON: ${{ secrets.TF_CODEDEPLOY_LAMBDA_DEPLOYMENT_GROUP_NAMES_JSON }}
 
     steps:
       - name: Checkout code
@@ -55,48 +47,6 @@ jobs:
           test -n "${{ secrets.AWS_ROLE_ARN }}"
           test -n "${{ secrets.AWS_REGION }}"
           test -n "${{ secrets.LAMBDA_ARTIFACT_BUCKET }}"
-          test -n "${{ secrets.TF_LAMBDA_FUNCTION_NAMES_JSON }}"
-          test -n "${{ secrets.TF_CODEDEPLOY_LAMBDA_APPLICATION_NAME }}"
-          test -n "${{ secrets.TF_CODEDEPLOY_LAMBDA_DEPLOYMENT_GROUP_NAMES_JSON }}"
-
-      - name: Resolve Terraform deployment metadata
-        id: metadata
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          SERVICE="${LAMBDA_SERVICE_NAME}"
-          SERVICE_UNDERSCORE="${SERVICE//-/_}"
-          SERVICE_TRIMMED="${SERVICE%-lambda}"
-          SERVICE_TRIMMED_UNDERSCORE="${SERVICE_TRIMMED//-/_}"
-
-          resolve_map_value() {
-            local json_payload="$1"
-            local value
-            for key in "$SERVICE" "$SERVICE_UNDERSCORE" "$SERVICE_TRIMMED" "$SERVICE_TRIMMED_UNDERSCORE"; do
-              value="$(jq -er --arg key "$key" '.[$key] // empty' <<< "$json_payload" 2>/dev/null || true)"
-              if [[ -n "$value" && "$value" != "null" ]]; then
-                echo "$value"
-                return 0
-              fi
-            done
-            return 1
-          }
-
-          FUNCTION_NAME="$(resolve_map_value "$LAMBDA_FUNCTION_NAMES_JSON")" || {
-            echo "Missing Lambda function name for service '$SERVICE' in lambda_function_names_json contract"
-            exit 1
-          }
-
-          DEPLOYMENT_GROUP_NAME="$(resolve_map_value "$CODEDEPLOY_LAMBDA_DEPLOYMENT_GROUP_NAMES_JSON")" || {
-            echo "Missing CodeDeploy deployment group for service '$SERVICE' in codedeploy_lambda_deployment_group_names_json contract"
-            exit 1
-          }
-
-          {
-            echo "function_name=${FUNCTION_NAME}"
-            echo "deployment_group_name=${DEPLOYMENT_GROUP_NAME}"
-          } >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -160,11 +110,105 @@ jobs:
             "${{ env.LAMBDA_WORKING_DIRECTORY }}/${{ steps.package.outputs.artifact_path }}" \
             "s3://${{ env.LAMBDA_ARTIFACT_BUCKET }}/${{ steps.package.outputs.s3_key }}"
 
+      - name: Update Lambda function code
+        id: publish
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          aws lambda update-function-code \
+            --function-name "${{ env.LAMBDA_SERVICE_NAME }}" \
+            --s3-bucket "${{ env.LAMBDA_ARTIFACT_BUCKET }}" \
+            --s3-key "${{ steps.package.outputs.s3_key }}" \
+            --publish > lambda-publish.json
+
+          PUBLISHED_VERSION="$(jq -r '.Version' lambda-publish.json)"
+          VERSION_ARN="$(jq -r '.FunctionArn' lambda-publish.json)"
+
+          {
+            echo "published_version=${PUBLISHED_VERSION}"
+            echo "version_arn=${VERSION_ARN}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Ensure prod alias points to published version
+        id: alias
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          FUNCTION_NAME="${{ env.LAMBDA_SERVICE_NAME }}"
+          PUBLISHED_VERSION="${{ steps.publish.outputs.published_version }}"
+
+          if aws lambda get-alias --function-name "${FUNCTION_NAME}" --name prod >/dev/null 2>&1; then
+            aws lambda update-alias \
+              --function-name "${FUNCTION_NAME}" \
+              --name prod \
+              --function-version "${PUBLISHED_VERSION}" >/dev/null
+            echo "alias_action=updated" >> "$GITHUB_OUTPUT"
+            echo "Updated existing prod alias"
+          else
+            aws lambda create-alias \
+              --function-name "${FUNCTION_NAME}" \
+              --name prod \
+              --function-version "${PUBLISHED_VERSION}" >/dev/null
+            echo "alias_action=created" >> "$GITHUB_OUTPUT"
+            echo "Created prod alias"
+          fi
+
+      - name: Write deploy intent fragment (Lambda)
+        id: intent
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPO_SHA="${GITHUB_SHA}"
+          FUNCTION_NAME="${{ env.LAMBDA_SERVICE_NAME }}"
+          S3_KEY="${{ steps.package.outputs.s3_key }}"
+          PUBLISHED_VERSION="${{ steps.publish.outputs.published_version }}"
+          VERSION_ARN="${{ steps.publish.outputs.version_arn }}"
+          NOW_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          FRAGMENT_FILE="intent-lambda-${FUNCTION_NAME}.json"
+
+          jq -n \
+            --arg type "lambda" \
+            --arg created_at "${NOW_UTC}" \
+            --arg repo_sha "${REPO_SHA}" \
+            --arg function_name "${FUNCTION_NAME}" \
+            --arg s3_key "${S3_KEY}" \
+            --arg published_version "${PUBLISHED_VERSION}" \
+            --arg version_arn "${VERSION_ARN}" \
+            --arg alias_name "prod" \
+            --arg alias_action "${{ steps.alias.outputs.alias_action }}" \
+            '{
+              type: $type,
+              created_at: $created_at,
+              repo_sha: $repo_sha,
+              lambda: {
+                function_name: $function_name,
+                s3_key: $s3_key,
+                published_version: $published_version,
+                version_arn: $version_arn,
+                alias: $alias_name,
+                alias_action: $alias_action
+              }
+            }' > "${FRAGMENT_FILE}"
+
+          echo "fragment_file=${FRAGMENT_FILE}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload deploy intent artifact (Lambda)
+        uses: actions/upload-artifact@v4
+        with:
+          name: intent-lambda-${{ inputs.service }}
+          path: ${{ steps.intent.outputs.fragment_file }}
+          if-no-files-found: error
+
       - name: Deployment summary
         run: |
           echo "Lambda: ${{ env.LAMBDA_SERVICE_NAME }}"
-          echo "Resolved function name: ${{ steps.metadata.outputs.function_name }}"
-          echo "Resolved CodeDeploy app: ${{ env.CODEDEPLOY_LAMBDA_APPLICATION_NAME }}"
-          echo "Resolved CodeDeploy group: ${{ steps.metadata.outputs.deployment_group_name }}"
           echo "Artifact: ${{ steps.package.outputs.artifact_name }}"
           echo "Uploaded to: s3://${{ env.LAMBDA_ARTIFACT_BUCKET }}/${{ steps.package.outputs.s3_key }}"
+          echo "Updated function: ${{ env.LAMBDA_SERVICE_NAME }}"
+          echo "Published version: ${{ steps.publish.outputs.published_version }}"
+          echo "Version ARN: ${{ steps.publish.outputs.version_arn }}"
+          echo "Alias: prod"
