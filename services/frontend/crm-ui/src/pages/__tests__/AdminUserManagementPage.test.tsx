@@ -135,7 +135,7 @@ describe('AdminUserManagementPage', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'User Management', level: 1 })).toBeInTheDocument()
     })
-    expect(screen.getByText('My Users')).toBeInTheDocument()
+    expect(await screen.findByText('My Users')).toBeInTheDocument()
   })
 })
 
