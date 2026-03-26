@@ -378,6 +378,7 @@ run_gradle_db_test() {
   local db_jdbc_url="jdbc:postgresql://127.0.0.1:${LOCAL_DB_HOST_PORT}/${LOCAL_DB_NAME}"
   local cmd=(
     ./gradlew
+    cleanTest
     test
     --tests "${test_selector}"
     --no-daemon
@@ -417,7 +418,7 @@ run_gradle_db_test() {
     if grep -Eq "JAVA_HOME|Unable to access jarfile" "${gradle_log}" \
       && command -v cmd.exe >/dev/null 2>&1 \
       && [ -f "./gradlew.bat" ]; then
-      local win_test_args="test --tests \"${test_selector}\" --no-daemon --console=plain"
+      local win_test_args="cleanTest test --tests \"${test_selector}\" --no-daemon --console=plain"
       [[ "${include_integration}" == "true" ]] && win_test_args+=" -PincludeIntegration=true"
       if ! APP_ENV=test \
         APP_JWT_HMAC_SECRET=dev-only-insecure-secret \
