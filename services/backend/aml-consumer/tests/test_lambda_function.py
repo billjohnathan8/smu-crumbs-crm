@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta, timezone
 
+import pytest
 from botocore.exceptions import ClientError
 
 import lambda_function
@@ -32,6 +33,13 @@ def _record(message_id: str | None, body):
     if message_id is not None:
         record["messageId"] = message_id
     return record
+
+
+@pytest.fixture(autouse=True)
+def env_defaults(monkeypatch):
+    monkeypatch.setenv("DYNAMODB_TABLE_NAME", "aml-alerts")
+    monkeypatch.setenv("IDEMPOTENCY_TTL_DAYS", "90")
+    monkeypatch.delenv("LOG_LEVEL", raising=False)
 
 
 class FakeTable:
@@ -276,6 +284,107 @@ def test_invalid_optional_risk_score_is_non_retryable(monkeypatch):
     assert table.items == []
 
 
+def test_non_object_json_body_is_non_retryable(monkeypatch):
+    table = FakeTable()
+    _install_fake_boto3(monkeypatch, table)
+
+    response = lambda_function.lambda_handler(
+        {"Records": [_record("msg-list", json.dumps(["not", "an", "object"]))]},
+        None,
+    )
+
+    assert response == {"batchItemFailures": []}
+    assert table.items == []
+
+
+def test_invalid_optional_and_metadata_fields_are_non_retryable(monkeypatch):
+    table = FakeTable()
+    _install_fake_boto3(monkeypatch, table)
+    event = {
+        "Records": [
+            _record("msg-bad-opt", _base_payload(correlationId=" ")),
+            _record("msg-bad-meta", _base_payload(metadata="not-a-dict")),
+        ]
+    }
+
+    response = lambda_function.lambda_handler(event, None)
+
+    assert response == {"batchItemFailures": []}
+    assert table.items == []
+
+
+def test_blank_and_naive_timestamps(monkeypatch):
+    table = FakeTable(outcomes=["success"])
+    _install_fake_boto3(monkeypatch, table)
+    event = {
+        "Records": [
+            _record("msg-blank-ts", _base_payload(detectedAt="   ")),
+            _record(
+                "msg-naive-ts",
+                _base_payload(alertId="aml-naive", detectedAt="2026-03-01T10:30:00"),
+            ),
+        ]
+    }
+
+    response = lambda_function.lambda_handler(event, None)
+
+    assert response == {"batchItemFailures": []}
+    assert len(table.items) == 1
+    assert table.items[0]["sk"] == "2026-03-01T10:30:00Z"
+
+
+def test_non_string_body_is_non_retryable(monkeypatch):
+    table = FakeTable()
+    _install_fake_boto3(monkeypatch, table)
+    event = {"Records": [{"messageId": "msg-nonstr", "body": {"raw": "object"}}]}
+
+    response = lambda_function.lambda_handler(event, None)
+
+    assert response == {"batchItemFailures": []}
+    assert table.items == []
+
+
+def test_retryable_generic_persistence_error(monkeypatch):
+    class ExplodingTable:
+        def put_item(self, Item, ConditionExpression):  # noqa: N803 - boto3 style
+            raise RuntimeError("unexpected failure")
+
+    _install_fake_boto3(monkeypatch, ExplodingTable())
+    event = {"Records": [_record("msg-generic-retry", _base_payload())]}
+
+    response = lambda_function.lambda_handler(event, None)
+
+    assert response == {"batchItemFailures": [{"itemIdentifier": "msg-generic-retry"}]}
+
+
+def test_unexpected_exception_in_process_record_is_retryable(monkeypatch):
+    table = FakeTable()
+    _install_fake_boto3(monkeypatch, table)
+    monkeypatch.setattr(
+        lambda_function,
+        "parse_and_validate_event",
+        lambda _body: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+    event = {"Records": [_record("msg-unexpected", _base_payload())]}
+
+    response = lambda_function.lambda_handler(event, None)
+
+    assert response == {"batchItemFailures": [{"itemIdentifier": "msg-unexpected"}]}
+
+
+@pytest.mark.parametrize("ttl_env", ["not-an-int", "0", "-7"])
+def test_idempotency_ttl_env_fallbacks(monkeypatch, ttl_env):
+    table = FakeTable(outcomes=["success"])
+    _install_fake_boto3(monkeypatch, table)
+    monkeypatch.setenv("IDEMPOTENCY_TTL_DAYS", ttl_env)
+    event = {"Records": [_record("msg-ttl-fallback", _base_payload())]}
+
+    response = lambda_function.lambda_handler(event, None)
+
+    assert response == {"batchItemFailures": []}
+    assert len(table.items) == 1
+
+
 def test_missing_table_name_returns_retryable_failures(monkeypatch):
     monkeypatch.delenv("DYNAMODB_TABLE_NAME", raising=False)
     event = {
@@ -294,3 +403,14 @@ def test_missing_table_name_returns_retryable_failures(monkeypatch):
             {"itemIdentifier": "msg-2"},
         ]
     }
+
+
+def test_non_list_records_treated_as_empty(monkeypatch):
+    table = FakeTable()
+    _install_fake_boto3(monkeypatch, table)
+    event = {"Records": "not-a-list"}
+
+    response = lambda_function.lambda_handler(event, None)
+
+    assert response == {"batchItemFailures": []}
+    assert table.items == []
