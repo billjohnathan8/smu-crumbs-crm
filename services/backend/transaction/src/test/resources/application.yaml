@@ -7,6 +7,7 @@ spring:
 
 app:
   client-service-url: http://localhost:8080
+  log-service-url: http://localhost:4566/_aws/execute-api/local/local
   jwt:
     hmac-secret: test-only-secret
   mock-sftp:

@@ -6,6 +6,7 @@ import com.scroogebank.crm.transaction_service.dto.ImportTransactionsRequest;
 import com.scroogebank.crm.transaction_service.dto.TransactionDto;
 import com.scroogebank.crm.transaction_service.dto.TransactionKind;
 import com.scroogebank.crm.transaction_service.dto.TransactionStatus;
+import com.scroogebank.crm.transaction_service.dto.UpdateTransactionRequest;
 import java.time.LocalDate;
 
 /**
@@ -15,6 +16,8 @@ public interface TransactionsStore {
 	TransactionDto create(CreateTransactionRequest request);
 
 	TransactionDto get(String transactionId);
+
+	TransactionDto update(String transactionId, UpdateTransactionRequest request);
 
 	void delete(String transactionId);
 

@@ -1,7 +1,8 @@
-import { apiGet, apiPost, apiDelete } from './client'
+import { apiGet, apiPost, apiPut, apiDelete } from './client'
 import type {
   Transaction,
   CreateTransactionRequest,
+  UpdateTransactionRequest,
   PaginatedResponse,
   TransactionStatus,
   TransactionKind,
@@ -52,6 +53,16 @@ export async function getTransactionById(transactionId: string): Promise<Transac
  */
 export async function createTransaction(data: CreateTransactionRequest): Promise<Transaction> {
   return apiPost<Transaction, CreateTransactionRequest>(BASE, data)
+}
+
+/**
+ * Update transaction (admin only)
+ */
+export async function updateTransaction(
+  transactionId: string,
+  data: UpdateTransactionRequest
+): Promise<Transaction> {
+  return apiPut<Transaction, UpdateTransactionRequest>(`${BASE}/${transactionId}`, data)
 }
 
 /**

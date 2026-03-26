@@ -8,12 +8,17 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.scroogebank.crm.transaction_service.dto.CreateTransactionRequest;
+import com.scroogebank.crm.transaction_service.dto.ImportBatchDto;
+import com.scroogebank.crm.transaction_service.dto.ImportBatchStatus;
 import com.scroogebank.crm.transaction_service.dto.TransactionDto;
 import com.scroogebank.crm.transaction_service.dto.TransactionsListResponse;
+import com.scroogebank.crm.transaction_service.dto.UpdateTransactionRequest;
 import com.scroogebank.crm.transaction_service.exception.TransactionNotFoundException;
+import com.scroogebank.crm.transaction_service.logging.TransactionAuditLogger;
 import com.scroogebank.crm.transaction_service.security.AuthenticatedUser;
 import com.scroogebank.crm.transaction_service.security.ForbiddenException;
 import com.scroogebank.crm.transaction_service.security.RequestAuth;
@@ -21,6 +26,7 @@ import com.scroogebank.crm.transaction_service.service.ClientAccessValidator;
 import com.scroogebank.crm.transaction_service.service.InMemoryTransactionsStore;
 import com.scroogebank.crm.transaction_service.service.TransactionsService;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +36,7 @@ class TransactionsControllerTest {
 	private TransactionsService transactionsService;
 	private RequestAuth requestAuth;
 	private ClientAccessValidator clientAccessValidator;
+	private TransactionAuditLogger transactionAuditLogger;
 	private TransactionsController controller;
 	private HttpServletRequest httpRequest;
 
@@ -38,8 +45,16 @@ class TransactionsControllerTest {
 		transactionsService = mock(TransactionsService.class);
 		requestAuth = mock(RequestAuth.class);
 		clientAccessValidator = mock(ClientAccessValidator.class);
-		controller = new TransactionsController(transactionsService, requestAuth, clientAccessValidator);
+		transactionAuditLogger = mock(TransactionAuditLogger.class);
+		controller = new TransactionsController(
+			transactionsService,
+			requestAuth,
+			clientAccessValidator,
+			transactionAuditLogger
+		);
 		httpRequest = mock(HttpServletRequest.class);
+		when(httpRequest.getHeader("Authorization")).thenReturn("Bearer token");
+		when(httpRequest.getAttribute("requestId")).thenReturn("req_1");
 	}
 
 	@Test
@@ -94,11 +109,23 @@ class TransactionsControllerTest {
 		when(requestAuth.requireUser(httpRequest)).thenReturn(admin);
 		CreateTransactionRequest body = mock(CreateTransactionRequest.class);
 		TransactionDto dto = mock(TransactionDto.class);
+		when(dto.id()).thenReturn("txn_1");
+		when(dto.clientId()).thenReturn("clt_1");
 		when(transactionsService.create(body)).thenReturn(dto);
 
 		TransactionDto result = controller.createTransaction(httpRequest, body);
 
 		assertEquals(dto, result);
+		verify(transactionAuditLogger).logAuditEvent(
+			"CREATE",
+			"Transaction ID",
+			null,
+			"txn_1",
+			"usr_admin",
+			"clt_1",
+			"req_1",
+			"Bearer token"
+		);
 	}
 
 	@Test
@@ -107,6 +134,54 @@ class TransactionsControllerTest {
 
 		assertThrows(ForbiddenException.class, () ->
 			controller.createTransaction(httpRequest, mock(CreateTransactionRequest.class))
+		);
+	}
+
+	@Test
+	void updateTransaction_adminAllowed() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		when(requestAuth.requireUser(httpRequest)).thenReturn(admin);
+		UpdateTransactionRequest body = mock(UpdateTransactionRequest.class);
+		TransactionDto before = mock(TransactionDto.class);
+		TransactionDto after = mock(TransactionDto.class);
+		when(before.id()).thenReturn("txn_1");
+		when(before.clientId()).thenReturn("clt_1");
+		when(before.transaction()).thenReturn(com.scroogebank.crm.transaction_service.dto.TransactionKind.D);
+		when(before.amount()).thenReturn(new java.math.BigDecimal("100.00"));
+		when(before.date()).thenReturn(java.time.LocalDate.parse("2026-01-01"));
+		when(before.status()).thenReturn(com.scroogebank.crm.transaction_service.dto.TransactionStatus.Completed);
+
+		when(after.id()).thenReturn("txn_1");
+		when(after.clientId()).thenReturn("clt_1");
+		when(after.transaction()).thenReturn(com.scroogebank.crm.transaction_service.dto.TransactionKind.W);
+		when(after.amount()).thenReturn(new java.math.BigDecimal("50.00"));
+		when(after.date()).thenReturn(java.time.LocalDate.parse("2026-01-02"));
+		when(after.status()).thenReturn(com.scroogebank.crm.transaction_service.dto.TransactionStatus.Pending);
+
+		when(transactionsService.get("txn_1")).thenReturn(before);
+		when(transactionsService.update("txn_1", body)).thenReturn(after);
+
+		TransactionDto result = controller.updateTransaction(httpRequest, "txn_1", body);
+
+		assertEquals(after, result);
+		verify(transactionAuditLogger).logAuditEvent(
+			"UPDATE",
+			"transaction|amount|date|status",
+			"D|100.00|2026-01-01|Completed",
+			"W|50.00|2026-01-02|Pending",
+			"usr_admin",
+			"clt_1",
+			"req_1",
+			"Bearer token"
+		);
+	}
+
+	@Test
+	void updateTransaction_userForbidden() {
+		when(requestAuth.requireUser(httpRequest)).thenReturn(new AuthenticatedUser("usr_1", "user"));
+
+		assertThrows(ForbiddenException.class, () ->
+			controller.updateTransaction(httpRequest, "txn_1", mock(UpdateTransactionRequest.class))
 		);
 	}
 
@@ -152,10 +227,66 @@ class TransactionsControllerTest {
 	void importTransactions_adminAllowed() {
 		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
 		when(requestAuth.requireUser(httpRequest)).thenReturn(admin);
+		ImportBatchDto batch = new ImportBatchDto(
+			"imp_1",
+			ImportBatchStatus.completed,
+			"clt_1",
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:01Z"),
+			10,
+			9,
+			1,
+			null
+		);
+		when(transactionsService.importTransactions(null)).thenReturn(batch);
 
 		var response = controller.importTransactions(httpRequest, null);
 
 		assertEquals(202, response.getStatusCode().value());
+		assertEquals(batch, response.getBody());
+		verify(transactionAuditLogger).logAuditEvent(
+			"CREATE",
+			"importBatchId|sourcePath|status|totalRecords|importedRecords|failedRecords",
+			null,
+			"imp_1|null|completed|10|9|1",
+			"usr_admin",
+			"clt_1",
+			"req_1",
+			"Bearer token"
+		);
+	}
+
+	@Test
+	void importTransactions_adminAllowed_withoutRequestedClient_usesSystemImportClientId() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		when(requestAuth.requireUser(httpRequest)).thenReturn(admin);
+		ImportBatchDto batch = new ImportBatchDto(
+			"imp_2",
+			ImportBatchStatus.completed,
+			null,
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:01Z"),
+			5,
+			5,
+			0,
+			null
+		);
+		when(transactionsService.importTransactions(null)).thenReturn(batch);
+
+		controller.importTransactions(httpRequest, null);
+
+		verify(transactionAuditLogger).logAuditEvent(
+			"CREATE",
+			"importBatchId|sourcePath|status|totalRecords|importedRecords|failedRecords",
+			null,
+			"imp_2|null|completed|5|5|0",
+			"usr_admin",
+			"SYSTEM_IMPORT",
+			"req_1",
+			"Bearer token"
+		);
 	}
 
 	@Test
@@ -164,6 +295,39 @@ class TransactionsControllerTest {
 
 		assertThrows(ForbiddenException.class, () ->
 			controller.importTransactions(httpRequest, null)
+		);
+	}
+
+	@Test
+	void getImportBatch_adminAllowed_logsReadAudit() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		when(requestAuth.requireUser(httpRequest)).thenReturn(admin);
+		ImportBatchDto batch = new ImportBatchDto(
+			"imp_3",
+			ImportBatchStatus.completed,
+			"clt_9",
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:01Z"),
+			2,
+			2,
+			0,
+			null
+		);
+		when(transactionsService.getBatch("imp_3")).thenReturn(batch);
+
+		ImportBatchDto result = controller.getImportBatch(httpRequest, "imp_3");
+
+		assertEquals(batch, result);
+		verify(transactionAuditLogger).logAuditEvent(
+			"READ",
+			"Import Batch ID",
+			null,
+			"imp_3",
+			"usr_admin",
+			"clt_9",
+			"req_1",
+			"Bearer token"
 		);
 	}
 }

@@ -207,6 +207,14 @@ export interface CreateTransactionRequest {
   status: TransactionStatus
 }
 
+export interface UpdateTransactionRequest {
+  clientId?: string
+  transaction?: TransactionKind
+  amount?: number
+  date?: string
+  status?: TransactionStatus
+}
+
 export interface ImportTransactionsRequest {
   clientId?: string
   sourcePath?: string

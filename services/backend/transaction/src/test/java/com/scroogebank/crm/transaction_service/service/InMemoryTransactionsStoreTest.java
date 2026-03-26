@@ -11,6 +11,7 @@ import com.scroogebank.crm.transaction_service.dto.ImportTransactionsRequest;
 import com.scroogebank.crm.transaction_service.dto.TransactionDto;
 import com.scroogebank.crm.transaction_service.dto.TransactionKind;
 import com.scroogebank.crm.transaction_service.dto.TransactionStatus;
+import com.scroogebank.crm.transaction_service.dto.UpdateTransactionRequest;
 import com.scroogebank.crm.transaction_service.exception.ImportBatchNotFoundException;
 import com.scroogebank.crm.transaction_service.exception.TransactionNotFoundException;
 import com.scroogebank.crm.transaction_service.service.imports.S3BackedTransactionFileSource;
@@ -92,6 +93,35 @@ class InMemoryTransactionsStoreTest {
 		assertEquals(3, paged.total());
 		assertEquals(1, paged.data().size());
 		assertEquals("txn_2", paged.data().get(0).id());
+	}
+
+	@Test
+	void update_updatesProvidedFieldsOnly() {
+		setUp();
+		store.create(new CreateTransactionRequest(
+			"clt_1",
+			TransactionKind.D,
+			new BigDecimal("1200.50"),
+			LocalDate.parse("2026-01-01"),
+			TransactionStatus.Completed
+		));
+
+		TransactionDto updated = store.update(
+			"txn_1",
+			new UpdateTransactionRequest(
+				null,
+				TransactionKind.W,
+				new BigDecimal("900.00"),
+				null,
+				TransactionStatus.Pending
+			)
+		);
+
+		assertEquals("clt_1", updated.clientId());
+		assertEquals(TransactionKind.W, updated.transaction());
+		assertEquals(0, new BigDecimal("900.00").compareTo(updated.amount()));
+		assertEquals(LocalDate.parse("2026-01-01"), updated.date());
+		assertEquals(TransactionStatus.Pending, updated.status());
 	}
 
 	@Test
