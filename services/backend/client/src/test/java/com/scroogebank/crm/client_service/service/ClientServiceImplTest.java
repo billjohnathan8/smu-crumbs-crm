@@ -4,6 +4,7 @@ import com.scroogebank.crm.client_service.dto.ClientCreateRequest;
 import com.scroogebank.crm.client_service.dto.ClientPayload;
 import com.scroogebank.crm.client_service.dto.ClientUpdateRequest;
 import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
+import com.scroogebank.crm.client_service.dto.ReviewVerificationRequest;
 import com.scroogebank.crm.client_service.dto.UploadVerificationDocsRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientRequest;
 import com.scroogebank.crm.client_service.entity.ClientEntity;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -518,7 +520,7 @@ class ClientServiceImplTest {
 	}
 
 	@Test
-	void verifyClient_setsStatusToVerified_andAuditsWithNullBeforeValueWhenStatusWasNull() {
+	void verifyClient_setsStatusToPending_andAuditsWithNullBeforeValueWhenStatusWasNull() {
 		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
 		ClientPayload payload = samplePayload();
 		ClientEntity entity = entityFromPayload(7L, "usr_1", payload);
@@ -535,13 +537,75 @@ class ClientServiceImplTest {
 		);
 
 		assertThat(response.clientId()).isEqualTo("clt_7");
-		assertThat(response.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.verified);
+		assertThat(response.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.pending);
 		verify(clientAuditLogger).logAuditEvent(
 			eq("UPDATE"),
 			eq("identityVerificationStatus"),
 			eq(null),
-			eq("verified"),
+			eq("pending"),
 			eq("usr_1"),
+			eq("clt_7"),
+			eq("req-1"),
+			eq("Bearer x")
+		);
+	}
+
+	@Test
+	void reviewVerification_nonAdmin_throwsAccessDenied() {
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
+
+		assertThatThrownBy(() ->
+			clientService.reviewVerification(
+				user,
+				"clt_7",
+				new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.approve),
+				"Bearer x",
+				"req-1"
+			)
+		).isInstanceOf(AccessDeniedException.class);
+	}
+
+	@Test
+	void reviewVerification_nonPending_throwsConflict() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
+		entity.setIdentityVerificationStatus(IdentityVerificationStatus.verified);
+		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
+
+		assertThatThrownBy(() ->
+			clientService.reviewVerification(
+				admin,
+				"clt_7",
+				new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.reject),
+				"Bearer x",
+				"req-1"
+			)
+		).isInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
+	void reviewVerification_pendingApprove_setsVerifiedAndAudits() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
+		entity.setIdentityVerificationStatus(IdentityVerificationStatus.pending);
+		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
+		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		var response = clientService.reviewVerification(
+			admin,
+			"clt_7",
+			new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.approve),
+			"Bearer x",
+			"req-1"
+		);
+
+		assertThat(response.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.verified);
+		verify(clientAuditLogger).logAuditEvent(
+			eq("UPDATE"),
+			eq("identityVerificationStatus"),
+			eq("pending"),
+			eq("verified"),
+			eq("usr_admin"),
 			eq("clt_7"),
 			eq("req-1"),
 			eq("Bearer x")

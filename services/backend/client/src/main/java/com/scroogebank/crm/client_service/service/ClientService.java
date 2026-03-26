@@ -4,6 +4,7 @@ import com.scroogebank.crm.client_service.dto.ClientCreateRequest;
 import com.scroogebank.crm.client_service.dto.ClientDto;
 import com.scroogebank.crm.client_service.dto.ClientListResponse;
 import com.scroogebank.crm.client_service.dto.ClientUpdateRequest;
+import com.scroogebank.crm.client_service.dto.ReviewVerificationRequest;
 import com.scroogebank.crm.client_service.dto.UploadVerificationDocsRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
@@ -93,6 +94,24 @@ public interface ClientService {
 		AuthenticatedUser user,
 		String clientId,
 		VerifyClientRequest request,
+		String authorizationHeader,
+		String requestId
+	);
+
+	/**
+	 * Reviews a pending client verification as an admin.
+	 *
+	 * @param user authenticated user
+	 * @param clientId public client identifier
+	 * @param request review action payload
+	 * @param authorizationHeader bearer token for downstream audit logging
+	 * @param requestId request correlation id
+	 * @return verification response
+	 */
+	VerifyClientResponse reviewVerification(
+		AuthenticatedUser user,
+		String clientId,
+		ReviewVerificationRequest request,
 		String authorizationHeader,
 		String requestId
 	);
