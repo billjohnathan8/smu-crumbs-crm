@@ -2,18 +2,26 @@
  * Generate unique test data to avoid conflicts
  */
 
+const TEST_RUN_TAG = `${Date.now()}-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
+let uniqueCounter = 0;
+
+function nextUniqueCounter(): number {
+  uniqueCounter += 1;
+  return uniqueCounter;
+}
+
 /**
  * Generate a unique timestamp-based ID
  */
 export function uniqueId(): string {
-  return `test-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  return `test-${TEST_RUN_TAG}-${nextUniqueCounter()}`;
 }
 
 /**
  * Generate a unique email address
  */
 export function uniqueEmail(prefix = "test"): string {
-  return `${prefix}-${Date.now()}@example.com`;
+  return `${prefix}-${TEST_RUN_TAG}-${nextUniqueCounter()}@example.com`;
 }
 
 /**
