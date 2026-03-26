@@ -17,8 +17,6 @@ on:
         required: true
       AWS_REGION:
         required: true
-      LAMBDA_ARTIFACT_BUCKET:
-        required: true
 
     outputs:
       image-uri:
@@ -32,6 +30,7 @@ on:
         value: ${{ jobs.build-test-tag-push.outputs.latest-tag }}
 
 permissions:
+  actions: write
   contents: read
   id-token: write
 
@@ -57,7 +56,6 @@ jobs:
         run: |
           test -n "${{ secrets.AWS_ROLE_ARN }}"
           test -n "${{ secrets.AWS_REGION }}"
-          test -n "${{ secrets.LAMBDA_ARTIFACT_BUCKET }}"
           test -n "${{ inputs.ecs_cluster }}"
 
       - name: Resolve service metadata
@@ -232,47 +230,53 @@ jobs:
             --task-definition "${{ steps.taskdef.outputs.new_task_definition_arn }}" \
             --force-new-deployment
 
-      - name: Update deployment manifest (ECS)
+      - name: Write deploy intent fragment (ECS)
+        id: intent
         shell: bash
-        env:
-          MANIFEST_BUCKET: ${{ secrets.LAMBDA_ARTIFACT_BUCKET }}
         run: |
           set -euo pipefail
 
-          REPO_SHA="${GITHUB_SHA}"
           SERVICE="${{ inputs.service }}"
+          CLUSTER="${{ inputs.ecs_cluster }}"
+          REPO_SHA="${GITHUB_SHA}"
           IMAGE_REPO="${{ steps.registry.outputs.image_uri }}"
           IMAGE_TAG="${{ steps.meta.outputs.sha_tag }}"
-
-          CURRENT_KEY="manifests/prod/current.json"
-          GIT_KEY="manifests/prod/git/${REPO_SHA}.json"
           NOW_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-          if aws s3api head-object --bucket "${MANIFEST_BUCKET}" --key "${CURRENT_KEY}" >/dev/null 2>&1; then
-            aws s3 cp "s3://${MANIFEST_BUCKET}/${CURRENT_KEY}" manifest-prev.json
-          else
-            jq -n '{repo_sha:"", created_at:"", ecs:{}, lambda:{}}' > manifest-prev.json
-          fi
+          FRAGMENT_FILE="intent-ecs-${SERVICE}.json"
 
-          jq \
-            --arg repo_sha "${REPO_SHA}" \
-            --arg created_at "${NOW_UTC}" \
+          jq -n \
+            --arg type "ecs" \
             --arg service "${SERVICE}" \
+            --arg cluster "${CLUSTER}" \
+            --arg repo_sha "${REPO_SHA}" \
             --arg image_repo "${IMAGE_REPO}" \
             --arg image_tag "${IMAGE_TAG}" \
-            '
-            .repo_sha = $repo_sha
-            | .created_at = $created_at
-            | .ecs = (.ecs // {})
-            | .lambda = (.lambda // {})
-            | .ecs[$service] = {
+            --arg image_ref "${{ steps.taskdef.outputs.image_ref }}" \
+            --arg task_definition_arn "${{ steps.taskdef.outputs.new_task_definition_arn }}" \
+            --arg created_at "${NOW_UTC}" \
+            '{
+              type: $type,
+              created_at: $created_at,
+              repo_sha: $repo_sha,
+              ecs: {
+                service: $service,
+                cluster: $cluster,
                 image_repo: $image_repo,
-                image_tag: $image_tag
+                image_tag: $image_tag,
+                image_ref: $image_ref,
+                task_definition_arn: $task_definition_arn
               }
-            ' manifest-prev.json > manifest-next.json
+            }' > "${FRAGMENT_FILE}"
 
-          aws s3 cp manifest-next.json "s3://${MANIFEST_BUCKET}/${GIT_KEY}"
-          aws s3 cp manifest-next.json "s3://${MANIFEST_BUCKET}/${CURRENT_KEY}"
+          echo "fragment_file=${FRAGMENT_FILE}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload deploy intent artifact (ECS)
+        uses: actions/upload-artifact@v4
+        with:
+          name: intent-ecs-${{ inputs.service }}
+          path: ${{ steps.intent.outputs.fragment_file }}
+          if-no-files-found: error
 
       - name: Deployment summary
         run: |

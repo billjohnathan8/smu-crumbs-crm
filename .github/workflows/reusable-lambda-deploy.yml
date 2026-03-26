@@ -21,6 +21,7 @@ on:
         required: true
 
 permissions:
+  actions: write
   contents: read
   id-token: write
 
@@ -130,6 +131,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Ensure prod alias points to published version
+        id: alias
         shell: bash
         run: |
           set -euo pipefail
@@ -142,19 +144,20 @@ jobs:
               --function-name "${FUNCTION_NAME}" \
               --name prod \
               --function-version "${PUBLISHED_VERSION}" >/dev/null
+            echo "alias_action=updated" >> "$GITHUB_OUTPUT"
             echo "Updated existing prod alias"
           else
             aws lambda create-alias \
               --function-name "${FUNCTION_NAME}" \
               --name prod \
               --function-version "${PUBLISHED_VERSION}" >/dev/null
+            echo "alias_action=created" >> "$GITHUB_OUTPUT"
             echo "Created prod alias"
           fi
 
-      - name: Update deployment manifest (Lambda)
+      - name: Write deploy intent fragment (Lambda)
+        id: intent
         shell: bash
-        env:
-          MANIFEST_BUCKET: ${{ secrets.LAMBDA_ARTIFACT_BUCKET }}
         run: |
           set -euo pipefail
 
@@ -163,39 +166,42 @@ jobs:
           S3_KEY="${{ steps.package.outputs.s3_key }}"
           PUBLISHED_VERSION="${{ steps.publish.outputs.published_version }}"
           VERSION_ARN="${{ steps.publish.outputs.version_arn }}"
-
-          CURRENT_KEY="manifests/prod/current.json"
-          GIT_KEY="manifests/prod/git/${REPO_SHA}.json"
           NOW_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-          if aws s3api head-object --bucket "${MANIFEST_BUCKET}" --key "${CURRENT_KEY}" >/dev/null 2>&1; then
-            aws s3 cp "s3://${MANIFEST_BUCKET}/${CURRENT_KEY}" manifest-prev.json
-          else
-            jq -n '{repo_sha:"", created_at:"", ecs:{}, lambda:{}}' > manifest-prev.json
-          fi
+          FRAGMENT_FILE="intent-lambda-${FUNCTION_NAME}.json"
 
-          jq \
-            --arg repo_sha "${REPO_SHA}" \
+          jq -n \
+            --arg type "lambda" \
             --arg created_at "${NOW_UTC}" \
+            --arg repo_sha "${REPO_SHA}" \
             --arg function_name "${FUNCTION_NAME}" \
             --arg s3_key "${S3_KEY}" \
             --arg published_version "${PUBLISHED_VERSION}" \
             --arg version_arn "${VERSION_ARN}" \
-            '
-            .repo_sha = $repo_sha
-            | .created_at = $created_at
-            | .ecs = (.ecs // {})
-            | .lambda = (.lambda // {})
-            | .lambda[$function_name] = {
+            --arg alias_name "prod" \
+            --arg alias_action "${{ steps.alias.outputs.alias_action }}" \
+            '{
+              type: $type,
+              created_at: $created_at,
+              repo_sha: $repo_sha,
+              lambda: {
+                function_name: $function_name,
                 s3_key: $s3_key,
                 published_version: $published_version,
                 version_arn: $version_arn,
-                alias: "prod"
+                alias: $alias_name,
+                alias_action: $alias_action
               }
-            ' manifest-prev.json > manifest-next.json
+            }' > "${FRAGMENT_FILE}"
 
-          aws s3 cp manifest-next.json "s3://${MANIFEST_BUCKET}/${GIT_KEY}"
-          aws s3 cp manifest-next.json "s3://${MANIFEST_BUCKET}/${CURRENT_KEY}"
+          echo "fragment_file=${FRAGMENT_FILE}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload deploy intent artifact (Lambda)
+        uses: actions/upload-artifact@v4
+        with:
+          name: intent-lambda-${{ inputs.service }}
+          path: ${{ steps.intent.outputs.fragment_file }}
+          if-no-files-found: error
 
       - name: Deployment summary
         run: |

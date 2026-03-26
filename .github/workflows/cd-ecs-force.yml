@@ -25,6 +25,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
+  actions: write
   contents: read
   id-token: write
 
@@ -52,3 +53,57 @@ jobs:
       service: transaction
       ecs_cluster: ${{ inputs.ecs_cluster || 'backend' }}
     secrets: inherit
+
+  merge-ecs-intents:
+    if: ${{ !failure() && !cancelled() }}
+    needs:
+      - deploy-user
+      - deploy-client
+      - deploy-transaction
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download ECS intent artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: intent-ecs-*
+          path: deploy-intents-ecs
+          merge-multiple: true
+
+      - name: Merge ECS intent fragments
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPO_SHA="${GITHUB_SHA}"
+          NOW_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          jq -n --arg repo_sha "${REPO_SHA}" --arg created_at "${NOW_UTC}" '{repo_sha:$repo_sha, created_at:$created_at, ecs:{}}' > manifest-ecs.json
+
+          shopt -s nullglob
+          fragments=(deploy-intents-ecs/*.json)
+          if [[ ${#fragments[@]} -eq 0 ]]; then
+            echo "No ECS intent artifacts were found"
+            exit 1
+          fi
+
+          for fragment in "${fragments[@]}"; do
+            service="$(jq -r '.ecs.service' "${fragment}")"
+            jq \
+              --arg service "${service}" \
+              --slurpfile f "${fragment}" \
+              '.ecs[$service] = {
+                image_repo: $f[0].ecs.image_repo,
+                image_tag: $f[0].ecs.image_tag,
+                cluster: $f[0].ecs.cluster,
+                task_definition_arn: $f[0].ecs.task_definition_arn,
+                image_ref: $f[0].ecs.image_ref
+              }' manifest-ecs.json > manifest-ecs.next.json
+            mv manifest-ecs.next.json manifest-ecs.json
+          done
+
+      - name: Upload merged ECS manifest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest-ecs
+          path: manifest-ecs.json
+          if-no-files-found: error
