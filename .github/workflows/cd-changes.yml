@@ -85,15 +85,15 @@ jobs:
       service: verification
     secrets: inherit
 
-  deploy-transaction-ingestion-lambda:
+  deploy-sftp-transaction-collector:
     if: >-
       ${{ !failure() && !cancelled() &&
-          (needs.changes.outputs.backend-transaction-ingestion-lambda == 'true') }}
+          (needs.changes.outputs.backend-sftp-transaction-collector == 'true') }}
     needs:
       - changes
     uses: ./.github/workflows/reusable-lambda-deploy.yml
     with:
-      service: transaction-ingestion-lambda
+      service: sftp-transaction-collector
     secrets: inherit
 
   merge-ecs-intents:
@@ -160,12 +160,12 @@ jobs:
       ${{ !failure() && !cancelled() &&
           (needs.changes.outputs.backend-aml == 'true' ||
            needs.changes.outputs.backend-verification == 'true' ||
-           needs.changes.outputs.backend-transaction-ingestion-lambda == 'true') }}
+           needs.changes.outputs.backend-sftp-transaction-collector == 'true') }}
     needs:
       - changes
       - deploy-aml
       - deploy-verification
-      - deploy-transaction-ingestion-lambda
+      - deploy-sftp-transaction-collector
     runs-on: ubuntu-latest
     steps:
       - name: Download Lambda intent artifacts
@@ -222,7 +222,7 @@ jobs:
            needs.changes.outputs.backend-transaction == 'true' ||
            needs.changes.outputs.backend-aml == 'true' ||
            needs.changes.outputs.backend-verification == 'true' ||
-           needs.changes.outputs.backend-transaction-ingestion-lambda == 'true') }}
+           needs.changes.outputs.backend-sftp-transaction-collector == 'true') }}
     needs:
       - changes
       - merge-ecs-intents
@@ -259,7 +259,7 @@ jobs:
         if: >-
           ${{ needs.changes.outputs.backend-aml == 'true' ||
               needs.changes.outputs.backend-verification == 'true' ||
-              needs.changes.outputs.backend-transaction-ingestion-lambda == 'true' }}
+              needs.changes.outputs.backend-sftp-transaction-collector == 'true' }}
         uses: actions/download-artifact@v4
         with:
           name: manifest-lambda
