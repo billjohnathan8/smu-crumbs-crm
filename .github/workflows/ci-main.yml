@@ -367,8 +367,8 @@ jobs:
   # Layer 4: Fullstack integration — real containers + LocalStack
   # Builds all service Docker images, starts LocalStack + PostgreSQL,
   # provisions all AWS resources via the init script, runs cross-service HTTP
-  # smoke assertions, and runs Playwright E2E in full mode.
-  # PRs run smoke mode to reduce CI minutes; pushes keep full mode.
+  # smoke assertions, and runs Playwright E2E (critical subset on PRs, full on pushes).
+  # PRs run pr mode (smoke + critical Playwright subset); pushes keep full mode.
   # ==========================================================================
   fullstack-integration-e2e:
     if: >-
@@ -383,7 +383,7 @@ jobs:
       - e2e-frontend-mocked
     uses: ./.github/workflows/reusable-fullstack-integration.yml
     with:
-      fullstack-mode: ${{ github.event_name == 'pull_request' && 'smoke' || 'full' }}
+      fullstack-mode: ${{ github.event_name == 'pull_request' && 'pr' || 'full' }}
 
   # ==========================================================================
   # Layer 5: Deploy  (not yet implemented — placeholder)

@@ -11,14 +11,26 @@ DB_ENDPOINT_GUARD_SCRIPT="${ROOT_DIR}/scripts/ci/guard-no-prod-db.sh"
 
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-http://127.0.0.1:18088}"
 COMPOSE_PROJECT_NAME="crm-fullstack-it-${GITHUB_RUN_ID:-local}"
-FULLSTACK_MODE="${FULLSTACK_MODE:-full}" # full | smoke
+FULLSTACK_MODE="${FULLSTACK_MODE:-full}" # full | pr | smoke
 case "${FULLSTACK_MODE}" in
-  full|smoke) ;;
+  full|pr|smoke) ;;
   *)
-    echo "[FAIL] FULLSTACK_MODE must be 'full' or 'smoke' (got: ${FULLSTACK_MODE})" >&2
+    echo "[FAIL] FULLSTACK_MODE must be 'full', 'pr', or 'smoke' (got: ${FULLSTACK_MODE})" >&2
     exit 1
     ;;
 esac
+
+PLAYWRIGHT_CRITICAL_PR_SPECS=(
+  "cross-agent-data-isolation.spec.ts"
+  "verification-workflow-contract.spec.ts"
+  "user-management-advanced.spec.ts"
+)
+PLAYWRIGHT_SCOPE_LABEL="full suite"
+PLAYWRIGHT_SPEC_ARGS=()
+if [[ "${FULLSTACK_MODE}" == "pr" ]]; then
+  PLAYWRIGHT_SCOPE_LABEL="critical PR subset"
+  PLAYWRIGHT_SPEC_ARGS=("${PLAYWRIGHT_CRITICAL_PR_SPECS[@]}")
+fi
 
 SCRIPT_START_TS="$(date +%s)"
 CURRENT_PHASE_NAME=""
@@ -1952,23 +1964,32 @@ end_phase
 # Phase 5: Real Playwright E2E against the live stack
 # --------------------------------------------------------------------------
 
-if [[ "${FULLSTACK_MODE}" == "full" ]]; then
-  start_phase "Phase 5: Playwright integration E2E"
+if [[ "${FULLSTACK_MODE}" == "full" || "${FULLSTACK_MODE}" == "pr" ]]; then
+  start_phase "Phase 5: Playwright integration E2E (${PLAYWRIGHT_SCOPE_LABEL})"
   pushd "${INTEGRATION_TEST_DIR}" >/dev/null
   if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1 && command -v npx >/dev/null 2>&1; then
     npm ci
     npx playwright install --with-deps chromium
+    playwright_cmd=(npx playwright test)
+    if [[ ${#PLAYWRIGHT_SPEC_ARGS[@]} -gt 0 ]]; then
+      playwright_cmd+=("${PLAYWRIGHT_SPEC_ARGS[@]}")
+      echo "Running Playwright subset specs: ${PLAYWRIGHT_SPEC_ARGS[*]}"
+    fi
     PLAYWRIGHT_EXTERNAL_BASE_URL=true \
     PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
     E2E_ADMIN_EMAIL="${E2E_ADMIN_EMAIL:-admin@crm.local}" \
     E2E_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}" \
     E2E_USER_PASSWORD="${E2E_USER_PASSWORD:-UserPass123!}" \
-    npm test
+    "${playwright_cmd[@]}"
   elif command -v cmd.exe >/dev/null 2>&1; then
     win_integration_dir="$(to_windows_path "${INTEGRATION_TEST_DIR}")"
     cmd.exe /c "cd /d ${win_integration_dir} && npm.cmd ci"
     cmd.exe /c "cd /d ${win_integration_dir} && npx.cmd playwright install chromium"
-    cmd.exe /c "cd /d ${win_integration_dir} && set PLAYWRIGHT_EXTERNAL_BASE_URL=true&& set PLAYWRIGHT_BASE_URL=${PLAYWRIGHT_BASE_URL}&& set E2E_ADMIN_EMAIL=${E2E_ADMIN_EMAIL:-admin@crm.local}&& set E2E_ADMIN_PASSWORD=${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}&& set E2E_USER_PASSWORD=${E2E_USER_PASSWORD:-UserPass123!}&& npm.cmd test"
+    if [[ ${#PLAYWRIGHT_SPEC_ARGS[@]} -gt 0 ]]; then
+      cmd.exe /c "cd /d ${win_integration_dir} && set PLAYWRIGHT_EXTERNAL_BASE_URL=true&& set PLAYWRIGHT_BASE_URL=${PLAYWRIGHT_BASE_URL}&& set E2E_ADMIN_EMAIL=${E2E_ADMIN_EMAIL:-admin@crm.local}&& set E2E_ADMIN_PASSWORD=${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}&& set E2E_USER_PASSWORD=${E2E_USER_PASSWORD:-UserPass123!}&& npx.cmd playwright test ${PLAYWRIGHT_SPEC_ARGS[*]}"
+    else
+      cmd.exe /c "cd /d ${win_integration_dir} && set PLAYWRIGHT_EXTERNAL_BASE_URL=true&& set PLAYWRIGHT_BASE_URL=${PLAYWRIGHT_BASE_URL}&& set E2E_ADMIN_EMAIL=${E2E_ADMIN_EMAIL:-admin@crm.local}&& set E2E_ADMIN_PASSWORD=${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}&& set E2E_USER_PASSWORD=${E2E_USER_PASSWORD:-UserPass123!}&& npm.cmd test"
+    fi
   else
     echo "[FAIL] Node.js toolchain unavailable (need node/npm/npx, or cmd.exe + npm.cmd in WSL)." >&2
     exit 1
@@ -1983,6 +2004,8 @@ fi
 echo ""
 if [[ "${FULLSTACK_MODE}" == "full" ]]; then
   echo "Fullstack integration tests passed (LocalStack + HTTP smoke + Playwright)."
+elif [[ "${FULLSTACK_MODE}" == "pr" ]]; then
+  echo "Fullstack integration PR tests passed (LocalStack + HTTP smoke + critical Playwright subset)."
 else
   echo "Fullstack smoke tests passed (LocalStack + HTTP smoke; Playwright skipped)."
 fi
