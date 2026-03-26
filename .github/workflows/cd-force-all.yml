@@ -31,6 +31,5 @@ jobs:
 
   deploy-lambda:
     if: ${{ !failure() && !cancelled() }}
-    needs: deploy-ecs
     uses: ./.github/workflows/cd-lambda-force.yml
     secrets: inherit
