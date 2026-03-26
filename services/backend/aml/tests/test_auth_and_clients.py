@@ -739,6 +739,11 @@ class TestCRMWriteClient:
         with patch("urllib.request.urlopen", return_value=mock_resp) as mock_urlopen:
             client.write_log(log)
             mock_urlopen.assert_called_once()
+            request = mock_urlopen.call_args.args[0]
+            payload = json.loads(request.data.decode("utf-8"))
+            assert payload["action"] == "CREATE"
+            assert payload["attributeName"] == "AML_ALERT"
+            assert "logId" not in payload
 
     def test_post_raises_on_http_error(self, monkeypatch):
         import urllib.error

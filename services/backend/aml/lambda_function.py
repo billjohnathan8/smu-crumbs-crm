@@ -549,7 +549,6 @@ class CRMWriteClient:
         self._post(
             logs_path,
             {
-                "logId": log.log_id,
                 "action": log.action.value,
                 "attributeName": log.attribute_name,
                 "beforeValue": log.before_value,
