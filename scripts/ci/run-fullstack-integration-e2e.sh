@@ -1570,7 +1570,8 @@ PY
 
 echo "  Smoke: transaction-service imports from LocalStack S3 source"
 TX_IMPORT_CLIENT_ID="clt_s3_ci_import"
-TX_IMPORT_KEY="incoming/ci-s3-import.csv"
+# Keep direct-import smoke file outside scheduler prefix to avoid race collisions.
+TX_IMPORT_KEY="manual/ci-s3-import.csv"
 TX_IMPORT_FILE="${LOG_DIR}/ci-s3-import.csv"
 cat > "${TX_IMPORT_FILE}" <<'CSV'
 clientId,transaction,amount,date,status
@@ -1613,7 +1614,8 @@ PY
 
 echo "  Smoke: transaction-service scheduled poll path (time-triggered)"
 TX_SCHEDULED_CLIENT_ID="clt_s3_ci_scheduler"
-TX_SCHEDULED_KEY="incoming/ci-scheduled-${RUN_ID}.csv"
+# Scheduler polls the configured `scheduled/` prefix in fullstack compose.
+TX_SCHEDULED_KEY="scheduled/ci-scheduled-${RUN_ID}.csv"
 TX_SCHEDULED_FILE="${LOG_DIR}/ci-scheduled-import.csv"
 cat > "${TX_SCHEDULED_FILE}" <<'CSV'
 clientId,transaction,amount,date,status
