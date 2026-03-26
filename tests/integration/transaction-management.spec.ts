@@ -20,10 +20,31 @@ import {
   type APIResponse,
   type Page,
 } from "@playwright/test";
+import { waitForImportBatchTerminalState } from "./helpers/polling";
 
 const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.local").trim();
 const ADMIN_PASSWORD = (process.env.E2E_ADMIN_PASSWORD ?? "admin123").trim();
 const USER_PASSWORD = (process.env.E2E_USER_PASSWORD ?? "UserPass123!").trim();
+
+type ImportBatchStatus = "queued" | "running" | "completed" | "failed";
+
+interface ImportBatch {
+  importBatchId: string;
+  status: ImportBatchStatus;
+  requestedClientId?: string | null;
+  requestedAt?: string;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  totalRecords: number;
+  importedRecords: number;
+  failedRecords: number;
+  errorMessage?: string | null;
+}
+
+interface ImportAttempt {
+  label: string;
+  body: Record<string, unknown>;
+}
 
 function uniqueSuffix(): string {
   return `${Date.now()}-${Math.floor(Math.random() * 100_000)}`;
@@ -60,6 +81,13 @@ async function loginViaUi(page: Page, email: string, password: string, expectedP
 
 function expectUnder(durationMs: number, limitMs: number, label: string) {
   expect(durationMs, `${label} took ${durationMs}ms`).toBeLessThan(limitMs);
+}
+
+function assertImportBatchCountConsistency(batch: ImportBatch) {
+  expect(batch.totalRecords).toBeGreaterThanOrEqual(0);
+  expect(batch.importedRecords).toBeGreaterThanOrEqual(0);
+  expect(batch.failedRecords).toBeGreaterThanOrEqual(0);
+  expect(batch.totalRecords).toBeGreaterThanOrEqual(batch.importedRecords + batch.failedRecords);
 }
 
 test.describe("Transaction Management (Feature 4)", () => {
@@ -266,18 +294,115 @@ test.describe("Transaction Management (Feature 4)", () => {
     expectUnder(Date.now() - startTime, 10000, "Filter transactions by status");
   });
 
-  test("transaction import endpoint should be accessible to admin", async ({ request }) => {
+  test("admin should complete import batch lifecycle and expose imported transactions", async ({ request }) => {
     const startTime = Date.now();
 
-    const res = await request.post(`${baseURL}/api/transactions/import`, {
+    const configuredSourcePath = process.env.E2E_TRANSACTION_IMPORT_SOURCE_PATH?.trim();
+    const attempts: ImportAttempt[] = [
+      ...(configuredSourcePath ? [{ label: "configured source path", body: { sourcePath: configuredSourcePath } }] : []),
+      { label: "fullstack smoke S3 fixture", body: { sourcePath: "manual/ci-s3-import.csv" } },
+      { label: "repo default transactions.csv", body: { sourcePath: "transactions.csv" } },
+      { label: "repo secondary fixture", body: { sourcePath: "transactions-2026-03.csv" } },
+      { label: "empty body default source", body: {} },
+    ];
+
+    const lifecycleOrder: ImportBatchStatus[] = ["queued", "running", "completed", "failed"];
+    const attemptFailures: string[] = [];
+    let selectedInitialBatch: ImportBatch | null = null;
+    let selectedTerminalBatch: ImportBatch | null = null;
+
+    for (const attempt of attempts) {
+      const res = await request.post(`${baseURL}/api/transactions/import`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+        data: attempt.body,
+      });
+
+      if (![200, 201, 202].includes(res.status())) {
+        const body = await res.text();
+        attemptFailures.push(`${attempt.label}: HTTP ${res.status()} ${res.statusText()} ${body}`);
+        continue;
+      }
+
+      const initialBatch = (await expectOkJson(res, `trigger transaction import (${attempt.label})`)) as ImportBatch;
+      expect(initialBatch.importBatchId).toMatch(/^imp_[0-9]+$/);
+      assertImportBatchCountConsistency(initialBatch);
+
+      const terminalBatch = await waitForImportBatchTerminalState(request, baseURL, adminToken, {
+        importBatchId: initialBatch.importBatchId,
+        timeoutMs: 45_000,
+        intervalMs: 1_000,
+      });
+      assertImportBatchCountConsistency(terminalBatch);
+
+      const initialOrder = lifecycleOrder.indexOf(initialBatch.status);
+      const terminalOrder = lifecycleOrder.indexOf(terminalBatch.status);
+      expect(initialOrder).toBeGreaterThanOrEqual(0);
+      expect(terminalOrder).toBeGreaterThanOrEqual(initialOrder);
+
+      if (terminalBatch.status === "completed" && terminalBatch.importedRecords > 0) {
+        selectedInitialBatch = initialBatch;
+        selectedTerminalBatch = terminalBatch;
+        break;
+      }
+
+      attemptFailures.push(
+        `${attempt.label}: terminal=${terminalBatch.status}, imported=${terminalBatch.importedRecords}, total=${terminalBatch.totalRecords}, failed=${terminalBatch.failedRecords}`,
+      );
+    }
+
+    expect(
+      selectedInitialBatch,
+      `No import attempt produced a completed batch with imported rows. Attempts: ${attemptFailures.join(" | ")}`,
+    ).toBeTruthy();
+    expect(selectedTerminalBatch).toBeTruthy();
+
+    const initialBatch = selectedInitialBatch as ImportBatch;
+    const terminalBatch = selectedTerminalBatch as ImportBatch;
+    expect(initialBatch.status).not.toBe("failed");
+    expect(terminalBatch.status).toBe("completed");
+    expect(terminalBatch.importBatchId).toBe(initialBatch.importBatchId);
+    expect(terminalBatch.importedRecords).toBeGreaterThan(0);
+
+    const importedListRes = await request.get(`${baseURL}/api/transactions?limit=200&offset=0`, {
       headers: { Authorization: `Bearer ${adminToken}` },
-      data: {},
+    });
+    const importedListPayload = (await expectOkJson(importedListRes, "list transactions after import")) as {
+      data?: Array<{ id: string; importBatchId?: string | null }>;
+      pagination?: { total?: number };
+    };
+    expect(importedListPayload.pagination).toBeTruthy();
+    expect(Array.isArray(importedListPayload.data)).toBeTruthy();
+
+    const importedRowsForBatch = (importedListPayload.data ?? []).filter(
+      (row) => row.importBatchId === terminalBatch.importBatchId,
+    );
+    expect(
+      importedRowsForBatch.length,
+      `No transactions were queryable for import batch ${terminalBatch.importBatchId}`,
+    ).toBeGreaterThan(0);
+
+    expectUnder(Date.now() - startTime, 120000, "Transaction import batch lifecycle");
+  });
+
+  test("admin should observe failed transaction import batch status for an invalid source", async ({
+    request,
+  }) => {
+    const sourcePath = `missing/import-${uniqueSuffix()}.csv`;
+    const triggerRes = await request.post(`${baseURL}/api/transactions/import`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+      data: { sourcePath },
+    });
+    const initialBatch = (await expectOkJson(triggerRes, "trigger failing transaction import")) as ImportBatch;
+    expect(initialBatch.importBatchId).toMatch(/^imp_[0-9]+$/);
+
+    const terminalBatch = await waitForImportBatchTerminalState(request, baseURL, adminToken, {
+      importBatchId: initialBatch.importBatchId,
+      timeoutMs: 30_000,
+      intervalMs: 1_000,
     });
 
-    // Import may return 200/202 on success or 4xx if no SFTP data — we just verify the endpoint exists
-    expect([200, 201, 202, 400, 404, 409].includes(res.status()),
-      `Transaction import endpoint should respond, got ${res.status()}`).toBeTruthy();
-
-    expectUnder(Date.now() - startTime, 15000, "Transaction import endpoint");
+    expect(terminalBatch.status).toBe("failed");
+    expect(terminalBatch.errorMessage).toBeTruthy();
+    assertImportBatchCountConsistency(terminalBatch);
   });
 });
