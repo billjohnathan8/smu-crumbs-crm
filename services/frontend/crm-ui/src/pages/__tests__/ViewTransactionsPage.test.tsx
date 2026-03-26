@@ -214,7 +214,10 @@ describe('ViewTransactionsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Save Changes' }))
 
     await waitFor(() => {
-      expect(updateSpy).toHaveBeenCalledWith('txn-1', expect.objectContaining({ status: 'Failed', amount: 333 }))
+      expect(updateSpy).toHaveBeenCalledWith(
+        'txn-1',
+        expect.objectContaining({ status: 'Failed', amount: 333 })
+      )
       expect(screen.getByText('Transaction updated successfully.')).toBeInTheDocument()
     })
   })
