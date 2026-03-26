@@ -494,9 +494,7 @@ class TestLambdaHandler:
         assert body["updated"] == 2
         assert body["failedUpdates"] == []
 
-    def test_missing_provider_message_id_is_skipped(
-        self, monkeypatch, fake_update
-    ):
+    def test_missing_provider_message_id_is_skipped(self, monkeypatch, fake_update):
         monkeypatch.setenv("LOG_API_BASE_URL", "https://example.com")
         event = _make_sns_event({"eventType": "Delivery", "mail": {}})
 
