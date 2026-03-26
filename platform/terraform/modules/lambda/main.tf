@@ -208,10 +208,11 @@ resource "aws_lambda_function" "audit_consumer" {
 resource "aws_lambda_event_source_mapping" "audit_sqs" {
   count = var.enable_audit_consumer ? 1 : 0
 
-  event_source_arn = var.audit_sqs_arn
-  function_name    = aws_lambda_function.audit_consumer[0].arn
-  batch_size       = 10
-  enabled          = true
+  event_source_arn        = var.audit_sqs_arn
+  function_name           = aws_lambda_function.audit_consumer[0].arn
+  batch_size              = 10
+  enabled                 = true
+  function_response_types = ["ReportBatchItemFailures"]
 }
 
 # --- AML consumer Lambda (SQS → DynamoDB) ---
@@ -247,10 +248,11 @@ resource "aws_lambda_function" "aml_consumer" {
 resource "aws_lambda_event_source_mapping" "aml_sqs" {
   count = var.enable_aml_consumer ? 1 : 0
 
-  event_source_arn = var.aml_sqs_arn
-  function_name    = aws_lambda_function.aml_consumer[0].arn
-  batch_size       = 10
-  enabled          = true
+  event_source_arn        = var.aml_sqs_arn
+  function_name           = aws_lambda_function.aml_consumer[0].arn
+  batch_size              = 10
+  enabled                 = true
+  function_response_types = ["ReportBatchItemFailures"]
 }
 
 # --- Verification Lambda (S3 → SNS → SES) ---
