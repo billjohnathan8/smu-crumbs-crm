@@ -58,6 +58,7 @@ _JWT_SECRET_CACHE: str | None = None
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _b64url_encode(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).decode("ascii").rstrip("=")
 
@@ -140,6 +141,7 @@ def _resolve_authorization_header() -> str | None:
 # Flow 1 — send verification email
 # ---------------------------------------------------------------------------
 
+
 def _build_verification_link(client_id: str, token: str) -> str:
     frontend_base = os.environ.get("FRONTEND_BASE_URL", "").rstrip("/")
     params = urllib.parse.urlencode({"clientId": client_id, "token": token})
@@ -147,7 +149,9 @@ def _build_verification_link(client_id: str, token: str) -> str:
     return f"{frontend_base}{path}" if frontend_base else path
 
 
-def _send_verification_email(client_id: str, email: str, token: str, first_name: str, request_id: str) -> None:
+def _send_verification_email(
+    client_id: str, email: str, token: str, first_name: str, request_id: str
+) -> None:
     source_email = os.environ.get("SES_SOURCE_EMAIL", "").strip()
     if not source_email:
         raise ValueError("SES_SOURCE_EMAIL is required to send verification emails")
@@ -186,7 +190,9 @@ def _send_verification_email(client_id: str, email: str, token: str, first_name:
     )
     logger.info(
         "Sent verification email clientId=%s requestId=%s to=%s",
-        client_id, request_id, email,
+        client_id,
+        request_id,
+        email,
     )
 
 
@@ -208,6 +214,7 @@ def _handle_verification_requested(message: dict[str, Any]) -> None:
 # Flow 2 — SES feedback
 # ---------------------------------------------------------------------------
 
+
 def _extract_feedback(message: dict[str, Any]) -> tuple[str | None, str, str | None]:
     event_type = str(message.get("eventType", "UNKNOWN")).upper()
     mail = message.get("mail") or {}
@@ -216,10 +223,14 @@ def _extract_feedback(message: dict[str, Any]) -> tuple[str | None, str, str | N
     error_message = None
     if event_type == "BOUNCE":
         bounce = message.get("bounce") or {}
-        error_message = f"SES bounce: {bounce.get('bounceType')}/{bounce.get('bounceSubType')}"
+        error_message = (
+            f"SES bounce: {bounce.get('bounceType')}/{bounce.get('bounceSubType')}"
+        )
     elif event_type == "COMPLAINT":
         complaint = message.get("complaint") or {}
-        error_message = f"SES complaint: {complaint.get('complaintFeedbackType') or 'unknown'}"
+        error_message = (
+            f"SES complaint: {complaint.get('complaintFeedbackType') or 'unknown'}"
+        )
     elif event_type == "REJECT":
         reject = message.get("reject") or {}
         error_message = f"SES reject: {reject.get('reason') or 'unknown'}"
@@ -258,7 +269,9 @@ def _update_communication_feedback(
         return response.getcode(), response.read().decode("utf-8", errors="replace")
 
 
-def _handle_ses_feedback(message: dict[str, Any], log_api_base_url: str) -> dict[str, Any] | None:
+def _handle_ses_feedback(
+    message: dict[str, Any], log_api_base_url: str
+) -> dict[str, Any] | None:
     """Returns a failure dict if the update failed, None on success."""
     provider_message_id, event_type, error_message = _extract_feedback(message)
     if not provider_message_id:
@@ -270,24 +283,32 @@ def _handle_ses_feedback(message: dict[str, Any], log_api_base_url: str) -> dict
         )
         logger.info(
             "Updated communication providerMessageId=%s eventType=%s status=%s body=%s",
-            provider_message_id, event_type, status_code, body,
+            provider_message_id,
+            event_type,
+            status_code,
+            body,
         )
         return None
     except urllib.error.HTTPError as exc:
         response_body = exc.read().decode("utf-8", errors="replace")
         logger.warning(
             "Failed to update communication providerMessageId=%s status=%s body=%s",
-            provider_message_id, exc.code, response_body,
+            provider_message_id,
+            exc.code,
+            response_body,
         )
         return {"providerMessageId": provider_message_id, "statusCode": str(exc.code)}
     except Exception:
-        logger.exception("Failed to update communication providerMessageId=%s", provider_message_id)
+        logger.exception(
+            "Failed to update communication providerMessageId=%s", provider_message_id
+        )
         return {"providerMessageId": provider_message_id, "statusCode": "unknown"}
 
 
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
 
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     log_api_base_url = os.environ.get("LOG_API_BASE_URL", "").strip()
@@ -322,10 +343,12 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                     "Failed to send verification email clientId=%s",
                     message.get("clientId"),
                 )
-                failures.append({
-                    "clientId": message.get("clientId", "unknown"),
-                    "statusCode": "email_send_failed",
-                })
+                failures.append(
+                    {
+                        "clientId": message.get("clientId", "unknown"),
+                        "statusCode": "email_send_failed",
+                    }
+                )
             continue
 
         # ── Flow 2: SES delivery feedback ───────────────────────────────────
@@ -343,9 +366,11 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
     return {
         "statusCode": 200 if not failures else 207,
-        "body": json.dumps({
-            "updated": updated,
-            "skipped": skipped,
-            "failedUpdates": failures,
-        }),
+        "body": json.dumps(
+            {
+                "updated": updated,
+                "skipped": skipped,
+                "failedUpdates": failures,
+            }
+        ),
     }

@@ -12,6 +12,7 @@ import lambda_function
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _decode_jwt_payload(token: str) -> dict:
     payload_segment = token.split(".")[1]
     padding = "=" * (-len(payload_segment) % 4)
@@ -21,12 +22,7 @@ def _decode_jwt_payload(token: str) -> dict:
 
 def _make_sns_event(*messages: dict) -> dict:
     """Wrap one or more message dicts into a Lambda SNS event."""
-    return {
-        "Records": [
-            {"Sns": {"Message": json.dumps(msg)}}
-            for msg in messages
-        ]
-    }
+    return {"Records": [{"Sns": {"Message": json.dumps(msg)}} for msg in messages]}
 
 
 def _delivery_message(message_id: str = "ses-42") -> dict:
@@ -44,6 +40,7 @@ def _bounce_message(message_id: str = "ses-bounce-1") -> dict:
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def reset_state(monkeypatch):
@@ -73,7 +70,9 @@ def fake_update(monkeypatch):
         side_effect = None
 
     def _fake(base_url, provider_message_id, event_type, error_message):
-        FakeUpdate.calls.append((base_url, provider_message_id, event_type, error_message))
+        FakeUpdate.calls.append(
+            (base_url, provider_message_id, event_type, error_message)
+        )
         if FakeUpdate.side_effect:
             raise FakeUpdate.side_effect
         return 200, '{"ok":true}'
@@ -85,6 +84,7 @@ def fake_update(monkeypatch):
 # ---------------------------------------------------------------------------
 # _resolve_authorization_header
 # ---------------------------------------------------------------------------
+
 
 class TestResolveAuthorizationHeader:
     def test_explicit_header_takes_precedence(self, monkeypatch):
@@ -121,6 +121,7 @@ class TestResolveAuthorizationHeader:
 # _mint_service_jwt
 # ---------------------------------------------------------------------------
 
+
 class TestMintServiceJwt:
     def test_respects_configured_ttl(self, monkeypatch):
         monkeypatch.setenv("VERIFICATION_JWT_HMAC_SECRET", "jwt-secret")
@@ -139,6 +140,7 @@ class TestMintServiceJwt:
 # ---------------------------------------------------------------------------
 # _load_service_jwt_secret
 # ---------------------------------------------------------------------------
+
 
 class TestLoadServiceJwtSecret:
     def test_loads_from_secrets_manager_and_caches(self, monkeypatch):
@@ -196,9 +198,11 @@ class TestLoadServiceJwtSecret:
         assert result is None
         assert lambda_function._JWT_SECRET_CACHE is None
 
+
 # ---------------------------------------------------------------------------
 # _extract_feedback
 # ---------------------------------------------------------------------------
+
 
 class TestExtractFeedback:
     def test_parses_bounce(self):
@@ -208,7 +212,9 @@ class TestExtractFeedback:
             "bounce": {"bounceType": "Permanent", "bounceSubType": "General"},
         }
 
-        provider_message_id, event_type, error_message = lambda_function._extract_feedback(message)
+        provider_message_id, event_type, error_message = (
+            lambda_function._extract_feedback(message)
+        )
 
         assert provider_message_id == "ses-1"
         assert event_type == "BOUNCE"
@@ -221,7 +227,9 @@ class TestExtractFeedback:
             "complaint": {"complaintFeedbackType": "abuse"},
         }
 
-        provider_message_id, event_type, error_message = lambda_function._extract_feedback(message)
+        provider_message_id, event_type, error_message = (
+            lambda_function._extract_feedback(message)
+        )
 
         assert provider_message_id == "ses-2"
         assert event_type == "COMPLAINT"
@@ -234,7 +242,9 @@ class TestExtractFeedback:
             "reject": {"reason": "Policy"},
         }
 
-        provider_message_id, event_type, error_message = lambda_function._extract_feedback(message)
+        provider_message_id, event_type, error_message = (
+            lambda_function._extract_feedback(message)
+        )
 
         assert provider_message_id == "ses-3"
         assert event_type == "REJECT"
@@ -249,13 +259,16 @@ class TestExtractFeedback:
 
     def test_missing_mail_block_returns_none_id(self):
         _, _, _ = lambda_function._extract_feedback({"eventType": "Delivery"})
-        provider_message_id, _, _ = lambda_function._extract_feedback({"eventType": "Delivery"})
+        provider_message_id, _, _ = lambda_function._extract_feedback(
+            {"eventType": "Delivery"}
+        )
         assert provider_message_id is None
 
 
 # ---------------------------------------------------------------------------
 # _status_for_event
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize(
     ("event_type", "expected_status"),
@@ -278,6 +291,7 @@ def test_status_for_event(event_type, expected_status):
 # _update_communication_feedback
 # ---------------------------------------------------------------------------
 
+
 class TestUpdateCommunicationFeedback:
     def test_builds_correct_http_request(self, monkeypatch):
         monkeypatch.setattr(
@@ -288,10 +302,17 @@ class TestUpdateCommunicationFeedback:
         captured = {}
 
         class FakeResponse:
-            def __enter__(self): return self
-            def __exit__(self, *_): return False
-            def getcode(self): return 202
-            def read(self): return b'{"ok":true}'
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+            def getcode(self):
+                return 202
+
+            def read(self):
+                return b'{"ok":true}'
 
         def fake_urlopen(request, timeout):
             captured["url"] = request.full_url
@@ -321,10 +342,17 @@ class TestUpdateCommunicationFeedback:
         captured = {}
 
         class FakeResponse:
-            def __enter__(self): return self
-            def __exit__(self, *_): return False
-            def getcode(self): return 200
-            def read(self): return b"{}"
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+            def getcode(self):
+                return 200
+
+            def read(self):
+                return b"{}"
 
         def fake_urlopen(request, timeout):
             captured["url"] = request.full_url
@@ -336,7 +364,9 @@ class TestUpdateCommunicationFeedback:
             "https://log-api.local/", "ses/id+1", "DELIVERY", None
         )
 
-        assert captured["url"].endswith("/api/communications/provider/ses%2Fid%2B1/status")
+        assert captured["url"].endswith(
+            "/api/communications/provider/ses%2Fid%2B1/status"
+        )
 
     def test_sends_correct_payload_and_headers(self, monkeypatch):
         monkeypatch.setattr(
@@ -347,10 +377,17 @@ class TestUpdateCommunicationFeedback:
         captured = {}
 
         class FakeResponse:
-            def __enter__(self): return self
-            def __exit__(self, *_): return False
-            def getcode(self): return 200
-            def read(self): return b"{}"
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+            def getcode(self):
+                return 200
+
+            def read(self):
+                return b"{}"
 
         def fake_urlopen(request, timeout):
             captured["headers"] = {k.lower(): v for k, v in request.header_items()}
@@ -379,6 +416,7 @@ class TestUpdateCommunicationFeedback:
 # ---------------------------------------------------------------------------
 # lambda_handler — routing and record processing
 # ---------------------------------------------------------------------------
+
 
 class TestLambdaHandler:
     def test_empty_records_returns_200(self, monkeypatch):
@@ -456,7 +494,9 @@ class TestLambdaHandler:
         assert body["updated"] == 2
         assert body["failedUpdates"] == []
 
-    def test_missing_provider_message_id_counts_as_updated_not_skipped(self, monkeypatch, fake_update):
+    def test_missing_provider_message_id_counts_as_updated_not_skipped(
+        self, monkeypatch, fake_update
+    ):
         """
         _handle_ses_feedback returns None for missing messageId (same as success),
         so the handler increments `updated`, not `skipped`.
@@ -488,9 +528,13 @@ class TestLambdaHandler:
 
         assert response["statusCode"] == 207
         assert body["updated"] == 0
-        assert body["failedUpdates"] == [{"providerMessageId": "ses-99", "statusCode": "409"}]
+        assert body["failedUpdates"] == [
+            {"providerMessageId": "ses-99", "statusCode": "409"}
+        ]
 
-    def test_generic_exception_reported_as_partial_failure(self, monkeypatch, fake_update):
+    def test_generic_exception_reported_as_partial_failure(
+        self, monkeypatch, fake_update
+    ):
         monkeypatch.setenv("LOG_API_BASE_URL", "https://example.com")
         fake_update.side_effect = RuntimeError("network down")
         event = _make_sns_event(_bounce_message("ses-77"))
@@ -499,7 +543,10 @@ class TestLambdaHandler:
         body = json.loads(response["body"])
 
         assert response["statusCode"] == 207
-        assert body["failedUpdates"][0] == {"providerMessageId": "ses-77", "statusCode": "unknown"}
+        assert body["failedUpdates"][0] == {
+            "providerMessageId": "ses-77",
+            "statusCode": "unknown",
+        }
 
     def test_mixed_valid_invalid_skipped_and_failed(self, monkeypatch, fake_update):
         monkeypatch.setenv("LOG_API_BASE_URL", "https://example.com")
