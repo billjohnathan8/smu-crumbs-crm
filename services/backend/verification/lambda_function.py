@@ -239,9 +239,9 @@ def _extract_feedback(message: dict[str, Any]) -> tuple[str | None, str, str | N
 
 
 def _status_for_event(event_type: str) -> str:
-    if event_type in {"BOUNCE", "COMPLAINT", "REJECT"}:
+    if event_type in {"BOUNCE", "COMPLAINT", "REJECT", "RENDERING_FAILURE"}:
         return "failed"
-    if event_type in {"DELIVERY", "SEND", "RENDERING_FAILURE"}:
+    if event_type in {"DELIVERY", "SEND"}:
         return "sent"
     return "queued"
 
