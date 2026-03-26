@@ -411,9 +411,43 @@ run_gradle_db_test() {
     SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver \
     GRADLE_USER_HOME="${gradle_user_home}" \
     "${cmd[@]}" > "${gradle_log}" 2>&1; then
-    popd >/dev/null
-    echo "[FAIL] ${service_name} DB test command failed. See ${gradle_log}" >&2
-    return 1
+    # Retry with Gradle Windows wrapper when Java path/tooling mismatch is detected.
+    # On WSL with a Windows JVM, ./gradlew fails with "Unable to access jarfile"
+    # because the JVM can't resolve /mnt/c/... paths. gradlew.bat uses native paths.
+    if grep -Eq "JAVA_HOME|Unable to access jarfile" "${gradle_log}" \
+      && command -v cmd.exe >/dev/null 2>&1 \
+      && [ -f "./gradlew.bat" ]; then
+      local win_test_args="test --tests \"${test_selector}\" --no-daemon --console=plain"
+      [[ "${include_integration}" == "true" ]] && win_test_args+=" -PincludeIntegration=true"
+      if ! APP_ENV=test \
+        APP_JWT_HMAC_SECRET=dev-only-insecure-secret \
+        APP_MOCK_SFTP_ROOT=build/mock-sftp \
+        APP_CLIENT_SERVICE_URL=http://localhost:8080 \
+        DB_HOST=127.0.0.1 \
+        DB_PORT="${LOCAL_DB_HOST_PORT}" \
+        DB_NAME="${LOCAL_DB_NAME}" \
+        DB_USER="${LOCAL_DB_USER}" \
+        DB_PASSWORD="${LOCAL_DB_PASSWORD}" \
+        PGHOST=127.0.0.1 \
+        PGPORT="${LOCAL_DB_HOST_PORT}" \
+        PGDATABASE="${LOCAL_DB_NAME}" \
+        PGUSER="${LOCAL_DB_USER}" \
+        PGPASSWORD="${LOCAL_DB_PASSWORD}" \
+        SPRING_DATASOURCE_URL="${db_jdbc_url}" \
+        SPRING_DATASOURCE_USERNAME="${LOCAL_DB_USER}" \
+        SPRING_DATASOURCE_PASSWORD="${LOCAL_DB_PASSWORD}" \
+        SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver \
+        GRADLE_USER_HOME="${gradle_user_home}" \
+        cmd.exe /c "gradlew.bat ${win_test_args}" > "${gradle_log}" 2>&1; then
+        popd >/dev/null
+        echo "[FAIL] ${service_name} DB test command failed. See ${gradle_log}" >&2
+        return 1
+      fi
+    else
+      popd >/dev/null
+      echo "[FAIL] ${service_name} DB test command failed. See ${gradle_log}" >&2
+      return 1
+    fi
   fi
 
   popd >/dev/null
