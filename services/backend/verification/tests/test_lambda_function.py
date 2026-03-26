@@ -147,7 +147,7 @@ def test_extract_feedback_parses_bounce():
         ("REJECT", "failed"),
         ("DELIVERY", "sent"),
         ("SEND", "sent"),
-        ("RENDERING_FAILURE", "sent"),
+        ("RENDERING_FAILURE", "failed"),
         ("UNKNOWN", "queued"),
     ],
 )
