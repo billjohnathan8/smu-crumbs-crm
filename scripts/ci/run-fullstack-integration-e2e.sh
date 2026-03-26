@@ -488,25 +488,57 @@ run_gradle_db_test() {
 
 recreate_component_test_db() {
   local db_name="$1"
+  local terminate_output=""
+  local drop_output=""
+  local create_output=""
+
   if [[ ! "${db_name}" =~ ^[a-zA-Z0-9_]+$ ]]; then
     echo "[FAIL] Invalid DB name for component tests: ${db_name}" >&2
     return 1
   fi
 
-  docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" exec -T postgres \
-    psql -v ON_ERROR_STOP=1 -U "${LOCAL_DB_USER}" -d postgres \
-    -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${db_name}' AND pid <> pg_backend_pid();" \
-    >/dev/null
+  echo "  [db-check] Preparing isolated database: ${db_name}"
 
-  docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" exec -T postgres \
-    psql -v ON_ERROR_STOP=1 -U "${LOCAL_DB_USER}" -d postgres \
-    -c "DROP DATABASE IF EXISTS \"${db_name}\";" \
-    >/dev/null
+  if ! terminate_output="$(
+    docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" exec -T postgres \
+      psql -v ON_ERROR_STOP=1 -U "${LOCAL_DB_USER}" -d postgres \
+      -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${db_name}' AND pid <> pg_backend_pid();" \
+      2>&1
+  )"; then
+    echo "[FAIL] Unable to terminate active DB connections for ${db_name}" >&2
+    [[ -n "${terminate_output}" ]] && echo "${terminate_output}" >&2
+    return 1
+  fi
 
-  docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" exec -T postgres \
-    psql -v ON_ERROR_STOP=1 -U "${LOCAL_DB_USER}" -d postgres \
-    -c "CREATE DATABASE \"${db_name}\" OWNER \"${LOCAL_DB_USER}\";" \
-    >/dev/null
+  if ! drop_output="$(
+    docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" exec -T postgres \
+      psql -v ON_ERROR_STOP=1 -U "${LOCAL_DB_USER}" -d postgres \
+      -c "DROP DATABASE IF EXISTS \"${db_name}\";" \
+      2>&1
+  )"; then
+    echo "[FAIL] Unable to drop existing DB ${db_name}" >&2
+    [[ -n "${drop_output}" ]] && echo "${drop_output}" >&2
+    return 1
+  fi
+
+  if echo "${drop_output}" | grep -q "does not exist"; then
+    echo "  [db-check] No prior database to drop: ${db_name}"
+  else
+    echo "  [db-check] Dropped existing database: ${db_name}"
+  fi
+
+  if ! create_output="$(
+    docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" exec -T postgres \
+      psql -v ON_ERROR_STOP=1 -U "${LOCAL_DB_USER}" -d postgres \
+      -c "CREATE DATABASE \"${db_name}\" OWNER \"${LOCAL_DB_USER}\";" \
+      2>&1
+  )"; then
+    echo "[FAIL] Unable to create DB ${db_name}" >&2
+    [[ -n "${create_output}" ]] && echo "${create_output}" >&2
+    return 1
+  fi
+
+  echo "  [db-check] Created database: ${db_name}"
 }
 
 run_db_backed_component_tests() {
