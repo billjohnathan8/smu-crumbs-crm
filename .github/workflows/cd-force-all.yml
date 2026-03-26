@@ -8,9 +8,9 @@ on:
         required: false
         type: string
         default: backend
-  # push:
-  #   branches:
-  #     - integration
+  push:
+    branches:
+      - integration
 
 # Ensure that only one full force deployment runs at a time.
 concurrency:
