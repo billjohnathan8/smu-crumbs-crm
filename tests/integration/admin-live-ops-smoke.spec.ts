@@ -101,4 +101,33 @@ test.describe("Admin Live Ops Smoke", () => {
     expect(persisted?.initialDeposit).toBe(1500);
     expect(persisted?.accountStatus).toBe("Active");
   });
+
+  test("admin sees failed import state in live transaction import UI", async ({ page }) => {
+    const missingSourcePath = `missing/import-${uniqueId()}.csv`;
+
+    await loginViaUi(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto("/admin/transactions");
+    await expect(page.getByRole("heading", { name: "Transactions" })).toBeVisible();
+
+    await page.getByPlaceholder("Override source path").fill(missingSourcePath);
+    await page.getByRole("button", { name: "Start Import" }).click();
+
+    const importPanel = page.getByTestId("transaction-import-panel");
+    await expect(importPanel.getByText(/failed to read source/i).first()).toBeVisible();
+    await expect(importPanel.locator("tbody span", { hasText: "failed" }).first()).toBeVisible();
+  });
+
+  test("admin risk-ops lookup shows failure state for invalid communication id", async ({
+    page,
+  }) => {
+    await loginViaUi(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto("/admin/communications");
+    await expect(page.getByRole("heading", { name: "Communications", level: 1 })).toBeVisible();
+
+    const idLookupPanel = page.locator("div", { hasText: "Lookup by Communication ID" }).first();
+    await idLookupPanel.getByPlaceholder("com_...").fill("invalid-communication-id");
+    await page.getByRole("button", { name: /^Lookup$/ }).first().click();
+
+    await expect(page.getByText(/invalid id|not found/i)).toBeVisible();
+  });
 });
