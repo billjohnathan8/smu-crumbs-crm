@@ -44,3 +44,14 @@ commits = [
 paths = [
   '''platform/k8s/infra/jwt-keys\.example\.yaml''',
 ]
+
+[[allowlists]]
+description = "Historical AML test fixture private-key marker false-positive"
+# Suppress one historical test fixture that used PEM-like delimiters.
+# Scope is intentionally narrow: exact commit + exact file path.
+commits = [
+  '''8d84c813fc512cbbdede45ca501ff17694eb4e5d''',
+]
+paths = [
+  '''services/backend/aml/tests/test_auth_and_clients\.py''',
+]
