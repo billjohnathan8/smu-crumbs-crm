@@ -62,6 +62,14 @@ SFTP_TRANSACTION_COLLECTOR_FUNCTION_NAME="scroogebank-crm-dev-sftp-transaction-c
 SFTP_TRANSACTION_COLLECTOR_RUNTIME="${SFTP_TRANSACTION_COLLECTOR_RUNTIME:-python3.12}"
 AML_LAMBDA_FUNCTION_NAME="scroogebank-crm-dev-aml"
 AML_LAMBDA_RUNTIME="${AML_LAMBDA_RUNTIME:-python3.12}"
+AUDIT_CONSUMER_LAMBDA_FUNCTION_NAME="scroogebank-crm-dev-audit-consumer"
+AUDIT_CONSUMER_LAMBDA_RUNTIME="${AUDIT_CONSUMER_LAMBDA_RUNTIME:-python3.12}"
+AUDIT_CONSUMER_QUEUE_NAME="scroogebank-crm-dev-audit"
+AUDIT_CONSUMER_TABLE_NAME="scroogebank-crm-dev-audit-logs"
+AML_CONSUMER_LAMBDA_FUNCTION_NAME="scroogebank-crm-dev-aml-consumer"
+AML_CONSUMER_LAMBDA_RUNTIME="${AML_CONSUMER_LAMBDA_RUNTIME:-python3.12}"
+AML_CONSUMER_QUEUE_NAME="scroogebank-crm-dev-aml"
+AML_CONSUMER_TABLE_NAME="scroogebank-crm-dev-aml-reports"
 VERIFICATION_SNS_TOPIC_NAME="scroogebank-crm-dev-verification"
 export VERIFICATION_EMAIL_PROVIDER="${VERIFICATION_EMAIL_PROVIDER:-mock}"
 export SES_SENDER_EMAIL="${SES_SENDER_EMAIL:-verification@crm.local}"
@@ -242,6 +250,93 @@ localstack_queue_exists() {
   docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" exec -T localstack \
     awslocal sqs get-queue-url --queue-name "${queue_name}" --region ap-southeast-1 \
     >/dev/null 2>&1
+}
+
+wait_for_dynamodb_item_pk_sk() {
+  local table_name="$1"
+  local pk="$2"
+  local sk="$3"
+  local attempts="${4:-30}"
+  local key_json=""
+  local result=""
+
+  key_json="$(printf '{"pk":{"S":"%s"},"sk":{"S":"%s"}}' "${pk}" "${sk}")"
+
+  for i in $(seq 1 "${attempts}"); do
+    result="$(
+      aws_local dynamodb get-item \
+        --table-name "${table_name}" \
+        --key "${key_json}" \
+        --query "Item.pk.S" \
+        --output text 2>/dev/null || true
+    )"
+    result="$(normalize_text "${result}")"
+    if [[ "${result}" == "${pk}" ]]; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  echo "[FAIL] Timed out waiting for item pk=${pk} sk=${sk} in table ${table_name}" >&2
+  exit 1
+}
+
+dynamodb_count_by_pk() {
+  local table_name="$1"
+  local pk="$2"
+  local expr_values=""
+  local count=""
+  expr_values="$(printf '{":pk":{"S":"%s"}}' "${pk}")"
+  count="$(
+    aws_local dynamodb query \
+      --table-name "${table_name}" \
+      --key-condition-expression "pk = :pk" \
+      --expression-attribute-values "${expr_values}" \
+      --query "Count" \
+      --output text 2>/dev/null || true
+  )"
+  normalize_text "${count}"
+}
+
+wait_for_queue_drained() {
+  local queue_url="$1"
+  local attempts="${2:-30}"
+  local consecutive_zero_required="${3:-3}"
+  local consecutive_zero=0
+  local visible=0
+  local not_visible=0
+
+  for i in $(seq 1 "${attempts}"); do
+    visible="$(
+      aws_local sqs get-queue-attributes \
+        --queue-url "${queue_url}" \
+        --attribute-names ApproximateNumberOfMessages \
+        --query "Attributes.ApproximateNumberOfMessages" \
+        --output text 2>/dev/null || true
+    )"
+    visible="$(normalize_text "${visible}")"
+    not_visible="$(
+      aws_local sqs get-queue-attributes \
+        --queue-url "${queue_url}" \
+        --attribute-names ApproximateNumberOfMessagesNotVisible \
+        --query "Attributes.ApproximateNumberOfMessagesNotVisible" \
+        --output text 2>/dev/null || true
+    )"
+    not_visible="$(normalize_text "${not_visible}")"
+
+    if [[ "${visible}" == "0" && "${not_visible}" == "0" ]]; then
+      consecutive_zero=$((consecutive_zero + 1))
+      if [[ ${consecutive_zero} -ge ${consecutive_zero_required} ]]; then
+        return 0
+      fi
+    else
+      consecutive_zero=0
+    fi
+    sleep 1
+  done
+
+  echo "[FAIL] Queue did not drain in time (visible=${visible}, notVisible=${not_visible})" >&2
+  exit 1
 }
 
 require_docker_ready
@@ -767,6 +862,26 @@ package_aml_lambda() {
     "${zip_path}"
 }
 
+package_audit_consumer_lambda() {
+  local package_dir="${LOG_DIR}/audit-consumer-lambda-package"
+  local zip_path="${LOG_DIR}/audit-consumer-lambda.zip"
+
+  package_single_file_lambda \
+    "${ROOT_DIR}/services/backend/audit-consumer/lambda_function.py" \
+    "${package_dir}" \
+    "${zip_path}"
+}
+
+package_aml_consumer_lambda() {
+  local package_dir="${LOG_DIR}/aml-consumer-lambda-package"
+  local zip_path="${LOG_DIR}/aml-consumer-lambda.zip"
+
+  package_single_file_lambda \
+    "${ROOT_DIR}/services/backend/aml-consumer/lambda_function.py" \
+    "${package_dir}" \
+    "${zip_path}"
+}
+
 deploy_log_lambda() {
   local zip_path="${LOG_DIR}/log-lambda.zip"
   local zip_arg="fileb://${zip_path}"
@@ -1057,6 +1172,280 @@ deploy_aml_lambda() {
   done
 }
 
+deploy_audit_consumer_lambda() {
+  local zip_path="${LOG_DIR}/audit-consumer-lambda.zip"
+  local zip_arg="fileb://${zip_path}"
+  local env_vars="Variables={DYNAMODB_TABLE_NAME=${AUDIT_CONSUMER_TABLE_NAME},IDEMPOTENCY_TTL_DAYS=90,LOG_LEVEL=INFO}"
+
+  if [[ "${AWS_IS_WINDOWS}" == "true" ]]; then
+    zip_arg="fileb://$(to_windows_path "${zip_path}")"
+  fi
+
+  if aws_local lambda get-function --function-name "${AUDIT_CONSUMER_LAMBDA_FUNCTION_NAME}" >/dev/null 2>&1; then
+    aws_local lambda update-function-code \
+      --function-name "${AUDIT_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+      --zip-file "${zip_arg}" \
+      >/dev/null
+    aws_local lambda update-function-configuration \
+      --function-name "${AUDIT_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+      --handler lambda_function.lambda_handler \
+      --runtime "${AUDIT_CONSUMER_LAMBDA_RUNTIME}" \
+      --timeout 30 \
+      --memory-size 256 \
+      --environment "${env_vars}" \
+      >/dev/null
+  else
+    aws_local lambda create-function \
+      --function-name "${AUDIT_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+      --runtime "${AUDIT_CONSUMER_LAMBDA_RUNTIME}" \
+      --handler lambda_function.lambda_handler \
+      --zip-file "${zip_arg}" \
+      --role arn:aws:iam::000000000000:role/lambda-role \
+      --timeout 30 \
+      --memory-size 256 \
+      --environment "${env_vars}" \
+      >/dev/null
+  fi
+
+  for i in $(seq 1 40); do
+    local state
+    state="$(
+      aws_local lambda get-function-configuration \
+        --function-name "${AUDIT_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+        --query "State" \
+        --output text 2>/dev/null || true
+    )"
+    state="$(echo "${state}" | tr -d '\r')"
+    if [[ "${state}" == "Active" ]]; then
+      return 0
+    fi
+    if [[ "${state}" == "Failed" ]]; then
+      local reason
+      reason="$(
+        aws_local lambda get-function-configuration \
+          --function-name "${AUDIT_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+          --query "StateReason" \
+          --output text 2>/dev/null || true
+      )"
+      reason="$(echo "${reason}" | tr -d '\r')"
+      echo "[FAIL] audit-consumer Lambda entered Failed state: ${reason}" >&2
+      exit 1
+    fi
+    if [[ ${i} -eq 40 ]]; then
+      echo "[FAIL] audit-consumer Lambda did not become Active in time (state=${state})." >&2
+      exit 1
+    fi
+    sleep 1
+  done
+}
+
+wire_audit_consumer_event_source_mapping() {
+  local queue_url=""
+  local queue_arn=""
+  local mapping_uuid=""
+  local mapping_state=""
+
+  queue_url="$(
+    aws_local sqs get-queue-url \
+      --queue-name "${AUDIT_CONSUMER_QUEUE_NAME}" \
+      --query "QueueUrl" \
+      --output text
+  )"
+  queue_arn="$(
+    aws_local sqs get-queue-attributes \
+      --queue-url "${queue_url}" \
+      --attribute-names QueueArn \
+      --query "Attributes.QueueArn" \
+      --output text
+  )"
+  queue_arn="$(normalize_text "${queue_arn}")"
+
+  mapping_uuid="$(
+    aws_local lambda list-event-source-mappings \
+      --event-source-arn "${queue_arn}" \
+      --function-name "${AUDIT_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+      --query "EventSourceMappings[0].UUID" \
+      --output text 2>/dev/null || true
+  )"
+  mapping_uuid="$(normalize_text "${mapping_uuid}")"
+
+  if [[ -z "${mapping_uuid}" || "${mapping_uuid}" == "None" ]]; then
+    mapping_uuid="$(
+      aws_local lambda create-event-source-mapping \
+        --function-name "${AUDIT_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+        --event-source-arn "${queue_arn}" \
+        --enabled \
+        --batch-size 10 \
+        --function-response-types ReportBatchItemFailures \
+        --query "UUID" \
+        --output text
+    )"
+    mapping_uuid="$(normalize_text "${mapping_uuid}")"
+  else
+    aws_local lambda update-event-source-mapping \
+      --uuid "${mapping_uuid}" \
+      --enabled \
+      --batch-size 10 \
+      --function-response-types ReportBatchItemFailures \
+      >/dev/null
+  fi
+
+  for i in $(seq 1 40); do
+    mapping_state="$(
+      aws_local lambda get-event-source-mapping \
+        --uuid "${mapping_uuid}" \
+        --query "State" \
+        --output text 2>/dev/null || true
+    )"
+    mapping_state="$(normalize_text "${mapping_state}")"
+    if [[ "${mapping_state}" == "Enabled" || "${mapping_state}" == "Enabling" ]]; then
+      return 0
+    fi
+    if [[ ${i} -eq 40 ]]; then
+      echo "[FAIL] audit-consumer event source mapping was not enabled (state=${mapping_state})." >&2
+      exit 1
+    fi
+    sleep 1
+  done
+}
+
+deploy_aml_consumer_lambda() {
+  local zip_path="${LOG_DIR}/aml-consumer-lambda.zip"
+  local zip_arg="fileb://${zip_path}"
+  local env_vars="Variables={DYNAMODB_TABLE_NAME=${AML_CONSUMER_TABLE_NAME},IDEMPOTENCY_TTL_DAYS=90,LOG_LEVEL=INFO}"
+
+  if [[ "${AWS_IS_WINDOWS}" == "true" ]]; then
+    zip_arg="fileb://$(to_windows_path "${zip_path}")"
+  fi
+
+  if aws_local lambda get-function --function-name "${AML_CONSUMER_LAMBDA_FUNCTION_NAME}" >/dev/null 2>&1; then
+    aws_local lambda update-function-code \
+      --function-name "${AML_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+      --zip-file "${zip_arg}" \
+      >/dev/null
+    aws_local lambda update-function-configuration \
+      --function-name "${AML_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+      --handler lambda_function.lambda_handler \
+      --runtime "${AML_CONSUMER_LAMBDA_RUNTIME}" \
+      --timeout 30 \
+      --memory-size 256 \
+      --environment "${env_vars}" \
+      >/dev/null
+  else
+    aws_local lambda create-function \
+      --function-name "${AML_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+      --runtime "${AML_CONSUMER_LAMBDA_RUNTIME}" \
+      --handler lambda_function.lambda_handler \
+      --zip-file "${zip_arg}" \
+      --role arn:aws:iam::000000000000:role/lambda-role \
+      --timeout 30 \
+      --memory-size 256 \
+      --environment "${env_vars}" \
+      >/dev/null
+  fi
+
+  for i in $(seq 1 40); do
+    local state
+    state="$(
+      aws_local lambda get-function-configuration \
+        --function-name "${AML_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+        --query "State" \
+        --output text 2>/dev/null || true
+    )"
+    state="$(echo "${state}" | tr -d '\r')"
+    if [[ "${state}" == "Active" ]]; then
+      return 0
+    fi
+    if [[ "${state}" == "Failed" ]]; then
+      local reason
+      reason="$(
+        aws_local lambda get-function-configuration \
+          --function-name "${AML_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+          --query "StateReason" \
+          --output text 2>/dev/null || true
+      )"
+      reason="$(echo "${reason}" | tr -d '\r')"
+      echo "[FAIL] aml-consumer Lambda entered Failed state: ${reason}" >&2
+      exit 1
+    fi
+    if [[ ${i} -eq 40 ]]; then
+      echo "[FAIL] aml-consumer Lambda did not become Active in time (state=${state})." >&2
+      exit 1
+    fi
+    sleep 1
+  done
+}
+
+wire_aml_consumer_event_source_mapping() {
+  local queue_url=""
+  local queue_arn=""
+  local mapping_uuid=""
+  local mapping_state=""
+
+  queue_url="$(
+    aws_local sqs get-queue-url \
+      --queue-name "${AML_CONSUMER_QUEUE_NAME}" \
+      --query "QueueUrl" \
+      --output text
+  )"
+  queue_arn="$(
+    aws_local sqs get-queue-attributes \
+      --queue-url "${queue_url}" \
+      --attribute-names QueueArn \
+      --query "Attributes.QueueArn" \
+      --output text
+  )"
+  queue_arn="$(normalize_text "${queue_arn}")"
+
+  mapping_uuid="$(
+    aws_local lambda list-event-source-mappings \
+      --event-source-arn "${queue_arn}" \
+      --function-name "${AML_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+      --query "EventSourceMappings[0].UUID" \
+      --output text 2>/dev/null || true
+  )"
+  mapping_uuid="$(normalize_text "${mapping_uuid}")"
+
+  if [[ -z "${mapping_uuid}" || "${mapping_uuid}" == "None" ]]; then
+    mapping_uuid="$(
+      aws_local lambda create-event-source-mapping \
+        --function-name "${AML_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+        --event-source-arn "${queue_arn}" \
+        --enabled \
+        --batch-size 10 \
+        --function-response-types ReportBatchItemFailures \
+        --query "UUID" \
+        --output text
+    )"
+    mapping_uuid="$(normalize_text "${mapping_uuid}")"
+  else
+    aws_local lambda update-event-source-mapping \
+      --uuid "${mapping_uuid}" \
+      --enabled \
+      --batch-size 10 \
+      --function-response-types ReportBatchItemFailures \
+      >/dev/null
+  fi
+
+  for i in $(seq 1 40); do
+    mapping_state="$(
+      aws_local lambda get-event-source-mapping \
+        --uuid "${mapping_uuid}" \
+        --query "State" \
+        --output text 2>/dev/null || true
+    )"
+    mapping_state="$(normalize_text "${mapping_state}")"
+    if [[ "${mapping_state}" == "Enabled" || "${mapping_state}" == "Enabling" ]]; then
+      return 0
+    fi
+    if [[ ${i} -eq 40 ]]; then
+      echo "[FAIL] aml-consumer event source mapping was not enabled (state=${mapping_state})." >&2
+      exit 1
+    fi
+    sleep 1
+  done
+}
+
 provision_log_http_api() {
   local fallback_note_file="${LOG_DIR}/log-http-api-v2.err"
   local existing_ids
@@ -1262,6 +1651,10 @@ package_sftp_transaction_collector &
 sftp_transaction_collector_package_pid=$!
 package_aml_lambda &
 aml_lambda_package_pid=$!
+package_audit_consumer_lambda &
+audit_consumer_lambda_package_pid=$!
+package_aml_consumer_lambda &
+aml_consumer_lambda_package_pid=$!
 
 wait_for_jobs \
   "${infra_pid}" "base-infra-up (postgres + localstack)" \
@@ -1271,7 +1664,9 @@ wait_for_jobs \
   "${lambda_package_pid}" "package-log-lambda" \
   "${verification_lambda_package_pid}" "package-verification-lambda" \
   "${sftp_transaction_collector_package_pid}" "package-sftp-transaction-collector" \
-  "${aml_lambda_package_pid}" "package-aml-lambda"
+  "${aml_lambda_package_pid}" "package-aml-lambda" \
+  "${audit_consumer_lambda_package_pid}" "package-audit-consumer-lambda" \
+  "${aml_consumer_lambda_package_pid}" "package-aml-consumer-lambda"
 end_phase
 
 # --------------------------------------------------------------------------
@@ -1312,7 +1707,7 @@ bash "${DB_ORCHESTRATOR_SCRIPT}" migrate \
   >> "${LOG_DIR}/docker-compose.log" 2>&1
 end_phase
 
-start_phase "Phase 2b: Deploy log + verification + ingestion + AML Lambdas"
+start_phase "Phase 2b: Deploy log + verification + ingestion + AML + audit/aml-consumer Lambdas"
 echo "Packaging + deploying log-service Lambda to LocalStack..."
 deploy_log_lambda
 provision_log_http_api
@@ -1322,6 +1717,12 @@ echo "Deploying transaction ingestion Lambda..."
 deploy_sftp_transaction_collector
 echo "Deploying AML batch Lambda..."
 deploy_aml_lambda
+echo "Deploying audit-consumer Lambda + SQS mapping..."
+deploy_audit_consumer_lambda
+wire_audit_consumer_event_source_mapping
+echo "Deploying aml-consumer Lambda + SQS mapping..."
+deploy_aml_consumer_lambda
+wire_aml_consumer_event_source_mapping
 wait_for_http "${LOG_SERVICE_PUBLIC_URL}/health" "log-service-lambda"
 end_phase
 
@@ -1945,29 +2346,111 @@ if payload.get("reviewStatus") != "Confirmed":
 print("  [OK] AML alert review updated")
 PY
 
-echo "  Smoke: LocalStack SQS round-trip"
-QUEUE_URL="$(
-  aws_local sqs get-queue-url --queue-name scroogebank-crm-dev-audit \
-    --query QueueUrl --output text
+echo "  Smoke: audit-consumer LocalStack SQS -> Lambda -> DynamoDB"
+AUDIT_QUEUE_URL="$(
+  aws_local sqs get-queue-url \
+    --queue-name "${AUDIT_CONSUMER_QUEUE_NAME}" \
+    --query QueueUrl \
+    --output text
 )"
+AUDIT_EVENT_ID="evt-fullstack-${RUN_ID}"
+AUDIT_OCCURRED_AT="2026-03-01T10:30:00Z"
+AUDIT_VALID_PAYLOAD="$(cat <<JSON
+{"eventId":"${AUDIT_EVENT_ID}","occurredAt":"${AUDIT_OCCURRED_AT}","action":"CLIENT_UPDATED","attributeName":"risk_rating","userId":"fullstack-user","clientId":"${CLIENT_ID}","sourceService":"fullstack-smoke","beforeValue":"low","afterValue":"high","metadata":{"suite":"fullstack-smoke"}}
+JSON
+)"
+AUDIT_PK="AUDIT#${AUDIT_EVENT_ID}"
+AUDIT_SK="${AUDIT_OCCURRED_AT}"
+
 aws_local sqs send-message \
-  --queue-url "${QUEUE_URL}" \
-  --message-body '{"eventType":"CI_FULLSTACK_SMOKE","source":"run-fullstack-integration-e2e"}' \
+  --queue-url "${AUDIT_QUEUE_URL}" \
+  --message-body "${AUDIT_VALID_PAYLOAD}" \
   >/dev/null
-RECV_BODY=""
-for _ in {1..10}; do
-  RECV_BODY="$(
-    aws_local sqs receive-message --queue-url "${QUEUE_URL}" --wait-time-seconds 2 \
-      --query 'Messages[0].Body' --output text 2>/dev/null || true
-  )"
-  echo "${RECV_BODY}" | grep -q "CI_FULLSTACK_SMOKE" && break
-  sleep 1
-done
-echo "${RECV_BODY}" | grep -q "CI_FULLSTACK_SMOKE" || {
-  echo "  [FAIL] SQS round-trip failed - message not received" >&2
+
+wait_for_dynamodb_item_pk_sk "${AUDIT_CONSUMER_TABLE_NAME}" "${AUDIT_PK}" "${AUDIT_SK}" 40
+AUDIT_VALID_COUNT="$(dynamodb_count_by_pk "${AUDIT_CONSUMER_TABLE_NAME}" "${AUDIT_PK}")"
+if [[ "${AUDIT_VALID_COUNT}" != "1" ]]; then
+  echo "  [FAIL] audit-consumer valid message expected 1 row, got ${AUDIT_VALID_COUNT}" >&2
   exit 1
-}
-echo "  [OK] SQS round-trip"
+fi
+echo "  [OK] audit-consumer valid message wrote one row"
+
+aws_local sqs send-message \
+  --queue-url "${AUDIT_QUEUE_URL}" \
+  --message-body "${AUDIT_VALID_PAYLOAD}" \
+  >/dev/null
+wait_for_queue_drained "${AUDIT_QUEUE_URL}" 30 2
+AUDIT_DUPLICATE_COUNT="$(dynamodb_count_by_pk "${AUDIT_CONSUMER_TABLE_NAME}" "${AUDIT_PK}")"
+if [[ "${AUDIT_DUPLICATE_COUNT}" != "1" ]]; then
+  echo "  [FAIL] audit-consumer duplicate message created extra rows (count=${AUDIT_DUPLICATE_COUNT})" >&2
+  exit 1
+fi
+echo "  [OK] audit-consumer duplicate message treated as success"
+
+aws_local sqs send-message \
+  --queue-url "${AUDIT_QUEUE_URL}" \
+  --message-body '{bad-json' \
+  >/dev/null
+wait_for_queue_drained "${AUDIT_QUEUE_URL}" 30 3
+AUDIT_POST_MALFORMED_COUNT="$(dynamodb_count_by_pk "${AUDIT_CONSUMER_TABLE_NAME}" "${AUDIT_PK}")"
+if [[ "${AUDIT_POST_MALFORMED_COUNT}" != "1" ]]; then
+  echo "  [FAIL] audit-consumer malformed message path changed persisted row count (count=${AUDIT_POST_MALFORMED_COUNT})" >&2
+  exit 1
+fi
+echo "  [OK] audit-consumer malformed message exercised non-retryable path"
+
+echo "  Smoke: aml-consumer LocalStack SQS -> Lambda -> DynamoDB"
+AML_CONSUMER_QUEUE_URL="$(
+  aws_local sqs get-queue-url \
+    --queue-name "${AML_CONSUMER_QUEUE_NAME}" \
+    --query QueueUrl \
+    --output text
+)"
+AML_CONSUMER_ALERT_ID="aml-consumer-fullstack-${RUN_ID}"
+AML_CONSUMER_DETECTED_AT="2026-03-01T10:30:00Z"
+AML_CONSUMER_VALID_PAYLOAD="$(cat <<JSON
+{"alertId":"${AML_CONSUMER_ALERT_ID}","detectedAt":"${AML_CONSUMER_DETECTED_AT}","clientId":"${CLIENT_ID}","alertType":"LargeCashDeposit","description":"fullstack aml-consumer smoke","reviewStatus":"Pending","entityId":"entity-fullstack","sourceService":"fullstack-smoke","metadata":{"suite":"fullstack-smoke"}}
+JSON
+)"
+AML_CONSUMER_PK="AML#${AML_CONSUMER_ALERT_ID}"
+AML_CONSUMER_SK="${AML_CONSUMER_DETECTED_AT}"
+
+aws_local sqs send-message \
+  --queue-url "${AML_CONSUMER_QUEUE_URL}" \
+  --message-body "${AML_CONSUMER_VALID_PAYLOAD}" \
+  >/dev/null
+
+wait_for_dynamodb_item_pk_sk "${AML_CONSUMER_TABLE_NAME}" "${AML_CONSUMER_PK}" "${AML_CONSUMER_SK}" 40
+AML_CONSUMER_VALID_COUNT="$(dynamodb_count_by_pk "${AML_CONSUMER_TABLE_NAME}" "${AML_CONSUMER_PK}")"
+if [[ "${AML_CONSUMER_VALID_COUNT}" != "1" ]]; then
+  echo "  [FAIL] aml-consumer valid message expected 1 row, got ${AML_CONSUMER_VALID_COUNT}" >&2
+  exit 1
+fi
+echo "  [OK] aml-consumer valid message wrote one row"
+
+aws_local sqs send-message \
+  --queue-url "${AML_CONSUMER_QUEUE_URL}" \
+  --message-body "${AML_CONSUMER_VALID_PAYLOAD}" \
+  >/dev/null
+wait_for_queue_drained "${AML_CONSUMER_QUEUE_URL}" 30 2
+AML_CONSUMER_DUPLICATE_COUNT="$(dynamodb_count_by_pk "${AML_CONSUMER_TABLE_NAME}" "${AML_CONSUMER_PK}")"
+if [[ "${AML_CONSUMER_DUPLICATE_COUNT}" != "1" ]]; then
+  echo "  [FAIL] aml-consumer duplicate message created extra rows (count=${AML_CONSUMER_DUPLICATE_COUNT})" >&2
+  exit 1
+fi
+echo "  [OK] aml-consumer duplicate message treated as success"
+
+aws_local sqs send-message \
+  --queue-url "${AML_CONSUMER_QUEUE_URL}" \
+  --message-body '{bad-json' \
+  >/dev/null
+wait_for_queue_drained "${AML_CONSUMER_QUEUE_URL}" 30 3
+AML_CONSUMER_POST_MALFORMED_COUNT="$(dynamodb_count_by_pk "${AML_CONSUMER_TABLE_NAME}" "${AML_CONSUMER_PK}")"
+if [[ "${AML_CONSUMER_POST_MALFORMED_COUNT}" != "1" ]]; then
+  echo "  [FAIL] aml-consumer malformed message path changed persisted row count (count=${AML_CONSUMER_POST_MALFORMED_COUNT})" >&2
+  exit 1
+fi
+echo "  [OK] aml-consumer malformed message exercised non-retryable path"
 
 echo "All cross-service smoke assertions passed."
 end_phase
