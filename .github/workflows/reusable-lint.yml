@@ -100,6 +100,10 @@ jobs:
             source-dirs: lambda_function.py tests
           - service: verification
             source-dirs: lambda_function.py tests
+          - service: audit-consumer
+            source-dirs: lambda_function.py tests
+          - service: aml-consumer
+            source-dirs: lambda_function.py tests
     defaults:
       run:
         working-directory: services/backend/${{ matrix.service }}
@@ -211,18 +215,27 @@ jobs:
 
           out = pathlib.Path(".ci-artifacts")
           out.mkdir(exist_ok=True)
-          for name in ("verification-lambda.zip", "log-lambda.zip"):
+          for name in (
+              "verification-lambda.zip",
+              "log-lambda.zip",
+              "audit-consumer-lambda.zip",
+              "aml-consumer-lambda.zip",
+          ):
               with zipfile.ZipFile(out / name, "w", zipfile.ZIP_DEFLATED) as zf:
                   zf.writestr("README.txt", "temporary CI artifact for terraform validate")
           PY
 
-      - name: terraform validate (verification + ses path)
+      - name: terraform validate (operable lambda + pipeline flags)
         timeout-minutes: 2
         env:
           TF_VAR_enable_log_lambda: "true"
           TF_VAR_log_lambda_zip_path: ".ci-artifacts/log-lambda.zip"
           TF_VAR_enable_verification_pipeline: "true"
           TF_VAR_verification_zip_path: ".ci-artifacts/verification-lambda.zip"
+          TF_VAR_enable_audit_pipeline: "true"
+          TF_VAR_audit_consumer_zip_path: ".ci-artifacts/audit-consumer-lambda.zip"
+          TF_VAR_enable_aml_pipeline: "true"
+          TF_VAR_aml_consumer_zip_path: ".ci-artifacts/aml-consumer-lambda.zip"
           TF_VAR_ses_sender_email: "verification@crm.local"
         run: terraform validate
 

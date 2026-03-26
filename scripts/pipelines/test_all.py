@@ -209,12 +209,16 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
             services_backend / "sftp-transaction-collector"
         )
         verification_dir = services_backend / "verification"
+        audit_consumer_dir = services_backend / "audit-consumer"
+        aml_consumer_dir = services_backend / "aml-consumer"
 
         for label, svc_dir in [
             ("log", log_dir),
             ("aml", aml_dir),
             ("sftp-transaction-collector", sftp_transaction_collector_dir),
             ("verification", verification_dir),
+            ("audit-consumer", audit_consumer_dir),
+            ("aml-consumer", aml_consumer_dir),
         ]:
             steps.append(
                 Step(
@@ -235,6 +239,8 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                 ["lambda_function.py", "tests"],
             ),
             ("verification", verification_dir, ["lambda_function.py", "tests"]),
+            ("audit-consumer", audit_consumer_dir, ["lambda_function.py", "tests"]),
+            ("aml-consumer", aml_consumer_dir, ["lambda_function.py", "tests"]),
         ]
         for label, svc_dir, targets in _python_lint_targets:
             steps.append(
@@ -355,6 +361,8 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                         "TF_VAR_enable_aml_lambda": "true",
                         "TF_VAR_enable_sftp_transaction_collector": "true",
                         "TF_VAR_enable_verification_pipeline": "true",
+                        "TF_VAR_enable_audit_pipeline": "true",
+                        "TF_VAR_enable_aml_pipeline": "true",
                         "TF_VAR_ses_sender_email": "verification@crm.local",
                     },
                 )
@@ -437,6 +445,9 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
         backend_parallel_group = "backend-unit-tests"
 
         log_dir = services_backend / "log"
+        aml_dir = services_backend / "aml"
+        audit_consumer_dir = services_backend / "audit-consumer"
+        aml_consumer_dir = services_backend / "aml-consumer"
         steps.append(
             Step(
                 phase=phase,
@@ -462,6 +473,22 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                 phase=phase,
                 name="Python deps install (verification test stage)",
                 cwd=verification_dir,
+                command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
+            )
+        )
+        steps.append(
+            Step(
+                phase=phase,
+                name="Python deps install (audit-consumer test stage)",
+                cwd=audit_consumer_dir,
+                command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
+            )
+        )
+        steps.append(
+            Step(
+                phase=phase,
+                name="Python deps install (aml-consumer test stage)",
+                cwd=aml_consumer_dir,
                 command=[py, "-m", "pip", "install", "-r", "requirements.txt"],
             )
         )
@@ -562,6 +589,52 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                 phase=phase,
                 name="Unit tests (aml)",
                 cwd=aml_dir,
+                command=[
+                    py,
+                    "-m",
+                    "pytest",
+                    "tests",
+                    "-o",
+                    "cache_dir=build/.pytest_cache",
+                    "--junitxml=build/reports/tests/junit.xml",
+                    "--cov=lambda_function",
+                    "--cov-branch",
+                    "--cov-fail-under=80",
+                    "--cov-report=term-missing",
+                    "--cov-report=xml:build/reports/coverage/coverage.xml",
+                    "--cov-report=html:build/reports/coverage/html",
+                ],
+                parallel_group=backend_parallel_group,
+            )
+        )
+        steps.append(
+            Step(
+                phase=phase,
+                name="Unit tests (audit-consumer)",
+                cwd=audit_consumer_dir,
+                command=[
+                    py,
+                    "-m",
+                    "pytest",
+                    "tests",
+                    "-o",
+                    "cache_dir=build/.pytest_cache",
+                    "--junitxml=build/reports/tests/junit.xml",
+                    "--cov=lambda_function",
+                    "--cov-branch",
+                    "--cov-fail-under=80",
+                    "--cov-report=term-missing",
+                    "--cov-report=xml:build/reports/coverage/coverage.xml",
+                    "--cov-report=html:build/reports/coverage/html",
+                ],
+                parallel_group=backend_parallel_group,
+            )
+        )
+        steps.append(
+            Step(
+                phase=phase,
+                name="Unit tests (aml-consumer)",
+                cwd=aml_consumer_dir,
                 command=[
                     py,
                     "-m",

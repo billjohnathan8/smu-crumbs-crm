@@ -21,6 +21,8 @@ name: CI - Main Pipeline
 #      +---> test-log-db            |
 #      +---> test-verification     |
 #      +---> test-sftp-transaction-collector |
+#      +---> test-audit-consumer   |
+#      +---> test-aml-consumer     |
 #      +---> test-frontend        /
 #      |
 #      v
@@ -80,6 +82,8 @@ jobs:
         ${{ needs.changes.outputs.backend-log == 'true'
             || needs.changes.outputs.backend-verification == 'true'
             || needs.changes.outputs.backend-sftp-transaction-collector == 'true'
+            || needs.changes.outputs.backend-audit-consumer == 'true'
+            || needs.changes.outputs.backend-aml-consumer == 'true'
             || needs.changes.outputs.ci-config == 'true' }}
       run-frontend: >-
         ${{ needs.changes.outputs.frontend == 'true'
@@ -284,6 +288,54 @@ jobs:
         services/backend/verification/build/reports/**
         services/backend/verification/build/coverage.xml
 
+  test-audit-consumer:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-audit-consumer == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component.yml
+    with:
+      component: audit-consumer
+      runtime: python
+      working-directory: services/backend/audit-consumer
+      test-command: |
+        python -m pytest tests \
+          --junitxml=build/reports/tests/junit.xml \
+          --cov=lambda_function \
+          --cov-branch \
+          --cov-fail-under=80 \
+          --cov-report=term-missing \
+          --cov-report=xml:build/reports/coverage/coverage.xml \
+          --cov-report=html:build/reports/coverage/html
+      timeout-minutes: 8
+      artifact-paths: |
+        services/backend/audit-consumer/build/reports/**
+        services/backend/audit-consumer/build/coverage.xml
+
+  test-aml-consumer:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-aml-consumer == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component.yml
+    with:
+      component: aml-consumer
+      runtime: python
+      working-directory: services/backend/aml-consumer
+      test-command: |
+        python -m pytest tests \
+          --junitxml=build/reports/tests/junit.xml \
+          --cov=lambda_function \
+          --cov-branch \
+          --cov-fail-under=80 \
+          --cov-report=term-missing \
+          --cov-report=xml:build/reports/coverage/coverage.xml \
+          --cov-report=html:build/reports/coverage/html
+      timeout-minutes: 8
+      artifact-paths: |
+        services/backend/aml-consumer/build/reports/**
+        services/backend/aml-consumer/build/coverage.xml
+
   test-frontend:
     needs: [changes, lint]
     if: >-
@@ -321,6 +373,8 @@ jobs:
       - test-log-db
       - test-verification
       - test-sftp-transaction-collector
+      - test-audit-consumer
+      - test-aml-consumer
       - test-frontend
     runs-on: ubuntu-latest
     timeout-minutes: 15
