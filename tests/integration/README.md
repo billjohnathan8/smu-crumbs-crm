@@ -57,16 +57,17 @@ PLAYWRIGHT_BASE_URL=http://127.0.0.1:18088 npm test
 
 ## Runtime Snapshot (Latest Local Runs)
 
-Measured on `2026-03-13`:
+Measured on `2026-03-26`:
 
 | Scope | Command | Observed runtime | Result |
 |---|---|---:|---|
-| Full local pipeline | `python scripts/pipelines/test_all.py` | `656.1s` (~10m 56s) | Failed in Layer 4 fullstack step |
-| Fullstack integration only | `bash scripts/ci/run-fullstack-integration-e2e.sh` | `407s` (~6m 47s) | Passed |
+| Full local pipeline | `python scripts/pipelines/test_all.py` | `902.8s` (~15m 3s) | Passed |
+| Fullstack integration only (`mode=full`) | `bash scripts/ci/run-fullstack-integration-e2e.sh` | `436s` (~7m 16s) | Passed |
+| Fullstack Phase 5 | `Playwright integration E2E` | `77s` (~1m 17s) | Passed |
 
 Timing source logs:
 - `build-logs/test-all/last-run-summary.md`
-- `build-logs/fullstack-integration/20260313_224929-18799/docker-compose.log`
+- Latest fullstack build log output (`[timing] Phase 5: Playwright integration E2E: 77s`, `[timing] total-runtime: 436s (mode=full)`)
 
 In CI, these runtimes usually increase because of colder caches and shared runners.
 
