@@ -1,6 +1,13 @@
 name: CD - Force ECS Deploy
 
 on:
+  workflow_call:
+    inputs:
+      ecs_cluster:
+        description: ECS cluster name hosting backend services
+        required: false
+        type: string
+        default: backend
   workflow_dispatch:
     inputs:
       ecs_cluster:

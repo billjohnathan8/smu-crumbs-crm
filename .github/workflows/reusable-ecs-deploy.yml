@@ -17,6 +17,8 @@ on:
         required: true
       AWS_REGION:
         required: true
+      LAMBDA_ARTIFACT_BUCKET:
+        required: true
 
     outputs:
       image-uri:
@@ -55,6 +57,7 @@ jobs:
         run: |
           test -n "${{ secrets.AWS_ROLE_ARN }}"
           test -n "${{ secrets.AWS_REGION }}"
+          test -n "${{ secrets.LAMBDA_ARTIFACT_BUCKET }}"
           test -n "${{ inputs.ecs_cluster }}"
 
       - name: Resolve service metadata
@@ -156,12 +159,120 @@ jobs:
           docker push "${{ steps.registry.outputs.image_uri }}:${{ steps.meta.outputs.sha_tag }}"
           docker push "${{ steps.registry.outputs.image_uri }}:${{ steps.meta.outputs.latest_tag }}"
 
-      - name: Force ECS service deployment
+      - name: Register new task definition with SHA image
+        id: taskdef
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          CLUSTER="${{ inputs.ecs_cluster }}"
+          SERVICE="${{ inputs.service }}"
+          IMAGE_REPO="${{ steps.registry.outputs.image_uri }}"
+          IMAGE_TAG="${{ steps.meta.outputs.sha_tag }}"
+          IMAGE_REF="${IMAGE_REPO}:${IMAGE_TAG}"
+
+          CURRENT_TASK_DEF_ARN="$(aws ecs describe-services \
+            --cluster "${CLUSTER}" \
+            --services "${SERVICE}" \
+            --query 'services[0].taskDefinition' \
+            --output text)"
+
+          if [[ -z "${CURRENT_TASK_DEF_ARN}" || "${CURRENT_TASK_DEF_ARN}" == "None" ]]; then
+            echo "Unable to resolve current task definition for service ${SERVICE}"
+            exit 1
+          fi
+
+          aws ecs describe-task-definition \
+            --task-definition "${CURRENT_TASK_DEF_ARN}" \
+            --query 'taskDefinition' > current-taskdef.json
+
+          jq \
+            --arg service "${SERVICE}" \
+            --arg image "${IMAGE_REF}" \
+            '
+            del(
+              .taskDefinitionArn,
+              .revision,
+              .status,
+              .requiresAttributes,
+              .compatibilities,
+              .registeredAt,
+              .registeredBy,
+              .deregisteredAt
+            )
+            | .containerDefinitions = (
+                .containerDefinitions
+                | if (map(select(.name == $service)) | length) > 0
+                  then map(if .name == $service then .image = $image else . end)
+                  else (.[0].image = $image | .)
+                  end
+              )
+            ' current-taskdef.json > new-taskdef.json
+
+          NEW_TASK_DEF_ARN="$(aws ecs register-task-definition \
+            --cli-input-json file://new-taskdef.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)"
+
+          if [[ -z "${NEW_TASK_DEF_ARN}" || "${NEW_TASK_DEF_ARN}" == "None" ]]; then
+            echo "Failed to register a new task definition revision"
+            exit 1
+          fi
+
+          {
+            echo "new_task_definition_arn=${NEW_TASK_DEF_ARN}"
+            echo "image_ref=${IMAGE_REF}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Update ECS service to new task definition
         run: |
           aws ecs update-service \
             --cluster "${{ inputs.ecs_cluster }}" \
             --service "${{ inputs.service }}" \
+            --task-definition "${{ steps.taskdef.outputs.new_task_definition_arn }}" \
             --force-new-deployment
+
+      - name: Update deployment manifest (ECS)
+        shell: bash
+        env:
+          MANIFEST_BUCKET: ${{ secrets.LAMBDA_ARTIFACT_BUCKET }}
+        run: |
+          set -euo pipefail
+
+          REPO_SHA="${GITHUB_SHA}"
+          SERVICE="${{ inputs.service }}"
+          IMAGE_REPO="${{ steps.registry.outputs.image_uri }}"
+          IMAGE_TAG="${{ steps.meta.outputs.sha_tag }}"
+
+          CURRENT_KEY="manifests/prod/current.json"
+          GIT_KEY="manifests/prod/git/${REPO_SHA}.json"
+          NOW_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          if aws s3api head-object --bucket "${MANIFEST_BUCKET}" --key "${CURRENT_KEY}" >/dev/null 2>&1; then
+            aws s3 cp "s3://${MANIFEST_BUCKET}/${CURRENT_KEY}" manifest-prev.json
+          else
+            jq -n '{repo_sha:"", created_at:"", ecs:{}, lambda:{}}' > manifest-prev.json
+          fi
+
+          jq \
+            --arg repo_sha "${REPO_SHA}" \
+            --arg created_at "${NOW_UTC}" \
+            --arg service "${SERVICE}" \
+            --arg image_repo "${IMAGE_REPO}" \
+            --arg image_tag "${IMAGE_TAG}" \
+            '
+            .repo_sha = $repo_sha
+            | .created_at = $created_at
+            | .ecs = (.ecs // {})
+            | .lambda = (.lambda // {})
+            | .ecs[$service] = {
+                image_repo: $image_repo,
+                image_tag: $image_tag
+              }
+            ' manifest-prev.json > manifest-next.json
+
+          aws s3 cp manifest-next.json "s3://${MANIFEST_BUCKET}/${GIT_KEY}"
+          aws s3 cp manifest-next.json "s3://${MANIFEST_BUCKET}/${CURRENT_KEY}"
 
       - name: Deployment summary
         run: |
@@ -170,3 +281,4 @@ jobs:
           echo "Trivy gate: passed"
           echo "Image: ${{ steps.registry.outputs.image_uri }}:${{ steps.meta.outputs.sha_tag }}"
           echo "Also tagged: ${{ steps.registry.outputs.image_uri }}:${{ steps.meta.outputs.latest_tag }}"
+          echo "Task definition: ${{ steps.taskdef.outputs.new_task_definition_arn }}"

@@ -1,0 +1,36 @@
+name: CD - Force Full Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      ecs_cluster:
+        description: ECS cluster name hosting backend services
+        required: false
+        type: string
+        default: backend
+#   push:
+#     branches:
+#         -integration
+
+# Ensure that only one full force deployment runs at a time.
+concurrency:
+  group: cd-force-all
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-ecs:
+    if: ${{ !failure() && !cancelled() }}
+    uses: ./.github/workflows/cd-ecs-force.yml
+    with:
+      ecs_cluster: ${{ inputs.ecs_cluster || 'backend' }}
+    secrets: inherit
+
+  deploy-lambda:
+    if: ${{ !failure() && !cancelled() }}
+    needs: deploy-ecs
+    uses: ./.github/workflows/cd-lambda-force.yml
+    secrets: inherit
