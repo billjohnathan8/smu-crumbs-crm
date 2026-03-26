@@ -94,6 +94,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASSWORD:-devpassword}
       APP_TRANSACTIONS_STORE_TYPE: postgres
       CLIENT_SERVICE_URL: http://client-service:8080
+      TRANSACTION_LOG_SERVICE_URL: ${LOG_SERVICE_URL}
       AUTH_MODE: local
       JWT_HMAC_SECRET: dev-only-insecure-secret
       TRANSACTION_SFTP_POLL_ENABLED: "true"

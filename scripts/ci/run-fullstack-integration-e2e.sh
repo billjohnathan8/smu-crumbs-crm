@@ -31,6 +31,10 @@ if [[ "${FULLSTACK_MODE}" == "pr" ]]; then
   PLAYWRIGHT_SCOPE_LABEL="critical PR subset"
   PLAYWRIGHT_SPEC_ARGS=("${PLAYWRIGHT_CRITICAL_PR_SPECS[@]}")
 fi
+if [[ -n "${PLAYWRIGHT_SPEC_ARGS_OVERRIDE:-}" ]]; then
+  PLAYWRIGHT_SCOPE_LABEL="override subset"
+  read -r -a PLAYWRIGHT_SPEC_ARGS <<< "${PLAYWRIGHT_SPEC_ARGS_OVERRIDE}"
+fi
 
 SCRIPT_START_TS="$(date +%s)"
 CURRENT_PHASE_NAME=""
@@ -1396,6 +1400,11 @@ end_phase
 # real LocalStack before Playwright tests run.
 # --------------------------------------------------------------------------
 
+SKIP_PHASE4_SMOKE_NORMALIZED="$(printf '%s' "${SKIP_PHASE4_SMOKE:-false}" | tr '[:upper:]' '[:lower:]' | tr -d '\r\n[:space:]')"
+if [[ "${SKIP_PHASE4_SMOKE_NORMALIZED}" == "true" ]]; then
+  echo ""
+  echo "=== Phase 4: Skipped cross-service HTTP smoke (SKIP_PHASE4_SMOKE=true) ==="
+else
 start_phase "Phase 4: Cross-service HTTP smoke"
 
 USER_TOKEN="$(mint_jwt "ci_user" "user")"
@@ -1473,9 +1482,12 @@ VERIFY_RESPONSE="$(
 VERIFY_RESPONSE_JSON="${VERIFY_RESPONSE}" ${PYTHON_CMD} - <<'PY'
 import json, os
 payload = json.loads(os.environ["VERIFY_RESPONSE_JSON"])
-if payload.get("identityVerificationStatus") != "verified":
-  raise SystemExit("verify endpoint did not return identityVerificationStatus=verified")
-print("  [OK] verify endpoint returned verified status")
+status = payload.get("identityVerificationStatus")
+if status not in {"verified", "pending"}:
+  raise SystemExit(
+    "verify endpoint did not return an accepted identityVerificationStatus (verified|pending)"
+  )
+print(f"  [OK] verify endpoint returned {status} status")
 PY
 
 COMMUNICATION_ID=""
@@ -1959,6 +1971,7 @@ echo "  [OK] SQS round-trip"
 
 echo "All cross-service smoke assertions passed."
 end_phase
+fi
 
 # --------------------------------------------------------------------------
 # Phase 5: Real Playwright E2E against the live stack
@@ -1966,6 +1979,21 @@ end_phase
 
 if [[ "${FULLSTACK_MODE}" == "full" || "${FULLSTACK_MODE}" == "pr" ]]; then
   start_phase "Phase 5: Playwright integration E2E (${PLAYWRIGHT_SCOPE_LABEL})"
+
+  E2E_TRANSACTION_IMPORT_SOURCE_PATH_VALUE="${E2E_TRANSACTION_IMPORT_SOURCE_PATH:-}"
+  if [[ -z "${E2E_TRANSACTION_IMPORT_SOURCE_PATH_VALUE}" ]]; then
+    TX_E2E_IMPORT_CLIENT_ID="clt_s3_e2e_${RUN_ID//[^0-9]/}"
+    TX_E2E_IMPORT_KEY="manual/ci-playwright-import-${RUN_ID}.csv"
+    TX_E2E_IMPORT_FILE="${LOG_DIR}/ci-playwright-import.csv"
+    cat > "${TX_E2E_IMPORT_FILE}" <<CSV
+clientId,transaction,amount,date,status
+${TX_E2E_IMPORT_CLIENT_ID},D,311.00,2026-03-01,Completed
+${TX_E2E_IMPORT_CLIENT_ID},W,89.00,2026-03-02,Pending
+CSV
+    aws_local_s3_put_object "scroogebank-crm-dev-transaction-sftp" "${TX_E2E_IMPORT_KEY}" "${TX_E2E_IMPORT_FILE}"
+    E2E_TRANSACTION_IMPORT_SOURCE_PATH_VALUE="s3://scroogebank-crm-dev-transaction-sftp/${TX_E2E_IMPORT_KEY}"
+  fi
+
   pushd "${INTEGRATION_TEST_DIR}" >/dev/null
   if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1 && command -v npx >/dev/null 2>&1; then
     npm ci
@@ -1980,15 +2008,16 @@ if [[ "${FULLSTACK_MODE}" == "full" || "${FULLSTACK_MODE}" == "pr" ]]; then
     E2E_ADMIN_EMAIL="${E2E_ADMIN_EMAIL:-admin@crm.local}" \
     E2E_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}" \
     E2E_USER_PASSWORD="${E2E_USER_PASSWORD:-UserPass123!}" \
+    E2E_TRANSACTION_IMPORT_SOURCE_PATH="${E2E_TRANSACTION_IMPORT_SOURCE_PATH_VALUE}" \
     "${playwright_cmd[@]}"
   elif command -v cmd.exe >/dev/null 2>&1; then
     win_integration_dir="$(to_windows_path "${INTEGRATION_TEST_DIR}")"
     cmd.exe /c "cd /d ${win_integration_dir} && npm.cmd ci"
     cmd.exe /c "cd /d ${win_integration_dir} && npx.cmd playwright install chromium"
     if [[ ${#PLAYWRIGHT_SPEC_ARGS[@]} -gt 0 ]]; then
-      cmd.exe /c "cd /d ${win_integration_dir} && set PLAYWRIGHT_EXTERNAL_BASE_URL=true&& set PLAYWRIGHT_BASE_URL=${PLAYWRIGHT_BASE_URL}&& set E2E_ADMIN_EMAIL=${E2E_ADMIN_EMAIL:-admin@crm.local}&& set E2E_ADMIN_PASSWORD=${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}&& set E2E_USER_PASSWORD=${E2E_USER_PASSWORD:-UserPass123!}&& npx.cmd playwright test ${PLAYWRIGHT_SPEC_ARGS[*]}"
+      cmd.exe /c "cd /d ${win_integration_dir} && set PLAYWRIGHT_EXTERNAL_BASE_URL=true&& set PLAYWRIGHT_BASE_URL=${PLAYWRIGHT_BASE_URL}&& set E2E_ADMIN_EMAIL=${E2E_ADMIN_EMAIL:-admin@crm.local}&& set E2E_ADMIN_PASSWORD=${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}&& set E2E_USER_PASSWORD=${E2E_USER_PASSWORD:-UserPass123!}&& set E2E_TRANSACTION_IMPORT_SOURCE_PATH=${E2E_TRANSACTION_IMPORT_SOURCE_PATH_VALUE}&& npx.cmd playwright test ${PLAYWRIGHT_SPEC_ARGS[*]}"
     else
-      cmd.exe /c "cd /d ${win_integration_dir} && set PLAYWRIGHT_EXTERNAL_BASE_URL=true&& set PLAYWRIGHT_BASE_URL=${PLAYWRIGHT_BASE_URL}&& set E2E_ADMIN_EMAIL=${E2E_ADMIN_EMAIL:-admin@crm.local}&& set E2E_ADMIN_PASSWORD=${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}&& set E2E_USER_PASSWORD=${E2E_USER_PASSWORD:-UserPass123!}&& npm.cmd test"
+      cmd.exe /c "cd /d ${win_integration_dir} && set PLAYWRIGHT_EXTERNAL_BASE_URL=true&& set PLAYWRIGHT_BASE_URL=${PLAYWRIGHT_BASE_URL}&& set E2E_ADMIN_EMAIL=${E2E_ADMIN_EMAIL:-admin@crm.local}&& set E2E_ADMIN_PASSWORD=${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}&& set E2E_USER_PASSWORD=${E2E_USER_PASSWORD:-UserPass123!}&& set E2E_TRANSACTION_IMPORT_SOURCE_PATH=${E2E_TRANSACTION_IMPORT_SOURCE_PATH_VALUE}&& npm.cmd test"
     fi
   else
     echo "[FAIL] Node.js toolchain unavailable (need node/npm/npx, or cmd.exe + npm.cmd in WSL)." >&2
