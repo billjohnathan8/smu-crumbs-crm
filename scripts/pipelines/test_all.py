@@ -5,10 +5,12 @@ Local CI-equivalent runner for the main GitHub Actions pipeline.
 This script is local-only and does not modify any GitHub Actions workflow.
 It runs the same logical layers as `.github/workflows/ci-main.yml`:
 
-1) Lint / format / typecheck
-2) Unit/component tests
-3) Frontend mocked E2E
-4) Fullstack integration E2E (LocalStack + containers + Playwright)
+1) Backend lint / format / typecheck
+2) Backend unit / component tests
+3) Frontend lint / format / typecheck
+4) Frontend unit / component tests
+5) Frontend mocked E2E
+6) Fullstack integration E2E (LocalStack + containers + Playwright)
 """
 
 from __future__ import annotations
@@ -161,7 +163,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
     run_backend = args.suite in ("all", "backend")
     run_frontend = args.suite in ("all", "frontend")
 
-    phase = "Layer 1 - Lint / Format / Typecheck"
+    phase = "Layer 1 - Backend Lint / Format / Typecheck"
     if actionlint_cmd:
         steps.append(
             Step(
@@ -178,7 +180,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
         )
 
     if run_backend:
-        phase = "Layer 1 - Lint / Format / Typecheck"
+        phase = "Layer 1 - Backend Lint / Format / Typecheck"
 
         # -- Checkstyle: 3 independent Gradle projects, safe to parallelize --
         for svc in ("user", "client", "transaction"):
@@ -430,121 +432,8 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                 )
             )
 
-    if run_frontend:
-        phase = "Layer 1 - Lint / Format / Typecheck"
-        if is_windows():
-            # On Windows, node.exe (Vite dev server, previous builds) can hold a file lock
-            # on esbuild.exe inside node_modules, causing npm ci to fail with EPERM.
-            # Terminate any stale node processes before reinstalling.
-            steps.append(
-                Step(
-                    phase=phase,
-                    name="Kill stale node processes (Windows pre-npm-ci)",
-                    cwd=frontend_dir,
-                    command=[
-                        "cmd.exe",
-                        "/c",
-                        "taskkill /F /IM node.exe /T 2>nul & exit 0",
-                    ],
-                )
-            )
-        steps.append(
-            Step(
-                phase=phase,
-                name="Frontend npm ci (lint stage)",
-                cwd=frontend_dir,
-                command=["npm", "ci"],
-            )
-        )
-        steps.append(
-            Step(
-                phase=phase,
-                name="Frontend Prettier format",
-                cwd=frontend_dir,
-                command=["npm", "run", "format"],
-            )
-        )
-        steps.append(
-            Step(
-                phase=phase,
-                name="Frontend Prettier check",
-                cwd=frontend_dir,
-                command=["npm", "run", "format:check"],
-            )
-        )
-        steps.append(
-            Step(
-                phase=phase,
-                name="Frontend TypeScript typecheck",
-                cwd=frontend_dir,
-                command=["npm", "run", "typecheck"],
-            )
-        )
-        steps.append(
-            Step(
-                phase=phase,
-                name="Frontend ESLint",
-                cwd=frontend_dir,
-                command=["npm", "run", "lint"],
-            )
-        )
-        steps.append(
-            Step(
-                phase=phase,
-                name="Frontend npm audit fix",
-                cwd=frontend_dir,
-                command=["npm", "audit", "fix"],
-            )
-        )
-        steps.append(
-            Step(
-                phase=phase,
-                name="Frontend npm audit",
-                cwd=frontend_dir,
-                command=["npm", "audit"],
-            )
-        )
-
-    if not args.skip_openapi:
-        phase = "Layer 1 - Lint / Format / Typecheck"
-        openapi_dir = REPO_ROOT / "docs" / "api-contracts" / "openapi"
-        spectral_available = shutil.which("spectral") is not None
-        if spectral_available:
-            steps.append(
-                Step(
-                    phase=phase,
-                    name="Spectral OpenAPI lint",
-                    cwd=REPO_ROOT,
-                    command=[
-                        "spectral",
-                        "lint",
-                        str(openapi_dir / "*.yaml"),
-                        "--fail-severity",
-                        "error",
-                    ],
-                )
-            )
-        else:
-            # Fall back to npx (slower but doesn't require global install).
-            steps.append(
-                Step(
-                    phase=phase,
-                    name="Spectral OpenAPI lint (npx)",
-                    cwd=REPO_ROOT,
-                    command=[
-                        "npx",
-                        "--yes",
-                        "@stoplight/spectral-cli",
-                        "lint",
-                        str(openapi_dir / "*.yaml"),
-                        "--fail-severity",
-                        "error",
-                    ],
-                )
-            )
-
     if run_backend:
-        phase = "Layer 2 - Unit / Component Tests"
+        phase = "Layer 2 - Backend Unit / Component Tests"
         backend_parallel_group = "backend-unit-tests"
 
         log_dir = services_backend / "log"
@@ -692,8 +581,121 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
             )
         )
 
+    if not args.skip_openapi:
+        phase = "Layer 3 - Frontend Lint / Format / Typecheck"
+        openapi_dir = REPO_ROOT / "docs" / "api-contracts" / "openapi"
+        spectral_available = shutil.which("spectral") is not None
+        if spectral_available:
+            steps.append(
+                Step(
+                    phase=phase,
+                    name="Spectral OpenAPI lint",
+                    cwd=REPO_ROOT,
+                    command=[
+                        "spectral",
+                        "lint",
+                        str(openapi_dir / "*.yaml"),
+                        "--fail-severity",
+                        "error",
+                    ],
+                )
+            )
+        else:
+            # Fall back to npx (slower but doesn't require global install).
+            steps.append(
+                Step(
+                    phase=phase,
+                    name="Spectral OpenAPI lint (npx)",
+                    cwd=REPO_ROOT,
+                    command=[
+                        "npx",
+                        "--yes",
+                        "@stoplight/spectral-cli",
+                        "lint",
+                        str(openapi_dir / "*.yaml"),
+                        "--fail-severity",
+                        "error",
+                    ],
+                )
+            )
+
     if run_frontend:
-        phase = "Layer 2 - Unit / Component Tests"
+        phase = "Layer 3 - Frontend Lint / Format / Typecheck"
+        if is_windows():
+            # On Windows, node.exe (Vite dev server, previous builds) can hold a file lock
+            # on esbuild.exe inside node_modules, causing npm ci to fail with EPERM.
+            # Terminate any stale node processes before reinstalling.
+            steps.append(
+                Step(
+                    phase=phase,
+                    name="Kill stale node processes (Windows pre-npm-ci)",
+                    cwd=frontend_dir,
+                    command=[
+                        "cmd.exe",
+                        "/c",
+                        "taskkill /F /IM node.exe /T 2>nul & exit 0",
+                    ],
+                )
+            )
+        steps.append(
+            Step(
+                phase=phase,
+                name="Frontend npm ci (lint stage)",
+                cwd=frontend_dir,
+                command=["npm", "ci"],
+            )
+        )
+        steps.append(
+            Step(
+                phase=phase,
+                name="Frontend Prettier format",
+                cwd=frontend_dir,
+                command=["npm", "run", "format"],
+            )
+        )
+        steps.append(
+            Step(
+                phase=phase,
+                name="Frontend Prettier check",
+                cwd=frontend_dir,
+                command=["npm", "run", "format:check"],
+            )
+        )
+        steps.append(
+            Step(
+                phase=phase,
+                name="Frontend TypeScript typecheck",
+                cwd=frontend_dir,
+                command=["npm", "run", "typecheck"],
+            )
+        )
+        steps.append(
+            Step(
+                phase=phase,
+                name="Frontend ESLint",
+                cwd=frontend_dir,
+                command=["npm", "run", "lint"],
+            )
+        )
+        steps.append(
+            Step(
+                phase=phase,
+                name="Frontend npm audit fix",
+                cwd=frontend_dir,
+                command=["npm", "audit", "fix"],
+            )
+        )
+        steps.append(
+            Step(
+                phase=phase,
+                name="Frontend npm audit",
+                cwd=frontend_dir,
+                command=["npm", "audit"],
+            )
+        )
+
+    if run_frontend:
+        phase = "Layer 4 - Frontend Unit / Component Tests"
         steps.append(
             Step(
                 phase=phase,
@@ -712,7 +714,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
         )
 
         if not args.skip_mocked_e2e:
-            phase = "Layer 3 - Frontend Mocked E2E"
+            phase = "Layer 5 - Frontend Mocked E2E"
             steps.append(
                 Step(
                     phase=phase,
@@ -755,7 +757,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                 "Install Git Bash (Windows) or a Unix shell, or run with --skip-fullstack."
             )
 
-        phase = "Layer 4 - Fullstack Integration E2E"
+        phase = "Layer 6 - Fullstack Integration E2E"
         steps.append(
             Step(
                 phase=phase,
