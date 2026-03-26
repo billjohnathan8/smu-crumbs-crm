@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import csv
+import io
+import re
 from urllib.error import HTTPError
 
 import pytest
@@ -12,6 +15,16 @@ from lambda_function import (
     SFTPClient,
     _create_clients,
 )
+
+
+def test_mock_sftp_csv_uses_client_id_format_accepted_by_client_service():
+    """Local smoke CSV should use client IDs compatible with client-service APIs."""
+    csv_content = MockSFTPClient().download_transactions_csv("/unused.csv")
+    rows = list(csv.DictReader(io.StringIO(csv_content)))
+    client_id_pattern = re.compile(r"^clt_\d+$")
+
+    assert rows
+    assert all(client_id_pattern.fullmatch(row["client_id"]) for row in rows)
 
 
 def test_create_clients_uses_mock_sftp_when_enabled(monkeypatch: pytest.MonkeyPatch):
