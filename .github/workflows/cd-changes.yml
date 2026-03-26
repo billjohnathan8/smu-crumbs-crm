@@ -1,0 +1,229 @@
+name: CD - Changes Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      ecs_cluster:
+        description: ECS cluster name hosting backend services
+        required: false
+        type: string
+        default: backend
+  push:
+    branches:
+      - integration
+
+# Ensure that only one change-based deployment runs at a time.
+concurrency:
+  group: cd-changes
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  contents: read
+  id-token: write
+
+jobs:
+  changes:
+    uses: ./.github/workflows/reusable-changes.yml
+
+  deploy-user:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-user == 'true') }}
+    needs:
+      - changes
+    uses: ./.github/workflows/reusable-ecs-deploy.yml
+    with:
+      service: user
+      ecs_cluster: ${{ inputs.ecs_cluster || 'backend' }}
+    secrets: inherit
+
+  deploy-client:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-client == 'true') }}
+    needs:
+      - changes
+    uses: ./.github/workflows/reusable-ecs-deploy.yml
+    with:
+      service: client
+      ecs_cluster: ${{ inputs.ecs_cluster || 'backend' }}
+    secrets: inherit
+
+  deploy-transaction:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-transaction == 'true') }}
+    needs:
+      - changes
+    uses: ./.github/workflows/reusable-ecs-deploy.yml
+    with:
+      service: transaction
+      ecs_cluster: ${{ inputs.ecs_cluster || 'backend' }}
+    secrets: inherit
+
+  deploy-aml:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-aml == 'true') }}
+    needs:
+      - changes
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
+    with:
+      service: aml
+    secrets: inherit
+
+  deploy-verification:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-verification == 'true') }}
+    needs:
+      - changes
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
+    with:
+      service: verification
+    secrets: inherit
+
+  deploy-transaction-ingestion-lambda:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-transaction-ingestion-lambda == 'true') }}
+    needs:
+      - changes
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
+    with:
+      service: transaction-ingestion-lambda
+    secrets: inherit
+
+  merge-and-publish-manifest:
+    if: ${{ !failure() && !cancelled() }}
+    needs:
+      - changes
+      - deploy-user
+      - deploy-client
+      - deploy-transaction
+      - deploy-aml
+      - deploy-verification
+      - deploy-transaction-ingestion-lambda
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      MANIFEST_BUCKET: ${{ secrets.LAMBDA_ARTIFACT_BUCKET }}
+    steps:
+      - name: Validate required secrets
+        run: |
+          test -n "${{ secrets.AWS_ROLE_ARN }}"
+          test -n "${{ secrets.AWS_REGION }}"
+          test -n "${{ secrets.LAMBDA_ARTIFACT_BUCKET }}"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download ECS intent artifacts
+        if: >-
+          ${{ needs.changes.outputs.backend-user == 'true' ||
+              needs.changes.outputs.backend-client == 'true' ||
+              needs.changes.outputs.backend-transaction == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          pattern: intent-ecs-*
+          path: deploy-intents-ecs
+          merge-multiple: true
+
+      - name: Download Lambda intent artifacts
+        if: >-
+          ${{ needs.changes.outputs.backend-aml == 'true' ||
+              needs.changes.outputs.backend-verification == 'true' ||
+              needs.changes.outputs.backend-transaction-ingestion-lambda == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          pattern: intent-lambda-*
+          path: deploy-intents-lambda
+          merge-multiple: true
+
+      - name: Merge changed intents into current manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPO_SHA="${GITHUB_SHA}"
+          NOW_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          CURRENT_KEY="manifests/prod/current.json"
+
+          # Fetch current manifest from S3. If it does not exist yet, start with an empty manifest.
+          if aws s3 cp "s3://${MANIFEST_BUCKET}/${CURRENT_KEY}" current.json >/dev/null 2>&1; then
+            echo "Loaded current manifest from s3://${MANIFEST_BUCKET}/${CURRENT_KEY}"
+          else
+            echo "No existing current.json found. Initializing a new manifest."
+            jq -n --arg repo_sha "${REPO_SHA}" --arg created_at "${NOW_UTC}" \
+              '{repo_sha:$repo_sha, created_at:$created_at, ecs:{}, lambda:{}}' > current.json
+          fi
+
+          # Normalize the document shape to ensure expected keys exist.
+          jq -n \
+            --arg repo_sha "${REPO_SHA}" \
+            --arg created_at "${NOW_UTC}" \
+            --slurpfile current current.json \
+            '($current[0] // {})
+            | .repo_sha = $repo_sha
+            | .created_at = $created_at
+            | .ecs = (.ecs // {})
+            | .lambda = (.lambda // {})' > manifest.json
+
+          shopt -s nullglob
+
+          ecs_fragments=(deploy-intents-ecs/*.json)
+          for fragment in "${ecs_fragments[@]}"; do
+            service="$(jq -r '.ecs.service' "${fragment}")"
+            jq \
+              --arg service "${service}" \
+              --slurpfile f "${fragment}" \
+              '.ecs[$service] = {
+                image_repo: $f[0].ecs.image_repo,
+                image_tag: $f[0].ecs.image_tag,
+                cluster: $f[0].ecs.cluster,
+                task_definition_arn: $f[0].ecs.task_definition_arn,
+                image_ref: $f[0].ecs.image_ref
+              }' manifest.json > manifest.next.json
+            mv manifest.next.json manifest.json
+          done
+
+          lambda_fragments=(deploy-intents-lambda/*.json)
+          for fragment in "${lambda_fragments[@]}"; do
+            function_name="$(jq -r '.lambda.function_name' "${fragment}")"
+            jq \
+              --arg function_name "${function_name}" \
+              --slurpfile f "${fragment}" \
+              '.lambda[$function_name] = {
+                s3_key: $f[0].lambda.s3_key,
+                published_version: $f[0].lambda.published_version,
+                version_arn: $f[0].lambda.version_arn,
+                alias: $f[0].lambda.alias,
+                alias_action: $f[0].lambda.alias_action
+              }' manifest.json > manifest.next.json
+            mv manifest.next.json manifest.json
+          done
+
+          jq -e . manifest.json > /dev/null
+
+          echo "--- DEBUG: Final Updated Manifest ---"
+          cat manifest.json
+          echo "-------------------------------------"
+
+      - name: Upload merged manifest to S3
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPO_SHA="${GITHUB_SHA}"
+          aws s3 cp manifest.json "s3://${MANIFEST_BUCKET}/manifests/prod/current.json"
+          aws s3 cp manifest.json "s3://${MANIFEST_BUCKET}/manifests/prod/git/${REPO_SHA}.json"
+
+      - name: Manifest summary
+        run: |
+          echo "Wrote current manifest: s3://${{ env.MANIFEST_BUCKET }}/manifests/prod/current.json"
+          echo "Wrote immutable manifest: s3://${{ env.MANIFEST_BUCKET }}/manifests/prod/git/${{ github.sha }}.json"
