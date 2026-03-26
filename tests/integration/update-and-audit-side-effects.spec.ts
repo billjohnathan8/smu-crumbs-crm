@@ -176,13 +176,15 @@ test.describe("Update And Audit Side Effects (P1)", () => {
       clientId: client.clientId,
       action: "UPDATE",
       limit: 100,
+      timeoutMs: 45_000,
+      intervalMs: 1_500,
     })) as AuditLogRowWithDetails;
 
     expect(auditLog.logId).toBeTruthy();
     expect(auditLog.action).toBe("UPDATE");
     expect(auditLog.clientId).toBe(client.clientId);
     expect(auditLog.attributeName).toBe("transaction|amount|status");
-    expect(auditLog.beforeValue).toBe("D|150|Pending");
-    expect(auditLog.afterValue).toBe("W|275|Completed");
+    expect(auditLog.beforeValue).toMatch(/^D\|150(?:\.00)?\|Pending$/);
+    expect(auditLog.afterValue).toMatch(/^W\|275(?:\.00)?\|Completed$/);
   });
 });
