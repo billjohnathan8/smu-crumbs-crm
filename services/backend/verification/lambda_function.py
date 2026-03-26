@@ -239,9 +239,9 @@ def _extract_feedback(message: dict[str, Any]) -> tuple[str | None, str, str | N
 
 
 def _status_for_event(event_type: str) -> str:
-    if event_type in {"BOUNCE", "COMPLAINT", "REJECT", "RENDERING_FAILURE"}:
+    if event_type in {"BOUNCE", "COMPLAINT", "REJECT"}:
         return "failed"
-    if event_type in {"DELIVERY", "SEND"}:
+    if event_type in {"DELIVERY", "SEND", "RENDERING_FAILURE"}:
         return "sent"
     return "queued"
 
@@ -271,8 +271,8 @@ def _update_communication_feedback(
 
 def _handle_ses_feedback(
     message: dict[str, Any], log_api_base_url: str
-) -> dict[str, Any] | None:
-    """Returns a failure dict if the update failed, None on success."""
+) -> dict[str, Any] | bool | None:
+    """Returns True on success, None when skipped (no messageId), or a failure dict."""
     provider_message_id, event_type, error_message = _extract_feedback(message)
     if not provider_message_id:
         return None  # nothing to update
@@ -288,7 +288,7 @@ def _handle_ses_feedback(
             status_code,
             body,
         )
-        return None
+        return True
     except urllib.error.HTTPError as exc:
         response_body = exc.read().decode("utf-8", errors="replace")
         logger.warning(
@@ -357,12 +357,13 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             skipped += 1
             continue
 
-        failure = _handle_ses_feedback(message, log_api_base_url)
-        if failure:
-            failures.append(failure)
-        else:
-            # _handle_ses_feedback returns None for both success AND missing messageId
+        result = _handle_ses_feedback(message, log_api_base_url)
+        if result is True:
             updated += 1
+        elif result is None:
+            skipped += 1
+        else:
+            failures.append(result)
 
     return {
         "statusCode": 200 if not failures else 207,

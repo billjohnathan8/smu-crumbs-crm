@@ -494,13 +494,9 @@ class TestLambdaHandler:
         assert body["updated"] == 2
         assert body["failedUpdates"] == []
 
-    def test_missing_provider_message_id_counts_as_updated_not_skipped(
+    def test_missing_provider_message_id_is_skipped(
         self, monkeypatch, fake_update
     ):
-        """
-        _handle_ses_feedback returns None for missing messageId (same as success),
-        so the handler increments `updated`, not `skipped`.
-        """
         monkeypatch.setenv("LOG_API_BASE_URL", "https://example.com")
         event = _make_sns_event({"eventType": "Delivery", "mail": {}})
 
@@ -508,8 +504,8 @@ class TestLambdaHandler:
         body = json.loads(response["body"])
 
         assert response["statusCode"] == 200
-        assert body["updated"] == 1
-        assert body["skipped"] == 0
+        assert body["updated"] == 0
+        assert body["skipped"] == 1
         assert fake_update.calls == []
 
     def test_http_error_reported_as_partial_failure(self, monkeypatch, fake_update):

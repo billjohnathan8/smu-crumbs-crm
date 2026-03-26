@@ -34,9 +34,23 @@ def reset_state(monkeypatch):
     lambda_function._JWT_SECRET_CACHE = None
 
 
-def test_lambda_handler_requires_log_api_base_url():
-    with pytest.raises(ValueError, match="LOG_API_BASE_URL is required"):
-        lambda_function.lambda_handler({}, None)
+def test_lambda_handler_missing_log_api_base_url_skips_feedback_records():
+    event = {
+        "Records": [
+            {
+                "Sns": {
+                    "Message": json.dumps(
+                        {"eventType": "Delivery", "mail": {"messageId": "ses-1"}}
+                    )
+                }
+            }
+        ]
+    }
+    response = lambda_function.lambda_handler(event, None)
+    body = json.loads(response["body"])
+    assert response["statusCode"] == 200
+    assert body["skipped"] == 1
+    assert body["updated"] == 0
 
 
 def test_resolve_authorization_header_precedence(monkeypatch):
