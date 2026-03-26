@@ -225,8 +225,7 @@ test.describe("Client Profile Management (Feature 2)", () => {
     const verifyRes = await request.post(`${baseURL}/api/clients/${clientId}/verify`, {
       headers: { Authorization: `Bearer ${agentToken}` },
       data: {
-        nric: "S1234567D",
-        documentType: "NRIC",
+        approved: true,
       },
     });
     const verifyPayload = (await expectOkJson(verifyRes, "submit client verification")) as {
@@ -235,7 +234,7 @@ test.describe("Client Profile Management (Feature 2)", () => {
     };
 
     expect(verifyPayload.clientId).toBe(clientId);
-    expect(verifyPayload.identityVerificationStatus).toBeTruthy();
+    expect(verifyPayload.identityVerificationStatus).toBe("verified");
 
     expectUnder(Date.now() - startTime, 10000, "Client identity verification");
   });
