@@ -96,16 +96,137 @@ jobs:
       service: transaction-ingestion-lambda
     secrets: inherit
 
-  merge-and-publish-manifest:
-    if: ${{ !failure() && !cancelled() }}
+  merge-ecs-intents:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-user == 'true' ||
+           needs.changes.outputs.backend-client == 'true' ||
+           needs.changes.outputs.backend-transaction == 'true') }}
     needs:
       - changes
       - deploy-user
       - deploy-client
       - deploy-transaction
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download ECS intent artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: intent-ecs-*
+          path: deploy-intents-ecs
+          merge-multiple: true
+
+      - name: Merge ECS intent fragments
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPO_SHA="${GITHUB_SHA}"
+          NOW_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          jq -n --arg repo_sha "${REPO_SHA}" --arg created_at "${NOW_UTC}" '{repo_sha:$repo_sha, created_at:$created_at, ecs:{}}' > manifest-ecs.json
+
+          shopt -s nullglob
+          fragments=(deploy-intents-ecs/*.json)
+          if [[ ${#fragments[@]} -eq 0 ]]; then
+            echo "No ECS intent artifacts were found"
+            exit 1
+          fi
+
+          for fragment in "${fragments[@]}"; do
+            service="$(jq -r '.ecs.service' "${fragment}")"
+            jq \
+              --arg service "${service}" \
+              --slurpfile f "${fragment}" \
+              '.ecs[$service] = {
+                image_repo: $f[0].ecs.image_repo,
+                image_tag: $f[0].ecs.image_tag,
+                cluster: $f[0].ecs.cluster,
+                task_definition_arn: $f[0].ecs.task_definition_arn,
+                image_ref: $f[0].ecs.image_ref
+              }' manifest-ecs.json > manifest-ecs.next.json
+            mv manifest-ecs.next.json manifest-ecs.json
+          done
+
+      - name: Upload merged ECS manifest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest-ecs
+          path: manifest-ecs.json
+          if-no-files-found: error
+
+  merge-lambda-intents:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-aml == 'true' ||
+           needs.changes.outputs.backend-verification == 'true' ||
+           needs.changes.outputs.backend-transaction-ingestion-lambda == 'true') }}
+    needs:
+      - changes
       - deploy-aml
       - deploy-verification
       - deploy-transaction-ingestion-lambda
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Lambda intent artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: intent-lambda-*
+          path: deploy-intents-lambda
+          merge-multiple: true
+
+      - name: Merge Lambda intent fragments
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPO_SHA="${GITHUB_SHA}"
+          NOW_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          jq -n --arg repo_sha "${REPO_SHA}" --arg created_at "${NOW_UTC}" '{repo_sha:$repo_sha, created_at:$created_at, lambda:{}}' > manifest-lambda.json
+
+          shopt -s nullglob
+          fragments=(deploy-intents-lambda/*.json)
+          if [[ ${#fragments[@]} -eq 0 ]]; then
+            echo "No Lambda intent artifacts were found"
+            exit 1
+          fi
+
+          for fragment in "${fragments[@]}"; do
+            function_name="$(jq -r '.lambda.function_name' "${fragment}")"
+            jq \
+              --arg function_name "${function_name}" \
+              --slurpfile f "${fragment}" \
+              '.lambda[$function_name] = {
+                s3_key: $f[0].lambda.s3_key,
+                published_version: $f[0].lambda.published_version,
+                version_arn: $f[0].lambda.version_arn,
+                alias: $f[0].lambda.alias,
+                alias_action: $f[0].lambda.alias_action
+              }' manifest-lambda.json > manifest-lambda.next.json
+            mv manifest-lambda.next.json manifest-lambda.json
+          done
+
+      - name: Upload merged Lambda manifest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest-lambda
+          path: manifest-lambda.json
+          if-no-files-found: error
+
+  merge-and-publish-manifest:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-user == 'true' ||
+           needs.changes.outputs.backend-client == 'true' ||
+           needs.changes.outputs.backend-transaction == 'true' ||
+           needs.changes.outputs.backend-aml == 'true' ||
+           needs.changes.outputs.backend-verification == 'true' ||
+           needs.changes.outputs.backend-transaction-ingestion-lambda == 'true') }}
+    needs:
+      - changes
+      - merge-ecs-intents
+      - merge-lambda-intents
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -124,27 +245,25 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Download ECS intent artifacts
+      - name: Download grouped ECS manifest artifact
         if: >-
           ${{ needs.changes.outputs.backend-user == 'true' ||
               needs.changes.outputs.backend-client == 'true' ||
               needs.changes.outputs.backend-transaction == 'true' }}
         uses: actions/download-artifact@v4
         with:
-          pattern: intent-ecs-*
-          path: deploy-intents-ecs
-          merge-multiple: true
+          name: manifest-ecs
+          path: manifests
 
-      - name: Download Lambda intent artifacts
+      - name: Download grouped Lambda manifest artifact
         if: >-
           ${{ needs.changes.outputs.backend-aml == 'true' ||
               needs.changes.outputs.backend-verification == 'true' ||
               needs.changes.outputs.backend-transaction-ingestion-lambda == 'true' }}
         uses: actions/download-artifact@v4
         with:
-          pattern: intent-lambda-*
-          path: deploy-intents-lambda
-          merge-multiple: true
+          name: manifest-lambda
+          path: manifests
 
       - name: Merge changed intents into current manifest
         shell: bash
@@ -175,39 +294,19 @@ jobs:
             | .ecs = (.ecs // {})
             | .lambda = (.lambda // {})' > manifest.json
 
-          shopt -s nullglob
-
-          ecs_fragments=(deploy-intents-ecs/*.json)
-          for fragment in "${ecs_fragments[@]}"; do
-            service="$(jq -r '.ecs.service' "${fragment}")"
+          if [[ -f manifests/manifest-ecs.json ]]; then
             jq \
-              --arg service "${service}" \
-              --slurpfile f "${fragment}" \
-              '.ecs[$service] = {
-                image_repo: $f[0].ecs.image_repo,
-                image_tag: $f[0].ecs.image_tag,
-                cluster: $f[0].ecs.cluster,
-                task_definition_arn: $f[0].ecs.task_definition_arn,
-                image_ref: $f[0].ecs.image_ref
-              }' manifest.json > manifest.next.json
+              --slurpfile ecs manifests/manifest-ecs.json \
+              '.ecs = ((.ecs // {}) + ($ecs[0].ecs // {}))' manifest.json > manifest.next.json
             mv manifest.next.json manifest.json
-          done
+          fi
 
-          lambda_fragments=(deploy-intents-lambda/*.json)
-          for fragment in "${lambda_fragments[@]}"; do
-            function_name="$(jq -r '.lambda.function_name' "${fragment}")"
+          if [[ -f manifests/manifest-lambda.json ]]; then
             jq \
-              --arg function_name "${function_name}" \
-              --slurpfile f "${fragment}" \
-              '.lambda[$function_name] = {
-                s3_key: $f[0].lambda.s3_key,
-                published_version: $f[0].lambda.published_version,
-                version_arn: $f[0].lambda.version_arn,
-                alias: $f[0].lambda.alias,
-                alias_action: $f[0].lambda.alias_action
-              }' manifest.json > manifest.next.json
+              --slurpfile lambda manifests/manifest-lambda.json \
+              '.lambda = ((.lambda // {}) + ($lambda[0].lambda // {}))' manifest.json > manifest.next.json
             mv manifest.next.json manifest.json
-          done
+          fi
 
           jq -e . manifest.json > /dev/null
 
