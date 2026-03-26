@@ -44,6 +44,8 @@ VERIFICATION_LAMBDA_FUNCTION_NAME="scroogebank-crm-dev-verification"
 VERIFICATION_LAMBDA_RUNTIME="${VERIFICATION_LAMBDA_RUNTIME:-python3.12}"
 SFTP_TRANSACTION_COLLECTOR_FUNCTION_NAME="scroogebank-crm-dev-sftp-transaction-collector"
 SFTP_TRANSACTION_COLLECTOR_RUNTIME="${SFTP_TRANSACTION_COLLECTOR_RUNTIME:-python3.12}"
+AML_LAMBDA_FUNCTION_NAME="scroogebank-crm-dev-aml"
+AML_LAMBDA_RUNTIME="${AML_LAMBDA_RUNTIME:-python3.12}"
 VERIFICATION_SNS_TOPIC_NAME="scroogebank-crm-dev-verification"
 export VERIFICATION_EMAIL_PROVIDER="${VERIFICATION_EMAIL_PROVIDER:-mock}"
 export SES_SENDER_EMAIL="${SES_SENDER_EMAIL:-verification@crm.local}"
@@ -688,14 +690,14 @@ PY
   fi
 }
 
-package_verification_lambda() {
-  local package_dir="${LOG_DIR}/verification-lambda-package"
-  local zip_path="${LOG_DIR}/verification-lambda.zip"
+package_single_file_lambda() {
+  local source_file="$1"
+  local package_dir="$2"
+  local zip_path="$3"
 
   rm -rf "${package_dir}" "${zip_path}"
   mkdir -p "${package_dir}"
-
-  cp "${ROOT_DIR}/services/backend/verification/lambda_function.py" "${package_dir}/"
+  cp "${source_file}" "${package_dir}/"
 
   if command -v zip >/dev/null 2>&1; then
     (
@@ -719,35 +721,34 @@ PY
   fi
 }
 
+package_verification_lambda() {
+  local package_dir="${LOG_DIR}/verification-lambda-package"
+  local zip_path="${LOG_DIR}/verification-lambda.zip"
+
+  package_single_file_lambda \
+    "${ROOT_DIR}/services/backend/verification/lambda_function.py" \
+    "${package_dir}" \
+    "${zip_path}"
+}
+
 package_sftp_transaction_collector() {
   local package_dir="${LOG_DIR}/sftp-transaction-collector-package"
   local zip_path="${LOG_DIR}/sftp-transaction-collector.zip"
 
-  rm -rf "${package_dir}" "${zip_path}"
-  mkdir -p "${package_dir}"
+  package_single_file_lambda \
+    "${ROOT_DIR}/services/backend/sftp-transaction-collector/lambda_function.py" \
+    "${package_dir}" \
+    "${zip_path}"
+}
 
-  cp "${ROOT_DIR}/services/backend/sftp-transaction-collector/lambda_function.py" "${package_dir}/"
+package_aml_lambda() {
+  local package_dir="${LOG_DIR}/aml-lambda-package"
+  local zip_path="${LOG_DIR}/aml-lambda.zip"
 
-  if command -v zip >/dev/null 2>&1; then
-    (
-      cd "${package_dir}"
-      zip -rq "${zip_path}" .
-    )
-  else
-    ${PYTHON_CMD} - "${package_dir}" "${zip_path}" <<'PY'
-import pathlib
-import sys
-import zipfile
-
-src_dir = pathlib.Path(sys.argv[1])
-zip_path = pathlib.Path(sys.argv[2])
-
-with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-    for path in src_dir.rglob("*"):
-        if path.is_file():
-            zf.write(path, path.relative_to(src_dir))
-PY
-  fi
+  package_single_file_lambda \
+    "${ROOT_DIR}/services/backend/aml/lambda_function.py" \
+    "${package_dir}" \
+    "${zip_path}"
 }
 
 deploy_log_lambda() {
@@ -980,6 +981,66 @@ deploy_sftp_transaction_collector() {
   done
 }
 
+deploy_aml_lambda() {
+  local zip_path="${LOG_DIR}/aml-lambda.zip"
+  local zip_arg="fileb://${zip_path}"
+  local aml_bearer_token=""
+  local aml_api_base_url="http://integration-gateway"
+  local env_vars=""
+
+  if [[ "${AWS_IS_WINDOWS}" == "true" ]]; then
+    zip_arg="fileb://$(to_windows_path "${zip_path}")"
+  fi
+
+  aml_bearer_token="$(mint_jwt "system_aml_localstack" "admin")"
+  env_vars="Variables={AML_SFTP_MODE=mock,CRM_API_BASE_URL=${aml_api_base_url},CRM_WRITE_API_BASE_URL=${aml_api_base_url},CRM_API_BEARER_TOKEN=${aml_bearer_token}}"
+
+  if aws_local lambda get-function --function-name "${AML_LAMBDA_FUNCTION_NAME}" >/dev/null 2>&1; then
+    aws_local lambda update-function-code \
+      --function-name "${AML_LAMBDA_FUNCTION_NAME}" \
+      --zip-file "${zip_arg}" \
+      >/dev/null
+    aws_local lambda update-function-configuration \
+      --function-name "${AML_LAMBDA_FUNCTION_NAME}" \
+      --handler lambda_function.lambda_handler \
+      --runtime "${AML_LAMBDA_RUNTIME}" \
+      --timeout 120 \
+      --memory-size 1024 \
+      --environment "${env_vars}" \
+      >/dev/null
+  else
+    aws_local lambda create-function \
+      --function-name "${AML_LAMBDA_FUNCTION_NAME}" \
+      --runtime "${AML_LAMBDA_RUNTIME}" \
+      --handler lambda_function.lambda_handler \
+      --zip-file "${zip_arg}" \
+      --role arn:aws:iam::000000000000:role/lambda-role \
+      --timeout 120 \
+      --memory-size 1024 \
+      --environment "${env_vars}" \
+      >/dev/null
+  fi
+
+  for i in $(seq 1 40); do
+    local state
+    state="$(
+      aws_local lambda get-function-configuration \
+        --function-name "${AML_LAMBDA_FUNCTION_NAME}" \
+        --query "State" \
+        --output text 2>/dev/null || true
+    )"
+    state="$(echo "${state}" | tr -d '\r')"
+    if [[ "${state}" == "Active" ]]; then
+      return 0
+    fi
+    [[ ${i} -eq 40 ]] && {
+      echo "[FAIL] AML Lambda did not become Active in time (state=${state})." >&2
+      exit 1
+    }
+    sleep 1
+  done
+}
+
 provision_log_http_api() {
   local fallback_note_file="${LOG_DIR}/log-http-api-v2.err"
   local existing_ids
@@ -1183,6 +1244,8 @@ package_verification_lambda &
 verification_lambda_package_pid=$!
 package_sftp_transaction_collector &
 sftp_transaction_collector_package_pid=$!
+package_aml_lambda &
+aml_lambda_package_pid=$!
 
 wait_for_jobs \
   "${infra_pid}" "base-infra-up (postgres + localstack)" \
@@ -1191,7 +1254,8 @@ wait_for_jobs \
   "${transaction_build_pid}" "bootJar-transaction" \
   "${lambda_package_pid}" "package-log-lambda" \
   "${verification_lambda_package_pid}" "package-verification-lambda" \
-  "${sftp_transaction_collector_package_pid}" "package-sftp-transaction-collector"
+  "${sftp_transaction_collector_package_pid}" "package-sftp-transaction-collector" \
+  "${aml_lambda_package_pid}" "package-aml-lambda"
 end_phase
 
 # --------------------------------------------------------------------------
@@ -1232,7 +1296,7 @@ bash "${DB_ORCHESTRATOR_SCRIPT}" migrate \
   >> "${LOG_DIR}/docker-compose.log" 2>&1
 end_phase
 
-start_phase "Phase 2b: Deploy log + verification + ingestion Lambdas"
+start_phase "Phase 2b: Deploy log + verification + ingestion + AML Lambdas"
 echo "Packaging + deploying log-service Lambda to LocalStack..."
 deploy_log_lambda
 provision_log_http_api
@@ -1240,6 +1304,8 @@ echo "Deploying verification feedback Lambda + SNS subscription..."
 deploy_verification_feedback_lambda
 echo "Deploying transaction ingestion Lambda..."
 deploy_sftp_transaction_collector
+echo "Deploying AML batch Lambda..."
+deploy_aml_lambda
 wait_for_http "${LOG_SERVICE_PUBLIC_URL}/health" "log-service-lambda"
 end_phase
 
@@ -1711,6 +1777,69 @@ done
   echo "  [FAIL] sftp-transaction-collector lambda did not import transaction rows" >&2
   exit 1
 }
+
+echo "  Smoke: AML Lambda (LocalStack) -> alert persistence path"
+AML_LAMBDA_INVOKE_OUTPUT="${LOG_DIR}/aml-lambda-invoke.json"
+AML_LAMBDA_INVOKE_OUTPUT_ARG="${AML_LAMBDA_INVOKE_OUTPUT}"
+if [[ "${AWS_IS_WINDOWS}" == "true" ]]; then
+  AML_LAMBDA_INVOKE_OUTPUT_ARG="$(to_windows_path "${AML_LAMBDA_INVOKE_OUTPUT}")"
+fi
+
+aws_local lambda invoke \
+  --function-name "${AML_LAMBDA_FUNCTION_NAME}" \
+  --cli-binary-format raw-in-base64-out \
+  --payload '{}' \
+  "${AML_LAMBDA_INVOKE_OUTPUT_ARG}" \
+  >/dev/null
+
+AML_LAMBDA_INVOKE_JSON="$(cat "${AML_LAMBDA_INVOKE_OUTPUT}")"
+AML_LAMBDA_ALERT_ID="$(
+  AML_LAMBDA_INVOKE_JSON="${AML_LAMBDA_INVOKE_JSON}" ${PYTHON_CMD} - <<'PY'
+import json
+import os
+
+payload = json.loads(os.environ["AML_LAMBDA_INVOKE_JSON"])
+status_code = int(payload.get("statusCode", 0))
+if status_code != 200:
+    raise SystemExit(f"AML lambda returned unexpected statusCode={status_code}")
+
+body = payload.get("body", {})
+if isinstance(body, str):
+    body = json.loads(body)
+if not isinstance(body, dict):
+    raise SystemExit("AML lambda response body is not a JSON object")
+
+alerts = body.get("alerts", [])
+if not isinstance(alerts, list) or not alerts:
+    raise SystemExit("AML lambda did not produce any alerts")
+
+first_alert_id = alerts[0].get("alertId", "")
+if not first_alert_id:
+    raise SystemExit("AML lambda alert payload missing alertId")
+
+print(first_alert_id)
+PY
+)"
+[[ -n "${AML_LAMBDA_ALERT_ID}" ]] || {
+  echo "  [FAIL] AML lambda invocation did not return a valid alertId" >&2
+  exit 1
+}
+
+AML_LAMBDA_ALERT_FETCH="$(
+  curl --silent --show-error --fail \
+    "${PLAYWRIGHT_BASE_URL}/api/aml/alerts/${AML_LAMBDA_ALERT_ID}" \
+    --header "Authorization: Bearer ${ADMIN_TOKEN}"
+)"
+AML_LAMBDA_ALERT_FETCH_JSON="${AML_LAMBDA_ALERT_FETCH}" ${PYTHON_CMD} - "${AML_LAMBDA_ALERT_ID}" <<'PY'
+import json
+import os
+import sys
+
+payload = json.loads(os.environ["AML_LAMBDA_ALERT_FETCH_JSON"])
+if payload.get("alertId") != sys.argv[1]:
+    raise SystemExit("Persisted AML alertId mismatch after lambda invocation")
+print("  [OK] AML lambda persisted alert via LocalStack-backed path")
+PY
 
 echo "  Smoke: AML alerts -> log-service-lambda (CREATE + REVIEW)"
 ALERT_ID="aml-smoke-$(date +%s)"

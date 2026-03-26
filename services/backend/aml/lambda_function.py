@@ -37,6 +37,11 @@ Environment variables (production):
         for client transactions lookup
     CRM_AML_ALERTS_PATH - Optional override for AML alert write endpoint
     CRM_LOGS_PATH       - Optional override for audit log write endpoint
+
+Environment variables (local smoke support):
+    AML_SFTP_MODE       - "mock" to use embedded CSV test data instead of
+                          opening a real SFTP connection. Any other value
+                          keeps the production SFTP client behavior.
 """
 
 from __future__ import annotations
@@ -81,6 +86,12 @@ SERVICE_JWT_ROLE = "admin"
 
 _JWT_HMAC_SECRET_CACHE: str | None = None
 _LOG_WRITE_BASE_URL_CACHE: str | None = None
+MOCK_SFTP_CSV = """transaction_id,client_id,transaction_type,amount,date,status
+AML-MOCK-001,CLIENT_AML_MOCK,D,3500.00,2026-01-01,Completed
+AML-MOCK-002,CLIENT_AML_MOCK,D,3400.00,2026-01-03,Completed
+AML-MOCK-003,CLIENT_AML_MOCK,D,3300.00,2026-01-05,Completed
+AML-MOCK-004,CLIENT_AML_MOCK,D,3200.00,2026-01-06,Completed
+"""
 
 
 def _b64url_encode(data: bytes) -> str:
@@ -378,6 +389,18 @@ class SFTPClient:
         return sm.get_secret_value(SecretId=self._key_secret_arn)["SecretString"]
 
 
+class MockSFTPClient:
+    """Local smoke client that returns deterministic embedded CSV content."""
+
+    # SFTPClientProtocol
+    def download_transactions_csv(self, remote_path: str) -> str:
+        logger.info(
+            "MockSFTPClient enabled via AML_SFTP_MODE=mock (remote_path=%s)",
+            remote_path,
+        )
+        return MOCK_SFTP_CSV
+
+
 class AccountRepository:
     """Production account repository — queries the CRM accounts REST endpoint."""
 
@@ -460,6 +483,7 @@ class HistoricalTransactionRepository:
 
     # HistoricalTransactionRepositoryProtocol
     def get_historical_amounts(self, client_id: str) -> list[float]:
+        import urllib.error  # noqa: PLC0415
         import urllib.parse  # noqa: PLC0415
         import urllib.request  # noqa: PLC0415
 
@@ -471,8 +495,15 @@ class HistoricalTransactionRepository:
         query = urllib.parse.urlencode({"limit": MAX_LIST_PAGE_SIZE, "offset": 0})
         url = f"{self._base_url}{path}?{query}"
         req = urllib.request.Request(url=url, headers=_auth_headers(), method="GET")
-        with urllib.request.urlopen(req, timeout=DEFAULT_HTTP_TIMEOUT_SECONDS) as resp:
-            payload = json.loads(resp.read().decode())
+        try:
+            with urllib.request.urlopen(
+                req, timeout=DEFAULT_HTTP_TIMEOUT_SECONDS
+            ) as resp:
+                payload = json.loads(resp.read().decode())
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                return []
+            raise
 
         rows = payload.get("data", payload) if isinstance(payload, dict) else payload
         if not isinstance(rows, list):
@@ -1007,8 +1038,15 @@ def _create_clients() -> tuple[
 
     See tests/mocks.py for the mock implementations.
     """
+    sftp_mode = os.environ.get("AML_SFTP_MODE", "").strip().lower()
+    sftp_client: SFTPClientProtocol
+    if sftp_mode == "mock":
+        sftp_client = MockSFTPClient()
+    else:
+        sftp_client = SFTPClient()
+
     return (
-        SFTPClient(),
+        sftp_client,
         AccountRepository(),
         HistoricalTransactionRepository(),
         CRMWriteClient(),
