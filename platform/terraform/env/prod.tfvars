@@ -46,8 +46,8 @@ ses_sender_email                  = "verification@crm.local" # override with a v
 
 # Intentionally disabled until prerequisites are available:
 enable_aml_lambda     = false # requires real SFTP source + key management contract
-enable_audit_pipeline = false # partial scaffold only: audit-consumer runtime artifact absent
-enable_aml_pipeline   = false # partial scaffold only: aml-consumer runtime artifact absent
+enable_audit_pipeline = false # implemented but disabled by default in production profile
+enable_aml_pipeline   = false # implemented but disabled by default in production profile
 
 # --- Observability & Security ---
 enable_waf                    = false

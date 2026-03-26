@@ -36,8 +36,8 @@ enable_verification_pipeline      = true
 ses_sender_email                  = "verification@crm.local"
 
 enable_aml_lambda     = false # external SFTP dependency not part of local contract
-enable_audit_pipeline = false # partial scaffold only: audit-consumer runtime artifact absent
-enable_aml_pipeline   = false # partial scaffold only: aml-consumer runtime artifact absent
+enable_audit_pipeline = false # implemented but disabled by default in local profile
+enable_aml_pipeline   = false # implemented but disabled by default in local profile
 
 # --- Security / Observability ---
 enable_waf                    = false

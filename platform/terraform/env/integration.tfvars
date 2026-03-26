@@ -36,8 +36,8 @@ enable_verification_pipeline      = true
 ses_sender_email                  = "verification@crm.local" # replace with a verified sender in real AWS integration
 
 enable_aml_lambda     = false # requires real SFTP endpoint + key ownership contract
-enable_audit_pipeline = false # partial scaffold only: audit-consumer runtime artifact absent
-enable_aml_pipeline   = false # partial scaffold only: aml-consumer runtime artifact absent
+enable_audit_pipeline = false # implemented but disabled by default in integration profile
+enable_aml_pipeline   = false # implemented but disabled by default in integration profile
 
 # --- Security / Observability ---
 enable_waf                    = false

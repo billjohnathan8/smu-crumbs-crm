@@ -112,8 +112,8 @@ Canonical Terraform env profiles:
 | Transaction ingestion Lambda | implemented | enabled | enabled | disabled | enabled | Uses S3-backed mock ingestion path (no real SFTP transport). |
 | Service discovery (Cloud Map) | implemented | out of scope | enabled | disabled | enabled | Local uses Docker DNS; learner-lab cannot create Cloud Map namespace. |
 | AML Lambda (scheduled SFTP pull) | implemented (Terraform-default disabled) | disabled (Terraform), exercised by LocalStack fullstack smoke | disabled | disabled | disabled | Terraform env defaults stay off pending external SFTP/key ownership contract; local fullstack smoke deploys AML Lambda with mock SFTP mode for runtime verification. |
-| Audit pipeline (SQS + consumer + DynamoDB) | partial | disabled | disabled | disabled | disabled | `audit-consumer` runtime artifact missing (`services/backend/audit-consumer/...`). |
-| AML async pipeline (SQS + consumer + DynamoDB) | partial | disabled | disabled | disabled | disabled | `aml-consumer` runtime artifact missing (`services/backend/aml-consumer/...`). |
+| Audit pipeline (SQS + consumer + DynamoDB) | implemented (feature-gated) | disabled | disabled | disabled | disabled | Runtime and artifacts exist; env defaults keep pipeline off until explicitly enabled. |
+| AML async pipeline (SQS + consumer + DynamoDB) | implemented (feature-gated) | disabled | disabled | disabled | disabled | Runtime and artifacts exist; env defaults keep pipeline off until explicitly enabled. |
 
 Learner-lab coverage limits:
 - Lambdas/pipelines stay disabled for reliability and budget control.

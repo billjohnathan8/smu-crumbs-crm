@@ -729,13 +729,13 @@ variable "cognito_audience" {
 # Messaging Pipelines (Audit, AML, Verification)
 #--------------------------------------------------------------
 variable "enable_audit_pipeline" {
-  description = "Create audit SQS queue, consumer Lambda, and DynamoDB table. Keep disabled until the audit-consumer runtime artifact is implemented in this repository."
+  description = "Create audit SQS queue, consumer Lambda, and DynamoDB table for the async audit pipeline."
   type        = bool
   default     = false
 }
 
 variable "enable_aml_pipeline" {
-  description = "Create AML SQS queue, consumer Lambda, and DynamoDB table. Keep disabled until the aml-consumer runtime artifact is implemented in this repository."
+  description = "Create AML SQS queue, consumer Lambda, and DynamoDB table for the async AML pipeline."
   type        = bool
   default     = false
 }
@@ -747,13 +747,13 @@ variable "enable_verification_pipeline" {
 }
 
 variable "audit_consumer_zip_path" {
-  description = "Path to audit consumer Lambda zip (reserved scaffold; runtime package not yet present in this repository)."
+  description = "Path to audit consumer Lambda zip artifact."
   type        = string
   default     = "../../services/backend/audit-consumer/audit-consumer-lambda.zip"
 }
 
 variable "aml_consumer_zip_path" {
-  description = "Path to AML consumer Lambda zip (reserved scaffold; runtime package not yet present in this repository)."
+  description = "Path to AML consumer Lambda zip artifact."
   type        = string
   default     = "../../services/backend/aml-consumer/aml-consumer-lambda.zip"
 }
