@@ -410,14 +410,14 @@ class TestSFTPClient:
         mock_boto3 = MagicMock()
         mock_boto3.client.return_value.get_secret_value.return_value = {
             "SecretString": (
-                "-----BEGIN RSA PRIVATE KEY-----"
+                "MOCK_SFTP_KEY_MATERIAL"
                 "\ntest\n"
-                "-----END RSA PRIVATE KEY-----"
+                "MOCK_SFTP_KEY_MATERIAL_END"
             )
         }
         with patch.dict("sys.modules", {"boto3": mock_boto3}):
             key = client._fetch_key()
-        assert "RSA PRIVATE KEY" in key
+        assert "MOCK_SFTP_KEY_MATERIAL" in key
 
 
 class TestAccountRepository:
