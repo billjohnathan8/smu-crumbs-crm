@@ -40,8 +40,11 @@ export function AccountFormModal({
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-normal text-text mb-1">Client ID</label>
+            <label htmlFor="account-client-id" className="block text-sm font-normal text-text mb-1">
+              Client ID
+            </label>
             <input
+              id="account-client-id"
               type="text"
               value={formData.clientId}
               readOnly
@@ -50,8 +53,11 @@ export function AccountFormModal({
           </div>
 
           <div>
-            <label className="block text-sm font-normal text-text mb-1">Account Type</label>
+            <label htmlFor="account-type" className="block text-sm font-normal text-text mb-1">
+              Account Type
+            </label>
             <select
+              id="account-type"
               value={formData.accountType}
               onChange={e =>
                 setFormData({ ...formData, accountType: e.target.value as AccountType })
@@ -66,8 +72,11 @@ export function AccountFormModal({
           </div>
 
           <div>
-            <label className="block text-sm font-normal text-text mb-1">Account Status</label>
+            <label htmlFor="account-status" className="block text-sm font-normal text-text mb-1">
+              Account Status
+            </label>
             <select
+              id="account-status"
               value={formData.accountStatus}
               onChange={e =>
                 setFormData({ ...formData, accountStatus: e.target.value as AccountStatus })
@@ -84,10 +93,14 @@ export function AccountFormModal({
           {modalMode === 'create' && (
             <>
               <div>
-                <label className="block text-sm font-normal text-text mb-1">
+                <label
+                  htmlFor="account-initial-deposit"
+                  className="block text-sm font-normal text-text mb-1"
+                >
                   Initial Deposit (SGD)
                 </label>
                 <input
+                  id="account-initial-deposit"
                   type="number"
                   min="0"
                   step="0.01"
@@ -104,8 +117,11 @@ export function AccountFormModal({
               </div>
 
               <div>
-                <label className="block text-sm font-normal text-text mb-1">Currency</label>
+                <label htmlFor="account-currency" className="block text-sm font-normal text-text mb-1">
+                  Currency
+                </label>
                 <input
+                  id="account-currency"
                   type="text"
                   value={formData.currency}
                   onChange={e => setFormData({ ...formData, currency: e.target.value })}
@@ -115,8 +131,11 @@ export function AccountFormModal({
               </div>
 
               <div>
-                <label className="block text-sm font-normal text-text mb-1">Opening Date</label>
+                <label htmlFor="account-opening-date" className="block text-sm font-normal text-text mb-1">
+                  Opening Date
+                </label>
                 <input
+                  id="account-opening-date"
                   type="date"
                   value={formData.openingDate}
                   onChange={e => setFormData({ ...formData, openingDate: e.target.value })}
@@ -128,10 +147,11 @@ export function AccountFormModal({
           )}
 
           <div>
-            <label className="block text-sm font-normal text-text mb-1">
+            <label htmlFor="account-branch-id" className="block text-sm font-normal text-text mb-1">
               Branch ID <span className="text-danger">*</span>
             </label>
             <input
+              id="account-branch-id"
               type="text"
               value={formData.branchId}
               onChange={e => setFormData({ ...formData, branchId: e.target.value })}
