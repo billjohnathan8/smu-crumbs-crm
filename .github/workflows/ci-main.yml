@@ -310,7 +310,7 @@ jobs:
       timeout-minutes: 8
       artifact-paths: |
         services/backend/audit-consumer/build/reports/**
-        services/backend/audit-consumer/build/coverage.xml
+        services/backend/audit-consumer/build/reports/coverage/coverage.xml
 
   test-aml-consumer:
     needs: [changes, lint]
@@ -334,7 +334,7 @@ jobs:
       timeout-minutes: 8
       artifact-paths: |
         services/backend/aml-consumer/build/reports/**
-        services/backend/aml-consumer/build/coverage.xml
+        services/backend/aml-consumer/build/reports/coverage/coverage.xml
 
   test-frontend:
     needs: [changes, lint]

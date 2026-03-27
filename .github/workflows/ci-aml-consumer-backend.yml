@@ -78,4 +78,4 @@ jobs:
       timeout-minutes: 8
       artifact-paths: |
         services/backend/aml-consumer/build/reports/**
-        services/backend/aml-consumer/build/coverage.xml
+        services/backend/aml-consumer/build/reports/coverage/coverage.xml
