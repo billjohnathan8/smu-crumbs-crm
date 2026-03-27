@@ -54,7 +54,12 @@ class TestSendVerificationEmail:
     def test_raises_when_ses_source_email_missing(self):
         with pytest.raises(ValueError, match="SES_SOURCE_EMAIL is required"):
             lambda_function._send_verification_email(
-                "client-1", "user@example.com", "token", "Alice", "req-1", TOKEN_TTL_SECONDS
+                "client-1",
+                "user@example.com",
+                "token",
+                "Alice",
+                "req-1",
+                TOKEN_TTL_SECONDS,
             )
 
     def test_raises_when_boto3_unavailable(self, monkeypatch):
@@ -63,7 +68,12 @@ class TestSendVerificationEmail:
 
         with pytest.raises(RuntimeError, match="boto3 is required"):
             lambda_function._send_verification_email(
-                "client-1", "user@example.com", "token", "Alice", "req-1", TOKEN_TTL_SECONDS
+                "client-1",
+                "user@example.com",
+                "token",
+                "Alice",
+                "req-1",
+                TOKEN_TTL_SECONDS,
             )
 
     def test_calls_ses_with_correct_arguments(self, monkeypatch):
@@ -84,7 +94,12 @@ class TestSendVerificationEmail:
         monkeypatch.setattr(lambda_function, "boto3", FakeBoto3)
 
         lambda_function._send_verification_email(
-            "client-1", "user@example.com", "tok-abc", "Alice", "req-1", TOKEN_TTL_SECONDS
+            "client-1",
+            "user@example.com",
+            "tok-abc",
+            "Alice",
+            "req-1",
+            TOKEN_TTL_SECONDS,
         )
 
         assert captured["Source"] == "noreply@example.com"
@@ -111,7 +126,12 @@ class TestSendVerificationEmail:
         monkeypatch.setattr(lambda_function, "boto3", FakeBoto3)
 
         lambda_function._send_verification_email(
-            "client-1", "user@example.com", "tok-abc", "Alice", "req-1", TOKEN_TTL_SECONDS
+            "client-1",
+            "user@example.com",
+            "tok-abc",
+            "Alice",
+            "req-1",
+            TOKEN_TTL_SECONDS,
         )
 
         html_body = captured["Message"]["Body"]["Html"]["Data"]
@@ -141,7 +161,12 @@ class TestSendVerificationEmail:
         monkeypatch.setattr(lambda_function, "boto3", FakeBoto3)
 
         lambda_function._send_verification_email(
-            "client-1", "user@example.com", "tok-abc", "Alice", "req-1", TOKEN_TTL_SECONDS
+            "client-1",
+            "user@example.com",
+            "tok-abc",
+            "Alice",
+            "req-1",
+            TOKEN_TTL_SECONDS,
         )
 
         assert "Alice" in captured["Message"]["Body"]["Html"]["Data"]
@@ -216,7 +241,9 @@ class TestHandleVerificationRequested:
     def test_calls_send_with_correct_arguments(self, monkeypatch):
         captured = {}
 
-        def fake_send(client_id, email, token, first_name, request_id, token_ttl_seconds):
+        def fake_send(
+            client_id, email, token, first_name, request_id, token_ttl_seconds
+        ):
             captured.update(
                 client_id=client_id,
                 email=email,
