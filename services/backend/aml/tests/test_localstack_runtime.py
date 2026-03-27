@@ -36,7 +36,9 @@ def test_create_clients_uses_mock_sftp_when_enabled(monkeypatch: pytest.MonkeyPa
     assert isinstance(clients[0], MockSFTPClient)
 
 
-def test_create_clients_uses_production_sftp_by_default(monkeypatch: pytest.MonkeyPatch):
+def test_create_clients_uses_production_sftp_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+):
     """Without AML_SFTP_MODE=mock, the production SFTP client remains active."""
     monkeypatch.delenv("AML_SFTP_MODE", raising=False)
     monkeypatch.setenv("SFTP_HOST", "sftp.example.test")
