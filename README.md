@@ -98,6 +98,13 @@ make inframap-full
 make terraform-graph
 ```
 
+# Terraform-Only Local Pipeline
+Run the isolated Terraform-only local checks (not invoked by `test_all.py` unless run explicitly):
+
+```bash
+python scripts/pipelines/test_terraform.py
+```
+
 Docs:
 - `docs/infrastructure/inframap-setup.md`
 - `docs/README.md`

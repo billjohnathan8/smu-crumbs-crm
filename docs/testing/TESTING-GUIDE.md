@@ -27,7 +27,10 @@ python scripts/pipelines/test_all.py --dry-run
 ```bash
 python scripts/pipelines/test_backend.py
 python scripts/pipelines/test_frontend.py
+python scripts/pipelines/test_terraform.py
 ```
+
+`test_terraform.py` is standalone and intentionally isolated from `test_all.py`.
 
 ## Layer Order (`test_all.py`)
 

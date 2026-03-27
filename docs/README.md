@@ -39,7 +39,10 @@ Core commands:
 terraform -chdir=platform/terraform fmt -recursive
 terraform -chdir=platform/terraform validate
 terraform -chdir=platform/terraform plan
+python scripts/pipelines/test_terraform.py
 ```
+
+`scripts/pipelines/test_terraform.py` runs the Terraform-only local pipeline and is isolated from `test_all.py`.
 
 Environment-scoped planning for shared AWS environments:
 
