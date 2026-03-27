@@ -48,12 +48,12 @@ Services/APIs: Auth, User, Client, Log (`/api/auth/login`, `/api/users`, `/api/c
 7. `client profile create should auto-generate an audit log`: creates client then polls logs; validates system-generated CREATE audit trail.
 
 ## client-profile-management.spec.ts (6)
-Services/APIs: Auth, User, Client, Log (`/api/auth/login`, `/api/users`, `/api/clients`, `/api/clients/{id}`, `/api/clients/{id}/verify`, `/api/logs`).
+Services/APIs: Auth, User, Client, Log (`/api/auth/login`, `/api/users`, `/api/clients`, `/api/clients/{id}`, `/api/clients/{id}/upload-verify`, `/api/logs`).
 
 1. `agent should create a client profile via UI and receive a client ID`: agent logs in, submits create-client form, and returns to dashboard.
 2. `should retrieve a client profile by ID via API`: create client then fetch `/api/clients/{clientId}`; validates identity fields.
 3. `should update a client profile via API`: create then update `/api/clients/{clientId}`; validates changed profile fields.
-4. `should verify a client identity via API`: calls `/api/clients/{clientId}/verify`; validates verification status transition.
+4. `should submit public verification documents via API`: calls `/api/clients/{clientId}/upload-verify` with tokenized payload; validates transition to `pending`.
 5. `should delete a client profile via API`: delete via `/api/clients/{clientId}`; validates post-delete unavailability.
 6. `client CRUD operations should generate audit log entries`: create/update client then poll `/api/logs`; validates CREATE and UPDATE audit events.
 

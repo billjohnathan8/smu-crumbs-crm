@@ -231,8 +231,8 @@ describe('ClientVerifyPage', () => {
     })
   })
 
-  it('calls verifyClient API when form is submitted with valid data', async () => {
-    const mockVerifyClient = vi.mocked(clientApi.verifyClient).mockResolvedValue({
+  it('calls uploadVerificationDocs API when form is submitted with valid data', async () => {
+    const mockUploadVerificationDocs = vi.mocked(clientApi.uploadVerificationDocs).mockResolvedValue({
       clientId: 'c_valid_1',
       identityVerificationStatus: 'pending',
     } as never)
@@ -278,7 +278,7 @@ describe('ClientVerifyPage', () => {
     await user.click(screen.getByRole('button', { name: 'Upload & Verify' }))
 
     await waitFor(() => {
-      expect(mockVerifyClient).toHaveBeenCalledWith(
+      expect(mockUploadVerificationDocs).toHaveBeenCalledWith(
         'c_valid_1',
         expect.objectContaining({
           primaryDocumentRef: 'id.jpg',

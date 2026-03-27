@@ -1,4 +1,4 @@
-import { uploadVerificationDocs, type VerifyClientRequest } from '@/api'
+import { uploadVerificationDocs, type UploadVerificationDocsRequest } from '@/api'
 import { ApiError } from '@/api/client'
 import { useState, useEffect, type FormEvent } from 'react'
 
@@ -113,15 +113,16 @@ export function ClientVerifyPage() {
         toBase64(proofOfAddress.file!),
       ])
 
-      const body: VerifyClientRequest = {
-        verificationToken: token || undefined,
+      const body: UploadVerificationDocsRequest = {
+        verificationToken: token,
 
-        primaryDocumentType: primaryId.docType as VerifyClientRequest['primaryDocumentType'],
+        primaryDocumentType: primaryId.docType as UploadVerificationDocsRequest['primaryDocumentType'],
         primaryDocumentRef: primaryId.file!.name,
         primaryDocumentBase64: primaryBase64,
         primaryDocumentMimeType: primaryId.file!.type,
 
-        addressDocumentType: proofOfAddress.docType as VerifyClientRequest['addressDocumentType'],
+        addressDocumentType:
+          proofOfAddress.docType as UploadVerificationDocsRequest['addressDocumentType'],
         addressDocumentRef: proofOfAddress.file!.name,
         addressDocumentBase64: addressBase64,
         addressDocumentMimeType: proofOfAddress.file!.type,

@@ -1,10 +1,26 @@
+import { createHmac } from "node:crypto";
 import { expect, test, type APIRequestContext, type APIResponse } from "@playwright/test";
 import { authHeaders, expectOkJson, normalizeBaseURL } from "./helpers/apiClient";
 import { createAgentPairAndLogin, createClientForUser, loginAsSeedAdmin } from "./helpers/dataFactory";
 
+const VERIFICATION_TOKEN_SECRET = (process.env.E2E_VERIFICATION_HMAC_SECRET ?? "dev-only-insecure-secret").trim();
+
 interface ClientRecord {
   clientId: string;
   identityVerificationStatus: string;
+}
+
+function base64UrlJson(payload: object): string {
+  return Buffer.from(JSON.stringify(payload)).toString("base64url");
+}
+
+function mintVerificationToken(clientId: string, secret: string): string {
+  const header = base64UrlJson({ alg: "HS256", typ: "JWT" });
+  const exp = Math.floor(Date.now() / 1000) + 60 * 60;
+  const body = base64UrlJson({ clientId, exp });
+  const signingInput = `${header}.${body}`;
+  const signature = createHmac("sha256", secret).update(signingInput).digest("base64url");
+  return `${signingInput}.${signature}`;
 }
 
 async function expectErrorStatus(
@@ -23,18 +39,24 @@ async function expectErrorStatus(
 async function submitVerification(
   request: APIRequestContext,
   baseURL: string,
-  token: string,
   clientId: string,
 ): Promise<{ clientId: string; identityVerificationStatus: string }> {
-  const response = await request.post(`${baseURL}/api/clients/${clientId}/verify`, {
-    headers: authHeaders(token),
+  const response = await request.post(`${baseURL}/api/clients/${clientId}/upload-verify`, {
     data: {
-      approved: true,
+      verificationToken: mintVerificationToken(clientId, VERIFICATION_TOKEN_SECRET),
+      primaryDocumentType: "NRIC",
+      primaryDocumentRef: "primary-id.jpg",
+      primaryDocumentBase64: Buffer.from("primary-doc").toString("base64"),
+      primaryDocumentMimeType: "image/jpeg",
+      addressDocumentType: "UTILITY_BILL",
+      addressDocumentRef: "proof-of-address.pdf",
+      addressDocumentBase64: Buffer.from("%PDF-1.4 fake-proof-of-address").toString("base64"),
+      addressDocumentMimeType: "application/pdf",
     },
   });
   return expectOkJson<{ clientId: string; identityVerificationStatus: string }>(
     response,
-    "submit client verification",
+    "submit client verification documents",
   );
 }
 
@@ -60,7 +82,7 @@ test.describe("Verification Workflow Governance Contract", () => {
     const { agentA, agentB } = await createAgentPairAndLogin(request, baseURL, adminTokens.accessToken);
     const { clientId } = await createClientForUser(request, baseURL, agentA.tokens.accessToken);
 
-    const submitPayload = await submitVerification(request, baseURL, agentA.tokens.accessToken, clientId);
+    const submitPayload = await submitVerification(request, baseURL, clientId);
     expect(submitPayload.clientId).toBe(clientId);
     expect(submitPayload.identityVerificationStatus).toBe("pending");
 
@@ -109,7 +131,7 @@ test.describe("Verification Workflow Governance Contract", () => {
     const { agentA } = await createAgentPairAndLogin(request, baseURL, adminTokens.accessToken);
 
     const { clientId: rejectedClientId } = await createClientForUser(request, baseURL, agentA.tokens.accessToken);
-    await submitVerification(request, baseURL, agentA.tokens.accessToken, rejectedClientId);
+    await submitVerification(request, baseURL, rejectedClientId);
 
     const rejectResponse = await request.patch(`${baseURL}/api/clients/${rejectedClientId}/verify/review`, {
       headers: authHeaders(adminTokens.accessToken),
@@ -130,7 +152,7 @@ test.describe("Verification Workflow Governance Contract", () => {
       baseURL,
       agentA.tokens.accessToken,
     );
-    await submitVerification(request, baseURL, agentA.tokens.accessToken, invalidPayloadClientId);
+    await submitVerification(request, baseURL, invalidPayloadClientId);
 
     const invalidReview = await request.patch(`${baseURL}/api/clients/${invalidPayloadClientId}/verify/review`, {
       headers: authHeaders(adminTokens.accessToken),

@@ -2,9 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { VerificationForm } from '../VerificationForm'
-import type { VerifyClientRequest } from '@/api/types'
+import type { UploadVerificationDocsRequest } from '@/api/types'
 
-const defaultVerifyData: VerifyClientRequest = {
+const defaultVerifyData: UploadVerificationDocsRequest = {
+  verificationToken: 'test-token',
   primaryDocumentType: 'NRIC',
   primaryDocumentRef: '',
   primaryDocumentBase64: '',

@@ -3,7 +3,6 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import {
   getClientById,
-  verifyClient,
   reviewVerification,
   deleteClient,
   listClientAccounts,
@@ -13,7 +12,6 @@ import { listClientCommunications, sendCommunication } from '@/api/communication
 import type {
   Client,
   Transaction,
-  VerifyClientRequest,
   Account,
   Communication,
   ReviewAction,
@@ -22,7 +20,6 @@ import type { SendCommunicationRequest } from '@/api/communications'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 import { ClientDetail } from '@/components/ClientDetail'
-import { VerificationForm } from '@/components/VerificationForm'
 import { VerificationReviewPanel } from '@/components/VerificationReviewPanel'
 import { RecentTransactionsTable } from '@/components/RecentTransactionsTable'
 import { BankAccountsPreview } from '@/components/BankAccountsPreview'
@@ -56,17 +53,6 @@ const statusColors: Record<string, string> = {
   rejected: 'bg-danger/20 text-danger',
 }
 
-const emptyVerifyPayload = (): VerifyClientRequest => ({
-  primaryDocumentType: 'NRIC',
-  primaryDocumentRef: '',
-  primaryDocumentBase64: '',
-  primaryDocumentMimeType: '',
-  addressDocumentType: 'UTILITY_BILL',
-  addressDocumentRef: '',
-  addressDocumentBase64: '',
-  addressDocumentMimeType: '',
-})
-
 export function ClientDetailPage() {
   const { clientId } = useParams<{ clientId: string }>()
   const { user, logout } = useAuth()
@@ -81,7 +67,6 @@ export function ClientDetailPage() {
   const canReviewVerification = isManagementUser
   const canDeleteClient = isUser || isManagementUser
   const canEditClient = isUser || isManagementUser
-  const canVerifyClient = isUser || isManagementUser
   const canSendCommunication = isUser || isManagementUser
 
   const sidebarNav: NavItem[] = isManagementUser
@@ -103,10 +88,6 @@ export function ClientDetailPage() {
   const navSuccessMessage =
     (location.state as { successMessage?: string } | null)?.successMessage || ''
 
-  const [showVerifyForm, setShowVerifyForm] = useState(false)
-  const [verifyData, setVerifyData] = useState<VerifyClientRequest>(emptyVerifyPayload())
-  const [verifyError, setVerifyError] = useState<string>('')
-  const [isVerifying, setIsVerifying] = useState(false)
   const [verifySuccess, setVerifySuccess] = useState<string>(navSuccessMessage)
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -202,42 +183,6 @@ export function ClientDetailPage() {
       }
     } finally {
       setIsReviewing(false)
-    }
-  }
-
-  const handleVerify = async (e: FormEvent) => {
-    e.preventDefault()
-    if (!clientId || !canVerifyClient) return
-
-    if (!verifyData.primaryDocumentBase64 || !verifyData.addressDocumentBase64) {
-      setVerifyError('Please upload both required documents.')
-      return
-    }
-
-    setIsVerifying(true)
-    setVerifyError('')
-    setVerifySuccess('')
-
-    try {
-      const result = await verifyClient(clientId, verifyData)
-      setVerifySuccess(
-        `Verification submitted for review (status: ${result.identityVerificationStatus})`
-      )
-      setShowVerifyForm(false)
-      setVerifyData(emptyVerifyPayload())
-
-      const updated = await getClientById(clientId)
-      setClient(updated)
-    } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 401) logout()
-        else if (err.status === 403) setVerifyError('You are not allowed to verify this client.')
-        else setVerifyError(err.message || 'Verification failed')
-      } else {
-        setVerifyError('An unexpected error occurred')
-      }
-    } finally {
-      setIsVerifying(false)
     }
   }
 
@@ -389,21 +334,9 @@ export function ClientDetailPage() {
             canEditClient ? () => navigate(`${basePath}/clients/${clientId}/edit`) : undefined
           }
           onDelete={canDeleteClient ? () => setShowDeleteConfirm(true) : undefined}
-          onToggleVerify={canVerifyClient ? () => setShowVerifyForm(v => !v) : undefined}
-          showVerifyButton={canVerifyClient && client.identityVerificationStatus === 'unverified'}
-          showVerifyForm={showVerifyForm}
+          showVerifyButton={false}
+          showVerifyForm={false}
         />
-
-        {showVerifyForm && canVerifyClient && (
-          <VerificationForm
-            verifyData={verifyData}
-            setVerifyData={setVerifyData}
-            verifyError={verifyError}
-            isVerifying={isVerifying}
-            onSubmit={handleVerify}
-            onCancel={() => setShowVerifyForm(false)}
-          />
-        )}
 
         {canReviewVerification && client.identityVerificationStatus === 'pending' && (
           <VerificationReviewPanel

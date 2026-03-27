@@ -5,7 +5,7 @@ import {
   createClient,
   updateClient,
   deleteClient,
-  verifyClient,
+  uploadVerificationDocs,
   reviewVerification,
   createAccount,
   updateAccount,
@@ -17,7 +17,7 @@ import type {
   Client,
   ClientCreateRequest,
   ClientUpdateRequest,
-  VerifyClientRequest,
+  UploadVerificationDocsRequest,
   VerifyClientResponse,
   ReviewVerificationRequest,
   Account,
@@ -206,9 +206,9 @@ describe('clients API', () => {
     })
   })
 
-  describe('verifyClient', () => {
-    it('should verify client identity', async () => {
-      const verifyRequest: VerifyClientRequest = {
+  describe('uploadVerificationDocs', () => {
+    it('should upload verification documents via public endpoint', async () => {
+      const verifyRequest: UploadVerificationDocsRequest = {
         verificationToken: '123123123123',
         primaryDocumentType: 'NRIC',
         primaryDocumentRef: 'asdfasdfasdf',
@@ -227,14 +227,18 @@ describe('clients API', () => {
 
       vi.spyOn(client, 'apiPost').mockResolvedValue(mockResponse)
 
-      const result = await verifyClient('client-123', verifyRequest)
+      const result = await uploadVerificationDocs('client-123', verifyRequest)
 
-      expect(client.apiPost).toHaveBeenCalledWith('/api/clients/client-123/verify', verifyRequest)
+      expect(client.apiPost).toHaveBeenCalledWith(
+        '/api/clients/client-123/upload-verify',
+        verifyRequest,
+        { skipAuth: true }
+      )
       expect(result).toEqual(mockResponse)
     })
 
     it('should return pending verification response', async () => {
-      const verifyRequest: VerifyClientRequest = {
+      const verifyRequest: UploadVerificationDocsRequest = {
         verificationToken: '123123123123',
         primaryDocumentType: 'NRIC',
         primaryDocumentRef: 'asdfasdfasdf',
@@ -253,7 +257,7 @@ describe('clients API', () => {
 
       vi.spyOn(client, 'apiPost').mockResolvedValue(mockResponse)
 
-      const result = await verifyClient('client-999', verifyRequest)
+      const result = await uploadVerificationDocs('client-999', verifyRequest)
 
       expect(result.identityVerificationStatus).toBe('pending')
     })
