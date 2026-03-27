@@ -117,6 +117,10 @@ def detect_bash() -> Optional[str]:
     return None
 
 
+def detect_opentofu() -> Optional[str]:
+    return shutil.which("opentofu") or shutil.which("tofu")
+
+
 def gradle_command(service_dir: Path, *args: str) -> List[str]:
     if is_windows():
         wrapper = service_dir / "gradlew.bat"
@@ -294,6 +298,21 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                 "AWS_SHARED_CREDENTIALS_FILE": _no_creds_path,
                 "AWS_CONFIG_FILE": _no_creds_path,
             }
+            _tf_flags_env = {
+                **_tf_no_aws_env,
+                "TF_VAR_enable_log_lambda": "true",
+                "TF_VAR_enable_aml_lambda": "true",
+                "TF_VAR_enable_sftp_transaction_collector": "true",
+                "TF_VAR_enable_verification_pipeline": "true",
+                "TF_VAR_enable_audit_pipeline": "true",
+                "TF_VAR_enable_aml_pipeline": "true",
+                "TF_VAR_ses_sender_email": "verification@crm.local",
+            }
+            _tofu_cmd = detect_opentofu()
+            if not _tofu_cmd:
+                print(
+                    "[WARN] OpenTofu not found in PATH; skipping OpenTofu init/validate steps."
+                )
             steps.append(
                 Step(
                     phase=phase,
@@ -355,18 +374,37 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                     name="Terraform validate (operable lambda feature flags)",
                     cwd=terraform_dir,
                     command=["terraform", "validate"],
-                    env={
-                        **_tf_no_aws_env,
-                        "TF_VAR_enable_log_lambda": "true",
-                        "TF_VAR_enable_aml_lambda": "true",
-                        "TF_VAR_enable_sftp_transaction_collector": "true",
-                        "TF_VAR_enable_verification_pipeline": "true",
-                        "TF_VAR_enable_audit_pipeline": "true",
-                        "TF_VAR_enable_aml_pipeline": "true",
-                        "TF_VAR_ses_sender_email": "verification@crm.local",
-                    },
+                    env=_tf_flags_env,
                 )
             )
+            if _tofu_cmd:
+                steps.append(
+                    Step(
+                        phase=phase,
+                        name="OpenTofu init (no backend)",
+                        cwd=terraform_dir,
+                        command=[_tofu_cmd, "init", "-backend=false"],
+                        env=_tf_no_aws_env,
+                    )
+                )
+                steps.append(
+                    Step(
+                        phase=phase,
+                        name="OpenTofu validate",
+                        cwd=terraform_dir,
+                        command=[_tofu_cmd, "validate"],
+                        env=_tf_no_aws_env,
+                    )
+                )
+                steps.append(
+                    Step(
+                        phase=phase,
+                        name="OpenTofu validate (operable lambda feature flags)",
+                        cwd=terraform_dir,
+                        command=[_tofu_cmd, "validate"],
+                        env=_tf_flags_env,
+                    )
+                )
             if tflint_available:
                 steps.append(
                     Step(

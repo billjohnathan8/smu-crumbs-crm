@@ -66,6 +66,10 @@ def build_tf_no_aws_env() -> Dict[str, str]:
     }
 
 
+def detect_opentofu() -> str | None:
+    return shutil.which("opentofu") or shutil.which("tofu")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run Terraform-only local pipeline checks (isolated from test_all.py)."
@@ -116,6 +120,10 @@ def main() -> int:
         "TF_VAR_ses_sender_email": "verification@crm.local",
     }
 
+    tofu_cmd = detect_opentofu()
+    if tofu_cmd is None:
+        print("[WARN] OpenTofu not found in PATH; skipping OpenTofu init/validate steps.")
+
     steps: List[Step] = [
         Step(
             name="Terraform fmt check",
@@ -152,6 +160,33 @@ def main() -> int:
                 env=tf_flags_env,
             )
         )
+
+    if tofu_cmd is not None:
+        steps.append(
+            Step(
+                name="OpenTofu init (no backend)",
+                cwd=TERRAFORM_DIR,
+                command=[tofu_cmd, "init", "-backend=false"],
+                env=tf_no_aws_env,
+            )
+        )
+        steps.append(
+            Step(
+                name="OpenTofu validate",
+                cwd=TERRAFORM_DIR,
+                command=[tofu_cmd, "validate"],
+                env=tf_no_aws_env,
+            )
+        )
+        if not args.skip_lambda_artifacts:
+            steps.append(
+                Step(
+                    name="OpenTofu validate (operable lambda feature flags)",
+                    cwd=TERRAFORM_DIR,
+                    command=[tofu_cmd, "validate"],
+                    env=tf_flags_env,
+                )
+            )
 
     if not args.skip_tflint:
         if shutil.which("tflint") is None:
@@ -233,3 +268,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

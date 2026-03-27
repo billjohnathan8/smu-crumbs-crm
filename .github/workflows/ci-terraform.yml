@@ -64,6 +64,10 @@ jobs:
         timeout-minutes: 2
         run: terraform fmt -check -recursive
 
+      - name: Set up OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        timeout-minutes: 2
+
       - name: terraform init (no backend)
         timeout-minutes: 5
         run: terraform init -backend=false
@@ -71,6 +75,14 @@ jobs:
       - name: terraform validate
         timeout-minutes: 2
         run: terraform validate
+
+      - name: opentofu init (no backend)
+        timeout-minutes: 5
+        run: tofu init -backend=false
+
+      - name: opentofu validate
+        timeout-minutes: 2
+        run: tofu validate
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v5
@@ -93,6 +105,18 @@ jobs:
           TF_VAR_enable_aml_pipeline: "true"
           TF_VAR_ses_sender_email: "verification@crm.local"
         run: terraform validate
+
+      - name: opentofu validate (operable lambda feature flags)
+        timeout-minutes: 2
+        env:
+          TF_VAR_enable_log_lambda: "true"
+          TF_VAR_enable_aml_lambda: "true"
+          TF_VAR_enable_sftp_transaction_collector: "true"
+          TF_VAR_enable_verification_pipeline: "true"
+          TF_VAR_enable_audit_pipeline: "true"
+          TF_VAR_enable_aml_pipeline: "true"
+          TF_VAR_ses_sender_email: "verification@crm.local"
+        run: tofu validate
 
       - name: Prepare Terraform plan artifact directory
         timeout-minutes: 1

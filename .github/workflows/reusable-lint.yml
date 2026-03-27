@@ -22,7 +22,7 @@ on:
         type: boolean
         default: false
       run-terraform:
-        description: 'Run terraform fmt, validate, integration-contract plan artifact, tflint, and checkov for platform/terraform'
+        description: 'Run terraform + opentofu fmt/validate lanes, integration-contract plan artifact, tflint, and checkov for platform/terraform'
         required: false
         type: boolean
         default: false
@@ -198,6 +198,10 @@ jobs:
         timeout-minutes: 2
         run: terraform fmt -check -recursive
 
+      - name: Set up OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        timeout-minutes: 2
+
       - name: terraform init (no backend)
         timeout-minutes: 5
         run: terraform init -backend=false
@@ -205,6 +209,14 @@ jobs:
       - name: terraform validate
         timeout-minutes: 2
         run: terraform validate
+
+      - name: opentofu init (no backend)
+        timeout-minutes: 5
+        run: tofu init -backend=false
+
+      - name: opentofu validate
+        timeout-minutes: 2
+        run: tofu validate
 
       - name: Prepare lambda zip artifacts for feature-gated validate
         timeout-minutes: 1
@@ -238,6 +250,20 @@ jobs:
           TF_VAR_aml_consumer_zip_path: ".ci-artifacts/aml-consumer-lambda.zip"
           TF_VAR_ses_sender_email: "verification@crm.local"
         run: terraform validate
+
+      - name: opentofu validate (operable lambda + pipeline flags)
+        timeout-minutes: 2
+        env:
+          TF_VAR_enable_log_lambda: "true"
+          TF_VAR_log_lambda_zip_path: ".ci-artifacts/log-lambda.zip"
+          TF_VAR_enable_verification_pipeline: "true"
+          TF_VAR_verification_zip_path: ".ci-artifacts/verification-lambda.zip"
+          TF_VAR_enable_audit_pipeline: "true"
+          TF_VAR_audit_consumer_zip_path: ".ci-artifacts/audit-consumer-lambda.zip"
+          TF_VAR_enable_aml_pipeline: "true"
+          TF_VAR_aml_consumer_zip_path: ".ci-artifacts/aml-consumer-lambda.zip"
+          TF_VAR_ses_sender_email: "verification@crm.local"
+        run: tofu validate
 
       - name: Prepare Terraform plan artifact directory
         timeout-minutes: 1
