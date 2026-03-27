@@ -427,11 +427,11 @@ components:
         primaryDocumentType: {type: string, enum: [NRIC, PASSPORT, EMPLOYMENT_PASS]}
         primaryDocumentRef: {type: string, description: Original filename for primary identity document.}
         primaryDocumentBase64: {type: string, description: Base64-encoded primary identity document bytes.}
-        primaryDocumentMimeType: {type: string, description: MIME type for primary identity document, e.g. image/jpeg.}
+        primaryDocumentMimeType: {type: string, description: "MIME type for primary identity document, e.g. image/jpeg."}
         addressDocumentType: {type: string, enum: [UTILITY_BILL, BANK_STATEMENT, GOVERNMENT_LETTER, TENANCY_AGREEMENT]}
         addressDocumentRef: {type: string, description: Original filename for proof-of-address document.}
         addressDocumentBase64: {type: string, description: Base64-encoded proof-of-address document bytes.}
-        addressDocumentMimeType: {type: string, description: MIME type for proof-of-address document, e.g. application/pdf.}
+        addressDocumentMimeType: {type: string, description: "MIME type for proof-of-address document, e.g. application/pdf."}
       required: [verificationToken, primaryDocumentType, primaryDocumentRef, primaryDocumentBase64, primaryDocumentMimeType, addressDocumentType, addressDocumentRef, addressDocumentBase64, addressDocumentMimeType]
       additionalProperties: false
     VerifyClientResponse:
