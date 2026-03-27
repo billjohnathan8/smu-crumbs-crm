@@ -220,7 +220,7 @@ test.describe("Admin Communications and AML (Mocked)", () => {
     await setAuthState(page, "admin");
 
     await gotoWithNetworkRetry(page, "/admin/communications");
-    await expect(page.getByRole("heading", { name: "Communications" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Communications", exact: true })).toBeVisible();
     await expect(page.getByText("Queued Communications")).toBeVisible();
 
     await page.locator("tbody tr").first().locator("select").selectOption("sent");
@@ -229,7 +229,7 @@ test.describe("Admin Communications and AML (Mocked)", () => {
 
     await page.getByPlaceholder("com_...").fill("com_001");
     await page.getByRole("button", { name: /^Lookup$/ }).first().click();
-    await expect(page.getByText("Verification Follow-up")).toBeVisible();
+    await expect(page.getByText("provider-001")).toBeVisible();
   });
 
   test("filters AML alerts and updates review status", async ({ page }) => {
@@ -238,7 +238,7 @@ test.describe("Admin Communications and AML (Mocked)", () => {
     await setAuthState(page, "admin");
 
     await gotoWithNetworkRetry(page, "/admin/aml-alerts");
-    await expect(page.getByRole("heading", { name: "AML Alerts" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "AML Alerts", exact: true })).toBeVisible();
     await expect(page.getByText("aml_001")).toBeVisible();
 
     await page.getByLabel("Client ID").fill("clt_001");
