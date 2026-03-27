@@ -9,6 +9,7 @@ type CommunicationsPanelProps = {
   formatDate: (dateStr?: string) => string
 
   title?: string
+  titleAsHeading?: boolean
   emptyMessage?: string
   refreshLabel?: string
   onRefresh?: () => void
@@ -35,6 +36,7 @@ export function CommunicationsPanel({
   communications,
   formatDate,
   title = 'Communications',
+  titleAsHeading = true,
   emptyMessage = 'No communications found',
   refreshLabel = 'Refresh',
   onRefresh,
@@ -71,7 +73,11 @@ export function CommunicationsPanel({
   return (
     <div className="rounded-lg  bg-card">
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
-        <h2 className="text-lg font-normal text-text">{title}</h2>
+        {titleAsHeading ? (
+          <h2 className="text-lg font-normal text-text">{title}</h2>
+        ) : (
+          <p className="text-lg font-normal text-text">{title}</p>
+        )}
 
         <div className="flex items-center gap-2">
           {onRefresh && (
