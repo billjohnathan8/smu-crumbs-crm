@@ -96,7 +96,9 @@ export async function startTransactionImport(
   data?: ImportTransactionsRequest
 ): Promise<ImportBatch> {
   const payload = data && (data.clientId || data.sourcePath) ? data : undefined
-  return apiPost<ImportBatch, ImportTransactionsRequest | undefined>(`${BASE}/import`, payload)
+  return apiPost<ImportBatch, ImportTransactionsRequest | undefined>(`${BASE}/import`, payload, {
+    timeout: 15_000,
+  })
 }
 
 /**
