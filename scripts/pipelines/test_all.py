@@ -755,7 +755,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                 phase=phase,
                 name="Frontend npm audit fix",
                 cwd=frontend_dir,
-                command=["npm", "audit", "fix"],
+                command=["npm", "audit", "fix", "--omit=dev", "--package-lock-only"],
             )
         )
         steps.append(
@@ -763,7 +763,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                 phase=phase,
                 name="Frontend npm audit",
                 cwd=frontend_dir,
-                command=["npm", "audit"],
+                command=["npm", "audit", "--omit=dev"],
             )
         )
 
