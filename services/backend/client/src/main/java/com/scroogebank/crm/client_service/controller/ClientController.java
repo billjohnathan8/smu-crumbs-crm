@@ -6,7 +6,6 @@ import com.scroogebank.crm.client_service.dto.ClientListResponse;
 import com.scroogebank.crm.client_service.dto.ClientUpdateRequest;
 import com.scroogebank.crm.client_service.dto.ReviewVerificationRequest;
 import com.scroogebank.crm.client_service.dto.UploadVerificationDocsRequest;
-import com.scroogebank.crm.client_service.dto.VerifyClientRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 import com.scroogebank.crm.client_service.security.RequestAuth;
@@ -143,25 +142,6 @@ public class ClientController {
 		@Valid @RequestBody UploadVerificationDocsRequest request
 	) {
 		return clientService.uploadVerificationDocs(clientId, request, requestId(httpRequest));
-	}
-
-	/**
-	 * Marks a client's identity verification status as verified / rejected.
-	 *
-	 * @param httpRequest HTTP request used for auth and correlation id extraction
-	 * @param clientId public client identifier
-	 * @param request verification payload
-	 * @return verification response
-	 */
-	@PostMapping("/{id}/verify")
-	public VerifyClientResponse verifyClient(
-		HttpServletRequest httpRequest,
-		@PathVariable("id") String clientId,
-		@Valid @RequestBody VerifyClientRequest request
-	) {
-		AuthenticatedUser user = requestAuth.requireUser(httpRequest);
-		String authorizationHeader = httpRequest.getHeader("Authorization");
-		return clientService.verifyClient(user, clientId, request, authorizationHeader, requestId(httpRequest));
 	}
 
 	/**

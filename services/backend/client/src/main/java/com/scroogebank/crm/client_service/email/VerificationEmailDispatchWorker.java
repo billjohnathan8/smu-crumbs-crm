@@ -8,12 +8,16 @@ import org.springframework.stereotype.Component;
 
 /**
  * Scheduled worker that retries queued verification email communications.
+ *
+ * Legacy side-path for queued verification communication retries.
+ * Canonical CRUMBS verification flow uses SNS -> verification Lambda for
+ * email delivery. This worker is intentionally opt-in only.
  */
 @Component
 @ConditionalOnProperty(
 	name = "app.verification-email.dispatch.enabled",
 	havingValue = "true",
-	matchIfMissing = true
+	matchIfMissing = false
 )
 public class VerificationEmailDispatchWorker {
 	private static final Logger LOGGER = LoggerFactory.getLogger(VerificationEmailDispatchWorker.class);

@@ -25,7 +25,7 @@ public class SnsEmailPublisherService {
     public SnsEmailPublisherService(
         SnsClient snsClient,
         ObjectMapper objectMapper,
-        @Value("${aws.sns.verification-topic-arn:arn:aws:sns:ap-southeast-1:000000000000:scroogebank-crm-dev-verification}") String verificationTopicArn
+        @Value("${app.verification.sns-topic-arn}") String verificationTopicArn
     ) {
         this.snsClient           = snsClient;
         this.objectMapper        = objectMapper;
@@ -41,21 +41,29 @@ public class SnsEmailPublisherService {
      * @param token     verification token when client send back the documents
      * @param firstName recipient first name (used in email greeting)
      * @param requestId correlation ID for tracing
+     * @param tokenTtlSeconds verification token lifetime in seconds for user-facing expiry copy
      */
     public void publishVerificationEmail(
         String clientId,
         String email,
         String token,
         String firstName,
-        String requestId
+        String requestId,
+        long tokenTtlSeconds
     ) {
+        String topicArn = verificationTopicArn == null ? "" : verificationTopicArn.trim();
+        if (topicArn.isEmpty()) {
+            throw new SnsPublishException("VERIFICATION_SNS_TOPIC_ARN must be configured for verification email publish.");
+        }
+
         Map<String, Object> payload = Map.of(
             "eventType",  "UPLOAD_VERIFICATION_REQUESTED",
             "clientId",   clientId,
             "email",      email,
             "token",      token,
             "firstName",  firstName != null ? firstName : "",
-            "requestId",  requestId != null ? requestId : ""
+            "requestId",  requestId != null ? requestId : "",
+            "tokenTtlSeconds", tokenTtlSeconds
         );
 
         String messageJson;
@@ -66,12 +74,17 @@ public class SnsEmailPublisherService {
         }
 
         PublishRequest publishRequest = PublishRequest.builder()
-            .topicArn(verificationTopicArn)
+            .topicArn(topicArn)
             .message(messageJson)
             .subject("UPLOAD_VERIFICATION_REQUESTED") // optional but useful for SNS filtering/logs
             .build();
 
-        PublishResponse response = snsClient.publish(publishRequest);
+        PublishResponse response;
+        try {
+            response = snsClient.publish(publishRequest);
+        } catch (Exception ex) {
+            throw new SnsPublishException("Failed to publish SNS verification event for clientId=" + clientId, ex);
+        }
 
         LOGGER.info(
             "Published UPLOAD_VERIFICATION_REQUESTED to SNS clientId={} requestId={} messageId={}",
@@ -79,3 +92,4 @@ public class SnsEmailPublisherService {
         );
     }
 }
+

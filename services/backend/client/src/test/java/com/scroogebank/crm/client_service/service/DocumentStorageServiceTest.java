@@ -6,7 +6,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -40,9 +39,7 @@ class DocumentStorageServiceTest {
 
     @BeforeEach
     void setUp() {
-        documentStorageService = new DocumentStorageService(s3Client);
-        // Inject @Value field since there is no Spring context in unit tests
-        ReflectionTestUtils.setField(documentStorageService, "bucket", BUCKET);
+        documentStorageService = new DocumentStorageService(s3Client, BUCKET);
     }
 
     /** Verifies that upload() returns the correct namespaced S3 key. */
@@ -171,5 +168,15 @@ class DocumentStorageServiceTest {
         ).isInstanceOf(IllegalArgumentException.class);
 
         verify(s3Client, org.mockito.Mockito.never()).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+    }
+
+    @Test
+    void upload_withoutConfiguredBucket_throwsIllegalStateException() {
+        DocumentStorageService serviceWithoutBucket = new DocumentStorageService(s3Client, "   ");
+
+        assertThatThrownBy(() ->
+            serviceWithoutBucket.upload(CLIENT_ID, CATEGORY, FILE_NAME, BASE64_DATA, MIME_TYPE)
+        ).isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("VERIFICATION_DOCUMENTS_BUCKET");
     }
 }

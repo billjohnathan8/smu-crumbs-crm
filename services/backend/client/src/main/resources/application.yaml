@@ -41,13 +41,17 @@ server:
 
 app:
   log-service-url: ${CLIENT_LOG_SERVICE_URL:${LOG_SERVICE_URL:http://localhost:4566/_aws/execute-api/local/local}}
+  verification:
+    sns-topic-arn: ${VERIFICATION_SNS_TOPIC_ARN:}
+    documents-bucket: ${VERIFICATION_DOCUMENTS_BUCKET:}
+    link-token-ttl-seconds: ${VERIFICATION_LINK_TOKEN_TTL_SECONDS:7200}
   verification-email:
     provider: ${VERIFICATION_EMAIL_PROVIDER:mock}
     sender-email: ${SES_SENDER_EMAIL:}
     aws-region: ${VERIFICATION_EMAIL_AWS_REGION:${AWS_REGION:}}
     aws-endpoint-url: ${VERIFICATION_EMAIL_AWS_ENDPOINT_URL:${AWS_ENDPOINT_URL:}}
     dispatch:
-      enabled: ${VERIFICATION_EMAIL_DISPATCH_ENABLED:true}
+      enabled: ${VERIFICATION_EMAIL_DISPATCH_ENABLED:false}
       poll-interval-ms: ${VERIFICATION_EMAIL_DISPATCH_POLL_INTERVAL_MS:30000}
       max-batch-size: ${VERIFICATION_EMAIL_DISPATCH_MAX_BATCH_SIZE:50}
       max-attempts: ${VERIFICATION_EMAIL_DISPATCH_MAX_ATTEMPTS:5}

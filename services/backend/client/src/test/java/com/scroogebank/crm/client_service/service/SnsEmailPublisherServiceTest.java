@@ -1,5 +1,6 @@
 package com.scroogebank.crm.client_service.service;
 
+import com.scroogebank.crm.client_service.exception.SnsPublishException;
 import tools.jackson.databind.json.JsonMapper;
 
 import org.junit.jupiter.api.Test;
@@ -11,12 +12,14 @@ import java.util.Map;
 
 import org.mockito.ArgumentCaptor;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.reset;
 
 class SnsEmailPublisherServiceTest {
 
@@ -26,6 +29,7 @@ class SnsEmailPublisherServiceTest {
     private static final String TOKEN      = "eyJjbGllbnRJZCI6ImNsdF9hYmMxMjMifQ.mocksig";
     private static final String FIRST_NAME = "Jane";
     private static final String REQUEST_ID = "req_test_001";
+    private static final long TOKEN_TTL_SECONDS = 7200L;
 
     private final SnsClient snsClient = mock(SnsClient.class);
     private final JsonMapper objectMapper = new JsonMapper();
@@ -44,7 +48,7 @@ class SnsEmailPublisherServiceTest {
 
     @Test
     void publishVerificationEmail_sendsToCorrectTopic() throws Exception {
-        publisher.publishVerificationEmail(CLIENT_ID, EMAIL, TOKEN, FIRST_NAME, REQUEST_ID);
+        publisher.publishVerificationEmail(CLIENT_ID, EMAIL, TOKEN, FIRST_NAME, REQUEST_ID, TOKEN_TTL_SECONDS);
 
         ArgumentCaptor<PublishRequest> captor = ArgumentCaptor.forClass(PublishRequest.class);
         verify(snsClient, times(1)).publish(captor.capture());
@@ -55,7 +59,7 @@ class SnsEmailPublisherServiceTest {
 
     @Test
     void publishVerificationEmail_subjectIsUploadVerificationRequested() {
-        publisher.publishVerificationEmail(CLIENT_ID, EMAIL, TOKEN, FIRST_NAME, REQUEST_ID);
+        publisher.publishVerificationEmail(CLIENT_ID, EMAIL, TOKEN, FIRST_NAME, REQUEST_ID, TOKEN_TTL_SECONDS);
 
         ArgumentCaptor<PublishRequest> captor = ArgumentCaptor.forClass(PublishRequest.class);
         verify(snsClient).publish(captor.capture());
@@ -64,7 +68,7 @@ class SnsEmailPublisherServiceTest {
 
     @Test
     void publishVerificationEmail_snsClientCalledExactlyOnce() {
-        publisher.publishVerificationEmail(CLIENT_ID, EMAIL, TOKEN, FIRST_NAME, REQUEST_ID);
+        publisher.publishVerificationEmail(CLIENT_ID, EMAIL, TOKEN, FIRST_NAME, REQUEST_ID, TOKEN_TTL_SECONDS);
 
         verify(snsClient, times(1)).publish(any(PublishRequest.class));
     }
@@ -74,7 +78,7 @@ class SnsEmailPublisherServiceTest {
     // -------------------------------------------------------------------------
     @Test
     void publishVerificationEmail_subjectCorrectEventType() throws Exception {
-        publisher.publishVerificationEmail(CLIENT_ID, EMAIL, TOKEN, FIRST_NAME, REQUEST_ID);
+        publisher.publishVerificationEmail(CLIENT_ID, EMAIL, TOKEN, FIRST_NAME, REQUEST_ID, TOKEN_TTL_SECONDS);
 
         Map<?, ?> payload = capturePayload();
         assertThat(payload.get("eventType")).isEqualTo("UPLOAD_VERIFICATION_REQUESTED");
@@ -82,7 +86,7 @@ class SnsEmailPublisherServiceTest {
 
     @Test
     void publishVerificationEmail_payloadContainsAllRequiredFields() throws Exception {
-        publisher.publishVerificationEmail(CLIENT_ID, EMAIL, TOKEN, FIRST_NAME, REQUEST_ID);
+        publisher.publishVerificationEmail(CLIENT_ID, EMAIL, TOKEN, FIRST_NAME, REQUEST_ID, TOKEN_TTL_SECONDS);
 
         Map<?, ?> payload = capturePayload();
         assertThat(payload.get("clientId")).isEqualTo(CLIENT_ID);
@@ -90,6 +94,7 @@ class SnsEmailPublisherServiceTest {
         assertThat(payload.get("token")).isEqualTo(TOKEN);
         assertThat(payload.get("firstName")).isEqualTo(FIRST_NAME);
         assertThat(payload.get("requestId")).isEqualTo(REQUEST_ID);
+        assertThat(payload.get("tokenTtlSeconds")).isEqualTo((int) TOKEN_TTL_SECONDS);
     }
 
     // -------------------------------------------------------------------------
@@ -97,7 +102,7 @@ class SnsEmailPublisherServiceTest {
     // -------------------------------------------------------------------------
     @Test
     void publishVerificationEmail_handlesNullFirstName_gracefully() throws Exception {
-        publisher.publishVerificationEmail(CLIENT_ID, EMAIL, TOKEN, null, REQUEST_ID);
+        publisher.publishVerificationEmail(CLIENT_ID, EMAIL, TOKEN, null, REQUEST_ID, TOKEN_TTL_SECONDS);
 
         Map<?, ?> payload = capturePayload();
         assertThat(payload.get("firstName")).isEqualTo("");   // null coerced to ""
@@ -105,9 +110,30 @@ class SnsEmailPublisherServiceTest {
 
     @Test
     void publishVerificationEmail_nullRequestId_coercedToEmptyString() throws Exception {
-        publisher.publishVerificationEmail(CLIENT_ID, EMAIL, TOKEN, FIRST_NAME, null);
+        publisher.publishVerificationEmail(CLIENT_ID, EMAIL, TOKEN, FIRST_NAME, null, TOKEN_TTL_SECONDS);
 
         assertThat(capturePayload().get("requestId")).isEqualTo("");
+    }
+
+    @Test
+    void publishVerificationEmail_withoutConfiguredTopicArn_throws() {
+        SnsEmailPublisherService service = new SnsEmailPublisherService(snsClient, objectMapper, "   ");
+
+        assertThatThrownBy(() ->
+            service.publishVerificationEmail(CLIENT_ID, EMAIL, TOKEN, FIRST_NAME, REQUEST_ID, TOKEN_TTL_SECONDS)
+        ).isInstanceOf(SnsPublishException.class)
+            .hasMessageContaining("VERIFICATION_SNS_TOPIC_ARN");
+    }
+
+    @Test
+    void publishVerificationEmail_whenSnsClientThrows_wrapsAsSnsPublishException() {
+        reset(snsClient);
+        when(snsClient.publish(any(PublishRequest.class))).thenThrow(new RuntimeException("sns down"));
+
+        assertThatThrownBy(() ->
+            publisher.publishVerificationEmail(CLIENT_ID, EMAIL, TOKEN, FIRST_NAME, REQUEST_ID, TOKEN_TTL_SECONDS)
+        ).isInstanceOf(SnsPublishException.class)
+            .hasMessageContaining("Failed to publish SNS verification event");
     }
 
     // -------------------------------------------------------------------------
@@ -120,3 +146,4 @@ class SnsEmailPublisherServiceTest {
         return objectMapper.readValue(captor.getValue().message(), Map.class);
     }
 }
+

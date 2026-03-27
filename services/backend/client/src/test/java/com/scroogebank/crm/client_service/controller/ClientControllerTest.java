@@ -10,6 +10,7 @@ import com.scroogebank.crm.client_service.entity.Gender;
 import com.scroogebank.crm.client_service.exception.ApiExceptionHandler;
 import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
 import com.scroogebank.crm.client_service.exception.DuplicateClientException;
+import com.scroogebank.crm.client_service.exception.SnsPublishException;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 import com.scroogebank.crm.client_service.security.RequestAuth;
 import com.scroogebank.crm.client_service.security.UnauthorizedException;
@@ -178,6 +179,19 @@ class ClientControllerTest {
     }
 
     @Test
+    void createClient_snsPublishFailure_returnsServiceUnavailable() throws Exception {
+        when(clientService.createClient(any(), any(), any(), any()))
+            .thenThrow(new SnsPublishException("sns down"));
+
+        mockMvc.perform(post("/api/clients")
+                .header("Authorization", AUTH_HEADER)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(createRequestJson()))
+            .andExpect(status().isServiceUnavailable())
+            .andExpect(jsonPath("$.error").value("service_unavailable"));
+    }
+
+    @Test
     void createClient_unknownField_returnsBadRequest() throws Exception {
         String payloadWithUnknownField = """
             {
@@ -276,3 +290,4 @@ class ClientControllerTest {
         .andExpect(status().isUnauthorized());
     }
 }
+

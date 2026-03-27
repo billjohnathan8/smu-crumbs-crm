@@ -9,6 +9,7 @@ import java.util.StringJoiner;
 import org.springframework.security.access.AccessDeniedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,7 +21,6 @@ import com.scroogebank.crm.client_service.dto.ClientUpdateRequest;
 import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
 import com.scroogebank.crm.client_service.dto.ReviewVerificationRequest;
 import com.scroogebank.crm.client_service.dto.UploadVerificationDocsRequest;
-import com.scroogebank.crm.client_service.dto.VerifyClientRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
 import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
@@ -45,19 +45,25 @@ public class ClientServiceImpl implements ClientService {
 	private final DocumentStorageService documentStorageService;
 	private final VerificationTokenService verificationTokenService;
     private final SnsEmailPublisherService snsEmailPublisherService;
+	private final long verificationLinkTokenTtlSeconds;
 
 	public ClientServiceImpl(
 		ClientRepository clientRepository,
 		ClientAuditLogger clientAuditLogger,
 		DocumentStorageService documentStorageService,
 		VerificationTokenService verificationTokenService,
-		SnsEmailPublisherService snsEmailPublisherService
+		SnsEmailPublisherService snsEmailPublisherService,
+		@Value("${app.verification.link-token-ttl-seconds:7200}") Long verificationLinkTokenTtlSeconds
 	) {
 		this.clientRepository = clientRepository;
 		this.clientAuditLogger = clientAuditLogger;
 		this.documentStorageService = documentStorageService;
 		this.verificationTokenService = verificationTokenService;
 		this.snsEmailPublisherService = snsEmailPublisherService;
+		this.verificationLinkTokenTtlSeconds =
+			verificationLinkTokenTtlSeconds != null && verificationLinkTokenTtlSeconds > 0
+				? verificationLinkTokenTtlSeconds
+				: 7200;
 	}
 
 	/**
@@ -155,14 +161,17 @@ public class ClientServiceImpl implements ClientService {
 		);
 
 		// generate token
-		String token = verificationTokenService.generateVerificationToken(apiClientId, 7200);
+		String token = verificationTokenService.generateVerificationToken(apiClientId, verificationLinkTokenTtlSeconds);
 
 		// Publish verification event to SNS (downstream SNS -> SES will send the email)
-		try {
-			snsEmailPublisherService.publishVerificationEmail(apiClientId, saved.getEmailAddress(), token, saved.getFirstName(), requestId);
-		} catch (Exception e) {
-            LOGGER.warn("Create succeeded but SNS publish failed for clientId={}", apiClientId, e);
-		}
+		snsEmailPublisherService.publishVerificationEmail(
+			apiClientId,
+			saved.getEmailAddress(),
+			token,
+			saved.getFirstName(),
+			requestId,
+			verificationLinkTokenTtlSeconds
+		);
 
 		return toDto(saved);
 	}
@@ -267,50 +276,6 @@ public class ClientServiceImpl implements ClientService {
 		);
 	}
 
-	/**
-	 * Submits a client for verification review by moving it into pending state.
-	 *
-	 * @param user authenticated user
-	 * @param clientId public client identifier
-	 * @param request verification payload
-	 * @param authorizationHeader bearer token for downstream audit logging
-	 * @param requestId request correlation id
-	 * @return verification response
-	 * 
-	 */
-	@Override
-	@Transactional
-	public VerifyClientResponse verifyClient(
-		AuthenticatedUser user,
-		String clientId,
-		VerifyClientRequest request,
-		String authorizationHeader,
-		String requestId
-	) {
-		// Keep the payload contract validated even though submission now always enters pending.
-		Objects.requireNonNull(request, "request");
-		ClientEntity entity = loadOwnedClient(user, clientId);
-		IdentityVerificationStatus before = entity.getIdentityVerificationStatus();
-
-		entity.setIdentityVerificationStatus(IdentityVerificationStatus.pending);
-		entity.setVerificationVerifiedAt(null);
-
-		ClientEntity saved = clientRepository.save(entity);
-
-		publishAuditSafe(
-			"UPDATE",
-			"identityVerificationStatus",
-			before == null ? null : before.name(),
-			saved.getIdentityVerificationStatus().name(),
-			user.userId(),
-			clientId(saved.getId()),
-			requestId,
-			authorizationHeader
-		);
-
-		return new VerifyClientResponse(clientId(saved.getId()), saved.getIdentityVerificationStatus());
-	}
-
 	@Override
 	@Transactional
 	public VerifyClientResponse reviewVerification(
@@ -379,6 +344,11 @@ public class ClientServiceImpl implements ClientService {
 		long dbId = decodeClientId(clientId);
 		ClientEntity entity = clientRepository.findById(dbId)
         	.orElseThrow(() -> new ClientNotFoundException(clientId));
+
+		IdentityVerificationStatus before = entity.getIdentityVerificationStatus();
+		if (before == IdentityVerificationStatus.verified || before == IdentityVerificationStatus.rejected) {
+			throw new IllegalStateException("Verification upload is not allowed after review decision");
+		}
 		// Upload documents to S3
 		String primaryKey = documentStorageService.upload(
 			clientId,
