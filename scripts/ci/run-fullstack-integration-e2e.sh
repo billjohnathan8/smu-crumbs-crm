@@ -12,6 +12,7 @@ DB_ENDPOINT_GUARD_SCRIPT="${ROOT_DIR}/scripts/ci/guard-no-prod-db.sh"
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-http://127.0.0.1:18088}"
 COMPOSE_PROJECT_NAME="crm-fullstack-it-${GITHUB_RUN_ID:-local}"
 FULLSTACK_MODE="${FULLSTACK_MODE:-full}" # full | pr | smoke
+FULLSTACK_LOCAL_DOCKER_PRUNE="${FULLSTACK_LOCAL_DOCKER_PRUNE:-1}"
 case "${FULLSTACK_MODE}" in
   full|pr|smoke) ;;
   *)
@@ -353,6 +354,18 @@ cleanup() {
   dump_compose_logs
   docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" down -v --remove-orphans \
     >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
+
+  if [[ "${GITHUB_ACTIONS:-}" != "true" && "${FULLSTACK_LOCAL_DOCKER_PRUNE}" == "1" ]]; then
+    local leftover_ids=""
+    leftover_ids="$(docker ps -aq --filter "name=crm-fullstack-it-" 2>/dev/null || true)"
+    if [[ -n "${leftover_ids}" ]]; then
+      docker rm -f ${leftover_ids} >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
+    fi
+    docker container prune -f >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
+    docker volume prune -f >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
+    docker network prune -f >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
+    docker system prune -af --volumes >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
+  fi
 
   local total_elapsed
   total_elapsed=$(( $(date +%s) - SCRIPT_START_TS ))
