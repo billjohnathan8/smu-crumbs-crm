@@ -54,6 +54,8 @@ enable_cognito            = true
 cognito_mfa_configuration = "OPTIONAL"
 auth_mode                 = "hybrid"
 cloudfront_price_class    = "PriceClass_100"
+# Required when app_domain_name is not set and enable_verification_pipeline=true.
+# verification_frontend_base_url = "https://<your-frontend-domain>"
 
 # --- Domain / DNS ---
 manage_route53_records            = false

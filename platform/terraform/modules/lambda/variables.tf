@@ -376,6 +376,12 @@ variable "ses_sender_email" {
   default     = ""
 }
 
+variable "verification_frontend_base_url" {
+  description = "Public frontend base URL used in verification emails (for /verify-client links)."
+  type        = string
+  default     = ""
+}
+
 variable "log_api_base_url" {
   description = "Log API base URL used by verification feedback Lambda."
   type        = string
@@ -448,5 +454,15 @@ check "verification_lambda_requires_log_api_url" {
   assert {
     condition     = !var.enable_verification_lambda || trimspace(var.log_api_base_url) != ""
     error_message = "When enable_verification_lambda is true, log_api_base_url must be non-empty."
+  }
+
+  assert {
+    condition     = !var.enable_verification_lambda || trimspace(var.ses_sender_email) != ""
+    error_message = "When enable_verification_lambda is true, ses_sender_email must be non-empty (SES_SOURCE_EMAIL runtime requirement)."
+  }
+
+  assert {
+    condition     = !var.enable_verification_lambda || trimspace(var.verification_frontend_base_url) != ""
+    error_message = "When enable_verification_lambda is true, verification_frontend_base_url must be non-empty (FRONTEND_BASE_URL runtime requirement)."
   }
 }

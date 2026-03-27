@@ -47,12 +47,13 @@ enable_backup                 = false
 cloudwatch_log_retention_days = 7
 
 # --- Frontend / Auth ---
-enable_cloudfront             = false
-enable_cloudfront_oac         = false
-frontend_bucket_force_destroy = true
-frontend_bucket_allow_public  = true
-enable_cognito                = false
-auth_mode                     = "local"
+enable_cloudfront              = false
+enable_cloudfront_oac          = false
+frontend_bucket_force_destroy  = true
+frontend_bucket_allow_public   = true
+verification_frontend_base_url = "http://localhost:18085"
+enable_cognito                 = false
+auth_mode                      = "local"
 
 # --- Domain / DNS ---
 manage_route53_records            = false

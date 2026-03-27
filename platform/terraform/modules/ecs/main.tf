@@ -97,6 +97,14 @@ locals {
           value = var.ses_sender_email
         },
         {
+          name  = "VERIFICATION_SNS_TOPIC_ARN"
+          value = var.verification_sns_topic_arn
+        },
+        {
+          name  = "VERIFICATION_DOCUMENTS_BUCKET"
+          value = var.verification_documents_bucket
+        },
+        {
           name  = "VERIFICATION_EMAIL_AWS_REGION"
           value = var.aws_region
         },

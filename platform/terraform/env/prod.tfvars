@@ -65,6 +65,8 @@ cloudfront_price_class        = "PriceClass_100"
 enable_cloudfront             = true
 enable_cloudfront_oac         = true
 enable_service_discovery      = true
+# Required when app_domain_name is not set and enable_verification_pipeline=true.
+# verification_frontend_base_url = "https://<your-frontend-domain>"
 
 # --- Auth ---
 enable_cognito            = true

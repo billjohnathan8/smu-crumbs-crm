@@ -773,6 +773,19 @@ variable "ses_sender_email" {
   default     = ""
 }
 
+variable "verification_frontend_base_url" {
+  description = "Frontend base URL used to build public verification links in emails."
+  type        = string
+  default     = ""
+
+  validation {
+    condition = trimspace(var.verification_frontend_base_url) == "" || can(
+      regex("^https?://", trimspace(var.verification_frontend_base_url))
+    )
+    error_message = "verification_frontend_base_url must start with http:// or https:// when set."
+  }
+}
+
 variable "ses_notification_email" {
   description = "Email endpoint for SNS verification subscription."
   type        = string
@@ -988,6 +1001,14 @@ check "prod_network_and_pipeline_guardrails" {
   assert {
     condition     = !var.enable_verification_pipeline || var.enable_log_lambda
     error_message = "enable_verification_pipeline requires enable_log_lambda=true so the verification feedback Lambda receives a non-empty LOG_API_BASE_URL."
+  }
+
+  assert {
+    condition = !var.enable_verification_pipeline || (
+      trimspace(var.app_domain_name) != "" ||
+      trimspace(var.verification_frontend_base_url) != ""
+    )
+    error_message = "When enable_verification_pipeline is true, set app_domain_name or verification_frontend_base_url so verification emails have a stable public frontend link target."
   }
 }
 

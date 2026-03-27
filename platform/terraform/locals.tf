@@ -53,6 +53,10 @@ locals {
 
   transaction_import_api_base_url = var.transaction_import_api_base_url != "" ? var.transaction_import_api_base_url : local.crm_api_base_url
 
+  verification_frontend_base_url = trimspace(var.verification_frontend_base_url) != "" ? trimspace(var.verification_frontend_base_url) : (
+    local.use_custom_domain ? "https://${var.app_domain_name}" : ""
+  )
+
   #--------------------------------------------------------------
   # S3 Bucket Names
   #--------------------------------------------------------------

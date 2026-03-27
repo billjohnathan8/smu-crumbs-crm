@@ -234,6 +234,18 @@ variable "ses_sender_email" {
   default     = ""
 }
 
+variable "verification_sns_topic_arn" {
+  description = "SNS topic ARN used by client service to publish verification email requests."
+  type        = string
+  default     = ""
+}
+
+variable "verification_documents_bucket" {
+  description = "S3 bucket name used by client service for verification document uploads."
+  type        = string
+  default     = ""
+}
+
 variable "root_admin_password_secret_arn" {
   description = "Secret ARN for ROOT_ADMIN_PASSWORD."
   type        = string

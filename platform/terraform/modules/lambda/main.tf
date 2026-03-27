@@ -279,6 +279,8 @@ resource "aws_lambda_function" "verification" {
 
   environment {
     variables = {
+      SES_SOURCE_EMAIL                 = var.ses_sender_email
+      FRONTEND_BASE_URL                = var.verification_frontend_base_url
       LOG_API_BASE_URL                 = var.log_api_base_url
       VERIFICATION_JWT_HMAC_SECRET_ARN = var.verification_jwt_hmac_secret_arn
       VERIFICATION_JWT_SUB             = "SYSTEM_VERIFICATION_FEEDBACK"

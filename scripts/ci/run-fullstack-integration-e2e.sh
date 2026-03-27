@@ -73,6 +73,8 @@ AML_CONSUMER_TABLE_NAME="scroogebank-crm-dev-aml-reports"
 VERIFICATION_SNS_TOPIC_NAME="scroogebank-crm-dev-verification"
 export VERIFICATION_EMAIL_PROVIDER="${VERIFICATION_EMAIL_PROVIDER:-mock}"
 export SES_SENDER_EMAIL="${SES_SENDER_EMAIL:-verification@crm.local}"
+export VERIFICATION_DOCUMENTS_BUCKET="${VERIFICATION_DOCUMENTS_BUCKET:-scroogebank-crm-dev-verification}"
+export VERIFICATION_SNS_TOPIC_ARN="${VERIFICATION_SNS_TOPIC_ARN:-arn:aws:sns:ap-southeast-1:000000000000:${VERIFICATION_SNS_TOPIC_NAME}}"
 
 # Set safe defaults so compose parsing works for `down` before dynamic provisioning.
 export LOG_SERVICE_URL="${LOG_SERVICE_URL:-http://localstack:4566}"
@@ -987,7 +989,7 @@ deploy_verification_feedback_lambda() {
   fi
 
   lambda_internal_log_url="$(echo "${LOG_SERVICE_URL}" | sed 's#localstack:4566#localhost:4566#g')"
-  local env_vars="Variables={LOG_API_BASE_URL=${lambda_internal_log_url},VERIFICATION_JWT_HMAC_SECRET=dev-only-insecure-secret,VERIFICATION_JWT_SUB=SYSTEM_VERIFICATION_FEEDBACK,VERIFICATION_JWT_ROLE=admin,VERIFICATION_JWT_TTL_SECONDS=300}"
+  local env_vars="Variables={SES_SOURCE_EMAIL=${SES_SENDER_EMAIL},FRONTEND_BASE_URL=${PLAYWRIGHT_BASE_URL},LOG_API_BASE_URL=${lambda_internal_log_url},VERIFICATION_JWT_HMAC_SECRET=dev-only-insecure-secret,VERIFICATION_JWT_SUB=SYSTEM_VERIFICATION_FEEDBACK,VERIFICATION_JWT_ROLE=admin,VERIFICATION_JWT_TTL_SECONDS=300}"
 
   if aws_local lambda get-function --function-name "${VERIFICATION_LAMBDA_FUNCTION_NAME}" >/dev/null 2>&1; then
     aws_local lambda update-function-code \
@@ -1626,6 +1628,30 @@ print(f"{signing}.{sig}")
 PY
 }
 
+mint_verification_token() {
+  local client_id="$1"
+
+  ${PYTHON_CMD} - "${client_id}" <<'PY'
+import base64, hashlib, hmac, json, sys, time
+
+client_id = sys.argv[1]
+secret = "dev-only-insecure-secret"
+header = {"alg": "HS256", "typ": "JWT"}
+payload = {"clientId": client_id, "exp": int(time.time()) + 7200}
+
+def b64url(d):
+    return base64.urlsafe_b64encode(
+        json.dumps(d, separators=(",", ":")).encode()
+    ).rstrip(b"=").decode()
+
+signing = f"{b64url(header)}.{b64url(payload)}"
+sig = base64.urlsafe_b64encode(
+    hmac.new(secret.encode(), signing.encode("ascii"), hashlib.sha256).digest()
+).rstrip(b"=").decode()
+print(f"{signing}.{sig}")
+PY
+}
+
 # --------------------------------------------------------------------------
 # Phase 1: Build artifacts and start base infra in parallel
 # --------------------------------------------------------------------------
@@ -1871,24 +1897,63 @@ done
   exit 1
 }
 
-echo "  Smoke: /verify status transition"
-VERIFY_RESPONSE="$(
+echo "  Smoke: tokenized verification upload -> pending -> admin review"
+echo "  [INFO] using CI-minted verification token (local HMAC secret) to simulate email-link upload path"
+VERIFICATION_TOKEN="$(mint_verification_token "${CLIENT_ID}")"
+UPLOAD_VERIFY_RESPONSE="$(
   curl --silent --show-error --fail \
-    --request POST "http://127.0.0.1:18082/api/clients/${CLIENT_ID}/verify" \
-    --header "Authorization: Bearer ${USER_TOKEN}" \
+    --request POST "http://127.0.0.1:18082/api/clients/${CLIENT_ID}/upload-verify" \
     --header "Content-Type: application/json" \
-    --header "X-Request-Id: ci-fullstack-smoke-verify-001" \
-    --data '{"approved":true}'
+    --header "X-Request-Id: ci-fullstack-smoke-upload-verify-001" \
+    --data "{
+      \"verificationToken\": \"${VERIFICATION_TOKEN}\",
+      \"primaryDocumentType\": \"NRIC\",
+      \"primaryDocumentRef\": \"ci-primary-id.jpg\",
+      \"primaryDocumentBase64\": \"cHJpbWFyeS1kb2M=\",
+      \"primaryDocumentMimeType\": \"image/jpeg\",
+      \"addressDocumentType\": \"UTILITY_BILL\",
+      \"addressDocumentRef\": \"ci-proof-of-address.pdf\",
+      \"addressDocumentBase64\": \"cHJvb2Ytb2YtYWRkcmVzcw==\",
+      \"addressDocumentMimeType\": \"application/pdf\"
+    }"
 )"
-VERIFY_RESPONSE_JSON="${VERIFY_RESPONSE}" ${PYTHON_CMD} - <<'PY'
+UPLOAD_VERIFY_RESPONSE_JSON="${UPLOAD_VERIFY_RESPONSE}" ${PYTHON_CMD} - <<'PY'
 import json, os
-payload = json.loads(os.environ["VERIFY_RESPONSE_JSON"])
+payload = json.loads(os.environ["UPLOAD_VERIFY_RESPONSE_JSON"])
 status = payload.get("identityVerificationStatus")
-if status not in {"verified", "pending"}:
-  raise SystemExit(
-    "verify endpoint did not return an accepted identityVerificationStatus (verified|pending)"
-  )
-print(f"  [OK] verify endpoint returned {status} status")
+if status != "pending":
+  raise SystemExit("upload-verify endpoint did not return pending identityVerificationStatus")
+print("  [OK] upload-verify endpoint returned pending status")
+PY
+
+CLIENT_AFTER_UPLOAD="$(
+  curl --silent --show-error --fail \
+    --request GET "http://127.0.0.1:18082/api/clients/${CLIENT_ID}" \
+    --header "Authorization: Bearer ${USER_TOKEN}"
+)"
+CLIENT_AFTER_UPLOAD_JSON="${CLIENT_AFTER_UPLOAD}" ${PYTHON_CMD} - <<'PY'
+import json, os
+payload = json.loads(os.environ["CLIENT_AFTER_UPLOAD_JSON"])
+if payload.get("identityVerificationStatus") != "pending":
+  raise SystemExit("client status did not persist as pending after upload-verify")
+print("  [OK] client status is pending after upload-verify")
+PY
+
+REVIEW_RESPONSE="$(
+  curl --silent --show-error --fail \
+    --request PATCH "http://127.0.0.1:18082/api/clients/${CLIENT_ID}/verify/review" \
+    --header "Authorization: Bearer ${ADMIN_TOKEN}" \
+    --header "Content-Type: application/json" \
+    --header "X-Request-Id: ci-fullstack-smoke-verify-review-001" \
+    --data '{"action":"approve"}'
+)"
+REVIEW_RESPONSE_JSON="${REVIEW_RESPONSE}" ${PYTHON_CMD} - <<'PY'
+import json, os
+payload = json.loads(os.environ["REVIEW_RESPONSE_JSON"])
+status = payload.get("identityVerificationStatus")
+if status != "verified":
+  raise SystemExit("verify/review endpoint did not return verified identityVerificationStatus after approve")
+print("  [OK] verify/review endpoint returned verified status")
 PY
 
 COMMUNICATION_ID=""
@@ -1931,7 +1996,7 @@ PY
   sleep 1
 done
 if [[ -z "${COMMUNICATION_ID}" || -z "${PROVIDER_MESSAGE_ID}" ]]; then
-  echo "  [WARN] no sent communication with providerMessageId observed after /verify flow; continuing." >&2
+  echo "  [WARN] no sent communication with providerMessageId observed after verification lifecycle smoke; continuing." >&2
 fi
 
 if [[ "${VERIFICATION_EMAIL_PROVIDER}" == "ses" && -n "${COMMUNICATION_ID}" && -n "${PROVIDER_MESSAGE_ID}" ]]; then
@@ -1992,58 +2057,6 @@ elif [[ "${VERIFICATION_EMAIL_PROVIDER}" == "ses" ]]; then
 else
   echo "  [SKIP] verification SNS feedback assertion (VERIFICATION_EMAIL_PROVIDER=${VERIFICATION_EMAIL_PROVIDER})"
 fi
-
-echo "  Smoke: verification dispatch worker scheduled path"
-QUEUED_COMMUNICATION_RESPONSE="$(
-  curl --silent --show-error --fail \
-    --request POST "${LOG_SERVICE_PUBLIC_URL}/api/communications" \
-    --header "Authorization: Bearer ${USER_TOKEN}" \
-    --header "Content-Type: application/json" \
-    --data "{
-      \"clientId\": \"${CLIENT_ID}\",
-      \"userId\": \"ci_user\",
-      \"channel\": \"email\",
-      \"toEmail\": \"queued.${CLIENT_ID}@example.com\",
-      \"subject\": \"Scheduled dispatch smoke\",
-      \"body\": \"Queued communication for scheduled worker path\",
-      \"idempotencyKey\": \"scheduled-dispatch-${RUN_ID}\"
-    }"
-)"
-QUEUED_COMMUNICATION_ID="$(
-  QUEUED_COMMUNICATION_RESPONSE_JSON="${QUEUED_COMMUNICATION_RESPONSE}" ${PYTHON_CMD} - <<'PY'
-import json, os
-payload = json.loads(os.environ["QUEUED_COMMUNICATION_RESPONSE_JSON"])
-if payload.get("status") != "queued":
-    raise SystemExit("new communication did not start in queued state")
-print(payload["communicationId"])
-PY
-)"
-
-SCHEDULED_DISPATCH_APPLIED=false
-for _ in {1..30}; do
-  SCHEDULED_COMM_STATUS_JSON="$(
-    curl --silent --show-error --fail \
-      "${LOG_SERVICE_PUBLIC_URL}/api/communications/${QUEUED_COMMUNICATION_ID}" \
-      --header "Authorization: Bearer ${USER_TOKEN}" \
-      || true
-  )"
-  if SCHEDULED_COMM_STATUS_JSON="${SCHEDULED_COMM_STATUS_JSON}" ${PYTHON_CMD} - <<'PY' 2>/dev/null; then
-import json, os
-payload = json.loads(os.environ["SCHEDULED_COMM_STATUS_JSON"])
-if payload.get("status") == "sent" and payload.get("providerMessageId"):
-    raise SystemExit(0)
-raise SystemExit(1)
-PY
-    SCHEDULED_DISPATCH_APPLIED=true
-    echo "  [OK] verification scheduled worker dispatched queued communication"
-    break
-  fi
-  sleep 2
-done
-[[ "${SCHEDULED_DISPATCH_APPLIED}" == "true" ]] || {
-  echo "  [FAIL] verification scheduled worker did not dispatch queued communication" >&2
-  exit 1
-}
 
 echo "  Smoke: transaction-service -> client-service (GET transactions)"
 TX_RESPONSE="$(

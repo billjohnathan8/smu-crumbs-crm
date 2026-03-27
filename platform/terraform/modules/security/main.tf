@@ -561,6 +561,48 @@ resource "aws_iam_role_policy" "ecs_task_client_ses_send" {
   policy = data.aws_iam_policy_document.ecs_client_ses_send[0].json
 }
 
+data "aws_iam_policy_document" "ecs_client_publish_verification_sns" {
+  count = var.enable_verification_pipeline && var.verification_sns_topic_arn != "" && !local.use_lab_role ? 1 : 0
+
+  statement {
+    sid    = "PublishVerificationRequestedEvents"
+    effect = "Allow"
+    actions = [
+      "sns:Publish",
+    ]
+    resources = [var.verification_sns_topic_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "ecs_task_client_publish_verification_sns" {
+  count = var.enable_verification_pipeline && var.verification_sns_topic_arn != "" && !local.use_lab_role ? 1 : 0
+
+  name   = "${var.name_prefix}-ecs-task-client-verification-sns-publish"
+  role   = aws_iam_role.ecs_task["client"].id
+  policy = data.aws_iam_policy_document.ecs_client_publish_verification_sns[0].json
+}
+
+data "aws_iam_policy_document" "ecs_client_write_verification_s3" {
+  count = var.enable_verification_pipeline && var.verification_bucket_arn != "" && !local.use_lab_role ? 1 : 0
+
+  statement {
+    sid    = "WriteVerificationDocuments"
+    effect = "Allow"
+    actions = [
+      "s3:PutObject",
+    ]
+    resources = ["${var.verification_bucket_arn}/*"]
+  }
+}
+
+resource "aws_iam_role_policy" "ecs_task_client_write_verification_s3" {
+  count = var.enable_verification_pipeline && var.verification_bucket_arn != "" && !local.use_lab_role ? 1 : 0
+
+  name   = "${var.name_prefix}-ecs-task-client-verification-s3-write"
+  role   = aws_iam_role.ecs_task["client"].id
+  policy = data.aws_iam_policy_document.ecs_client_write_verification_s3[0].json
+}
+
 # --- ECS task policy: allow sending to SQS queues ---
 
 data "aws_iam_policy_document" "ecs_sqs_send" {
