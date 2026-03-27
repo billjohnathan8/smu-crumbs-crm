@@ -31,11 +31,32 @@ jobs:
       service: verification
     secrets: inherit
 
-  deploy-transaction-ingestion-lambda:
+  deploy-sftp-transaction-collector:
     if: ${{ !failure() && !cancelled() }}
     uses: ./.github/workflows/reusable-lambda-deploy.yml
     with:
-      service: transaction-ingestion-lambda
+      service: sftp-transaction-collector
+    secrets: inherit
+
+  deploy-aml-consumer:
+    if: ${{ !failure() && !cancelled() }}
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
+    with:
+      service: aml-consumer
+    secrets: inherit
+
+  deploy-audit-consumer:
+    if: ${{ !failure() && !cancelled() }}
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
+    with:
+      service: audit-consumer
+    secrets: inherit
+
+  deploy-log:
+    if: ${{ !failure() && !cancelled() }}
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
+    with:
+      service: log
     secrets: inherit
 
   merge-lambda-intents:
@@ -43,7 +64,7 @@ jobs:
     needs:
       - deploy-aml
       - deploy-verification
-      - deploy-transaction-ingestion-lambda
+      - deploy-sftp-transaction-collector
     runs-on: ubuntu-latest
     steps:
       - name: Download Lambda intent artifacts
