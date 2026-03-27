@@ -13,6 +13,7 @@
  * Run with: npm test
  */
 
+import { createHmac } from "node:crypto";
 import {
   test,
   expect,
@@ -24,6 +25,20 @@ import {
 const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.local").trim();
 const ADMIN_PASSWORD = (process.env.E2E_ADMIN_PASSWORD ?? "admin123").trim();
 const USER_PASSWORD = (process.env.E2E_USER_PASSWORD ?? "UserPass123!").trim();
+const VERIFICATION_TOKEN_SECRET = (process.env.E2E_VERIFICATION_HMAC_SECRET ?? "dev-only-insecure-secret").trim();
+
+function base64UrlJson(payload: object): string {
+  return Buffer.from(JSON.stringify(payload)).toString("base64url");
+}
+
+function mintVerificationToken(clientId: string, secret: string): string {
+  const header = base64UrlJson({ alg: "HS256", typ: "JWT" });
+  const exp = Math.floor(Date.now() / 1000) + 60 * 60;
+  const body = base64UrlJson({ clientId, exp });
+  const signingInput = `${header}.${body}`;
+  const signature = createHmac("sha256", secret).update(signingInput).digest("base64url");
+  return `${signingInput}.${signature}`;
+}
 
 function uniqueSuffix(): string {
   return `${Date.now()}-${Math.floor(Math.random() * 100_000)}`;
@@ -218,14 +233,22 @@ test.describe("Client Profile Management (Feature 2)", () => {
     expectUnder(Date.now() - startTime, 10000, "Update client profile");
   });
 
-  test("should verify a client identity via API", async ({ request }) => {
+  test("should submit public verification documents via API and set pending status", async ({ request }) => {
     const startTime = Date.now();
     const { clientId } = await createClientViaApi(request, baseURL, agentToken);
+    const verificationToken = mintVerificationToken(clientId, VERIFICATION_TOKEN_SECRET);
 
-    const verifyRes = await request.post(`${baseURL}/api/clients/${clientId}/verify`, {
-      headers: { Authorization: `Bearer ${agentToken}` },
+    const verifyRes = await request.post(`${baseURL}/api/clients/${clientId}/upload-verify`, {
       data: {
-        approved: true,
+        verificationToken,
+        primaryDocumentType: "NRIC",
+        primaryDocumentRef: "primary-id.jpg",
+        primaryDocumentBase64: Buffer.from("fake-primary-document").toString("base64"),
+        primaryDocumentMimeType: "image/jpeg",
+        addressDocumentType: "UTILITY_BILL",
+        addressDocumentRef: "proof-of-address.pdf",
+        addressDocumentBase64: Buffer.from("%PDF-1.4 fake-proof-of-address").toString("base64"),
+        addressDocumentMimeType: "application/pdf",
       },
     });
     const verifyPayload = (await expectOkJson(verifyRes, "submit client verification")) as {
@@ -234,7 +257,7 @@ test.describe("Client Profile Management (Feature 2)", () => {
     };
 
     expect(verifyPayload.clientId).toBe(clientId);
-    expect(verifyPayload.identityVerificationStatus).toBe("verified");
+    expect(verifyPayload.identityVerificationStatus).toBe("pending");
 
     expectUnder(Date.now() - startTime, 10000, "Client identity verification");
   });

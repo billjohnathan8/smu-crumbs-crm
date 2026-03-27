@@ -223,6 +223,7 @@ module "lambda" {
   verification_bucket_id           = module.s3.verification_bucket_id != null ? module.s3.verification_bucket_id : ""
   verification_sns_topic_arn       = module.sns.verification_topic_arn != null ? module.sns.verification_topic_arn : ""
   ses_sender_email                 = var.ses_sender_email
+  verification_frontend_base_url   = local.verification_frontend_base_url
   log_api_base_url                 = var.enable_log_lambda ? module.apigateway[0].log_api_base_url : ""
   verification_jwt_hmac_secret_arn = module.security.jwt_hmac_secret_arn
 }
@@ -285,6 +286,8 @@ module "ecs" {
   log_api_base_url                                = var.enable_log_lambda ? module.apigateway[0].log_api_base_url : ""
   verification_email_provider                     = var.enable_verification_pipeline ? "ses" : "mock"
   ses_sender_email                                = var.ses_sender_email
+  verification_sns_topic_arn                      = module.sns.verification_topic_arn != null ? module.sns.verification_topic_arn : ""
+  verification_documents_bucket                   = module.s3.verification_bucket_id != null ? module.s3.verification_bucket_id : ""
   root_admin_password_secret_arn                  = module.security.root_admin_password_secret_arn
   jwt_hmac_secret_arn                             = module.security.jwt_hmac_secret_arn
   db_username_secret_arn                          = module.security.db_username_secret_arn

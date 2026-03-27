@@ -12,5 +12,5 @@ import baseConfig from "./playwright.config";
 export default defineConfig({
   ...baseConfig,
   workers: process.env.CI ? 2 : 1,
-  testIgnore: ["e2e/integration/**", "e2e/api-errors/**"],
+  testIgnore: ["e2e/integration/**"],
 });

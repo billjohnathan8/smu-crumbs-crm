@@ -249,7 +249,9 @@ describe('transactions API', () => {
 
       await startTransactionImport({})
 
-      expect(client.apiPost).toHaveBeenCalledWith('/api/transactions/import', undefined)
+      expect(client.apiPost).toHaveBeenCalledWith('/api/transactions/import', undefined, {
+        timeout: 15000,
+      })
     })
 
     it('should trigger transaction import without payload', async () => {
@@ -270,7 +272,9 @@ describe('transactions API', () => {
 
       const result = await startTransactionImport()
 
-      expect(client.apiPost).toHaveBeenCalledWith('/api/transactions/import', undefined)
+      expect(client.apiPost).toHaveBeenCalledWith('/api/transactions/import', undefined, {
+        timeout: 15000,
+      })
       expect(result).toEqual(mockBatch)
     })
 
@@ -297,7 +301,9 @@ describe('transactions API', () => {
 
       const result = await startTransactionImport(payload)
 
-      expect(client.apiPost).toHaveBeenCalledWith('/api/transactions/import', payload)
+      expect(client.apiPost).toHaveBeenCalledWith('/api/transactions/import', payload, {
+        timeout: 15000,
+      })
       expect(result).toEqual(mockBatch)
     })
   })

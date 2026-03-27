@@ -105,41 +105,16 @@ describe('ClientDetailPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/user/clients/client-123/accounts')
   })
 
-  it('shows verification upload form when verify is clicked', async () => {
+  it('does not show internal verification submission button', async () => {
     renderComponent()
-    const user = userEvent.setup()
 
     await waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: /Submit for KYC Verification/i })
-      ).toBeInTheDocument()
+      expect(screen.getAllByText('John Doe').length).toBeGreaterThan(0)
     })
 
-    await user.click(screen.getByRole('button', { name: /Submit for KYC Verification/i }))
-
-    await waitFor(() => {
-      expect(screen.getByText('KYC Verification')).toBeInTheDocument()
-      expect(screen.getByText('Primary Identity Document')).toBeInTheDocument()
-      expect(screen.getByText('Proof of Address Document')).toBeInTheDocument()
-    })
-  })
-
-  it('validates required verification documents before submit', async () => {
-    renderComponent()
-    const user = userEvent.setup()
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: /Submit for KYC Verification/i })
-      ).toBeInTheDocument()
-    })
-
-    await user.click(screen.getByRole('button', { name: /Submit for KYC Verification/i }))
-    await user.click(screen.getByRole('button', { name: /Submit for Review/i }))
-
-    await waitFor(() => {
-      expect(screen.getByText('Please upload both required documents.')).toBeInTheDocument()
-    })
+    expect(
+      screen.queryByRole('button', { name: /Submit for KYC Verification/i })
+    ).not.toBeInTheDocument()
   })
 
   it('calls logout on 401 error', async () => {

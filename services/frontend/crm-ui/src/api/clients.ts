@@ -3,7 +3,7 @@ import type {
   Client,
   ClientCreateRequest,
   ClientUpdateRequest,
-  VerifyClientRequest,
+  UploadVerificationDocsRequest,
   VerifyClientResponse,
   ReviewVerificationRequest,
   Account,
@@ -68,15 +68,16 @@ export async function deleteClient(clientId: string): Promise<void> {
 }
 
 /**
- * Verify client identity (submits for review — sets status to pending)
+ * Upload verification documents from public verify link flow (no bearer auth).
  */
-export async function verifyClient(
+export async function uploadVerificationDocs(
   clientId: string,
-  data: VerifyClientRequest
+  data: UploadVerificationDocsRequest
 ): Promise<VerifyClientResponse> {
-  return apiPost<VerifyClientResponse, VerifyClientRequest>(
-    `${CLIENTS_BASE}/${clientId}/verify`,
-    data
+  return apiPost<VerifyClientResponse, UploadVerificationDocsRequest>(
+    `${CLIENTS_BASE}/${clientId}/upload-verify`,
+    data,
+    { skipAuth: true }
   )
 }
 

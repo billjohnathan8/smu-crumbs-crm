@@ -342,6 +342,7 @@ export function AdminCommunications() {
           communications={communications}
           formatDate={formatDateTime}
           title="Queued Communications"
+          titleAsHeading={false}
           emptyMessage="No queued communications found"
           onRefresh={fetchQueued}
           isRefreshing={isLoading}

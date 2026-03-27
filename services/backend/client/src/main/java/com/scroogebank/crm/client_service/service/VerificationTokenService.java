@@ -18,12 +18,12 @@ import tools.jackson.databind.json.JsonMapper;
 
 // **How the token is structured:**
 // ```
-// Header:    {"alg":"HS256","typ":"JWT"}  →  Base64Url
-// Payload:   {"clientId":"clt_7","exp":1735689600}  →  Base64Url
-// Signature: HMAC-SHA256(header.payload, secret)  →  Base64Url
+// Header:    {"alg":"HS256","typ":"JWT"}  ->  Base64Url
+// Payload:   {"clientId":"clt_7","exp":1735689600}  ->  Base64Url
+// Signature: HMAC-SHA256(header.payload, secret)  ->  Base64Url
 //
 // Final token:  <header>.<payload>.<signature>
-//                  │         │          │
+//                  |         |          |
 //               header    payload   HMAC-SHA256
 
 @Component
@@ -43,7 +43,7 @@ public class VerificationTokenService {
      * Format: Base64Url(header).Base64Url({"clientId":"...","exp":...}).Base64Url(HMAC-SHA256)
      *
      * @param clientId   the public client identifier
-     * @param ttlSeconds how long the token is valid for (e.g. 86400 = 24 hours)
+     * @param ttlSeconds how long the token is valid for (e.g. 7200 = 2 hours)
      * @return dot-separated JWT token string
      */
     public String generateVerificationToken(String clientId, long ttlSeconds) {
@@ -104,7 +104,7 @@ public class VerificationTokenService {
                 return false;
             }
 
-            // 3. Decode payload (index 1) — Base64URL encoded
+            // 3. Decode payload (index 1) - Base64URL encoded
             byte[] decodedBytes = Base64.getUrlDecoder().decode(parts[1]);
             String payloadJson  = new String(decodedBytes);
 
@@ -138,3 +138,4 @@ public class VerificationTokenService {
     /** JWT payload record. */
     private record TokenPayload(String clientId, long exp) {}
 }
+

@@ -4,12 +4,13 @@ import com.scroogebank.crm.client_service.dto.ClientCreateRequest;
 import com.scroogebank.crm.client_service.dto.ClientPayload;
 import com.scroogebank.crm.client_service.dto.ClientUpdateRequest;
 import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
+import com.scroogebank.crm.client_service.dto.ReviewVerificationRequest;
 import com.scroogebank.crm.client_service.dto.UploadVerificationDocsRequest;
-import com.scroogebank.crm.client_service.dto.VerifyClientRequest;
 import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.entity.Gender;
 import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
 import com.scroogebank.crm.client_service.exception.DuplicateClientException;
+import com.scroogebank.crm.client_service.exception.SnsPublishException;
 import com.scroogebank.crm.client_service.logging.ClientAuditLogger;
 import com.scroogebank.crm.client_service.repository.ClientRepository;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
@@ -19,18 +20,20 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -41,14 +44,19 @@ import static org.mockito.Mockito.when;
  */
 @ExtendWith(MockitoExtension.class)
 class ClientServiceImplTest {
+	private static final long DEFAULT_VERIFICATION_LINK_TTL_SECONDS = 7200L;
 
 	@Mock
 	private ClientRepository clientRepository;
 	@Mock
 	private ClientAuditLogger clientAuditLogger;
+	@Mock
 	private DocumentStorageService documentStorageService;
+	@Mock
 	private VerificationTokenService verificationTokenService;
+	@Mock
 	private SnsEmailPublisherService snsEmailPublisherService;
+	@InjectMocks
 	private ClientServiceImpl clientService;
 
 	private static ClientPayload samplePayload() {
@@ -100,19 +108,6 @@ class ClientServiceImplTest {
 			"NRIC",         "nric_front.jpg", "base64PrimaryData==", "image/jpeg",
 			"UTILITY_BILL", "bill.pdf",       "base64AddressData==", "application/pdf",
 			token
-		);
-	}
-
-	@BeforeEach
-	void setUp() {
-		clientRepository = org.mockito.Mockito.mock(ClientRepository.class);
-		clientAuditLogger = org.mockito.Mockito.mock(ClientAuditLogger.class);
-		documentStorageService = org.mockito.Mockito.mock(DocumentStorageService.class);
-		verificationTokenService = org.mockito.Mockito.mock(VerificationTokenService.class);
-		snsEmailPublisherService = org.mockito.Mockito.mock(SnsEmailPublisherService.class);
-
-		clientService = new ClientServiceImpl(
-			clientRepository, clientAuditLogger, documentStorageService, verificationTokenService, snsEmailPublisherService
 		);
 	}
 
@@ -221,6 +216,7 @@ class ClientServiceImplTest {
 		
 		verify(clientRepository).existsByEmailAddressIgnoreCase(payload.emailAddress());
 		verify(clientRepository).existsByPhoneNumber(payload.phoneNumber());
+		verify(verificationTokenService).generateVerificationToken("clt_10", DEFAULT_VERIFICATION_LINK_TTL_SECONDS);
 		verify(clientAuditLogger).logAuditEvent(
 			eq("CREATE"),
 			eq("Client ID"),
@@ -236,7 +232,8 @@ class ClientServiceImplTest {
             eq("jordan.taylor@example.com"),
             eq("signed-token-abc"),
             eq("Jordan"),
-            eq("req-1")
+            eq("req-1"),
+			eq(DEFAULT_VERIFICATION_LINK_TTL_SECONDS)
         );
 	}
 
@@ -270,6 +267,30 @@ class ClientServiceImplTest {
 		assertThat(created.clientId()).isEqualTo("clt_21");
 		assertThat(captor.getValue().getEmailAddress()).isEqualTo("jordan.taylor@example.com");
 		verify(clientAuditLogger, never()).logAuditEvent(any(), any(), any(), any(), any(), any(), any(), any());
+	}
+
+	@Test
+	void createClient_whenSnsPublishFails_throwsSnsPublishException() {
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
+		ClientPayload payload = samplePayload();
+
+		when(clientRepository.existsByEmailAddressIgnoreCase(payload.emailAddress())).thenReturn(false);
+		when(clientRepository.existsByPhoneNumber(payload.phoneNumber())).thenReturn(false);
+		when(clientRepository.save(any())).thenAnswer(inv -> {
+			ClientEntity e = inv.getArgument(0);
+			if (e.getId() == null) {
+				e.setId(10L);
+			}
+			return e;
+		});
+		when(verificationTokenService.generateVerificationToken(any(), anyLong())).thenReturn("signed-token-abc");
+		doThrow(new SnsPublishException("sns down"))
+			.when(snsEmailPublisherService)
+			.publishVerificationEmail(any(), any(), any(), any(), any(), anyLong());
+
+		assertThatThrownBy(() -> clientService.createClient(user, requestFrom(payload), "Bearer x", "req-1"))
+			.isInstanceOf(SnsPublishException.class)
+			.hasMessageContaining("sns down");
 	}
 
 	/** Verifies that createClient() throws DuplicateClientException when the email is already in use (no save). */
@@ -518,30 +539,61 @@ class ClientServiceImplTest {
 	}
 
 	@Test
-	void verifyClient_setsStatusToVerified_andAuditsWithNullBeforeValueWhenStatusWasNull() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
-		ClientPayload payload = samplePayload();
-		ClientEntity entity = entityFromPayload(7L, "usr_1", payload);
-		entity.setIdentityVerificationStatus(null);
+	void reviewVerification_nonAdmin_throwsAccessDenied() {
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
+
+		assertThatThrownBy(() ->
+			clientService.reviewVerification(
+				user,
+				"clt_7",
+				new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.approve),
+				"Bearer x",
+				"req-1"
+			)
+		).isInstanceOf(AccessDeniedException.class);
+	}
+
+	@Test
+	void reviewVerification_nonPending_throwsConflict() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
+		entity.setIdentityVerificationStatus(IdentityVerificationStatus.verified);
+		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
+
+		assertThatThrownBy(() ->
+			clientService.reviewVerification(
+				admin,
+				"clt_7",
+				new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.reject),
+				"Bearer x",
+				"req-1"
+			)
+		).isInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
+	void reviewVerification_pendingApprove_setsVerifiedAndAudits() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
+		entity.setIdentityVerificationStatus(IdentityVerificationStatus.pending);
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
 		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-		var response = clientService.verifyClient(
-			agent,
+		var response = clientService.reviewVerification(
+			admin,
 			"clt_7",
-			new VerifyClientRequest(true),
+			new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.approve),
 			"Bearer x",
 			"req-1"
 		);
 
-		assertThat(response.clientId()).isEqualTo("clt_7");
 		assertThat(response.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.verified);
 		verify(clientAuditLogger).logAuditEvent(
 			eq("UPDATE"),
 			eq("identityVerificationStatus"),
-			eq(null),
+			eq("pending"),
 			eq("verified"),
-			eq("usr_1"),
+			eq("usr_admin"),
 			eq("clt_7"),
 			eq("req-1"),
 			eq("Bearer x")
@@ -608,6 +660,60 @@ class ClientServiceImplTest {
 
 		assertThat(response.clientId()).isEqualTo("clt_7");
 		assertThat(response.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.pending);
+	}
+
+	@Test
+	void uploadVerificationDocs_pendingStatus_allowsReplacementUploadAndKeepsPending() {
+		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
+		entity.setIdentityVerificationStatus(IdentityVerificationStatus.pending);
+		entity.setPrimaryDocumentRef("clients/clt_7/primary/old-primary.jpg");
+		entity.setAddressDocumentRef("clients/clt_7/address/old-address.pdf");
+		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
+		when(verificationTokenService.isValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(documentStorageService.upload(eq("clt_7"), eq("primary"), any(), any(), any()))
+			.thenReturn("clients/clt_7/primary/new-primary.jpg");
+		when(documentStorageService.upload(eq("clt_7"), eq("address"), any(), any(), any()))
+			.thenReturn("clients/clt_7/address/new-address.pdf");
+		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		var response = clientService.uploadVerificationDocs("clt_7", validUploadRequest("valid-token-abc"), "req-1");
+
+		assertThat(response.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.pending);
+		verify(clientRepository).save(entity);
+		assertThat(entity.getPrimaryDocumentRef()).isEqualTo("clients/clt_7/primary/new-primary.jpg");
+		assertThat(entity.getAddressDocumentRef()).isEqualTo("clients/clt_7/address/new-address.pdf");
+	}
+
+	@Test
+	void uploadVerificationDocs_reviewedStatus_throwsConflictAndSkipsUpload() {
+		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
+		entity.setIdentityVerificationStatus(IdentityVerificationStatus.verified);
+		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
+		when(verificationTokenService.isValid("clt_7", "valid-token-abc")).thenReturn(true);
+
+		assertThatThrownBy(() ->
+			clientService.uploadVerificationDocs("clt_7", validUploadRequest("valid-token-abc"), "req-1")
+		)
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessageContaining("not allowed after review decision");
+
+		verify(documentStorageService, never()).upload(any(), any(), any(), any(), any());
+		verify(clientRepository, never()).save(any());
+	}
+
+	@Test
+	void uploadVerificationDocs_rejectedStatus_throwsConflictAndSkipsUpload() {
+		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
+		entity.setIdentityVerificationStatus(IdentityVerificationStatus.rejected);
+		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
+		when(verificationTokenService.isValid("clt_7", "valid-token-abc")).thenReturn(true);
+
+		assertThatThrownBy(() ->
+			clientService.uploadVerificationDocs("clt_7", validUploadRequest("valid-token-abc"), "req-1")
+		).isInstanceOf(IllegalStateException.class);
+
+		verify(documentStorageService, never()).upload(any(), any(), any(), any(), any());
+		verify(clientRepository, never()).save(any());
 	}
 
 	@Test

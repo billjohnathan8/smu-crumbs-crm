@@ -43,15 +43,23 @@ echo "==> Creating DynamoDB tables..."
 
 awslocal dynamodb create-table \
   --table-name scroogebank-crm-dev-audit-logs \
-  --attribute-definitions AttributeName=id,AttributeType=S \
-  --key-schema AttributeName=id,KeyType=HASH \
+  --attribute-definitions \
+    AttributeName=pk,AttributeType=S \
+    AttributeName=sk,AttributeType=S \
+  --key-schema \
+    AttributeName=pk,KeyType=HASH \
+    AttributeName=sk,KeyType=RANGE \
   --billing-mode PAY_PER_REQUEST \
   --region "${REGION}"
 
 awslocal dynamodb create-table \
   --table-name scroogebank-crm-dev-aml-reports \
-  --attribute-definitions AttributeName=id,AttributeType=S \
-  --key-schema AttributeName=id,KeyType=HASH \
+  --attribute-definitions \
+    AttributeName=pk,AttributeType=S \
+    AttributeName=sk,AttributeType=S \
+  --key-schema \
+    AttributeName=pk,KeyType=HASH \
+    AttributeName=sk,KeyType=RANGE \
   --billing-mode PAY_PER_REQUEST \
   --region "${REGION}"
 

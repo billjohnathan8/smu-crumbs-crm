@@ -32,6 +32,8 @@ jobs:
       verification_backend: ${{ steps.filter.outputs['verification-backend'] }}
       sftp_transaction_collector_backend: ${{ steps.filter.outputs['sftp-transaction-collector-backend'] }}
       transaction_backend: ${{ steps.filter.outputs['transaction-backend'] }}
+      audit_consumer_backend: ${{ steps.filter.outputs['audit-consumer-backend'] }}
+      aml_consumer_backend: ${{ steps.filter.outputs['aml-consumer-backend'] }}
       platform: ${{ steps.filter.outputs.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -60,6 +62,10 @@ jobs:
               - 'services/backend/sftp-transaction-collector/**'
             transaction-backend:
               - 'services/backend/transaction/**'
+            audit-consumer-backend:
+              - 'services/backend/audit-consumer/**'
+            aml-consumer-backend:
+              - 'services/backend/aml-consumer/**'
             platform:
               - 'platform/**'
 
@@ -114,6 +120,18 @@ jobs:
     if: needs.detect-changes.outputs.transaction_backend == 'true'
     uses: ./.github/workflows/ci-transaction-backend.yml
 
+  ci-audit-consumer-backend:
+    name: CI - Audit Consumer Backend
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.audit_consumer_backend == 'true'
+    uses: ./.github/workflows/ci-audit-consumer-backend.yml
+
+  ci-aml-consumer-backend:
+    name: CI - AML Consumer Backend
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.aml_consumer_backend == 'true'
+    uses: ./.github/workflows/ci-aml-consumer-backend.yml
+
   ci-terraform:
     name: CI - Terraform Static Analysis
     needs: [detect-changes]
@@ -148,6 +166,8 @@ jobs:
       - ci-verification-backend
       - ci-sftp-transaction-collector-backend
       - ci-transaction-backend
+      - ci-audit-consumer-backend
+      - ci-aml-consumer-backend
       - ci-terraform
       - openapi-lint
       - secrets-scan

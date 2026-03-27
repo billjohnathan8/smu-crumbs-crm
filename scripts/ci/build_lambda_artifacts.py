@@ -42,6 +42,18 @@ ARTIFACT_SPECS = [
         "packages": ["paramiko==3.5.0", "cryptography==44.0.2"],
         "include_app": False,
     },
+    {
+        "service_dir": ROOT_DIR / "services" / "backend" / "audit-consumer",
+        "zip_name": "audit-consumer-lambda.zip",
+        "packages": ["boto3==1.38.21"],
+        "include_app": False,
+    },
+    {
+        "service_dir": ROOT_DIR / "services" / "backend" / "aml-consumer",
+        "zip_name": "aml-consumer-lambda.zip",
+        "packages": ["boto3==1.38.21"],
+        "include_app": False,
+    },
 ]
 
 

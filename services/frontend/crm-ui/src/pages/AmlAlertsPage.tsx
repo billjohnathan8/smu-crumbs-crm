@@ -162,8 +162,11 @@ export function AmlAlertsPage() {
           <h3 className="text-text font-normal mb-4">Filters</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs text-text-muted mb-1">Client ID</label>
+              <label htmlFor="aml-filter-client-id" className="block text-xs text-text-muted mb-1">
+                Client ID
+              </label>
               <input
+                id="aml-filter-client-id"
                 type="text"
                 value={filters.clientId}
                 onChange={e => setFilter('clientId', e.target.value)}
@@ -172,8 +175,11 @@ export function AmlAlertsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs text-text-muted mb-1">Alert Type</label>
+              <label htmlFor="aml-filter-alert-type" className="block text-xs text-text-muted mb-1">
+                Alert Type
+              </label>
               <select
+                id="aml-filter-alert-type"
                 value={filters.alertType}
                 onChange={e => setFilter('alertType', e.target.value)}
                 className="w-full px-3 py-2 bg-background-light  rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -186,8 +192,14 @@ export function AmlAlertsPage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs text-text-muted mb-1">Review Status</label>
+              <label
+                htmlFor="aml-filter-review-status"
+                className="block text-xs text-text-muted mb-1"
+              >
+                Review Status
+              </label>
               <select
+                id="aml-filter-review-status"
                 value={filters.reviewStatus}
                 onChange={e => setFilter('reviewStatus', e.target.value)}
                 className="w-full px-3 py-2 bg-background-light  rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -211,7 +223,7 @@ export function AmlAlertsPage() {
 
         <div className="bg-card  rounded-lg">
           <div className="px-6 py-4 border-b border-border">
-            <h2 className="text-xl font-normal text-text">AML Alerts</h2>
+            <h2 className="text-xl font-normal text-text">Alert Results</h2>
           </div>
 
           {isLoading ? (

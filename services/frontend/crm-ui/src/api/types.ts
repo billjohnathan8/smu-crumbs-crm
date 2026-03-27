@@ -127,8 +127,8 @@ export interface ClientUpdateRequest {
   postalCode?: string
 }
 
-export interface VerifyClientRequest {
-  verificationToken?: string
+export interface UploadVerificationDocsRequest {
+  verificationToken: string
 
   // Primary Identity Document
   primaryDocumentType: 'NRIC' | 'PASSPORT' | 'EMPLOYMENT_PASS'

@@ -134,6 +134,7 @@ build-logs/migration-validation/
 **/new-*.log
 **/old-*.log
 /build-logs/
+test-results/
 
 # Local CI-generated Terraform artifact zips
 .ci-artifacts/

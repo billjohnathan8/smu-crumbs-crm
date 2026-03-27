@@ -1,6 +1,10 @@
 import type { FormEvent } from 'react'
-import type { VerifyClientRequest } from '@/api/types'
+import type { UploadVerificationDocsRequest } from '@/api/types'
 
+/**
+ * @deprecated Legacy internal verification-upload form retained for compatibility/tests only.
+ * Canonical public upload flow is implemented by `ClientVerifyPage` at `/verify-client`.
+ */
 const PRIMARY_ID_TYPES = [
   { value: 'NRIC', label: 'Singapore NRIC' },
   { value: 'PASSPORT', label: 'Passport' },
@@ -15,8 +19,8 @@ const PROOF_OF_ADDRESS_TYPES = [
 ] as const
 
 type VerificationFormProps = {
-  verifyData: VerifyClientRequest
-  setVerifyData: React.Dispatch<React.SetStateAction<VerifyClientRequest>>
+  verifyData: UploadVerificationDocsRequest
+  setVerifyData: React.Dispatch<React.SetStateAction<UploadVerificationDocsRequest>>
   verifyError: string
   isVerifying: boolean
   onSubmit: (e: FormEvent) => void
@@ -102,7 +106,8 @@ export function VerificationForm({
             onChange={e =>
               setVerifyData(prev => ({
                 ...prev,
-                primaryDocumentType: e.target.value as VerifyClientRequest['primaryDocumentType'],
+                primaryDocumentType: e.target
+                  .value as UploadVerificationDocsRequest['primaryDocumentType'],
               }))
             }
             className="w-full px-4 py-2 bg-background-light rounded-lg text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -141,7 +146,8 @@ export function VerificationForm({
             onChange={e =>
               setVerifyData(prev => ({
                 ...prev,
-                addressDocumentType: e.target.value as VerifyClientRequest['addressDocumentType'],
+                addressDocumentType: e.target
+                  .value as UploadVerificationDocsRequest['addressDocumentType'],
               }))
             }
             className="w-full px-4 py-2 bg-background-light rounded-lg text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"

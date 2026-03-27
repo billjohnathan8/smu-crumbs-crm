@@ -16,91 +16,10 @@
 import {
   test,
   expect,
-  type APIRequestContext,
-  type APIResponse,
 } from "@playwright/test";
-
-const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.local").trim();
-const ADMIN_PASSWORD = (process.env.E2E_ADMIN_PASSWORD ?? "admin123").trim();
-const USER_PASSWORD = (process.env.E2E_USER_PASSWORD ?? "UserPass123!").trim();
-
-function uniqueSuffix(): string {
-  return `${Date.now()}-${Math.floor(Math.random() * 100_000)}`;
-}
-
-function normalizeBaseURL(baseURL: string | undefined): string {
-  const value = (baseURL ?? process.env.PLAYWRIGHT_BASE_URL ?? "").trim();
-  if (!value) throw new Error("Playwright baseURL is required for integration tests");
-  return value.replace(/\/+$/, "");
-}
-
-async function expectOkJson(response: APIResponse, operation: string): Promise<unknown> {
-  const body = await response.text();
-  expect(response.ok(), `${operation} failed: ${response.status()} ${response.statusText()}\n${body}`).toBeTruthy();
-  return body ? JSON.parse(body) : {};
-}
-
-async function loginAsAdmin(request: APIRequestContext, baseURL: string): Promise<string> {
-  const res = await request.post(`${baseURL}/api/auth/login`, {
-    data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-  });
-  const payload = (await expectOkJson(res, "admin login")) as { accessToken: string };
-  expect(payload.accessToken).toBeTruthy();
-  return payload.accessToken;
-}
-
-async function createAgentAndLogin(
-  request: APIRequestContext,
-  baseURL: string,
-  adminToken: string,
-): Promise<{ token: string; userId: string; email: string }> {
-  const email = `it-acct-agent-${uniqueSuffix()}@example.com`;
-  const createRes = await request.post(`${baseURL}/api/users`, {
-    headers: { Authorization: `Bearer ${adminToken}` },
-    data: {
-      firstName: "AcctTest",
-      lastName: "Agent",
-      email,
-      role: "user",
-      sendInviteEmail: false,
-      temporaryPassword: USER_PASSWORD,
-    },
-  });
-  const user = (await expectOkJson(createRes, "create agent")) as { id: string };
-
-  const loginRes = await request.post(`${baseURL}/api/auth/login`, {
-    data: { email, password: USER_PASSWORD },
-  });
-  const auth = (await expectOkJson(loginRes, "agent login")) as { accessToken: string };
-  return { token: auth.accessToken, userId: user.id, email };
-}
-
-async function createClientForAccount(
-  request: APIRequestContext,
-  baseURL: string,
-  token: string,
-): Promise<string> {
-  const suffix = uniqueSuffix();
-  const res = await request.post(`${baseURL}/api/clients`, {
-    headers: { Authorization: `Bearer ${token}` },
-    data: {
-      firstName: "AcctClient",
-      lastName: "Test",
-      dateOfBirth: "1988-07-10",
-      gender: "Female",
-      emailAddress: `acct-client-${suffix}@example.com`,
-      phoneNumber: `+1555${Math.floor(Math.random() * 9_000_000 + 1_000_000)}`,
-      address: "100 Account Lane",
-      city: "Singapore",
-      state: "Singapore",
-      country: "Singapore",
-      postalCode: "321654",
-    },
-  });
-  const payload = (await expectOkJson(res, "create client for account test")) as { clientId: string };
-  expect(payload.clientId).toBeTruthy();
-  return payload.clientId;
-}
+import { normalizeBaseURL, expectOkJson, authHeaders } from "./helpers/apiClient";
+import { createAgentAndLogin, createClientForUser, loginAsSeedAdmin } from "./helpers/dataFactory";
+import { waitForAuditLogAction } from "./helpers/polling";
 
 function expectUnder(durationMs: number, limitMs: number, label: string) {
   expect(durationMs, `${label} took ${durationMs}ms`).toBeLessThan(limitMs);
@@ -108,22 +27,33 @@ function expectUnder(durationMs: number, limitMs: number, label: string) {
 
 test.describe("Account Management (Feature 2)", () => {
   let baseURL: string;
-  let adminToken: string;
   let agent: { token: string; userId: string; email: string };
   let clientId: string;
 
   test.beforeAll(async ({ request, baseURL: rawBaseURL }) => {
     baseURL = normalizeBaseURL(rawBaseURL);
-    adminToken = await loginAsAdmin(request, baseURL);
-    agent = await createAgentAndLogin(request, baseURL, adminToken);
-    clientId = await createClientForAccount(request, baseURL, agent.token);
+    const adminTokens = await loginAsSeedAdmin(request, baseURL);
+    const agentUser = await createAgentAndLogin(request, baseURL, adminTokens.accessToken, {
+      firstName: "AcctTest",
+      lastName: "Agent",
+    });
+    agent = { token: agentUser.tokens.accessToken, userId: agentUser.id, email: agentUser.email };
+    const client = await createClientForUser(request, baseURL, agent.token, {
+      firstName: "AcctClient",
+      lastName: "Test",
+      dateOfBirth: "1988-07-10",
+      gender: "Female",
+      address: "100 Account Lane",
+      postalCode: "321654",
+    });
+    clientId = client.clientId;
   });
 
   test("should create a bank account for a client", async ({ request }) => {
     const startTime = Date.now();
 
     const res = await request.post(`${baseURL}/api/accounts`, {
-      headers: { Authorization: `Bearer ${agent.token}` },
+      headers: authHeaders(agent.token),
       data: {
         clientId,
         accountType: "Savings",
@@ -156,7 +86,7 @@ test.describe("Account Management (Feature 2)", () => {
 
     // Create an account first
     const createRes = await request.post(`${baseURL}/api/accounts`, {
-      headers: { Authorization: `Bearer ${agent.token}` },
+      headers: authHeaders(agent.token),
       data: {
         clientId,
         accountType: "Checking",
@@ -170,7 +100,7 @@ test.describe("Account Management (Feature 2)", () => {
     await expectOkJson(createRes, "create account for listing");
 
     const listRes = await request.get(`${baseURL}/api/clients/${clientId}/accounts`, {
-      headers: { Authorization: `Bearer ${agent.token}` },
+      headers: authHeaders(agent.token),
     });
     const payload = (await expectOkJson(listRes, "list client accounts")) as {
       data?: Array<{ accountId: string; clientId: string }>;
@@ -187,7 +117,7 @@ test.describe("Account Management (Feature 2)", () => {
     const startTime = Date.now();
 
     const createRes = await request.post(`${baseURL}/api/accounts`, {
-      headers: { Authorization: `Bearer ${agent.token}` },
+      headers: authHeaders(agent.token),
       data: {
         clientId,
         accountType: "Business",
@@ -201,7 +131,7 @@ test.describe("Account Management (Feature 2)", () => {
     const created = (await expectOkJson(createRes, "create account for get")) as { accountId: string };
 
     const getRes = await request.get(`${baseURL}/api/accounts/${created.accountId}`, {
-      headers: { Authorization: `Bearer ${agent.token}` },
+      headers: authHeaders(agent.token),
     });
     const account = (await expectOkJson(getRes, "get account by ID")) as {
       accountId: string;
@@ -220,7 +150,7 @@ test.describe("Account Management (Feature 2)", () => {
     const startTime = Date.now();
 
     const createRes = await request.post(`${baseURL}/api/accounts`, {
-      headers: { Authorization: `Bearer ${agent.token}` },
+      headers: authHeaders(agent.token),
       data: {
         clientId,
         accountType: "Savings",
@@ -234,12 +164,12 @@ test.describe("Account Management (Feature 2)", () => {
     const created = (await expectOkJson(createRes, "create account for delete")) as { accountId: string };
 
     const deleteRes = await request.delete(`${baseURL}/api/accounts/${created.accountId}`, {
-      headers: { Authorization: `Bearer ${agent.token}` },
+      headers: authHeaders(agent.token),
     });
     expect(deleteRes.ok(), `Delete account failed: ${deleteRes.status()}`).toBeTruthy();
 
     const getRes = await request.get(`${baseURL}/api/accounts/${created.accountId}`, {
-      headers: { Authorization: `Bearer ${agent.token}` },
+      headers: authHeaders(agent.token),
     });
     expect([404, 410].includes(getRes.status()), "Deleted account should return 404 or 410").toBeTruthy();
 
@@ -248,7 +178,7 @@ test.describe("Account Management (Feature 2)", () => {
 
   test("account creation should generate an audit log entry", async ({ request }) => {
     const createRes = await request.post(`${baseURL}/api/accounts`, {
-      headers: { Authorization: `Bearer ${agent.token}` },
+      headers: authHeaders(agent.token),
       data: {
         clientId,
         accountType: "Savings",
@@ -261,18 +191,11 @@ test.describe("Account Management (Feature 2)", () => {
     });
     await expectOkJson(createRes, "create account for audit log check");
 
-    let hasLog = false;
-    for (let attempt = 0; attempt < 20; attempt += 1) {
-      const res = await request.get(`${baseURL}/api/logs?clientId=${clientId}&limit=100`, {
-        headers: { Authorization: `Bearer ${agent.token}` },
-      });
-      const payload = (await expectOkJson(res, "list logs for account")) as {
-        data?: Array<{ action: string; clientId: string }>;
-      };
-      hasLog = payload.data?.some((row) => row.clientId === clientId && row.action === "CREATE") ?? false;
-      if (hasLog) break;
-      await new Promise((r) => setTimeout(r, 1000));
-    }
-    expect(hasLog, "Audit log entry should exist after account creation").toBeTruthy();
+    const auditLog = await waitForAuditLogAction(request, baseURL, agent.token, {
+      clientId,
+      action: "CREATE",
+      limit: 100,
+    });
+    expect(auditLog.logId, "Audit log entry should exist after account creation").toBeTruthy();
   });
 });

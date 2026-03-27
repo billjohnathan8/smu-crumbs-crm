@@ -27,6 +27,12 @@ on:
       backend-sftp-transaction-collector:
         description: 'true if services/backend/sftp-transaction-collector changed'
         value: ${{ jobs.detect.outputs.backend-sftp-transaction-collector }}
+      backend-audit-consumer:
+        description: 'true if services/backend/audit-consumer changed'
+        value: ${{ jobs.detect.outputs.backend-audit-consumer }}
+      backend-aml-consumer:
+        description: 'true if services/backend/aml-consumer changed'
+        value: ${{ jobs.detect.outputs.backend-aml-consumer }}
       frontend:
         description: 'true if services/frontend/crm-ui changed'
         value: ${{ jobs.detect.outputs.frontend }}
@@ -66,6 +72,8 @@ jobs:
       backend-log: ${{ steps.filter.outputs.backend-log }}
       backend-verification: ${{ steps.filter.outputs.backend-verification }}
       backend-sftp-transaction-collector: ${{ steps.filter.outputs.backend-sftp-transaction-collector }}
+      backend-audit-consumer: ${{ steps.filter.outputs.backend-audit-consumer }}
+      backend-aml-consumer: ${{ steps.filter.outputs.backend-aml-consumer }}
       frontend: ${{ steps.filter.outputs.frontend }}
       integration-tests: ${{ steps.filter.outputs.integration-tests }}
       scripts: ${{ steps.filter.outputs.scripts }}
@@ -104,6 +112,10 @@ jobs:
               - 'services/backend/verification/**'
             backend-sftp-transaction-collector:
               - 'services/backend/sftp-transaction-collector/**'
+            backend-audit-consumer:
+              - 'services/backend/audit-consumer/**'
+            backend-aml-consumer:
+              - 'services/backend/aml-consumer/**'
             frontend:
               - 'services/frontend/crm-ui/**'
             integration-tests:
@@ -127,7 +139,9 @@ jobs:
              [[ "${{ steps.filter.outputs.backend-transaction }}" == "true" ]] || \
              [[ "${{ steps.filter.outputs.backend-log }}" == "true" ]] || \
              [[ "${{ steps.filter.outputs.backend-verification }}" == "true" ]] || \
-             [[ "${{ steps.filter.outputs.backend-sftp-transaction-collector }}" == "true" ]]; then
+             [[ "${{ steps.filter.outputs.backend-sftp-transaction-collector }}" == "true" ]] || \
+             [[ "${{ steps.filter.outputs.backend-audit-consumer }}" == "true" ]] || \
+             [[ "${{ steps.filter.outputs.backend-aml-consumer }}" == "true" ]]; then
             ANY_BACKEND="true"
           fi
 
@@ -167,6 +181,8 @@ jobs:
             echo "| backend-log | ${{ steps.filter.outputs.backend-log }} |"
             echo "| backend-verification | ${{ steps.filter.outputs.backend-verification }} |"
             echo "| backend-sftp-transaction-collector | ${{ steps.filter.outputs.backend-sftp-transaction-collector }} |"
+            echo "| backend-audit-consumer | ${{ steps.filter.outputs.backend-audit-consumer }} |"
+            echo "| backend-aml-consumer | ${{ steps.filter.outputs.backend-aml-consumer }} |"
             echo "| frontend | ${{ steps.filter.outputs.frontend }} |"
             echo "| integration-tests | ${{ steps.filter.outputs.integration-tests }} |"
             echo "| scripts | ${{ steps.filter.outputs.scripts }} |"

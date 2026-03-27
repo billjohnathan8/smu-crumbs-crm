@@ -89,6 +89,13 @@ public class ApiExceptionHandler {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(request, "validation_error", "Invalid request"));
 	}
 
+	@ExceptionHandler(SnsPublishException.class)
+	public ResponseEntity<ErrorResponse> handleSnsPublishFailure(HttpServletRequest request, SnsPublishException _ex) {
+		return ResponseEntity
+			.status(HttpStatus.SERVICE_UNAVAILABLE)
+			.body(error(request, "service_unavailable", "Verification email dispatch unavailable. Client was not created."));
+	}
+
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleInternal(HttpServletRequest request, Exception ex) {
 		Object requestId = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);

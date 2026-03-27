@@ -96,6 +96,9 @@ paths:
         '409':
           description: Conflict (e.g., email/phone already exists).
           content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+        '503':
+          description: Verification email dispatch unavailable; client is not created.
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
         '401':
           description: Unauthorized
           content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
@@ -151,26 +154,23 @@ paths:
         '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
-  /api/clients/{clientId}/verify:
+  /api/clients/{clientId}/upload-verify:
     post:
       tags: [clients]
-      summary: Verify client identity
-      description: Submits verification evidence and sets status to `pending` for review.
-      security: [{BearerAuth: []}]
-      x-required-roles: [user, admin]
+      summary: Upload verification documents
+      description: Public tokenized upload endpoint. Valid upload sets status to `pending` for admin review.
       parameters:
       - {name: clientId, in: path, required: true, schema: {$ref: '#/components/schemas/ClientId'}}
       requestBody:
         required: true
         content:
           application/json:
-            schema: {$ref: '#/components/schemas/VerifyClientRequest'}
+            schema: {$ref: '#/components/schemas/UploadVerificationDocsRequest'}
       responses:
         '200': {description: Verification status updated., content: {application/json: {schema: {$ref: '#/components/schemas/VerifyClientResponse'}}}}
         '400': {description: Validation error., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
-        '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
   /api/clients/{clientId}/verify/review:
     patch:
       tags: [clients]
@@ -347,16 +347,26 @@ components:
           type: string
           description: User ID of the user responsible for this client. Set by system from token; users see only their own clients.
           readOnly: true
-        verificationDocumentType:
+        primaryDocumentType:
           type: string
           nullable: true
           readOnly: true
-          description: Stored verification document type when supplied during verify flow.
-        verificationDocumentRef:
+          description: Stored primary identity document type.
+        primaryDocumentRef:
           type: string
           nullable: true
           readOnly: true
-          description: Stored verification document reference when supplied during verify flow.
+          description: Stored reference for primary identity document.
+        addressDocumentType:
+          type: string
+          nullable: true
+          readOnly: true
+          description: Stored proof-of-address document type.
+        addressDocumentRef:
+          type: string
+          nullable: true
+          readOnly: true
+          description: Stored reference for proof-of-address document.
         verificationVerifiedAt:
           type: string
           format: date-time
@@ -410,13 +420,19 @@ components:
         country: {type: string, minLength: 2, maxLength: 50}
         postalCode: {type: string, minLength: 4, maxLength: 10}
       additionalProperties: false
-    VerifyClientRequest:
+    UploadVerificationDocsRequest:
       type: object
       properties:
-        nric: {type: string, pattern: '^[STFGM]\d{7}[A-Z]$', description: 'Singapore NRIC (e.g. S1234567D). Store securely.'}
-        documentType: {type: string, enum: [NRIC], default: NRIC}
-        documentRef: {type: string, description: Reference to uploaded/secured doc (do not send raw docs via API).}
-      required: [nric]
+        verificationToken: {type: string, description: Signed token received from verification email link.}
+        primaryDocumentType: {type: string, enum: [NRIC, PASSPORT, EMPLOYMENT_PASS]}
+        primaryDocumentRef: {type: string, description: Original filename for primary identity document.}
+        primaryDocumentBase64: {type: string, description: Base64-encoded primary identity document bytes.}
+        primaryDocumentMimeType: {type: string, description: "MIME type for primary identity document, e.g. image/jpeg."}
+        addressDocumentType: {type: string, enum: [UTILITY_BILL, BANK_STATEMENT, GOVERNMENT_LETTER, TENANCY_AGREEMENT]}
+        addressDocumentRef: {type: string, description: Original filename for proof-of-address document.}
+        addressDocumentBase64: {type: string, description: Base64-encoded proof-of-address document bytes.}
+        addressDocumentMimeType: {type: string, description: "MIME type for proof-of-address document, e.g. application/pdf."}
+      required: [verificationToken, primaryDocumentType, primaryDocumentRef, primaryDocumentBase64, primaryDocumentMimeType, addressDocumentType, addressDocumentRef, addressDocumentBase64, addressDocumentMimeType]
       additionalProperties: false
     VerifyClientResponse:
       type: object

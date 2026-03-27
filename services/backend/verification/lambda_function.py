@@ -5,7 +5,7 @@ Responsibilities
 ----------------
 1. UPLOAD_VERIFICATION_REQUESTED (from your Java createClient SNS publish)
    - Receives client info + clientId from SNS
-   - Mints a signed token
+   - Uses verification token supplied in SNS message
    - Builds a frontend verification link
    - Sends the verification email via SES
 
@@ -17,8 +17,8 @@ Environment variables:
     # Email sending (flow 1)
     SES_SOURCE_EMAIL                        Required for sending. Verified SES sender address.
     FRONTEND_BASE_URL                       Required for sending. e.g. https://app.example.com
-    VERIFICATION_JWT_HMAC_SECRET            Optional. Used to sign verification tokens.
-    VERIFICATION_JWT_HMAC_SECRET_ARN        Optional. Secrets Manager ARN fallback for signing secret.
+    VERIFICATION_JWT_HMAC_SECRET            Optional. Secret for service JWT used in feedback API auth.
+    VERIFICATION_JWT_HMAC_SECRET_ARN        Optional. Secrets Manager ARN fallback for service JWT secret.
 
     # Log service (flow 2)
     LOG_API_BASE_URL                        Required for feedback. Base URL for log API.
@@ -150,7 +150,12 @@ def _build_verification_link(client_id: str, token: str) -> str:
 
 
 def _send_verification_email(
-    client_id: str, email: str, token: str, first_name: str, request_id: str
+    client_id: str,
+    email: str,
+    token: str,
+    first_name: str,
+    request_id: str,
+    token_ttl_seconds: int,
 ) -> None:
     source_email = os.environ.get("SES_SOURCE_EMAIL", "").strip()
     if not source_email:
@@ -161,6 +166,7 @@ def _send_verification_email(
 
     link = _build_verification_link(client_id, token)
     display_name = first_name or "there"
+    expiry_text = _format_ttl_for_humans(token_ttl_seconds)
 
     subject = "[ScroogeBank CRM] Please verify your identity"
     body_html = f"""
@@ -168,13 +174,13 @@ def _send_verification_email(
       <p>Hi {display_name},</p>
       <p>Please upload your identity verification documents by clicking the link below:</p>
       <p><a href="{link}">Upload Documents</a></p>
-      <p>This link expires in 24 hours.</p>
+      <p>This link expires in {expiry_text}.</p>
     </body></html>
     """
     body_text = (
         f"Hi {display_name},\n\n"
         f"Please upload your identity verification documents by visiting:\n{link}\n\n"
-        "This link expires in 24 hours."
+        f"This link expires in {expiry_text}."
     )
 
     boto3.client("ses").send_email(
@@ -202,12 +208,33 @@ def _handle_verification_requested(message: dict[str, Any]) -> None:
     token = message.get("token", "").strip()
     first_name = message.get("firstName", "").strip()
     request_id = message.get("requestId", "").strip()
+    token_ttl_seconds = _parse_positive_int(message.get("tokenTtlSeconds"), 7200)
 
     if not client_id or not email:
         logger.warning("VERIFICATION_REQUESTED missing clientId or email — skipping")
         return
 
-    _send_verification_email(client_id, email, token, first_name, request_id)
+    _send_verification_email(
+        client_id, email, token, first_name, request_id, token_ttl_seconds
+    )
+
+
+def _parse_positive_int(value: Any, default: int) -> int:
+    try:
+        parsed = int(value)
+        return parsed if parsed > 0 else default
+    except (TypeError, ValueError):
+        return default
+
+
+def _format_ttl_for_humans(ttl_seconds: int) -> str:
+    if ttl_seconds % 3600 == 0:
+        hours = ttl_seconds // 3600
+        return f"{hours} hour" if hours == 1 else f"{hours} hours"
+    if ttl_seconds % 60 == 0:
+        minutes = ttl_seconds // 60
+        return f"{minutes} minute" if minutes == 1 else f"{minutes} minutes"
+    return f"{ttl_seconds} second" if ttl_seconds == 1 else f"{ttl_seconds} seconds"
 
 
 # ---------------------------------------------------------------------------

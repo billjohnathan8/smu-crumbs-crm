@@ -36,8 +36,8 @@ enable_verification_pipeline      = true
 ses_sender_email                  = "verification@crm.local" # replace with a verified sender in real AWS integration
 
 enable_aml_lambda     = false # requires real SFTP endpoint + key ownership contract
-enable_audit_pipeline = false # partial scaffold only: audit-consumer runtime artifact absent
-enable_aml_pipeline   = false # partial scaffold only: aml-consumer runtime artifact absent
+enable_audit_pipeline = false # implemented but disabled by default in integration profile
+enable_aml_pipeline   = false # implemented but disabled by default in integration profile
 
 # --- Security / Observability ---
 enable_waf                    = false
@@ -54,6 +54,8 @@ enable_cognito            = true
 cognito_mfa_configuration = "OPTIONAL"
 auth_mode                 = "hybrid"
 cloudfront_price_class    = "PriceClass_100"
+# Required when app_domain_name is not set and enable_verification_pipeline=true.
+# verification_frontend_base_url = "https://<your-frontend-domain>"
 
 # --- Domain / DNS ---
 manage_route53_records            = false

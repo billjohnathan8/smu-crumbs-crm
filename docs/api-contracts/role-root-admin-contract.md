@@ -30,7 +30,7 @@ This note defines the contract aligned across backend behavior, OpenAPI, fronten
 
 ## Verification Review Contract (Client Service)
 
-- `POST /api/clients/{clientId}/verify` sets status to `pending`.
+- `POST /api/clients/{clientId}/upload-verify` is the public tokenized upload endpoint and sets status to `pending`.
 - `PATCH /api/clients/{clientId}/verify/review` is admin-only and accepts:
   - `action=approve` -> status `verified`
   - `action=reject` -> status `rejected`

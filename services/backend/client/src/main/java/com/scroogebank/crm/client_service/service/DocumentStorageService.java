@@ -14,13 +14,15 @@ import java.util.Base64;
 public class DocumentStorageService {
 
     private final S3Client s3Client;
+    private final String bucket;
 
-    public DocumentStorageService(S3Client s3Client) {
+    public DocumentStorageService(
+        S3Client s3Client,
+        @Value("${app.verification.documents-bucket}") String bucket
+    ) {
         this.s3Client = s3Client;
+        this.bucket = bucket;
     }
-
-    @Value("${app.s3.bucket:${APP_S3_BUCKET:scroogebank-crm-dev-verification}}")
-    private String bucket;
 
     /**
      * Decodes a base64 string and uploads it to S3.
@@ -39,6 +41,11 @@ public class DocumentStorageService {
         String base64,
         String mimeType
     ) {
+        String configuredBucket = bucket == null ? "" : bucket.trim();
+        if (configuredBucket.isEmpty()) {
+            throw new IllegalStateException("VERIFICATION_DOCUMENTS_BUCKET must be configured for verification document uploads.");
+        }
+
         byte[] bytes;
         try {
             bytes = Base64.getDecoder().decode(base64);
@@ -51,7 +58,7 @@ public class DocumentStorageService {
         String key = "clients/%s/%s/%s".formatted(clientId, category, fileName);
 
         PutObjectRequest putRequest = PutObjectRequest.builder()
-            .bucket(bucket)
+            .bucket(configuredBucket)
             .key(key)
             .contentType(mimeType)
             .contentLength((long) bytes.length)

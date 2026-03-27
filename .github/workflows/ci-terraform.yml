@@ -89,6 +89,8 @@ jobs:
           TF_VAR_enable_aml_lambda: "true"
           TF_VAR_enable_sftp_transaction_collector: "true"
           TF_VAR_enable_verification_pipeline: "true"
+          TF_VAR_enable_audit_pipeline: "true"
+          TF_VAR_enable_aml_pipeline: "true"
           TF_VAR_ses_sender_email: "verification@crm.local"
         run: terraform validate
 

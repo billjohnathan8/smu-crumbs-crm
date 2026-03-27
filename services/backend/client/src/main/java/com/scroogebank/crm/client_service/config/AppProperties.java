@@ -96,7 +96,7 @@ public class AppProperties {
 	}
 
 	public static class Dispatch {
-		private boolean enabled = true;
+		private boolean enabled = false;
 		private long pollIntervalMs = 30000;
 		private int maxBatchSize = 50;
 		private int maxAttempts = 5;

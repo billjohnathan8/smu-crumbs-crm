@@ -11,14 +11,31 @@ DB_ENDPOINT_GUARD_SCRIPT="${ROOT_DIR}/scripts/ci/guard-no-prod-db.sh"
 
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-http://127.0.0.1:18088}"
 COMPOSE_PROJECT_NAME="crm-fullstack-it-${GITHUB_RUN_ID:-local}"
-FULLSTACK_MODE="${FULLSTACK_MODE:-full}" # full | smoke
+FULLSTACK_MODE="${FULLSTACK_MODE:-full}" # full | pr | smoke
+FULLSTACK_LOCAL_DOCKER_PRUNE="${FULLSTACK_LOCAL_DOCKER_PRUNE:-1}"
 case "${FULLSTACK_MODE}" in
-  full|smoke) ;;
+  full|pr|smoke) ;;
   *)
-    echo "[FAIL] FULLSTACK_MODE must be 'full' or 'smoke' (got: ${FULLSTACK_MODE})" >&2
+    echo "[FAIL] FULLSTACK_MODE must be 'full', 'pr', or 'smoke' (got: ${FULLSTACK_MODE})" >&2
     exit 1
     ;;
 esac
+
+PLAYWRIGHT_CRITICAL_PR_SPECS=(
+  "cross-agent-data-isolation.spec.ts"
+  "verification-workflow-contract.spec.ts"
+  "user-management-advanced.spec.ts"
+)
+PLAYWRIGHT_SCOPE_LABEL="full suite"
+PLAYWRIGHT_SPEC_ARGS=()
+if [[ "${FULLSTACK_MODE}" == "pr" ]]; then
+  PLAYWRIGHT_SCOPE_LABEL="critical PR subset"
+  PLAYWRIGHT_SPEC_ARGS=("${PLAYWRIGHT_CRITICAL_PR_SPECS[@]}")
+fi
+if [[ -n "${PLAYWRIGHT_SPEC_ARGS_OVERRIDE:-}" ]]; then
+  PLAYWRIGHT_SCOPE_LABEL="override subset"
+  read -r -a PLAYWRIGHT_SPEC_ARGS <<< "${PLAYWRIGHT_SPEC_ARGS_OVERRIDE}"
+fi
 
 SCRIPT_START_TS="$(date +%s)"
 CURRENT_PHASE_NAME=""
@@ -44,9 +61,21 @@ VERIFICATION_LAMBDA_FUNCTION_NAME="scroogebank-crm-dev-verification"
 VERIFICATION_LAMBDA_RUNTIME="${VERIFICATION_LAMBDA_RUNTIME:-python3.12}"
 SFTP_TRANSACTION_COLLECTOR_FUNCTION_NAME="scroogebank-crm-dev-sftp-transaction-collector"
 SFTP_TRANSACTION_COLLECTOR_RUNTIME="${SFTP_TRANSACTION_COLLECTOR_RUNTIME:-python3.12}"
+AML_LAMBDA_FUNCTION_NAME="scroogebank-crm-dev-aml"
+AML_LAMBDA_RUNTIME="${AML_LAMBDA_RUNTIME:-python3.12}"
+AUDIT_CONSUMER_LAMBDA_FUNCTION_NAME="scroogebank-crm-dev-audit-consumer"
+AUDIT_CONSUMER_LAMBDA_RUNTIME="${AUDIT_CONSUMER_LAMBDA_RUNTIME:-python3.12}"
+AUDIT_CONSUMER_QUEUE_NAME="scroogebank-crm-dev-audit"
+AUDIT_CONSUMER_TABLE_NAME="scroogebank-crm-dev-audit-logs"
+AML_CONSUMER_LAMBDA_FUNCTION_NAME="scroogebank-crm-dev-aml-consumer"
+AML_CONSUMER_LAMBDA_RUNTIME="${AML_CONSUMER_LAMBDA_RUNTIME:-python3.12}"
+AML_CONSUMER_QUEUE_NAME="scroogebank-crm-dev-aml"
+AML_CONSUMER_TABLE_NAME="scroogebank-crm-dev-aml-reports"
 VERIFICATION_SNS_TOPIC_NAME="scroogebank-crm-dev-verification"
 export VERIFICATION_EMAIL_PROVIDER="${VERIFICATION_EMAIL_PROVIDER:-mock}"
 export SES_SENDER_EMAIL="${SES_SENDER_EMAIL:-verification@crm.local}"
+export VERIFICATION_DOCUMENTS_BUCKET="${VERIFICATION_DOCUMENTS_BUCKET:-scroogebank-crm-dev-verification}"
+export VERIFICATION_SNS_TOPIC_ARN="${VERIFICATION_SNS_TOPIC_ARN:-arn:aws:sns:ap-southeast-1:000000000000:${VERIFICATION_SNS_TOPIC_NAME}}"
 
 # Set safe defaults so compose parsing works for `down` before dynamic provisioning.
 export LOG_SERVICE_URL="${LOG_SERVICE_URL:-http://localstack:4566}"
@@ -226,6 +255,93 @@ localstack_queue_exists() {
     >/dev/null 2>&1
 }
 
+wait_for_dynamodb_item_pk_sk() {
+  local table_name="$1"
+  local pk="$2"
+  local sk="$3"
+  local attempts="${4:-30}"
+  local key_json=""
+  local result=""
+
+  key_json="$(printf '{"pk":{"S":"%s"},"sk":{"S":"%s"}}' "${pk}" "${sk}")"
+
+  for i in $(seq 1 "${attempts}"); do
+    result="$(
+      aws_local dynamodb get-item \
+        --table-name "${table_name}" \
+        --key "${key_json}" \
+        --query "Item.pk.S" \
+        --output text 2>/dev/null || true
+    )"
+    result="$(normalize_text "${result}")"
+    if [[ "${result}" == "${pk}" ]]; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  echo "[FAIL] Timed out waiting for item pk=${pk} sk=${sk} in table ${table_name}" >&2
+  exit 1
+}
+
+dynamodb_count_by_pk() {
+  local table_name="$1"
+  local pk="$2"
+  local expr_values=""
+  local count=""
+  expr_values="$(printf '{":pk":{"S":"%s"}}' "${pk}")"
+  count="$(
+    aws_local dynamodb query \
+      --table-name "${table_name}" \
+      --key-condition-expression "pk = :pk" \
+      --expression-attribute-values "${expr_values}" \
+      --query "Count" \
+      --output text 2>/dev/null || true
+  )"
+  normalize_text "${count}"
+}
+
+wait_for_queue_drained() {
+  local queue_url="$1"
+  local attempts="${2:-30}"
+  local consecutive_zero_required="${3:-3}"
+  local consecutive_zero=0
+  local visible=0
+  local not_visible=0
+
+  for i in $(seq 1 "${attempts}"); do
+    visible="$(
+      aws_local sqs get-queue-attributes \
+        --queue-url "${queue_url}" \
+        --attribute-names ApproximateNumberOfMessages \
+        --query "Attributes.ApproximateNumberOfMessages" \
+        --output text 2>/dev/null || true
+    )"
+    visible="$(normalize_text "${visible}")"
+    not_visible="$(
+      aws_local sqs get-queue-attributes \
+        --queue-url "${queue_url}" \
+        --attribute-names ApproximateNumberOfMessagesNotVisible \
+        --query "Attributes.ApproximateNumberOfMessagesNotVisible" \
+        --output text 2>/dev/null || true
+    )"
+    not_visible="$(normalize_text "${not_visible}")"
+
+    if [[ "${visible}" == "0" && "${not_visible}" == "0" ]]; then
+      consecutive_zero=$((consecutive_zero + 1))
+      if [[ ${consecutive_zero} -ge ${consecutive_zero_required} ]]; then
+        return 0
+      fi
+    else
+      consecutive_zero=0
+    fi
+    sleep 1
+  done
+
+  echo "[FAIL] Queue did not drain in time (visible=${visible}, notVisible=${not_visible})" >&2
+  exit 1
+}
+
 require_docker_ready
 
 if [[ -f "${DB_ENDPOINT_GUARD_SCRIPT}" ]]; then
@@ -238,6 +354,18 @@ cleanup() {
   dump_compose_logs
   docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" down -v --remove-orphans \
     >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
+
+  if [[ "${GITHUB_ACTIONS:-}" != "true" && "${FULLSTACK_LOCAL_DOCKER_PRUNE}" == "1" ]]; then
+    local leftover_ids=""
+    leftover_ids="$(docker ps -aq --filter "name=crm-fullstack-it-" 2>/dev/null || true)"
+    if [[ -n "${leftover_ids}" ]]; then
+      docker rm -f ${leftover_ids} >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
+    fi
+    docker container prune -f >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
+    docker volume prune -f >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
+    docker network prune -f >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
+    docker system prune -af --volumes >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
+  fi
 
   local total_elapsed
   total_elapsed=$(( $(date +%s) - SCRIPT_START_TS ))
@@ -688,14 +816,14 @@ PY
   fi
 }
 
-package_verification_lambda() {
-  local package_dir="${LOG_DIR}/verification-lambda-package"
-  local zip_path="${LOG_DIR}/verification-lambda.zip"
+package_single_file_lambda() {
+  local source_file="$1"
+  local package_dir="$2"
+  local zip_path="$3"
 
   rm -rf "${package_dir}" "${zip_path}"
   mkdir -p "${package_dir}"
-
-  cp "${ROOT_DIR}/services/backend/verification/lambda_function.py" "${package_dir}/"
+  cp "${source_file}" "${package_dir}/"
 
   if command -v zip >/dev/null 2>&1; then
     (
@@ -719,35 +847,54 @@ PY
   fi
 }
 
+package_verification_lambda() {
+  local package_dir="${LOG_DIR}/verification-lambda-package"
+  local zip_path="${LOG_DIR}/verification-lambda.zip"
+
+  package_single_file_lambda \
+    "${ROOT_DIR}/services/backend/verification/lambda_function.py" \
+    "${package_dir}" \
+    "${zip_path}"
+}
+
 package_sftp_transaction_collector() {
   local package_dir="${LOG_DIR}/sftp-transaction-collector-package"
   local zip_path="${LOG_DIR}/sftp-transaction-collector.zip"
 
-  rm -rf "${package_dir}" "${zip_path}"
-  mkdir -p "${package_dir}"
+  package_single_file_lambda \
+    "${ROOT_DIR}/services/backend/sftp-transaction-collector/lambda_function.py" \
+    "${package_dir}" \
+    "${zip_path}"
+}
 
-  cp "${ROOT_DIR}/services/backend/sftp-transaction-collector/lambda_function.py" "${package_dir}/"
+package_aml_lambda() {
+  local package_dir="${LOG_DIR}/aml-lambda-package"
+  local zip_path="${LOG_DIR}/aml-lambda.zip"
 
-  if command -v zip >/dev/null 2>&1; then
-    (
-      cd "${package_dir}"
-      zip -rq "${zip_path}" .
-    )
-  else
-    ${PYTHON_CMD} - "${package_dir}" "${zip_path}" <<'PY'
-import pathlib
-import sys
-import zipfile
+  package_single_file_lambda \
+    "${ROOT_DIR}/services/backend/aml/lambda_function.py" \
+    "${package_dir}" \
+    "${zip_path}"
+}
 
-src_dir = pathlib.Path(sys.argv[1])
-zip_path = pathlib.Path(sys.argv[2])
+package_audit_consumer_lambda() {
+  local package_dir="${LOG_DIR}/audit-consumer-lambda-package"
+  local zip_path="${LOG_DIR}/audit-consumer-lambda.zip"
 
-with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-    for path in src_dir.rglob("*"):
-        if path.is_file():
-            zf.write(path, path.relative_to(src_dir))
-PY
-  fi
+  package_single_file_lambda \
+    "${ROOT_DIR}/services/backend/audit-consumer/lambda_function.py" \
+    "${package_dir}" \
+    "${zip_path}"
+}
+
+package_aml_consumer_lambda() {
+  local package_dir="${LOG_DIR}/aml-consumer-lambda-package"
+  local zip_path="${LOG_DIR}/aml-consumer-lambda.zip"
+
+  package_single_file_lambda \
+    "${ROOT_DIR}/services/backend/aml-consumer/lambda_function.py" \
+    "${package_dir}" \
+    "${zip_path}"
 }
 
 deploy_log_lambda() {
@@ -855,7 +1002,7 @@ deploy_verification_feedback_lambda() {
   fi
 
   lambda_internal_log_url="$(echo "${LOG_SERVICE_URL}" | sed 's#localstack:4566#localhost:4566#g')"
-  local env_vars="Variables={LOG_API_BASE_URL=${lambda_internal_log_url},VERIFICATION_JWT_HMAC_SECRET=dev-only-insecure-secret,VERIFICATION_JWT_SUB=SYSTEM_VERIFICATION_FEEDBACK,VERIFICATION_JWT_ROLE=admin,VERIFICATION_JWT_TTL_SECONDS=300}"
+  local env_vars="Variables={SES_SOURCE_EMAIL=${SES_SENDER_EMAIL},FRONTEND_BASE_URL=${PLAYWRIGHT_BASE_URL},LOG_API_BASE_URL=${lambda_internal_log_url},VERIFICATION_JWT_HMAC_SECRET=dev-only-insecure-secret,VERIFICATION_JWT_SUB=SYSTEM_VERIFICATION_FEEDBACK,VERIFICATION_JWT_ROLE=admin,VERIFICATION_JWT_TTL_SECONDS=300}"
 
   if aws_local lambda get-function --function-name "${VERIFICATION_LAMBDA_FUNCTION_NAME}" >/dev/null 2>&1; then
     aws_local lambda update-function-code \
@@ -976,6 +1123,340 @@ deploy_sftp_transaction_collector() {
       echo "[FAIL] Transaction ingestion Lambda did not become Active in time (state=${state})." >&2
       exit 1
     }
+    sleep 1
+  done
+}
+
+deploy_aml_lambda() {
+  local zip_path="${LOG_DIR}/aml-lambda.zip"
+  local zip_arg="fileb://${zip_path}"
+  local aml_bearer_token=""
+  local aml_api_base_url="http://integration-gateway"
+  local env_vars=""
+
+  if [[ "${AWS_IS_WINDOWS}" == "true" ]]; then
+    zip_arg="fileb://$(to_windows_path "${zip_path}")"
+  fi
+
+  aml_bearer_token="$(mint_jwt "system_aml_localstack" "admin")"
+  env_vars="Variables={AML_SFTP_MODE=mock,CRM_API_BASE_URL=${aml_api_base_url},CRM_WRITE_API_BASE_URL=${aml_api_base_url},CRM_API_BEARER_TOKEN=${aml_bearer_token}}"
+
+  if aws_local lambda get-function --function-name "${AML_LAMBDA_FUNCTION_NAME}" >/dev/null 2>&1; then
+    aws_local lambda update-function-code \
+      --function-name "${AML_LAMBDA_FUNCTION_NAME}" \
+      --zip-file "${zip_arg}" \
+      >/dev/null
+    aws_local lambda update-function-configuration \
+      --function-name "${AML_LAMBDA_FUNCTION_NAME}" \
+      --handler lambda_function.lambda_handler \
+      --runtime "${AML_LAMBDA_RUNTIME}" \
+      --timeout 120 \
+      --memory-size 1024 \
+      --environment "${env_vars}" \
+      >/dev/null
+  else
+    aws_local lambda create-function \
+      --function-name "${AML_LAMBDA_FUNCTION_NAME}" \
+      --runtime "${AML_LAMBDA_RUNTIME}" \
+      --handler lambda_function.lambda_handler \
+      --zip-file "${zip_arg}" \
+      --role arn:aws:iam::000000000000:role/lambda-role \
+      --timeout 120 \
+      --memory-size 1024 \
+      --environment "${env_vars}" \
+      >/dev/null
+  fi
+
+  for i in $(seq 1 40); do
+    local state
+    state="$(
+      aws_local lambda get-function-configuration \
+        --function-name "${AML_LAMBDA_FUNCTION_NAME}" \
+        --query "State" \
+        --output text 2>/dev/null || true
+    )"
+    state="$(echo "${state}" | tr -d '\r')"
+    if [[ "${state}" == "Active" ]]; then
+      return 0
+    fi
+    [[ ${i} -eq 40 ]] && {
+      echo "[FAIL] AML Lambda did not become Active in time (state=${state})." >&2
+      exit 1
+    }
+    sleep 1
+  done
+}
+
+deploy_audit_consumer_lambda() {
+  local zip_path="${LOG_DIR}/audit-consumer-lambda.zip"
+  local zip_arg="fileb://${zip_path}"
+  local env_vars="Variables={DYNAMODB_TABLE_NAME=${AUDIT_CONSUMER_TABLE_NAME},IDEMPOTENCY_TTL_DAYS=90,LOG_LEVEL=INFO}"
+
+  if [[ "${AWS_IS_WINDOWS}" == "true" ]]; then
+    zip_arg="fileb://$(to_windows_path "${zip_path}")"
+  fi
+
+  if aws_local lambda get-function --function-name "${AUDIT_CONSUMER_LAMBDA_FUNCTION_NAME}" >/dev/null 2>&1; then
+    aws_local lambda update-function-code \
+      --function-name "${AUDIT_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+      --zip-file "${zip_arg}" \
+      >/dev/null
+    aws_local lambda update-function-configuration \
+      --function-name "${AUDIT_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+      --handler lambda_function.lambda_handler \
+      --runtime "${AUDIT_CONSUMER_LAMBDA_RUNTIME}" \
+      --timeout 30 \
+      --memory-size 256 \
+      --environment "${env_vars}" \
+      >/dev/null
+  else
+    aws_local lambda create-function \
+      --function-name "${AUDIT_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+      --runtime "${AUDIT_CONSUMER_LAMBDA_RUNTIME}" \
+      --handler lambda_function.lambda_handler \
+      --zip-file "${zip_arg}" \
+      --role arn:aws:iam::000000000000:role/lambda-role \
+      --timeout 30 \
+      --memory-size 256 \
+      --environment "${env_vars}" \
+      >/dev/null
+  fi
+
+  for i in $(seq 1 40); do
+    local state
+    state="$(
+      aws_local lambda get-function-configuration \
+        --function-name "${AUDIT_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+        --query "State" \
+        --output text 2>/dev/null || true
+    )"
+    state="$(echo "${state}" | tr -d '\r')"
+    if [[ "${state}" == "Active" ]]; then
+      return 0
+    fi
+    if [[ "${state}" == "Failed" ]]; then
+      local reason
+      reason="$(
+        aws_local lambda get-function-configuration \
+          --function-name "${AUDIT_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+          --query "StateReason" \
+          --output text 2>/dev/null || true
+      )"
+      reason="$(echo "${reason}" | tr -d '\r')"
+      echo "[FAIL] audit-consumer Lambda entered Failed state: ${reason}" >&2
+      exit 1
+    fi
+    if [[ ${i} -eq 40 ]]; then
+      echo "[FAIL] audit-consumer Lambda did not become Active in time (state=${state})." >&2
+      exit 1
+    fi
+    sleep 1
+  done
+}
+
+wire_audit_consumer_event_source_mapping() {
+  local queue_url=""
+  local queue_arn=""
+  local mapping_uuid=""
+  local mapping_state=""
+
+  queue_url="$(
+    aws_local sqs get-queue-url \
+      --queue-name "${AUDIT_CONSUMER_QUEUE_NAME}" \
+      --query "QueueUrl" \
+      --output text
+  )"
+  queue_arn="$(
+    aws_local sqs get-queue-attributes \
+      --queue-url "${queue_url}" \
+      --attribute-names QueueArn \
+      --query "Attributes.QueueArn" \
+      --output text
+  )"
+  queue_arn="$(normalize_text "${queue_arn}")"
+
+  mapping_uuid="$(
+    aws_local lambda list-event-source-mappings \
+      --event-source-arn "${queue_arn}" \
+      --function-name "${AUDIT_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+      --query "EventSourceMappings[0].UUID" \
+      --output text 2>/dev/null || true
+  )"
+  mapping_uuid="$(normalize_text "${mapping_uuid}")"
+
+  if [[ -z "${mapping_uuid}" || "${mapping_uuid}" == "None" ]]; then
+    mapping_uuid="$(
+      aws_local lambda create-event-source-mapping \
+        --function-name "${AUDIT_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+        --event-source-arn "${queue_arn}" \
+        --enabled \
+        --batch-size 10 \
+        --function-response-types ReportBatchItemFailures \
+        --query "UUID" \
+        --output text
+    )"
+    mapping_uuid="$(normalize_text "${mapping_uuid}")"
+  else
+    aws_local lambda update-event-source-mapping \
+      --uuid "${mapping_uuid}" \
+      --enabled \
+      --batch-size 10 \
+      --function-response-types ReportBatchItemFailures \
+      >/dev/null
+  fi
+
+  for i in $(seq 1 40); do
+    mapping_state="$(
+      aws_local lambda get-event-source-mapping \
+        --uuid "${mapping_uuid}" \
+        --query "State" \
+        --output text 2>/dev/null || true
+    )"
+    mapping_state="$(normalize_text "${mapping_state}")"
+    if [[ "${mapping_state}" == "Enabled" || "${mapping_state}" == "Enabling" ]]; then
+      return 0
+    fi
+    if [[ ${i} -eq 40 ]]; then
+      echo "[FAIL] audit-consumer event source mapping was not enabled (state=${mapping_state})." >&2
+      exit 1
+    fi
+    sleep 1
+  done
+}
+
+deploy_aml_consumer_lambda() {
+  local zip_path="${LOG_DIR}/aml-consumer-lambda.zip"
+  local zip_arg="fileb://${zip_path}"
+  local env_vars="Variables={DYNAMODB_TABLE_NAME=${AML_CONSUMER_TABLE_NAME},IDEMPOTENCY_TTL_DAYS=90,LOG_LEVEL=INFO}"
+
+  if [[ "${AWS_IS_WINDOWS}" == "true" ]]; then
+    zip_arg="fileb://$(to_windows_path "${zip_path}")"
+  fi
+
+  if aws_local lambda get-function --function-name "${AML_CONSUMER_LAMBDA_FUNCTION_NAME}" >/dev/null 2>&1; then
+    aws_local lambda update-function-code \
+      --function-name "${AML_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+      --zip-file "${zip_arg}" \
+      >/dev/null
+    aws_local lambda update-function-configuration \
+      --function-name "${AML_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+      --handler lambda_function.lambda_handler \
+      --runtime "${AML_CONSUMER_LAMBDA_RUNTIME}" \
+      --timeout 30 \
+      --memory-size 256 \
+      --environment "${env_vars}" \
+      >/dev/null
+  else
+    aws_local lambda create-function \
+      --function-name "${AML_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+      --runtime "${AML_CONSUMER_LAMBDA_RUNTIME}" \
+      --handler lambda_function.lambda_handler \
+      --zip-file "${zip_arg}" \
+      --role arn:aws:iam::000000000000:role/lambda-role \
+      --timeout 30 \
+      --memory-size 256 \
+      --environment "${env_vars}" \
+      >/dev/null
+  fi
+
+  for i in $(seq 1 40); do
+    local state
+    state="$(
+      aws_local lambda get-function-configuration \
+        --function-name "${AML_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+        --query "State" \
+        --output text 2>/dev/null || true
+    )"
+    state="$(echo "${state}" | tr -d '\r')"
+    if [[ "${state}" == "Active" ]]; then
+      return 0
+    fi
+    if [[ "${state}" == "Failed" ]]; then
+      local reason
+      reason="$(
+        aws_local lambda get-function-configuration \
+          --function-name "${AML_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+          --query "StateReason" \
+          --output text 2>/dev/null || true
+      )"
+      reason="$(echo "${reason}" | tr -d '\r')"
+      echo "[FAIL] aml-consumer Lambda entered Failed state: ${reason}" >&2
+      exit 1
+    fi
+    if [[ ${i} -eq 40 ]]; then
+      echo "[FAIL] aml-consumer Lambda did not become Active in time (state=${state})." >&2
+      exit 1
+    fi
+    sleep 1
+  done
+}
+
+wire_aml_consumer_event_source_mapping() {
+  local queue_url=""
+  local queue_arn=""
+  local mapping_uuid=""
+  local mapping_state=""
+
+  queue_url="$(
+    aws_local sqs get-queue-url \
+      --queue-name "${AML_CONSUMER_QUEUE_NAME}" \
+      --query "QueueUrl" \
+      --output text
+  )"
+  queue_arn="$(
+    aws_local sqs get-queue-attributes \
+      --queue-url "${queue_url}" \
+      --attribute-names QueueArn \
+      --query "Attributes.QueueArn" \
+      --output text
+  )"
+  queue_arn="$(normalize_text "${queue_arn}")"
+
+  mapping_uuid="$(
+    aws_local lambda list-event-source-mappings \
+      --event-source-arn "${queue_arn}" \
+      --function-name "${AML_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+      --query "EventSourceMappings[0].UUID" \
+      --output text 2>/dev/null || true
+  )"
+  mapping_uuid="$(normalize_text "${mapping_uuid}")"
+
+  if [[ -z "${mapping_uuid}" || "${mapping_uuid}" == "None" ]]; then
+    mapping_uuid="$(
+      aws_local lambda create-event-source-mapping \
+        --function-name "${AML_CONSUMER_LAMBDA_FUNCTION_NAME}" \
+        --event-source-arn "${queue_arn}" \
+        --enabled \
+        --batch-size 10 \
+        --function-response-types ReportBatchItemFailures \
+        --query "UUID" \
+        --output text
+    )"
+    mapping_uuid="$(normalize_text "${mapping_uuid}")"
+  else
+    aws_local lambda update-event-source-mapping \
+      --uuid "${mapping_uuid}" \
+      --enabled \
+      --batch-size 10 \
+      --function-response-types ReportBatchItemFailures \
+      >/dev/null
+  fi
+
+  for i in $(seq 1 40); do
+    mapping_state="$(
+      aws_local lambda get-event-source-mapping \
+        --uuid "${mapping_uuid}" \
+        --query "State" \
+        --output text 2>/dev/null || true
+    )"
+    mapping_state="$(normalize_text "${mapping_state}")"
+    if [[ "${mapping_state}" == "Enabled" || "${mapping_state}" == "Enabling" ]]; then
+      return 0
+    fi
+    if [[ ${i} -eq 40 ]]; then
+      echo "[FAIL] aml-consumer event source mapping was not enabled (state=${mapping_state})." >&2
+      exit 1
+    fi
     sleep 1
   done
 }
@@ -1160,6 +1641,30 @@ print(f"{signing}.{sig}")
 PY
 }
 
+mint_verification_token() {
+  local client_id="$1"
+
+  ${PYTHON_CMD} - "${client_id}" <<'PY'
+import base64, hashlib, hmac, json, sys, time
+
+client_id = sys.argv[1]
+secret = "dev-only-insecure-secret"
+header = {"alg": "HS256", "typ": "JWT"}
+payload = {"clientId": client_id, "exp": int(time.time()) + 7200}
+
+def b64url(d):
+    return base64.urlsafe_b64encode(
+        json.dumps(d, separators=(",", ":")).encode()
+    ).rstrip(b"=").decode()
+
+signing = f"{b64url(header)}.{b64url(payload)}"
+sig = base64.urlsafe_b64encode(
+    hmac.new(secret.encode(), signing.encode("ascii"), hashlib.sha256).digest()
+).rstrip(b"=").decode()
+print(f"{signing}.{sig}")
+PY
+}
+
 # --------------------------------------------------------------------------
 # Phase 1: Build artifacts and start base infra in parallel
 # --------------------------------------------------------------------------
@@ -1183,6 +1688,12 @@ package_verification_lambda &
 verification_lambda_package_pid=$!
 package_sftp_transaction_collector &
 sftp_transaction_collector_package_pid=$!
+package_aml_lambda &
+aml_lambda_package_pid=$!
+package_audit_consumer_lambda &
+audit_consumer_lambda_package_pid=$!
+package_aml_consumer_lambda &
+aml_consumer_lambda_package_pid=$!
 
 wait_for_jobs \
   "${infra_pid}" "base-infra-up (postgres + localstack)" \
@@ -1191,7 +1702,10 @@ wait_for_jobs \
   "${transaction_build_pid}" "bootJar-transaction" \
   "${lambda_package_pid}" "package-log-lambda" \
   "${verification_lambda_package_pid}" "package-verification-lambda" \
-  "${sftp_transaction_collector_package_pid}" "package-sftp-transaction-collector"
+  "${sftp_transaction_collector_package_pid}" "package-sftp-transaction-collector" \
+  "${aml_lambda_package_pid}" "package-aml-lambda" \
+  "${audit_consumer_lambda_package_pid}" "package-audit-consumer-lambda" \
+  "${aml_consumer_lambda_package_pid}" "package-aml-consumer-lambda"
 end_phase
 
 # --------------------------------------------------------------------------
@@ -1232,7 +1746,7 @@ bash "${DB_ORCHESTRATOR_SCRIPT}" migrate \
   >> "${LOG_DIR}/docker-compose.log" 2>&1
 end_phase
 
-start_phase "Phase 2b: Deploy log + verification + ingestion Lambdas"
+start_phase "Phase 2b: Deploy log + verification + ingestion + AML + audit/aml-consumer Lambdas"
 echo "Packaging + deploying log-service Lambda to LocalStack..."
 deploy_log_lambda
 provision_log_http_api
@@ -1240,6 +1754,14 @@ echo "Deploying verification feedback Lambda + SNS subscription..."
 deploy_verification_feedback_lambda
 echo "Deploying transaction ingestion Lambda..."
 deploy_sftp_transaction_collector
+echo "Deploying AML batch Lambda..."
+deploy_aml_lambda
+echo "Deploying audit-consumer Lambda + SQS mapping..."
+deploy_audit_consumer_lambda
+wire_audit_consumer_event_source_mapping
+echo "Deploying aml-consumer Lambda + SQS mapping..."
+deploy_aml_consumer_lambda
+wire_aml_consumer_event_source_mapping
 wait_for_http "${LOG_SERVICE_PUBLIC_URL}/health" "log-service-lambda"
 end_phase
 
@@ -1318,6 +1840,11 @@ end_phase
 # real LocalStack before Playwright tests run.
 # --------------------------------------------------------------------------
 
+SKIP_PHASE4_SMOKE_NORMALIZED="$(printf '%s' "${SKIP_PHASE4_SMOKE:-false}" | tr '[:upper:]' '[:lower:]' | tr -d '\r\n[:space:]')"
+if [[ "${SKIP_PHASE4_SMOKE_NORMALIZED}" == "true" ]]; then
+  echo ""
+  echo "=== Phase 4: Skipped cross-service HTTP smoke (SKIP_PHASE4_SMOKE=true) ==="
+else
 start_phase "Phase 4: Cross-service HTTP smoke"
 
 USER_TOKEN="$(mint_jwt "ci_user" "user")"
@@ -1383,21 +1910,63 @@ done
   exit 1
 }
 
-echo "  Smoke: /verify status transition"
-VERIFY_RESPONSE="$(
+echo "  Smoke: tokenized verification upload -> pending -> admin review"
+echo "  [INFO] using CI-minted verification token (local HMAC secret) to simulate email-link upload path"
+VERIFICATION_TOKEN="$(mint_verification_token "${CLIENT_ID}")"
+UPLOAD_VERIFY_RESPONSE="$(
   curl --silent --show-error --fail \
-    --request POST "http://127.0.0.1:18082/api/clients/${CLIENT_ID}/verify" \
-    --header "Authorization: Bearer ${USER_TOKEN}" \
+    --request POST "http://127.0.0.1:18082/api/clients/${CLIENT_ID}/upload-verify" \
     --header "Content-Type: application/json" \
-    --header "X-Request-Id: ci-fullstack-smoke-verify-001" \
-    --data '{"approved":true}'
+    --header "X-Request-Id: ci-fullstack-smoke-upload-verify-001" \
+    --data "{
+      \"verificationToken\": \"${VERIFICATION_TOKEN}\",
+      \"primaryDocumentType\": \"NRIC\",
+      \"primaryDocumentRef\": \"ci-primary-id.jpg\",
+      \"primaryDocumentBase64\": \"cHJpbWFyeS1kb2M=\",
+      \"primaryDocumentMimeType\": \"image/jpeg\",
+      \"addressDocumentType\": \"UTILITY_BILL\",
+      \"addressDocumentRef\": \"ci-proof-of-address.pdf\",
+      \"addressDocumentBase64\": \"cHJvb2Ytb2YtYWRkcmVzcw==\",
+      \"addressDocumentMimeType\": \"application/pdf\"
+    }"
 )"
-VERIFY_RESPONSE_JSON="${VERIFY_RESPONSE}" ${PYTHON_CMD} - <<'PY'
+UPLOAD_VERIFY_RESPONSE_JSON="${UPLOAD_VERIFY_RESPONSE}" ${PYTHON_CMD} - <<'PY'
 import json, os
-payload = json.loads(os.environ["VERIFY_RESPONSE_JSON"])
-if payload.get("identityVerificationStatus") != "verified":
-  raise SystemExit("verify endpoint did not return identityVerificationStatus=verified")
-print("  [OK] verify endpoint returned verified status")
+payload = json.loads(os.environ["UPLOAD_VERIFY_RESPONSE_JSON"])
+status = payload.get("identityVerificationStatus")
+if status != "pending":
+  raise SystemExit("upload-verify endpoint did not return pending identityVerificationStatus")
+print("  [OK] upload-verify endpoint returned pending status")
+PY
+
+CLIENT_AFTER_UPLOAD="$(
+  curl --silent --show-error --fail \
+    --request GET "http://127.0.0.1:18082/api/clients/${CLIENT_ID}" \
+    --header "Authorization: Bearer ${USER_TOKEN}"
+)"
+CLIENT_AFTER_UPLOAD_JSON="${CLIENT_AFTER_UPLOAD}" ${PYTHON_CMD} - <<'PY'
+import json, os
+payload = json.loads(os.environ["CLIENT_AFTER_UPLOAD_JSON"])
+if payload.get("identityVerificationStatus") != "pending":
+  raise SystemExit("client status did not persist as pending after upload-verify")
+print("  [OK] client status is pending after upload-verify")
+PY
+
+REVIEW_RESPONSE="$(
+  curl --silent --show-error --fail \
+    --request PATCH "http://127.0.0.1:18082/api/clients/${CLIENT_ID}/verify/review" \
+    --header "Authorization: Bearer ${ADMIN_TOKEN}" \
+    --header "Content-Type: application/json" \
+    --header "X-Request-Id: ci-fullstack-smoke-verify-review-001" \
+    --data '{"action":"approve"}'
+)"
+REVIEW_RESPONSE_JSON="${REVIEW_RESPONSE}" ${PYTHON_CMD} - <<'PY'
+import json, os
+payload = json.loads(os.environ["REVIEW_RESPONSE_JSON"])
+status = payload.get("identityVerificationStatus")
+if status != "verified":
+  raise SystemExit("verify/review endpoint did not return verified identityVerificationStatus after approve")
+print("  [OK] verify/review endpoint returned verified status")
 PY
 
 COMMUNICATION_ID=""
@@ -1440,7 +2009,7 @@ PY
   sleep 1
 done
 if [[ -z "${COMMUNICATION_ID}" || -z "${PROVIDER_MESSAGE_ID}" ]]; then
-  echo "  [WARN] no sent communication with providerMessageId observed after /verify flow; continuing." >&2
+  echo "  [WARN] no sent communication with providerMessageId observed after verification lifecycle smoke; continuing." >&2
 fi
 
 if [[ "${VERIFICATION_EMAIL_PROVIDER}" == "ses" && -n "${COMMUNICATION_ID}" && -n "${PROVIDER_MESSAGE_ID}" ]]; then
@@ -1501,58 +2070,6 @@ elif [[ "${VERIFICATION_EMAIL_PROVIDER}" == "ses" ]]; then
 else
   echo "  [SKIP] verification SNS feedback assertion (VERIFICATION_EMAIL_PROVIDER=${VERIFICATION_EMAIL_PROVIDER})"
 fi
-
-echo "  Smoke: verification dispatch worker scheduled path"
-QUEUED_COMMUNICATION_RESPONSE="$(
-  curl --silent --show-error --fail \
-    --request POST "${LOG_SERVICE_PUBLIC_URL}/api/communications" \
-    --header "Authorization: Bearer ${USER_TOKEN}" \
-    --header "Content-Type: application/json" \
-    --data "{
-      \"clientId\": \"${CLIENT_ID}\",
-      \"userId\": \"ci_user\",
-      \"channel\": \"email\",
-      \"toEmail\": \"queued.${CLIENT_ID}@example.com\",
-      \"subject\": \"Scheduled dispatch smoke\",
-      \"body\": \"Queued communication for scheduled worker path\",
-      \"idempotencyKey\": \"scheduled-dispatch-${RUN_ID}\"
-    }"
-)"
-QUEUED_COMMUNICATION_ID="$(
-  QUEUED_COMMUNICATION_RESPONSE_JSON="${QUEUED_COMMUNICATION_RESPONSE}" ${PYTHON_CMD} - <<'PY'
-import json, os
-payload = json.loads(os.environ["QUEUED_COMMUNICATION_RESPONSE_JSON"])
-if payload.get("status") != "queued":
-    raise SystemExit("new communication did not start in queued state")
-print(payload["communicationId"])
-PY
-)"
-
-SCHEDULED_DISPATCH_APPLIED=false
-for _ in {1..30}; do
-  SCHEDULED_COMM_STATUS_JSON="$(
-    curl --silent --show-error --fail \
-      "${LOG_SERVICE_PUBLIC_URL}/api/communications/${QUEUED_COMMUNICATION_ID}" \
-      --header "Authorization: Bearer ${USER_TOKEN}" \
-      || true
-  )"
-  if SCHEDULED_COMM_STATUS_JSON="${SCHEDULED_COMM_STATUS_JSON}" ${PYTHON_CMD} - <<'PY' 2>/dev/null; then
-import json, os
-payload = json.loads(os.environ["SCHEDULED_COMM_STATUS_JSON"])
-if payload.get("status") == "sent" and payload.get("providerMessageId"):
-    raise SystemExit(0)
-raise SystemExit(1)
-PY
-    SCHEDULED_DISPATCH_APPLIED=true
-    echo "  [OK] verification scheduled worker dispatched queued communication"
-    break
-  fi
-  sleep 2
-done
-[[ "${SCHEDULED_DISPATCH_APPLIED}" == "true" ]] || {
-  echo "  [FAIL] verification scheduled worker did not dispatch queued communication" >&2
-  exit 1
-}
 
 echo "  Smoke: transaction-service -> client-service (GET transactions)"
 TX_RESPONSE="$(
@@ -1712,6 +2229,69 @@ done
   exit 1
 }
 
+echo "  Smoke: AML Lambda (LocalStack) -> alert persistence path"
+AML_LAMBDA_INVOKE_OUTPUT="${LOG_DIR}/aml-lambda-invoke.json"
+AML_LAMBDA_INVOKE_OUTPUT_ARG="${AML_LAMBDA_INVOKE_OUTPUT}"
+if [[ "${AWS_IS_WINDOWS}" == "true" ]]; then
+  AML_LAMBDA_INVOKE_OUTPUT_ARG="$(to_windows_path "${AML_LAMBDA_INVOKE_OUTPUT}")"
+fi
+
+aws_local lambda invoke \
+  --function-name "${AML_LAMBDA_FUNCTION_NAME}" \
+  --cli-binary-format raw-in-base64-out \
+  --payload '{}' \
+  "${AML_LAMBDA_INVOKE_OUTPUT_ARG}" \
+  >/dev/null
+
+AML_LAMBDA_INVOKE_JSON="$(cat "${AML_LAMBDA_INVOKE_OUTPUT}")"
+AML_LAMBDA_ALERT_ID="$(
+  AML_LAMBDA_INVOKE_JSON="${AML_LAMBDA_INVOKE_JSON}" ${PYTHON_CMD} - <<'PY'
+import json
+import os
+
+payload = json.loads(os.environ["AML_LAMBDA_INVOKE_JSON"])
+status_code = int(payload.get("statusCode", 0))
+if status_code != 200:
+    raise SystemExit(f"AML lambda returned unexpected statusCode={status_code}")
+
+body = payload.get("body", {})
+if isinstance(body, str):
+    body = json.loads(body)
+if not isinstance(body, dict):
+    raise SystemExit("AML lambda response body is not a JSON object")
+
+alerts = body.get("alerts", [])
+if not isinstance(alerts, list) or not alerts:
+    raise SystemExit("AML lambda did not produce any alerts")
+
+first_alert_id = alerts[0].get("alertId", "")
+if not first_alert_id:
+    raise SystemExit("AML lambda alert payload missing alertId")
+
+print(first_alert_id)
+PY
+)"
+[[ -n "${AML_LAMBDA_ALERT_ID}" ]] || {
+  echo "  [FAIL] AML lambda invocation did not return a valid alertId" >&2
+  exit 1
+}
+
+AML_LAMBDA_ALERT_FETCH="$(
+  curl --silent --show-error --fail \
+    "${PLAYWRIGHT_BASE_URL}/api/aml/alerts/${AML_LAMBDA_ALERT_ID}" \
+    --header "Authorization: Bearer ${ADMIN_TOKEN}"
+)"
+AML_LAMBDA_ALERT_FETCH_JSON="${AML_LAMBDA_ALERT_FETCH}" ${PYTHON_CMD} - "${AML_LAMBDA_ALERT_ID}" <<'PY'
+import json
+import os
+import sys
+
+payload = json.loads(os.environ["AML_LAMBDA_ALERT_FETCH_JSON"])
+if payload.get("alertId") != sys.argv[1]:
+    raise SystemExit("Persisted AML alertId mismatch after lambda invocation")
+print("  [OK] AML lambda persisted alert via LocalStack-backed path")
+PY
+
 echo "  Smoke: AML alerts -> log-service-lambda (CREATE + REVIEW)"
 ALERT_ID="aml-smoke-$(date +%s)"
 AML_CREATE_RESPONSE="$(
@@ -1792,54 +2372,162 @@ if payload.get("reviewStatus") != "Confirmed":
 print("  [OK] AML alert review updated")
 PY
 
-echo "  Smoke: LocalStack SQS round-trip"
-QUEUE_URL="$(
-  aws_local sqs get-queue-url --queue-name scroogebank-crm-dev-audit \
-    --query QueueUrl --output text
+echo "  Smoke: audit-consumer LocalStack SQS -> Lambda -> DynamoDB"
+AUDIT_QUEUE_URL="$(
+  aws_local sqs get-queue-url \
+    --queue-name "${AUDIT_CONSUMER_QUEUE_NAME}" \
+    --query QueueUrl \
+    --output text
 )"
+AUDIT_EVENT_ID="evt-fullstack-${RUN_ID}"
+AUDIT_OCCURRED_AT="2026-03-01T10:30:00Z"
+AUDIT_VALID_PAYLOAD="$(cat <<JSON
+{"eventId":"${AUDIT_EVENT_ID}","occurredAt":"${AUDIT_OCCURRED_AT}","action":"CLIENT_UPDATED","attributeName":"risk_rating","userId":"fullstack-user","clientId":"${CLIENT_ID}","sourceService":"fullstack-smoke","beforeValue":"low","afterValue":"high","metadata":{"suite":"fullstack-smoke"}}
+JSON
+)"
+AUDIT_PK="AUDIT#${AUDIT_EVENT_ID}"
+AUDIT_SK="${AUDIT_OCCURRED_AT}"
+
 aws_local sqs send-message \
-  --queue-url "${QUEUE_URL}" \
-  --message-body '{"eventType":"CI_FULLSTACK_SMOKE","source":"run-fullstack-integration-e2e"}' \
+  --queue-url "${AUDIT_QUEUE_URL}" \
+  --message-body "${AUDIT_VALID_PAYLOAD}" \
   >/dev/null
-RECV_BODY=""
-for _ in {1..10}; do
-  RECV_BODY="$(
-    aws_local sqs receive-message --queue-url "${QUEUE_URL}" --wait-time-seconds 2 \
-      --query 'Messages[0].Body' --output text 2>/dev/null || true
-  )"
-  echo "${RECV_BODY}" | grep -q "CI_FULLSTACK_SMOKE" && break
-  sleep 1
-done
-echo "${RECV_BODY}" | grep -q "CI_FULLSTACK_SMOKE" || {
-  echo "  [FAIL] SQS round-trip failed - message not received" >&2
+
+wait_for_dynamodb_item_pk_sk "${AUDIT_CONSUMER_TABLE_NAME}" "${AUDIT_PK}" "${AUDIT_SK}" 40
+AUDIT_VALID_COUNT="$(dynamodb_count_by_pk "${AUDIT_CONSUMER_TABLE_NAME}" "${AUDIT_PK}")"
+if [[ "${AUDIT_VALID_COUNT}" != "1" ]]; then
+  echo "  [FAIL] audit-consumer valid message expected 1 row, got ${AUDIT_VALID_COUNT}" >&2
   exit 1
-}
-echo "  [OK] SQS round-trip"
+fi
+echo "  [OK] audit-consumer valid message wrote one row"
+
+aws_local sqs send-message \
+  --queue-url "${AUDIT_QUEUE_URL}" \
+  --message-body "${AUDIT_VALID_PAYLOAD}" \
+  >/dev/null
+wait_for_queue_drained "${AUDIT_QUEUE_URL}" 30 2
+AUDIT_DUPLICATE_COUNT="$(dynamodb_count_by_pk "${AUDIT_CONSUMER_TABLE_NAME}" "${AUDIT_PK}")"
+if [[ "${AUDIT_DUPLICATE_COUNT}" != "1" ]]; then
+  echo "  [FAIL] audit-consumer duplicate message created extra rows (count=${AUDIT_DUPLICATE_COUNT})" >&2
+  exit 1
+fi
+echo "  [OK] audit-consumer duplicate message treated as success"
+
+aws_local sqs send-message \
+  --queue-url "${AUDIT_QUEUE_URL}" \
+  --message-body '{bad-json' \
+  >/dev/null
+wait_for_queue_drained "${AUDIT_QUEUE_URL}" 30 3
+AUDIT_POST_MALFORMED_COUNT="$(dynamodb_count_by_pk "${AUDIT_CONSUMER_TABLE_NAME}" "${AUDIT_PK}")"
+if [[ "${AUDIT_POST_MALFORMED_COUNT}" != "1" ]]; then
+  echo "  [FAIL] audit-consumer malformed message path changed persisted row count (count=${AUDIT_POST_MALFORMED_COUNT})" >&2
+  exit 1
+fi
+echo "  [OK] audit-consumer malformed message exercised non-retryable path"
+
+echo "  Smoke: aml-consumer LocalStack SQS -> Lambda -> DynamoDB"
+AML_CONSUMER_QUEUE_URL="$(
+  aws_local sqs get-queue-url \
+    --queue-name "${AML_CONSUMER_QUEUE_NAME}" \
+    --query QueueUrl \
+    --output text
+)"
+AML_CONSUMER_ALERT_ID="aml-consumer-fullstack-${RUN_ID}"
+AML_CONSUMER_DETECTED_AT="2026-03-01T10:30:00Z"
+AML_CONSUMER_VALID_PAYLOAD="$(cat <<JSON
+{"alertId":"${AML_CONSUMER_ALERT_ID}","detectedAt":"${AML_CONSUMER_DETECTED_AT}","clientId":"${CLIENT_ID}","alertType":"LargeCashDeposit","description":"fullstack aml-consumer smoke","reviewStatus":"Pending","entityId":"entity-fullstack","sourceService":"fullstack-smoke","metadata":{"suite":"fullstack-smoke"}}
+JSON
+)"
+AML_CONSUMER_PK="AML#${AML_CONSUMER_ALERT_ID}"
+AML_CONSUMER_SK="${AML_CONSUMER_DETECTED_AT}"
+
+aws_local sqs send-message \
+  --queue-url "${AML_CONSUMER_QUEUE_URL}" \
+  --message-body "${AML_CONSUMER_VALID_PAYLOAD}" \
+  >/dev/null
+
+wait_for_dynamodb_item_pk_sk "${AML_CONSUMER_TABLE_NAME}" "${AML_CONSUMER_PK}" "${AML_CONSUMER_SK}" 40
+AML_CONSUMER_VALID_COUNT="$(dynamodb_count_by_pk "${AML_CONSUMER_TABLE_NAME}" "${AML_CONSUMER_PK}")"
+if [[ "${AML_CONSUMER_VALID_COUNT}" != "1" ]]; then
+  echo "  [FAIL] aml-consumer valid message expected 1 row, got ${AML_CONSUMER_VALID_COUNT}" >&2
+  exit 1
+fi
+echo "  [OK] aml-consumer valid message wrote one row"
+
+aws_local sqs send-message \
+  --queue-url "${AML_CONSUMER_QUEUE_URL}" \
+  --message-body "${AML_CONSUMER_VALID_PAYLOAD}" \
+  >/dev/null
+wait_for_queue_drained "${AML_CONSUMER_QUEUE_URL}" 30 2
+AML_CONSUMER_DUPLICATE_COUNT="$(dynamodb_count_by_pk "${AML_CONSUMER_TABLE_NAME}" "${AML_CONSUMER_PK}")"
+if [[ "${AML_CONSUMER_DUPLICATE_COUNT}" != "1" ]]; then
+  echo "  [FAIL] aml-consumer duplicate message created extra rows (count=${AML_CONSUMER_DUPLICATE_COUNT})" >&2
+  exit 1
+fi
+echo "  [OK] aml-consumer duplicate message treated as success"
+
+aws_local sqs send-message \
+  --queue-url "${AML_CONSUMER_QUEUE_URL}" \
+  --message-body '{bad-json' \
+  >/dev/null
+wait_for_queue_drained "${AML_CONSUMER_QUEUE_URL}" 30 3
+AML_CONSUMER_POST_MALFORMED_COUNT="$(dynamodb_count_by_pk "${AML_CONSUMER_TABLE_NAME}" "${AML_CONSUMER_PK}")"
+if [[ "${AML_CONSUMER_POST_MALFORMED_COUNT}" != "1" ]]; then
+  echo "  [FAIL] aml-consumer malformed message path changed persisted row count (count=${AML_CONSUMER_POST_MALFORMED_COUNT})" >&2
+  exit 1
+fi
+echo "  [OK] aml-consumer malformed message exercised non-retryable path"
 
 echo "All cross-service smoke assertions passed."
 end_phase
+fi
 
 # --------------------------------------------------------------------------
 # Phase 5: Real Playwright E2E against the live stack
 # --------------------------------------------------------------------------
 
-if [[ "${FULLSTACK_MODE}" == "full" ]]; then
-  start_phase "Phase 5: Playwright integration E2E"
+if [[ "${FULLSTACK_MODE}" == "full" || "${FULLSTACK_MODE}" == "pr" ]]; then
+  start_phase "Phase 5: Playwright integration E2E (${PLAYWRIGHT_SCOPE_LABEL})"
+
+  E2E_TRANSACTION_IMPORT_SOURCE_PATH_VALUE="${E2E_TRANSACTION_IMPORT_SOURCE_PATH:-}"
+  if [[ -z "${E2E_TRANSACTION_IMPORT_SOURCE_PATH_VALUE}" ]]; then
+    TX_E2E_IMPORT_CLIENT_ID="clt_s3_e2e_${RUN_ID//[^0-9]/}"
+    TX_E2E_IMPORT_KEY="manual/ci-playwright-import-${RUN_ID}.csv"
+    TX_E2E_IMPORT_FILE="${LOG_DIR}/ci-playwright-import.csv"
+    cat > "${TX_E2E_IMPORT_FILE}" <<CSV
+clientId,transaction,amount,date,status
+${TX_E2E_IMPORT_CLIENT_ID},D,311.00,2026-03-01,Completed
+${TX_E2E_IMPORT_CLIENT_ID},W,89.00,2026-03-02,Pending
+CSV
+    aws_local_s3_put_object "scroogebank-crm-dev-transaction-sftp" "${TX_E2E_IMPORT_KEY}" "${TX_E2E_IMPORT_FILE}"
+    E2E_TRANSACTION_IMPORT_SOURCE_PATH_VALUE="s3://scroogebank-crm-dev-transaction-sftp/${TX_E2E_IMPORT_KEY}"
+  fi
+
   pushd "${INTEGRATION_TEST_DIR}" >/dev/null
   if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1 && command -v npx >/dev/null 2>&1; then
     npm ci
     npx playwright install --with-deps chromium
+    playwright_cmd=(npx playwright test)
+    if [[ ${#PLAYWRIGHT_SPEC_ARGS[@]} -gt 0 ]]; then
+      playwright_cmd+=("${PLAYWRIGHT_SPEC_ARGS[@]}")
+      echo "Running Playwright subset specs: ${PLAYWRIGHT_SPEC_ARGS[*]}"
+    fi
     PLAYWRIGHT_EXTERNAL_BASE_URL=true \
     PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
     E2E_ADMIN_EMAIL="${E2E_ADMIN_EMAIL:-admin@crm.local}" \
     E2E_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}" \
     E2E_USER_PASSWORD="${E2E_USER_PASSWORD:-UserPass123!}" \
-    npm test
+    E2E_TRANSACTION_IMPORT_SOURCE_PATH="${E2E_TRANSACTION_IMPORT_SOURCE_PATH_VALUE}" \
+    "${playwright_cmd[@]}"
   elif command -v cmd.exe >/dev/null 2>&1; then
     win_integration_dir="$(to_windows_path "${INTEGRATION_TEST_DIR}")"
     cmd.exe /c "cd /d ${win_integration_dir} && npm.cmd ci"
     cmd.exe /c "cd /d ${win_integration_dir} && npx.cmd playwright install chromium"
-    cmd.exe /c "cd /d ${win_integration_dir} && set PLAYWRIGHT_EXTERNAL_BASE_URL=true&& set PLAYWRIGHT_BASE_URL=${PLAYWRIGHT_BASE_URL}&& set E2E_ADMIN_EMAIL=${E2E_ADMIN_EMAIL:-admin@crm.local}&& set E2E_ADMIN_PASSWORD=${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}&& set E2E_USER_PASSWORD=${E2E_USER_PASSWORD:-UserPass123!}&& npm.cmd test"
+    if [[ ${#PLAYWRIGHT_SPEC_ARGS[@]} -gt 0 ]]; then
+      cmd.exe /c "cd /d ${win_integration_dir} && set PLAYWRIGHT_EXTERNAL_BASE_URL=true&& set PLAYWRIGHT_BASE_URL=${PLAYWRIGHT_BASE_URL}&& set E2E_ADMIN_EMAIL=${E2E_ADMIN_EMAIL:-admin@crm.local}&& set E2E_ADMIN_PASSWORD=${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}&& set E2E_USER_PASSWORD=${E2E_USER_PASSWORD:-UserPass123!}&& set E2E_TRANSACTION_IMPORT_SOURCE_PATH=${E2E_TRANSACTION_IMPORT_SOURCE_PATH_VALUE}&& npx.cmd playwright test ${PLAYWRIGHT_SPEC_ARGS[*]}"
+    else
+      cmd.exe /c "cd /d ${win_integration_dir} && set PLAYWRIGHT_EXTERNAL_BASE_URL=true&& set PLAYWRIGHT_BASE_URL=${PLAYWRIGHT_BASE_URL}&& set E2E_ADMIN_EMAIL=${E2E_ADMIN_EMAIL:-admin@crm.local}&& set E2E_ADMIN_PASSWORD=${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}&& set E2E_USER_PASSWORD=${E2E_USER_PASSWORD:-UserPass123!}&& set E2E_TRANSACTION_IMPORT_SOURCE_PATH=${E2E_TRANSACTION_IMPORT_SOURCE_PATH_VALUE}&& npm.cmd test"
+    fi
   else
     echo "[FAIL] Node.js toolchain unavailable (need node/npm/npx, or cmd.exe + npm.cmd in WSL)." >&2
     exit 1
@@ -1854,6 +2542,8 @@ fi
 echo ""
 if [[ "${FULLSTACK_MODE}" == "full" ]]; then
   echo "Fullstack integration tests passed (LocalStack + HTTP smoke + Playwright)."
+elif [[ "${FULLSTACK_MODE}" == "pr" ]]; then
+  echo "Fullstack integration PR tests passed (LocalStack + HTTP smoke + critical Playwright subset)."
 else
   echo "Fullstack smoke tests passed (LocalStack + HTTP smoke; Playwright skipped)."
 fi

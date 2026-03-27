@@ -480,7 +480,7 @@ public class JwtService {
 	/**
 	 * Normalizes a raw role claim to the values recognized by this service's UserRole enum.
 	 *
-	 * <p>NOTE — intentional downgrade: this service only supports {@code admin} and {@code user}.
+	 * <p>NOTE - intentional downgrade: this service only supports {@code admin} and {@code user}.
 	 * The {@code super_admin} role (issued by the user-service) is intentionally collapsed to
 	 * {@code admin} here because the client service does not distinguish between them.
 	 * If {@code super_admin} is ever added to this service's UserRole enum, this method must
@@ -517,3 +517,4 @@ public class JwtService {
 	private record CachedJwks(Map<String, RSAPublicKey> keysByKid, Instant expiresAt) {
 	}
 }
+

@@ -597,3 +597,4 @@ class JwtServiceTest {
 			.isInstanceOf(IllegalArgumentException.class);
 	}
 }
+

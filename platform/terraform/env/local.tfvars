@@ -36,8 +36,8 @@ enable_verification_pipeline      = true
 ses_sender_email                  = "verification@crm.local"
 
 enable_aml_lambda     = false # external SFTP dependency not part of local contract
-enable_audit_pipeline = false # partial scaffold only: audit-consumer runtime artifact absent
-enable_aml_pipeline   = false # partial scaffold only: aml-consumer runtime artifact absent
+enable_audit_pipeline = false # implemented but disabled by default in local profile
+enable_aml_pipeline   = false # implemented but disabled by default in local profile
 
 # --- Security / Observability ---
 enable_waf                    = false
@@ -47,12 +47,13 @@ enable_backup                 = false
 cloudwatch_log_retention_days = 7
 
 # --- Frontend / Auth ---
-enable_cloudfront             = false
-enable_cloudfront_oac         = false
-frontend_bucket_force_destroy = true
-frontend_bucket_allow_public  = true
-enable_cognito                = false
-auth_mode                     = "local"
+enable_cloudfront              = false
+enable_cloudfront_oac          = false
+frontend_bucket_force_destroy  = true
+frontend_bucket_allow_public   = true
+verification_frontend_base_url = "http://localhost:18085"
+enable_cognito                 = false
+auth_mode                      = "local"
 
 # --- Domain / DNS ---
 manage_route53_records            = false

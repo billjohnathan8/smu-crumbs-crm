@@ -145,7 +145,7 @@ jobs:
       timeout-minutes: 10
       artifact-paths: services/backend/log/build/reports/**
 
-  # Integration validation: real stack (containers + LocalStack), with Playwright in full mode.
+  # Integration validation: real stack (containers + LocalStack), with scoped Playwright on PRs and full Playwright on pushes.
   fullstack-integration-e2e:
     if: >-
       ${{ !failure() && !cancelled() &&
@@ -163,4 +163,4 @@ jobs:
       - db-test-log
     uses: ./.github/workflows/reusable-fullstack-integration.yml
     with:
-      fullstack-mode: ${{ github.event_name == 'pull_request' && 'smoke' || 'full' }}
+      fullstack-mode: ${{ github.event_name == 'pull_request' && 'pr' || 'full' }}

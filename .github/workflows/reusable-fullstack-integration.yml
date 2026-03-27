@@ -7,7 +7,7 @@ on:
   workflow_call:
     inputs:
       fullstack-mode:
-        description: 'Execution mode for scripts/ci/run-fullstack-integration-e2e.sh (full or smoke)'
+        description: 'Execution mode for scripts/ci/run-fullstack-integration-e2e.sh (full, pr, or smoke)'
         required: false
         type: string
         default: full

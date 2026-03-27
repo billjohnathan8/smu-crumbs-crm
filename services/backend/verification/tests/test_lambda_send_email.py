@@ -3,6 +3,8 @@ import pytest
 
 import lambda_function
 
+TOKEN_TTL_SECONDS = 7200
+
 # ---------------------------------------------------------------------------
 # _build_verification_link
 # ---------------------------------------------------------------------------
@@ -52,7 +54,12 @@ class TestSendVerificationEmail:
     def test_raises_when_ses_source_email_missing(self):
         with pytest.raises(ValueError, match="SES_SOURCE_EMAIL is required"):
             lambda_function._send_verification_email(
-                "client-1", "user@example.com", "token", "Alice", "req-1"
+                "client-1",
+                "user@example.com",
+                "token",
+                "Alice",
+                "req-1",
+                TOKEN_TTL_SECONDS,
             )
 
     def test_raises_when_boto3_unavailable(self, monkeypatch):
@@ -61,7 +68,12 @@ class TestSendVerificationEmail:
 
         with pytest.raises(RuntimeError, match="boto3 is required"):
             lambda_function._send_verification_email(
-                "client-1", "user@example.com", "token", "Alice", "req-1"
+                "client-1",
+                "user@example.com",
+                "token",
+                "Alice",
+                "req-1",
+                TOKEN_TTL_SECONDS,
             )
 
     def test_calls_ses_with_correct_arguments(self, monkeypatch):
@@ -82,7 +94,12 @@ class TestSendVerificationEmail:
         monkeypatch.setattr(lambda_function, "boto3", FakeBoto3)
 
         lambda_function._send_verification_email(
-            "client-1", "user@example.com", "tok-abc", "Alice", "req-1"
+            "client-1",
+            "user@example.com",
+            "tok-abc",
+            "Alice",
+            "req-1",
+            TOKEN_TTL_SECONDS,
         )
 
         assert captured["Source"] == "noreply@example.com"
@@ -109,7 +126,12 @@ class TestSendVerificationEmail:
         monkeypatch.setattr(lambda_function, "boto3", FakeBoto3)
 
         lambda_function._send_verification_email(
-            "client-1", "user@example.com", "tok-abc", "Alice", "req-1"
+            "client-1",
+            "user@example.com",
+            "tok-abc",
+            "Alice",
+            "req-1",
+            TOKEN_TTL_SECONDS,
         )
 
         html_body = captured["Message"]["Body"]["Html"]["Data"]
@@ -120,6 +142,8 @@ class TestSendVerificationEmail:
 
         assert expected_link in html_body
         assert expected_link in text_body
+        assert "This link expires in 2 hours." in html_body
+        assert "This link expires in 2 hours." in text_body
 
     def test_email_body_uses_first_name(self, monkeypatch):
         monkeypatch.setenv("SES_SOURCE_EMAIL", "noreply@example.com")
@@ -137,7 +161,12 @@ class TestSendVerificationEmail:
         monkeypatch.setattr(lambda_function, "boto3", FakeBoto3)
 
         lambda_function._send_verification_email(
-            "client-1", "user@example.com", "tok-abc", "Alice", "req-1"
+            "client-1",
+            "user@example.com",
+            "tok-abc",
+            "Alice",
+            "req-1",
+            TOKEN_TTL_SECONDS,
         )
 
         assert "Alice" in captured["Message"]["Body"]["Html"]["Data"]
@@ -159,7 +188,7 @@ class TestSendVerificationEmail:
         monkeypatch.setattr(lambda_function, "boto3", FakeBoto3)
 
         lambda_function._send_verification_email(
-            "client-1", "user@example.com", "tok-abc", "", "req-1"
+            "client-1", "user@example.com", "tok-abc", "", "req-1", TOKEN_TTL_SECONDS
         )
 
         assert "Hi there" in captured["Message"]["Body"]["Text"]["Data"]
@@ -212,13 +241,16 @@ class TestHandleVerificationRequested:
     def test_calls_send_with_correct_arguments(self, monkeypatch):
         captured = {}
 
-        def fake_send(client_id, email, token, first_name, request_id):
+        def fake_send(
+            client_id, email, token, first_name, request_id, token_ttl_seconds
+        ):
             captured.update(
                 client_id=client_id,
                 email=email,
                 token=token,
                 first_name=first_name,
                 request_id=request_id,
+                token_ttl_seconds=token_ttl_seconds,
             )
 
         monkeypatch.setattr(lambda_function, "_send_verification_email", fake_send)
@@ -239,6 +271,7 @@ class TestHandleVerificationRequested:
             "token": "tok-abc",
             "first_name": "Alice",
             "request_id": "req-1",
+            "token_ttl_seconds": TOKEN_TTL_SECONDS,
         }
 
 
@@ -256,7 +289,7 @@ class TestLambdaHandlerFlow1:
             calls = []
             side_effect = None
 
-        def _fake(client_id, email, token, first_name, request_id):
+        def _fake(client_id, email, token, first_name, request_id, token_ttl_seconds):
             FakeSend.calls.append(
                 dict(
                     client_id=client_id,
@@ -264,6 +297,7 @@ class TestLambdaHandlerFlow1:
                     token=token,
                     first_name=first_name,
                     request_id=request_id,
+                    token_ttl_seconds=token_ttl_seconds,
                 )
             )
             if FakeSend.side_effect:
@@ -302,6 +336,7 @@ class TestLambdaHandlerFlow1:
         assert call["token"] == "tok-abc"
         assert call["first_name"] == "Alice"
         assert call["request_id"] == "req-1"
+        assert call["token_ttl_seconds"] == TOKEN_TTL_SECONDS
 
     def test_email_send_failure_recorded_as_partial_failure(self, fake_send):
         fake_send.side_effect = RuntimeError("SES unavailable")

@@ -21,6 +21,8 @@ name: CI - Main Pipeline
 #      +---> test-log-db            |
 #      +---> test-verification     |
 #      +---> test-sftp-transaction-collector |
+#      +---> test-audit-consumer   |
+#      +---> test-aml-consumer     |
 #      +---> test-frontend        /
 #      |
 #      v
@@ -80,6 +82,8 @@ jobs:
         ${{ needs.changes.outputs.backend-log == 'true'
             || needs.changes.outputs.backend-verification == 'true'
             || needs.changes.outputs.backend-sftp-transaction-collector == 'true'
+            || needs.changes.outputs.backend-audit-consumer == 'true'
+            || needs.changes.outputs.backend-aml-consumer == 'true'
             || needs.changes.outputs.ci-config == 'true' }}
       run-frontend: >-
         ${{ needs.changes.outputs.frontend == 'true'
@@ -284,6 +288,54 @@ jobs:
         services/backend/verification/build/reports/**
         services/backend/verification/build/coverage.xml
 
+  test-audit-consumer:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-audit-consumer == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component.yml
+    with:
+      component: audit-consumer
+      runtime: python
+      working-directory: services/backend/audit-consumer
+      test-command: |
+        python -m pytest tests \
+          --junitxml=build/reports/tests/junit.xml \
+          --cov=lambda_function \
+          --cov-branch \
+          --cov-fail-under=80 \
+          --cov-report=term-missing \
+          --cov-report=xml:build/reports/coverage/coverage.xml \
+          --cov-report=html:build/reports/coverage/html
+      timeout-minutes: 8
+      artifact-paths: |
+        services/backend/audit-consumer/build/reports/**
+        services/backend/audit-consumer/build/reports/coverage/coverage.xml
+
+  test-aml-consumer:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-aml-consumer == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component.yml
+    with:
+      component: aml-consumer
+      runtime: python
+      working-directory: services/backend/aml-consumer
+      test-command: |
+        python -m pytest tests \
+          --junitxml=build/reports/tests/junit.xml \
+          --cov=lambda_function \
+          --cov-branch \
+          --cov-fail-under=80 \
+          --cov-report=term-missing \
+          --cov-report=xml:build/reports/coverage/coverage.xml \
+          --cov-report=html:build/reports/coverage/html
+      timeout-minutes: 8
+      artifact-paths: |
+        services/backend/aml-consumer/build/reports/**
+        services/backend/aml-consumer/build/reports/coverage/coverage.xml
+
   test-frontend:
     needs: [changes, lint]
     if: >-
@@ -321,6 +373,8 @@ jobs:
       - test-log-db
       - test-verification
       - test-sftp-transaction-collector
+      - test-audit-consumer
+      - test-aml-consumer
       - test-frontend
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -367,8 +421,8 @@ jobs:
   # Layer 4: Fullstack integration — real containers + LocalStack
   # Builds all service Docker images, starts LocalStack + PostgreSQL,
   # provisions all AWS resources via the init script, runs cross-service HTTP
-  # smoke assertions, and runs Playwright E2E in full mode.
-  # PRs run smoke mode to reduce CI minutes; pushes keep full mode.
+  # smoke assertions, and runs Playwright E2E (critical subset on PRs, full on pushes).
+  # PRs run pr mode (smoke + critical Playwright subset); pushes keep full mode.
   # ==========================================================================
   fullstack-integration-e2e:
     if: >-
@@ -383,7 +437,7 @@ jobs:
       - e2e-frontend-mocked
     uses: ./.github/workflows/reusable-fullstack-integration.yml
     with:
-      fullstack-mode: ${{ github.event_name == 'pull_request' && 'smoke' || 'full' }}
+      fullstack-mode: ${{ github.event_name == 'pull_request' && 'pr' || 'full' }}
 
   # ==========================================================================
   # Layer 5: Deploy  (not yet implemented — placeholder)

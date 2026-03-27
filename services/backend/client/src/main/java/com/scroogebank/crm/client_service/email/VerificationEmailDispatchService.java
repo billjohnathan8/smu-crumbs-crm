@@ -16,6 +16,11 @@ import org.springframework.stereotype.Component;
 
 /**
  * Coordinates communication queueing, immediate dispatch attempts, and retry updates.
+ *
+ * Legacy side-path kept for backward compatibility with queued-communication flows.
+ * Canonical CRUMBS verification email delivery is SNS publish from client-service
+ * to verification Lambda (SES send + feedback handling). Avoid introducing new
+ * dependencies on this service for verification.
  */
 @Component
 public class VerificationEmailDispatchService {

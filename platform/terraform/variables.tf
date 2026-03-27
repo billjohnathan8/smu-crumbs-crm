@@ -729,13 +729,13 @@ variable "cognito_audience" {
 # Messaging Pipelines (Audit, AML, Verification)
 #--------------------------------------------------------------
 variable "enable_audit_pipeline" {
-  description = "Create audit SQS queue, consumer Lambda, and DynamoDB table. Keep disabled until the audit-consumer runtime artifact is implemented in this repository."
+  description = "Create audit SQS queue, consumer Lambda, and DynamoDB table for the async audit pipeline."
   type        = bool
   default     = false
 }
 
 variable "enable_aml_pipeline" {
-  description = "Create AML SQS queue, consumer Lambda, and DynamoDB table. Keep disabled until the aml-consumer runtime artifact is implemented in this repository."
+  description = "Create AML SQS queue, consumer Lambda, and DynamoDB table for the async AML pipeline."
   type        = bool
   default     = false
 }
@@ -747,13 +747,13 @@ variable "enable_verification_pipeline" {
 }
 
 variable "audit_consumer_zip_path" {
-  description = "Path to audit consumer Lambda zip (reserved scaffold; runtime package not yet present in this repository)."
+  description = "Path to audit consumer Lambda zip artifact."
   type        = string
   default     = "../../services/backend/audit-consumer/audit-consumer-lambda.zip"
 }
 
 variable "aml_consumer_zip_path" {
-  description = "Path to AML consumer Lambda zip (reserved scaffold; runtime package not yet present in this repository)."
+  description = "Path to AML consumer Lambda zip artifact."
   type        = string
   default     = "../../services/backend/aml-consumer/aml-consumer-lambda.zip"
 }
@@ -771,6 +771,19 @@ variable "ses_sender_email" {
   description = "SES verified sender email for verification notifications."
   type        = string
   default     = ""
+}
+
+variable "verification_frontend_base_url" {
+  description = "Frontend base URL used to build public verification links in emails."
+  type        = string
+  default     = ""
+
+  validation {
+    condition = trimspace(var.verification_frontend_base_url) == "" || can(
+      regex("^https?://", trimspace(var.verification_frontend_base_url))
+    )
+    error_message = "verification_frontend_base_url must start with http:// or https:// when set."
+  }
 }
 
 variable "ses_notification_email" {
@@ -988,6 +1001,14 @@ check "prod_network_and_pipeline_guardrails" {
   assert {
     condition     = !var.enable_verification_pipeline || var.enable_log_lambda
     error_message = "enable_verification_pipeline requires enable_log_lambda=true so the verification feedback Lambda receives a non-empty LOG_API_BASE_URL."
+  }
+
+  assert {
+    condition = !var.enable_verification_pipeline || (
+      trimspace(var.app_domain_name) != "" ||
+      trimspace(var.verification_frontend_base_url) != ""
+    )
+    error_message = "When enable_verification_pipeline is true, set app_domain_name or verification_frontend_base_url so verification emails have a stable public frontend link target."
   }
 }
 

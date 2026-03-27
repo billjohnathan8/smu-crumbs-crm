@@ -36,6 +36,9 @@ export LOCAL_DB_PORT=5432
 export LOCAL_DB_NAME="${LOCAL_DB_NAME:-crm}"
 export LOCAL_DB_USER="${LOCAL_DB_USER:-crm_app}"
 export LOCAL_DB_PASSWORD="${LOCAL_DB_PASSWORD:-devpassword}"
+export SES_SENDER_EMAIL="${SES_SENDER_EMAIL:-verification@crm.local}"
+export VERIFICATION_DOCUMENTS_BUCKET="${VERIFICATION_DOCUMENTS_BUCKET:-scroogebank-crm-dev-verification}"
+export VERIFICATION_SNS_TOPIC_ARN="${VERIFICATION_SNS_TOPIC_ARN:-arn:aws:sns:ap-southeast-1:000000000000:${VERIFICATION_SNS_TOPIC_NAME}}"
 
 mkdir -p "${LOG_DIR}"
 
@@ -333,7 +336,7 @@ deploy_verification_lambda() {
   # Lambdas with LAMBDA_EXECUTOR=local run inside LocalStack — use localhost, not service hostname
   local lambda_internal_log_url
   lambda_internal_log_url="$(echo "${log_service_url}" | sed 's#localstack:4566#localhost:4566#g')"
-  local env_vars="Variables={LOG_API_BASE_URL=${lambda_internal_log_url},VERIFICATION_JWT_HMAC_SECRET=dev-only-insecure-secret,VERIFICATION_JWT_SUB=SYSTEM_VERIFICATION_FEEDBACK,VERIFICATION_JWT_ROLE=admin,VERIFICATION_JWT_TTL_SECONDS=300}"
+  local env_vars="Variables={SES_SOURCE_EMAIL=${SES_SENDER_EMAIL},FRONTEND_BASE_URL=http://127.0.0.1:18088,LOG_API_BASE_URL=${lambda_internal_log_url},VERIFICATION_JWT_HMAC_SECRET=dev-only-insecure-secret,VERIFICATION_JWT_SUB=SYSTEM_VERIFICATION_FEEDBACK,VERIFICATION_JWT_ROLE=admin,VERIFICATION_JWT_TTL_SECONDS=300}"
 
   if aws_local lambda get-function --function-name "${VERIFICATION_LAMBDA_NAME}" >/dev/null 2>&1; then
     aws_local lambda update-function-code \
@@ -429,7 +432,7 @@ echo "[OK] All JARs built"
 
 echo ""
 echo "=== Phase 2: Starting infra + packaging Lambdas + building Docker images ==="
-CLIENT_LOG_SERVICE_URL=placeholder LOG_API_UPSTREAM=placeholder \
+CLIENT_LOG_SERVICE_URL=placeholder LOG_API_UPSTREAM=placeholder VERIFICATION_SNS_TOPIC_ARN=placeholder VERIFICATION_DOCUMENTS_BUCKET=placeholder \
   docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT}" up -d postgres localstack &
 INFRA_PID=$!
 package_log_lambda > /dev/null &
@@ -440,9 +443,9 @@ package_sftp_transaction_collector &
 PKGTXN_PID=$!
 
 # Build service images in background while LocalStack inits and lambdas deploy.
-# CLIENT_LOG_SERVICE_URL / LOG_API_UPSTREAM are runtime env vars only — not build
-# ARGs — so building with placeholder values produces identical images.
-CLIENT_LOG_SERVICE_URL=placeholder LOG_API_UPSTREAM=placeholder \
+# CLIENT_LOG_SERVICE_URL / LOG_API_UPSTREAM / VERIFICATION_* env vars are
+# runtime-only (not Docker build ARGs), so placeholder values are safe here.
+CLIENT_LOG_SERVICE_URL=placeholder LOG_API_UPSTREAM=placeholder VERIFICATION_SNS_TOPIC_ARN=placeholder VERIFICATION_DOCUMENTS_BUCKET=placeholder \
   docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT}" build \
     user-service client-service transaction-service frontend integration-gateway \
   > "${LOG_DIR}/docker-build.log" 2>&1 &
@@ -509,6 +512,8 @@ echo "[OK] Docker images built"
 
 CLIENT_LOG_SERVICE_URL="${LOG_SERVICE_URL}" \
 LOG_API_UPSTREAM="${LOG_SERVICE_URL}" \
+VERIFICATION_SNS_TOPIC_ARN="${VERIFICATION_SNS_TOPIC_ARN}" \
+VERIFICATION_DOCUMENTS_BUCKET="${VERIFICATION_DOCUMENTS_BUCKET}" \
 docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT}" up -d \
   user-service client-service transaction-service frontend integration-gateway
 
