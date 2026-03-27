@@ -115,15 +115,15 @@ Measured on this repository's latest local run. Use as planning guidance, not an
 
 | Command | Observed runtime | Source log |
 |---|---:|---|
-| `python scripts/pipelines/test_all.py` | `1059.6s` (~17m 40s) | `build-logs/test-all/last-run-summary.md` |
-| `test_all.py` Layer 6 (`Fullstack integration (full)`) | `627.0s` (~10m 27s) | `build-logs/test-all/last-run-summary.md` |
-| `test_all.py` Layer 5 (`Run mocked E2E`) | `77.8s` (~1m 18s) | `build-logs/test-all/last-run-summary.md` |
-| `run-fullstack-integration-e2e.sh` Phase 5 (`Playwright integration E2E`) | `77s` (~1m 17s) | Latest fullstack build log output |
+| `python scripts/pipelines/test_all.py` | `1483.8s` (~24m 44s) | `build-logs/test-all/last-run-summary.md` |
+| `test_all.py` Layer 6 (`Fullstack integration (full)`) | `777.3s` (~12m 57s) | `build-logs/test-all/last-run-summary.md` |
+| `test_all.py` Layer 5 (`Run mocked E2E`) | `95.9s` (~1m 36s) | `build-logs/test-all/last-run-summary.md` |
+| `run-fullstack-integration-e2e.sh` Phase 5 (`Playwright integration E2E`) | `99s` (~1m 39s) | `build-logs/test-all/20260327_192717/59-fullstack-integration-full.log` |
 
 Notes:
 - Latest `test_all.py` run passed all layers (`ok: true`).
-- Latest fullstack integration run passed: `[PASS] Fullstack integration (full) (627.0s)`.
-- Layer totals from the same run: Layer 1 `182.1s`, Layer 2 `105.8s`, Layer 3 `71.6s`, Layer 4 `89.1s`, Layer 5 `105.0s`, Layer 6 `627.0s`.
+- Latest fullstack integration run passed: `[PASS] Fullstack integration (full) (777.3s)`.
+- Full per-step timings for all layers are in `build-logs/test-all/last-run-summary.md` (total: `1483.8s`).
 - Runtime varies with Docker cache, dependency cache, and LocalStack/container startup conditions.
 
 # Database (Local Postgres)
