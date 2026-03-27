@@ -1,21 +1,10 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
-import {
-  getClientById,
-  reviewVerification,
-  deleteClient,
-  listClientAccounts,
-} from '@/api/clients'
+import { getClientById, reviewVerification, deleteClient, listClientAccounts } from '@/api/clients'
 import { listClientTransactions } from '@/api/transactions'
 import { listClientCommunications, sendCommunication } from '@/api/communications'
-import type {
-  Client,
-  Transaction,
-  Account,
-  Communication,
-  ReviewAction,
-} from '@/api/types'
+import type { Client, Transaction, Account, Communication, ReviewAction } from '@/api/types'
 import type { SendCommunicationRequest } from '@/api/communications'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'

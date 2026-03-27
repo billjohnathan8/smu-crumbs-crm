@@ -117,7 +117,10 @@ export function AccountFormModal({
               </div>
 
               <div>
-                <label htmlFor="account-currency" className="block text-sm font-normal text-text mb-1">
+                <label
+                  htmlFor="account-currency"
+                  className="block text-sm font-normal text-text mb-1"
+                >
                   Currency
                 </label>
                 <input
@@ -131,7 +134,10 @@ export function AccountFormModal({
               </div>
 
               <div>
-                <label htmlFor="account-opening-date" className="block text-sm font-normal text-text mb-1">
+                <label
+                  htmlFor="account-opening-date"
+                  className="block text-sm font-normal text-text mb-1"
+                >
                   Opening Date
                 </label>
                 <input

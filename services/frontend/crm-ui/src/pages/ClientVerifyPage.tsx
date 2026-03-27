@@ -116,7 +116,8 @@ export function ClientVerifyPage() {
       const body: UploadVerificationDocsRequest = {
         verificationToken: token,
 
-        primaryDocumentType: primaryId.docType as UploadVerificationDocsRequest['primaryDocumentType'],
+        primaryDocumentType:
+          primaryId.docType as UploadVerificationDocsRequest['primaryDocumentType'],
         primaryDocumentRef: primaryId.file!.name,
         primaryDocumentBase64: primaryBase64,
         primaryDocumentMimeType: primaryId.file!.type,

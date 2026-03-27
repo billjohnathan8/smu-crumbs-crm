@@ -112,7 +112,9 @@ describe('ClientDetailPage', () => {
       expect(screen.getAllByText('John Doe').length).toBeGreaterThan(0)
     })
 
-    expect(screen.queryByRole('button', { name: /Submit for KYC Verification/i })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Submit for KYC Verification/i })
+    ).not.toBeInTheDocument()
   })
 
   it('calls logout on 401 error', async () => {

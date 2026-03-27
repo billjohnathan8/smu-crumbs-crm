@@ -232,10 +232,12 @@ describe('ClientVerifyPage', () => {
   })
 
   it('calls uploadVerificationDocs API when form is submitted with valid data', async () => {
-    const mockUploadVerificationDocs = vi.mocked(clientApi.uploadVerificationDocs).mockResolvedValue({
-      clientId: 'c_valid_1',
-      identityVerificationStatus: 'pending',
-    } as never)
+    const mockUploadVerificationDocs = vi
+      .mocked(clientApi.uploadVerificationDocs)
+      .mockResolvedValue({
+        clientId: 'c_valid_1',
+        identityVerificationStatus: 'pending',
+      } as never)
 
     // Mock FileReader
     class MockFileReader {

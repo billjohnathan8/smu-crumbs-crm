@@ -152,4 +152,3 @@ export async function updateAccount(
 export async function deleteAccount(accountId: string): Promise<void> {
   return apiDelete<void>(`${ACCOUNTS_BASE}/${accountId}`)
 }
-

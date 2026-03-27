@@ -106,8 +106,8 @@ export function VerificationForm({
             onChange={e =>
               setVerifyData(prev => ({
                 ...prev,
-                primaryDocumentType:
-                  e.target.value as UploadVerificationDocsRequest['primaryDocumentType'],
+                primaryDocumentType: e.target
+                  .value as UploadVerificationDocsRequest['primaryDocumentType'],
               }))
             }
             className="w-full px-4 py-2 bg-background-light rounded-lg text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -146,8 +146,8 @@ export function VerificationForm({
             onChange={e =>
               setVerifyData(prev => ({
                 ...prev,
-                addressDocumentType:
-                  e.target.value as UploadVerificationDocsRequest['addressDocumentType'],
+                addressDocumentType: e.target
+                  .value as UploadVerificationDocsRequest['addressDocumentType'],
               }))
             }
             className="w-full px-4 py-2 bg-background-light rounded-lg text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
