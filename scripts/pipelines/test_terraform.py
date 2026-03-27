@@ -90,6 +90,11 @@ def parse_args() -> argparse.Namespace:
         help="Skip lambda artifact build + feature-flagged terraform validate.",
     )
     parser.add_argument(
+        "--skip-opentofu",
+        action="store_true",
+        help="Skip OpenTofu init/validate steps.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print planned steps without executing commands.",
@@ -120,9 +125,13 @@ def main() -> int:
         "TF_VAR_ses_sender_email": "verification@crm.local",
     }
 
-    tofu_cmd = detect_opentofu()
-    if tofu_cmd is None:
-        print("[WARN] OpenTofu not found in PATH; skipping OpenTofu init/validate steps.")
+    tofu_cmd = None
+    if args.skip_opentofu:
+        print("[INFO] --skip-opentofu set; skipping OpenTofu init/validate steps.")
+    else:
+        tofu_cmd = detect_opentofu()
+        if tofu_cmd is None:
+            print("[WARN] OpenTofu not found in PATH; skipping OpenTofu init/validate steps.")
 
     steps: List[Step] = [
         Step(
@@ -246,6 +255,7 @@ def main() -> int:
         f"skip_tflint={args.skip_tflint}, "
         f"skip_checkov={args.skip_checkov}, "
         f"skip_lambda_artifacts={args.skip_lambda_artifacts}, "
+        f"skip_opentofu={args.skip_opentofu}, "
         f"dry_run={args.dry_run}"
     )
 
