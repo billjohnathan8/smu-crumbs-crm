@@ -70,7 +70,7 @@ jobs:
 
       - name: terraform init (no backend)
         timeout-minutes: 5
-        run: terraform init -backend=false
+        run: terraform init -backend=false -lockfile=readonly
 
       - name: Check lockfile is Terraform-authored
         timeout-minutes: 1

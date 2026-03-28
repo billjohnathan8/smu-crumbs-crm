@@ -344,7 +344,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                     phase=phase,
                     name="Terraform init (no backend)",
                     cwd=terraform_dir,
-                    command=["terraform", "init", "-backend=false"],
+                    command=["terraform", "init", "-backend=false", "-lockfile=readonly"],
                     env=_tf_no_aws_env,
                 )
             )

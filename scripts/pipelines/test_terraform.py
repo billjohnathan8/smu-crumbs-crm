@@ -146,7 +146,7 @@ def main() -> int:
         Step(
             name="Terraform init (no backend)",
             cwd=TERRAFORM_DIR,
-            command=["terraform", "init", "-backend=false"],
+            command=["terraform", "init", "-backend=false", "-lockfile=readonly"],
             env=tf_no_aws_env,
         ),
         Step(
