@@ -67,6 +67,7 @@ python scripts/pipelines/test_all.py
 # Or run specific test suites
 python scripts/pipelines/test_backend.py    # Backend only
 python scripts/pipelines/test_frontend.py   # Frontend only
+python scripts/pipelines/test_terraform.py  # Terraform only (isolated wrapper)
 ```
 
 On Linux/macOS/WSL, if `python` is not available, use `python3` for the same commands.

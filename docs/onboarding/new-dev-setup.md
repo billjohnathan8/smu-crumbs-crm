@@ -119,6 +119,12 @@ python scripts/pipelines/test_all.py --local-phase5
 python scripts/pipelines/test_all.py --dry-run
 ```
 
+Terraform-only local pipeline (standalone):
+
+```bash
+python scripts/pipelines/test_terraform.py
+```
+
 ## 5. Deploy to AWS Learner Lab (optional)
 
 To deploy the full application to AWS Learner Lab:

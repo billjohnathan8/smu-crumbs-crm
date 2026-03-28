@@ -63,6 +63,7 @@ Common shortcuts:
 ```bash
 python scripts/pipelines/test_backend.py
 python scripts/pipelines/test_frontend.py
+python scripts/pipelines/test_terraform.py
 python scripts/pipelines/test_all.py --skip-fullstack
 ```
 

@@ -27,7 +27,10 @@ python scripts/pipelines/test_all.py --dry-run
 ```bash
 python scripts/pipelines/test_backend.py
 python scripts/pipelines/test_frontend.py
+python scripts/pipelines/test_terraform.py
 ```
+
+`test_terraform.py` is standalone and intentionally isolated from `test_all.py`.
 
 ## Layer Order (`test_all.py`)
 
@@ -44,20 +47,11 @@ Runtime numbers below are from the latest build logs on `2026-03-27`.
 
 | Command | Observed runtime | Result |
 |---|---:|---|
-| `python scripts/pipelines/test_all.py` | `1059.6s` (~17m 40s) | Passed (`ok: true`) |
-| Layer 6 step in `test_all.py` (`Fullstack integration (full)`) | `627.0s` (~10m 27s) | Passed |
-| Fullstack script Phase 5 (`Playwright integration E2E`) | `77s` (~1m 17s) | Passed |
+| `python scripts/pipelines/test_all.py` | `1483.8s` (~24m 44s) | Passed (`ok: true`) |
+| Layer 6 step in `test_all.py` (`Fullstack integration (full)`) | `777.3s` (~12m 57s) | Passed |
+| Fullstack script Phase 5 (`Playwright integration E2E`) | `99s` (~1m 39s) | Passed |
 
-Layer totals from the same run:
-
-| Layer | Duration |
-|---|---:|
-| Layer 1 - Backend Lint / Format / Typecheck | `182.1s` |
-| Layer 2 - Backend Unit / Component Tests | `105.8s` |
-| Layer 3 - Frontend Lint / Format / Typecheck | `71.6s` |
-| Layer 4 - Frontend Unit / Component Tests | `89.1s` |
-| Layer 5 - Frontend Mocked E2E | `105.0s` |
-| Layer 6 - Fullstack Integration E2E | `627.0s` |
+Step-level timings for every layer are recorded in `build-logs/test-all/last-run-summary.md`.
 
 Source logs:
 - `build-logs/test-all/last-run-summary.md`
