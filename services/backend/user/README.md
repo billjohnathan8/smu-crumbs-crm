@@ -1,10 +1,10 @@
 # User Service
 
-Insurance user management microservice built with Java 21 and Spring Boot 3.
+Banking CRM user management microservice built with Java 21 and Spring Boot 3.
 
 ## Overview
 
-The User Service provides CRUD operations for managing insurance users in the Scroogebank CRM system. It handles user lifecycle management, validates user data, and emits audit events to the Log Service.
+The User Service provides CRUD operations for managing users in the Scroogebank CRM system. It handles user lifecycle management, validates user data, and emits audit events to the Log Service.
 
 **Technology Stack:**
 - Java 21
@@ -17,15 +17,26 @@ The User Service provides CRUD operations for managing insurance users in the Sc
 
 **OpenAPI Specification:** [docs/api-contracts/openapi/user.yaml](../../../docs/api-contracts/openapi/user.yaml)
 
-**Key Endpoints:**
+**User endpoints:**
 - `GET /api/users` - List all users
 - `GET /api/users/{id}` - Get user by ID
-- `GET /api/users/me` - Get user's own profile
+- `GET /api/users/me` - Get authenticated user's own profile
 - `POST /api/users` - Create new user
 - `PUT /api/users/{id}` - Update user
 - `DELETE /api/users/{id}` - Delete user
-- `DELETE /api/users/{id}/disable` - Disable user
-- `GET /health` - Health check
+- `POST /api/users/{id}/disable` - Disable user
+- `POST /api/users/{id}/reset-password` - Admin-initiated password reset
+
+**Auth endpoints:**
+- `POST /api/auth/login` - Authenticate, returns JWT access + refresh tokens
+- `POST /api/auth/refresh` - Refresh access token using refresh token
+- `POST /api/auth/forgot-password` - Initiate self-service password reset (always returns 200)
+- `POST /api/auth/reset-password` - Complete password reset with token
+
+**Health endpoints:**
+- `GET /health` - Primary health check
+- `GET /api/v1/health` - Legacy health endpoint
+- `GET /api/v1/users/health` - Legacy users health endpoint
 
 Test-only password reset helper:
 - `GET /api/test/password-reset/latest-token?email=...` is only enabled when `spring.profiles.active` includes `local` or `test`.
@@ -163,7 +174,7 @@ class UserServiceTest {
     private UserService userService;
 
     @Test
-    void getUserById_whenAgentExists_returnsAgent() {
+    void getUserById_whenUserExists_returnsUser() {
         // Given
         Long userId = 1L;
         User mockUser = new User(userId, "John Doe", "john@example.com");
@@ -180,7 +191,7 @@ class UserServiceTest {
     }
 
     @Test
-    void getUserById_whenAgentNotFound_throwsException() {
+    void getUserById_whenUserNotFound_throwsException() {
         // Given
         Long userId = 999L;
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
