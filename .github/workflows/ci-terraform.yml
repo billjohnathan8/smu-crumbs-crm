@@ -72,17 +72,17 @@ jobs:
         timeout-minutes: 5
         run: terraform init -backend=false
 
+      - name: Check lockfile is Terraform-authored
+        timeout-minutes: 1
+        run: python3 ../../scripts/ci/check_terraform_lockfile.py
+
       - name: terraform validate
         timeout-minutes: 2
         run: terraform validate
 
-      - name: opentofu init (no backend)
-        timeout-minutes: 5
-        run: tofu init -backend=false
-
       - name: opentofu validate
         timeout-minutes: 2
-        run: tofu validate
+        run: python3 ../../scripts/ci/run_opentofu_validate_isolated.py --tofu-bin tofu
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v5
@@ -116,7 +116,13 @@ jobs:
           TF_VAR_enable_audit_pipeline: "true"
           TF_VAR_enable_aml_pipeline: "true"
           TF_VAR_ses_sender_email: "verification@crm.local"
-        run: tofu validate
+        run: python3 ../../scripts/ci/run_opentofu_validate_isolated.py --tofu-bin tofu
+
+      - name: Ensure lockfile stayed Terraform-authored
+        timeout-minutes: 1
+        run: |
+          python3 ../../scripts/ci/check_terraform_lockfile.py
+          git diff --exit-code -- .terraform.lock.hcl
 
       - name: Prepare Terraform plan artifact directory
         timeout-minutes: 1

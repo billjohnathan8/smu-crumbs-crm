@@ -20,6 +20,10 @@ from typing import Dict, List
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 TERRAFORM_DIR = REPO_ROOT / "platform" / "terraform"
 BUILD_LAMBDA_ARTIFACTS = REPO_ROOT / "scripts" / "ci" / "build_lambda_artifacts.py"
+CHECK_TERRAFORM_LOCKFILE = REPO_ROOT / "scripts" / "ci" / "check_terraform_lockfile.py"
+RUN_OPENTOFU_VALIDATE_ISOLATED = (
+    REPO_ROOT / "scripts" / "ci" / "run_opentofu_validate_isolated.py"
+)
 
 
 @dataclass
@@ -92,7 +96,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--skip-opentofu",
         action="store_true",
-        help="Skip OpenTofu init/validate steps.",
+        help="Skip OpenTofu validate-only steps.",
     )
     parser.add_argument(
         "--dry-run",
@@ -127,11 +131,11 @@ def main() -> int:
 
     tofu_cmd = None
     if args.skip_opentofu:
-        print("[INFO] --skip-opentofu set; skipping OpenTofu init/validate steps.")
+        print("[INFO] --skip-opentofu set; skipping OpenTofu validate-only steps.")
     else:
         tofu_cmd = detect_opentofu()
         if tofu_cmd is None:
-            print("[WARN] OpenTofu not found in PATH; skipping OpenTofu init/validate steps.")
+            print("[WARN] OpenTofu not found in PATH; skipping OpenTofu validate-only steps.")
 
     steps: List[Step] = [
         Step(
@@ -144,6 +148,11 @@ def main() -> int:
             cwd=TERRAFORM_DIR,
             command=["terraform", "init", "-backend=false"],
             env=tf_no_aws_env,
+        ),
+        Step(
+            name="Check lockfile is Terraform-authored",
+            cwd=REPO_ROOT,
+            command=[py, str(CHECK_TERRAFORM_LOCKFILE)],
         ),
         Step(
             name="Terraform validate",
@@ -173,17 +182,14 @@ def main() -> int:
     if tofu_cmd is not None:
         steps.append(
             Step(
-                name="OpenTofu init (no backend)",
-                cwd=TERRAFORM_DIR,
-                command=[tofu_cmd, "init", "-backend=false"],
-                env=tf_no_aws_env,
-            )
-        )
-        steps.append(
-            Step(
                 name="OpenTofu validate",
-                cwd=TERRAFORM_DIR,
-                command=[tofu_cmd, "validate"],
+                cwd=REPO_ROOT,
+                command=[
+                    py,
+                    str(RUN_OPENTOFU_VALIDATE_ISOLATED),
+                    "--tofu-bin",
+                    tofu_cmd,
+                ],
                 env=tf_no_aws_env,
             )
         )
@@ -191,11 +197,30 @@ def main() -> int:
             steps.append(
                 Step(
                     name="OpenTofu validate (operable lambda feature flags)",
-                    cwd=TERRAFORM_DIR,
-                    command=[tofu_cmd, "validate"],
+                    cwd=REPO_ROOT,
+                    command=[
+                        py,
+                        str(RUN_OPENTOFU_VALIDATE_ISOLATED),
+                        "--tofu-bin",
+                        tofu_cmd,
+                    ],
                     env=tf_flags_env,
                 )
             )
+        steps.append(
+            Step(
+                name="Verify lockfile unchanged after OpenTofu validate",
+                cwd=REPO_ROOT,
+                command=[py, str(CHECK_TERRAFORM_LOCKFILE)],
+            )
+        )
+        steps.append(
+            Step(
+                name="Verify no OpenTofu lockfile drift",
+                cwd=TERRAFORM_DIR,
+                command=["git", "diff", "--exit-code", "--", ".terraform.lock.hcl"],
+            )
+        )
 
     if not args.skip_tflint:
         if shutil.which("tflint") is None:

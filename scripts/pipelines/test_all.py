@@ -311,7 +311,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
             _tofu_cmd = detect_opentofu()
             if not _tofu_cmd:
                 print(
-                    "[WARN] OpenTofu not found in PATH; skipping OpenTofu init/validate steps."
+                    "[WARN] OpenTofu not found in PATH; skipping OpenTofu validate-only steps."
                 )
             steps.append(
                 Step(
@@ -351,6 +351,17 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
             steps.append(
                 Step(
                     phase=phase,
+                    name="Check lockfile is Terraform-authored",
+                    cwd=REPO_ROOT,
+                    command=[
+                        py,
+                        str(REPO_ROOT / "scripts" / "ci" / "check_terraform_lockfile.py"),
+                    ],
+                )
+            )
+            steps.append(
+                Step(
+                    phase=phase,
                     name="Terraform validate",
                     cwd=terraform_dir,
                     command=["terraform", "validate"],
@@ -381,18 +392,19 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                 steps.append(
                     Step(
                         phase=phase,
-                        name="OpenTofu init (no backend)",
-                        cwd=terraform_dir,
-                        command=[_tofu_cmd, "init", "-backend=false"],
-                        env=_tf_no_aws_env,
-                    )
-                )
-                steps.append(
-                    Step(
-                        phase=phase,
                         name="OpenTofu validate",
-                        cwd=terraform_dir,
-                        command=[_tofu_cmd, "validate"],
+                        cwd=REPO_ROOT,
+                        command=[
+                            py,
+                            str(
+                                REPO_ROOT
+                                / "scripts"
+                                / "ci"
+                                / "run_opentofu_validate_isolated.py"
+                            ),
+                            "--tofu-bin",
+                            _tofu_cmd,
+                        ],
                         env=_tf_no_aws_env,
                     )
                 )
@@ -400,9 +412,38 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                     Step(
                         phase=phase,
                         name="OpenTofu validate (operable lambda feature flags)",
-                        cwd=terraform_dir,
-                        command=[_tofu_cmd, "validate"],
+                        cwd=REPO_ROOT,
+                        command=[
+                            py,
+                            str(
+                                REPO_ROOT
+                                / "scripts"
+                                / "ci"
+                                / "run_opentofu_validate_isolated.py"
+                            ),
+                            "--tofu-bin",
+                            _tofu_cmd,
+                        ],
                         env=_tf_flags_env,
+                    )
+                )
+                steps.append(
+                    Step(
+                        phase=phase,
+                        name="Verify lockfile unchanged after OpenTofu validate",
+                        cwd=REPO_ROOT,
+                        command=[
+                            py,
+                            str(REPO_ROOT / "scripts" / "ci" / "check_terraform_lockfile.py"),
+                        ],
+                    )
+                )
+                steps.append(
+                    Step(
+                        phase=phase,
+                        name="Verify no OpenTofu lockfile drift",
+                        cwd=terraform_dir,
+                        command=["git", "diff", "--exit-code", "--", ".terraform.lock.hcl"],
                     )
                 )
             if tflint_available:
