@@ -78,8 +78,6 @@ jobs:
 
       - name: Build frontend assets
         working-directory: ${{ inputs.working_directory }}
-        env:
-          VITE_COMMIT_SHA: ${{ github.sha }}
         run: ${{ inputs.build_command }}
 
       - name: Validate build output exists
