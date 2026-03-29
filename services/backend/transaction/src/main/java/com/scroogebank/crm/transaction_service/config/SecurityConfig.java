@@ -31,7 +31,7 @@ public class SecurityConfig {
 
 	public SecurityConfig(
 		JwtAuthFilter jwtAuthFilter,
-		@Value("${app.cors.allowed-origins:*}") String corsAllowedOrigins
+		@Value("${app.cors.allowed-origins}") String corsAllowedOrigins
 	) {
 		this.jwtAuthFilter = jwtAuthFilter;
 		this.corsAllowedOrigins = List.of(corsAllowedOrigins.split(","));

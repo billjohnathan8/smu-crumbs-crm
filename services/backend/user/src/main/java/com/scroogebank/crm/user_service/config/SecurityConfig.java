@@ -36,7 +36,7 @@ public class SecurityConfig {
 	public SecurityConfig(
 		JwtAuthFilter jwtAuthFilter,
 		Environment environment,
-		@Value("${app.cors.allowed-origins:*}") String corsAllowedOrigins
+		@Value("${app.cors.allowed-origins}") String corsAllowedOrigins
 	) {
 		this.jwtAuthFilter = jwtAuthFilter;
 		this.testEndpointsEnabled = environment.acceptsProfiles(Profiles.of("local", "test"));
