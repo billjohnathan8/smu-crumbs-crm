@@ -9,7 +9,9 @@ import com.scroogebank.crm.client_service.security.RequestAuth;
 import com.scroogebank.crm.client_service.service.AccountService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Pattern;
 import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
  * REST endpoints for account lifecycle operations.
  */
 @RestController
+@Validated
 public class AccountController {
 	private final AccountService accountService;
 	private final RequestAuth requestAuth;
@@ -59,7 +62,7 @@ public class AccountController {
 	 * @return account DTO
 	 */
 	@GetMapping("/api/accounts/{accountId}")
-	public AccountDto getAccount(HttpServletRequest httpRequest, @PathVariable String accountId) {
+	public AccountDto getAccount(HttpServletRequest httpRequest, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String accountId) {
 		AuthenticatedUser user = requestAuth.requireUser(httpRequest);
 		return accountService.getAccount(user, accountId);
 	}
@@ -67,7 +70,7 @@ public class AccountController {
 	@PutMapping("/api/accounts/{accountId}")
 	public AccountDto updateAccount(
 		HttpServletRequest httpRequest,
-		@PathVariable String accountId,
+		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String accountId,
 		@Valid @RequestBody AccountUpdateRequest request
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(httpRequest);
@@ -79,7 +82,7 @@ public class AccountController {
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteAccount(
 		HttpServletRequest httpRequest,
-		@PathVariable String accountId
+		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String accountId
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(httpRequest);
 		String authorizationHeader = httpRequest.getHeader("Authorization");
@@ -89,7 +92,7 @@ public class AccountController {
 	@GetMapping("/api/clients/{clientId}/accounts")
 	public AccountListResponse listAccounts(
 		HttpServletRequest httpRequest,
-		@PathVariable String clientId,
+		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String clientId,
 		@RequestParam(defaultValue = "50") int limit,
 		@RequestParam(defaultValue = "0") int offset
 	) {

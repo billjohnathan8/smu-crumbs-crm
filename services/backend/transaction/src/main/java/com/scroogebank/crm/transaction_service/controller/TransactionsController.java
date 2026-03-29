@@ -19,6 +19,7 @@ import com.scroogebank.crm.transaction_service.service.InMemoryTransactionsStore
 import com.scroogebank.crm.transaction_service.service.TransactionsService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Pattern;
 import java.time.LocalDate;
 import java.util.Objects;
 import java.util.StringJoiner;
@@ -36,11 +37,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.validation.annotation.Validated;
 
 /**
  * REST endpoints for transaction CRUD and import operations.
  */
 @RestController
+@Validated
 @RequestMapping("/api")
 public class TransactionsController {
 	private static final String SYSTEM_IMPORT_CLIENT_ID = "SYSTEM_IMPORT";
@@ -137,7 +140,7 @@ public class TransactionsController {
 	 * Fetches a transaction by id. Users receive a 404 when access is forbidden.
 	 */
 	@GetMapping("/transactions/{transactionId}")
-	public TransactionDto getTransaction(HttpServletRequest request, @PathVariable String transactionId) {
+	public TransactionDto getTransaction(HttpServletRequest request, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String transactionId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		requireAnyRole(user, "admin", "user");
 
@@ -170,7 +173,7 @@ public class TransactionsController {
 	@PutMapping("/transactions/{transactionId}")
 	public TransactionDto updateTransaction(
 		HttpServletRequest request,
-		@PathVariable String transactionId,
+		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String transactionId,
 		@Valid @RequestBody UpdateTransactionRequest body
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
@@ -209,7 +212,7 @@ public class TransactionsController {
 	 */
 	@DeleteMapping("/transactions/{transactionId}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
-	public void deleteTransaction(HttpServletRequest request, @PathVariable String transactionId) {
+	public void deleteTransaction(HttpServletRequest request, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String transactionId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		requireAnyRole(user, "admin");
 		TransactionDto existing = transactionsService.get(transactionId);
@@ -232,7 +235,7 @@ public class TransactionsController {
 	@GetMapping("/clients/{clientId}/transactions")
 	public TransactionsListResponse listTransactionsForClient(
 		HttpServletRequest request,
-		@PathVariable String clientId,
+		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String clientId,
 		@RequestParam(defaultValue = "50") int limit,
 		@RequestParam(defaultValue = "0") int offset
 	) {
@@ -290,7 +293,7 @@ public class TransactionsController {
 	 * Retrieves import batch status by id. Admin-only.
 	 */
 	@GetMapping("/transactions/imports/{importBatchId}")
-	public ImportBatchDto getImportBatch(HttpServletRequest request, @PathVariable String importBatchId) {
+	public ImportBatchDto getImportBatch(HttpServletRequest request, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String importBatchId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		requireAnyRole(user, "admin");
 		ImportBatchDto batch = transactionsService.getBatch(importBatchId);

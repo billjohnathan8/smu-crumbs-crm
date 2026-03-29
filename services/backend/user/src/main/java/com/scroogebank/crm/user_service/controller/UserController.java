@@ -10,9 +10,9 @@ import com.scroogebank.crm.user_service.security.RequestAuth;
 import com.scroogebank.crm.user_service.service.UserAccountService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -89,7 +89,7 @@ public class UserController {
 	 * @return matching user
 	 */
 	@GetMapping("/{userId}")
-	public UserDto getUser(HttpServletRequest request, @PathVariable String userId) {
+	public UserDto getUser(HttpServletRequest request, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String userId) {
 		AuthenticatedUser requester = requestAuth.requireUser(request);
 		return userAccountService.getUser(userId, requester);
 	}
@@ -117,7 +117,7 @@ public class UserController {
 	@PutMapping("/{userId}")
 	public UserDto updateUser(
 		HttpServletRequest request,
-		@PathVariable String userId,
+		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String userId,
 		@Valid @RequestBody UpdateUserRequest body
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
@@ -132,7 +132,7 @@ public class UserController {
 	 */
 	@DeleteMapping("/{userId}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
-	public void deleteUser(HttpServletRequest request, @PathVariable String userId) {
+	public void deleteUser(HttpServletRequest request, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String userId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		userAccountService.deleteUser(userId, user);
 	}
@@ -145,7 +145,7 @@ public class UserController {
 	 * @return updated user
 	 */
 	@PostMapping("/{userId}/disable")
-	public UserDto disableUser(HttpServletRequest request, @PathVariable String userId) {
+	public UserDto disableUser(HttpServletRequest request, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String userId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		return userAccountService.disableUser(userId, user);
 	}
@@ -161,7 +161,7 @@ public class UserController {
 	@PostMapping("/{userId}/reset-password")
 	public ResponseEntity<Void> resetPassword(
 		HttpServletRequest request,
-		@PathVariable String userId,
+		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String userId,
 		@Valid @RequestBody(required = false) ResetPasswordRequest body
 	) {
 		AuthenticatedUser requester = requestAuth.requireUser(request);

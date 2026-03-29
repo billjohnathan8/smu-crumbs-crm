@@ -11,8 +11,10 @@ import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 import com.scroogebank.crm.client_service.security.RequestAuth;
 import com.scroogebank.crm.client_service.service.ClientService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Pattern;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -29,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
  * REST endpoints for client lifecycle and verification operations.
  */
 @RestController
+@Validated
 @RequestMapping("/api/clients")
 public class ClientController {
 	private final ClientService clientService;
@@ -85,7 +88,7 @@ public class ClientController {
 	 * @return client DTO
 	 */
 	@GetMapping("/{id}")
-	public ClientDto getClient(HttpServletRequest request, @PathVariable("id") String clientId) {
+	public ClientDto getClient(HttpServletRequest request, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable("id") String clientId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		String authorizationHeader = request.getHeader("Authorization");
 		return clientService.getClient(user, clientId, authorizationHeader, requestId(request));
@@ -102,7 +105,7 @@ public class ClientController {
 	@PutMapping("/{id}")
 	public ClientDto updateClient(
 		HttpServletRequest httpRequest,
-		@PathVariable("id") String clientId,
+		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable("id") String clientId,
 		@Valid @RequestBody ClientUpdateRequest request
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(httpRequest);
@@ -120,7 +123,7 @@ public class ClientController {
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteClient(
 		HttpServletRequest httpRequest,
-		@PathVariable("id") String clientId
+		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable("id") String clientId
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(httpRequest);
 		String authorizationHeader = httpRequest.getHeader("Authorization");
@@ -138,7 +141,7 @@ public class ClientController {
 	@PostMapping("/{id}/upload-verify")
 	public VerifyClientResponse uploadVerificationDocs(
 		HttpServletRequest httpRequest,
-		@PathVariable("id") String clientId,
+		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable("id") String clientId,
 		@Valid @RequestBody UploadVerificationDocsRequest request
 	) {
 		return clientService.uploadVerificationDocs(clientId, request, requestId(httpRequest));
@@ -155,7 +158,7 @@ public class ClientController {
 	@PatchMapping("/{id}/verify/review")
 	public VerifyClientResponse reviewVerification(
 		HttpServletRequest httpRequest,
-		@PathVariable("id") String clientId,
+		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable("id") String clientId,
 		@Valid @RequestBody ReviewVerificationRequest request
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(httpRequest);
