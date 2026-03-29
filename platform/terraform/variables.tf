@@ -110,13 +110,13 @@ variable "transaction_image_tag" {
 # ECS Service Task Counts
 #--------------------------------------------------------------
 variable "enable_stateful_service_scale_out" {
-  description = "Allow user and transaction services to scale beyond one task. Enable only after Phase B persistence is fully deployed and verified."
+  description = "Allow user and transaction services to scale beyond the conservative HA baseline. Production-like environments still run core services with 2-task redundancy even when this is false."
   type        = bool
   default     = false
 }
 
 variable "user_desired_count" {
-  description = "Desired ECS task count for user service. Must remain 1 unless enable_stateful_service_scale_out is true."
+  description = "Desired ECS task count for user service. Use >=2 in production-like environments to avoid single-task SPOF."
   type        = number
   default     = 1
 }
@@ -128,7 +128,7 @@ variable "client_desired_count" {
 }
 
 variable "transaction_desired_count" {
-  description = "Desired ECS task count for transaction service. Must remain 1 unless enable_stateful_service_scale_out is true."
+  description = "Desired ECS task count for transaction service. Use >=2 in production-like environments to avoid single-task SPOF."
   type        = number
   default     = 1
 }
@@ -149,7 +149,7 @@ variable "ecs_task_memory" {
 }
 
 variable "ecs_min_capacity" {
-  description = "Minimum task count for ECS autoscaling (applies to stateless services only)."
+  description = "Minimum task count for ECS autoscaling. Set >=2 in production-like environments for core service HA."
   type        = number
   default     = 1
 }
@@ -872,8 +872,8 @@ check "stateful_service_scale_out_guardrails" {
 
 check "prod_database_guardrails" {
   assert {
-    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || !var.enforce_strict_prod_guardrails || var.db_multi_az
-    error_message = "For environment=prod, db_multi_az must be true."
+    condition     = !contains(["prod", "production"], lower(trimspace(var.environment))) || var.db_multi_az
+    error_message = "For environment=prod, db_multi_az must be true (guardrail)."
   }
 
   assert {

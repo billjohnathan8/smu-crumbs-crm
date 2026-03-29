@@ -273,33 +273,33 @@ resource "aws_cloudwatch_metric_alarm" "ecs_memory_high" {
   }
 }
 
-# --- ECS Running Task Count Alarms ---
-# Detects service outages where all tasks have stopped.
-# Uses ECS/ContainerInsights namespace (requires Container Insights enabled on cluster).
+# --- Service Availability Alarms (Container Insights independent) ---
+# Detects service outage conditions without requiring ECS/ContainerInsights.
+# Uses ALB HealthyHostCount per target group, which is available with ALB.
 
-resource "aws_cloudwatch_metric_alarm" "ecs_running_tasks_low" {
-  for_each = var.enable_ecs_alarms ? var.ecs_service_names : toset([])
+resource "aws_cloudwatch_metric_alarm" "service_healthy_hosts_low" {
+  for_each = var.enable_ecs_alarms ? var.target_group_arn_suffixes : {}
 
-  alarm_name          = "${var.name_prefix}-${each.key}-running-tasks-low"
+  alarm_name          = "${var.name_prefix}-${each.key}-healthy-hosts-low"
   comparison_operator = "LessThanThreshold"
   evaluation_periods  = 2
-  metric_name         = "RunningTaskCount"
-  namespace           = "ECS/ContainerInsights"
+  metric_name         = "HealthyHostCount"
+  namespace           = "AWS/ApplicationELB"
   period              = 60
   statistic           = "Average"
   threshold           = 1
-  alarm_description   = "ECS ${each.key} has fewer than 1 running task"
+  alarm_description   = "Service ${each.key} has fewer than 1 healthy ALB targets"
   treat_missing_data  = "breaching"
   alarm_actions       = local.alarm_action_arns
   ok_actions          = local.alarm_action_arns
 
   dimensions = {
-    ClusterName = var.ecs_cluster_name
-    ServiceName = "${var.name_prefix}-${each.key}"
+    LoadBalancer = var.alb_arn_suffix
+    TargetGroup  = each.value
   }
 
   tags = {
-    Name = "${var.name_prefix}-${each.key}-running-tasks-low"
+    Name = "${var.name_prefix}-${each.key}-healthy-hosts-low"
   }
 }
 
@@ -433,8 +433,8 @@ resource "aws_cloudwatch_dashboard" "main" {
           width  = 8
           height = 6
           properties = {
-            title   = "ECS Running Task Count"
-            metrics = [for svc in var.ecs_service_names : ["ECS/ContainerInsights", "RunningTaskCount", "ClusterName", var.ecs_cluster_name, "ServiceName", "${var.name_prefix}-${svc}"]]
+            title   = "ALB Healthy Host Count (Core Services)"
+            metrics = [for svc, suffix in var.target_group_arn_suffixes : ["AWS/ApplicationELB", "HealthyHostCount", "TargetGroup", suffix, "LoadBalancer", var.alb_arn_suffix, { label = svc }]]
             period  = 60
             stat    = "Average"
             region  = var.aws_region
