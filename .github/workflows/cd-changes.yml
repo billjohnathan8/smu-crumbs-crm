@@ -129,6 +129,15 @@ jobs:
       service: log
     secrets: inherit
 
+  deploy-frontend:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.frontend == 'true') }}
+    needs:
+      - changes
+    uses: ./.github/workflows/reusable-frontend-deploy.yml
+    secrets: inherit
+
   merge-ecs-intents:
     if: >-
       ${{ !failure() && !cancelled() &&
@@ -193,12 +202,18 @@ jobs:
       ${{ !failure() && !cancelled() &&
           (needs.changes.outputs.backend-aml == 'true' ||
            needs.changes.outputs.backend-verification == 'true' ||
-           needs.changes.outputs.backend-sftp-transaction-collector == 'true') }}
+           needs.changes.outputs.backend-sftp-transaction-collector == 'true' ||
+           needs.changes.outputs.backend-aml-consumer == 'true' ||
+           needs.changes.outputs.backend-audit-consumer == 'true' ||
+           needs.changes.outputs.backend-log == 'true') }}
     needs:
       - changes
       - deploy-aml
       - deploy-verification
       - deploy-sftp-transaction-collector
+      - deploy-aml-consumer
+      - deploy-audit-consumer
+      - deploy-log
     runs-on: ubuntu-latest
     steps:
       - name: Download Lambda intent artifacts
@@ -247,6 +262,62 @@ jobs:
           path: manifest-lambda.json
           if-no-files-found: error
 
+  merge-frontend-intents:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.frontend == 'true') }}
+    needs:
+      - changes
+      - deploy-frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download frontend intent artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: intent-frontend-*
+          path: deploy-intents-frontend
+          merge-multiple: true
+
+      - name: Merge frontend intent fragments
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPO_SHA="${GITHUB_SHA}"
+          NOW_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          jq -n --arg repo_sha "${REPO_SHA}" --arg created_at "${NOW_UTC}" '{repo_sha:$repo_sha, created_at:$created_at, frontend:{}}' > manifest-frontend.json
+
+          shopt -s nullglob
+          fragments=(deploy-intents-frontend/*.json)
+          if [[ ${#fragments[@]} -eq 0 ]]; then
+            echo "No frontend intent artifacts were found"
+            exit 1
+          fi
+
+          for fragment in "${fragments[@]}"; do
+            site="$(jq -r '.frontend.site' "${fragment}")"
+            jq \
+              --arg site "${site}" \
+              --slurpfile f "${fragment}" \
+              '.frontend[$site] = {
+                bucket: $f[0].frontend.bucket,
+                deployed_version: $f[0].frontend.deployed_version,
+                release_prefix: $f[0].frontend.release_prefix,
+                build_output_dir: $f[0].frontend.build_output_dir,
+                cloudfront_distribution_id: $f[0].frontend.cloudfront_distribution_id,
+                cloudfront_invalidation_paths: $f[0].frontend.cloudfront_invalidation_paths
+              }' manifest-frontend.json > manifest-frontend.next.json
+            mv manifest-frontend.next.json manifest-frontend.json
+          done
+
+      - name: Upload merged frontend manifest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest-frontend
+          path: manifest-frontend.json
+          if-no-files-found: error
+
   merge-and-publish-manifest:
     if: >-
       ${{ !failure() && !cancelled() &&
@@ -255,11 +326,16 @@ jobs:
            needs.changes.outputs.backend-transaction == 'true' ||
            needs.changes.outputs.backend-aml == 'true' ||
            needs.changes.outputs.backend-verification == 'true' ||
-           needs.changes.outputs.backend-sftp-transaction-collector == 'true') }}
+           needs.changes.outputs.backend-sftp-transaction-collector == 'true' ||
+           needs.changes.outputs.backend-aml-consumer == 'true' ||
+           needs.changes.outputs.backend-audit-consumer == 'true' ||
+           needs.changes.outputs.backend-log == 'true' ||
+           needs.changes.outputs.frontend == 'true') }}
     needs:
       - changes
       - merge-ecs-intents
       - merge-lambda-intents
+      - merge-frontend-intents
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -292,10 +368,21 @@ jobs:
         if: >-
           ${{ needs.changes.outputs.backend-aml == 'true' ||
               needs.changes.outputs.backend-verification == 'true' ||
-              needs.changes.outputs.backend-sftp-transaction-collector == 'true' }}
+              needs.changes.outputs.backend-sftp-transaction-collector == 'true' ||
+              needs.changes.outputs.backend-aml-consumer == 'true' ||
+              needs.changes.outputs.backend-audit-consumer == 'true' ||
+              needs.changes.outputs.backend-log == 'true' }}
         uses: actions/download-artifact@v4
         with:
           name: manifest-lambda
+          path: manifests
+
+      - name: Download grouped frontend manifest artifact
+        if: >-
+          ${{ needs.changes.outputs.frontend == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: manifest-frontend
           path: manifests
 
       - name: Merge changed intents into current manifest
@@ -313,7 +400,7 @@ jobs:
           else
             echo "No existing current.json found. Initializing a new manifest."
             jq -n --arg repo_sha "${REPO_SHA}" --arg created_at "${NOW_UTC}" \
-              '{repo_sha:$repo_sha, created_at:$created_at, ecs:{}, lambda:{}}' > current.json
+              '{repo_sha:$repo_sha, created_at:$created_at, ecs:{}, lambda:{}, frontend:{}}' > current.json
           fi
 
           # Normalize the document shape to ensure expected keys exist.
@@ -325,7 +412,8 @@ jobs:
             | .repo_sha = $repo_sha
             | .created_at = $created_at
             | .ecs = (.ecs // {})
-            | .lambda = (.lambda // {})' > manifest.json
+            | .lambda = (.lambda // {})
+            | .frontend = (.frontend // {})' > manifest.json
 
           if [[ -f manifests/manifest-ecs.json ]]; then
             jq \
@@ -338,6 +426,13 @@ jobs:
             jq \
               --slurpfile lambda manifests/manifest-lambda.json \
               '.lambda = ((.lambda // {}) + ($lambda[0].lambda // {}))' manifest.json > manifest.next.json
+            mv manifest.next.json manifest.json
+          fi
+
+          if [[ -f manifests/manifest-frontend.json ]]; then
+            jq \
+              --slurpfile frontend manifests/manifest-frontend.json \
+              '.frontend = ((.frontend // {}) + ($frontend[0].frontend // {}))' manifest.json > manifest.next.json
             mv manifest.next.json manifest.json
           fi
 
