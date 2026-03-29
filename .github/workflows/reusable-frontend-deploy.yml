@@ -28,12 +28,13 @@ on:
         required: true
       AWS_REGION:
         required: true
-      TF_FRONTEND_BUCKET_NAME:
+      FRONTEND_BUCKET:
         required: true
-      TF_CLOUDFRONT_DISTRIBUTION_ID:
-        required: false
+      CLOUDFRONT_DISTRIBUTION_ID:
+        required: true
 
 permissions:
+  actions: write
   contents: read
   id-token: write
 
@@ -45,7 +46,7 @@ jobs:
 
     env:
       AWS_REGION: ${{ secrets.AWS_REGION }}
-      TF_CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.TF_CLOUDFRONT_DISTRIBUTION_ID }}
+      CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
 
     steps:
       - name: Checkout code
@@ -56,8 +57,8 @@ jobs:
         run: |
           test -n "${{ secrets.AWS_ROLE_ARN }}"
           test -n "${{ secrets.AWS_REGION }}"
-          test -n "${{ secrets.TF_FRONTEND_BUCKET_NAME }}"
-
+          test -n "${{ secrets.FRONTEND_BUCKET }}"
+          test -n "${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}"
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -91,33 +92,81 @@ jobs:
             exit 1
           fi
 
-      - name: Upload static assets to S3
+      - name: Upload SHA-versioned static assets to S3
+        run: |
+          RELEASE_PREFIX="releases/${GITHUB_SHA}"
+          aws s3 sync \
+            "${{ inputs.working_directory }}/${{ inputs.build_output_dir }}/" \
+            "s3://${{ secrets.FRONTEND_BUCKET }}/${RELEASE_PREFIX}/" \
+            --delete
+
+      - name: Upload live static assets to S3
         run: |
           aws s3 sync \
             "${{ inputs.working_directory }}/${{ inputs.build_output_dir }}/" \
-            "s3://${{ secrets.TF_FRONTEND_BUCKET_NAME }}/" \
+            "s3://${{ secrets.FRONTEND_BUCKET }}/" \
             --delete
 
       - name: Invalidate CloudFront cache
-        if: env.TF_CLOUDFRONT_DISTRIBUTION_ID != ''
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id "${TF_CLOUDFRONT_DISTRIBUTION_ID}" \
+            --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
             --paths ${{ inputs.cloudfront_invalidation_paths }}
 
-      - name: Skip CloudFront invalidation
-        if: env.TF_CLOUDFRONT_DISTRIBUTION_ID == ''
+      - name: Write deploy intent fragment (Frontend)
+        id: intent
+        shell: bash
         run: |
-          echo "No CloudFront distribution ID was provided by Terraform contract; skipping invalidation."
+          set -euo pipefail
+
+          REPO_SHA="${GITHUB_SHA}"
+          NOW_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          RELEASE_PREFIX="releases/${REPO_SHA}"
+          SITE_NAME="$(basename "${{ inputs.working_directory }}")"
+
+          FRAGMENT_FILE="intent-frontend-${SITE_NAME}.json"
+          ARTIFACT_NAME="intent-frontend-${SITE_NAME}-${REPO_SHA}"
+
+          jq -n \
+            --arg type "frontend" \
+            --arg created_at "${NOW_UTC}" \
+            --arg repo_sha "${REPO_SHA}" \
+            --arg site "${SITE_NAME}" \
+            --arg bucket "${{ secrets.FRONTEND_BUCKET }}" \
+            --arg release_prefix "${RELEASE_PREFIX}" \
+            --arg build_output_dir "${{ inputs.build_output_dir }}" \
+            --arg cloudfront_distribution_id "${CLOUDFRONT_DISTRIBUTION_ID}" \
+            --arg cloudfront_invalidation_paths "${{ inputs.cloudfront_invalidation_paths }}" \
+            ' {
+              type: $type,
+              created_at: $created_at,
+              repo_sha: $repo_sha,
+              frontend: {
+                site: $site,
+                bucket: $bucket,
+                deployed_version: $repo_sha,
+                release_prefix: $release_prefix,
+                build_output_dir: $build_output_dir,
+                cloudfront_distribution_id: $cloudfront_distribution_id,
+                cloudfront_invalidation_paths: $cloudfront_invalidation_paths
+              }
+            }' > "${FRAGMENT_FILE}"
+
+          echo "fragment_file=${FRAGMENT_FILE}" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=${ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload deploy intent artifact (Frontend)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.intent.outputs.artifact_name }}
+          path: ${{ steps.intent.outputs.fragment_file }}
+          if-no-files-found: error
 
       - name: Deployment summary
         run: |
           echo "Frontend directory: ${{ inputs.working_directory }}"
           echo "Build output: ${{ inputs.build_output_dir }}"
-          echo "Synced to: s3://${{ secrets.TF_FRONTEND_BUCKET_NAME }}/"
-          if [[ -n "${TF_CLOUDFRONT_DISTRIBUTION_ID}" ]]; then
-            echo "CloudFront distribution: ${TF_CLOUDFRONT_DISTRIBUTION_ID}"
-            echo "CloudFront invalidation paths: ${{ inputs.cloudfront_invalidation_paths }}"
-          else
-            echo "CloudFront distribution: <none>"
-          fi
+          echo "SHA release: s3://${{ secrets.FRONTEND_BUCKET }}/releases/${{ github.sha }}/"
+          echo "Synced to: s3://${{ secrets.FRONTEND_BUCKET }}/"
+          echo "CloudFront distribution: ${CLOUDFRONT_DISTRIBUTION_ID}"
+          echo "CloudFront invalidation paths: ${{ inputs.cloudfront_invalidation_paths }}"
