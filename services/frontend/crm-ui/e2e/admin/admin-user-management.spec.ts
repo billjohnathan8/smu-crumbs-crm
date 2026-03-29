@@ -78,13 +78,8 @@ async function setupAdminUserManagementRoutes(page: Page) {
 }
 
 test.describe("Admin User Management (Mocked)", () => {
-  test.beforeEach(async ({ page, context }) => {
+  test.beforeEach(async ({ context }) => {
     await context.clearCookies();
-    await gotoWithNetworkRetry(page, "/login");
-    await page.evaluate(() => {
-      localStorage.clear();
-      sessionStorage.clear();
-    });
   });
 
   test("creates a new user from /admin/users/new", async ({ page }) => {

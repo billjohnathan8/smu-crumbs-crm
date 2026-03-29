@@ -291,7 +291,7 @@ class ClientsServiceIT {
 	}
 
 	@Test
-	void createClient_whenSnsPublishFails_returnsServiceUnavailable_andDoesNotPersistClient() throws Exception {
+	void createClient_whenSnsPublishFails_stillCreatesClient_andRetryConflictsOnDuplicate() throws Exception {
 		String agentAuth = jsonHeadersToken(mintToken("usr_it_agent", "user"));
 		String email = "verify-it-" + UUID.randomUUID() + "@example.com";
 		String phone = "+1555" + ThreadLocalRandom.current().nextLong(1_000_000L, 10_000_000L);
@@ -299,15 +299,15 @@ class ClientsServiceIT {
 
 		when(snsClient.publish(any(PublishRequest.class))).thenThrow(new RuntimeException("sns down"));
 
-		ResponseEntity<String> failedCreate = postJson(
+		ResponseEntity<String> firstCreate = postJson(
 			"/api/clients",
 			requestBody,
 			jsonHeaders(agentAuth)
 		);
 
-		assertThat(failedCreate.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
-		JsonNode errorPayload = objectMapper.readTree(failedCreate.getBody());
-		assertThat(requiredText(errorPayload, "error")).isEqualTo("service_unavailable");
+		assertThat(firstCreate.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+		JsonNode createdPayload = objectMapper.readTree(firstCreate.getBody());
+		assertThat(requiredText(createdPayload, "emailAddress")).isEqualTo(email);
 
 		when(snsClient.publish(any(PublishRequest.class)))
 			.thenReturn(PublishResponse.builder().messageId("msg-it-recovered").build());
@@ -318,9 +318,9 @@ class ClientsServiceIT {
 			jsonHeaders(agentAuth)
 		);
 
-		assertThat(retriedCreate.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-		JsonNode createdPayload = objectMapper.readTree(retriedCreate.getBody());
-		assertThat(requiredText(createdPayload, "emailAddress")).isEqualTo(email);
+		assertThat(retriedCreate.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+		JsonNode conflictPayload = objectMapper.readTree(retriedCreate.getBody());
+		assertThat(requiredText(conflictPayload, "error")).isEqualTo("conflict");
 	}
 
 	@Test

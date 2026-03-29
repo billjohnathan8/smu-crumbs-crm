@@ -13,8 +13,12 @@ aws_region  = "ap-southeast-1"
 # --- Network / ECS ---
 enable_stateful_service_scale_out = false
 enable_multi_az_nat               = false
-enable_nat_gateway                = false
+enable_nat_gateway                = true
 enable_vpc_flow_logs              = false
+user_desired_count                = 1
+client_desired_count              = 2
+transaction_desired_count         = 1
+ecs_min_capacity                  = 2
 ecs_use_public_subnets            = true
 ecs_assign_public_ip              = true
 enable_ecs_container_insights     = false
@@ -28,6 +32,11 @@ db_skip_final_snapshot           = true
 db_deletion_protection           = false
 db_max_allocated_storage         = 20
 rds_performance_insights_enabled = false
+
+# --- S3 Buckets (Fixed Names) ---
+frontend_bucket_name         = "crumbs-scroogebank-frontend"
+transaction_sftp_bucket_name = "crumbs-scroogebank-backend"
+verification_bucket_name     = "crumbs-scroogebank-verification"
 
 # --- Feature Contract (integration) ---
 enable_log_lambda                 = true

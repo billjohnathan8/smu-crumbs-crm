@@ -6,8 +6,17 @@
 # Service-specific configurations including desired count, image tags,
 # environment variables, and secrets
 locals {
-  # Services that require strict single-replica safety when stateful scale-out
-  # is disabled. Toggle via enable_stateful_service_scale_out.
+  production_like_environments = toset(["prod", "production", "integration"])
+  is_production_like           = contains(local.production_like_environments, lower(trimspace(var.environment)))
+
+  # Customer-facing/core services that require an HA baseline in production-like
+  # environments to avoid single-task service outages.
+  critical_customer_facing_services = toset(["user", "client", "transaction"])
+  critical_ha_task_floor            = 2
+
+  # Services that require conservative horizontal scaling. They can run with
+  # HA redundancy, but expansion beyond the HA baseline remains gated by
+  # enable_stateful_service_scale_out.
   in_memory_stateful_services = toset(["user", "transaction"])
 
   requested_desired_counts = {
@@ -16,11 +25,25 @@ locals {
     transaction = var.desired_counts.transaction
   }
 
+  # Keep non-production-like environments conservative when stateful scale-out
+  # is disabled, but do not apply single-task pinning in production-like envs
+  # where HA redundancy is required.
+  stateful_single_replica_overrides = (
+    !var.enable_stateful_service_scale_out && !local.is_production_like
+    ) ? {
+    for service_name in local.in_memory_stateful_services : service_name => 1
+  } : {}
+
+  # Enforce a minimum desired-count HA baseline in production-like environments.
+  critical_ha_desired_count_overrides = local.is_production_like ? {
+    for service_name in local.critical_customer_facing_services :
+    service_name => max(local.requested_desired_counts[service_name], local.critical_ha_task_floor)
+  } : {}
+
   effective_desired_counts = merge(
     local.requested_desired_counts,
-    var.enable_stateful_service_scale_out ? {} : {
-      for service_name in local.in_memory_stateful_services : service_name => 1
-    }
+    local.stateful_single_replica_overrides,
+    local.critical_ha_desired_count_overrides
   )
 
   service_configs = {
@@ -213,7 +236,11 @@ locals {
   autoscaled_service_configs = {
     for service_name, config in local.service_configs :
     service_name => config
-    if var.enable_stateful_service_scale_out || !contains(local.in_memory_stateful_services, service_name)
+    if(
+      local.is_production_like ||
+      var.enable_stateful_service_scale_out ||
+      !contains(local.in_memory_stateful_services, service_name)
+    )
   }
 
   # CloudMap namespace for service discovery.

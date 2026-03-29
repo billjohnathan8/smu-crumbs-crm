@@ -60,6 +60,18 @@ jobs:
         timeout-minutes: 1
         run: chmod +x platform/localstack/init/01-setup.sh
 
+      - name: Generate transaction fixture preflight
+        timeout-minutes: 1
+        run: |
+          mkdir -p build-logs/fullstack-integration/preflight
+          python services/backend/transaction/mock-sftp/mock_transactions.py \
+            --output build-logs/fullstack-integration/preflight/mocked-transactions.csv \
+            --row-count 8 \
+            --seed 301 \
+            --start-transaction-id 9000 \
+            --start-date 2026-01-01 \
+            --end-date 2026-01-31
+
       - name: Run containerized fullstack integration tests
         timeout-minutes: 35
         env:

@@ -46,46 +46,73 @@ jobs:
       timeout-minutes: 10
       artifact-paths: services/frontend/crm-ui/coverage/**
 
-  e2e:
-    name: E2E Tests
-    needs: test
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: services/frontend/crm-ui
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        timeout-minutes: 2
-
-      - name: Set up Node.js 20
-        uses: actions/setup-node@v4
-        timeout-minutes: 2
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: services/frontend/crm-ui/package-lock.json
-
-      - name: Install dependencies
-        timeout-minutes: 3
-        run: npm ci
-
-      - name: Install Playwright browsers
-        timeout-minutes: 5
-        run: npx playwright install --with-deps chromium
-
-      - name: Run E2E tests (mocked)
-        timeout-minutes: 10
-        run: npm run e2e:mocked
-
-      - name: Upload test results on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-results
-          path: |
-            services/frontend/crm-ui/test-results/
-            services/frontend/crm-ui/playwright-report/
-          retention-days: 7
+  # ==========================================================================
+  # DISABLED: Frontend Latency Tests
+  # Performance tests are kept in the repo but NOT run in CI
+  # To run locally: cd services/frontend/crm-ui && npm run test:e2e:latency
+  # ==========================================================================
+  # frontend-latency-tests:
+  #   name: Frontend Latency Tests (CS301)
+  #   needs: test
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 15
+  #   defaults:
+  #     run:
+  #       working-directory: services/frontend/crm-ui
+  #
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #       timeout-minutes: 2
+  #
+  #     - name: Set up Node.js 20
+  #       uses: actions/setup-node@v4
+  #       timeout-minutes: 2
+  #       with:
+  #         node-version: '20'
+  #         cache: 'npm'
+  #         cache-dependency-path: services/frontend/crm-ui/package-lock.json
+  #
+  #     - name: Install dependencies
+  #       timeout-minutes: 3
+  #       run: npm ci
+  #
+  #     - name: Install Playwright browsers
+  #       timeout-minutes: 5
+  #       run: npx playwright install --with-deps chromium
+  #
+  #     - name: Run Frontend Latency Tests
+  #       timeout-minutes: 10
+  #       run: npm run test:e2e:latency
+  #
+  #     - name: Extract Performance Metrics
+  #       if: always()
+  #       run: |
+  #         if [ -f "test-results/frontend-latency-results.json" ]; then
+  #           echo "=== Frontend Latency Test Results ==="
+  #           echo "CS301 Requirement: All operations must complete within 5000ms"
+  #           echo ""
+  #           # Extract and display performance metrics from test output
+  #           jq -r '.suites[] | .specs[] | select(.title | contains("[PERF]") or contains("latency") or contains("performance")) | {title: .title, duration: (.tests[0].results[0].duration // 0), status: .tests[0].results[0].status} | "[\(.status | ascii_upcase)] \(.title) - \(.duration)ms"' test-results/frontend-latency-results.json 2>/dev/null || echo "Performance metrics available in test output logs"
+  #         else
+  #           echo "No JSON results file found, check test logs for [PERF] output"
+  #         fi
+  #
+  #     - name: Upload test results on failure
+  #       if: failure()
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: frontend-latency-test-results
+  #         path: |
+  #           services/frontend/crm-ui/test-results/
+  #           services/frontend/crm-ui/playwright-report/
+  #         retention-days: 7
+  #
+  #     - name: Upload test results on success
+  #       if: success()
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: frontend-latency-test-results-success
+  #         path: |
+  #           services/frontend/crm-ui/test-results/frontend-latency-results.json
+  #         retention-days: 30

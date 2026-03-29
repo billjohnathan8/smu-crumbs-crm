@@ -105,11 +105,11 @@ jobs:
           fi
 
           if [[ -z "${STATE_BUCKET}" ]]; then
-            STATE_BUCKET="scroogebank-crm-${DEPLOY_ENV}-tfstate"
+            STATE_BUCKET="crumbs-scroogebank-tfstate"
           fi
 
           if [[ -z "${LOCK_TABLE}" ]]; then
-            LOCK_TABLE="scroogebank-crm-${DEPLOY_ENV}-tflock"
+            LOCK_TABLE="crumbs-scroogebank-tflock-${DEPLOY_ENV}"
           fi
 
           {

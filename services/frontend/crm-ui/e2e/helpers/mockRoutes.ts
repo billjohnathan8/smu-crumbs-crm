@@ -95,6 +95,49 @@ export async function setupAdminRoutes(page: Page) {
       });
     }
 
+    if (url.includes("/api/communications")) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [],
+          pagination: { limit: 10, offset: 0, total: 0 },
+        }),
+      });
+    }
+
+    if (url.includes("/api/aml/alerts")) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [],
+          pagination: { limit: 10, offset: 0, total: 0 },
+        }),
+      });
+    }
+
+    if (url.includes("/api/transactions/imports")) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [],
+        }),
+      });
+    }
+
+    if (url.includes("/api/transactions")) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [],
+          pagination: { limit: 10, offset: 0, total: 0 },
+        }),
+      });
+    }
+
     route.continue();
   });
 }
@@ -193,6 +236,28 @@ export async function setupAgentRoutes(page: Page) {
     }
 
     if (url.includes("/api/logs")) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [],
+          pagination: { limit: 10, offset: 0, total: 0 },
+        }),
+      });
+    }
+
+    if (url.includes("/api/communications")) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [],
+          pagination: { limit: 10, offset: 0, total: 0 },
+        }),
+      });
+    }
+
+    if (url.includes("/api/aml/alerts")) {
       return route.fulfill({
         status: 200,
         contentType: "application/json",

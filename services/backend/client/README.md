@@ -25,7 +25,9 @@ The Client Service provides CRUD operations for managing clients in the Scroogeb
 - `DELETE /api/clients/{id}` - Delete client
 - `POST /api/clients/{id}/upload-verify` - Public tokenized verification document upload (sets `pending`)
 - `PATCH /api/clients/{id}/verify/review` - Admin review for pending verification (`approve`/`reject`)
-- `GET /health` - Health check
+- `GET /health` - Primary health check
+- `GET /api/v1/health` - Legacy health endpoint
+- `GET /api/v1/clients/health` - Legacy clients health endpoint
 
 ## Local Development
 
@@ -85,7 +87,7 @@ java -jar build/libs/client-*.jar
 
 **Service will start on:** `http://localhost:8080`
 
-**Health check:** `curl http://localhost:8081/health`
+**Health check:** `curl http://localhost:8080/health`
 
 ### Configuration
 
