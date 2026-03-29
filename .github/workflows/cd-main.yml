@@ -1,9 +1,10 @@
 name: CD - Main Deployment
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+  # push:
+  #   branches:
+  #     - main
 
 # Ensure that only one deployment runs at a time to the main environment.
 concurrency:
