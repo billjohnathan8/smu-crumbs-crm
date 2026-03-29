@@ -88,7 +88,7 @@ jobs:
 
       - name: Upload SHA-versioned static assets to S3
         run: |
-          RELEASE_PREFIX="releases/${GITHUB_SHA}"
+          RELEASE_PREFIX="git/${GITHUB_SHA}"
           aws s3 sync \
             "${{ inputs.working_directory }}/${{ inputs.build_output_dir }}/" \
             "s3://${{ vars.FRONTEND_BUCKET }}/${RELEASE_PREFIX}/" \
@@ -98,7 +98,7 @@ jobs:
         run: |
           aws s3 sync \
             "${{ inputs.working_directory }}/${{ inputs.build_output_dir }}/" \
-            "s3://${{ vars.FRONTEND_BUCKET }}/" \
+            "s3://${{ vars.FRONTEND_BUCKET }}/live/" \
             --delete
 
       - name: Invalidate CloudFront cache
@@ -115,7 +115,7 @@ jobs:
 
           REPO_SHA="${GITHUB_SHA}"
           NOW_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          RELEASE_PREFIX="releases/${REPO_SHA}"
+          RELEASE_PREFIX="git/${REPO_SHA}"
           SITE_NAME="$(basename "${{ inputs.working_directory }}")"
 
           FRAGMENT_FILE="intent-frontend-${SITE_NAME}.json"
@@ -160,7 +160,7 @@ jobs:
         run: |
           echo "Frontend directory: ${{ inputs.working_directory }}"
           echo "Build output: ${{ inputs.build_output_dir }}"
-          echo "SHA release: s3://${{ vars.FRONTEND_BUCKET }}/releases/${{ github.sha }}/"
-          echo "Synced to: s3://${{ vars.FRONTEND_BUCKET }}/"
+          echo "SHA release: s3://${{ vars.FRONTEND_BUCKET }}/git/${{ github.sha }}/"
+          echo "Synced to: s3://${{ vars.FRONTEND_BUCKET }}/live/"
           echo "CloudFront distribution: ${CLOUDFRONT_DISTRIBUTION_ID}"
           echo "CloudFront invalidation paths: ${{ inputs.cloudfront_invalidation_paths }}"
