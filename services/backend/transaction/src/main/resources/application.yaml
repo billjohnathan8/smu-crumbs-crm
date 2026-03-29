@@ -60,3 +60,5 @@ app:
     secret-access-key: ${TRANSACTION_IMPORT_S3_SECRET_ACCESS_KEY:}
   transactions-store:
     type: ${APP_TRANSACTIONS_STORE_TYPE:postgres}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:*}

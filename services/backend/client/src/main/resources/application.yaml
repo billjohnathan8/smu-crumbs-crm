@@ -67,3 +67,5 @@ app:
       audience: ${COGNITO_AUDIENCE:}
       jwks-url: ${COGNITO_JWKS_URL:}
       jwks-cache-ttl-seconds: ${COGNITO_JWKS_CACHE_TTL_SECONDS:300}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:*}

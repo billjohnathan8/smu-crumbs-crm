@@ -45,3 +45,5 @@ app:
     password: ${ROOT_ADMIN_PASSWORD:}
   user-store:
     type: ${APP_USER_STORE_TYPE:postgres}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
