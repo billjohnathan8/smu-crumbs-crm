@@ -26,10 +26,6 @@ on:
     secrets:
       AWS_ROLE_ARN:
         required: true
-      AWS_REGION:
-        required: true
-      FRONTEND_BUCKET:
-        required: true
       CLOUDFRONT_DISTRIBUTION_ID:
         required: true
 
@@ -45,7 +41,7 @@ jobs:
     timeout-minutes: 25
 
     env:
-      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
       CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
 
     steps:
@@ -56,8 +52,8 @@ jobs:
       - name: Validate required secrets
         run: |
           test -n "${{ secrets.AWS_ROLE_ARN }}"
-          test -n "${{ secrets.AWS_REGION }}"
-          test -n "${{ secrets.FRONTEND_BUCKET }}"
+          test -n "${{ vars.AWS_REGION }}"
+          test -n "${{ vars.FRONTEND_BUCKET }}"
           test -n "${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}"
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -95,14 +91,14 @@ jobs:
           RELEASE_PREFIX="releases/${GITHUB_SHA}"
           aws s3 sync \
             "${{ inputs.working_directory }}/${{ inputs.build_output_dir }}/" \
-            "s3://${{ secrets.FRONTEND_BUCKET }}/${RELEASE_PREFIX}/" \
+            "s3://${{ vars.FRONTEND_BUCKET }}/${RELEASE_PREFIX}/" \
             --delete
 
       - name: Upload live static assets to S3
         run: |
           aws s3 sync \
             "${{ inputs.working_directory }}/${{ inputs.build_output_dir }}/" \
-            "s3://${{ secrets.FRONTEND_BUCKET }}/" \
+            "s3://${{ vars.FRONTEND_BUCKET }}/" \
             --delete
 
       - name: Invalidate CloudFront cache
@@ -130,7 +126,7 @@ jobs:
             --arg created_at "${NOW_UTC}" \
             --arg repo_sha "${REPO_SHA}" \
             --arg site "${SITE_NAME}" \
-            --arg bucket "${{ secrets.FRONTEND_BUCKET }}" \
+            --arg bucket "${{ vars.FRONTEND_BUCKET }}" \
             --arg release_prefix "${RELEASE_PREFIX}" \
             --arg build_output_dir "${{ inputs.build_output_dir }}" \
             --arg cloudfront_distribution_id "${CLOUDFRONT_DISTRIBUTION_ID}" \
@@ -164,7 +160,7 @@ jobs:
         run: |
           echo "Frontend directory: ${{ inputs.working_directory }}"
           echo "Build output: ${{ inputs.build_output_dir }}"
-          echo "SHA release: s3://${{ secrets.FRONTEND_BUCKET }}/releases/${{ github.sha }}/"
-          echo "Synced to: s3://${{ secrets.FRONTEND_BUCKET }}/"
+          echo "SHA release: s3://${{ vars.FRONTEND_BUCKET }}/releases/${{ github.sha }}/"
+          echo "Synced to: s3://${{ vars.FRONTEND_BUCKET }}/"
           echo "CloudFront distribution: ${CLOUDFRONT_DISTRIBUTION_ID}"
           echo "CloudFront invalidation paths: ${{ inputs.cloudfront_invalidation_paths }}"
