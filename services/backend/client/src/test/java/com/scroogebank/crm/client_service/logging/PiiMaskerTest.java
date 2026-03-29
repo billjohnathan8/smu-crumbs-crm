@@ -102,4 +102,28 @@ class PiiMaskerTest {
 	void nullFieldName_returnsValueUnchanged() {
 		assertThat(PiiMasker.mask(null, "anything")).isEqualTo("anything");
 	}
+
+	@Test
+	void maskNric_masksMiddleChars() {
+		// NRIC format: 1 letter + 7 digits + 1 letter, e.g. S1234567A
+		assertThat(PiiMasker.mask("nric", "S1234567A"))
+			.isEqualTo("S*****67A");
+	}
+
+	@Test
+	void maskNric_tooShort_redacts() {
+		assertThat(PiiMasker.mask("nric", "S12"))
+			.isEqualTo("[REDACTED]");
+	}
+
+	@Test
+	void maskDateOfBirth_fullyRedacted() {
+		assertThat(PiiMasker.mask("dateOfBirth", "1990-01-15"))
+			.isEqualTo("[REDACTED]");
+	}
+
+	@Test
+	void maskNric_nullValue_returnsNull() {
+		assertThat(PiiMasker.mask("nric", null)).isNull();
+	}
 }
