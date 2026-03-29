@@ -70,6 +70,24 @@ class ApiExceptionHandlerTest {
 	}
 
 	@Test
+	void validationError_inDevMode_returnsFieldDetails() {
+		MethodArgumentNotValidException ex = mock(MethodArgumentNotValidException.class);
+		BindingResult bindingResult = mock(BindingResult.class);
+		FieldError fieldError = new FieldError("obj", "firstName", "size must be between 2 and 50");
+		when(ex.getBindingResult()).thenReturn(bindingResult);
+		when(bindingResult.getFieldErrors()).thenReturn(List.of(fieldError));
+
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		ApiExceptionHandler handler = new ApiExceptionHandler(false);
+
+		var response = handler.handleValidation(request, ex);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+		assertThat(response.getBody()).isNotNull();
+		assertThat(response.getBody().message()).contains("firstName");
+	}
+
+	@Test
 	void validationError_inProdMode_returnsGenericMessage() {
 		MethodArgumentNotValidException ex = mock(MethodArgumentNotValidException.class);
 		BindingResult bindingResult = mock(BindingResult.class);
