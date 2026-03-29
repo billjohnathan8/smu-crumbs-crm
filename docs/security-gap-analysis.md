@@ -10,13 +10,13 @@
 
 | # | Issue | Production Status | Gap Severity |
 |---|-------|-------------------|--------------|
-| 1 | Token Authenticity, RBAC, Resource Ownership, Zero-Trust | Mostly done — specific gaps below | Medium |
-| 2 | Backend Input Validation | Mostly done — specific gaps below | Low–Medium |
-| 3 | PII / Sensitive Data in Logs | Mostly done — specific gaps below | Medium |
-| 4 | Negative & Adversarial Test Cases | Partial — gaps below | Medium |
-| 5 | CSRF & Replay-Attack Protection | Partial — gaps below | Medium |
+| 1 | Token Authenticity, RBAC, Resource Ownership, Zero-Trust | Mostly done — CORS fixed; JWT replay still pending | Medium |
+| 2 | Backend Input Validation | Mostly done — path variable constraints added | Low–Medium |
+| 3 | PII / Sensitive Data in Logs | Mostly done — NRIC masking added | Medium |
+| 4 | Negative & Adversarial Test Cases | Partial — adversarial JWT/IDOR tests still pending | Medium |
+| 5 | CSRF & Replay-Attack Protection | Partial — gaps below (infrastructure-dependent) | Medium |
 | 6 | OpenAPI Security Alignment | Not implemented | High |
-| 7 | Detailed Errors Exposed to Users | Mostly done — one gap | Low |
+| 7 | Detailed Errors Exposed to Users | Done — prod-mode validation sanitisation implemented | Low |
 
 ---
 
@@ -53,7 +53,7 @@
 |-----|----------|-------------|
 | **JWT replay after logout** | All Java services + log Lambda | JWTs are stateless — there is no `jti` (JWT ID) claim tracked server-side. After a user logs out, their token remains cryptographically valid until expiry. If a token is intercepted, it can be replayed. |
 | ~~**`VITE_BYPASS_AUTH=true` has no production guard**~~ | ~~`services/frontend/crm-ui`~~ | **Not a gap** — `AuthContext.tsx` line 12 already guards with `import.meta.env.DEV &&`, which Vite sets to `false` in all production builds regardless of the env var value. No fix required. |
-| **Wildcard CORS origin** | All Java `SecurityConfig.java` | `allowedOriginPatterns: ["*"]` is set in all three Java services. In production, this should be restricted to the known frontend origin. |
+| ~~**Wildcard CORS origin**~~ | ~~All Java `SecurityConfig.java`~~ | **Fixed (2026-03-29)**: All three services now read allowed origins from `app.cors.allowed-origins`, populated via `CORS_ALLOWED_ORIGINS` env var. Defaults to `*` in dev. Use `setAllowedOriginPatterns()` to support wildcard subdomains. |
 | **JWT validation code is duplicated across 3 services** | `user/security/JwtService.java`, `client/security/JwtService.java`, `transaction/security/JwtService.java` | Each service maintains its own copy of `JwtService`, `JwtAuthFilter`, and `SecurityConfig`. A security fix applied to one service may not be applied to the others, creating inconsistency risk. |
 | **`POST /api/clients/{id}/upload-verify` is publicly accessible** | `ClientController.java` | This endpoint is intentionally public (clients upload their own ID docs without a CRM login). It is protected only by a short-lived verification token. There is no rate limiting and no guard against token brute-forcing. |
 
@@ -81,10 +81,10 @@
 
 | Gap | Location | Description |
 |-----|----------|-------------|
-| **Path variable validation** | All controllers | `@PathVariable String clientId / accountId / transactionId` are not validated with `@Pattern` or length constraints at the controller level. A malformed or unexpectedly long ID is passed directly to the service layer. |
+| ~~**Path variable validation**~~ | ~~All controllers~~ | **Fixed (2026-03-29)**: All `@PathVariable` parameters in all 4 controllers (User, Client, Account, Transactions) now have `@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$")`. All controllers are annotated `@Validated`. |
 | ~~**Log Lambda Pydantic strict mode**~~ | ~~`services/backend/log/app/schemas.py`~~ | **Not a gap** — All request schemas already set `model_config = ConfigDict(extra="forbid")`. No fix required. |
 | **No explicit SQL injection test cases** | All Java services, log Lambda | ORM protects against standard SQL injection, but there are no test cases that send injection payloads to verify the protection is observable and documented. |
-| **`@Validated` not confirmed on controller class** | All Java controllers | `@Validated` must be on the controller class (or a Spring `MethodValidationPostProcessor` bean registered) for `@PathVariable` constraint annotations to be processed. This has not been confirmed. |
+| ~~**`@Validated` not confirmed on controller class**~~ | ~~All Java controllers~~ | **Fixed (2026-03-29)**: Confirmed and added `@Validated` to all controller classes. |
 
 ### What To Implement
 
@@ -111,7 +111,7 @@
 
 | Gap | Location | Description |
 |-----|----------|-------------|
-| **NRIC not explicitly masked** | `PiiMasker.java`, client service | NRIC (National Registration ID Card) is collected during client identity verification (`UploadVerificationDocsRequest`). It is not in `PiiMasker`'s masked field list. If NRIC appears in an `attributeName`, `beforeValue`, or `afterValue` log field, it would be stored unmasked. |
+| ~~**NRIC not explicitly masked**~~ | ~~`PiiMasker.java`, client service~~ | **Fixed (2026-03-29)**: Added `nric` to `PiiMasker` with masking pattern (first char + `***` middle + last 3 chars, e.g. `S****567A`). `dateOfBirth` added to fully-redacted fields. Tests added in `PiiMaskerTest`. |
 | **Account identifiers in transaction logs** | Transaction service | `TransactionsController` does not route through `PiiMasker`. Account IDs appear in log entries without masking review. |
 | **`toEmail` stored in communication records** | Log Lambda `schemas.py` line 74 | `CreateCommunicationRequest.toEmail` stores a full email address in the communications DynamoDB table. While necessary for sending, at-rest encryption and access control on this table should be confirmed. |
 | **CloudWatch log verbosity not audited** | All services | Structured logging format (Logback/SLF4J in Java, Python logging in Lambda) has not been audited to confirm no DEBUG-level statements accidentally log full request/response bodies containing PII. |
@@ -230,7 +230,7 @@
 
 | Gap | Location | Description |
 |-----|----------|-------------|
-| **Validation error messages expose field names** | All Java services `ApiExceptionHandler` | `MethodArgumentNotValidException` handler currently returns per-field validation messages (e.g., `"firstName: size must be between 2 and 50"`). In production, field names and constraint details should not be leaked; return a generic `"Invalid request"` or strip to a count only. |
+| ~~**Validation error messages expose field names**~~ | ~~All Java services `ApiExceptionHandler`~~ | **Fixed (2026-03-29)**: All three `ApiExceptionHandler` classes now accept `boolean productionMode` (injected via `APP_PRODUCTION_MODE` env var, default `false`). When `true`, both `MethodArgumentNotValidException` and `ConstraintViolationException` handlers return `"Validation failed"`. Dev mode retains full field details. Tests added for both modes in all three services. |
 | **Frontend renders raw API error messages** | `services/frontend/crm-ui` | The React frontend passes API error `message` strings directly to toast notifications / UI elements. If a backend ever returns a more detailed message, it surfaces to the user. Frontend should map known error codes to user-friendly strings and show a generic fallback for unknown codes. |
 
 ### What To Implement
@@ -242,12 +242,34 @@
 
 ## Next Steps
 
-Work should be prioritised in this order based on severity and production impact:
+Remaining items in priority order:
 
-1. **Issue 6 — OpenAPI** (not implemented at all; required by project spec)
-2. **Issue 1 — JWT replay + CORS + bypass guard** (medium severity, cross-cutting)
-3. **Issue 5 — Idempotency + token revocation** (medium severity, data integrity)
-4. **Issue 4 — Adversarial tests** (validates all other fixes are effective)
-5. **Issue 3 — NRIC masking + CloudWatch audit** (compliance risk)
-6. **Issue 2 — Path variable validation + Pydantic strict mode** (low severity, defence-in-depth)
-7. **Issue 7 — Validation message stripping + frontend error mapping** (low severity, polish)
+1. **Issue 6 — OpenAPI** (not implemented at all; required by project spec) — Task 6
+2. **Issue 4 — Adversarial JWT tests** (expired token, tampered payload, alg:none) — Task 8
+3. **Issue 4 — IDOR + injection tests** (cross-agent access, SQL injection payloads) — Task 9
+4. **Issue 7 — Frontend error code mapping** (`errorMessages.ts`) — Task 7
+5. **Issue 1 — JWT replay / deny-list** (requires new DynamoDB table + Terraform — deferred)
+6. **Issue 5 — Idempotency keys + token revocation** (requires infrastructure — deferred)
+
+---
+
+## Implementation Log
+
+### 2026-03-29 — Security hardening sprint
+
+| Task | What Was Done | Files Changed | Commit |
+|------|---------------|---------------|--------|
+| Correct false gaps | Marked `VITE_BYPASS_AUTH` guard and Pydantic `extra="forbid"` as already handled (not gaps) | `docs/security-gap-analysis.md` | `6ef5268` |
+| CORS restriction (Issue 1) | Replaced hardcoded `"*"` with `CORS_ALLOWED_ORIGINS` env var in all 3 Java `SecurityConfig.java`. Added `app.cors.allowed-origins` property to all 3 `application.yaml`. Test yamls updated to prevent `PlaceholderResolutionException`. | `user/SecurityConfig.java`, `client/SecurityConfig.java`, `transaction/SecurityConfig.java`, all 3 `application.yaml` | `a45122d`, `94b9304`, `25e3b5d` |
+| NRIC PII masking (Issue 3) | Added `nric` field to `PiiMasker` (shows first char + masked middle + last 3). Added `dateOfBirth` to fully-redacted fields. Added 4 new tests. | `client/PiiMasker.java`, `client/PiiMaskerTest.java` | `7ee64b6` |
+| Validation sanitisation (Issue 7) | All 3 `ApiExceptionHandler` classes now take `boolean productionMode` via `@Value("${app.production-mode:false}")`. `handleValidation` and `handleConstraintViolation` return `"Validation failed"` in prod mode. `APP_PRODUCTION_MODE` env var added to all 3 `application.yaml`. Prod/dev mode tests added to all 3 `ApiExceptionHandlerTest`. | 3× `ApiExceptionHandler.java`, 3× `application.yaml`, 3× `ApiExceptionHandlerTest.java` | `950907b`, `1ac2c34`, `e176152` |
+| Path variable constraints (Issue 2) | Added `@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$")` to all `@PathVariable` parameters in all 4 controllers. Confirmed `@Validated` on all controller classes. | `UserController.java`, `ClientController.java`, `AccountController.java`, `TransactionsController.java` | `668b5f8` |
+
+### Deferred (requires infrastructure changes)
+
+| Item | Reason Deferred |
+|------|-----------------|
+| JWT `jti` deny-list | Requires new DynamoDB TTL table + Terraform + `POST /api/auth/logout` endpoint |
+| Idempotency keys on write endpoints | Requires DynamoDB or Redis cache + API contract changes |
+| Token revocation after password reset | Depends on jti deny-list implementation |
+| Rate limiting on `upload-verify` | Requires API Gateway WAF rule or Spring filter + Redis counter |
