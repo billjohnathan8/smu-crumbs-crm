@@ -250,8 +250,10 @@ module "apigateway" {
 # ECS Module
 # Fargate cluster with user, client, and transaction services,
 # service discovery, and CloudWatch logging.
-# Note: by default only stateless services are autoscaled; stateful
-# service scale-out is feature-gated by enable_stateful_service_scale_out.
+# Note: production-like environments enforce a 2-task HA baseline for
+# user/client/transaction and include them in autoscaling targets.
+# Non-production-like environments can still keep stateful services pinned
+# unless enable_stateful_service_scale_out is true.
 #--------------------------------------------------------------
 module "ecs" {
   source = "./modules/ecs"

@@ -15,11 +15,14 @@ enforce_strict_prod_guardrails = false # budget-first production bring-up profil
 # --- Network ---
 enable_stateful_service_scale_out = false
 enable_multi_az_nat               = false
-enable_nat_gateway                = false
+enable_nat_gateway                = true
 enable_vpc_flow_logs              = false
 
 # --- ECS ---
-client_desired_count          = 1
+user_desired_count            = 1
+client_desired_count          = 2
+transaction_desired_count     = 1
+ecs_min_capacity              = 2
 ecs_max_capacity              = 2
 ecs_use_public_subnets        = true
 ecs_assign_public_ip          = true
@@ -27,8 +30,8 @@ enable_ecs_container_insights = false
 
 # --- Database ---
 db_instance_class                = "db.t4g.micro" # school budget baseline
-db_multi_az                      = false
-db_backup_retention_days         = 1
+db_multi_az                      = true
+db_backup_retention_days         = 7
 db_skip_final_snapshot           = true
 db_deletion_protection           = false
 db_max_allocated_storage         = 20
@@ -60,6 +63,9 @@ backup_retention_days         = 30
 cloudwatch_log_retention_days = 30
 
 # --- S3 / CloudFront ---
+frontend_bucket_name          = "crumbs-scroogebank-frontend"
+transaction_sftp_bucket_name  = "crumbs-scroogebank-backend"
+verification_bucket_name      = "crumbs-scroogebank-verification"
 frontend_bucket_force_destroy = false
 cloudfront_price_class        = "PriceClass_100"
 enable_cloudfront             = true

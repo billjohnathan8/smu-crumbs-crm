@@ -1,11 +1,29 @@
 # Transaction Service
 
 ## Overview
-- Provides transaction import and listing APIs.
+- Provides full transaction CRUD and import APIs.
 - Uses one ingestion contract:
   - local filesystem mock files (`mock-sftp/*.csv`) for local development
   - S3-backed mock ingestion for CI/deployed environments
 - Does not implement a real network SFTP client.
+
+## API Contract
+
+**OpenAPI Specification:** [`docs/api-contracts/openapi/transaction.yaml`](../../../docs/api-contracts/openapi/transaction.yaml)
+
+**Transaction endpoints:**
+- `GET /api/transactions` - List transactions (filterable by `clientId`, `status`, `transaction`, `fromDate`, `toDate`)
+- `POST /api/transactions` - Create transaction (admin only)
+- `GET /api/transactions/{transactionId}` - Get transaction by ID
+- `PUT /api/transactions/{transactionId}` - Update transaction (admin only)
+- `DELETE /api/transactions/{transactionId}` - Delete transaction (admin only)
+- `GET /api/clients/{clientId}/transactions` - List transactions for a specific client
+- `POST /api/transactions/import` - Import transactions from CSV source (admin only)
+- `GET /api/transactions/imports/{importBatchId}` - Get import batch status (admin only)
+
+**Health endpoints:**
+- `GET /health` - Primary health check
+- `GET /api/v1/health` - Legacy health endpoint
 
 ## Official Ingestion Contract
 
@@ -89,7 +107,3 @@ Runs:
 2. Build
 3. Unit tests
 4. JaCoCo report
-
-## OpenAPI
-
-- `../../../docs/api-contracts/openapi/transaction.yaml`

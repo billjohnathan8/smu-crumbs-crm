@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { gotoWithNetworkRetry, setAuthState } from "../helpers/auth";
+import { measureLatency } from "../utils/performance";
 
 const adminUser = {
   id: "admin-1",
@@ -109,8 +110,10 @@ test.describe("Protected Routes (Mocked)", () => {
   });
 
   test("redirects unauthenticated user from /admin to /login", async ({ page }) => {
-    await gotoWithNetworkRetry(page, "/admin");
-    await expect(page).toHaveURL(/\/login$/);
+    await measureLatency(async () => {
+      await gotoWithNetworkRetry(page, "/admin");
+      await expect(page).toHaveURL(/\/login$/);
+    }, "Protected route redirect: /admin -> /login");
   });
 
   test("redirects unauthenticated user from /user/clients/new to /login", async ({
@@ -144,12 +147,16 @@ test.describe("Protected Routes (Mocked)", () => {
     await gotoWithNetworkRetry(page, "/login");
     await setAuthState(page, "admin");
 
-    await gotoWithNetworkRetry(page, "/admin/users");
-    await expect(page.getByRole("heading", { name: "User Management" })).toBeVisible();
+    await measureLatency(async () => {
+      await gotoWithNetworkRetry(page, "/admin/users");
+      await expect(page.getByRole("heading", { name: "User Management" })).toBeVisible();
+    }, "Admin user management page load");
 
-    await page.getByTestId("create-new-user-button").click();
-    await expect(page).toHaveURL(/\/admin\/users\/new$/);
-    await expect(page.getByRole("heading", { name: "Create New User" })).toBeVisible();
+    await measureLatency(async () => {
+      await page.getByTestId("create-new-user-button").click();
+      await expect(page).toHaveURL(/\/admin\/users\/new$/);
+      await expect(page.getByRole("heading", { name: "Create New User" })).toBeVisible();
+    }, "Create new user form navigation");
   });
 
   test("redirects /admin/accounts to /admin/users for admin", async ({ page }) => {
@@ -166,9 +173,11 @@ test.describe("Protected Routes (Mocked)", () => {
     await gotoWithNetworkRetry(page, "/login");
     await setAuthState(page, "user");
 
-    await gotoWithNetworkRetry(page, "/user/transactions");
-    await expect(page.getByRole("heading", { name: "Transactions" })).toBeVisible();
-    await expect(page.getByText("Access Denied")).not.toBeVisible();
+    await measureLatency(async () => {
+      await gotoWithNetworkRetry(page, "/user/transactions");
+      await expect(page.getByRole("heading", { name: "Transactions" })).toBeVisible();
+      await expect(page.getByText("Access Denied")).not.toBeVisible();
+    }, "User transactions page load");
   });
 
   test("allows admin to access /admin/settings and navigate to /reset-password", async ({

@@ -89,7 +89,7 @@ variable "image_tags" {
 }
 
 variable "desired_counts" {
-  description = "Requested ECS service counts per service. When enable_stateful_service_scale_out is false, user and transaction are pinned to 1 task."
+  description = "Requested ECS desired counts per service. In production-like environments (prod/production/integration), user, client, and transaction are automatically floored to at least 2 tasks for HA."
   type = object({
     user        = number
     client      = number
@@ -98,7 +98,7 @@ variable "desired_counts" {
 }
 
 variable "enable_stateful_service_scale_out" {
-  description = "Allow user and transaction services to scale beyond one task once persistent shared storage is in place."
+  description = "Allow stateful service expansion beyond the HA floor. When false, stateful services can still run with 2-task HA redundancy in production-like environments, but are capped at that baseline."
   type        = bool
 }
 
@@ -113,12 +113,12 @@ variable "ecs_task_memory" {
 }
 
 variable "ecs_min_capacity" {
-  description = "Minimum autoscaling capacity."
+  description = "Minimum autoscaling capacity. Production-like environments floor critical customer-facing services to at least 2."
   type        = number
 }
 
 variable "ecs_max_capacity" {
-  description = "Maximum autoscaling capacity."
+  description = "Maximum autoscaling capacity. Production-like environments ensure this is at least 2 for critical customer-facing services."
   type        = number
 }
 

@@ -1,8 +1,9 @@
 package com.scroogebank.crm.client_service.service;
 
-import com.scroogebank.crm.client_service.exception.SnsPublishException;
+
 import tools.jackson.databind.json.JsonMapper;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.sns.SnsClient;
 import software.amazon.awssdk.services.sns.model.PublishRequest;
@@ -12,13 +13,14 @@ import java.util.Map;
 
 import org.mockito.ArgumentCaptor;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 
 class SnsEmailPublisherServiceTest {
@@ -33,9 +35,10 @@ class SnsEmailPublisherServiceTest {
 
     private final SnsClient snsClient = mock(SnsClient.class);
     private final JsonMapper objectMapper = new JsonMapper();
-    private final SnsEmailPublisherService publisher;
+    private SnsEmailPublisherService publisher;
 
-    SnsEmailPublisherServiceTest() {
+    @BeforeEach
+    public void setUp() {
         publisher = new SnsEmailPublisherService(snsClient, objectMapper, TOPIC_ARN);
 
         when(snsClient.publish(any(PublishRequest.class)))
@@ -116,24 +119,24 @@ class SnsEmailPublisherServiceTest {
     }
 
     @Test
-    void publishVerificationEmail_withoutConfiguredTopicArn_throws() {
+    void publishVerificationEmail_withoutConfiguredTopicArn_doesNotThrow() {
         SnsEmailPublisherService service = new SnsEmailPublisherService(snsClient, objectMapper, "   ");
 
-        assertThatThrownBy(() ->
+        assertThatCode(() ->
             service.publishVerificationEmail(CLIENT_ID, EMAIL, TOKEN, FIRST_NAME, REQUEST_ID, TOKEN_TTL_SECONDS)
-        ).isInstanceOf(SnsPublishException.class)
-            .hasMessageContaining("VERIFICATION_SNS_TOPIC_ARN");
+        ).doesNotThrowAnyException();
+
+        verify(snsClient, never()).publish(any(PublishRequest.class));
     }
 
     @Test
-    void publishVerificationEmail_whenSnsClientThrows_wrapsAsSnsPublishException() {
+    void publishVerificationEmail_whenSnsClientThrows_doesNotPropagate() {
         reset(snsClient);
         when(snsClient.publish(any(PublishRequest.class))).thenThrow(new RuntimeException("sns down"));
 
-        assertThatThrownBy(() ->
+        assertThatCode(() ->
             publisher.publishVerificationEmail(CLIENT_ID, EMAIL, TOKEN, FIRST_NAME, REQUEST_ID, TOKEN_TTL_SECONDS)
-        ).isInstanceOf(SnsPublishException.class)
-            .hasMessageContaining("Failed to publish SNS verification event");
+        ).doesNotThrowAnyException();
     }
 
     // -------------------------------------------------------------------------

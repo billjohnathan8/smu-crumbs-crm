@@ -76,6 +76,37 @@ Expected JSON payload from client-service publisher:
 
 ---
 
+## Local Test Pipeline
+
+Run from `services/backend/verification`.
+
+Windows:
+```powershell
+python run-local-test-pipeline.py
+```
+
+macOS/Linux:
+```bash
+python3 run-local-test-pipeline.py
+```
+
+Alternative wrappers:
+- `run-local-test-pipeline.cmd`
+- `run-local-test-pipeline.sh`
+
+Pipeline steps:
+1. `black --check`
+2. `flake8`
+3. `python -m compileall`
+4. `pytest` with coverage
+
+Reports:
+- `build/reports/tests/junit.xml`
+- `build/reports/coverage/coverage.xml`
+- `build/reports/coverage/html/index.html`
+
+---
+
 ## Notes
 - Customer token TTL is supplied by client-service in `tokenTtlSeconds` (default `7200` / 2 hours).
 - Email expiry copy is rendered from `tokenTtlSeconds`, so the message and token validity stay aligned.

@@ -297,7 +297,7 @@ export function ViewTransactionsPage() {
   }, [isManagementUser, hasActiveImports, trackedImportBatchIds])
 
   const handleFilterChange = (key: string, value: string) => {
-    setFilters({ ...filters, [key]: value })
+    setFilters(prev => ({ ...prev, [key]: value }))
     setCurrentPage(0)
   }
 

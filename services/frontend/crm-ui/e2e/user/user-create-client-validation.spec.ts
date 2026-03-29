@@ -2,6 +2,7 @@ import { test, expect, Route } from "@playwright/test";
 import { gotoWithNetworkRetry, setAuthState } from "../helpers/auth";
 import { setupAgentRoutes } from "../helpers/mockRoutes";
 import { uniqueEmail, uniquePhone, dobForAge } from "../helpers/testData";
+import { measureLatency } from "../utils/performance";
 
 test.describe("User Create Client - Validation (Flow 6)", () => {
   test.beforeEach(async ({ page, context }) => {
@@ -54,8 +55,10 @@ test.describe("User Create Client - Validation (Flow 6)", () => {
     });
 
     await test.step("Navigate to create client page", async () => {
-      await page.goto("/user/clients/new");
-      await page.waitForLoadState("domcontentloaded");
+      await measureLatency(async () => {
+        await page.goto("/user/clients/new");
+        await page.waitForLoadState("domcontentloaded");
+      }, "User create client page load");
     });
 
     await test.step("Fill form with invalid email", async () => {

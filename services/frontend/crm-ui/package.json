@@ -17,7 +17,7 @@
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "e2e": "playwright test",
-    "e2e:mocked": "playwright test -c playwright.mocked.config.ts",
+    "test:e2e:latency": "playwright test -c playwright.latency.config.ts",
     "e2e:ui": "playwright test --ui",
     "e2e:report": "playwright show-report",
     "typecheck": "tsc -b --noEmit"
