@@ -1,5 +1,29 @@
 import { Page } from "@playwright/test";
 
+async function clearBrowserStorage(page: Page) {
+  const clear = async () => {
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+  };
+
+  try {
+    await clear();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const isStorageAccessError =
+      message.includes("SecurityError") ||
+      message.includes("localStorage") ||
+      message.includes("Access is denied");
+
+    if (!isStorageAccessError) throw error;
+
+    await gotoWithNetworkRetry(page, "/login");
+    await clear();
+  }
+}
+
 /**
  * Retry navigation once when Chromium reports transient network-change errors.
  */
@@ -31,10 +55,7 @@ export async function loginAsAdmin(page: Page) {
   await gotoWithNetworkRetry(page, "/login");
 
   // Clear storage to ensure clean state
-  await page.evaluate(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-  });
+  await clearBrowserStorage(page);
 
   await page.waitForLoadState("domcontentloaded");
 
@@ -54,10 +75,7 @@ export async function loginAsAgent(page: Page) {
   await gotoWithNetworkRetry(page, "/login");
 
   // Clear storage to ensure clean state
-  await page.evaluate(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-  });
+  await clearBrowserStorage(page);
 
   await page.waitForLoadState("domcontentloaded");
 
@@ -84,11 +102,28 @@ export async function setAuthState(page: Page, role: "admin" | "user") {
     status: "active",
   };
 
-  await page.evaluate(
-    ({ user, token }) => {
-      localStorage.setItem("authToken", token);
-      localStorage.setItem("currentUser", JSON.stringify(user));
-    },
-    { user, token: `mock-${role}-token` },
-  );
+  const setState = async () => {
+    await page.evaluate(
+      ({ user, token }) => {
+        localStorage.setItem("authToken", token);
+        localStorage.setItem("currentUser", JSON.stringify(user));
+      },
+      { user, token: `mock-${role}-token` },
+    );
+  };
+
+  try {
+    await setState();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const isStorageAccessError =
+      message.includes("SecurityError") ||
+      message.includes("localStorage") ||
+      message.includes("Access is denied");
+
+    if (!isStorageAccessError) throw error;
+
+    await gotoWithNetworkRetry(page, "/login");
+    await setState();
+  }
 }

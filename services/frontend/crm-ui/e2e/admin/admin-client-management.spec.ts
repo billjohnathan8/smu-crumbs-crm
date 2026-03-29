@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { gotoWithNetworkRetry, setAuthState } from "../helpers/auth";
+import { measureLatency } from "../utils/performance";
 
 const adminUser = {
   id: "admin-1",
@@ -304,18 +305,24 @@ test.describe("Admin Client Management (Mocked)", () => {
     await gotoWithNetworkRetry(page, "/login");
     await setAuthState(page, "admin");
 
-    await gotoWithNetworkRetry(page, "/admin/clients");
-    await expect(page.getByRole("heading", { name: "All Clients" })).toBeVisible();
-    await expect(page.getByText("Alice Tan")).toBeVisible();
+    await measureLatency(async () => {
+      await gotoWithNetworkRetry(page, "/admin/clients");
+      await expect(page.getByRole("heading", { name: "All Clients" })).toBeVisible();
+      await expect(page.getByText("Alice Tan")).toBeVisible();
+    }, "Client list page load");
 
-    await page.getByRole("button", { name: "View" }).first().click();
-    await expect(page).toHaveURL(/\/admin\/clients\/clt_001$/);
-    await expect(page.getByRole("heading", { name: /Alice Tan/ })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Client Profile" })).toBeVisible();
+    await measureLatency(async () => {
+      await page.getByRole("button", { name: "View" }).first().click();
+      await expect(page).toHaveURL(/\/admin\/clients\/clt_001$/);
+      await expect(page.getByRole("heading", { name: /Alice Tan/ })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Client Profile" })).toBeVisible();
+    }, "Client detail page navigation");
 
-    await page.getByRole("button", { name: /Manage accounts/i }).click();
-    await expect(page).toHaveURL(/\/admin\/clients\/clt_001\/accounts$/);
-    await expect(page.getByRole("heading", { name: "Bank Accounts" })).toBeVisible();
+    await measureLatency(async () => {
+      await page.getByRole("button", { name: /Manage accounts/i }).click();
+      await expect(page).toHaveURL(/\/admin\/clients\/clt_001\/accounts$/);
+      await expect(page.getByRole("heading", { name: "Bank Accounts" })).toBeVisible();
+    }, "Account management page navigation");
   });
 
   test("creates, edits, and deletes an account from client account management page", async ({
@@ -328,22 +335,26 @@ test.describe("Admin Client Management (Mocked)", () => {
     await gotoWithNetworkRetry(page, "/admin/clients/clt_001/accounts");
     await expect(page.getByRole("heading", { name: "Bank Accounts" })).toBeVisible();
 
-    await page.getByRole("button", { name: "+ New Account" }).click();
-    await expect(page.getByRole("heading", { name: "Create Account" })).toBeVisible();
-    await page.getByLabel(/Initial Deposit/i).fill("1500");
-    await page.getByLabel(/Branch ID/i).fill("BR-NEW-01");
-    await page.getByRole("button", { name: "Create Account" }).click();
-    await expect(page.getByText("BR-NEW-01")).toBeVisible();
+    await measureLatency(async () => {
+      await page.getByRole("button", { name: "+ New Account" }).click();
+      await expect(page.getByRole("heading", { name: "Create Account" })).toBeVisible();
+      await page.getByLabel(/Initial Deposit/i).fill("1500");
+      await page.getByLabel(/Branch ID/i).fill("BR-NEW-01");
+      await page.getByRole("button", { name: "Create Account" }).click();
+      await expect(page.getByText("BR-NEW-01")).toBeVisible();
+    }, "Create account form submission");
 
-    const createdRow = page.locator("tr", { hasText: "BR-NEW-01" });
-    await createdRow.getByRole("button", { name: "Edit" }).click();
-    await expect(page.getByRole("heading", { name: "Edit Account" })).toBeVisible();
-    await page.getByLabel(/Account Status/i).selectOption("Inactive");
-    await page.getByLabel(/Branch ID/i).fill("BR-EDIT-01");
-    await page.getByRole("button", { name: "Save Changes" }).click();
+    await measureLatency(async () => {
+      const createdRow = page.locator("tr", { hasText: "BR-NEW-01" });
+      await createdRow.getByRole("button", { name: "Edit" }).click();
+      await expect(page.getByRole("heading", { name: "Edit Account" })).toBeVisible();
+      await page.getByLabel(/Account Status/i).selectOption("Inactive");
+      await page.getByLabel(/Branch ID/i).fill("BR-EDIT-01");
+      await page.getByRole("button", { name: "Save Changes" }).click();
 
-    await expect(page.getByText("BR-EDIT-01")).toBeVisible();
-    await expect(page.getByText("Inactive")).toBeVisible();
+      await expect(page.getByText("BR-EDIT-01")).toBeVisible();
+      await expect(page.getByText("Inactive")).toBeVisible();
+    }, "Edit account form submission");
 
     const updatedRow = page.locator("tr", { hasText: "BR-EDIT-01" });
     await updatedRow.getByRole("button", { name: "Delete" }).click();
@@ -361,9 +372,11 @@ test.describe("Admin Client Management (Mocked)", () => {
     await setAuthState(page, "admin");
 
     await gotoWithNetworkRetry(page, "/admin/clients");
-    await page.getByRole("button", { name: "+ New Client" }).click();
-    await expect(page).toHaveURL(/\/admin\/clients\/new$/);
-    await expect(page.getByRole("heading", { name: "Create Client" })).toBeVisible();
+    await measureLatency(async () => {
+      await page.getByRole("button", { name: "+ New Client" }).click();
+      await expect(page).toHaveURL(/\/admin\/clients\/new$/);
+      await expect(page.getByRole("heading", { name: "Create Client" })).toBeVisible();
+    }, "Create client form navigation");
   });
 
   test("opens edit client page from client detail", async ({ page }) => {
