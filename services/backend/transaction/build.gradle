@@ -2,7 +2,7 @@ plugins {
 	id 'java'
 	id 'checkstyle'
 	id 'jacoco'
-	id 'org.springframework.boot' version '4.0.2'
+	id 'org.springframework.boot' version '4.0.4'
 	id 'io.spring.dependency-management' version '1.1.7'
 }
 
@@ -20,11 +20,30 @@ repositories {
 	mavenCentral()
 }
 
+ext {
+}
+
 dependencies {
+	constraints {
+		implementation('com.fasterxml.jackson.core:jackson-core:2.21.1') {
+			because 'Fix GHSA-72hv-8253-57qq in jackson-core 2.x branch'
+		}
+		implementation('tools.jackson.core:jackson-core:3.1.0') {
+			because 'Fix CVE-2026-29062 and GHSA-72hv-8253-57qq in jackson-core 3.x branch'
+		}
+	}
+
 	implementation 'org.springframework.boot:spring-boot-starter'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-json'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-flyway'
+	implementation 'org.flywaydb:flyway-database-postgresql'
+	implementation 'software.amazon.awssdk:s3:2.31.22'
+	runtimeOnly 'org.postgresql:postgresql'
+	runtimeOnly 'com.h2database:h2'
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.mockito:mockito-junit-jupiter:5.14.2'
@@ -61,6 +80,17 @@ tasks.named('jacocoTestReport') {
 	}
 }
 
+tasks.named('jacocoTestCoverageVerification') {
+	dependsOn tasks.named('jacocoTestReport')
+	violationRules {
+		rule {
+			limit {
+				minimum = 0.80
+			}
+		}
+	}
+}
+
 tasks.named('assemble') {
 	mustRunAfter tasks.named('checkstyleMain'), tasks.named('checkstyleTest')
 }
@@ -84,6 +114,6 @@ tasks.named('jar') {
 tasks.register('localTestPipeline') {
 	group = 'verification'
 	description = 'Runs lint, build, tests, and coverage reports for local CI.'
-	dependsOn 'checkstyleMain', 'checkstyleTest', 'assemble', 'test', 'jacocoTestReport'
+	dependsOn 'checkstyleMain', 'checkstyleTest', 'assemble', 'test', 'jacocoTestReport', 'jacocoTestCoverageVerification'
 }
 

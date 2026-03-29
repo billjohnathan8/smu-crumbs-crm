@@ -3,10 +3,21 @@ import {
   listTransactions,
   getTransactionById,
   createTransaction,
+  updateTransaction,
   deleteTransaction,
+  listClientTransactions,
+  startTransactionImport,
+  getTransactionImportBatch,
 } from '../transactions'
 import * as client from '../client'
-import type { Transaction, CreateTransactionRequest, PaginatedResponse } from '../types'
+import type {
+  Transaction,
+  CreateTransactionRequest,
+  UpdateTransactionRequest,
+  PaginatedResponse,
+  ImportBatch,
+  ImportTransactionsRequest,
+} from '../types'
 
 vi.mock('../client')
 
@@ -191,6 +202,159 @@ describe('transactions API', () => {
       await deleteTransaction('txn-123')
 
       expect(client.apiDelete).toHaveBeenCalledWith('/api/transactions/txn-123')
+    })
+  })
+
+  describe('updateTransaction', () => {
+    it('should update transaction fields', async () => {
+      const payload: UpdateTransactionRequest = {
+        status: 'Pending',
+        amount: 750,
+      }
+
+      const updated: Transaction = {
+        id: 'txn-123',
+        clientId: 'client-456',
+        transaction: 'D',
+        amount: 750,
+        date: '2024-01-15',
+        status: 'Pending',
+      }
+
+      vi.spyOn(client, 'apiPut').mockResolvedValue(updated)
+
+      const result = await updateTransaction('txn-123', payload)
+
+      expect(client.apiPut).toHaveBeenCalledWith('/api/transactions/txn-123', payload)
+      expect(result).toEqual(updated)
+    })
+  })
+
+  describe('startTransactionImport', () => {
+    it('should treat empty import payload as undefined', async () => {
+      const mockBatch: ImportBatch = {
+        importBatchId: 'imp_empty',
+        status: 'queued',
+        requestedClientId: null,
+        requestedAt: '2026-03-20T12:00:00Z',
+        startedAt: null,
+        finishedAt: null,
+        totalRecords: 0,
+        importedRecords: 0,
+        failedRecords: 0,
+        errorMessage: null,
+      }
+
+      vi.spyOn(client, 'apiPost').mockResolvedValue(mockBatch)
+
+      await startTransactionImport({})
+
+      expect(client.apiPost).toHaveBeenCalledWith('/api/transactions/import', undefined, {
+        timeout: 15000,
+      })
+    })
+
+    it('should trigger transaction import without payload', async () => {
+      const mockBatch: ImportBatch = {
+        importBatchId: 'imp_7',
+        status: 'queued',
+        requestedClientId: null,
+        requestedAt: '2026-03-20T12:00:00Z',
+        startedAt: null,
+        finishedAt: null,
+        totalRecords: 0,
+        importedRecords: 0,
+        failedRecords: 0,
+        errorMessage: null,
+      }
+
+      vi.spyOn(client, 'apiPost').mockResolvedValue(mockBatch)
+
+      const result = await startTransactionImport()
+
+      expect(client.apiPost).toHaveBeenCalledWith('/api/transactions/import', undefined, {
+        timeout: 15000,
+      })
+      expect(result).toEqual(mockBatch)
+    })
+
+    it('should trigger transaction import with optional filters', async () => {
+      const payload: ImportTransactionsRequest = {
+        clientId: 'clt_100',
+        sourcePath: '/mock-sftp/transactions-2026-03.csv',
+      }
+
+      const mockBatch: ImportBatch = {
+        importBatchId: 'imp_8',
+        status: 'running',
+        requestedClientId: 'clt_100',
+        requestedAt: '2026-03-20T12:00:00Z',
+        startedAt: '2026-03-20T12:00:01Z',
+        finishedAt: null,
+        totalRecords: 0,
+        importedRecords: 0,
+        failedRecords: 0,
+        errorMessage: null,
+      }
+
+      vi.spyOn(client, 'apiPost').mockResolvedValue(mockBatch)
+
+      const result = await startTransactionImport(payload)
+
+      expect(client.apiPost).toHaveBeenCalledWith('/api/transactions/import', payload, {
+        timeout: 15000,
+      })
+      expect(result).toEqual(mockBatch)
+    })
+  })
+
+  describe('listClientTransactions', () => {
+    it('should list client transactions without pagination params', async () => {
+      vi.spyOn(client, 'apiGet').mockResolvedValue({
+        data: [],
+        pagination: { total: 0, limit: 10, offset: 0 },
+      })
+
+      await listClientTransactions('client-abc')
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/clients/client-abc/transactions')
+    })
+
+    it('should list client transactions with pagination params', async () => {
+      vi.spyOn(client, 'apiGet').mockResolvedValue({
+        data: [],
+        pagination: { total: 0, limit: 5, offset: 10 },
+      })
+
+      await listClientTransactions('client-abc', { limit: 5, offset: 10 })
+
+      expect(client.apiGet).toHaveBeenCalledWith(
+        '/api/clients/client-abc/transactions?limit=5&offset=10'
+      )
+    })
+  })
+
+  describe('getTransactionImportBatch', () => {
+    it('should fetch import batch status by id', async () => {
+      const mockBatch: ImportBatch = {
+        importBatchId: 'imp_9',
+        status: 'completed',
+        requestedClientId: 'clt_100',
+        requestedAt: '2026-03-20T12:00:00Z',
+        startedAt: '2026-03-20T12:00:01Z',
+        finishedAt: '2026-03-20T12:00:02Z',
+        totalRecords: 10,
+        importedRecords: 10,
+        failedRecords: 0,
+        errorMessage: null,
+      }
+
+      vi.spyOn(client, 'apiGet').mockResolvedValue(mockBatch)
+
+      const result = await getTransactionImportBatch('imp_9')
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/transactions/imports/imp_9')
+      expect(result).toEqual(mockBatch)
     })
   })
 })

@@ -8,7 +8,9 @@ import com.scroogebank.crm.transaction_service.dto.TransactionDto;
 import com.scroogebank.crm.transaction_service.dto.TransactionKind;
 import com.scroogebank.crm.transaction_service.dto.TransactionStatus;
 import com.scroogebank.crm.transaction_service.dto.TransactionsListResponse;
+import com.scroogebank.crm.transaction_service.dto.UpdateTransactionRequest;
 import com.scroogebank.crm.transaction_service.exception.TransactionNotFoundException;
+import com.scroogebank.crm.transaction_service.logging.TransactionAuditLogger;
 import com.scroogebank.crm.transaction_service.security.AuthenticatedUser;
 import com.scroogebank.crm.transaction_service.security.ForbiddenException;
 import com.scroogebank.crm.transaction_service.security.RequestAuth;
@@ -18,6 +20,8 @@ import com.scroogebank.crm.transaction_service.service.TransactionsService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
+import java.util.Objects;
+import java.util.StringJoiner;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.format.annotation.DateTimeFormat.ISO;
 import org.springframework.http.HttpStatus;
@@ -26,6 +30,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -38,22 +43,26 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api")
 public class TransactionsController {
+	private static final String SYSTEM_IMPORT_CLIENT_ID = "SYSTEM_IMPORT";
 	private final TransactionsService transactionsService;
 	private final RequestAuth requestAuth;
 	private final ClientAccessValidator clientAccessValidator;
+	private final TransactionAuditLogger transactionAuditLogger;
 
 	public TransactionsController(
 		TransactionsService transactionsService,
 		RequestAuth requestAuth,
-		ClientAccessValidator clientAccessValidator
+		ClientAccessValidator clientAccessValidator,
+		TransactionAuditLogger transactionAuditLogger
 	) {
 		this.transactionsService = transactionsService;
 		this.requestAuth = requestAuth;
 		this.clientAccessValidator = clientAccessValidator;
+		this.transactionAuditLogger = transactionAuditLogger;
 	}
 
 	/**
-	 * Lists transactions with optional filters. Agents must supply a clientId and
+	 * Lists transactions with optional filters. Users must supply a clientId and
 	 * have access to that client; otherwise an empty page is returned.
 	 */
 	@GetMapping("/transactions")
@@ -68,12 +77,12 @@ public class TransactionsController {
 		@RequestParam(required = false) @DateTimeFormat(iso = ISO.DATE) LocalDate toDate
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAnyRole(user, "admin", "agent");
+		requireAnyRole(user, "admin", "user");
 
 		String authHeader = request.getHeader("Authorization");
-		if (user.isAgent()) {
+		if (user.isUser()) {
 			// We can only verify ownership for a specific clientId without enumerating
-			// all agent-owned clients from client-service. For safety, return empty
+			// all user-owned clients from client-service. For safety, return empty
 			// unless a clientId is provided and authorized.
 			if (clientId == null || clientId.isBlank()) {
 				return new TransactionsListResponse(
@@ -110,19 +119,30 @@ public class TransactionsController {
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		requireAnyRole(user, "admin");
-		return transactionsService.create(body);
+		TransactionDto created = transactionsService.create(body);
+		publishAuditSafe(
+			"CREATE",
+			"Transaction ID",
+			null,
+			created.id(),
+			user.userId(),
+			created.clientId(),
+			requestId(request),
+			request.getHeader("Authorization")
+		);
+		return created;
 	}
 
 	/**
-	 * Fetches a transaction by id. Agents receive a 404 when access is forbidden.
+	 * Fetches a transaction by id. Users receive a 404 when access is forbidden.
 	 */
 	@GetMapping("/transactions/{transactionId}")
 	public TransactionDto getTransaction(HttpServletRequest request, @PathVariable String transactionId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAnyRole(user, "admin", "agent");
+		requireAnyRole(user, "admin", "user");
 
 		TransactionDto tx = transactionsService.get(transactionId);
-		if (user.isAgent()) {
+		if (user.isUser()) {
 			String authHeader = request.getHeader("Authorization");
 			try {
 				clientAccessValidator.requireClientAccessible(user, authHeader, tx.clientId());
@@ -131,7 +151,57 @@ public class TransactionsController {
 				throw new TransactionNotFoundException(transactionId);
 			}
 		}
+		publishAuditSafe(
+			"READ",
+			"Transaction ID",
+			null,
+			tx.id(),
+			user.userId(),
+			tx.clientId(),
+			requestId(request),
+			request.getHeader("Authorization")
+		);
 		return tx;
+	}
+
+	/**
+	 * Updates an existing transaction. Admin-only.
+	 */
+	@PutMapping("/transactions/{transactionId}")
+	public TransactionDto updateTransaction(
+		HttpServletRequest request,
+		@PathVariable String transactionId,
+		@Valid @RequestBody UpdateTransactionRequest body
+	) {
+		AuthenticatedUser user = requestAuth.requireUser(request);
+		requireAnyRole(user, "admin");
+		TransactionDto before = transactionsService.get(transactionId);
+		TransactionDto after = transactionsService.update(transactionId, body);
+
+		StringJoiner attributes = new StringJoiner("|");
+		StringJoiner beforeValues = new StringJoiner("|");
+		StringJoiner afterValues = new StringJoiner("|");
+		collectChange(attributes, beforeValues, afterValues, "clientId", before.clientId(), after.clientId());
+		collectChange(attributes, beforeValues, afterValues, "transaction", before.transaction().name(), after.transaction().name());
+		collectChange(attributes, beforeValues, afterValues, "amount", before.amount().toPlainString(), after.amount().toPlainString());
+		collectChange(attributes, beforeValues, afterValues, "date", before.date().toString(), after.date().toString());
+		collectChange(attributes, beforeValues, afterValues, "status", before.status().name(), after.status().name());
+
+		String attributeName = attributes.length() == 0 ? "Transaction ID" : attributes.toString();
+		String beforeValue = beforeValues.length() == 0 ? before.id() : beforeValues.toString();
+		String afterValue = afterValues.length() == 0 ? after.id() : afterValues.toString();
+
+		publishAuditSafe(
+			"UPDATE",
+			attributeName,
+			beforeValue,
+			afterValue,
+			user.userId(),
+			after.clientId(),
+			requestId(request),
+			request.getHeader("Authorization")
+		);
+		return after;
 	}
 
 	/**
@@ -142,7 +212,18 @@ public class TransactionsController {
 	public void deleteTransaction(HttpServletRequest request, @PathVariable String transactionId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		requireAnyRole(user, "admin");
+		TransactionDto existing = transactionsService.get(transactionId);
 		transactionsService.delete(transactionId);
+		publishAuditSafe(
+			"DELETE",
+			"Transaction ID",
+			existing.id(),
+			null,
+			user.userId(),
+			existing.clientId(),
+			requestId(request),
+			request.getHeader("Authorization")
+		);
 	}
 
 	/**
@@ -156,7 +237,7 @@ public class TransactionsController {
 		@RequestParam(defaultValue = "0") int offset
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAnyRole(user, "admin", "agent");
+		requireAnyRole(user, "admin", "user");
 		String authHeader = request.getHeader("Authorization");
 		clientAccessValidator.requireClientAccessible(user, authHeader, clientId);
 
@@ -176,7 +257,7 @@ public class TransactionsController {
 	}
 
 	/**
-	 * Starts an async-style import from the configured mock SFTP source. Admin-only.
+	 * Starts an import from the configured S3-backed transaction source. Admin-only.
 	 */
 	@PostMapping("/transactions/import")
 	public ResponseEntity<ImportBatchDto> importTransactions(
@@ -185,7 +266,24 @@ public class TransactionsController {
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		requireAnyRole(user, "admin");
-		return ResponseEntity.status(HttpStatus.ACCEPTED).body(transactionsService.importFromSftp(body));
+		ImportBatchDto batch = transactionsService.importTransactions(body);
+		String sourcePath = body == null ? null : body.sourcePath();
+		publishAuditSafe(
+			"CREATE",
+			"importBatchId|sourcePath|status|totalRecords|importedRecords|failedRecords",
+			null,
+			batch.importBatchId()
+				+ "|" + String.valueOf(sourcePath)
+				+ "|" + batch.status().name()
+				+ "|" + batch.totalRecords()
+				+ "|" + batch.importedRecords()
+				+ "|" + batch.failedRecords(),
+			user.userId(),
+			resolveImportAuditClientId(batch.requestedClientId()),
+			requestId(request),
+			request.getHeader("Authorization")
+		);
+		return ResponseEntity.status(HttpStatus.ACCEPTED).body(batch);
 	}
 
 	/**
@@ -195,7 +293,18 @@ public class TransactionsController {
 	public ImportBatchDto getImportBatch(HttpServletRequest request, @PathVariable String importBatchId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		requireAnyRole(user, "admin");
-		return transactionsService.getBatch(importBatchId);
+		ImportBatchDto batch = transactionsService.getBatch(importBatchId);
+		publishAuditSafe(
+			"READ",
+			"Import Batch ID",
+			null,
+			batch.importBatchId(),
+			user.userId(),
+			resolveImportAuditClientId(batch.requestedClientId()),
+			requestId(request),
+			request.getHeader("Authorization")
+		);
+		return batch;
 	}
 
 	private static int normalizeLimit(int limit) {
@@ -204,6 +313,55 @@ public class TransactionsController {
 
 	private static int normalizeOffset(int offset) {
 		return Math.max(0, offset);
+	}
+
+	private static void collectChange(
+		StringJoiner attributes,
+		StringJoiner beforeValues,
+		StringJoiner afterValues,
+		String fieldName,
+		String beforeValue,
+		String afterValue
+	) {
+		if (!Objects.equals(beforeValue, afterValue)) {
+			attributes.add(fieldName);
+			beforeValues.add(beforeValue);
+			afterValues.add(afterValue);
+		}
+	}
+
+	private void publishAuditSafe(
+		String action,
+		String attributeName,
+		String beforeValue,
+		String afterValue,
+		String userId,
+		String clientId,
+		String correlationId,
+		String authorizationHeader
+	) {
+		transactionAuditLogger.logAuditEvent(
+			action,
+			attributeName,
+			beforeValue,
+			afterValue,
+			userId,
+			clientId,
+			correlationId,
+			authorizationHeader
+		);
+	}
+
+	private static String requestId(HttpServletRequest request) {
+		Object value = request.getAttribute("requestId");
+		return value == null ? null : value.toString();
+	}
+
+	private static String resolveImportAuditClientId(String requestedClientId) {
+		if (requestedClientId == null || requestedClientId.isBlank()) {
+			return SYSTEM_IMPORT_CLIENT_ID;
+		}
+		return requestedClientId.trim();
 	}
 
 	private static void requireAnyRole(AuthenticatedUser user, String... allowed) {

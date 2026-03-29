@@ -26,7 +26,7 @@ variable "billing_mode" {
 
   validation {
     condition     = contains(["PAY_PER_REQUEST", "PROVISIONED"], var.billing_mode)
-    error_message = "billing_mode must be PAY_PER_REQUEST or PROVISIONED."
+    error_message = "The billing_mode value must be PAY_PER_REQUEST or PROVISIONED."
   }
 }
 

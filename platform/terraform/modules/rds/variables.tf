@@ -90,9 +90,9 @@ variable "db_deletion_protection" {
 }
 
 variable "db_parameter_group_family" {
-  description = "DB parameter group family (e.g. postgres16)."
+  description = "DB parameter group family (e.g. postgres17)."
   type        = string
-  default     = "postgres16"
+  default     = "postgres17"
 }
 
 variable "performance_insights_enabled" {

@@ -15,10 +15,10 @@ public record AuthenticatedUser(
 	}
 
 	/**
-	 * Returns true when the user holds the agent role.
+	 * Returns true when the user holds the user role.
 	 */
-	public boolean isAgent() {
-		return "agent".equals(role);
+	public boolean isUser() {
+		return "user".equals(role);
 	}
 }
 

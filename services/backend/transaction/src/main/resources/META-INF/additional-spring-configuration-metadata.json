@@ -1,0 +1,145 @@
+{
+  "groups": [
+    {
+      "name": "app",
+      "type": "com.scroogebank.crm.transaction_service.config.AppProperties",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties"
+    },
+    {
+      "name": "app.jwt",
+      "type": "com.scroogebank.crm.transaction_service.config.AppProperties$Jwt",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties"
+    },
+    {
+      "name": "app.mock-sftp",
+      "type": "com.scroogebank.crm.transaction_service.config.AppProperties$MockSftp",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties"
+    },
+    {
+      "name": "app.sftp",
+      "type": "com.scroogebank.crm.transaction_service.config.AppProperties$Sftp",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties",
+      "description": "Legacy-named ingestion polling config. Actual ingestion transport is S3-backed mock ingestion."
+    },
+    {
+      "name": "app.sftp.poll",
+      "type": "com.scroogebank.crm.transaction_service.config.AppProperties$Poll",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$Sftp"
+    },
+    {
+      "name": "app.import-s3",
+      "type": "com.scroogebank.crm.transaction_service.config.AppProperties$ImportS3",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties"
+    }
+  ],
+  "properties": [
+    {
+      "name": "app.client-service-url",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties",
+      "description": "URL of the client service"
+    },
+    {
+      "name": "app.jwt.hmac-secret",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$Jwt",
+      "description": "HMAC secret for JWT token signing and validation"
+    },
+    {
+      "name": "app.jwt.auth-mode",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$Jwt",
+      "description": "Authentication token validation mode. Supported values: local, hybrid, cognito."
+    },
+    {
+      "name": "app.jwt.cognito.issuer",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$Jwt",
+      "description": "Expected Cognito issuer URL for RS256 token validation."
+    },
+    {
+      "name": "app.jwt.cognito.audience",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$Jwt",
+      "description": "Expected Cognito app client ID used as token audience/client_id."
+    },
+    {
+      "name": "app.jwt.cognito.jwks-url",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$Jwt",
+      "description": "Cognito JWKS endpoint URL used to resolve RSA verification keys."
+    },
+    {
+      "name": "app.jwt.cognito.jwks-cache-ttl-seconds",
+      "type": "java.lang.Long",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$Jwt",
+      "description": "JWKS cache TTL in seconds for Cognito key refresh."
+    },
+    {
+      "name": "app.mock-sftp.root",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$MockSftp",
+      "description": "Root directory for local filesystem transaction import files"
+    },
+    {
+      "name": "app.sftp.remote-dir",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$Sftp",
+      "description": "Relative directory or key prefix polled for CSV files"
+    },
+    {
+      "name": "app.sftp.poll.enabled",
+      "type": "java.lang.Boolean",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$Poll",
+      "description": "Enable scheduled transaction import polling"
+    },
+    {
+      "name": "app.sftp.poll.fixed-delay-ms",
+      "type": "java.lang.Long",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$Poll",
+      "description": "Scheduled poll fixed delay in milliseconds"
+    },
+    {
+      "name": "app.sftp.poll.initial-delay-ms",
+      "type": "java.lang.Long",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$Poll",
+      "description": "Scheduled poll initial delay in milliseconds"
+    },
+    {
+      "name": "app.import-s3.bucket",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$ImportS3",
+      "description": "Optional S3 bucket used as transaction import source"
+    },
+    {
+      "name": "app.import-s3.region",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$ImportS3",
+      "description": "AWS region used by the S3 import client"
+    },
+    {
+      "name": "app.import-s3.endpoint",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$ImportS3",
+      "description": "Optional S3 endpoint override (for example LocalStack)"
+    },
+    {
+      "name": "app.import-s3.path-style-access-enabled",
+      "type": "java.lang.Boolean",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$ImportS3",
+      "description": "Use S3 path-style access"
+    },
+    {
+      "name": "app.import-s3.access-key-id",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$ImportS3",
+      "description": "Optional static access key for S3 import client"
+    },
+    {
+      "name": "app.import-s3.secret-access-key",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.transaction_service.config.AppProperties$ImportS3",
+      "description": "Optional static secret key for S3 import client"
+    }
+  ]
+}

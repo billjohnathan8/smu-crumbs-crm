@@ -1,12 +1,14 @@
-import { apiGet, apiPost, apiPut, apiDelete } from './client'
+import { apiGet, apiPost, apiPut, apiPatch, apiDelete } from './client'
 import type {
   Client,
   ClientCreateRequest,
   ClientUpdateRequest,
-  VerifyClientRequest,
+  UploadVerificationDocsRequest,
   VerifyClientResponse,
+  ReviewVerificationRequest,
   Account,
   AccountCreateRequest,
+  AccountUpdateRequest,
   PaginatedResponse,
 } from './types'
 
@@ -19,13 +21,18 @@ export interface ListClientsParams {
   q?: string
 }
 
+export interface ListClientAccountsParams {
+  limit?: number
+  offset?: number
+}
+
 /**
- * List clients (agents see only their own, admins see all)
+ * List clients (users see only their own, admins see all)
  */
 export async function listClients(params?: ListClientsParams): Promise<PaginatedResponse<Client>> {
   const query = new URLSearchParams()
-  if (params?.limit) query.append('limit', params.limit.toString())
-  if (params?.offset) query.append('offset', params.offset.toString())
+  if (params?.limit !== undefined) query.append('limit', params.limit.toString())
+  if (params?.offset !== undefined) query.append('offset', params.offset.toString())
   if (params?.q) query.append('q', params.q)
 
   const endpoint = query.toString() ? `${CLIENTS_BASE}?${query.toString()}` : CLIENTS_BASE
@@ -61,14 +68,28 @@ export async function deleteClient(clientId: string): Promise<void> {
 }
 
 /**
- * Verify client identity
+ * Upload verification documents from public verify link flow (no bearer auth).
  */
-export async function verifyClient(
+export async function uploadVerificationDocs(
   clientId: string,
-  data: VerifyClientRequest
+  data: UploadVerificationDocsRequest
 ): Promise<VerifyClientResponse> {
-  return apiPost<VerifyClientResponse, VerifyClientRequest>(
-    `${CLIENTS_BASE}/${clientId}/verify`,
+  return apiPost<VerifyClientResponse, UploadVerificationDocsRequest>(
+    `${CLIENTS_BASE}/${clientId}/upload-verify`,
+    data,
+    { skipAuth: true }
+  )
+}
+
+/**
+ * Review a pending verification (admin only — approve or reject)
+ */
+export async function reviewVerification(
+  clientId: string,
+  data: ReviewVerificationRequest
+): Promise<VerifyClientResponse> {
+  return apiPatch<VerifyClientResponse, ReviewVerificationRequest>(
+    `${CLIENTS_BASE}/${clientId}/verify/review`,
     data
   )
 }
@@ -76,8 +97,28 @@ export async function verifyClient(
 /**
  * List accounts for a client
  */
-export async function listClientAccounts(clientId: string): Promise<Account[]> {
-  const response = await apiGet<PaginatedResponse<Account>>(`${CLIENTS_BASE}/${clientId}/accounts`)
+export async function listClientAccountsPaginated(
+  clientId: string,
+  params?: ListClientAccountsParams
+): Promise<PaginatedResponse<Account>> {
+  const query = new URLSearchParams()
+  if (params?.limit !== undefined) query.append('limit', params.limit.toString())
+  if (params?.offset !== undefined) query.append('offset', params.offset.toString())
+
+  const endpoint = query.toString()
+    ? `${CLIENTS_BASE}/${clientId}/accounts?${query.toString()}`
+    : `${CLIENTS_BASE}/${clientId}/accounts`
+  return apiGet<PaginatedResponse<Account>>(endpoint)
+}
+
+/**
+ * List accounts for a client (data only helper).
+ */
+export async function listClientAccounts(
+  clientId: string,
+  params?: ListClientAccountsParams
+): Promise<Account[]> {
+  const response = await listClientAccountsPaginated(clientId, params)
   return response.data
 }
 
@@ -93,6 +134,16 @@ export async function createAccount(data: AccountCreateRequest): Promise<Account
  */
 export async function getAccountById(accountId: string): Promise<Account> {
   return apiGet<Account>(`${ACCOUNTS_BASE}/${accountId}`)
+}
+
+/**
+ * Update account details.
+ */
+export async function updateAccount(
+  accountId: string,
+  data: AccountUpdateRequest
+): Promise<Account> {
+  return apiPut<Account, AccountUpdateRequest>(`${ACCOUNTS_BASE}/${accountId}`, data)
 }
 
 /**

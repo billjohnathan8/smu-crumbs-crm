@@ -29,7 +29,7 @@ describe('users API', () => {
 
       const result = await listUsers()
 
-      expect(client.apiGet).toHaveBeenCalledWith('/api/agents')
+      expect(client.apiGet).toHaveBeenCalledWith('/api/users')
       expect(result).toEqual(mockResponse)
     })
 
@@ -41,7 +41,7 @@ describe('users API', () => {
 
       await listUsers({ limit: 25, offset: 50 })
 
-      expect(client.apiGet).toHaveBeenCalledWith('/api/agents?limit=25&offset=50')
+      expect(client.apiGet).toHaveBeenCalledWith('/api/users?limit=25&offset=50')
     })
 
     it('should filter users by role', async () => {
@@ -52,7 +52,7 @@ describe('users API', () => {
 
       await listUsers({ role: 'admin' })
 
-      expect(client.apiGet).toHaveBeenCalledWith('/api/agents?role=admin')
+      expect(client.apiGet).toHaveBeenCalledWith('/api/users?role=admin')
     })
 
     it('should list users with all params', async () => {
@@ -61,9 +61,9 @@ describe('users API', () => {
         pagination: { total: 0, limit: 10, offset: 0 },
       })
 
-      await listUsers({ limit: 20, offset: 40, role: 'agent' })
+      await listUsers({ limit: 20, offset: 40, role: 'user' })
 
-      expect(client.apiGet).toHaveBeenCalledWith('/api/agents?limit=20&offset=40&role=agent')
+      expect(client.apiGet).toHaveBeenCalledWith('/api/users?limit=20&offset=40&role=user')
     })
   })
 
@@ -74,7 +74,7 @@ describe('users API', () => {
         firstName: 'John',
         lastName: 'Doe',
         email: 'john@example.com',
-        role: 'agent',
+        role: 'user',
         status: 'active',
       }
 
@@ -82,7 +82,7 @@ describe('users API', () => {
 
       const result = await getUserById('user-123')
 
-      expect(client.apiGet).toHaveBeenCalledWith('/api/agents/user-123')
+      expect(client.apiGet).toHaveBeenCalledWith('/api/users/user-123')
       expect(result).toEqual(mockUser)
     })
   })
@@ -93,7 +93,7 @@ describe('users API', () => {
         firstName: 'Jane',
         lastName: 'Smith',
         email: 'jane@example.com',
-        role: 'agent',
+        role: 'user',
         sendInviteEmail: true,
       }
 
@@ -102,7 +102,7 @@ describe('users API', () => {
         firstName: 'Jane',
         lastName: 'Smith',
         email: 'jane@example.com',
-        role: 'agent',
+        role: 'user',
         status: 'active',
       }
 
@@ -110,7 +110,7 @@ describe('users API', () => {
 
       const result = await createUser(createRequest)
 
-      expect(client.apiPost).toHaveBeenCalledWith('/api/agents', createRequest)
+      expect(client.apiPost).toHaveBeenCalledWith('/api/users', createRequest)
       expect(result).toEqual(mockUser)
     })
 
@@ -152,7 +152,7 @@ describe('users API', () => {
         firstName: 'John',
         lastName: 'Updated',
         email: 'john@example.com',
-        role: 'agent',
+        role: 'user',
         status: 'active',
       }
 
@@ -160,7 +160,7 @@ describe('users API', () => {
 
       const result = await updateUser('user-123', updateRequest)
 
-      expect(client.apiPut).toHaveBeenCalledWith('/api/agents/user-123', updateRequest)
+      expect(client.apiPut).toHaveBeenCalledWith('/api/users/user-123', updateRequest)
       expect(result).toEqual(mockUser)
     })
   })
@@ -172,7 +172,7 @@ describe('users API', () => {
         firstName: 'John',
         lastName: 'Doe',
         email: 'john@example.com',
-        role: 'agent',
+        role: 'user',
         status: 'disabled',
       }
 
@@ -180,7 +180,7 @@ describe('users API', () => {
 
       const result = await disableUser('user-123')
 
-      expect(client.apiPost).toHaveBeenCalledWith('/api/agents/user-123/disable')
+      expect(client.apiPost).toHaveBeenCalledWith('/api/users/user-123/disable')
       expect(result.status).toBe('disabled')
     })
   })
@@ -191,7 +191,7 @@ describe('users API', () => {
 
       await deleteUser('user-123')
 
-      expect(client.apiDelete).toHaveBeenCalledWith('/api/agents/user-123')
+      expect(client.apiDelete).toHaveBeenCalledWith('/api/users/user-123')
     })
   })
 
@@ -201,7 +201,7 @@ describe('users API', () => {
 
       await resetUserPassword('user-123', 'user@example.com')
 
-      expect(client.apiPost).toHaveBeenCalledWith('/api/agents/user-123/reset-password', {
+      expect(client.apiPost).toHaveBeenCalledWith('/api/users/user-123/reset-password', {
         email: 'user@example.com',
       })
     })

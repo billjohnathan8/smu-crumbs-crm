@@ -1,0 +1,102 @@
+name: CD - Main Deployment
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches:
+  #     - main
+
+# Ensure that only one deployment runs at a time to the main environment.
+concurrency:
+  group: cd-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  changes:
+    uses: ./.github/workflows/reusable-changes.yml
+
+  deploy-user:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-user == 'true' ||
+           needs.changes.outputs.ci-config == 'true') }}
+    needs:
+      - changes
+    uses: ./.github/workflows/reusable-ecs-deploy.yml
+    with:
+      service: user
+    secrets: inherit
+
+  deploy-client:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-client == 'true' ||
+           needs.changes.outputs.ci-config == 'true') }}
+    needs:
+      - changes
+    uses: ./.github/workflows/reusable-ecs-deploy.yml
+    with:
+      service: client
+    secrets: inherit
+
+  deploy-transaction:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-transaction == 'true' ||
+           needs.changes.outputs.ci-config == 'true') }}
+    needs:
+      - changes
+    uses: ./.github/workflows/reusable-ecs-deploy.yml
+    with:
+      service: transaction
+    secrets: inherit
+
+  deploy-aml:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-aml == 'true' ||
+           needs.changes.outputs.ci-config == 'true') }}
+    needs:
+      - changes
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
+    with:
+      service: aml
+    secrets: inherit
+
+  deploy-verification:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-verification == 'true' ||
+           needs.changes.outputs.ci-config == 'true') }}
+    needs:
+      - changes
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
+    with:
+      service: verification
+    secrets: inherit
+
+  deploy-sftp-transaction-collector:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.backend-sftp-transaction-collector == 'true' ||
+           needs.changes.outputs.ci-config == 'true') }}
+    needs:
+      - changes
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
+    with:
+      service: sftp-transaction-collector
+    secrets: inherit
+
+  deploy-frontend:
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.frontend == 'true' ||
+           needs.changes.outputs.ci-config == 'true') }}
+    needs:
+      - changes
+    uses: ./.github/workflows/reusable-frontend-deploy.yml
+    secrets: inherit

@@ -11,7 +11,7 @@ public interface ClientAuditLogger {
 	 * @param attributeName attribute being changed or observed
 	 * @param beforeValue previous value (nullable)
 	 * @param afterValue new value (nullable)
-	 * @param agentId authenticated agent id
+	 * @param userId authenticated user id
 	 * @param clientId associated client id
 	 * @param correlationId request correlation id
 	 * @param authorizationHeader bearer token used for downstream auth
@@ -21,7 +21,7 @@ public interface ClientAuditLogger {
 		String attributeName,
 		String beforeValue,
 		String afterValue,
-		String agentId,
+		String userId,
 		String clientId,
 		String correlationId,
 		String authorizationHeader

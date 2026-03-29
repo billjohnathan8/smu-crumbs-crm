@@ -1,52 +1,40 @@
 package com.scroogebank.crm.client_service.logging;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import java.net.http.HttpClient;
+import java.time.Duration;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
 /**
- * Configures the REST client used to reach the log service.
+ * Configures the REST client used to reach the Lambda-backed log API.
  */
 @Configuration
 public class LogServiceClientConfig {
 	/**
-	 * Provides a Jackson ObjectMapper configured with JSR310 date/time module.
-	 *
-	 * @return ObjectMapper instance
-	 */
-	@Bean
-	ObjectMapper logServiceObjectMapper() {
-		ObjectMapper mapper = new ObjectMapper();
-		mapper.registerModule(new JavaTimeModule());
-		return mapper;
-	}
-
-	/**
 	 * Builds a {@link RestClient} with the configured base URL.
-	 * Uses SimpleClientHttpRequestFactory (HTTP/1.1) to ensure compatibility
-	 * with the Python/Uvicorn log service which does not support h2c.
+	 * Uses JDK HttpClient request factory so PATCH requests are supported when
+	 * communicating with the Lambda-backed log API.
 	 *
-	 * @param logServiceUrl base URL for the log service
-	 * @param logServiceObjectMapper Jackson mapper with JSR-310 support
+	 * @param logServiceUrl base URL for the log API endpoint
 	 * @return RestClient instance
 	 */
 	@Bean
 	RestClient logServiceRestClient(
-		@Value("${app.log-service-url}") String logServiceUrl,
-		ObjectMapper logServiceObjectMapper
+		@Value("${app.log-service-url}") String logServiceUrl
 	) {
+		HttpClient httpClient = HttpClient.newBuilder()
+			.connectTimeout(Duration.ofSeconds(5))
+			.build();
+		JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
+		requestFactory.setReadTimeout(Duration.ofSeconds(5));
+
 		return RestClient.builder()
-			.requestFactory(new SimpleClientHttpRequestFactory())
+			.requestFactory(requestFactory)
 			.baseUrl(logServiceUrl)
-			.messageConverters(converters -> {
-				converters.removeIf(c -> c instanceof MappingJackson2HttpMessageConverter);
-				converters.add(new MappingJackson2HttpMessageConverter(logServiceObjectMapper));
-			})
 			.build();
 	}
 }

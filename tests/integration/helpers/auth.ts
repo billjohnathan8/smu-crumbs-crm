@@ -24,7 +24,7 @@ export async function loginAsAdmin(page: Page) {
 }
 
 /**
- * Login as agent user and wait for dashboard
+ * Login as user and wait for dashboard
  */
 export async function loginAsAgent(page: Page) {
   await page.goto("/login");
@@ -37,23 +37,23 @@ export async function loginAsAgent(page: Page) {
 
   await page.waitForLoadState("domcontentloaded");
 
-  await page.fill('[data-testid="email-input"]', "agent@example.com");
+  await page.fill('[data-testid="email-input"]', "user@example.com");
   await page.fill('[data-testid="password-input"]', "password123");
   await page.click('[data-testid="login-submit-button"]');
 
-  // Wait for redirect to agent dashboard
-  await page.waitForURL("**/agent", { timeout: 5000 });
-  await page.waitForSelector("text=Agent Dashboard", { timeout: 5000 });
+  // Wait for redirect to user dashboard
+  await page.waitForURL("**/user", { timeout: 5000 });
+  await page.waitForSelector("text=User Dashboard", { timeout: 5000 });
 }
 
 /**
  * Set up localStorage with auth state without going through login flow
  * Useful for tests that need to start already authenticated
  */
-export async function setAuthState(page: Page, role: "admin" | "agent") {
+export async function setAuthState(page: Page, role: "admin" | "user") {
   const user = {
-    id: role === "admin" ? "admin-1" : "agent-1",
-    firstName: role === "admin" ? "Admin" : "Agent",
+    id: role === "admin" ? "admin-1" : "user-1",
+    firstName: role === "admin" ? "Admin" : "User",
     lastName: "User",
     email: `${role}@example.com`,
     role,

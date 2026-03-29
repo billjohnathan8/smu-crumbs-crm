@@ -7,54 +7,68 @@ import com.scroogebank.crm.transaction_service.dto.ImportTransactionsRequest;
 import com.scroogebank.crm.transaction_service.dto.TransactionDto;
 import com.scroogebank.crm.transaction_service.dto.TransactionKind;
 import com.scroogebank.crm.transaction_service.dto.TransactionStatus;
+import com.scroogebank.crm.transaction_service.dto.UpdateTransactionRequest;
 import com.scroogebank.crm.transaction_service.exception.ImportBatchNotFoundException;
 import com.scroogebank.crm.transaction_service.exception.TransactionNotFoundException;
+import com.scroogebank.crm.transaction_service.service.imports.TransactionFileSource;
+import com.scroogebank.crm.transaction_service.service.imports.TransactionCsvParser;
+import com.scroogebank.crm.transaction_service.service.imports.TransactionCsvParser.ParseResult;
+import com.scroogebank.crm.transaction_service.service.imports.TransactionCsvParser.ParsedTransactionRow;
 import com.scroogebank.crm.transaction_service.util.IdCodec;
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * In-memory transaction store with simple filtering and mock SFTP import support.
+ * In-memory transaction store with simple filtering and S3-backed mock import support.
+ *
+ * <p>This store is process-local and not shared across replicas. Transaction/import records are lost on
+ * task restart and are invisible to other tasks. When this store is selected, keep the service
+ * single-replica in production.
  */
 @Component
-public class InMemoryTransactionsStore {
+@ConditionalOnProperty(name = "app.transactions-store.type", havingValue = "in-memory")
+public class InMemoryTransactionsStore implements TransactionsStore {
 	private static final String TXN_PREFIX = "txn_";
 	private static final String BATCH_PREFIX = "imp_";
+	private static final String DEFAULT_SOURCE_PATH = "transactions.csv";
+	private static final Logger logger = LoggerFactory.getLogger(InMemoryTransactionsStore.class);
 
 	private final Clock clock;
-	private final Path mockSftpRoot;
+	private final TransactionFileSource fileSource;
+	private final TransactionCsvParser csvParser;
 	private final AtomicLong txnSeq = new AtomicLong(1L);
 	private final AtomicLong batchSeq = new AtomicLong(1L);
 	private final Map<Long, TxnRecord> transactions = new ConcurrentHashMap<>();
 	private final Map<Long, BatchRecord> batches = new ConcurrentHashMap<>();
+	private final Map<String, Long> importedDedupeKeys = new ConcurrentHashMap<>();
 
 	public InMemoryTransactionsStore(
 		Clock clock,
-		@Value("${app.mock-sftp.root}") String mockSftpRoot
+		TransactionFileSource fileSource,
+		TransactionCsvParser csvParser
 	) {
 		this.clock = clock;
-		this.mockSftpRoot = Path.of(mockSftpRoot);
+		this.fileSource = fileSource;
+		this.csvParser = csvParser;
 	}
 
 	/**
 	 * Creates a new transaction record.
 	 */
+	@Override
 	public TransactionDto create(CreateTransactionRequest request) {
 		long id = txnSeq.getAndIncrement();
 		TxnRecord record = new TxnRecord(
@@ -74,6 +88,7 @@ public class InMemoryTransactionsStore {
 	/**
 	 * Retrieves a transaction by external id.
 	 */
+	@Override
 	public TransactionDto get(String transactionId) {
 		long dbId = decodeTxnId(transactionId);
 		TxnRecord record = transactions.get(dbId);
@@ -84,8 +99,33 @@ public class InMemoryTransactionsStore {
 	}
 
 	/**
+	 * Updates selected fields on an existing transaction record.
+	 */
+	@Override
+	public TransactionDto update(String transactionId, UpdateTransactionRequest request) {
+		long dbId = decodeTxnId(transactionId);
+		TxnRecord existing = transactions.get(dbId);
+		if (existing == null) {
+			throw new TransactionNotFoundException(transactionId);
+		}
+		TxnRecord updated = new TxnRecord(
+			existing.id,
+			normalizeClientId(request.clientId(), existing.clientId),
+			request.transaction() == null ? existing.kind : request.transaction(),
+			request.amount() == null ? existing.amount : request.amount(),
+			request.date() == null ? existing.date : request.date(),
+			request.status() == null ? existing.status : request.status(),
+			existing.importedAt,
+			existing.importBatchId
+		);
+		transactions.put(dbId, updated);
+		return toDto(updated);
+	}
+
+	/**
 	 * Deletes a transaction by external id.
 	 */
+	@Override
 	public void delete(String transactionId) {
 		long dbId = decodeTxnId(transactionId);
 		if (transactions.remove(dbId) == null) {
@@ -96,6 +136,7 @@ public class InMemoryTransactionsStore {
 	/**
 	 * Lists transactions with optional filters and pagination.
 	 */
+	@Override
 	public ListResult list(
 		int limit,
 		int offset,
@@ -133,12 +174,12 @@ public class InMemoryTransactionsStore {
 	}
 
 	/**
-	 * Imports transactions from a mock SFTP CSV file into memory.
+	 * Imports transactions from a CSV source (S3 bucket or local filesystem) into memory.
 	 */
-	public ImportBatchDto importFromMockSftp(ImportTransactionsRequest request) {
+	@Override
+	public ImportBatchDto importTransactions(ImportTransactionsRequest request) {
 		String requestedClientId = request == null ? null : request.clientId();
-		String sourcePath = request == null ? null : request.sourcePath();
-		Path file = resolveSource(sourcePath);
+		String sourcePath = request == null ? DEFAULT_SOURCE_PATH : normalizeSourcePath(request.sourcePath());
 
 		long batchId = batchSeq.getAndIncrement();
 		Instant requestedAt = clock.instant();
@@ -160,32 +201,41 @@ public class InMemoryTransactionsStore {
 		int imported = 0;
 		int failed = 0;
 		String errorMessage = null;
-		try (BufferedReader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
-			String line;
-			while ((line = reader.readLine()) != null) {
-				String trimmed = line.trim();
-				if (trimmed.isBlank()) {
+		try (var reader = fileSource.openCsvFile(sourcePath)) {
+			ParseResult parseResult = csvParser.parse(reader, requestedClientId);
+			total = parseResult.totalRecords();
+			failed = parseResult.failedRecords();
+
+			for (ParsedTransactionRow row : parseResult.rows()) {
+				if (importedDedupeKeys.containsKey(row.dedupeKey())) {
 					continue;
 				}
-				if (trimmed.toLowerCase(Locale.ROOT).startsWith("clientid,")) {
-					continue; // header
-				}
-				total++;
 				try {
-					TxnRecord r = parseCsv(trimmed, batchId, requestedClientId);
-					if (r == null) {
-						continue; // filtered out by requestedClientId
-					}
-					transactions.put(r.id, r);
+					long id = txnSeq.getAndIncrement();
+					Instant now = clock.instant();
+					TxnRecord record = new TxnRecord(
+						id,
+						row.clientId(),
+						row.kind(),
+						row.amount(),
+						row.date(),
+						row.status(),
+						now,
+						encodeBatchId(batchId)
+					);
+					transactions.put(id, record);
+					importedDedupeKeys.put(row.dedupeKey(), id);
 					imported++;
 				}
 				catch (Exception ex) {
 					failed++;
+					logger.warn("Failed to import a parsed transaction row from '{}'", sourcePath, ex);
 				}
 			}
 		}
 		catch (IOException ex) {
 			errorMessage = "failed to read source";
+			logger.warn("Failed to read transaction source '{}': {}", sourcePath, ex.getMessage());
 		}
 
 		Instant finishedAt = clock.instant();
@@ -209,6 +259,7 @@ public class InMemoryTransactionsStore {
 	/**
 	 * Loads a previously created import batch by id.
 	 */
+	@Override
 	public ImportBatchDto getBatch(String importBatchId) {
 		long dbId = decodeBatchId(importBatchId);
 		BatchRecord record = batches.get(dbId);
@@ -218,49 +269,19 @@ public class InMemoryTransactionsStore {
 		return toDto(record);
 	}
 
-	/**
-	 * Resolves a provided path against the configured mock SFTP root.
-	 */
-	private Path resolveSource(String sourcePath) {
+	private static String normalizeSourcePath(String sourcePath) {
 		if (sourcePath == null || sourcePath.isBlank()) {
-			return mockSftpRoot.resolve("transactions.csv").normalize();
+			return DEFAULT_SOURCE_PATH;
 		}
-		Path p = Path.of(sourcePath).normalize();
-		if (p.isAbsolute()) {
-			return p;
-		}
-		return mockSftpRoot.resolve(p).normalize();
+		return sourcePath.trim();
 	}
 
-	/**
-	 * Parses a CSV line into a transaction record, optionally filtering by client id.
-	 */
-	private TxnRecord parseCsv(String line, long batchId, String requestedClientId) {
-		String[] parts = line.split(",");
-		if (parts.length < 5) {
-			throw new IllegalArgumentException("invalid csv");
+	private static String normalizeClientId(String candidate, String fallback) {
+		if (candidate == null) {
+			return fallback;
 		}
-		String clientId = parts[0].trim();
-		if (requestedClientId != null && !requestedClientId.isBlank() && !requestedClientId.equals(clientId)) {
-			return null;
-		}
-		TransactionKind kind = TransactionKind.fromWireValue(parts[1].trim());
-		BigDecimal amount = new BigDecimal(parts[2].trim());
-		LocalDate date = LocalDate.parse(parts[3].trim());
-		TransactionStatus status = TransactionStatus.fromWireValue(parts[4].trim());
-
-		long id = txnSeq.getAndIncrement();
-		Instant now = clock.instant();
-		return new TxnRecord(
-			id,
-			clientId,
-			kind,
-			amount,
-			date,
-			status,
-			now,
-			encodeBatchId(batchId)
-		);
+		String trimmed = candidate.trim();
+		return trimmed.isEmpty() ? fallback : trimmed;
 	}
 
 	private static TransactionDto toDto(TxnRecord r) {

@@ -91,7 +91,10 @@ class TestModuleB_BoundaryConditions:
         assert len(alerts) == 0
 
     def test_individual_deposit_at_or_above_threshold_excluded(self):
-        """A deposit >= STRUCTURING_THRESHOLD is NOT suspicious by itself (reported outright)."""
+        """A deposit >= STRUCTURING_THRESHOLD is NOT suspicious.
+
+        It is reported outright.
+        """
         txns = [
             make_deposit("X1", "CLIENT_LARGE", STRUCTURING_THRESHOLD, date(2026, 1, 1)),
             make_deposit(
@@ -135,7 +138,10 @@ class TestModuleB_WindowBoundary:
         assert len(alerts) == 0
 
     def test_deposit_on_last_day_of_window_included(self):
-        """A deposit exactly at day STRUCTURING_WINDOW_DAYS must be included in the window."""
+        """A deposit exactly at day STRUCTURING_WINDOW_DAYS.
+
+        Must be included in the window.
+        """
         anchor_date = date(2026, 1, 1)
         last_day = anchor_date + timedelta(days=STRUCTURING_WINDOW_DAYS)
         txns = [
@@ -153,7 +159,10 @@ class TestModuleB_WindowBoundary:
 
 class TestModuleB_WithdrawalsIgnored:
     def test_withdrawals_not_counted(self):
-        """Only deposits matter for structuring detection; withdrawals must be ignored."""
+        """Only deposits matter for structuring detection.
+
+        Withdrawals must be ignored.
+        """
         txns = [
             make_withdrawal("WD1", "CLIENT_WD", 4_000.0, date(2026, 1, 1)),
             make_withdrawal("WD2", "CLIENT_WD", 4_000.0, date(2026, 1, 2)),
@@ -163,7 +172,10 @@ class TestModuleB_WithdrawalsIgnored:
         assert len(alerts) == 0
 
     def test_mixed_deposits_and_withdrawals_only_deposits_evaluated(self):
-        """Withdrawals interspersed with deposits must not inflate the cumulative total."""
+        """Withdrawals interspersed with deposits.
+
+        Must not inflate the cumulative total.
+        """
         txns = [
             make_deposit("MD1", "CLIENT_MIX", 4_000.0, date(2026, 1, 1)),
             make_withdrawal("MW1", "CLIENT_MIX", 4_000.0, date(2026, 1, 2)),
@@ -213,7 +225,10 @@ class TestModuleB_MultipleClients:
 
 class TestModuleB_NoDuplicates:
     def test_no_duplicate_alerts_for_same_transactions(self, transactions_structuring):
-        """Once a group of transactions is flagged it must not appear in a second alert."""
+        """Once a group of transactions is flagged.
+
+        It must not appear in a second alert.
+        """
         alerts = detect_structuring(transactions_structuring)
         # Collect all transaction IDs across all alerts
         all_flagged_ids: list[str] = []

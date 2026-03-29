@@ -2,6 +2,18 @@
 # Security Module - Variables
 #--------------------------------------------------------------
 
+variable "lab_role_arn" {
+  description = "Pre-existing IAM role ARN to use instead of creating new roles (e.g. LabRole in Learner Lab). When set, all aws_iam_role creation is skipped and this ARN is returned for all role outputs."
+  type        = string
+  default     = ""
+}
+
+variable "lab_role_name" {
+  description = "Pre-existing IAM role name to use when lab_role_arn is not supplied (for example, LabRole in Learner Lab)."
+  type        = string
+  default     = ""
+}
+
 variable "project_name" {
   description = "Project name used in parameter and secret paths."
   type        = string
@@ -92,6 +104,12 @@ variable "enable_verification_pipeline" {
   default     = false
 }
 
+variable "enable_sftp_transaction_collector" {
+  description = "Create IAM role and policies for scheduled sftp-transaction-collector Lambda."
+  type        = bool
+  default     = false
+}
+
 variable "audit_sqs_arn" {
   description = "ARN of the audit SQS queue (for Lambda consumer policy)."
   type        = string
@@ -136,6 +154,12 @@ variable "verification_bucket_arn" {
 
 variable "verification_sns_topic_arn" {
   description = "ARN of the verification SNS topic."
+  type        = string
+  default     = ""
+}
+
+variable "transaction_sftp_bucket_arn" {
+  description = "ARN of the transaction ingestion source S3 bucket (legacy 'sftp' naming)."
   type        = string
   default     = ""
 }

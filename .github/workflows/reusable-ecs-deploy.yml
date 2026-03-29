@@ -1,0 +1,288 @@
+name: Reusable - ECS Image Deploy
+
+on:
+  workflow_call:
+    inputs:
+      service:
+        description: ECS service folder name under services/backend (user, client, transaction)
+        required: true
+        type: string
+      ecs_cluster:
+        description: ECS cluster name hosting the service
+        required: false
+        type: string
+        default: backend
+    secrets:
+      AWS_ROLE_ARN:
+        required: true
+      AWS_REGION:
+        required: true
+
+    outputs:
+      image-uri:
+        description: ECR image URI without tag
+        value: ${{ jobs.build-test-tag-push.outputs.image-uri }}
+      sha-tag:
+        description: Commit SHA image tag
+        value: ${{ jobs.build-test-tag-push.outputs.sha-tag }}
+      latest-tag:
+        description: Latest image tag
+        value: ${{ jobs.build-test-tag-push.outputs.latest-tag }}
+
+permissions:
+  actions: write
+  contents: read
+  id-token: write
+
+jobs:
+  build-test-tag-push:
+    name: Build, test, tag, and push (${{ inputs.service }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      image-uri: ${{ steps.registry.outputs.image_uri }}
+      sha-tag: ${{ steps.meta.outputs.sha_tag }}
+      latest-tag: ${{ steps.meta.outputs.latest_tag }}
+
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        timeout-minutes: 2
+
+      - name: Validate required secrets
+        run: |
+          test -n "${{ secrets.AWS_ROLE_ARN }}"
+          test -n "${{ secrets.AWS_REGION }}"
+          test -n "${{ inputs.ecs_cluster }}"
+
+      - name: Resolve service metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          SERVICE="${{ inputs.service }}"
+
+          case "$SERVICE" in
+            user|client|transaction)
+              ;;
+            *)
+              echo "Unsupported service: $SERVICE"
+              echo "Allowed values: user, client, transaction"
+              exit 1
+              ;;
+          esac
+
+          WORKING_DIRECTORY="services/backend/${SERVICE}"
+          if [[ ! -d "$WORKING_DIRECTORY" ]]; then
+            echo "Missing service directory: $WORKING_DIRECTORY"
+            exit 1
+          fi
+
+          SHA_TAG="${GITHUB_SHA}"
+          LATEST_TAG="latest"
+          ECR_REPOSITORY_NAME="services/${SERVICE}"
+
+          {
+            echo "working_directory=${WORKING_DIRECTORY}"
+            echo "sha_tag=${SHA_TAG}"
+            echo "latest_tag=${LATEST_TAG}"
+            echo "ecr_repository_name=${ECR_REPOSITORY_NAME}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve ECR image URI
+        id: registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+          REPOSITORY_NAME="${{ steps.meta.outputs.ecr_repository_name }}"
+          IMAGE_URI="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${REPOSITORY_NAME}"
+
+          echo "image_uri=${IMAGE_URI}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Build application artifact (Gradle)
+        working-directory: ${{ steps.meta.outputs.working_directory }}
+        run: |
+          chmod +x gradlew
+          ./gradlew clean bootJar -x test --no-daemon --console=plain
+
+      - name: Log in to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Docker image (local scan tag)
+        id: local_image
+        working-directory: ${{ steps.meta.outputs.working_directory }}
+        run: |
+          LOCAL_IMAGE="local/${{ inputs.service }}:${{ github.sha }}"
+          docker build \
+            -t "${LOCAL_IMAGE}" \
+            .
+          echo "local_image=${LOCAL_IMAGE}" >> "$GITHUB_OUTPUT"
+
+      - name: Trivy vulnerability scan (fail on HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@v0.35.0
+        with:
+          image-ref: ${{ steps.local_image.outputs.local_image }}
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+      - name: Tag Docker image for ECR
+        run: |
+          docker tag \
+            "${{ steps.local_image.outputs.local_image }}" \
+            "${{ steps.registry.outputs.image_uri }}:${{ steps.meta.outputs.sha_tag }}"
+          docker tag \
+            "${{ steps.local_image.outputs.local_image }}" \
+            "${{ steps.registry.outputs.image_uri }}:${{ steps.meta.outputs.latest_tag }}"
+
+      - name: Push Docker image tags
+        run: |
+          docker push "${{ steps.registry.outputs.image_uri }}:${{ steps.meta.outputs.sha_tag }}"
+          docker push "${{ steps.registry.outputs.image_uri }}:${{ steps.meta.outputs.latest_tag }}"
+
+      - name: Register new task definition with SHA image
+        id: taskdef
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          CLUSTER="${{ inputs.ecs_cluster }}"
+          SERVICE="${{ inputs.service }}"
+          IMAGE_REPO="${{ steps.registry.outputs.image_uri }}"
+          IMAGE_TAG="${{ steps.meta.outputs.sha_tag }}"
+          IMAGE_REF="${IMAGE_REPO}:${IMAGE_TAG}"
+
+          CURRENT_TASK_DEF_ARN="$(aws ecs describe-services \
+            --cluster "${CLUSTER}" \
+            --services "${SERVICE}" \
+            --query 'services[0].taskDefinition' \
+            --output text)"
+
+          if [[ -z "${CURRENT_TASK_DEF_ARN}" || "${CURRENT_TASK_DEF_ARN}" == "None" ]]; then
+            echo "Unable to resolve current task definition for service ${SERVICE}"
+            exit 1
+          fi
+
+          aws ecs describe-task-definition \
+            --task-definition "${CURRENT_TASK_DEF_ARN}" \
+            --query 'taskDefinition' > current-taskdef.json
+
+          jq \
+            --arg service "${SERVICE}" \
+            --arg image "${IMAGE_REF}" \
+            '
+            del(
+              .taskDefinitionArn,
+              .revision,
+              .status,
+              .requiresAttributes,
+              .compatibilities,
+              .registeredAt,
+              .registeredBy,
+              .deregisteredAt
+            )
+            | .containerDefinitions = (
+                .containerDefinitions
+                | if (map(select(.name == $service)) | length) > 0
+                  then map(if .name == $service then .image = $image else . end)
+                  else (.[0].image = $image | .)
+                  end
+              )
+            ' current-taskdef.json > new-taskdef.json
+
+          NEW_TASK_DEF_ARN="$(aws ecs register-task-definition \
+            --cli-input-json file://new-taskdef.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)"
+
+          if [[ -z "${NEW_TASK_DEF_ARN}" || "${NEW_TASK_DEF_ARN}" == "None" ]]; then
+            echo "Failed to register a new task definition revision"
+            exit 1
+          fi
+
+          {
+            echo "new_task_definition_arn=${NEW_TASK_DEF_ARN}"
+            echo "image_ref=${IMAGE_REF}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Update ECS service to new task definition
+        run: |
+          aws ecs update-service \
+            --cluster "${{ inputs.ecs_cluster }}" \
+            --service "${{ inputs.service }}" \
+            --task-definition "${{ steps.taskdef.outputs.new_task_definition_arn }}" \
+            --force-new-deployment
+
+      - name: Write deploy intent fragment (ECS)
+        id: intent
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SERVICE="${{ inputs.service }}"
+          CLUSTER="${{ inputs.ecs_cluster }}"
+          REPO_SHA="${GITHUB_SHA}"
+          IMAGE_REPO="${{ steps.registry.outputs.image_uri }}"
+          IMAGE_TAG="${{ steps.meta.outputs.sha_tag }}"
+          NOW_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          FRAGMENT_FILE="intent-ecs-${SERVICE}.json"
+
+          jq -n \
+            --arg type "ecs" \
+            --arg service "${SERVICE}" \
+            --arg cluster "${CLUSTER}" \
+            --arg repo_sha "${REPO_SHA}" \
+            --arg image_repo "${IMAGE_REPO}" \
+            --arg image_tag "${IMAGE_TAG}" \
+            --arg image_ref "${{ steps.taskdef.outputs.image_ref }}" \
+            --arg task_definition_arn "${{ steps.taskdef.outputs.new_task_definition_arn }}" \
+            --arg created_at "${NOW_UTC}" \
+            '{
+              type: $type,
+              created_at: $created_at,
+              repo_sha: $repo_sha,
+              ecs: {
+                service: $service,
+                cluster: $cluster,
+                image_repo: $image_repo,
+                image_tag: $image_tag,
+                image_ref: $image_ref,
+                task_definition_arn: $task_definition_arn
+              }
+            }' > "${FRAGMENT_FILE}"
+
+          echo "fragment_file=${FRAGMENT_FILE}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload deploy intent artifact (ECS)
+        uses: actions/upload-artifact@v4
+        with:
+          name: intent-ecs-${{ inputs.service }}
+          path: ${{ steps.intent.outputs.fragment_file }}
+          if-no-files-found: error
+
+      - name: Deployment summary
+        run: |
+          echo "Service: ${{ inputs.service }}"
+          echo "Cluster: ${{ inputs.ecs_cluster }}"
+          echo "Trivy gate: passed"
+          echo "Image: ${{ steps.registry.outputs.image_uri }}:${{ steps.meta.outputs.sha_tag }}"
+          echo "Also tagged: ${{ steps.registry.outputs.image_uri }}:${{ steps.meta.outputs.latest_tag }}"
+          echo "Task definition: ${{ steps.taskdef.outputs.new_task_definition_arn }}"

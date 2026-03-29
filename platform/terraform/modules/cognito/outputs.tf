@@ -37,7 +37,7 @@ output "admin_group_name" {
   value       = aws_cognito_user_group.admin.name
 }
 
-output "agent_group_name" {
-  description = "Name of the agent user group."
-  value       = aws_cognito_user_group.agent.name
+output "user_group_name" {
+  description = "Name of the user role group."
+  value       = aws_cognito_user_group.user.name
 }

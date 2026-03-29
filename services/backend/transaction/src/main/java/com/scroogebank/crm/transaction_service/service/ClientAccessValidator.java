@@ -3,6 +3,7 @@ package com.scroogebank.crm.transaction_service.service;
 import com.scroogebank.crm.transaction_service.security.AuthenticatedUser;
 import com.scroogebank.crm.transaction_service.security.ForbiddenException;
 import com.scroogebank.crm.transaction_service.security.UnauthorizedException;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -15,7 +16,7 @@ import org.springframework.web.client.RestClientResponseException;
 public class ClientAccessValidator {
 	private final RestClient clientServiceRestClient;
 
-	public ClientAccessValidator(RestClient clientServiceRestClient) {
+	public ClientAccessValidator(@Qualifier("clientServiceRestClient") RestClient clientServiceRestClient) {
 		this.clientServiceRestClient = clientServiceRestClient;
 	}
 

@@ -1,15 +1,21 @@
 name: CI - Log Backend
 
 # Component pipeline for the log-backend trunk.
-# Runs Python Black + Flake8 lint + pytest with coverage.
+# Runs Python lint + unit tests, plus DB-backed repository integration checks.
 
 on:
   pull_request:
     branches:
       - log-backend
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   push:
     branches:
       - log-backend
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   workflow_dispatch:
   workflow_call:
 
@@ -19,6 +25,7 @@ concurrency:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   lint:
@@ -41,6 +48,7 @@ jobs:
           --cov=app \
           --cov=lambda_function \
           --cov-branch \
+          --cov-fail-under=80 \
           --cov-report=term-missing \
           --cov-report=xml:build/reports/coverage/coverage.xml \
           --cov-report=html:build/reports/coverage/html
@@ -48,3 +56,17 @@ jobs:
       artifact-paths: |
         services/backend/log/build/reports/**
         services/backend/log/build/coverage.xml
+
+  # DB-backed repository coverage against ephemeral PostgreSQL.
+  test-db:
+    needs: lint
+    uses: ./.github/workflows/reusable-test-component-db.yml
+    with:
+      component: log
+      runtime: python
+      working-directory: services/backend/log
+      test-command: |
+        RUN_DB_INTEGRATION_TESTS=true python -m pytest tests/test_repository_postgres_integration.py \
+          --junitxml=build/reports/tests/junit-postgres.xml
+      timeout-minutes: 10
+      artifact-paths: services/backend/log/build/reports/**

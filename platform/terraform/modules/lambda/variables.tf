@@ -7,9 +7,25 @@ variable "name_prefix" {
   type        = string
 }
 
+variable "project_name" {
+  description = "Project name used in SSM parameter paths."
+  type        = string
+}
+
+variable "environment" {
+  description = "Environment name used in SSM parameter paths."
+  type        = string
+}
+
 variable "cloudwatch_log_retention_days" {
   description = "CloudWatch log retention in days."
   type        = number
+}
+
+variable "enable_log_lambda" {
+  description = "Create the log Lambda function."
+  type        = bool
+  default     = true
 }
 
 variable "log_lambda_zip_path" {
@@ -72,6 +88,36 @@ variable "jwt_hmac_secret_arn" {
   type        = string
 }
 
+variable "auth_mode" {
+  description = "Runtime auth mode for the log Lambda (local, hybrid, cognito)."
+  type        = string
+  default     = "hybrid"
+}
+
+variable "cognito_issuer_url" {
+  description = "Cognito issuer URL for RS256 token validation."
+  type        = string
+  default     = ""
+}
+
+variable "cognito_jwks_url" {
+  description = "Cognito JWKS endpoint URL for RS256 token validation."
+  type        = string
+  default     = ""
+}
+
+variable "cognito_audience" {
+  description = "Cognito App Client ID used as the audience claim."
+  type        = string
+  default     = ""
+}
+
+variable "enable_aml_lambda" {
+  description = "Create the AML ingestion Lambda and schedule."
+  type        = bool
+  default     = true
+}
+
 variable "aml_lambda_zip_path" {
   description = "Path to AML lambda zip."
   type        = string
@@ -130,6 +176,60 @@ variable "aml_entity_id" {
 variable "crm_api_base_url" {
   description = "CRM API base URL for AML lambda."
   type        = string
+}
+
+variable "enable_sftp_transaction_collector" {
+  description = "Create the sftp-transaction-collector Lambda and schedule."
+  type        = bool
+  default     = false
+}
+
+variable "sftp_transaction_collector_zip_path" {
+  description = "Path to sftp-transaction-collector lambda zip."
+  type        = string
+  default     = ""
+}
+
+variable "sftp_transaction_collector_memory_size" {
+  description = "SFTP transaction collector lambda memory size."
+  type        = number
+  default     = 512
+}
+
+variable "sftp_transaction_collector_timeout_seconds" {
+  description = "SFTP transaction collector lambda timeout in seconds."
+  type        = number
+  default     = 60
+}
+
+variable "sftp_transaction_collector_role_arn" {
+  description = "Transaction ingestion Lambda IAM role ARN."
+  type        = string
+  default     = ""
+}
+
+variable "sftp_transaction_collector_schedule_expression" {
+  description = "EventBridge schedule expression for sftp-transaction-collector Lambda."
+  type        = string
+  default     = "rate(1 hour)"
+}
+
+variable "transaction_sftp_bucket_id" {
+  description = "S3 bucket ID used as sftp-transaction-collector source (legacy 'sftp' naming)."
+  type        = string
+  default     = ""
+}
+
+variable "transaction_sftp_remote_prefix" {
+  description = "S3 object prefix used by sftp-transaction-collector Lambda (legacy 'sftp' naming)."
+  type        = string
+  default     = "incoming/"
+}
+
+variable "transaction_import_api_url" {
+  description = "Transaction import API URL called by the ingestion Lambda."
+  type        = string
+  default     = ""
 }
 
 # --- Audit consumer Lambda (SQS → DynamoDB) ---
@@ -274,4 +374,95 @@ variable "ses_sender_email" {
   description = "SES verified sender email for verification notifications."
   type        = string
   default     = ""
+}
+
+variable "verification_frontend_base_url" {
+  description = "Public frontend base URL used in verification emails (for /verify-client links)."
+  type        = string
+  default     = ""
+}
+
+variable "log_api_base_url" {
+  description = "Log API base URL used by verification feedback Lambda."
+  type        = string
+  default     = ""
+}
+
+variable "verification_jwt_hmac_secret_arn" {
+  description = "JWT HMAC secret ARN used by verification feedback Lambda for internal service auth."
+  type        = string
+  default     = ""
+}
+
+check "lambda_artifact_paths_module" {
+  assert {
+    condition = !var.enable_log_lambda || (
+      trimspace(var.log_lambda_zip_path) != "" &&
+      fileexists(var.log_lambda_zip_path) &&
+      filesize(var.log_lambda_zip_path) > 0
+    )
+    error_message = "When enable_log_lambda is true, log_lambda_zip_path must point to an existing, non-empty zip file."
+  }
+
+  assert {
+    condition = !var.enable_aml_lambda || (
+      trimspace(var.aml_lambda_zip_path) != "" &&
+      fileexists(var.aml_lambda_zip_path) &&
+      filesize(var.aml_lambda_zip_path) > 0
+    )
+    error_message = "When enable_aml_lambda is true, aml_lambda_zip_path must point to an existing, non-empty zip file."
+  }
+
+  assert {
+    condition = !var.enable_sftp_transaction_collector || (
+      trimspace(var.sftp_transaction_collector_zip_path) != "" &&
+      fileexists(var.sftp_transaction_collector_zip_path) &&
+      filesize(var.sftp_transaction_collector_zip_path) > 0
+    )
+    error_message = "When enable_sftp_transaction_collector is true, sftp_transaction_collector_zip_path must point to an existing, non-empty zip file."
+  }
+
+  assert {
+    condition = !var.enable_audit_consumer || (
+      trimspace(var.audit_consumer_zip_path) != "" &&
+      fileexists(var.audit_consumer_zip_path) &&
+      filesize(var.audit_consumer_zip_path) > 0
+    )
+    error_message = "When enable_audit_consumer is true, audit_consumer_zip_path must point to an existing, non-empty zip file."
+  }
+
+  assert {
+    condition = !var.enable_aml_consumer || (
+      trimspace(var.aml_consumer_zip_path) != "" &&
+      fileexists(var.aml_consumer_zip_path) &&
+      filesize(var.aml_consumer_zip_path) > 0
+    )
+    error_message = "When enable_aml_consumer is true, aml_consumer_zip_path must point to an existing, non-empty zip file."
+  }
+
+  assert {
+    condition = !var.enable_verification_lambda || (
+      trimspace(var.verification_zip_path) != "" &&
+      fileexists(var.verification_zip_path) &&
+      filesize(var.verification_zip_path) > 0
+    )
+    error_message = "When enable_verification_lambda is true, verification_zip_path must point to an existing, non-empty zip file."
+  }
+}
+
+check "verification_lambda_requires_log_api_url" {
+  assert {
+    condition     = !var.enable_verification_lambda || trimspace(var.log_api_base_url) != ""
+    error_message = "When enable_verification_lambda is true, log_api_base_url must be non-empty."
+  }
+
+  assert {
+    condition     = !var.enable_verification_lambda || trimspace(var.ses_sender_email) != ""
+    error_message = "When enable_verification_lambda is true, ses_sender_email must be non-empty (SES_SOURCE_EMAIL runtime requirement)."
+  }
+
+  assert {
+    condition     = !var.enable_verification_lambda || trimspace(var.verification_frontend_base_url) != ""
+    error_message = "When enable_verification_lambda is true, verification_frontend_base_url must be non-empty (FRONTEND_BASE_URL runtime requirement)."
+  }
 }

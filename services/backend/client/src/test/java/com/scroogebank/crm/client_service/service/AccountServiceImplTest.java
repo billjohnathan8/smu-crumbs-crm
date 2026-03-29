@@ -106,7 +106,7 @@ class AccountServiceImplTest {
 
 	@Test
 	void createAccount_agentOnUnownedClient_throwsNotFound() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		AccountCreateRequest request = new AccountCreateRequest(
 			"clt_2",
 			AccountType.Checking,
@@ -118,18 +118,18 @@ class AccountServiceImplTest {
 		);
 		when(clientRepository.findById(2L)).thenReturn(Optional.of(client(2L, "usr_other")));
 
-		assertThatThrownBy(() -> accountService.createAccount(agent, request, "Bearer x", "req-1"))
+		assertThatThrownBy(() -> accountService.createAccount(user, request, "Bearer x", "req-1"))
 			.isInstanceOf(ClientNotFoundException.class);
 		verify(accountRepository, never()).save(any());
 	}
 
 	@Test
 	void getAccount_agentCannotAccessOtherOwner_throwsAccountNotFound() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		AccountEntity entity = account(5L, client(1L, "usr_other"));
 		when(accountRepository.findById(5L)).thenReturn(Optional.of(entity));
 
-		assertThatThrownBy(() -> accountService.getAccount(agent, "acc_5"))
+		assertThatThrownBy(() -> accountService.getAccount(user, "acc_5"))
 			.isInstanceOf(AccountNotFoundException.class);
 	}
 
@@ -232,12 +232,12 @@ class AccountServiceImplTest {
 
 	@Test
 	void updateAccount_agentOnUnownedAccount_throwsAccountNotFound() {
-		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "agent");
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		AccountEntity existing = account(10L, client(1L, "usr_other"));
 		when(accountRepository.findById(10L)).thenReturn(Optional.of(existing));
 
 		AccountUpdateRequest request = new AccountUpdateRequest(null, AccountStatus.Inactive, null);
-		assertThatThrownBy(() -> accountService.updateAccount(agent, "acc_10", request, "Bearer x", "req-u"))
+		assertThatThrownBy(() -> accountService.updateAccount(user, "acc_10", request, "Bearer x", "req-u"))
 			.isInstanceOf(AccountNotFoundException.class);
 		verify(accountRepository, never()).save(any());
 	}
@@ -296,10 +296,10 @@ class AccountServiceImplTest {
 		assertThat(response.pagination().total()).isEqualTo(2);
 	}
 
-	private ClientEntity client(Long id, String assignedAgentId) {
+	private ClientEntity client(Long id, String assignedUserId) {
 		ClientEntity entity = new ClientEntity();
 		entity.setId(id);
-		entity.setAssignedAgentId(assignedAgentId);
+		entity.setAssignedAgentId(assignedUserId);
 		return entity;
 	}
 

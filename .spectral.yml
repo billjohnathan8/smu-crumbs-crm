@@ -1,0 +1,10 @@
+# Spectral ruleset for OpenAPI contract linting.
+# Docs: https://docs.stoplight.io/docs/spectral/674b27b261c3c-overview
+
+extends:
+  - spectral:oas
+
+rules:
+  # Downgraded to warn: existing specs place $ref alongside description/nullable.
+  # Fix the specs and promote back to error to enforce OAS 3.0.x compliance.
+  no-$ref-siblings: warn

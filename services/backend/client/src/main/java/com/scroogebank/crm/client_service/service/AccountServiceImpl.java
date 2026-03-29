@@ -222,7 +222,7 @@ public class AccountServiceImpl implements AccountService {
 
 	private void publishAuditSafe(
 		String action, String attributeName, String beforeValue, String afterValue,
-		String agentId, String clientId, String correlationId, String authorizationHeader
+		String userId, String clientId, String correlationId, String authorizationHeader
 	) {
 		if (authorizationHeader == null || authorizationHeader.isBlank()) {
 			return;
@@ -230,7 +230,7 @@ public class AccountServiceImpl implements AccountService {
 		try {
 			auditLogger.logAuditEvent(
 				action, attributeName, beforeValue, afterValue,
-				agentId, clientId, correlationId, authorizationHeader
+				userId, clientId, correlationId, authorizationHeader
 			);
 		}
 		catch (Exception ex) {

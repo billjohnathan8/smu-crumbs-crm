@@ -6,12 +6,20 @@ import {
   type Page,
 } from "@playwright/test";
 
-const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? "admin@crm.local";
-const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "admin123";
-const AGENT_PASSWORD = process.env.E2E_AGENT_PASSWORD ?? "AgentPass123!";
+const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.local").trim();
+const ADMIN_PASSWORD = (process.env.E2E_ADMIN_PASSWORD ?? "admin123").trim();
+const USER_PASSWORD = (process.env.E2E_USER_PASSWORD ?? "UserPass123!").trim();
 
 function uniqueSuffix(): string {
   return `${Date.now()}-${Math.floor(Math.random() * 100_000)}`;
+}
+
+function normalizeBaseURL(baseURL: string | undefined): string {
+  const value = (baseURL ?? process.env.PLAYWRIGHT_BASE_URL ?? "").trim();
+  if (!value) {
+    throw new Error("Playwright baseURL is required for integration tests");
+  }
+  return value.replace(/\/+$/, "");
 }
 
 async function expectOkJson(response: APIResponse, operation: string): Promise<unknown> {
@@ -43,31 +51,31 @@ async function loginAsAdmin(request: APIRequestContext, baseURL: string): Promis
   return payload.accessToken;
 }
 
-async function createAgentUser(
+async function createUser(
   request: APIRequestContext,
   baseURL: string,
   adminToken: string,
 ): Promise<{ email: string; password: string; id: string }> {
-  const email = `it-agent-${uniqueSuffix()}@example.com`;
-  const createResponse = await request.post(`${baseURL}/api/agents`, {
+  const email = `it-user-${uniqueSuffix()}@example.com`;
+  const createResponse = await request.post(`${baseURL}/api/users`, {
     headers: {
       Authorization: `Bearer ${adminToken}`,
     },
     data: {
       firstName: "Integration",
-      lastName: "Agent",
+      lastName: "User",
       email,
-      role: "agent",
+      role: "user",
       sendInviteEmail: false,
-      temporaryPassword: AGENT_PASSWORD,
+      temporaryPassword: USER_PASSWORD,
     },
   });
   const payload = (await expectOkJson(
     createResponse,
-    "create agent user API request",
+    "create user API request",
   )) as { id: string };
   expect(payload.id).toMatch(/^usr_/);
-  return { email, password: AGENT_PASSWORD, id: payload.id };
+  return { email, password: USER_PASSWORD, id: payload.id };
 }
 
 async function waitForClientByEmail(
@@ -127,29 +135,26 @@ test.describe("Real Fullstack Integration", () => {
     await loginViaUi(page, ADMIN_EMAIL, ADMIN_PASSWORD, "/admin");
     await expect(page.getByRole("heading", { name: "Admin Dashboard" })).toBeVisible();
 
-    await page.getByRole("link", { name: "Manage Accounts" }).first().click();
-    await expect(page).toHaveURL(/\/admin\/accounts$/);
-    await expect(page.getByRole("heading", { name: "Manage Accounts" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "User Accounts" })).toBeVisible();
+    await page.goto("/admin/accounts");
+    await expect(page).toHaveURL(/\/admin\/users$/);
+    await expect(page.getByRole("heading", { name: "User Management" })).toBeVisible();
   });
 
-  test("agent can create client and exercise cross-service APIs without mocks", async ({
+  test("user can create client and exercise cross-service APIs without mocks", async ({
     baseURL,
     page,
     request,
   }) => {
-    if (!baseURL) {
-      throw new Error("Playwright baseURL is required for integration tests");
-    }
+    const normalizedBaseURL = normalizeBaseURL(baseURL);
 
-    const adminToken = await loginAsAdmin(request, baseURL);
-    const agentUser = await createAgentUser(request, baseURL, adminToken);
+    const adminToken = await loginAsAdmin(request, normalizedBaseURL);
+    const normalUser = await createUser(request, normalizedBaseURL, adminToken);
 
-    await loginViaUi(page, agentUser.email, agentUser.password, "/agent");
-    await expect(page.getByRole("heading", { name: "Agent Dashboard" })).toBeVisible();
+    await loginViaUi(page, normalUser.email, normalUser.password, "/user");
+    await expect(page.getByRole("heading", { name: "User Dashboard" })).toBeVisible();
 
-    await page.getByRole("link", { name: "Create Client" }).click();
-    await expect(page).toHaveURL(/\/agent\/clients\/new$/);
+    await page.getByRole("link", { name: "Create Client" }).first().click();
+    await expect(page).toHaveURL(/\/user\/clients\/new$/);
 
     const clientEmail = `integration-client-${uniqueSuffix()}@example.com`;
     const clientPhone = `+1555${Math.floor(Math.random() * 9_000_000 + 1_000_000)}`;
@@ -167,16 +172,46 @@ test.describe("Real Fullstack Integration", () => {
     await page.fill('input[name="postalCode"]', "62704");
     await page.getByRole("button", { name: "Create Client" }).click();
 
-    await expect(page).toHaveURL(/\/agent$/);
-    await expect(page.getByRole("heading", { name: "Agent Dashboard" })).toBeVisible();
+    await expect(page).toHaveURL(/\/user$/);
+    await expect(page.getByRole("heading", { name: "User Dashboard" })).toBeVisible();
 
     const authToken = await page.evaluate(() => window.localStorage.getItem("authToken"));
     expect(authToken).toBeTruthy();
 
-    const { clientId } = await waitForClientByEmail(request, baseURL, authToken as string, clientEmail);
-    await waitForCreateAuditLog(request, baseURL, authToken as string, clientId);
+    const { clientId } = await waitForClientByEmail(request, normalizedBaseURL, authToken as string, clientEmail);
+    await waitForCreateAuditLog(request, normalizedBaseURL, authToken as string, clientId);
 
-    const txResponse = await request.get(`${baseURL}/api/clients/${clientId}/transactions?limit=20&offset=0`, {
+    const alertId = `aml-${uniqueSuffix()}`;
+    const amlCreateResponse = await request.post(`${normalizedBaseURL}/api/aml/alerts`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+      data: {
+        alertId,
+        clientId,
+        transactionId: null,
+        alertType: "STRUCTURING",
+        description: "Integration test alert",
+        detectedAt: new Date().toISOString(),
+        reviewStatus: "Pending",
+      },
+    });
+    const amlCreated = (await expectOkJson(
+      amlCreateResponse,
+      "create AML alert API request",
+    )) as { alertId: string; reviewStatus: string };
+    expect(amlCreated.alertId).toBe(alertId);
+    expect(amlCreated.reviewStatus).toBe("Pending");
+
+    const amlReviewResponse = await request.put(`${normalizedBaseURL}/api/aml/alerts/${alertId}/review`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+      data: { reviewStatus: "Confirmed" },
+    });
+    const amlReviewed = (await expectOkJson(
+      amlReviewResponse,
+      "review AML alert API request",
+    )) as { reviewStatus: string };
+    expect(amlReviewed.reviewStatus).toBe("Confirmed");
+
+    const txResponse = await request.get(`${normalizedBaseURL}/api/clients/${clientId}/transactions?limit=20&offset=0`, {
       headers: { Authorization: `Bearer ${authToken}` },
     });
     const txPayload = (await expectOkJson(
@@ -186,8 +221,8 @@ test.describe("Real Fullstack Integration", () => {
     expect(Array.isArray(txPayload.data)).toBeTruthy();
     expect(txPayload.pagination).toBeTruthy();
 
-    await page.getByRole("link", { name: "View Transactions" }).click();
-    await expect(page).toHaveURL(/\/agent\/transactions$/);
+    await page.getByRole("link", { name: "Transactions" }).first().click();
+    await expect(page).toHaveURL(/\/user\/transactions$/);
     await expect(page.getByRole("heading", { name: "Transactions" })).toBeVisible();
   });
 });

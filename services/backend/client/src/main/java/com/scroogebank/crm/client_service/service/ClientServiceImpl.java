@@ -1,12 +1,26 @@
 package com.scroogebank.crm.client_service.service;
 
+import java.time.Instant;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.StringJoiner;
+
+import org.springframework.security.access.AccessDeniedException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.scroogebank.crm.client_service.api.Pagination;
 import com.scroogebank.crm.client_service.dto.ClientCreateRequest;
 import com.scroogebank.crm.client_service.dto.ClientDto;
 import com.scroogebank.crm.client_service.dto.ClientListResponse;
 import com.scroogebank.crm.client_service.dto.ClientUpdateRequest;
 import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
-import com.scroogebank.crm.client_service.dto.VerifyClientRequest;
+import com.scroogebank.crm.client_service.dto.ReviewVerificationRequest;
+import com.scroogebank.crm.client_service.dto.UploadVerificationDocsRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
 import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
@@ -15,15 +29,8 @@ import com.scroogebank.crm.client_service.logging.ClientAuditLogger;
 import com.scroogebank.crm.client_service.logging.PiiMasker;
 import com.scroogebank.crm.client_service.repository.ClientRepository;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
+import com.scroogebank.crm.client_service.security.UnauthorizedException;
 import com.scroogebank.crm.client_service.util.IdCodec;
-import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
-import java.util.StringJoiner;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Default client service implementation with ownership checks and audit logging.
@@ -35,10 +42,28 @@ public class ClientServiceImpl implements ClientService {
 
 	private final ClientRepository clientRepository;
 	private final ClientAuditLogger clientAuditLogger;
+	private final DocumentStorageService documentStorageService;
+	private final VerificationTokenService verificationTokenService;
+    private final SnsEmailPublisherService snsEmailPublisherService;
+	private final long verificationLinkTokenTtlSeconds;
 
-	public ClientServiceImpl(ClientRepository clientRepository, ClientAuditLogger clientAuditLogger) {
+	public ClientServiceImpl(
+		ClientRepository clientRepository,
+		ClientAuditLogger clientAuditLogger,
+		DocumentStorageService documentStorageService,
+		VerificationTokenService verificationTokenService,
+		SnsEmailPublisherService snsEmailPublisherService,
+		@Value("${app.verification.link-token-ttl-seconds:7200}") Long verificationLinkTokenTtlSeconds
+	) {
 		this.clientRepository = clientRepository;
 		this.clientAuditLogger = clientAuditLogger;
+		this.documentStorageService = documentStorageService;
+		this.verificationTokenService = verificationTokenService;
+		this.snsEmailPublisherService = snsEmailPublisherService;
+		this.verificationLinkTokenTtlSeconds =
+			verificationLinkTokenTtlSeconds != null && verificationLinkTokenTtlSeconds > 0
+				? verificationLinkTokenTtlSeconds
+				: 7200;
 	}
 
 	/**
@@ -99,7 +124,7 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	/**
-	 * Creates a new client, assigns it to the requesting agent, and logs an audit event.
+	 * Creates a new client, assigns it to the requesting user, and logs an audit event.
 	 *
 	 * @param user authenticated user
 	 * @param request create payload
@@ -116,11 +141,14 @@ public class ClientServiceImpl implements ClientService {
 		String requestId
 	) {
 		checkCreateConflicts(request.emailAddress(), request.phoneNumber());
+
+		// create and save to db		
 		ClientEntity entity = new ClientEntity();
 		applyCreate(entity, request);
 		entity.setAssignedAgentId(user.userId());
 		ClientEntity saved = clientRepository.save(entity);
 		String apiClientId = clientId(saved.getId());
+		
 		publishAuditSafe(
 			"CREATE",
 			"Client ID",
@@ -131,6 +159,24 @@ public class ClientServiceImpl implements ClientService {
 			requestId,
 			authorizationHeader
 		);
+
+		// generate token
+		String token = verificationTokenService.generateVerificationToken(apiClientId, verificationLinkTokenTtlSeconds);
+
+		// Publish verification event to SNS asynchronously (downstream SNS -> SES will send the email)
+		try {
+			snsEmailPublisherService.publishVerificationEmail(
+				apiClientId,
+				saved.getEmailAddress(),
+				token,
+				saved.getFirstName(),
+				requestId,
+				verificationLinkTokenTtlSeconds
+			);
+		} catch (Exception ex) {
+			LOGGER.warn("Client created but SNS verification publish failed for {}: {}", apiClientId, ex.getMessage());
+		}
+
 		return toDto(saved);
 	}
 
@@ -234,41 +280,120 @@ public class ClientServiceImpl implements ClientService {
 		);
 	}
 
-	/**
-	 * Marks a client as verified and logs the status change.
-	 *
-	 * @param user authenticated user
-	 * @param clientId public client identifier
-	 * @param request verification payload
-	 * @param authorizationHeader bearer token for downstream audit logging
-	 * @param requestId request correlation id
-	 * @return verification response
-	 */
 	@Override
 	@Transactional
-	public VerifyClientResponse verifyClient(
+	public VerifyClientResponse reviewVerification(
 		AuthenticatedUser user,
 		String clientId,
-		VerifyClientRequest request,
+		ReviewVerificationRequest request,
 		String authorizationHeader,
 		String requestId
 	) {
+		if (!user.isAdmin()) {
+			throw new AccessDeniedException("Admin role required for verification review");
+		}
+
 		ClientEntity entity = loadOwnedClient(user, clientId);
-		request.nric(); // validation-only; do not store raw document refs in this mock service
 		IdentityVerificationStatus before = entity.getIdentityVerificationStatus();
-		entity.setIdentityVerificationStatus(IdentityVerificationStatus.verified);
+		if (before != IdentityVerificationStatus.pending) {
+			throw new IllegalStateException("Verification review is only allowed for pending clients");
+		}
+
+		if (request.action() == ReviewVerificationRequest.ReviewAction.approve) {
+			entity.setIdentityVerificationStatus(IdentityVerificationStatus.verified);
+			entity.setVerificationVerifiedAt(Instant.now());
+		} else {
+			entity.setIdentityVerificationStatus(IdentityVerificationStatus.rejected);
+			entity.setVerificationVerifiedAt(null);
+		}
+
 		ClientEntity saved = clientRepository.save(entity);
 
 		publishAuditSafe(
 			"UPDATE",
 			"identityVerificationStatus",
-			before == null ? null : before.name(),
+			before.name(),
 			saved.getIdentityVerificationStatus().name(),
 			user.userId(),
 			clientId(saved.getId()),
 			requestId,
 			authorizationHeader
 		);
+
+		return new VerifyClientResponse(clientId(saved.getId()), saved.getIdentityVerificationStatus());
+	}
+
+	/**
+	 * Client upload documents for verification
+	 *
+	 * @param clientId public client identifier
+	 * @param request verification payload
+	 * @param requestId request correlation id
+	 * @return verification response
+	 * 
+	 */
+	@Override
+	@Transactional
+	public VerifyClientResponse uploadVerificationDocs (
+		String clientId,
+		UploadVerificationDocsRequest request,
+		String requestId
+	) {
+		// Validate Verification Token
+		if (!verificationTokenService.isValid(clientId, request.verificationToken())) {
+			throw new UnauthorizedException("Invalid or expired verification token");
+		}
+
+		// Load client
+		long dbId = decodeClientId(clientId);
+		ClientEntity entity = clientRepository.findById(dbId)
+        	.orElseThrow(() -> new ClientNotFoundException(clientId));
+
+		IdentityVerificationStatus before = entity.getIdentityVerificationStatus();
+		if (before == IdentityVerificationStatus.verified || before == IdentityVerificationStatus.rejected) {
+			throw new IllegalStateException("Verification upload is not allowed after review decision");
+		}
+		// Upload documents to S3
+		String primaryKey = documentStorageService.upload(
+			clientId,
+			"primary",
+			request.primaryDocumentRef(),
+			request.primaryDocumentBase64(),
+			request.primaryDocumentMimeType()
+		);
+
+		String addressKey = documentStorageService.upload(
+			clientId,
+			"address",
+			request.addressDocumentRef(),
+			request.addressDocumentBase64(),
+			request.addressDocumentMimeType()
+		);
+
+		// Persist document metadata and set status to pending
+		entity.setPrimaryDocumentType(request.primaryDocumentType());
+		entity.setPrimaryDocumentRef(primaryKey);   // store S3 key, not raw filename
+
+		entity.setAddressDocumentType(request.addressDocumentType());
+		entity.setAddressDocumentRef(addressKey);   // store S3 key, not raw filename
+
+		entity.setIdentityVerificationStatus(IdentityVerificationStatus.pending);
+		entity.setVerificationVerifiedAt(null);
+
+		ClientEntity saved = clientRepository.save(entity);
+
+		/// NO AUTHORIZATION HEADER and AGENT_ID
+		// Publish audit event (for logging)
+		// publishAuditSafe(
+		// 	"UPDATE",
+		// 	"identityVerificationStatus",
+		// 	before == null ? null : before.name(),
+		// 	saved.getIdentityVerificationStatus().name(),
+		// 	null,
+		// 	clientId(saved.getId()),
+		// 	requestId,
+		// 	null
+		// );
 
 		return new VerifyClientResponse(clientId(saved.getId()), saved.getIdentityVerificationStatus());
 	}
@@ -389,8 +514,13 @@ public class ClientServiceImpl implements ClientService {
 			entity.getState(),
 			entity.getCountry(),
 			entity.getPostalCode(),
-			entity.getIdentityVerificationStatus(),
 			entity.getAssignedAgentId(),
+			entity.getIdentityVerificationStatus(),
+			entity.getPrimaryDocumentType(),
+			entity.getPrimaryDocumentRef(),
+			entity.getAddressDocumentType(),
+			entity.getAddressDocumentRef(),
+			entity.getVerificationVerifiedAt(),
 			entity.getCreatedAt(),
 			entity.getUpdatedAt()
 		);
@@ -442,7 +572,7 @@ public class ClientServiceImpl implements ClientService {
 	 * @param attributeName attribute being changed or observed
 	 * @param beforeValue previous value (nullable)
 	 * @param afterValue new value (nullable)
-	 * @param agentId authenticated agent id
+	 * @param userId authenticated user id
 	 * @param clientId associated client id
 	 * @param correlationId request correlation id
 	 * @param authorizationHeader bearer token for downstream auth
@@ -452,7 +582,7 @@ public class ClientServiceImpl implements ClientService {
 		String attributeName,
 		String beforeValue,
 		String afterValue,
-		String agentId,
+		String userId,
 		String clientId,
 		String correlationId,
 		String authorizationHeader
@@ -466,7 +596,7 @@ public class ClientServiceImpl implements ClientService {
 				attributeName,
 				beforeValue,
 				afterValue,
-				agentId,
+				userId,
 				clientId,
 				correlationId,
 				authorizationHeader

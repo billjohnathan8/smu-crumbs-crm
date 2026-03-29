@@ -1,0 +1,8 @@
+Hello {{firstName}},
+
+Your identity verification for client record {{clientId}} has been completed successfully.
+
+If you did not expect this update, please contact ScroogeBank support immediately.
+
+Regards,
+ScroogeBank CRM Team

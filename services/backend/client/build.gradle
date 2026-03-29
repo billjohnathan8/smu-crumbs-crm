@@ -2,7 +2,7 @@ plugins {
 	id 'java'
 	id 'checkstyle'
 	id 'jacoco'
-	id 'org.springframework.boot' version '4.0.2'
+	id 'org.springframework.boot' version '4.0.4'
 	id 'io.spring.dependency-management' version '1.1.7'
 }
 
@@ -20,7 +20,21 @@ repositories {
 	mavenCentral()
 }
 
+ext {
+}
+
 dependencies {
+	constraints {
+		implementation('com.fasterxml.jackson.core:jackson-core:2.21.1') {
+			because 'Fix GHSA-72hv-8253-57qq in jackson-core 2.x branch'
+		}
+		implementation('tools.jackson.core:jackson-core:3.1.0') {
+			because 'Fix CVE-2026-29062 and GHSA-72hv-8253-57qq in jackson-core 3.x branch'
+		}
+	}
+
+	implementation platform('software.amazon.awssdk:bom:2.31.49')
+	implementation platform('io.awspring.cloud:spring-cloud-aws-dependencies:4.0.0')
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-flyway'
@@ -28,8 +42,11 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
-	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 	implementation 'org.flywaydb:flyway-database-postgresql'
+	implementation 'software.amazon.awssdk:sesv2'
+	implementation 'software.amazon.awssdk:sns'
+	implementation 'software.amazon.awssdk:s3'
+	implementation 'io.awspring.cloud:spring-cloud-aws-starter-s3'
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 	runtimeOnly 'org.postgresql:postgresql'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
@@ -83,6 +100,17 @@ tasks.named('jacocoTestReport') {
 	}
 }
 
+tasks.named('jacocoTestCoverageVerification') {
+	dependsOn tasks.named('jacocoTestReport')
+	violationRules {
+		rule {
+			limit {
+				minimum = 0.80
+			}
+		}
+	}
+}
+
 tasks.named('assemble') {
 	mustRunAfter tasks.named('checkstyleMain'), tasks.named('checkstyleTest')
 }
@@ -106,5 +134,5 @@ tasks.named('jar') {
 tasks.register('localTestPipeline') {
 	group = 'verification'
 	description = 'Runs lint, build, tests, and coverage reports for local CI.'
-	dependsOn 'checkstyleMain', 'checkstyleTest', 'assemble', 'test', 'jacocoTestReport'
+	dependsOn 'checkstyleMain', 'checkstyleTest', 'assemble', 'test', 'jacocoTestReport', 'jacocoTestCoverageVerification'
 }

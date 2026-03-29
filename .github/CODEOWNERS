@@ -15,7 +15,7 @@
 services/frontend/crm-ui/**                @tanialee21
 
 # ── Backend services ────────────────────────────────────────────────
-services/backend/agent/**                  @deniseLie
+services/backend/user/**                   @deniseLie
 services/backend/client/**                 @verdiowong
 services/backend/transaction/**            @siewyu
 services/backend/log/**                    @siewyu

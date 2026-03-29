@@ -1,13 +1,16 @@
 openapi: 3.0.3
 info:
   title: transaction
-  version: 0.2.1
+  version: 0.3.0
   description: |
     Feature 4: Bank Account Transactions Management.
 
-    The CRM retrieves transaction information (dummy data) from an external SFTP server
-    and populates its own Transaction table. This API supports viewing transactions
-    and triggering imports from the mock SFTP source.
+    The CRM imports transaction information from a configured source path (local
+    filesystem mock path or S3-backed mock ingestion path) and populates its own
+    Transaction table.
+    This API supports viewing transactions and triggering imports.
+    In runtime, ingestion can be triggered manually, by the transaction-service
+    scheduler, or by the sftp-transaction-collector Lambda calling this API.
 
     Appendix 2 (Transaction attributes) requires:
     - ID
@@ -43,7 +46,7 @@ paths:
                   service:
                     type: string
                     example: transaction
-                required: [status]
+                required: [status, service]
 
   /api/v1/health:
     get:
@@ -59,13 +62,15 @@ paths:
       tags: [transactions]
       summary: List transactions
       description: |
-        Lists transactions. Admins may see all transactions; agents may see only transactions for their own clients.
+        Lists transactions. Admins may see all transactions; users may see only transactions for their own clients.
+        If the caller is an user and `clientId` is not provided, the service returns an empty page.
       security:
         - BearerAuth: []
-      x-required-roles: [admin, agent]
+      x-required-roles: [admin, user]
       parameters:
         - name: limit
           in: query
+          description: Requested page size. Values outside 1..200 are clamped by the service.
           schema:
             type: integer
             minimum: 1
@@ -73,6 +78,7 @@ paths:
             default: 50
         - name: offset
           in: query
+          description: Requested start offset. Negative values are clamped to 0 by the service.
           schema:
             type: integer
             minimum: 0
@@ -107,15 +113,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Transaction"
-                  pagination:
-                    $ref: "#/components/schemas/Pagination"
-                required: [data]
+                $ref: "#/components/schemas/TransactionsListResponse"
+        "400":
+          description: Validation error (for example malformed query parameter types).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Unauthorized
           content:
@@ -133,7 +137,8 @@ paths:
       tags: [transactions]
       summary: Create transaction
       description: |
-        Creates a transaction record in CRM database. Normally populated by import from SFTP.
+        Creates a transaction record in CRM database. Normally populated by import from the
+        configured ingestion source.
         Provided for completeness/testing.
       security:
         - BearerAuth: []
@@ -176,7 +181,7 @@ paths:
       summary: Get transaction by ID
       security:
         - BearerAuth: []
-      x-required-roles: [admin, agent]
+      x-required-roles: [admin, user]
       parameters:
         - name: transactionId
           in: path
@@ -190,6 +195,63 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Transaction"
+        "400":
+          description: Validation error (for example invalid transactionId format).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    put:
+      tags: [transactions]
+      summary: Update transaction
+      description: Admin-only. Updates one or more transaction fields.
+      security:
+        - BearerAuth: []
+      x-required-roles: [admin]
+      parameters:
+        - name: transactionId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/TransactionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTransactionRequest"
+      responses:
+        "200":
+          description: Transaction updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Not found
           content:
@@ -225,6 +287,12 @@ paths:
       responses:
         "204":
           description: Transaction deleted.
+        "400":
+          description: Validation error (for example invalid transactionId format).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Not found
           content:
@@ -250,7 +318,7 @@ paths:
       summary: List transactions for a specific client
       security:
         - BearerAuth: []
-      x-required-roles: [admin, agent]
+      x-required-roles: [admin, user]
       parameters:
         - name: clientId
           in: path
@@ -259,6 +327,7 @@ paths:
             $ref: "#/components/schemas/ClientId"
         - name: limit
           in: query
+          description: Requested page size. Values outside 1..200 are clamped by the service.
           schema:
             type: integer
             minimum: 1
@@ -266,6 +335,7 @@ paths:
             default: 50
         - name: offset
           in: query
+          description: Requested start offset. Negative values are clamped to 0 by the service.
           schema:
             type: integer
             minimum: 0
@@ -276,15 +346,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Transaction"
-                  pagination:
-                    $ref: "#/components/schemas/Pagination"
-                required: [data]
+                $ref: "#/components/schemas/TransactionsListResponse"
+        "400":
+          description: Validation error (for example invalid clientId or malformed query parameters).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Unauthorized
           content:
@@ -301,9 +369,9 @@ paths:
   /api/transactions/import:
     post:
       tags: [imports]
-      summary: Trigger import from external SFTP source
+      summary: Trigger import from configured source
       description: |
-        Triggers a pull from the mock SFTP server and stores transactions in CRM database.
+        Triggers a pull from the configured source path and stores transactions in CRM database.
         If clientId is provided, imports only for that client; otherwise imports all available records.
       security:
         - BearerAuth: []
@@ -360,6 +428,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ImportBatch"
+        "400":
+          description: Validation error (for example invalid importBatchId format).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Not found
           content:
@@ -420,15 +494,27 @@ components:
           type: integer
           minimum: 0
 
+    TransactionsListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Transaction"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+      required: [data, pagination]
+
     TransactionId:
       type: string
       description: The transaction ID.
-      example: txn_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+      pattern: "^txn_[0-9]+$"
+      example: txn_42
 
     ClientId:
       type: string
       description: The client ID.
-      example: clt_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+      example: clt_42
 
     TransactionKind:
       type: string
@@ -489,10 +575,29 @@ components:
       required: [clientId, transaction, amount, date, status]
       additionalProperties: false
 
+    UpdateTransactionRequest:
+      type: object
+      properties:
+        clientId:
+          $ref: "#/components/schemas/ClientId"
+        transaction:
+          $ref: "#/components/schemas/TransactionKind"
+        amount:
+          type: number
+          format: float
+          minimum: 0
+        date:
+          type: string
+          format: date
+        status:
+          $ref: "#/components/schemas/TransactionStatus"
+      additionalProperties: false
+
     ImportBatchId:
       type: string
       description: System-generated import batch identifier.
-      example: imp_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+      pattern: "^imp_[0-9]+$"
+      example: imp_7
 
     ImportBatchStatus:
       type: string
@@ -549,5 +654,5 @@ components:
         sourcePath:
           type: string
           nullable: true
-          description: Optional SFTP path override for local testing.
+          description: Optional import source override (relative local path or `s3://bucket/key`).
       additionalProperties: false

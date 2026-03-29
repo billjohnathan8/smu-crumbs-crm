@@ -1,12 +1,15 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
+import { useTheme } from '@/features/theme/useTheme'
 import type { LoginRequest } from '@/api/types'
 import { ApiError } from '@/api/client'
+import { isCognitoEnabled, AUTH_MODE, buildCognitoLoginUrl } from '@/api/cognito'
 
 export function LoginPage() {
   const navigate = useNavigate()
   const { login } = useAuth()
+  const { theme } = useTheme()
 
   const [formData, setFormData] = useState<LoginRequest>({
     email: '',
@@ -39,27 +42,23 @@ export function LoginPage() {
     e.preventDefault()
     setGeneralError('')
 
-    if (!validateForm()) {
-      return
-    }
+    if (!validateForm()) return
 
     setIsLoading(true)
 
     try {
       await login(formData)
 
-      // Get user role from localStorage (set by AuthContext)
       const storedUser = localStorage.getItem('currentUser')
       if (storedUser) {
         const user = JSON.parse(storedUser)
-        // Redirect based on role
         if (user.role === 'admin') {
           navigate('/admin', { replace: true })
         } else {
-          navigate('/agent', { replace: true })
+          navigate('/user', { replace: true })
         }
       } else {
-        navigate('/agent', { replace: true })
+        navigate('/user', { replace: true })
       }
     } catch (err) {
       if (err instanceof ApiError) {
@@ -79,78 +78,133 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-card border border-border rounded-lg shadow-xl p-8">
-          <h1 className="text-3xl font-bold text-text mb-2 text-center">CRM Login</h1>
-          <p className="text-text-muted text-center mb-6">Sign in to your account</p>
+    <div className="min-h-screen bg-background-lighter">
+      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
+        {/* Left image panel */}
+        <div className="relative hidden lg:block">
+          <img
+            src="/ubs-singapore-building.png"
+            alt="UBS Singapore building"
+            className="h-full w-full object-cover grayscale"
+          />
+          <div className="absolute inset-0 bg-black/20" />
+        </div>
 
-          {generalError && (
-            <div className="bg-danger/10 border border-danger rounded-lg p-4 mb-6">
-              <p className="text-danger text-sm">{generalError}</p>
+        {/* Right login panel */}
+        <div className="flex items-center justify-center p-2 sm:p-2">
+          <div className="w-full max-w-md">
+            <div className="p-8 sm:p-10">
+              <div className="mb-6 flex flex-col items-center text-center">
+                <img
+                  src={theme === 'dark' ? '/DarkMode_SGB.svg' : '/LightMode_SGB.svg'}
+                  alt="Scrooge Global Bank"
+                  className=" h-[96px] w-auto object-contain sm:h-[96px]"
+                />
+                <h1 className="text-2xl font-medium text-text">Login to the CRM</h1>
+                <p className="mt-2 text-text-muted">Sign in to your account</p>
+              </div>
+
+              {generalError && (
+                <div className="bg-danger/10 border border-danger rounded-lg p-4 mb-6">
+                  <p className="text-danger text-sm">{generalError}</p>
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+                <div>
+                  <label htmlFor="email" className="block text-sm font-normal text-text mb-2">
+                    Email
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    data-testid="email-input"
+                    value={formData.email}
+                    onChange={e => {
+                      setFormData({ ...formData, email: e.target.value })
+                      if (errors.email) {
+                        setErrors({ ...errors, email: '' })
+                      }
+                    }}
+                    className={`form-input ${errors.email ? 'form-input-error' : ''}`}
+                    disabled={isLoading}
+                    autoComplete="email"
+                  />
+                  {errors.email && <p className="text-danger text-sm mt-1">{errors.email}</p>}
+                </div>
+
+                <div>
+                  <label htmlFor="password" className="block text-sm font-normal text-text mb-2">
+                    Password
+                  </label>
+                  <input
+                    id="password"
+                    type="password"
+                    data-testid="password-input"
+                    value={formData.password}
+                    onChange={e => {
+                      setFormData({ ...formData, password: e.target.value })
+                      if (errors.password) {
+                        setErrors({ ...errors, password: '' })
+                      }
+                    }}
+                    className={`form-input ${errors.password ? 'form-input-error' : ''}`}
+                    disabled={isLoading}
+                    autoComplete="current-password"
+                  />
+                  {errors.password && <p className="text-danger text-sm mt-1">{errors.password}</p>}
+                </div>
+
+                <button
+                  type="submit"
+                  data-testid="login-submit-button"
+                  disabled={isLoading}
+                  className={`w-full py-3 px-4 rounded-lg font-medium hover:brightness-[0.8] transition-all duration-200 text-white ${
+                    isLoading
+                      ? 'opacity-50 cursor-not-allowed gradient-dark-red'
+                      : 'gradient-dark-red'
+                  }`}
+                >
+                  {isLoading ? 'Signing in...' : 'Sign In'}
+                </button>
+              </form>
+
+              <p className="text-sm text-center mt-4">
+                <button
+                  type="button"
+                  onClick={() => navigate('/forgot-password')}
+                  className="text-primary underline-hover font-medium"
+                >
+                  Forgot your password?
+                </button>
+              </p>
+
+              {isCognitoEnabled && (
+                <>
+                  <div className="relative my-6">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full" />
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="bg-card px-4 text-text-muted">
+                        {AUTH_MODE === 'cognito' ? 'or' : 'or sign in with SSO'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.location.href = buildCognitoLoginUrl()
+                    }}
+                    className="w-full py-3 px-4 rounded-lg font-normal transition-colors bg-background-light hover:bg-gray-200 text-text border-2 border-border hover:border-text-muted"
+                  >
+                    Sign in with Cognito SSO
+                  </button>
+                </>
+              )}
             </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-text mb-2">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                data-testid="email-input"
-                value={formData.email}
-                onChange={e => {
-                  setFormData({ ...formData, email: e.target.value })
-                  if (errors.email) {
-                    setErrors({ ...errors, email: '' })
-                  }
-                }}
-                className={`w-full px-4 py-2 bg-background-light border ${
-                  errors.email ? 'border-danger' : 'border-border'
-                } rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent`}
-                disabled={isLoading}
-                autoComplete="email"
-              />
-              {errors.email && <p className="text-danger text-sm mt-1">{errors.email}</p>}
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-text mb-2">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                data-testid="password-input"
-                value={formData.password}
-                onChange={e => {
-                  setFormData({ ...formData, password: e.target.value })
-                  if (errors.password) {
-                    setErrors({ ...errors, password: '' })
-                  }
-                }}
-                className={`w-full px-4 py-2 bg-background-light border ${
-                  errors.password ? 'border-danger' : 'border-border'
-                } rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent`}
-                disabled={isLoading}
-                autoComplete="current-password"
-              />
-              {errors.password && <p className="text-danger text-sm mt-1">{errors.password}</p>}
-            </div>
-
-            <button
-              type="submit"
-              data-testid="login-submit-button"
-              disabled={isLoading}
-              className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
-                isLoading ? 'bg-primary/50 cursor-not-allowed' : 'bg-primary hover:bg-primary-hover'
-              } text-white`}
-            >
-              {isLoading ? 'Signing in...' : 'Sign In'}
-            </button>
-          </form>
+          </div>
         </div>
       </div>
     </div>

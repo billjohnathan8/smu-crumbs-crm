@@ -6,11 +6,61 @@ spring:
     deserialization:
       fail-on-unknown-properties: true
 
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:crm}}
+    username: ${SPRING_DATASOURCE_USERNAME:${DB_USER:crm_app}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:devpassword}}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      initialization-fail-timeout: ${SPRING_DATASOURCE_HIKARI_INITIALIZATION_FAIL_TIMEOUT:5000}
+      connection-timeout: ${SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT:10000}      # Increased from 5000ms
+      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:100}         # UPDATED: 50→100 connections
+      minimum-idle: ${SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE:20}                    # UPDATED: 10→20 idle
+      idle-timeout: ${SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT:300000}                # 5 minutes
+      max-lifetime: ${SPRING_DATASOURCE_HIKARI_MAX_LIFETIME:1800000}               # 30 minutes
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        "[format_sql]": true
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+    table: transaction_flyway_schema_history
+    locations: classpath:db/migration
+
 app:
   jwt:
-    hmac-secret: ${JWT_HMAC_SECRET:dev-only-insecure-secret}
+    hmac-secret: ${JWT_HMAC_SECRET:}
+    auth-mode: ${AUTH_MODE:hybrid}
+    allow-hybrid: ${APP_JWT_ALLOW_HYBRID:true}
+    cognito:
+      issuer: ${COGNITO_ISSUER:}
+      audience: ${COGNITO_AUDIENCE:}
+      jwks-url: ${COGNITO_JWKS_URL:}
+      jwks-cache-ttl-seconds: ${COGNITO_JWKS_CACHE_TTL_SECONDS:300}
   client-service-url: ${CLIENT_SERVICE_URL:http://localhost:8080}
+  log-service-url: ${TRANSACTION_LOG_SERVICE_URL:${LOG_SERVICE_URL:http://localhost:4566/_aws/execute-api/local/local}}
   mock-sftp:
     root: ${MOCK_SFTP_ROOT:./mock-sftp}
-
-
+  # Legacy naming: app.sftp.* controls polling only. Transport is filesystem/S3 mock ingestion.
+  sftp:
+    remote-dir: ${TRANSACTION_SFTP_REMOTE_DIR:.}
+    poll:
+      enabled: ${TRANSACTION_SFTP_POLL_ENABLED:false}
+      fixed-delay-ms: ${TRANSACTION_SFTP_POLL_FIXED_DELAY_MS:300000}
+      initial-delay-ms: ${TRANSACTION_SFTP_POLL_INITIAL_DELAY_MS:10000}
+  import-s3:
+    bucket: ${TRANSACTION_IMPORT_S3_BUCKET:}
+    region: ${TRANSACTION_IMPORT_S3_REGION:ap-southeast-1}
+    endpoint: ${TRANSACTION_IMPORT_S3_ENDPOINT:}
+    path-style-access-enabled: ${TRANSACTION_IMPORT_S3_PATH_STYLE_ACCESS_ENABLED:false}
+    access-key-id: ${TRANSACTION_IMPORT_S3_ACCESS_KEY_ID:}
+    secret-access-key: ${TRANSACTION_IMPORT_S3_SECRET_ACCESS_KEY:}
+  transactions-store:
+    type: ${APP_TRANSACTIONS_STORE_TYPE:postgres}

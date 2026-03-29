@@ -25,3 +25,9 @@ variable "mail_from_subdomain" {
   type        = string
   default     = "mail"
 }
+
+variable "notification_topic_arn" {
+  description = "SNS topic ARN for SES bounce/complaint/delivery notifications."
+  type        = string
+  default     = ""
+}

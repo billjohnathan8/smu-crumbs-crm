@@ -16,8 +16,9 @@ export interface PaginatedResponse<T> {
   pagination?: Pagination
 }
 
-// Auth types (agent-service)
-export type UserRole = 'admin' | 'agent'
+// Auth types (user-service)
+// `user` is the non-admin CRM role (agent in requirement wording).
+export type UserRole = 'admin' | 'user' | 'super_admin'
 export type UserStatus = 'active' | 'disabled'
 
 export interface User {
@@ -45,6 +46,16 @@ export interface TokenResponse {
 
 export interface RefreshRequest {
   refreshToken: string
+}
+
+export interface ForgotPasswordRequest {
+  email: string
+}
+
+export interface ResetPasswordRequest {
+  token: string
+  newPassword: string
+  confirmPassword: string
 }
 
 export interface CreateUserRequest {
@@ -83,7 +94,7 @@ export interface Client {
   country: string
   postalCode: string
   identityVerificationStatus: IdentityVerificationStatus
-  assignedAgentId?: string
+  assignedUserId?: string
   createdAt?: string
   updatedAt?: string
 }
@@ -116,15 +127,31 @@ export interface ClientUpdateRequest {
   postalCode?: string
 }
 
-export interface VerifyClientRequest {
-  nric: string
-  documentType?: 'NRIC'
-  documentRef?: string
+export interface UploadVerificationDocsRequest {
+  verificationToken: string
+
+  // Primary Identity Document
+  primaryDocumentType: 'NRIC' | 'PASSPORT' | 'EMPLOYMENT_PASS'
+  primaryDocumentRef: string // original filename
+  primaryDocumentBase64: string // base64-encoded file content
+  primaryDocumentMimeType: string // e.g. "image/jpeg"
+
+  // Proof of Address Document
+  addressDocumentType: 'UTILITY_BILL' | 'BANK_STATEMENT' | 'GOVERNMENT_LETTER' | 'TENANCY_AGREEMENT'
+  addressDocumentRef: string
+  addressDocumentBase64: string
+  addressDocumentMimeType: string
 }
 
 export interface VerifyClientResponse {
   clientId: string
   identityVerificationStatus: IdentityVerificationStatus
+}
+
+export type ReviewAction = 'approve' | 'reject'
+
+export interface ReviewVerificationRequest {
+  action: ReviewAction
 }
 
 export interface Account {
@@ -150,9 +177,16 @@ export interface AccountCreateRequest {
   branchId: string
 }
 
+export interface AccountUpdateRequest {
+  accountType?: AccountType
+  accountStatus?: AccountStatus
+  branchId?: string
+}
+
 // Transaction types (transaction-service)
 export type TransactionKind = 'D' | 'W'
 export type TransactionStatus = 'Completed' | 'Pending' | 'Failed'
+export type ImportBatchStatus = 'queued' | 'running' | 'completed' | 'failed'
 
 export interface Transaction {
   id: string
@@ -173,6 +207,32 @@ export interface CreateTransactionRequest {
   status: TransactionStatus
 }
 
+export interface UpdateTransactionRequest {
+  clientId?: string
+  transaction?: TransactionKind
+  amount?: number
+  date?: string
+  status?: TransactionStatus
+}
+
+export interface ImportTransactionsRequest {
+  clientId?: string
+  sourcePath?: string
+}
+
+export interface ImportBatch {
+  importBatchId: string
+  status: ImportBatchStatus
+  requestedClientId?: string | null
+  requestedAt: string
+  startedAt?: string | null
+  finishedAt?: string | null
+  totalRecords: number
+  importedRecords: number
+  failedRecords: number
+  errorMessage?: string | null
+}
+
 // Log types (log-service)
 export type LogAction = 'CREATE' | 'READ' | 'UPDATE' | 'DELETE' | 'COMMUNICATION'
 
@@ -182,7 +242,7 @@ export interface LogEntry {
   attributeName: string
   beforeValue?: string | null
   afterValue?: string | null
-  agentId: string
+  userId: string
   clientId: string
   dateTime: string
   correlationId?: string | null
@@ -193,7 +253,7 @@ export interface CreateLogRequest {
   attributeName: string
   beforeValue?: string | null
   afterValue?: string | null
-  agentId: string
+  userId: string
   clientId: string
   dateTime?: string
   correlationId?: string | null
@@ -205,7 +265,7 @@ export type CommunicationStatus = 'queued' | 'sent' | 'failed'
 export interface Communication {
   communicationId: string
   clientId: string
-  agentId: string
+  userId: string
   channel: CommunicationChannel
   toEmail: string
   subject: string
@@ -215,4 +275,44 @@ export interface Communication {
   errorMessage?: string | null
   createdAt: string
   updatedAt: string
+}
+
+export interface UpdateCommunicationStatusRequest {
+  status?: CommunicationStatus
+  providerMessageId?: string | null
+  errorMessage?: string | null
+  retryCount?: number | null
+  nextAttemptAt?: string | null
+  lastAttemptAt?: string | null
+  deliveryEvent?: string | null
+}
+
+// AML alert types (log-service AML endpoints)
+export type AmlAlertType = 'STATISTICAL_OUTLIER' | 'STRUCTURING' | 'PASSTHROUGH' | 'INCEPTION_SPIKE'
+export type AmlReviewStatus = 'Pending' | 'Confirmed' | 'Dismissed'
+
+export interface AmlAlert {
+  alertId: string
+  clientId: string
+  transactionId?: string | null
+  alertType: AmlAlertType
+  description: string
+  detectedAt: string
+  reviewStatus: AmlReviewStatus
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateAmlAlertRequest {
+  alertId: string
+  clientId: string
+  transactionId?: string | null
+  alertType: AmlAlertType
+  description: string
+  detectedAt: string
+  reviewStatus?: AmlReviewStatus
+}
+
+export interface UpdateAmlAlertReviewRequest {
+  reviewStatus: AmlReviewStatus
 }

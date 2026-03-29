@@ -50,3 +50,9 @@ variable "enable_multi_az_nat" {
   type        = bool
   default     = false
 }
+
+variable "enable_nat_gateway" {
+  description = "Enable NAT Gateway resources for private subnet internet egress. Disable for low-cost lab deployments that run ECS tasks in public subnets."
+  type        = bool
+  default     = true
+}

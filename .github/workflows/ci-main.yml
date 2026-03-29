@@ -1,7 +1,8 @@
 name: CI - Main Pipeline
 
 # Full pipeline for the main branch.
-# Runs: changes -> lint -> unit tests -> mocked e2e -> fullstack integration -> deploy (TBD).
+# Runs: changes -> lint -> component tests (unit + DB-backed) -> fullstack integration -> deploy (TBD).
+# Note: Performance tests (frontend latency + JMeter) are disabled in CI but available locally.
 #
 # Job DAG:
 #
@@ -10,14 +11,19 @@ name: CI - Main Pipeline
 #      v
 #    lint    (3-5 min, only scopes that changed)
 #      |
-#      +---> test-agent           \
-#      +---> test-client           |  parallel unit tests, each gated by its scope
-#      +---> test-transaction      |
-#      +---> test-log              |
+#      +---> test-user            \
+#      +---> test-user-db          |
+#      +---> test-client            |
+#      +---> test-client-db         |  parallel component checks, each gated by scope
+#      +---> test-transaction       |
+#      +---> test-transaction-db    |
+#      +---> test-log               |
+#      +---> test-log-db            |
+#      +---> test-verification     |
+#      +---> test-sftp-transaction-collector |
+#      +---> test-audit-consumer   |
+#      +---> test-aml-consumer     |
 #      +---> test-frontend        /
-#      |
-#      v
-#   e2e-frontend-mocked  (Playwright against vite preview + MSW mocks, ~10 min)
 #      |
 #      v
 #   fullstack-integration-e2e  (real Docker containers + LocalStack + HTTP smoke
@@ -30,9 +36,15 @@ on:
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   push:
     branches:
       - main
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   workflow_dispatch:
 
 concurrency:
@@ -41,6 +53,7 @@ concurrency:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   # ==========================================================================
@@ -55,13 +68,19 @@ jobs:
   lint:
     needs: changes
     uses: ./.github/workflows/reusable-lint.yml
+    secrets: inherit
     with:
       run-secrets: true
+      run-openapi: true
       run-backend-java: >-
         ${{ needs.changes.outputs.any-backend == 'true'
             || needs.changes.outputs.ci-config == 'true' }}
       run-backend-python: >-
         ${{ needs.changes.outputs.backend-log == 'true'
+            || needs.changes.outputs.backend-verification == 'true'
+            || needs.changes.outputs.backend-sftp-transaction-collector == 'true'
+            || needs.changes.outputs.backend-audit-consumer == 'true'
+            || needs.changes.outputs.backend-aml-consumer == 'true'
             || needs.changes.outputs.ci-config == 'true' }}
       run-frontend: >-
         ${{ needs.changes.outputs.frontend == 'true'
@@ -72,23 +91,42 @@ jobs:
 
   # ==========================================================================
   # Layer 2: Component tests  (parallel, each gated by its scope)
-  # All require lint to pass first.
+  # Includes fast unit tests and separate DB-backed Postgres gates for
+  # stateful services.
   # ==========================================================================
-  test-agent:
+  test-user:
     needs: [changes, lint]
     if: >-
-      ${{ needs.changes.outputs.backend-agent == 'true'
+      ${{ needs.changes.outputs.backend-user == 'true'
           || needs.changes.outputs.ci-config == 'true' }}
     uses: ./.github/workflows/reusable-test-component.yml
     with:
-      component: agent
+      component: user
       runtime: java
-      working-directory: services/backend/agent
+      working-directory: services/backend/user
       test-command: |
         chmod +x gradlew
-        ./gradlew test jacocoTestReport --no-daemon --console=plain
+        ./gradlew test jacocoTestReport jacocoTestCoverageVerification --no-daemon --console=plain
       timeout-minutes: 10
-      artifact-paths: services/backend/agent/build/reports/**
+      artifact-paths: services/backend/user/build/reports/**
+
+  test-user-db:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-user == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component-db.yml
+    with:
+      component: user
+      runtime: java
+      working-directory: services/backend/user
+      test-command: |
+        chmod +x gradlew
+        ./gradlew test \
+          --tests "com.scroogebank.crm.user_service.service.PersistentUserStoreTest" \
+          --no-daemon --console=plain
+      timeout-minutes: 12
+      artifact-paths: services/backend/user/build/reports/**
 
   test-client:
     needs: [changes, lint]
@@ -102,8 +140,27 @@ jobs:
       working-directory: services/backend/client
       test-command: |
         chmod +x gradlew
-        ./gradlew test jacocoTestReport --no-daemon --console=plain
+        ./gradlew test jacocoTestReport jacocoTestCoverageVerification --no-daemon --console=plain
       timeout-minutes: 12
+      artifact-paths: services/backend/client/build/reports/**
+
+  test-client-db:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-client == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component-db.yml
+    with:
+      component: client
+      runtime: java
+      working-directory: services/backend/client
+      test-command: |
+        chmod +x gradlew
+        ./gradlew test \
+          --tests "com.scroogebank.crm.client_service.ClientsServiceIT" \
+          -PincludeIntegration=true \
+          --no-daemon --console=plain
+      timeout-minutes: 15
       artifact-paths: services/backend/client/build/reports/**
 
   test-transaction:
@@ -118,8 +175,26 @@ jobs:
       working-directory: services/backend/transaction
       test-command: |
         chmod +x gradlew
-        ./gradlew test jacocoTestReport --no-daemon --console=plain
+        ./gradlew test jacocoTestReport jacocoTestCoverageVerification --no-daemon --console=plain
       timeout-minutes: 10
+      artifact-paths: services/backend/transaction/build/reports/**
+
+  test-transaction-db:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-transaction == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component-db.yml
+    with:
+      component: transaction
+      runtime: java
+      working-directory: services/backend/transaction
+      test-command: |
+        chmod +x gradlew
+        ./gradlew test \
+          --tests "com.scroogebank.crm.transaction_service.service.PersistentTransactionsStoreTest" \
+          --no-daemon --console=plain
+      timeout-minutes: 12
       artifact-paths: services/backend/transaction/build/reports/**
 
   test-log:
@@ -137,6 +212,7 @@ jobs:
           --junitxml=build/reports/tests/junit.xml \
           --cov=app \
           --cov-branch \
+          --cov-fail-under=80 \
           --cov-report=term-missing \
           --cov-report=xml:build/reports/coverage/coverage.xml \
           --cov-report=html:build/reports/coverage/html
@@ -144,6 +220,118 @@ jobs:
       artifact-paths: |
         services/backend/log/build/reports/**
         services/backend/log/build/coverage.xml
+
+  test-log-db:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-log == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component-db.yml
+    with:
+      component: log
+      runtime: python
+      working-directory: services/backend/log
+      test-command: |
+        RUN_DB_INTEGRATION_TESTS=true python -m pytest tests/test_repository_postgres_integration.py \
+          --junitxml=build/reports/tests/junit-postgres.xml
+      timeout-minutes: 10
+      artifact-paths: services/backend/log/build/reports/**
+
+  test-sftp-transaction-collector:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-sftp-transaction-collector == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component.yml
+    with:
+      component: sftp-transaction-collector
+      runtime: python
+      working-directory: services/backend/sftp-transaction-collector
+      test-command: |
+        python -m pytest tests \
+          --junitxml=build/reports/tests/junit.xml \
+          --cov=lambda_function \
+          --cov-branch \
+          --cov-fail-under=80 \
+          --cov-report=term-missing \
+          --cov-report=xml:build/reports/coverage/coverage.xml \
+          --cov-report=html:build/reports/coverage/html
+      timeout-minutes: 8
+      artifact-paths: |
+        services/backend/sftp-transaction-collector/build/reports/**
+        services/backend/sftp-transaction-collector/build/coverage.xml
+
+  test-verification:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-verification == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component.yml
+    with:
+      component: verification
+      runtime: python
+      working-directory: services/backend/verification
+      test-command: |
+        python -m pytest tests \
+          --junitxml=build/reports/tests/junit.xml \
+          --cov=lambda_function \
+          --cov-branch \
+          --cov-fail-under=80 \
+          --cov-report=term-missing \
+          --cov-report=xml:build/reports/coverage/coverage.xml \
+          --cov-report=html:build/reports/coverage/html
+      timeout-minutes: 8
+      artifact-paths: |
+        services/backend/verification/build/reports/**
+        services/backend/verification/build/coverage.xml
+
+  test-audit-consumer:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-audit-consumer == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component.yml
+    with:
+      component: audit-consumer
+      runtime: python
+      working-directory: services/backend/audit-consumer
+      test-command: |
+        python -m pytest tests \
+          --junitxml=build/reports/tests/junit.xml \
+          --cov=lambda_function \
+          --cov-branch \
+          --cov-fail-under=80 \
+          --cov-report=term-missing \
+          --cov-report=xml:build/reports/coverage/coverage.xml \
+          --cov-report=html:build/reports/coverage/html
+      timeout-minutes: 8
+      artifact-paths: |
+        services/backend/audit-consumer/build/reports/**
+        services/backend/audit-consumer/build/reports/coverage/coverage.xml
+
+  test-aml-consumer:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-aml-consumer == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component.yml
+    with:
+      component: aml-consumer
+      runtime: python
+      working-directory: services/backend/aml-consumer
+      test-command: |
+        python -m pytest tests \
+          --junitxml=build/reports/tests/junit.xml \
+          --cov=lambda_function \
+          --cov-branch \
+          --cov-fail-under=80 \
+          --cov-report=term-missing \
+          --cov-report=xml:build/reports/coverage/coverage.xml \
+          --cov-report=html:build/reports/coverage/html
+      timeout-minutes: 8
+      artifact-paths: |
+        services/backend/aml-consumer/build/reports/**
+        services/backend/aml-consumer/build/reports/coverage/coverage.xml
 
   test-frontend:
     needs: [changes, lint]
@@ -160,77 +348,91 @@ jobs:
       artifact-paths: services/frontend/crm-ui/coverage/**
 
   # ==========================================================================
-  # Layer 3: Frontend E2E — mocked
-  # Runs after all unit tests. Uses Playwright against a local vite preview
-  # build with MSW-mocked API routes (no backend infra). Provides fast UI
-  # feedback before committing to the expensive fullstack build.
-  # Excludes e2e/integration/ (those run in Layer 4 against real containers).
+  # Layer 3: Frontend Latency Tests — DISABLED
+  # Performance tests are kept in the repo but NOT run in CI
+  # To run locally: cd services/frontend/crm-ui && npm run test:e2e:latency
   # ==========================================================================
-  e2e-frontend-mocked:
-    name: E2E Tests - Frontend (Mocked)
-    if: ${{ !failure() && !cancelled() }}
-    needs:
-      - changes
-      - lint
-      - test-agent
-      - test-client
-      - test-transaction
-      - test-log
-      - test-frontend
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: services/frontend/crm-ui
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        timeout-minutes: 2
-
-      - name: Set up Node.js 20
-        uses: actions/setup-node@v4
-        timeout-minutes: 2
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: services/frontend/crm-ui/package-lock.json
-
-      - name: Install dependencies
-        timeout-minutes: 3
-        run: npm ci
-
-      - name: Install Playwright browsers
-        timeout-minutes: 5
-        run: npx playwright install --with-deps chromium
-
-      - name: Run mocked E2E tests
-        timeout-minutes: 10
-        run: npm run e2e:mocked
-
-      - name: Upload test results on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-results-mocked-main
-          path: |
-            services/frontend/crm-ui/test-results/
-            services/frontend/crm-ui/playwright-report/
-          retention-days: 7
+  # frontend-latency-tests:
+  #   name: Frontend Latency Tests (CS301 <5s)
+  #   if: ${{ !failure() && !cancelled() }}
+  #   needs:
+  #     - changes
+  #     - lint
+  #     - test-user
+  #     - test-user-db
+  #     - test-client
+  #     - test-client-db
+  #     - test-transaction
+  #     - test-transaction-db
+  #     - test-log
+  #     - test-log-db
+  #     - test-verification
+  #     - test-sftp-transaction-collector
+  #     - test-audit-consumer
+  #     - test-aml-consumer
+  #     - test-frontend
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 15
+  #   defaults:
+  #     run:
+  #       working-directory: services/frontend/crm-ui
+  #
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #       timeout-minutes: 2
+  #
+  #     - name: Set up Node.js 20
+  #       uses: actions/setup-node@v4
+  #       timeout-minutes: 2
+  #       with:
+  #         node-version: '20'
+  #         cache: 'npm'
+  #         cache-dependency-path: services/frontend/crm-ui/package-lock.json
+  #
+  #     - name: Install dependencies
+  #       timeout-minutes: 3
+  #       run: npm ci
+  #
+  #     - name: Install Playwright browsers
+  #       timeout-minutes: 5
+  #       run: npx playwright install --with-deps chromium
+  #
+  #     - name: Run frontend latency tests
+  #       timeout-minutes: 10
+  #       run: npm run test:e2e:latency
+  #
+  #     - name: Upload test results on failure
+  #       if: failure()
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: playwright-results-latency-main
+  #         path: |
+  #           services/frontend/crm-ui/test-results/
+  #           services/frontend/crm-ui/playwright-report/
+  #         retention-days: 7
 
   # ==========================================================================
   # Layer 4: Fullstack integration — real containers + LocalStack
   # Builds all service Docker images, starts LocalStack + PostgreSQL,
   # provisions all AWS resources via the init script, runs cross-service HTTP
-  # smoke assertions, then runs real Playwright E2E against the live stack.
-  # This is the production-closest test gate before deploy.
+  # smoke assertions, and runs Playwright E2E (critical subset on PRs, full on pushes).
+  # PRs run pr mode (smoke + critical Playwright subset); pushes keep full mode.
   # ==========================================================================
   fullstack-integration-e2e:
-    if: ${{ !failure() && !cancelled() }}
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          (needs.changes.outputs.any-service == 'true' ||
+           needs.changes.outputs.integration-tests == 'true' ||
+           needs.changes.outputs.scripts == 'true' ||
+           needs.changes.outputs.platform == 'true' ||
+           needs.changes.outputs.ci-config == 'true') }}
     needs:
       - changes
-      - e2e-frontend-mocked
+      # - frontend-latency-tests  # DISABLED: performance tests not run in CI
     uses: ./.github/workflows/reusable-fullstack-integration.yml
+    with:
+      fullstack-mode: ${{ github.event_name == 'pull_request' && 'pr' || 'full' }}
 
   # ==========================================================================
   # Layer 5: Deploy  (not yet implemented — placeholder)

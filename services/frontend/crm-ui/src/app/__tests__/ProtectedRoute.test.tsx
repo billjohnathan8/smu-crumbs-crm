@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { ProtectedRoute } from '../ProtectedRoute'
 import type { User, UserRole } from '@/api/types'
@@ -89,7 +90,7 @@ describe('ProtectedRoute', () => {
       firstName: 'John',
       lastName: 'Doe',
       email: 'john@example.com',
-      role: 'agent',
+      role: 'user',
       status: 'active',
     }
 
@@ -108,13 +109,40 @@ describe('ProtectedRoute', () => {
     expect(screen.getByText("You don't have permission to access this page.")).toBeInTheDocument()
   })
 
+  it('should call history.back when clicking Go Back on access denied page', async () => {
+    const user = userEvent.setup()
+    const mockUser: User = {
+      id: '1',
+      firstName: 'John',
+      lastName: 'Doe',
+      email: 'john@example.com',
+      role: 'user',
+      status: 'active',
+    }
+    const backSpy = vi.spyOn(window.history, 'back').mockImplementation(() => {})
+
+    mockUseAuth.mockReturnValue({
+      user: mockUser,
+      isAuthenticated: true,
+      isLoading: false,
+      login: vi.fn(),
+      logout: vi.fn(),
+    })
+
+    window.history.pushState({}, '', '/protected')
+    renderProtectedRoute(['admin'])
+    await user.click(screen.getByRole('button', { name: 'Go Back' }))
+
+    expect(backSpy).toHaveBeenCalledTimes(1)
+  })
+
   it('should allow access when no role restrictions are specified', () => {
     const mockUser: User = {
       id: '1',
       firstName: 'John',
       lastName: 'Doe',
       email: 'john@example.com',
-      role: 'agent',
+      role: 'user',
       status: 'active',
     }
 
@@ -138,7 +166,7 @@ describe('ProtectedRoute', () => {
       firstName: 'John',
       lastName: 'Doe',
       email: 'john@example.com',
-      role: 'agent',
+      role: 'user',
       status: 'active',
     }
 
@@ -151,7 +179,7 @@ describe('ProtectedRoute', () => {
     })
 
     window.history.pushState({}, '', '/protected')
-    renderProtectedRoute(['admin', 'agent'])
+    renderProtectedRoute(['admin', 'user'])
 
     expect(screen.getByText('Protected Content')).toBeInTheDocument()
   })

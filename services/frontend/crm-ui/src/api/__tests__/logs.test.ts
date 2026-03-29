@@ -36,15 +36,15 @@ describe('logs API', () => {
       expect(client.apiGet).toHaveBeenCalledWith('/api/logs?limit=50&offset=100')
     })
 
-    it('should filter logs by agentId', async () => {
+    it('should filter logs by userId', async () => {
       vi.spyOn(client, 'apiGet').mockResolvedValue({
         data: [],
         pagination: { total: 0, limit: 10, offset: 0 },
       })
 
-      await listLogs({ agentId: 'agent-123' })
+      await listLogs({ userId: 'user-123' })
 
-      expect(client.apiGet).toHaveBeenCalledWith('/api/logs?agentId=agent-123')
+      expect(client.apiGet).toHaveBeenCalledWith('/api/logs?userId=user-123')
     })
 
     it('should filter logs by clientId', async () => {
@@ -78,7 +78,7 @@ describe('logs API', () => {
       await listLogs({
         limit: 25,
         offset: 50,
-        agentId: 'agent-123',
+        userId: 'user-123',
         clientId: 'client-456',
         action: 'UPDATE',
       })
@@ -87,7 +87,7 @@ describe('logs API', () => {
       expect(callArg).toContain('/api/logs?')
       expect(callArg).toContain('limit=25')
       expect(callArg).toContain('offset=50')
-      expect(callArg).toContain('agentId=agent-123')
+      expect(callArg).toContain('userId=user-123')
       expect(callArg).toContain('clientId=client-456')
       expect(callArg).toContain('action=UPDATE')
     })
@@ -97,7 +97,7 @@ describe('logs API', () => {
     it('should get log by ID', async () => {
       const mockLog: LogEntry = {
         logId: 'log-123',
-        agentId: 'agent-456',
+        userId: 'user-456',
         clientId: 'client-789',
         action: 'UPDATE',
         attributeName: 'phoneNumber',
@@ -118,7 +118,7 @@ describe('logs API', () => {
   describe('createLog', () => {
     it('should create log entry', async () => {
       const createRequest: CreateLogRequest = {
-        agentId: 'agent-123',
+        userId: 'user-123',
         clientId: 'client-456',
         action: 'CREATE',
         attributeName: 'email',
@@ -127,7 +127,7 @@ describe('logs API', () => {
 
       const mockLog: LogEntry = {
         logId: 'log-new',
-        agentId: 'agent-123',
+        userId: 'user-123',
         clientId: 'client-456',
         action: 'CREATE',
         attributeName: 'email',

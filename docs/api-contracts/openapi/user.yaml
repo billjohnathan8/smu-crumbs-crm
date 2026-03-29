@@ -1,0 +1,809 @@
+openapi: 3.0.3
+info:
+  title: user
+  version: 0.3.1
+  description: 'Feature 1: CRM User Management.
+
+    Manages Admin/User accounts and supports authentication flows for the frontend.
+
+    NOTE: In production, authentication is typically delegated to an OAuth2 IdP (e.g.,
+    Cognito).'
+servers:
+- url: http://localhost
+  description: Local / ingress base URL.
+tags:
+- name: health
+- name: users
+- name: auth
+- name: test-tools
+paths:
+  /health:
+    get:
+      tags:
+      - health
+      summary: Health check
+      responses:
+        '200':
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: user
+                required:
+                - status
+                - service
+  /api/v1/health:
+    get:
+      deprecated: true
+      tags:
+      - health
+      summary: (Deprecated) Health check
+      responses:
+        '200':
+          description: OK
+  /api/v1/users/health:
+    get:
+      deprecated: true
+      tags:
+      - health
+      summary: (Deprecated) Users route health check
+      responses:
+        '200':
+          description: OK
+  /api/users:
+    get:
+      tags:
+      - users
+      summary: List users
+      description: Root admin can list all users. Non-root admins must pass `role=user` to list agent accounts.
+      security:
+      - BearerAuth: []
+      x-required-roles:
+      - admin
+      - super_admin
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+      - name: offset
+        in: query
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      - name: role
+        in: query
+        schema:
+          $ref: '#/components/schemas/UserRole'
+      responses:
+        '200':
+          description: List of users.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+                required:
+                - data
+        '400':
+          description: Validation error (for example invalid query params).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden (for example admin requesting full list without `role=user`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+      - users
+      summary: Create user
+      description: Admin/super-admin only. Creates an admin or regular user.
+      security:
+      - BearerAuth: []
+      x-required-roles:
+      - admin
+      - super_admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict (e.g., email already exists).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/users/me:
+    get:
+      tags:
+      - users
+      summary: Get current user profile
+      security:
+      - BearerAuth: []
+      x-required-roles:
+      - admin
+      - user
+      - super_admin
+      responses:
+        '200':
+          description: Current user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/users/{userId}:
+    get:
+      tags:
+      - users
+      summary: Get user by ID
+      security:
+      - BearerAuth: []
+      x-required-roles:
+      - admin
+      - super_admin
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/UserId'
+      responses:
+        '200':
+          description: User found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Validation error (for example invalid userId).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+      - users
+      summary: Update user
+      description: User update endpoint. Root admin can update admin accounts except the root admin record itself. Users can only update themselves.
+      security:
+      - BearerAuth: []
+      x-required-roles:
+      - admin
+      - user
+      - super_admin
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: User updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict (e.g., email already exists).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+      - users
+      summary: Delete user
+      description: Admin/super-admin only. Deletes a user. Root administrator (`usr_1`) cannot be deleted.
+      security:
+      - BearerAuth: []
+      x-required-roles:
+      - admin
+      - super_admin
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/UserId'
+      responses:
+        '204':
+          description: User deleted.
+        '400':
+          description: Validation error (for example invalid userId).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden (e.g., root admin).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/users/{userId}/disable:
+    post:
+      tags:
+      - users
+      summary: Disable user
+      description: Admin/super-admin only. Disables an account (user can no longer log in). Root administrator (`usr_1`) cannot be disabled.
+      security:
+      - BearerAuth: []
+      x-required-roles:
+      - admin
+      - super_admin
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/UserId'
+      responses:
+        '200':
+          description: User disabled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Validation error (for example invalid userId).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/users/{userId}/reset-password:
+    post:
+      tags:
+      - users
+      summary: Reset password
+      description: Admin/super-admin only. Triggers a password reset and revokes active refresh tokens. Root administrator (`usr_1`) cannot be reset through this endpoint.
+      security:
+      - BearerAuth: []
+      x-required-roles:
+      - admin
+      - super_admin
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/UserId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '202':
+          description: Reset initiated.
+        '400':
+          description: Validation error (for example invalid userId or malformed body).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/auth/login:
+    post:
+      tags:
+      - auth
+      summary: Authenticate user
+      description: Authenticates a user and returns an OAuth2 access token (and optional
+        refresh token).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/auth/refresh:
+    post:
+      tags:
+      - auth
+      summary: Refresh access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Token refreshed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid refresh token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/auth/forgot-password:
+    post:
+      tags:
+      - auth
+      summary: Start forgot-password flow
+      description: Always returns 200 to avoid leaking whether the email exists.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '200':
+          description: Password reset request accepted.
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/auth/reset-password:
+    post:
+      tags:
+      - auth
+      summary: Complete forgot-password flow
+      description: Resets password using a valid reset token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerformResetPasswordRequest'
+      responses:
+        '200':
+          description: Password reset completed.
+        '400':
+          description: Validation error (including invalid/expired token or mismatched passwords).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/test/password-reset/latest-token:
+    get:
+      tags:
+      - test-tools
+      summary: Get latest reset token (test/local only)
+      description: |
+        Test helper endpoint used by local/test E2E flows.
+        Enabled only when the active Spring profile includes `local` or `test`.
+      parameters:
+      - name: email
+        in: query
+        required: true
+        schema:
+          type: string
+          format: email
+      responses:
+        '200':
+          description: Latest reset token for the email.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetTokenLookupResponse'
+        '403':
+          description: Endpoint disabled outside local/test profiles.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No reset token available for the email.
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Bearer JWT access token minted via an OAuth 2.0 provider (e.g.,
+        Cognito). Each request must be authenticated and authorized (Zero Trust).
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: validation_error
+        message:
+          type: string
+          example: Email is required
+        requestId:
+          type: string
+          example: 7f1d2c3b-0c44-4ce9-a7ed-4c0c0c8edc1d
+      required:
+      - error
+      - message
+    Pagination:
+      type: object
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+        offset:
+          type: integer
+          minimum: 0
+          default: 0
+        total:
+          type: integer
+          minimum: 0
+    UserId:
+      type: string
+      description: Unique user id
+      example: usr_42
+    UserRole:
+      type: string
+      enum:
+      - admin
+      - user
+      - super_admin
+      description: |
+        User role on the API wire.
+        `user` is the non-admin CRM role (equivalent to "agent" in requirement wording).
+        `super_admin` is a legacy role alias still accepted in some JWT flows.
+    UserStatus:
+      type: string
+      enum:
+      - active
+      - disabled
+      default: active
+    User:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/UserId'
+        firstName:
+          type: string
+          minLength: 2
+          maxLength: 50
+          example: JANE
+        lastName:
+          type: string
+          minLength: 2
+          maxLength: 50
+          example: TAN
+        email:
+          type: string
+          format: email
+          example: jane.tan@bank.example
+        role:
+          $ref: '#/components/schemas/UserRole'
+        status:
+          $ref: '#/components/schemas/UserStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - firstName
+      - lastName
+      - email
+      - role
+      - status
+    CreateUserRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        firstName:
+          type: string
+          minLength: 2
+          maxLength: 50
+        lastName:
+          type: string
+          minLength: 2
+          maxLength: 50
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/UserRole'
+        sendInviteEmail:
+          type: boolean
+          default: true
+          description: If true, system sends an invitation/reset link to the user.
+        temporaryPassword:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: Optional temporary password (only for controlled environments).
+      required:
+      - firstName
+      - lastName
+      - email
+      - role
+    UpdateUserRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+          minLength: 2
+          maxLength: 50
+        lastName:
+          type: string
+          minLength: 2
+          maxLength: 50
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/UserRole'
+      additionalProperties: false
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+      required:
+      - email
+      - password
+    TokenResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: JWT access token
+        refreshToken:
+          type: string
+          description: Refresh token (if enabled)
+        expiresIn:
+          type: integer
+          description: Seconds until access token expiry
+          example: 3600
+        tokenType:
+          type: string
+          example: Bearer
+      required:
+      - accessToken
+      - expiresIn
+      - tokenType
+    RefreshRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        refreshToken:
+          type: string
+      required:
+      - refreshToken
+    ForgotPasswordRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+      required:
+      - email
+    PerformResetPasswordRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        token:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+          maxLength: 128
+        confirmPassword:
+          type: string
+      required:
+      - token
+      - newPassword
+      - confirmPassword
+    ResetPasswordRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+          description: Optional email payload on admin-triggered reset endpoint.
+      required:
+      - email
+    PasswordResetTokenLookupResponse:
+      type: object
+      properties:
+        token:
+          type: string
+      required:
+      - token
+  responses: {}

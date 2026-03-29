@@ -1,0 +1,57 @@
+name: CI - SFTP Transaction Collector Backend
+
+# Component pipeline for the sftp-transaction-collector backend.
+# Runs Python Black + Flake8 lint + pytest with coverage.
+
+on:
+  pull_request:
+    branches:
+      - sftp-transaction-collector-backend
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+  push:
+    branches:
+      - sftp-transaction-collector-backend
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+  workflow_dispatch:
+  workflow_call:
+
+concurrency:
+  group: ci-sftp-transaction-collector-backend-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  lint:
+    uses: ./.github/workflows/reusable-lint.yml
+    with:
+      run-backend-java: false
+      run-backend-python: true
+      run-frontend: false
+
+  test:
+    needs: lint
+    uses: ./.github/workflows/reusable-test-component.yml
+    with:
+      component: sftp-transaction-collector
+      runtime: python
+      working-directory: services/backend/sftp-transaction-collector
+      test-command: |
+        python -m pytest tests \
+          --junitxml=build/reports/tests/junit.xml \
+          --cov=lambda_function \
+          --cov-branch \
+          --cov-fail-under=80 \
+          --cov-report=term-missing \
+          --cov-report=xml:build/reports/coverage/coverage.xml \
+          --cov-report=html:build/reports/coverage/html
+      timeout-minutes: 8
+      artifact-paths: |
+        services/backend/sftp-transaction-collector/build/reports/**
+        services/backend/sftp-transaction-collector/build/coverage.xml

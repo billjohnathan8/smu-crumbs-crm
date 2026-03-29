@@ -1,10 +1,13 @@
-import { apiGet, apiPost, apiDelete } from './client'
+import { apiGet, apiPost, apiPut, apiDelete } from './client'
 import type {
   Transaction,
   CreateTransactionRequest,
+  UpdateTransactionRequest,
   PaginatedResponse,
   TransactionStatus,
   TransactionKind,
+  ImportBatch,
+  ImportTransactionsRequest,
 } from './types'
 
 const BASE = '/api/transactions'
@@ -20,7 +23,7 @@ export interface ListTransactionsParams {
 }
 
 /**
- * List transactions (agents see only their clients' transactions, admins see all)
+ * List transactions (users see only their clients' transactions, admins see all)
  */
 export async function listTransactions(
   params?: ListTransactionsParams
@@ -53,6 +56,16 @@ export async function createTransaction(data: CreateTransactionRequest): Promise
 }
 
 /**
+ * Update transaction (admin only)
+ */
+export async function updateTransaction(
+  transactionId: string,
+  data: UpdateTransactionRequest
+): Promise<Transaction> {
+  return apiPut<Transaction, UpdateTransactionRequest>(`${BASE}/${transactionId}`, data)
+}
+
+/**
  * Delete transaction (admin only)
  */
 export async function deleteTransaction(transactionId: string): Promise<void> {
@@ -74,4 +87,23 @@ export async function listClientTransactions(
     ? `/api/clients/${clientId}/transactions?${query.toString()}`
     : `/api/clients/${clientId}/transactions`
   return apiGet<PaginatedResponse<Transaction>>(endpoint)
+}
+
+/**
+ * Trigger a transaction import and return the created batch.
+ */
+export async function startTransactionImport(
+  data?: ImportTransactionsRequest
+): Promise<ImportBatch> {
+  const payload = data && (data.clientId || data.sourcePath) ? data : undefined
+  return apiPost<ImportBatch, ImportTransactionsRequest | undefined>(`${BASE}/import`, payload, {
+    timeout: 15_000,
+  })
+}
+
+/**
+ * Get the latest status for a transaction import batch.
+ */
+export async function getTransactionImportBatch(importBatchId: string): Promise<ImportBatch> {
+  return apiGet<ImportBatch>(`${BASE}/imports/${importBatchId}`)
 }

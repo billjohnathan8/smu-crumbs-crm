@@ -7,6 +7,9 @@ README.md
 .env
 .env.local
 .env.*.local
+.env.production
+.env.development
+.env.staging
 coverage
 .vscode
 .idea

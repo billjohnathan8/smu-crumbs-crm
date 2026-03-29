@@ -17,8 +17,8 @@ The branch also adds local CI scripts that discover backend services by runtime 
 - **After (HEAD):**
   - `scripts/build-and-test-backend/build-and-test-backend.sh` - discovers services and selects `gradle` vs `python` workflows.
   - `scripts/build-and-test-backend/build-and-test-backend.ps1` - implements equivalent runtime-aware workflow on Windows.
-  - `services/backend/client-service/gradlew` - proves Gradle-based backend runtime.
-  - `services/backend/log-service/requirements.txt` - proves Python-based backend runtime.
+  - `services/backend/client/gradlew` - proves Gradle-based backend runtime.
+  - `services/backend/log/requirements.txt` - proves Python-based backend runtime.
   - `README.md` - documents local CI entry points for this unified script model.
 
 ## Decision
@@ -44,7 +44,7 @@ Treat `services/backend` as the backend service root and run local CI through ru
 - Runtime parity across OS/shell environments can still drift.
 
 ### Mitigations
-- Document required service conventions (runtime files, Dockerfile, tests).
+- Document required service conventions (runtime files, optional Dockerfile, tests).
 - Keep Linux and Windows script logic aligned and review together.
 - Fail fast with explicit errors when service detection or prerequisites are missing.
 
@@ -63,15 +63,15 @@ The runtime-discovery concept remains architecturally valid, but implementation 
 - Single source of truth for backend testing logic
 - Cross-platform support without dual maintenance
 
-See [Pipeline Migration Guide](../migration/pipeline-migration.md) for complete details.
+See `scripts/pipelines/` and `../testing/TESTING-GUIDE.md` for current usage details.
 
 **Historical Context:** This ADR documents the original decision to adopt runtime
 discovery for polyglot backends. The decision remains architecturally sound; only
-the implementation technology changed (PowerShell/Bash → Python).
+the implementation technology changed (PowerShell/Bash -> Python).
 
 ## Implementation Notes
 - Service onboarding checklist:
   - Place service under `services/backend/<service-name>`.
   - Include either Gradle wrapper or Python requirements/tests as detection signals.
-  - Include a Dockerfile and a reachable health endpoint.
-- Keep `.gitignore` rules aligned with local CI artifacts (`.gradle-user-home`, Python virtual envs, caches).
+  - Include a reachable health endpoint; Dockerfile is optional for Lambda-only services.
+- Keep `.gitignore` rules aligned with local CI artifacts (service-local `.gradle-local`, Python virtual envs, caches).

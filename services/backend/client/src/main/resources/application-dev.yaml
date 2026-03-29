@@ -1,0 +1,11 @@
+spring:
+  datasource:
+    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:devpassword}}
+
+app:
+  verification-email:
+    provider: ${VERIFICATION_EMAIL_PROVIDER:mock}
+    dispatch:
+      enabled: ${VERIFICATION_EMAIL_DISPATCH_ENABLED:false}
+  jwt:
+    hmac-secret: ${JWT_HMAC_SECRET:dev-only-insecure-secret}

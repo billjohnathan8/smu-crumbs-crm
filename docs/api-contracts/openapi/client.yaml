@@ -1,10 +1,12 @@
 openapi: 3.0.3
 info:
   title: client
-  version: 0.2.0
+  version: 0.3.1
   description: 'Feature 2: Client Profile Management and Account Management.
 
-    Agents can only access their own clients; admins can access all clients.'
+    Users can only access their own clients; admins can access all clients.
+
+    Audit events are published to the log API contract, which is Lambda-backed in local/CI and deployed infrastructure.'
 servers:
 - url: http://localhost
   description: Local / ingress base URL.
@@ -44,12 +46,12 @@ paths:
     get:
       tags: [clients]
       summary: List clients
-      description: Admins see all clients. Agents see only clients assigned to them.
+      description: Admins see all clients. Users see only clients assigned to them.
       security: [{BearerAuth: []}]
-      x-required-roles: [admin, agent]
+      x-required-roles: [admin, user]
       parameters:
-      - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
-      - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}}
+      - {name: limit, in: query, description: Requested page size. Values outside 1..200 are clamped by the service., schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+      - {name: offset, in: query, description: Requested start offset. Negative values are clamped to 0 by the service., schema: {type: integer, minimum: 0, default: 0}}
       - {name: q, in: query, schema: {type: string, description: Optional search query (name/email/phone).}}
       responses:
         '200':
@@ -64,6 +66,9 @@ paths:
                     items: {$ref: '#/components/schemas/Client'}
                   pagination: {$ref: '#/components/schemas/Pagination'}
                 required: [data]
+        '400':
+          description: Validation error (for example malformed query parameter types).
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
         '401':
           description: Unauthorized
           content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
@@ -75,7 +80,7 @@ paths:
       summary: Create client profile
       description: Creates a client profile. A log entry must be recorded (Feature 3).
       security: [{BearerAuth: []}]
-      x-required-roles: [agent, admin]
+      x-required-roles: [user, admin]
       requestBody:
         required: true
         content:
@@ -91,6 +96,9 @@ paths:
         '409':
           description: Conflict (e.g., email/phone already exists).
           content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+        '503':
+          description: Verification email dispatch unavailable; client is not created.
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
         '401':
           description: Unauthorized
           content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
@@ -103,11 +111,12 @@ paths:
       summary: Get client profile
       description: Retrieves client information. A log entry should be recorded (Feature 3).
       security: [{BearerAuth: []}]
-      x-required-roles: [agent, admin]
+      x-required-roles: [user, admin]
       parameters:
       - {name: clientId, in: path, required: true, schema: {$ref: '#/components/schemas/ClientId'}}
       responses:
         '200': {description: Client found., content: {application/json: {schema: {$ref: '#/components/schemas/Client'}}}}
+        '400': {description: Validation error (for example invalid clientId format)., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
@@ -116,7 +125,7 @@ paths:
       summary: Update client information
       description: Updates client information. A log entry must be recorded (Feature 3).
       security: [{BearerAuth: []}]
-      x-required-roles: [agent, admin]
+      x-required-roles: [user, admin]
       parameters:
       - {name: clientId, in: path, required: true, schema: {$ref: '#/components/schemas/ClientId'}}
       requestBody:
@@ -128,7 +137,7 @@ paths:
         '200': {description: Client updated., content: {application/json: {schema: {$ref: '#/components/schemas/Client'}}}}
         '400': {description: Validation error., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
-        '409': {description: Conflict (e.g., email/phone already exists)., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '409': {description: 'Conflict (e.g., email/phone already exists).', content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
     delete:
@@ -136,41 +145,60 @@ paths:
       summary: Delete client profile
       description: Deletes a client profile. A log entry must be recorded (Feature 3).
       security: [{BearerAuth: []}]
-      x-required-roles: [agent, admin]
+      x-required-roles: [user, admin]
       parameters:
       - {name: clientId, in: path, required: true, schema: {$ref: '#/components/schemas/ClientId'}}
       responses:
         '204': {description: Client deleted.}
+        '400': {description: Validation error (for example invalid clientId format)., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
-  /api/clients/{clientId}/verify:
+  /api/clients/{clientId}/upload-verify:
     post:
       tags: [clients]
-      summary: Verify client identity
-      description: Updates client's identity verification status based on provided NRIC/document reference.
-      security: [{BearerAuth: []}]
-      x-required-roles: [agent, admin]
+      summary: Upload verification documents
+      description: Public tokenized upload endpoint. Valid upload sets status to `pending` for admin review.
       parameters:
       - {name: clientId, in: path, required: true, schema: {$ref: '#/components/schemas/ClientId'}}
       requestBody:
         required: true
         content:
           application/json:
-            schema: {$ref: '#/components/schemas/VerifyClientRequest'}
+            schema: {$ref: '#/components/schemas/UploadVerificationDocsRequest'}
       responses:
         '200': {description: Verification status updated., content: {application/json: {schema: {$ref: '#/components/schemas/VerifyClientResponse'}}}}
         '400': {description: Validation error., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
-        '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  /api/clients/{clientId}/verify/review:
+    patch:
+      tags: [clients]
+      summary: Review pending verification
+      description: Admin-only review action for a pending verification (`approve` or `reject`).
+      security: [{BearerAuth: []}]
+      x-required-roles: [admin]
+      parameters:
+      - {name: clientId, in: path, required: true, schema: {$ref: '#/components/schemas/ClientId'}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ReviewVerificationRequest'}
+      responses:
+        '200': {description: Verification review applied., content: {application/json: {schema: {$ref: '#/components/schemas/VerifyClientResponse'}}}}
+        '400': {description: Validation error., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '403': {description: Forbidden (caller is not admin)., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '409': {description: Conflict (verification is not pending)., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
   /api/accounts:
     post:
       tags: [accounts]
       summary: Create account
       description: Creates an account for a client. A log entry must be recorded (Feature 3).
       security: [{BearerAuth: []}]
-      x-required-roles: [agent, admin]
+      x-required-roles: [user, admin]
       requestBody:
         required: true
         content:
@@ -187,11 +215,12 @@ paths:
       tags: [accounts]
       summary: Get account by ID
       security: [{BearerAuth: []}]
-      x-required-roles: [agent, admin]
+      x-required-roles: [user, admin]
       parameters:
       - {name: accountId, in: path, required: true, schema: {$ref: '#/components/schemas/AccountId'}}
       responses:
         '200': {description: Account found., content: {application/json: {schema: {$ref: '#/components/schemas/Account'}}}}
+        '400': {description: Validation error (for example invalid accountId format)., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
@@ -200,7 +229,7 @@ paths:
       summary: Update account
       description: Updates account type, status, or branch. Only changed fields are applied. A log entry must be recorded (Feature 3).
       security: [{BearerAuth: []}]
-      x-required-roles: [agent, admin]
+      x-required-roles: [user, admin]
       parameters:
       - {name: accountId, in: path, required: true, schema: {$ref: '#/components/schemas/AccountId'}}
       requestBody:
@@ -219,11 +248,12 @@ paths:
       summary: Delete account
       description: Deletes an account. A log entry must be recorded (Feature 3).
       security: [{BearerAuth: []}]
-      x-required-roles: [agent, admin]
+      x-required-roles: [user, admin]
       parameters:
       - {name: accountId, in: path, required: true, schema: {$ref: '#/components/schemas/AccountId'}}
       responses:
         '204': {description: Account deleted.}
+        '400': {description: Validation error (for example invalid accountId format)., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
@@ -232,11 +262,11 @@ paths:
       tags: [accounts]
       summary: List accounts for a client
       security: [{BearerAuth: []}]
-      x-required-roles: [agent, admin]
+      x-required-roles: [user, admin]
       parameters:
       - {name: clientId, in: path, required: true, schema: {$ref: '#/components/schemas/ClientId'}}
-      - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
-      - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}}
+      - {name: limit, in: query, description: Requested page size. Values outside 1..200 are clamped by the service., schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+      - {name: offset, in: query, description: Requested start offset. Negative values are clamped to 0 by the service., schema: {type: integer, minimum: 0, default: 0}}
       responses:
         '200':
           description: Accounts for client.
@@ -250,6 +280,7 @@ paths:
                     items: {$ref: '#/components/schemas/Account'}
                   pagination: {$ref: '#/components/schemas/Pagination'}
                 required: [data]
+        '400': {description: Validation error (for example invalid clientId or malformed query parameters)., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '404': {description: Client not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
@@ -278,11 +309,11 @@ components:
     ClientId:
       type: string
       description: System-generated unique, non-editable client identifier.
-      example: clt_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+      example: clt_42
     AccountId:
       type: string
       description: System-generated account identifier.
-      example: acc_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+      example: acc_42
     Gender:
       type: string
       enum: [Male, Female, Non-binary, Prefer not to say]
@@ -312,10 +343,36 @@ components:
         country: {type: string, minLength: 2, maxLength: 50, example: Singapore}
         postalCode: {type: string, minLength: 4, maxLength: 10}
         identityVerificationStatus: {$ref: '#/components/schemas/IdentityVerificationStatus'}
-        assignedAgentId:
+        assignedUserId:
           type: string
-          description: Agent user id responsible for this client. Set by system from token; agents see only their own clients.
+          description: User ID of the user responsible for this client. Set by system from token; users see only their own clients.
           readOnly: true
+        primaryDocumentType:
+          type: string
+          nullable: true
+          readOnly: true
+          description: Stored primary identity document type.
+        primaryDocumentRef:
+          type: string
+          nullable: true
+          readOnly: true
+          description: Stored reference for primary identity document.
+        addressDocumentType:
+          type: string
+          nullable: true
+          readOnly: true
+          description: Stored proof-of-address document type.
+        addressDocumentRef:
+          type: string
+          nullable: true
+          readOnly: true
+          description: Stored reference for proof-of-address document.
+        verificationVerifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+          description: Timestamp set when verification is approved.
         createdAt: {type: string, format: date-time}
         updatedAt: {type: string, format: date-time}
       required:
@@ -363,19 +420,34 @@ components:
         country: {type: string, minLength: 2, maxLength: 50}
         postalCode: {type: string, minLength: 4, maxLength: 10}
       additionalProperties: false
-    VerifyClientRequest:
+    UploadVerificationDocsRequest:
       type: object
       properties:
-        nric: {type: string, pattern: '^[STFGM]\d{7}[A-Z]$', description: 'Singapore NRIC (e.g. S1234567D). Store securely.'}
-        documentType: {type: string, enum: [NRIC], default: NRIC}
-        documentRef: {type: string, description: Reference to uploaded/secured doc (do not send raw docs via API).}
-      required: [nric]
+        verificationToken: {type: string, description: Signed token received from verification email link.}
+        primaryDocumentType: {type: string, enum: [NRIC, PASSPORT, EMPLOYMENT_PASS]}
+        primaryDocumentRef: {type: string, description: Original filename for primary identity document.}
+        primaryDocumentBase64: {type: string, description: Base64-encoded primary identity document bytes.}
+        primaryDocumentMimeType: {type: string, description: "MIME type for primary identity document, e.g. image/jpeg."}
+        addressDocumentType: {type: string, enum: [UTILITY_BILL, BANK_STATEMENT, GOVERNMENT_LETTER, TENANCY_AGREEMENT]}
+        addressDocumentRef: {type: string, description: Original filename for proof-of-address document.}
+        addressDocumentBase64: {type: string, description: Base64-encoded proof-of-address document bytes.}
+        addressDocumentMimeType: {type: string, description: "MIME type for proof-of-address document, e.g. application/pdf."}
+      required: [verificationToken, primaryDocumentType, primaryDocumentRef, primaryDocumentBase64, primaryDocumentMimeType, addressDocumentType, addressDocumentRef, addressDocumentBase64, addressDocumentMimeType]
+      additionalProperties: false
     VerifyClientResponse:
       type: object
       properties:
         clientId: {$ref: '#/components/schemas/ClientId'}
         identityVerificationStatus: {$ref: '#/components/schemas/IdentityVerificationStatus'}
       required: [clientId, identityVerificationStatus]
+    ReviewVerificationRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        action:
+          type: string
+          enum: [approve, reject]
+      required: [action]
     Account:
       type: object
       properties:

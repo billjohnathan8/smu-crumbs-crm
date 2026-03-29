@@ -5,6 +5,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.mock.http.MockHttpInputMessage;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -61,5 +63,23 @@ class ApiExceptionHandlerTest {
 		assertThat(response.getBody()).isNotNull();
 		assertThat(response.getBody().message()).isEqualTo("Validation failed");
 		assertThat(response.getBody().requestId()).isNull();
+	}
+
+	@Test
+	void handleUnreadableBody_returnsValidationError() {
+		ApiExceptionHandler handler = new ApiExceptionHandler();
+		HttpServletRequest request = mock(HttpServletRequest.class);
+		when(request.getAttribute("requestId")).thenReturn("req-parse");
+
+		var response = handler.handleUnreadableBody(
+			request,
+			new HttpMessageNotReadableException("bad-json", new MockHttpInputMessage(new byte[0]))
+		);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+		assertThat(response.getBody()).isNotNull();
+		assertThat(response.getBody().error()).isEqualTo("validation_error");
+		assertThat(response.getBody().message()).isEqualTo("Invalid request body");
+		assertThat(response.getBody().requestId()).isEqualTo("req-parse");
 	}
 }

@@ -51,7 +51,7 @@ class AuthServiceTest {
 
 	@Test
 	void login_disabledUser_throwsUnauthorized() {
-		when(store.findByEmail("ava@example.com")).thenReturn(userRecord(2L, UserRole.agent, UserStatus.disabled));
+		when(store.findByEmail("ava@example.com")).thenReturn(userRecord(2L, UserRole.user, UserStatus.disabled));
 
 		assertThrows(UnauthorizedException.class, () -> authService.login(
 			new LoginRequest("ava@example.com", "pw")
@@ -60,7 +60,7 @@ class AuthServiceTest {
 
 	@Test
 	void login_wrongPassword_throwsUnauthorized() {
-		InMemoryUserStore.UserRecord record = userRecord(2L, UserRole.agent, UserStatus.active);
+		InMemoryUserStore.UserRecord record = userRecord(2L, UserRole.user, UserStatus.active);
 		when(store.findByEmail("ava@example.com")).thenReturn(record);
 		when(store.verifyPassword(record, "wrong")).thenReturn(false);
 
@@ -75,7 +75,7 @@ class AuthServiceTest {
 		when(store.findByEmail("ava@example.com")).thenReturn(record);
 		when(store.verifyPassword(record, "pw")).thenReturn(true);
 		when(store.issueRefreshToken("usr_2")).thenReturn("refresh-1");
-		when(jwtService.mintAccessToken(eq("usr_2"), eq("agent"), any())).thenReturn("access-1");
+		when(jwtService.mintAccessToken(eq("usr_2"), eq("user"), any())).thenReturn("access-1");
 
 		TokenResponse response = authService.login(new LoginRequest("ava@example.com", "pw"));
 
@@ -83,7 +83,7 @@ class AuthServiceTest {
 		assertEquals("refresh-1", response.refreshToken());
 		assertEquals(3600, response.expiresIn());
 		assertEquals("Bearer", response.tokenType());
-		verify(jwtService).mintAccessToken(eq("usr_2"), eq("agent"), any());
+		verify(jwtService).mintAccessToken(eq("usr_2"), eq("user"), any());
 	}
 
 	@Test

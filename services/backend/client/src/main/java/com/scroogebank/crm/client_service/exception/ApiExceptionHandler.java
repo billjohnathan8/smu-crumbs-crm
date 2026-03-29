@@ -11,9 +11,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 /**
  * Maps domain and validation exceptions to API error responses.
@@ -53,14 +55,45 @@ public class ApiExceptionHandler {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(request, "validation_error", ex.getMessage()));
 	}
 
+	@ExceptionHandler(HttpMessageNotReadableException.class)
+	public ResponseEntity<ErrorResponse> handleUnreadableBody(HttpServletRequest request, HttpMessageNotReadableException _ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(request, "validation_error", "Invalid request body"));
+	}
+
+	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
+	public ResponseEntity<ErrorResponse> handleTypeMismatch(HttpServletRequest request, MethodArgumentTypeMismatchException ex) {
+		String message = "Invalid request parameter";
+		if (ex.getName() != null && !ex.getName().isBlank()) {
+			message += ": " + ex.getName();
+		}
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(request, "validation_error", message));
+	}
+
 	@ExceptionHandler({UnauthorizedException.class, JwtValidationException.class})
 	public ResponseEntity<ErrorResponse> handleUnauthorized(HttpServletRequest request, RuntimeException ex) {
 		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error(request, "unauthorized", "Unauthorized"));
 	}
 
+	@ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+	public ResponseEntity<ErrorResponse> handleForbidden(HttpServletRequest request, org.springframework.security.access.AccessDeniedException ex) {
+		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error(request, "forbidden", ex.getMessage()));
+	}
+
+	@ExceptionHandler(IllegalStateException.class)
+	public ResponseEntity<ErrorResponse> handleIllegalState(HttpServletRequest request, IllegalStateException ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(error(request, "conflict", ex.getMessage()));
+	}
+
 	@ExceptionHandler(IllegalArgumentException.class)
 	public ResponseEntity<ErrorResponse> handleBadRequest(HttpServletRequest request, IllegalArgumentException ex) {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(request, "validation_error", "Invalid request"));
+	}
+
+	@ExceptionHandler(SnsPublishException.class)
+	public ResponseEntity<ErrorResponse> handleSnsPublishFailure(HttpServletRequest request, SnsPublishException _ex) {
+		return ResponseEntity
+			.status(HttpStatus.SERVICE_UNAVAILABLE)
+			.body(error(request, "service_unavailable", "Verification email dispatch unavailable. Client was not created."));
 	}
 
 	@ExceptionHandler(Exception.class)

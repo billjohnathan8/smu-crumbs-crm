@@ -3,16 +3,15 @@
 # Defines required version, backend configuration, and provider requirements
 #--------------------------------------------------------------
 terraform {
-  required_version = ">= 1.6.0"
+  required_version = ">= 1.10.0"
 
-  # Partial backend config: set bucket/key/region via -backend-config
-  # Example: terraform init -backend-config="bucket=my-bucket" -backend-config="key=path/to/terraform.tfstate" -backend-config="region=ap-southeast-1"
-  # NOTE: Backend commented out for local state during development/validation
-  # Uncomment and configure when ready to use remote state
-  # backend "s3" {
-  #   encrypt      = true
-  #   use_lockfile = true
-  # }
+  # Remote state in S3 with partial backend config.
+  # Initialise with: terraform init -backend-config=env/<env>.backend.hcl
+  # Switch environments with: terraform init -reconfigure -backend-config=env/<env>.backend.hcl
+  backend "s3" {
+    encrypt      = true
+    use_lockfile = true
+  }
 
   required_providers {
     aws = {
@@ -33,6 +32,12 @@ terraform {
 provider "aws" {
   region = var.aws_region
 
+  # Skip STS identity check so that `terraform init -backend=false` and
+  # `terraform validate` work without real AWS credentials (local dev / CI
+  # lint).  Actual API calls during plan/apply still use real credentials.
+  skip_credentials_validation = true
+  skip_requesting_account_id  = true
+
   default_tags {
     tags = local.common_tags
   }
@@ -46,6 +51,9 @@ provider "aws" {
   alias  = "us_east_1"
   region = "us-east-1"
 
+  skip_credentials_validation = true
+  skip_requesting_account_id  = true
+
   default_tags {
     tags = local.common_tags
   }
@@ -58,6 +66,9 @@ provider "aws" {
 provider "aws" {
   alias  = "ap_southeast_1"
   region = "ap-southeast-1"
+
+  skip_credentials_validation = true
+  skip_requesting_account_id  = true
 
   default_tags {
     tags = local.common_tags

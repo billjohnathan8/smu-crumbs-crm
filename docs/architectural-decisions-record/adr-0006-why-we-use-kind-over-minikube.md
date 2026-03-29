@@ -109,12 +109,12 @@ KIND runs Kubernetes clusters as Docker containers rather than inside a VM, prov
 
 2. **Selective image loading** - Load only changed images:
    ```bash
-   kind load docker-image agent-service:dev --name cs301-crm
+   kind load docker-image user-service:dev --name cs301-crm
    ```
 
 3. **Image build caching** - Ensure Docker build cache is leveraged:
    ```bash
-   docker build --cache-from agent-service:dev -t agent-service:dev .
+   docker build --cache-from user-service:dev -t user-service:dev .
    ```
 
 ### Current Workflow (Keep)

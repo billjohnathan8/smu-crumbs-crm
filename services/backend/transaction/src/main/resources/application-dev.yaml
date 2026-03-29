@@ -1,0 +1,5 @@
+app:
+  jwt:
+    hmac-secret: ${JWT_HMAC_SECRET:dev-only-insecure-secret}
+  transactions-store:
+    type: ${APP_TRANSACTIONS_STORE_TYPE:postgres}

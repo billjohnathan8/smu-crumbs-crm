@@ -24,3 +24,15 @@ variable "notification_email" {
   type        = string
   default     = ""
 }
+
+variable "enable_alarm_topic" {
+  description = "Create a dedicated SNS topic for CloudWatch alarm notifications."
+  type        = bool
+  default     = false
+}
+
+variable "alarm_notification_email" {
+  description = "Email endpoint for CloudWatch alarm SNS subscription. Leave empty to skip email subscription."
+  type        = string
+  default     = ""
+}

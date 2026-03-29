@@ -10,6 +10,8 @@ public class AppProperties {
 	private String clientServiceUrl;
 	private Jwt jwt = new Jwt();
 	private MockSftp mockSftp = new MockSftp();
+	private Sftp sftp = new Sftp();
+	private ImportS3 importS3 = new ImportS3();
 
 	public String getClientServiceUrl() {
 		return clientServiceUrl;
@@ -35,6 +37,22 @@ public class AppProperties {
 		this.mockSftp = mockSftp;
 	}
 
+	public Sftp getSftp() {
+		return sftp;
+	}
+
+	public void setSftp(Sftp sftp) {
+		this.sftp = sftp;
+	}
+
+	public ImportS3 getImportS3() {
+		return importS3;
+	}
+
+	public void setImportS3(ImportS3 importS3) {
+		this.importS3 = importS3;
+	}
+
 	public static class Jwt {
 		private String hmacSecret;
 
@@ -56,6 +74,119 @@ public class AppProperties {
 
 		public void setRoot(String root) {
 			this.root = root;
+		}
+	}
+
+	/**
+	 * Ingestion polling config.
+	 * The {@code app.sftp.*} prefix is legacy naming retained for compatibility;
+	 * actual ingestion transport is filesystem/S3-backed mock ingestion.
+	 */
+	public static class Sftp {
+		private String remoteDir = ".";
+		private Poll poll = new Poll();
+
+		public String getRemoteDir() {
+			return remoteDir;
+		}
+
+		public void setRemoteDir(String remoteDir) {
+			this.remoteDir = remoteDir;
+		}
+
+		public Poll getPoll() {
+			return poll;
+		}
+
+		public void setPoll(Poll poll) {
+			this.poll = poll;
+		}
+	}
+
+	public static class Poll {
+		private boolean enabled;
+		private long fixedDelayMs = 300000;
+		private long initialDelayMs = 10000;
+
+		public boolean isEnabled() {
+			return enabled;
+		}
+
+		public void setEnabled(boolean enabled) {
+			this.enabled = enabled;
+		}
+
+		public long getFixedDelayMs() {
+			return fixedDelayMs;
+		}
+
+		public void setFixedDelayMs(long fixedDelayMs) {
+			this.fixedDelayMs = fixedDelayMs;
+		}
+
+		public long getInitialDelayMs() {
+			return initialDelayMs;
+		}
+
+		public void setInitialDelayMs(long initialDelayMs) {
+			this.initialDelayMs = initialDelayMs;
+		}
+	}
+
+	public static class ImportS3 {
+		private String bucket;
+		private String region = "ap-southeast-1";
+		private String endpoint;
+		private boolean pathStyleAccessEnabled;
+		private String accessKeyId;
+		private String secretAccessKey;
+
+		public String getBucket() {
+			return bucket;
+		}
+
+		public void setBucket(String bucket) {
+			this.bucket = bucket;
+		}
+
+		public String getRegion() {
+			return region;
+		}
+
+		public void setRegion(String region) {
+			this.region = region;
+		}
+
+		public String getEndpoint() {
+			return endpoint;
+		}
+
+		public void setEndpoint(String endpoint) {
+			this.endpoint = endpoint;
+		}
+
+		public boolean isPathStyleAccessEnabled() {
+			return pathStyleAccessEnabled;
+		}
+
+		public void setPathStyleAccessEnabled(boolean pathStyleAccessEnabled) {
+			this.pathStyleAccessEnabled = pathStyleAccessEnabled;
+		}
+
+		public String getAccessKeyId() {
+			return accessKeyId;
+		}
+
+		public void setAccessKeyId(String accessKeyId) {
+			this.accessKeyId = accessKeyId;
+		}
+
+		public String getSecretAccessKey() {
+			return secretAccessKey;
+		}
+
+		public void setSecretAccessKey(String secretAccessKey) {
+			this.secretAccessKey = secretAccessKey;
 		}
 	}
 }

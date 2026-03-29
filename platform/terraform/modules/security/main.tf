@@ -6,6 +6,13 @@
 
 data "aws_caller_identity" "current" {}
 
+locals {
+  # When a lab role override is supplied, skip all IAM role creation and use the
+  # pre-existing role (for example, LabRole in Learner Lab which blocks iam:CreateRole).
+  effective_lab_role_arn = var.lab_role_arn != "" ? var.lab_role_arn : (var.lab_role_name != "" ? "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.lab_role_name}" : "")
+  use_lab_role           = local.effective_lab_role_arn != ""
+}
+
 resource "aws_security_group" "alb" {
   name        = "${var.name_prefix}-alb-sg"
   description = "Allow inbound HTTP and HTTPS traffic to ALB."
@@ -138,12 +145,14 @@ data "aws_iam_policy_document" "ecs_task_execution_assume" {
 }
 
 resource "aws_iam_role" "ecs_task_execution" {
+  count              = local.use_lab_role ? 0 : 1
   name               = "${var.name_prefix}-ecs-task-exec"
   assume_role_policy = data.aws_iam_policy_document.ecs_task_execution_assume.json
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_task_execution_managed" {
-  role       = aws_iam_role.ecs_task_execution.name
+  count      = local.use_lab_role ? 0 : 1
+  role       = aws_iam_role.ecs_task_execution[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
@@ -175,8 +184,9 @@ data "aws_iam_policy_document" "ecs_task_execution_extra" {
 }
 
 resource "aws_iam_role_policy" "ecs_task_execution_extra" {
+  count  = local.use_lab_role ? 0 : 1
   name   = "${var.name_prefix}-ecs-task-exec-extra"
-  role   = aws_iam_role.ecs_task_execution.id
+  role   = aws_iam_role.ecs_task_execution[0].id
   policy = data.aws_iam_policy_document.ecs_task_execution_extra.json
 }
 
@@ -192,7 +202,7 @@ data "aws_iam_policy_document" "ecs_task_assume" {
 }
 
 resource "aws_iam_role" "ecs_task" {
-  for_each = toset(["agent", "client", "transaction"])
+  for_each = local.use_lab_role ? toset([]) : toset(["user", "client", "transaction"])
 
   name               = "${var.name_prefix}-ecs-task-${each.key}"
   assume_role_policy = data.aws_iam_policy_document.ecs_task_assume.json
@@ -210,17 +220,20 @@ data "aws_iam_policy_document" "lambda_assume" {
 }
 
 resource "aws_iam_role" "log_lambda" {
+  count              = local.use_lab_role ? 0 : 1
   name               = "${var.name_prefix}-log-lambda"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
 }
 
 resource "aws_iam_role_policy_attachment" "log_lambda_basic" {
-  role       = aws_iam_role.log_lambda.name
+  count      = local.use_lab_role ? 0 : 1
+  role       = aws_iam_role.log_lambda[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 resource "aws_iam_role_policy_attachment" "log_lambda_vpc" {
-  role       = aws_iam_role.log_lambda.name
+  count      = local.use_lab_role ? 0 : 1
+  role       = aws_iam_role.log_lambda[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
@@ -238,18 +251,21 @@ data "aws_iam_policy_document" "log_lambda_secrets" {
 }
 
 resource "aws_iam_role_policy" "log_lambda_secrets" {
+  count  = local.use_lab_role ? 0 : 1
   name   = "${var.name_prefix}-log-lambda-secrets"
-  role   = aws_iam_role.log_lambda.id
+  role   = aws_iam_role.log_lambda[0].id
   policy = data.aws_iam_policy_document.log_lambda_secrets.json
 }
 
 resource "aws_iam_role" "aml_lambda" {
+  count              = local.use_lab_role ? 0 : 1
   name               = "${var.name_prefix}-aml-lambda"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
 }
 
 resource "aws_iam_role_policy_attachment" "aml_lambda_basic" {
-  role       = aws_iam_role.aml_lambda.name
+  count      = local.use_lab_role ? 0 : 1
+  role       = aws_iam_role.aml_lambda[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
@@ -260,41 +276,120 @@ data "aws_iam_policy_document" "aml_lambda_secrets" {
     actions = [
       "secretsmanager:GetSecretValue",
     ]
-    resources = [var.aml_sftp_key_secret_arn]
+    resources = compact([
+      var.aml_sftp_key_secret_arn,
+      aws_secretsmanager_secret.jwt_hmac.arn,
+    ])
+  }
+
+  statement {
+    sid    = "ReadLogApiUrlParameter"
+    effect = "Allow"
+    actions = [
+      "ssm:GetParameter",
+    ]
+    resources = [
+      "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${var.project_name}/${var.environment}/service/log/url",
+    ]
   }
 }
 
 resource "aws_iam_role_policy" "aml_lambda_secrets" {
+  count  = local.use_lab_role ? 0 : 1
   name   = "${var.name_prefix}-aml-lambda-secrets"
-  role   = aws_iam_role.aml_lambda.id
+  role   = aws_iam_role.aml_lambda[0].id
   policy = data.aws_iam_policy_document.aml_lambda_secrets.json
+}
+
+# --- Transaction ingestion Lambda role ---
+
+resource "aws_iam_role" "sftp_transaction_collector" {
+  count = var.enable_sftp_transaction_collector && !local.use_lab_role ? 1 : 0
+
+  name               = "${var.name_prefix}-sftp-transaction-collector"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
+}
+
+resource "aws_iam_role_policy_attachment" "sftp_transaction_collector_basic" {
+  count = var.enable_sftp_transaction_collector && !local.use_lab_role ? 1 : 0
+
+  role       = aws_iam_role.sftp_transaction_collector[0].name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+data "aws_iam_policy_document" "sftp_transaction_collector_s3" {
+  count = var.enable_sftp_transaction_collector && !local.use_lab_role ? 1 : 0
+
+  statement {
+    sid    = "ReadTransactionSftpBucket"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:ListBucket",
+    ]
+    resources = compact([
+      var.transaction_sftp_bucket_arn,
+      "${var.transaction_sftp_bucket_arn}/*",
+    ])
+  }
+}
+
+resource "aws_iam_role_policy" "sftp_transaction_collector_s3" {
+  count = var.enable_sftp_transaction_collector && !local.use_lab_role ? 1 : 0
+
+  name   = "${var.name_prefix}-sftp-transaction-collector-s3"
+  role   = aws_iam_role.sftp_transaction_collector[0].id
+  policy = data.aws_iam_policy_document.sftp_transaction_collector_s3[0].json
+}
+
+data "aws_iam_policy_document" "sftp_transaction_collector_secrets" {
+  count = var.enable_sftp_transaction_collector && !local.use_lab_role ? 1 : 0
+
+  statement {
+    sid    = "ReadTransactionIngestionJwtSecret"
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue",
+    ]
+    resources = [
+      aws_secretsmanager_secret.jwt_hmac.arn,
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "sftp_transaction_collector_secrets" {
+  count = var.enable_sftp_transaction_collector && !local.use_lab_role ? 1 : 0
+
+  name   = "${var.name_prefix}-sftp-transaction-collector-secrets"
+  role   = aws_iam_role.sftp_transaction_collector[0].id
+  policy = data.aws_iam_policy_document.sftp_transaction_collector_secrets[0].json
 }
 
 # --- Audit consumer Lambda role ---
 
 resource "aws_iam_role" "audit_consumer_lambda" {
-  count = var.enable_audit_pipeline ? 1 : 0
+  count = var.enable_audit_pipeline && !local.use_lab_role ? 1 : 0
 
   name               = "${var.name_prefix}-audit-consumer-lambda"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
 }
 
 resource "aws_iam_role_policy_attachment" "audit_consumer_lambda_basic" {
-  count = var.enable_audit_pipeline ? 1 : 0
+  count = var.enable_audit_pipeline && !local.use_lab_role ? 1 : 0
 
   role       = aws_iam_role.audit_consumer_lambda[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 resource "aws_iam_role_policy_attachment" "audit_consumer_lambda_vpc" {
-  count = var.enable_audit_pipeline ? 1 : 0
+  count = var.enable_audit_pipeline && !local.use_lab_role ? 1 : 0
 
   role       = aws_iam_role.audit_consumer_lambda[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
 data "aws_iam_policy_document" "audit_consumer_lambda" {
-  count = var.enable_audit_pipeline ? 1 : 0
+  count = var.enable_audit_pipeline && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "ConsumeAuditQueue"
@@ -319,7 +414,7 @@ data "aws_iam_policy_document" "audit_consumer_lambda" {
 }
 
 resource "aws_iam_role_policy" "audit_consumer_lambda" {
-  count = var.enable_audit_pipeline ? 1 : 0
+  count = var.enable_audit_pipeline && !local.use_lab_role ? 1 : 0
 
   name   = "${var.name_prefix}-audit-consumer-lambda"
   role   = aws_iam_role.audit_consumer_lambda[0].id
@@ -329,21 +424,21 @@ resource "aws_iam_role_policy" "audit_consumer_lambda" {
 # --- AML consumer Lambda role ---
 
 resource "aws_iam_role" "aml_consumer_lambda" {
-  count = var.enable_aml_pipeline ? 1 : 0
+  count = var.enable_aml_pipeline && !local.use_lab_role ? 1 : 0
 
   name               = "${var.name_prefix}-aml-consumer-lambda"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
 }
 
 resource "aws_iam_role_policy_attachment" "aml_consumer_lambda_basic" {
-  count = var.enable_aml_pipeline ? 1 : 0
+  count = var.enable_aml_pipeline && !local.use_lab_role ? 1 : 0
 
   role       = aws_iam_role.aml_consumer_lambda[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 data "aws_iam_policy_document" "aml_consumer_lambda" {
-  count = var.enable_aml_pipeline ? 1 : 0
+  count = var.enable_aml_pipeline && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "ConsumeAmlQueue"
@@ -368,7 +463,7 @@ data "aws_iam_policy_document" "aml_consumer_lambda" {
 }
 
 resource "aws_iam_role_policy" "aml_consumer_lambda" {
-  count = var.enable_aml_pipeline ? 1 : 0
+  count = var.enable_aml_pipeline && !local.use_lab_role ? 1 : 0
 
   name   = "${var.name_prefix}-aml-consumer-lambda"
   role   = aws_iam_role.aml_consumer_lambda[0].id
@@ -378,21 +473,21 @@ resource "aws_iam_role_policy" "aml_consumer_lambda" {
 # --- Verification Lambda role ---
 
 resource "aws_iam_role" "verification_lambda" {
-  count = var.enable_verification_pipeline ? 1 : 0
+  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
 
   name               = "${var.name_prefix}-verification-lambda"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
 }
 
 resource "aws_iam_role_policy_attachment" "verification_lambda_basic" {
-  count = var.enable_verification_pipeline ? 1 : 0
+  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
 
   role       = aws_iam_role.verification_lambda[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 data "aws_iam_policy_document" "verification_lambda" {
-  count = var.enable_verification_pipeline ? 1 : 0
+  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "ReadVerificationBucket"
@@ -415,20 +510,103 @@ data "aws_iam_policy_document" "verification_lambda" {
     ]
     resources = [var.verification_sns_topic_arn]
   }
+
+  statement {
+    sid    = "ReadVerificationJwtSecret"
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue",
+    ]
+    resources = [aws_secretsmanager_secret.jwt_hmac.arn]
+  }
+
+  statement {
+    sid    = "SendVerificationEmailViaSes"
+    effect = "Allow"
+    actions = [
+      "ses:SendEmail",
+      "ses:SendRawEmail",
+    ]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_role_policy" "verification_lambda" {
-  count = var.enable_verification_pipeline ? 1 : 0
+  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
 
   name   = "${var.name_prefix}-verification-lambda"
   role   = aws_iam_role.verification_lambda[0].id
   policy = data.aws_iam_policy_document.verification_lambda[0].json
 }
 
+data "aws_iam_policy_document" "ecs_client_ses_send" {
+  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
+
+  statement {
+    sid    = "SendVerificationEmailViaSes"
+    effect = "Allow"
+    actions = [
+      "ses:SendEmail",
+      "ses:SendRawEmail",
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "ecs_task_client_ses_send" {
+  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
+
+  name   = "${var.name_prefix}-ecs-task-client-ses-send"
+  role   = aws_iam_role.ecs_task["client"].id
+  policy = data.aws_iam_policy_document.ecs_client_ses_send[0].json
+}
+
+data "aws_iam_policy_document" "ecs_client_publish_verification_sns" {
+  count = var.enable_verification_pipeline && var.verification_sns_topic_arn != "" && !local.use_lab_role ? 1 : 0
+
+  statement {
+    sid    = "PublishVerificationRequestedEvents"
+    effect = "Allow"
+    actions = [
+      "sns:Publish",
+    ]
+    resources = [var.verification_sns_topic_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "ecs_task_client_publish_verification_sns" {
+  count = var.enable_verification_pipeline && var.verification_sns_topic_arn != "" && !local.use_lab_role ? 1 : 0
+
+  name   = "${var.name_prefix}-ecs-task-client-verification-sns-publish"
+  role   = aws_iam_role.ecs_task["client"].id
+  policy = data.aws_iam_policy_document.ecs_client_publish_verification_sns[0].json
+}
+
+data "aws_iam_policy_document" "ecs_client_write_verification_s3" {
+  count = var.enable_verification_pipeline && var.verification_bucket_arn != "" && !local.use_lab_role ? 1 : 0
+
+  statement {
+    sid    = "WriteVerificationDocuments"
+    effect = "Allow"
+    actions = [
+      "s3:PutObject",
+    ]
+    resources = ["${var.verification_bucket_arn}/*"]
+  }
+}
+
+resource "aws_iam_role_policy" "ecs_task_client_write_verification_s3" {
+  count = var.enable_verification_pipeline && var.verification_bucket_arn != "" && !local.use_lab_role ? 1 : 0
+
+  name   = "${var.name_prefix}-ecs-task-client-verification-s3-write"
+  role   = aws_iam_role.ecs_task["client"].id
+  policy = data.aws_iam_policy_document.ecs_client_write_verification_s3[0].json
+}
+
 # --- ECS task policy: allow sending to SQS queues ---
 
 data "aws_iam_policy_document" "ecs_sqs_send" {
-  count = (var.enable_audit_pipeline || var.enable_aml_pipeline) ? 1 : 0
+  count = (var.enable_audit_pipeline || var.enable_aml_pipeline) && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "SendToSqs"
@@ -442,11 +620,36 @@ data "aws_iam_policy_document" "ecs_sqs_send" {
 }
 
 resource "aws_iam_role_policy" "ecs_task_sqs" {
-  for_each = (var.enable_audit_pipeline || var.enable_aml_pipeline) ? toset(["agent", "client", "transaction"]) : toset([])
+  for_each = (var.enable_audit_pipeline || var.enable_aml_pipeline) && !local.use_lab_role ? toset(["user", "client", "transaction"]) : toset([])
 
   name   = "${var.name_prefix}-ecs-task-${each.key}-sqs"
   role   = aws_iam_role.ecs_task[each.key].id
   policy = data.aws_iam_policy_document.ecs_sqs_send[0].json
+}
+
+data "aws_iam_policy_document" "ecs_transaction_s3_read" {
+  count = var.enable_sftp_transaction_collector && var.transaction_sftp_bucket_arn != "" && !local.use_lab_role ? 1 : 0
+
+  statement {
+    sid    = "ReadTransactionIngestionS3Source"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:ListBucket",
+    ]
+    resources = [
+      var.transaction_sftp_bucket_arn,
+      "${var.transaction_sftp_bucket_arn}/*",
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "ecs_task_transaction_s3_read" {
+  count = var.enable_sftp_transaction_collector && var.transaction_sftp_bucket_arn != "" && !local.use_lab_role ? 1 : 0
+
+  name   = "${var.name_prefix}-ecs-task-transaction-s3-read"
+  role   = aws_iam_role.ecs_task["transaction"].id
+  policy = data.aws_iam_policy_document.ecs_transaction_s3_read[0].json
 }
 
 data "aws_iam_policy_document" "terraform_backend_access" {

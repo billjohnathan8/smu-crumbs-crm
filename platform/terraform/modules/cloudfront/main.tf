@@ -4,23 +4,29 @@
 # with ALB and API Gateway origins for backend routing.
 #--------------------------------------------------------------
 
-data "aws_cloudfront_cache_policy" "caching_optimized" {
-  name = "Managed-CachingOptimized"
+# AWS managed CloudFront policy IDs — hardcoded to avoid cloudfront:List* API calls
+# that are blocked by the LabRole SCP. These IDs are global constants in all AWS accounts.
+locals {
+  cf_cache_policy_caching_optimized               = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+  cf_cache_policy_caching_disabled                = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+  cf_origin_request_policy_all_viewer             = "216adef6-5c7f-47e4-b989-5492eafa07d3"
+  cf_origin_request_policy_all_viewer_except_host = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
 }
 
-data "aws_cloudfront_cache_policy" "caching_disabled" {
-  name = "Managed-CachingDisabled"
-}
-
-data "aws_cloudfront_origin_request_policy" "all_viewer" {
-  name = "Managed-AllViewer"
-}
-
-data "aws_cloudfront_origin_request_policy" "all_viewer_except_host_header" {
-  name = "Managed-AllViewerExceptHostHeader"
+locals {
+  log_api_path_patterns = toset([
+    "/api/logs*",
+    "/api/communications*",
+    "/api/aml*",
+    "/api/v1/logs*",
+    "/api/clients/*/logs*",
+    "/api/clients/*/communications*",
+  ])
 }
 
 resource "aws_cloudfront_origin_access_control" "frontend" {
+  count = var.enable_cloudfront_oac ? 1 : 0
+
   name                              = "${var.name_prefix}-frontend-oac"
   description                       = "CloudFront access control for frontend S3 bucket."
   origin_access_control_origin_type = "s3"
@@ -39,7 +45,7 @@ resource "aws_cloudfront_distribution" "frontend" {
   origin {
     domain_name              = var.frontend_bucket_regional_domain_name
     origin_id                = "frontend-s3"
-    origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
+    origin_access_control_id = var.enable_cloudfront_oac ? aws_cloudfront_origin_access_control.frontend[0].id : null
 
     s3_origin_config {
       origin_access_identity = ""
@@ -58,15 +64,18 @@ resource "aws_cloudfront_distribution" "frontend" {
     }
   }
 
-  origin {
-    domain_name = var.log_api_origin_domain_name
-    origin_id   = "log-api-gateway"
+  dynamic "origin" {
+    for_each = var.enable_log_api_origin ? [1] : []
+    content {
+      domain_name = var.log_api_origin_domain_name
+      origin_id   = "log-api-gateway"
 
-    custom_origin_config {
-      http_port              = 80
-      https_port             = 443
-      origin_protocol_policy = "https-only"
-      origin_ssl_protocols   = ["TLSv1.2"]
+      custom_origin_config {
+        http_port              = 80
+        https_port             = 443
+        origin_protocol_policy = "https-only"
+        origin_ssl_protocols   = ["TLSv1.2"]
+      }
     }
   }
 
@@ -76,62 +85,21 @@ resource "aws_cloudfront_distribution" "frontend" {
     allowed_methods        = ["GET", "HEAD", "OPTIONS"]
     cached_methods         = ["GET", "HEAD", "OPTIONS"]
     compress               = true
-    cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
+    cache_policy_id        = local.cf_cache_policy_caching_optimized
   }
 
-  ordered_cache_behavior {
-    path_pattern             = "/api/logs*"
-    target_origin_id         = "log-api-gateway"
-    viewer_protocol_policy   = "redirect-to-https"
-    allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
-    cached_methods           = ["GET", "HEAD", "OPTIONS"]
-    compress                 = true
-    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host_header.id
-  }
-
-  ordered_cache_behavior {
-    path_pattern             = "/api/communications*"
-    target_origin_id         = "log-api-gateway"
-    viewer_protocol_policy   = "redirect-to-https"
-    allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
-    cached_methods           = ["GET", "HEAD", "OPTIONS"]
-    compress                 = true
-    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host_header.id
-  }
-
-  ordered_cache_behavior {
-    path_pattern             = "/api/v1/logs*"
-    target_origin_id         = "log-api-gateway"
-    viewer_protocol_policy   = "redirect-to-https"
-    allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
-    cached_methods           = ["GET", "HEAD", "OPTIONS"]
-    compress                 = true
-    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host_header.id
-  }
-
-  ordered_cache_behavior {
-    path_pattern             = "/api/clients/*/logs*"
-    target_origin_id         = "log-api-gateway"
-    viewer_protocol_policy   = "redirect-to-https"
-    allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
-    cached_methods           = ["GET", "HEAD", "OPTIONS"]
-    compress                 = true
-    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host_header.id
-  }
-
-  ordered_cache_behavior {
-    path_pattern             = "/api/clients/*/communications*"
-    target_origin_id         = "log-api-gateway"
-    viewer_protocol_policy   = "redirect-to-https"
-    allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
-    cached_methods           = ["GET", "HEAD", "OPTIONS"]
-    compress                 = true
-    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host_header.id
+  dynamic "ordered_cache_behavior" {
+    for_each = var.enable_log_api_origin ? local.log_api_path_patterns : toset([])
+    content {
+      path_pattern             = ordered_cache_behavior.value
+      target_origin_id         = "log-api-gateway"
+      viewer_protocol_policy   = "redirect-to-https"
+      allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
+      cached_methods           = ["GET", "HEAD", "OPTIONS"]
+      compress                 = true
+      cache_policy_id          = local.cf_cache_policy_caching_disabled
+      origin_request_policy_id = local.cf_origin_request_policy_all_viewer_except_host
+    }
   }
 
   ordered_cache_behavior {
@@ -141,8 +109,8 @@ resource "aws_cloudfront_distribution" "frontend" {
     allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
     cached_methods           = ["GET", "HEAD", "OPTIONS"]
     compress                 = true
-    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
+    cache_policy_id          = local.cf_cache_policy_caching_disabled
+    origin_request_policy_id = local.cf_origin_request_policy_all_viewer
   }
 
   custom_error_response {
@@ -173,30 +141,38 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 }
 
-data "aws_iam_policy_document" "frontend_bucket_policy" {
-  statement {
-    sid    = "AllowCloudFrontRead"
-    effect = "Allow"
+locals {
+  frontend_bucket_policy_statement = merge(
+    {
+      Sid    = "AllowCloudFrontRead"
+      Effect = "Allow"
+      Principal = {
+        Service = "cloudfront.amazonaws.com"
+      }
+      Action = ["s3:GetObject"]
+      Resource = [
+        "${var.frontend_bucket_arn}/*",
+      ]
+    },
+    var.enable_cloudfront_oac ? {
+      # OAC signs requests so S3 can verify SourceArn. Without OAC (Learner Lab),
+      # CloudFront doesn't sign requests so this condition must be omitted.
+      Condition = {
+        StringEquals = {
+          "AWS:SourceArn" = aws_cloudfront_distribution.frontend.arn
+        }
+      }
+    } : {}
+  )
 
-    principals {
-      type        = "Service"
-      identifiers = ["cloudfront.amazonaws.com"]
-    }
-
-    actions = ["s3:GetObject"]
-    resources = [
-      "${var.frontend_bucket_arn}/*",
-    ]
-
-    condition {
-      test     = "StringEquals"
-      variable = "AWS:SourceArn"
-      values   = [aws_cloudfront_distribution.frontend.arn]
-    }
-  }
+  frontend_bucket_policy_json = jsonencode({
+    Version   = "2012-10-17"
+    Statement = [local.frontend_bucket_policy_statement]
+  })
 }
 
 resource "aws_s3_bucket_policy" "frontend" {
   bucket = var.frontend_bucket_id
-  policy = data.aws_iam_policy_document.frontend_bucket_policy.json
+  policy = local.frontend_bucket_policy_json
 }
+

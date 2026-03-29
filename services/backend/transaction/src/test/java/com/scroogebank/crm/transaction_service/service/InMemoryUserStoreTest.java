@@ -49,7 +49,7 @@ class InMemoryUserStoreTest {
 
 		assertEquals("usr_2", created.id());
 		assertEquals("alice@example.com", created.email());
-		assertEquals(UserRole.agent, created.role());
+		assertEquals(UserRole.user, created.role());
 		assertEquals(UserStatus.active, created.status());
 
 		InMemoryUserStore.UserRecord record = store.loadRecord(created.id());
@@ -58,7 +58,7 @@ class InMemoryUserStoreTest {
 
 	@Test
 	void createUser_duplicateEmail_throwsConflict() {
-		store.createUser(new CreateUserRequest("A", "B", "ava@example.com", UserRole.agent, false, "pw"));
+		store.createUser(new CreateUserRequest("A", "B", "ava@example.com", UserRole.user, false, "pw"));
 
 		assertThrows(DuplicateUserException.class, () -> store.createUser(
 			new CreateUserRequest("C", "D", "AVA@example.com", UserRole.admin, false, "pw")
@@ -67,8 +67,8 @@ class InMemoryUserStoreTest {
 
 	@Test
 	void updateUser_replacesEmailIndexAndRejectsDuplicate() {
-		UserDto first = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent, false, "pw"));
-		UserDto second = store.createUser(new CreateUserRequest("Ben", "Tan", "ben@example.com", UserRole.agent, false, "pw"));
+		UserDto first = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "pw"));
+		UserDto second = store.createUser(new CreateUserRequest("Ben", "Tan", "ben@example.com", UserRole.user, false, "pw"));
 
 		UserDto updated = store.updateUser(first.id(), new UpdateUserRequest("Ava", "Stone", "ava.new@example.com", UserRole.admin));
 		assertEquals("ava.new@example.com", updated.email());
@@ -83,7 +83,7 @@ class InMemoryUserStoreTest {
 
 	@Test
 	void updateUser_withoutEmailChange_preservesEmailIndex() {
-		UserDto created = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent, false, "pw"));
+		UserDto created = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "pw"));
 
 		UserDto updated = store.updateUser(created.id(), new UpdateUserRequest("Ava", "Stone", null, null));
 
@@ -98,7 +98,7 @@ class InMemoryUserStoreTest {
 
 	@Test
 	void deleteUser_removesRefreshTokensForUser() {
-		UserDto created = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent, false, "pw"));
+		UserDto created = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "pw"));
 		String token = store.issueRefreshToken(created.id());
 		assertTrue(store.isRefreshTokenValid(token));
 
@@ -110,15 +110,15 @@ class InMemoryUserStoreTest {
 
 	@Test
 	void listAndCountUsers_applyRoleFilterAndPaging() {
-		store.createUser(new CreateUserRequest("A", "A", "a@example.com", UserRole.agent, false, "pw"));
+		store.createUser(new CreateUserRequest("A", "A", "a@example.com", UserRole.user, false, "pw"));
 		store.createUser(new CreateUserRequest("B", "B", "b@example.com", UserRole.admin, false, "pw"));
-		store.createUser(new CreateUserRequest("C", "C", "c@example.com", UserRole.agent, false, "pw"));
+		store.createUser(new CreateUserRequest("C", "C", "c@example.com", UserRole.user, false, "pw"));
 
-		List<UserDto> page = store.listUsers(1, -10, "agent");
+		List<UserDto> page = store.listUsers(1, -10, "user");
 		assertEquals(1, page.size());
-		assertEquals(UserRole.agent, page.get(0).role());
+		assertEquals(UserRole.user, page.get(0).role());
 
-		assertEquals(2, store.countUsers("agent"));
+		assertEquals(2, store.countUsers("user"));
 		assertEquals(4, store.countUsers(null));
 	}
 
@@ -142,7 +142,7 @@ class InMemoryUserStoreTest {
 
 	@Test
 	void resetPassword_invalidatesRefreshTokens() {
-		UserDto created = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.agent, false, "temp123"));
+		UserDto created = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "temp123"));
 		String token = store.issueRefreshToken(created.id());
 		assertTrue(store.isRefreshTokenValid(token));
 

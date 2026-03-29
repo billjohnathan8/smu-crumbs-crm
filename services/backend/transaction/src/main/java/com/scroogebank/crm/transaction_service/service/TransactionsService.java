@@ -6,6 +6,7 @@ import com.scroogebank.crm.transaction_service.dto.ImportTransactionsRequest;
 import com.scroogebank.crm.transaction_service.dto.TransactionDto;
 import com.scroogebank.crm.transaction_service.dto.TransactionKind;
 import com.scroogebank.crm.transaction_service.dto.TransactionStatus;
+import com.scroogebank.crm.transaction_service.dto.UpdateTransactionRequest;
 import java.time.LocalDate;
 import org.springframework.stereotype.Service;
 
@@ -14,9 +15,9 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class TransactionsService {
-	private final InMemoryTransactionsStore store;
+	private final TransactionsStore store;
 
-	public TransactionsService(InMemoryTransactionsStore store) {
+	public TransactionsService(TransactionsStore store) {
 		this.store = store;
 	}
 
@@ -32,6 +33,13 @@ public class TransactionsService {
 	 */
 	public TransactionDto get(String transactionId) {
 		return store.get(transactionId);
+	}
+
+	/**
+	 * Updates an existing transaction by id.
+	 */
+	public TransactionDto update(String transactionId, UpdateTransactionRequest request) {
+		return store.update(transactionId, request);
 	}
 
 	/**
@@ -57,10 +65,10 @@ public class TransactionsService {
 	}
 
 	/**
-	 * Imports transactions from the mock SFTP feed.
+	 * Imports transactions from the configured source (S3 bucket or local filesystem).
 	 */
-	public ImportBatchDto importFromSftp(ImportTransactionsRequest request) {
-		return store.importFromMockSftp(request);
+	public ImportBatchDto importTransactions(ImportTransactionsRequest request) {
+		return store.importTransactions(request);
 	}
 
 	/**

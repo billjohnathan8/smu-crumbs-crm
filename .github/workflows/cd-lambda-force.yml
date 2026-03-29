@@ -1,0 +1,117 @@
+name: CD - Force Lambda Deploy
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  # push:
+  #   branches:
+
+# Ensure that only one force Lambda deployment runs at a time.
+concurrency:
+  group: cd-lambda-force
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-aml:
+    if: ${{ !failure() && !cancelled() }}
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
+    with:
+      service: aml
+    secrets: inherit
+
+  deploy-verification:
+    if: ${{ !failure() && !cancelled() }}
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
+    with:
+      service: verification
+    secrets: inherit
+
+  deploy-sftp-transaction-collector:
+    if: ${{ !failure() && !cancelled() }}
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
+    with:
+      service: sftp-transaction-collector
+    secrets: inherit
+
+  deploy-aml-consumer:
+    if: ${{ !failure() && !cancelled() }}
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
+    with:
+      service: aml-consumer
+    secrets: inherit
+
+  deploy-audit-consumer:
+    if: ${{ !failure() && !cancelled() }}
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
+    with:
+      service: audit-consumer
+    secrets: inherit
+
+  deploy-log:
+    if: ${{ !failure() && !cancelled() }}
+    uses: ./.github/workflows/reusable-lambda-deploy.yml
+    with:
+      service: log
+    secrets: inherit
+
+  merge-lambda-intents:
+    if: ${{ !failure() && !cancelled() }}
+    needs:
+      - deploy-aml
+      - deploy-verification
+      - deploy-sftp-transaction-collector
+      - deploy-aml-consumer
+      - deploy-audit-consumer
+      - deploy-log
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Lambda intent artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: intent-lambda-*
+          path: deploy-intents-lambda
+          merge-multiple: true
+
+      - name: Merge Lambda intent fragments
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPO_SHA="${GITHUB_SHA}"
+          NOW_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          jq -n --arg repo_sha "${REPO_SHA}" --arg created_at "${NOW_UTC}" '{repo_sha:$repo_sha, created_at:$created_at, lambda:{}}' > manifest-lambda.json
+
+          shopt -s nullglob
+          fragments=(deploy-intents-lambda/*.json)
+          if [[ ${#fragments[@]} -eq 0 ]]; then
+            echo "No Lambda intent artifacts were found"
+            exit 1
+          fi
+
+          for fragment in "${fragments[@]}"; do
+            function_name="$(jq -r '.lambda.function_name' "${fragment}")"
+            jq \
+              --arg function_name "${function_name}" \
+              --slurpfile f "${fragment}" \
+              '.lambda[$function_name] = {
+                s3_key: $f[0].lambda.s3_key,
+                published_version: $f[0].lambda.published_version,
+                version_arn: $f[0].lambda.version_arn,
+                alias: $f[0].lambda.alias,
+                alias_action: $f[0].lambda.alias_action
+              }' manifest-lambda.json > manifest-lambda.next.json
+            mv manifest-lambda.next.json manifest-lambda.json
+          done
+
+      - name: Upload merged Lambda manifest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest-lambda
+          path: manifest-lambda.json
+          if-no-files-found: error

@@ -23,6 +23,7 @@
 
 - [ ] `npm run test:coverage` passes in `services/frontend/crm-ui/`
 - [ ] `npm run lint` and `npm run typecheck` pass
+- [ ] Code formatted with Prettier: `npm run format` in `services/frontend/crm-ui/`
 
 ### Documentation
 

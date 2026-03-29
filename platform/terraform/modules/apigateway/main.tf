@@ -5,6 +5,8 @@
 
 locals {
   log_api_route_keys = toset([
+    "GET /health",
+    "GET /api/v1/health",
     "GET /api/v1/logs/health",
     "GET /api/logs",
     "POST /api/logs",
@@ -12,8 +14,15 @@ locals {
     "PUT /api/logs/{logId}",
     "DELETE /api/logs/{logId}",
     "GET /api/clients/{clientId}/logs",
+    "GET /api/aml/alerts",
+    "POST /api/aml/alerts",
+    "GET /api/aml/alerts/{alertId}",
+    "PUT /api/aml/alerts/{alertId}/review",
     "POST /api/communications",
+    "GET /api/communications/queued",
     "GET /api/communications/{communicationId}",
+    "PATCH /api/communications/{communicationId}/status",
+    "PATCH /api/communications/provider/{providerMessageId}/status",
     "GET /api/clients/{clientId}/communications",
   ])
 }
@@ -24,7 +33,7 @@ resource "aws_apigatewayv2_api" "log" {
 
   cors_configuration {
     allow_origins = var.use_custom_domain ? ["https://${var.app_domain_name}"] : ["*"]
-    allow_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allow_methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
     allow_headers = ["*"]
     max_age       = 300
   }

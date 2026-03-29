@@ -4,9 +4,19 @@ on:
   push:
     branches:
       - dev
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   pull_request:
     branches:
       - dev
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+
+permissions:
+  contents: read
+  id-token: write
 
 jobs:
   # Detect which services have changed
@@ -15,11 +25,15 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
-      agent-backend: ${{ steps.filter.outputs.agent-backend }}
-      aml-backend: ${{ steps.filter.outputs.aml-backend }}
-      client-backend: ${{ steps.filter.outputs.client-backend }}
-      log-backend: ${{ steps.filter.outputs.log-backend }}
-      transaction-backend: ${{ steps.filter.outputs.transaction-backend }}
+      user_backend: ${{ steps.filter.outputs['user-backend'] }}
+      aml_backend: ${{ steps.filter.outputs['aml-backend'] }}
+      client_backend: ${{ steps.filter.outputs['client-backend'] }}
+      log_backend: ${{ steps.filter.outputs['log-backend'] }}
+      verification_backend: ${{ steps.filter.outputs['verification-backend'] }}
+      sftp_transaction_collector_backend: ${{ steps.filter.outputs['sftp-transaction-collector-backend'] }}
+      transaction_backend: ${{ steps.filter.outputs['transaction-backend'] }}
+      audit_consumer_backend: ${{ steps.filter.outputs['audit-consumer-backend'] }}
+      aml_consumer_backend: ${{ steps.filter.outputs['aml-consumer-backend'] }}
       platform: ${{ steps.filter.outputs.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -34,61 +48,103 @@ jobs:
           filters: |
             frontend:
               - 'services/frontend/**'
-            agent-backend:
-              - 'services/backend/agent/**'
+            user-backend:
+              - 'services/backend/user/**'
             aml-backend:
               - 'services/backend/aml/**'
             client-backend:
               - 'services/backend/client/**'
             log-backend:
               - 'services/backend/log/**'
+            verification-backend:
+              - 'services/backend/verification/**'
+            sftp-transaction-collector-backend:
+              - 'services/backend/sftp-transaction-collector/**'
             transaction-backend:
               - 'services/backend/transaction/**'
+            audit-consumer-backend:
+              - 'services/backend/audit-consumer/**'
+            aml-consumer-backend:
+              - 'services/backend/aml-consumer/**'
             platform:
               - 'platform/**'
 
   # Conditional CI jobs based on changed services
+  # Stateful backend component workflows (user/client/transaction/log) include
+  # both fast unit tests and a separate DB-backed Postgres gate.
   ci-frontend:
     name: CI - Frontend
     needs: [detect-changes]
     if: needs.detect-changes.outputs.frontend == 'true'
     uses: ./.github/workflows/ci-frontend.yml
 
-  ci-agent-backend:
-    name: CI - Agent Backend
+  ci-user-backend:
+    name: CI - User Backend
     needs: [detect-changes]
-    if: needs.detect-changes.outputs.agent-backend == 'true'
-    uses: ./.github/workflows/ci-agent-backend.yml
+    if: needs.detect-changes.outputs.user_backend == 'true'
+    uses: ./.github/workflows/ci-user-backend.yml
 
   ci-aml-backend:
     name: CI - AML Backend
     needs: [detect-changes]
-    if: needs.detect-changes.outputs.aml-backend == 'true'
+    if: needs.detect-changes.outputs.aml_backend == 'true'
     uses: ./.github/workflows/ci-aml-backend.yml
 
   ci-client-backend:
     name: CI - Client Backend
     needs: [detect-changes]
-    if: needs.detect-changes.outputs.client-backend == 'true'
+    if: needs.detect-changes.outputs.client_backend == 'true'
     uses: ./.github/workflows/ci-client-backend.yml
 
   ci-log-backend:
     name: CI - Log Backend
     needs: [detect-changes]
-    if: needs.detect-changes.outputs.log-backend == 'true'
+    if: needs.detect-changes.outputs.log_backend == 'true'
     uses: ./.github/workflows/ci-log-backend.yml
+
+  ci-verification-backend:
+    name: CI - Verification Backend
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.verification_backend == 'true'
+    uses: ./.github/workflows/ci-verification-backend.yml
+
+  ci-sftp-transaction-collector-backend:
+    name: CI - SFTP Transaction Collector Backend
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.sftp_transaction_collector_backend == 'true'
+    uses: ./.github/workflows/ci-sftp-transaction-collector-backend.yml
 
   ci-transaction-backend:
     name: CI - Transaction Backend
     needs: [detect-changes]
-    if: needs.detect-changes.outputs.transaction-backend == 'true'
+    if: needs.detect-changes.outputs.transaction_backend == 'true'
     uses: ./.github/workflows/ci-transaction-backend.yml
+
+  ci-audit-consumer-backend:
+    name: CI - Audit Consumer Backend
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.audit_consumer_backend == 'true'
+    uses: ./.github/workflows/ci-audit-consumer-backend.yml
+
+  ci-aml-consumer-backend:
+    name: CI - AML Consumer Backend
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.aml_consumer_backend == 'true'
+    uses: ./.github/workflows/ci-aml-consumer-backend.yml
 
   ci-terraform:
     name: CI - Terraform Static Analysis
     needs: [detect-changes]
     if: needs.detect-changes.outputs.platform == 'true'
     uses: ./.github/workflows/ci-terraform.yml
+    secrets: inherit
+
+  # OpenAPI contract linting runs unconditionally (fast, ~5s).
+  openapi-lint:
+    name: CI - OpenAPI Lint
+    uses: ./.github/workflows/reusable-lint.yml
+    with:
+      run-openapi: true
 
   # Secret scanning runs unconditionally on every push/PR regardless of what changed.
   secrets-scan:
@@ -103,12 +159,17 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - ci-frontend
-      - ci-agent-backend
+      - ci-user-backend
       - ci-aml-backend
       - ci-client-backend
       - ci-log-backend
+      - ci-verification-backend
+      - ci-sftp-transaction-collector-backend
       - ci-transaction-backend
+      - ci-audit-consumer-backend
+      - ci-aml-consumer-backend
       - ci-terraform
+      - openapi-lint
       - secrets-scan
     if: always()
     steps:

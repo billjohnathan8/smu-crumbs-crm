@@ -1,38 +1,5 @@
 #!/usr/bin/env python3
 """
-Minimal developer setup helper: checks required tools and exits.
-"""
-import shutil
-import sys
-
-
-REQUIRED = [
-    "docker",
-    "java",
-    "node",
-    "npm",
-    "python3",
-]
-
-
-def main() -> int:
-    missing = []
-    for tool in REQUIRED:
-        if not shutil.which(tool):
-            missing.append(tool)
-
-    if missing:
-        print("Missing tools:", ", ".join(missing))
-        return 1
-
-    print("All required tools are available.")
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
-#!/usr/bin/env python3
-"""
 Developer environment setup - one-command onboarding.
 
 Replaces:
@@ -63,7 +30,7 @@ import urllib.request
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Literal
+from typing import Optional
 
 # Add repo root to path
 repo_root = Path(__file__).resolve().parent.parent.parent
@@ -71,6 +38,7 @@ sys.path.insert(0, str(repo_root))
 
 from scripts.core.detect import get_platform, is_windows
 from scripts.core.logging import create_logger
+from scripts.pipelines.generate_inframap import install_portable_inframap
 
 
 @dataclass
@@ -164,6 +132,8 @@ class EnvironmentChecker:
                 "node": "winget install OpenJS.NodeJS.LTS",
                 "python": "winget install Python.Python.3.12",
                 "make": "winget install GnuWin32.Make",
+                "dot": "winget install Graphviz.Graphviz",
+                "inframap": "Use setup script portable install or download from GitHub releases",
             }
         elif stdlib_platform.system() == "Darwin":
             install_cmds = {
@@ -173,6 +143,8 @@ class EnvironmentChecker:
                 "node": "brew install node",
                 "python": "brew install python@3.12",
                 "make": "brew install make",
+                "dot": "brew install graphviz",
+                "inframap": "Use setup script portable install or download from GitHub releases",
             }
         else:  # Linux
             install_cmds = {
@@ -182,6 +154,8 @@ class EnvironmentChecker:
                 "node": "sudo apt-get install nodejs npm",
                 "python": "sudo apt-get install python3.12 python3.12-venv",
                 "make": "sudo apt-get install make",
+                "dot": "sudo apt-get install graphviz",
+                "inframap": "Use setup script portable install or download from GitHub releases",
             }
         
         return install_cmds.get(tool, f"Install {tool} from official website")
@@ -277,6 +251,7 @@ class ToolInstaller:
     
     TOOL_VERSIONS = {
         "actionlint": "v1.7.5",
+        "inframap": "latest",
     }
     
     def __init__(self, platform, logger, portable: bool = True):
@@ -367,6 +342,13 @@ class ToolInstaller:
         
         self.logger.success(f"actionlint installed to {dest}")
         self.installed_count += 1
+
+    def download_inframap(self):
+        """Download inframap to .devtools/bin via the shared installer."""
+        self.logger.info("Downloading inframap latest release...")
+        binary_path = install_portable_inframap()
+        self.logger.success(f"inframap installed to {binary_path}")
+        self.installed_count += 1
     
     def _download_file(self, url: str, dest: Path):
         """Download file with progress indication."""
@@ -417,6 +399,8 @@ class ToolInstaller:
             try:
                 if tool == "actionlint":
                     self.download_actionlint()
+                elif tool == "inframap":
+                    self.download_inframap()
             except Exception as e:
                 self.logger.warning(f"Failed to install {tool}: {e}")
     
@@ -443,6 +427,38 @@ class ToolInstaller:
             else:
                 self.logger.warning(f"  export PATH=\"{devtools_bin_str}:$PATH\"")
 
+    def install_graphviz_system(self):
+        """
+        Install Graphviz (dot) using the platform package manager.
+        This is intentionally opt-in because it modifies system packages.
+        """
+        if is_windows():
+            command = [
+                "winget",
+                "install",
+                "--id",
+                "Graphviz.Graphviz",
+                "-e",
+                "--accept-package-agreements",
+                "--accept-source-agreements",
+            ]
+        elif stdlib_platform.system() == "Darwin":
+            command = ["brew", "install", "graphviz"]
+        else:
+            command = ["sudo", "apt-get", "install", "-y", "graphviz"]
+
+        self.logger.info(f"Installing Graphviz using: {' '.join(command)}")
+        result = self.platform.run_command(
+            command,
+            capture_output=False,
+            check=False,
+            timeout=600
+        )
+        if result.returncode == 0:
+            self.logger.success("Graphviz installation completed")
+        else:
+            self.logger.warning("Graphviz installation failed; install manually and re-run setup")
+
 
 def configure_backend_dependencies(logger, platform):
     """Configure Gradle and Python backend dependencies."""
@@ -453,7 +469,7 @@ def configure_backend_dependencies(logger, platform):
         return
     
     # Gradle services
-    gradle_services = ["agent", "client", "transaction"]
+    gradle_services = ["user", "client", "transaction"]
     configured_count = 0
     
     for service_name in gradle_services:
@@ -474,6 +490,7 @@ def configure_backend_dependencies(logger, platform):
             result = platform.run_command(
                 [str(gradlew_path), "dependencies"],
                 cwd=service_path,
+                env={"GRADLE_USER_HOME": str(service_path / ".gradle-local")},
                 capture_output=True,
                 check=False,
                 timeout=300
@@ -492,7 +509,7 @@ def configure_backend_dependencies(logger, platform):
     if log_service.exists():
         logger.info("[log] Setting up Python virtual environment...")
         
-        venv_dir = log_service / "venv"
+        venv_dir = log_service / ".venv"
         requirements_file = log_service / "requirements.txt"
         
         if not requirements_file.exists():
@@ -638,6 +655,11 @@ Examples:
         action="store_true",
         help="Add .devtools/bin to PATH permanently"
     )
+    parser.add_argument(
+        "--install-graphviz",
+        action="store_true",
+        help="Install Graphviz (dot) via the system package manager"
+    )
     args = parser.parse_args()
     
     # Setup platform
@@ -700,6 +722,8 @@ Examples:
             
             # Check portable tools
             checker.check_tool("actionlint", "actionlint", required=False)
+            checker.check_tool("inframap", "inframap", required=False)
+            checker.check_tool("graphviz-dot", "dot", required=False)
             
             checker.report()
             
@@ -721,6 +745,13 @@ Examples:
                 installer = ToolInstaller(platform, logger, portable=not args.system)
                 installer.ensure_devtools_dir()
                 installer.install_missing_tools(checker)
+
+                graphviz_status = next((dep for dep in checker.results if dep.name == "graphviz-dot"), None)
+                if args.install_graphviz:
+                    if graphviz_status and graphviz_status.found:
+                        logger.info("Graphviz (dot) already installed")
+                    else:
+                        installer.install_graphviz_system()
                 
                 if installer.installed_count > 0:
                     installer.update_path(persist=args.persist_path)
@@ -751,6 +782,7 @@ Examples:
         
         logger.info("")
         logger.info("Next steps:")
+        logger.info("  - Run full local CI-equivalent checks: python scripts/pipelines/test_all.py")
         logger.info("  - Run backend tests:  python scripts/pipelines/test_backend.py")
         logger.info("  - Run frontend tests: python scripts/pipelines/test_frontend.py")
         logger.info("  - VS Code: Open workspace and install recommended extensions")

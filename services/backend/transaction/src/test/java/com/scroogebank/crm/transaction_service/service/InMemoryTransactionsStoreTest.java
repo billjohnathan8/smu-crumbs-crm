@@ -11,8 +11,11 @@ import com.scroogebank.crm.transaction_service.dto.ImportTransactionsRequest;
 import com.scroogebank.crm.transaction_service.dto.TransactionDto;
 import com.scroogebank.crm.transaction_service.dto.TransactionKind;
 import com.scroogebank.crm.transaction_service.dto.TransactionStatus;
+import com.scroogebank.crm.transaction_service.dto.UpdateTransactionRequest;
 import com.scroogebank.crm.transaction_service.exception.ImportBatchNotFoundException;
 import com.scroogebank.crm.transaction_service.exception.TransactionNotFoundException;
+import com.scroogebank.crm.transaction_service.service.imports.S3BackedTransactionFileSource;
+import com.scroogebank.crm.transaction_service.service.imports.TransactionCsvParser;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
@@ -21,7 +24,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -34,16 +36,17 @@ class InMemoryTransactionsStoreTest {
 
 	private InMemoryTransactionsStore store;
 
-	@BeforeEach
-	void setUp() {
+	private void setUp() {
 		store = new InMemoryTransactionsStore(
 			Clock.fixed(Instant.parse("2026-02-05T00:00:00Z"), ZoneOffset.UTC),
-			tempDir.toString()
+			new S3BackedTransactionFileSource(tempDir),
+			new TransactionCsvParser()
 		);
 	}
 
 	@Test
 	void createGetDelete_roundTripAndMissingThrows() {
+		setUp();
 		TransactionDto created = store.create(new CreateTransactionRequest(
 			"clt_1",
 			TransactionKind.D,
@@ -58,12 +61,15 @@ class InMemoryTransactionsStoreTest {
 		assertEquals(TransactionKind.D, loaded.transaction());
 
 		store.delete("txn_1");
-		assertThrows(TransactionNotFoundException.class, () -> store.get("txn_1"));
-		assertThrows(TransactionNotFoundException.class, () -> store.delete("txn_1"));
+		TransactionNotFoundException getException = assertThrows(TransactionNotFoundException.class, () -> store.get("txn_1"));
+		TransactionNotFoundException deleteException = assertThrows(TransactionNotFoundException.class, () -> store.delete("txn_1"));
+		assertNotNull(getException);
+		assertNotNull(deleteException);
 	}
 
 	@Test
 	void list_appliesFiltersAndPaginationBounds() {
+		setUp();
 		store.create(new CreateTransactionRequest("clt_1", TransactionKind.D, new BigDecimal("10"), LocalDate.parse("2026-01-01"), TransactionStatus.Completed));
 		store.create(new CreateTransactionRequest("clt_1", TransactionKind.W, new BigDecimal("20"), LocalDate.parse("2026-01-02"), TransactionStatus.Pending));
 		store.create(new CreateTransactionRequest("clt_2", TransactionKind.D, new BigDecimal("30"), LocalDate.parse("2026-01-03"), TransactionStatus.Failed));
@@ -90,7 +96,37 @@ class InMemoryTransactionsStoreTest {
 	}
 
 	@Test
-	void importFromMockSftp_countsImportedFailedAndFilteredRecords() throws IOException {
+	void update_updatesProvidedFieldsOnly() {
+		setUp();
+		store.create(new CreateTransactionRequest(
+			"clt_1",
+			TransactionKind.D,
+			new BigDecimal("1200.50"),
+			LocalDate.parse("2026-01-01"),
+			TransactionStatus.Completed
+		));
+
+		TransactionDto updated = store.update(
+			"txn_1",
+			new UpdateTransactionRequest(
+				null,
+				TransactionKind.W,
+				new BigDecimal("900.00"),
+				null,
+				TransactionStatus.Pending
+			)
+		);
+
+		assertEquals("clt_1", updated.clientId());
+		assertEquals(TransactionKind.W, updated.transaction());
+		assertEquals(0, new BigDecimal("900.00").compareTo(updated.amount()));
+		assertEquals(LocalDate.parse("2026-01-01"), updated.date());
+		assertEquals(TransactionStatus.Pending, updated.status());
+	}
+
+	@Test
+	void importTransactions_countsImportedFailedAndFilteredRecords() throws IOException {
+		setUp();
 		Path csv = tempDir.resolve("transactions.csv");
 		Files.writeString(csv, """
 			clientId,transaction,amount,date,status
@@ -101,7 +137,7 @@ class InMemoryTransactionsStoreTest {
 			clt_1,D,notanumber,2026-01-04,Completed
 			""");
 
-		ImportBatchDto batch = store.importFromMockSftp(new ImportTransactionsRequest("clt_1", "transactions.csv"));
+		ImportBatchDto batch = store.importTransactions(new ImportTransactionsRequest("clt_1", "transactions.csv"));
 
 		assertEquals(ImportBatchStatus.completed, batch.status());
 		assertEquals(4, batch.totalRecords());
@@ -114,8 +150,9 @@ class InMemoryTransactionsStoreTest {
 	}
 
 	@Test
-	void importFromMockSftp_missingSourceMarksBatchFailed() {
-		ImportBatchDto batch = store.importFromMockSftp(new ImportTransactionsRequest(null, "missing.csv"));
+	void importTransactions_missingSourceMarksBatchFailed() {
+		setUp();
+		ImportBatchDto batch = store.importTransactions(new ImportTransactionsRequest(null, "missing.csv"));
 
 		assertEquals(ImportBatchStatus.failed, batch.status());
 		assertEquals(0, batch.totalRecords());
@@ -123,8 +160,29 @@ class InMemoryTransactionsStoreTest {
 	}
 
 	@Test
+	void importTransactions_reImportDoesNotCreateDuplicates() throws IOException {
+		setUp();
+		Path csv = tempDir.resolve("transactions.csv");
+		Files.writeString(csv, """
+			clientId,transaction,amount,date,status
+			clt_1,D,100.00,2026-01-01,Completed
+			clt_1,W,30.00,2026-01-02,Pending
+			""");
+
+		ImportBatchDto firstBatch = store.importTransactions(new ImportTransactionsRequest(null, "transactions.csv"));
+		ImportBatchDto secondBatch = store.importTransactions(new ImportTransactionsRequest(null, "transactions.csv"));
+		InMemoryTransactionsStore.ListResult allTransactions = store.list(50, 0, null, null, null, null, null);
+
+		assertEquals(2, firstBatch.importedRecords());
+		assertEquals(0, secondBatch.importedRecords());
+		assertEquals(2, allTransactions.total());
+	}
+
+	@Test
 	void getBatch_missingBatchThrowsNotFound() {
-		assertThrows(ImportBatchNotFoundException.class, () -> store.getBatch("imp_999"));
+		setUp();
+		ImportBatchNotFoundException exception = assertThrows(ImportBatchNotFoundException.class, () -> store.getBatch("imp_999"));
+		assertNotNull(exception);
 	}
 }
 

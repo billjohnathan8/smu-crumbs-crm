@@ -7,10 +7,11 @@ Thank you for contributing to the project! This guide will help you understand o
 ## 🎯 Quick Start for Contributors
 
 1. **Setup your environment:** [New Developer Setup](docs/onboarding/new-dev-setup.md)
-2. **Read the coding standards:** [Coding Standards](docs/coding-standards/coding-standards.md)
-3. **Understand the architecture:** [System Architecture](docs/architecture.md)
-4. **Run tests locally:** [Testing Guide](docs/testing/TESTING-GUIDE.md)
-5. **Follow the PR process:** [Pull Request Process](#pull-request-process)
+2. **Confirm Python prerequisite:** [Python Requirement Guide](docs/prerequisites/PYTHON-REQUIREMENT.md)
+3. **Read the coding standards:** [Coding Standards](docs/coding-standards/coding-standards.md)
+4. **Understand the architecture:** [System Architecture](docs/README.md#architecture-overview)
+5. **Run tests locally:** [Testing Guide](docs/testing/TESTING-GUIDE.md)
+6. **Follow the PR process:** [Pull Request Process](#pull-request-process)
 
 ---
 
@@ -66,7 +67,11 @@ python scripts/pipelines/test_all.py
 # Or run specific test suites
 python scripts/pipelines/test_backend.py    # Backend only
 python scripts/pipelines/test_frontend.py   # Frontend only
+python scripts/pipelines/test_terraform.py  # Terraform only (isolated wrapper)
 ```
+
+On Linux/macOS/WSL, if `python` is not available, use `python3` for the same commands.
+
 
 ### 4. Commit Your Changes
 
@@ -114,7 +119,7 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
 **Examples:**
 
 ```bash
-feat(agent): add CRUD endpoints for agent management
+feat(user): add CRUD endpoints for user management
 fix(client): resolve null pointer exception in client service
 docs: update local deployment guide
 test(transaction): add integration tests for transaction service
@@ -146,18 +151,18 @@ chore: update dependencies to latest versions
 - **SpotBugs** - Bug detection
 
 **Conventions:**
-- Package names: lowercase, no underscores (`com.scroogebank.crm.agent`)
-- Class names: PascalCase (`AgentService`, `ClientController`)
-- Method names: camelCase (`getAgentById`, `createClient`)
+- Package names: lowercase, no underscores (`com.scroogebank.crm.user`)
+- Class names: PascalCase (`UserService`, `ClientController`)
+- Method names: camelCase (`getUserById`, `createClient`)
 - Constants: UPPER_SNAKE_CASE (`MAX_RETRY_COUNT`, `DEFAULT_TIMEOUT`)
 
 **Testing:**
 - Unit tests: JUnit 5 + Mockito
-- Test class naming: `<ClassName>Test` (e.g., `AgentServiceTest`)
+- Test class naming: `<ClassName>Test` (e.g., `UserServiceTest`)
 - Test method naming: `<methodName>_<scenario>_<expectedResult>`
   ```java
   @Test
-  void getAgentById_whenAgentExists_returnsAgent() { ... }
+  void getUserById_whenAgentExists_returnsAgent() { ... }
   ```
 
 **Coverage requirements:**
@@ -208,8 +213,8 @@ def get_log_by_id(log_id: int) -> Optional[LogEntry]:
 - **TypeScript** - Strict mode enabled
 
 **Conventions:**
-- Component names: PascalCase (`AgentList`, `ClientForm`)
-- File names: PascalCase for components (`AgentList.tsx`)
+- Component names: PascalCase (`UserList`, `ClientForm`)
+- File names: PascalCase for components (`UserList.tsx`)
 - Hook names: camelCase starting with `use` (`useAgents`, `useClientData`)
 - Utility files: kebab-case (`api-client.ts`, `date-utils.ts`)
 
@@ -217,12 +222,12 @@ def get_log_by_id(log_id: int) -> Optional[LogEntry]:
 ```tsx
 import { useState } from 'react';
 
-interface AgentListProps {
-  onAgentSelect: (agentId: string) => void;
+interface UserListProps {
+  onUserSelect: (userId: string) => void;
 }
 
-export function AgentList({ onAgentSelect }: AgentListProps) {
-  const [agents, setAgents] = useState([]);
+export function UserList({ onUserSelect }: UserListProps) {
+  const [users, setAgents] = useState([]);
 
   // Component logic...
 
@@ -260,6 +265,8 @@ export function AgentList({ onAgentSelect }: AgentListProps) {
 ```bash
 python scripts/pipelines/test_all.py
 ```
+
+On Linux/macOS/WSL, run `python3 scripts/pipelines/test_all.py` when `python` is unavailable.
 
 **Expected output:**
 - ✅ All backend tests pass
@@ -311,6 +318,7 @@ Before requesting review, ensure:
 
 - [ ] Tests pass locally: `python scripts/pipelines/test_all.py`
 - [ ] Code follows coding standards
+- [ ] Frontend code formatted: `npm run format` in `services/frontend/crm-ui/`
 - [ ] New code has tests
 - [ ] Coverage thresholds met
 - [ ] Documentation updated (if applicable)
@@ -345,7 +353,7 @@ We use a **component trunk** strategy with branch policies:
 | `main` | Production-ready code | Maintainers only (via PR) | `integration` |
 | `integration` | Integration testing | Maintainers only (via PR) | Component trunks |
 | `frontend` | Frontend development | Frontend team | Feature branches |
-| `agent-backend` | Agent service | Backend team | Feature branches |
+| `user-backend` | User service | Backend team | Feature branches |
 | `client-backend` | Client service | Backend team | Feature branches |
 | `transaction-backend` | Transaction service | Backend team | Feature branches |
 | `log-backend` | Log service | Backend team | Feature branches |
@@ -447,7 +455,7 @@ Update docs when you:
 
 | Type | Location |
 |------|----------|
-| **Architecture** | `docs/architecture.md` |
+| **Architecture** | `docs/README.md#architecture-overview` |
 | **API specs** | `docs/api-contracts/openapi/*.yaml` |
 | **Service README** | `services/<backend|frontend>/<service>/README.md` |
 | **User guide** | `docs/` with appropriate subdirectory |
@@ -519,3 +527,4 @@ code example
 Your contributions make this project better. Thank you for following these guidelines and maintaining high standards!
 
 **Happy coding! 🚀**
+

@@ -8,6 +8,9 @@ name: Branch Policy
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
 
 permissions:
   contents: read
@@ -42,7 +45,7 @@ jobs:
           }
 
           # ── component trunk branches ───────────────────────────────
-          TRUNKS="frontend agent-backend log-backend client-backend transaction-backend xfactor-backend"
+          TRUNKS="frontend user-backend client-backend transaction-backend aml-backend log-backend verification-backend sftp-transaction-collector-backend"
 
           is_trunk() {
             for t in $TRUNKS; do
@@ -53,35 +56,25 @@ jobs:
 
           # ── Rule A: PRs into main ─────────────────────────────────
           if [ "$BASE" = "main" ]; then
-            if [ "$HEAD" = "integration" ] || [[ "$HEAD" == integration/* ]]; then
+            if [ "$HEAD" = "integration" ]; then
               echo "OK: merging '${HEAD}' into main is allowed."
               exit 0
             fi
-            fail "Only the 'integration' branch (or integration/*) may merge into 'main'. Got: '${HEAD}'."
+            fail "Only the 'integration' branch may merge into 'main'. Got: '${HEAD}'."
           fi
 
           # ── Rule B: PRs into a component trunk ────────────────────
           if is_trunk "$BASE"; then
-            if [[ "$HEAD" == feat/* ]] || [[ "$HEAD" == fix/* ]] || [[ "$HEAD" == chore/* ]] || [[ "$HEAD" == hotfix/* ]]; then
-              echo "OK: merging '${HEAD}' into trunk '${BASE}' is allowed."
-              exit 0
-            fi
-            fail "Only feat/*, fix/*, chore/*, or hotfix/* branches may merge into trunk '${BASE}'. Got: '${HEAD}'."
+            fail "Merging into component trunk branches is not allowed by policy. Got: '${HEAD}' -> '${BASE}'."
           fi
 
           # ── Rule C: PRs into integration ──────────────────────────
           if [ "$BASE" = "integration" ]; then
-            # Allow component trunks
-            if is_trunk "$HEAD"; then
-              echo "OK: merging trunk '${HEAD}' into integration is allowed."
+            if [ "$HEAD" = "dev" ]; then
+              echo "OK: merging 'dev' into integration is allowed."
               exit 0
             fi
-            # Allow feature-style branches (cross-cutting work)
-            if [[ "$HEAD" == feat/* ]] || [[ "$HEAD" == fix/* ]] || [[ "$HEAD" == chore/* ]] || [[ "$HEAD" == hotfix/* ]]; then
-              echo "OK: merging '${HEAD}' into integration is allowed."
-              exit 0
-            fi
-            fail "Only component trunks (${TRUNKS}) or feat/*/fix/*/chore/*/hotfix/* branches may merge into 'integration'. Got: '${HEAD}'."
+            fail "Only the 'dev' branch may merge into 'integration'. Got: '${HEAD}'."
           fi
 
           # ── Fallthrough: unknown base branch ──────────────────────

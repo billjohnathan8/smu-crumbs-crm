@@ -4,6 +4,9 @@
 # Supports both email identity verification and domain-based setup
 # with DKIM, SPF, and custom MAIL FROM configuration
 #--------------------------------------------------------------
+locals {
+  notification_identity = var.domain != "" ? var.domain : var.sender_email
+}
 
 # SES Email Identity Verification (Fallback Method)
 # Used when a full domain setup is not available
@@ -44,4 +47,16 @@ resource "aws_ses_domain_mail_from" "this" {
 
   domain           = aws_ses_domain_identity.this[0].domain
   mail_from_domain = "${var.mail_from_subdomain}.${var.domain}"
+}
+
+resource "aws_ses_identity_notification_topic" "events" {
+  for_each = (
+    var.enable_ses &&
+    var.notification_topic_arn != "" &&
+    local.notification_identity != ""
+  ) ? toset(["Bounce", "Complaint", "Delivery"]) : toset([])
+
+  identity          = local.notification_identity
+  notification_type = each.value
+  topic_arn         = var.notification_topic_arn
 }

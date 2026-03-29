@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.config import Settings
 
 
@@ -47,3 +49,50 @@ def test_settings_resolves_secret_arn_values(monkeypatch) -> None:
     assert settings.db_user == "secret-user"
     assert settings.db_password == "secret-password"
     assert settings.jwt_hmac_secret == "secret-jwt"
+
+
+def test_settings_requires_explicit_secrets_in_prod(monkeypatch) -> None:
+    monkeypatch.setenv("APP_ENV", "prod")
+    monkeypatch.delenv("DB_USER", raising=False)
+    monkeypatch.delenv("DB_PASSWORD", raising=False)
+    monkeypatch.delenv("JWT_HMAC_SECRET", raising=False)
+    monkeypatch.delenv("DB_USER_SECRET_ARN", raising=False)
+    monkeypatch.delenv("DB_PASSWORD_SECRET_ARN", raising=False)
+    monkeypatch.delenv("JWT_HMAC_SECRET_ARN", raising=False)
+
+    with pytest.raises(RuntimeError):
+        Settings()
+
+
+def test_settings_defaults_to_cognito_in_prod_like_env(monkeypatch) -> None:
+    monkeypatch.setenv("APP_ENV", "prod")
+    monkeypatch.setenv("DB_USER", "prod-user")
+    monkeypatch.setenv("DB_PASSWORD", "prod-pass")
+    monkeypatch.setenv("JWT_HMAC_SECRET", "prod-jwt")
+    monkeypatch.setenv("COGNITO_JWKS_URL", "https://example.com/.well-known/jwks.json")
+    monkeypatch.setenv(
+        "COGNITO_ISSUER", "https://cognito-idp.ap-southeast-1.amazonaws.com/pool"
+    )
+    monkeypatch.setenv("COGNITO_CLIENT_ID", "client-id")
+    monkeypatch.delenv("AUTH_MODE", raising=False)
+
+    settings = Settings()
+
+    assert settings.auth_mode == "cognito"
+
+
+def test_settings_rejects_hybrid_mode_in_prod_like_env(monkeypatch) -> None:
+    monkeypatch.setenv("APP_ENV", "prod")
+    monkeypatch.setenv("DB_USER", "prod-user")
+    monkeypatch.setenv("DB_PASSWORD", "prod-pass")
+    monkeypatch.setenv("JWT_HMAC_SECRET", "prod-jwt")
+    monkeypatch.setenv("AUTH_MODE", "hybrid")
+    monkeypatch.delenv("ALLOW_HYBRID_AUTH", raising=False)
+    monkeypatch.setenv("COGNITO_JWKS_URL", "https://example.com/.well-known/jwks.json")
+    monkeypatch.setenv(
+        "COGNITO_ISSUER", "https://cognito-idp.ap-southeast-1.amazonaws.com/pool"
+    )
+    monkeypatch.setenv("COGNITO_CLIENT_ID", "client-id")
+
+    with pytest.raises(RuntimeError, match="hybrid auth_mode is disabled"):
+        Settings()

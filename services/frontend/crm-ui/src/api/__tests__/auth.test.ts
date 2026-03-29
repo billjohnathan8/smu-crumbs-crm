@@ -124,7 +124,7 @@ describe('auth API', () => {
         firstName: 'John',
         lastName: 'Doe',
         email: 'john@example.com',
-        role: 'agent',
+        role: 'user',
         status: 'active',
       }
 
@@ -132,7 +132,7 @@ describe('auth API', () => {
 
       const result = await getCurrentUser()
 
-      expect(client.apiGet).toHaveBeenCalledWith('/api/agents/me')
+      expect(client.apiGet).toHaveBeenCalledWith('/api/users/me')
       expect(result).toEqual(mockUser)
     })
 
@@ -142,7 +142,7 @@ describe('auth API', () => {
         firstName: 'John',
         lastName: 'Doe',
         email: 'john@example.com',
-        role: 'agent',
+        role: 'user',
         status: 'active',
       }
 
@@ -151,7 +151,7 @@ describe('auth API', () => {
       await getCurrentUser()
 
       // apiGet should be called without skipAuth option
-      expect(client.apiGet).toHaveBeenCalledWith('/api/agents/me')
+      expect(client.apiGet).toHaveBeenCalledWith('/api/users/me')
       expect(client.apiGet).not.toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({ skipAuth: true })

@@ -1,15 +1,21 @@
 name: CI - Client Backend
 
 # Component pipeline for the client-backend trunk.
-# Runs Java checkstyle + unit tests with JaCoCo coverage.
+# Runs Java checkstyle + fast unit tests + Testcontainers Postgres integration tests.
 
 on:
   pull_request:
     branches:
       - client-backend
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   push:
     branches:
       - client-backend
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   workflow_dispatch:
   workflow_call:
 
@@ -19,6 +25,7 @@ concurrency:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   lint:
@@ -37,6 +44,23 @@ jobs:
       working-directory: services/backend/client
       test-command: |
         chmod +x gradlew
-        ./gradlew test jacocoTestReport --no-daemon --console=plain
+        ./gradlew test jacocoTestReport jacocoTestCoverageVerification --no-daemon --console=plain
       timeout-minutes: 12
+      artifact-paths: services/backend/client/build/reports/**
+
+  # DB-backed coverage: includes Testcontainers integration tests.
+  test-db:
+    needs: lint
+    uses: ./.github/workflows/reusable-test-component-db.yml
+    with:
+      component: client
+      runtime: java
+      working-directory: services/backend/client
+      test-command: |
+        chmod +x gradlew
+        ./gradlew test \
+          --tests "com.scroogebank.crm.client_service.ClientsServiceIT" \
+          -PincludeIntegration=true \
+          --no-daemon --console=plain
+      timeout-minutes: 15
       artifact-paths: services/backend/client/build/reports/**

@@ -1,5 +1,7 @@
 import type { ErrorResponse } from './types'
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+
 export class ApiError extends Error {
   status: number
   error: string
@@ -45,15 +47,6 @@ export function clearAuthToken(): void {
 }
 
 /**
- * Create an AbortSignal with timeout
- */
-function createTimeoutSignal(timeout: number): AbortSignal {
-  const controller = new AbortController()
-  setTimeout(() => controller.abort(), timeout)
-  return controller.signal
-}
-
-/**
  * Base API request function with error handling, timeout, and auth
  */
 export async function apiRequest<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
@@ -73,14 +66,15 @@ export async function apiRequest<T>(endpoint: string, options: RequestOptions = 
     }
   }
 
-  // Create timeout signal
-  const timeoutSignal = createTimeoutSignal(timeout)
+  // Create timeout signal and always clear the timer once the request settles.
+  const timeoutController = new AbortController()
+  const timeoutId = setTimeout(() => timeoutController.abort(), timeout)
   const signal = fetchOptions.signal
-    ? AbortSignal.any([fetchOptions.signal, timeoutSignal])
-    : timeoutSignal
+    ? AbortSignal.any([fetchOptions.signal, timeoutController.signal])
+    : timeoutController.signal
 
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
       ...fetchOptions,
       headers,
       signal,
@@ -124,6 +118,8 @@ export async function apiRequest<T>(endpoint: string, options: RequestOptions = 
     }
 
     throw new ApiError(0, 'unknown_error', 'An unknown error occurred', undefined)
+  } finally {
+    clearTimeout(timeoutId)
   }
 }
 
@@ -160,6 +156,21 @@ export async function apiPut<T, D = unknown>(
   return apiRequest<T>(endpoint, {
     ...options,
     method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+/**
+ * PATCH request
+ */
+export async function apiPatch<T, D = unknown>(
+  endpoint: string,
+  data: D,
+  options?: RequestOptions
+): Promise<T> {
+  return apiRequest<T>(endpoint, {
+    ...options,
+    method: 'PATCH',
     body: JSON.stringify(data),
   })
 }
