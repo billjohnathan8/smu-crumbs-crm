@@ -9,8 +9,10 @@ It runs the same logical layers as `.github/workflows/ci-main.yml`:
 2) Backend unit / component tests
 3) Frontend lint / format / typecheck
 4) Frontend unit / component tests
-5) Frontend mocked E2E
+5) Frontend Latency Tests (E2E with mocked backend, <5s validation)
 6) Fullstack integration E2E (LocalStack + containers + Playwright)
+7) JMeter Performance Tests (Load testing against running stack)
+8) Cleanup (Tear down fullstack stack after performance tests)
 """
 
 from __future__ import annotations
@@ -32,6 +34,32 @@ from typing import Dict, List, Optional, Sequence
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 LOG_ROOT = REPO_ROOT / "build-logs" / "test-all"
 LOG_RETENTION_RUNS = 3
+PERFORMANCE_MODE_SEQUENCES: Dict[str, List[str]] = {
+    "baseline": ["baseline"],
+    "smoke": ["smoke"],
+    "concurrent": ["concurrent"],
+    "burst": ["burst"],
+    "stress": ["stress"],
+    # Bake in the same core flow used by run-perf-full-with-cleanup.sh,
+    # but rely on test_all.py Layer 6/8 for stack lifecycle.
+    "full": ["concurrent", "burst", "stress"],
+    # Recovery mode: baseline -> stress -> baseline to validate system
+    # returns to healthy performance after stress is removed.
+    "recovery": ["baseline", "stress", "baseline"],
+    # Full suite with recovery validation: complete capacity testing
+    # with pre/post-stress baseline comparison to detect degradation.
+    "full-with-recovery": ["baseline", "concurrent", "burst", "stress", "baseline"],
+}
+
+# Mode-specific SLO defaults (tightened based on empirical results)
+# CLI overrides (--performance-max-p95-ms, --performance-max-error-rate-pct) take precedence
+PERFORMANCE_MODE_SLO_DEFAULTS: Dict[str, Dict[str, float]] = {
+    "baseline": {"max_p95_ms": 5000.0, "max_error_rate_pct": 1.0},
+    "smoke": {"max_p95_ms": 5000.0, "max_error_rate_pct": 1.0},
+    "concurrent": {"max_p95_ms": 500.0, "max_error_rate_pct": 0.5},
+    "burst": {"max_p95_ms": 1000.0, "max_error_rate_pct": 1.0},
+    "stress": {"max_p95_ms": 2000.0, "max_error_rate_pct": 1.0},
+}
 
 
 @dataclass
@@ -865,12 +893,12 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
             )
         )
 
-        if not args.skip_mocked_e2e:
-            phase = "Layer 5 - Frontend Mocked E2E"
+        if not args.skip_frontend_latency:
+            phase = "Layer 5 - Frontend Latency Tests"
             steps.append(
                 Step(
                     phase=phase,
-                    name="Frontend npm ci (mocked e2e stage)",
+                    name="Frontend npm ci (latency test stage)",
                     cwd=frontend_dir,
                     command=["npm", "ci"],
                 )
@@ -888,7 +916,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
             steps.append(
                 Step(
                     phase=phase,
-                    name="Install Playwright browser (mocked e2e)",
+                    name="Install Playwright browser (latency tests)",
                     cwd=frontend_dir,
                     command=playwright_install,
                 )
@@ -896,9 +924,9 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
             steps.append(
                 Step(
                     phase=phase,
-                    name="Run mocked E2E",
+                    name="Run frontend latency tests",
                     cwd=frontend_dir,
-                    command=["npm", "run", "e2e:mocked"],
+                    command=["npm", "run", "test:e2e:latency"],
                 )
             )
 
@@ -910,6 +938,12 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
             )
 
         phase = "Layer 6 - Fullstack Integration E2E"
+        fullstack_env = {"FULLSTACK_MODE": args.fullstack_mode}
+
+        # Skip cleanup if performance tests will run after (need stack to remain up)
+        if not args.skip_performance:
+            fullstack_env["SKIP_FULLSTACK_CLEANUP"] = "1"
+
         steps.append(
             Step(
                 phase=phase,
@@ -924,9 +958,157 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                         / "run-fullstack-integration-e2e.sh"
                     ),
                 ],
-                env={"FULLSTACK_MODE": args.fullstack_mode},
+                env=fullstack_env,
             )
         )
+
+    if args.suite == "all" and not args.skip_performance:
+        phase = "Layer 7 - JMeter Performance Tests"
+        perf_script = REPO_ROOT / "scripts" / "performance" / "run_jmeter_tests.py"
+
+        # Determine timestamped output directory for this test_all.py run
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # Determine if CLI overrides are in effect (user explicitly set thresholds)
+        # If CLI args differ from parser defaults, treat as explicit override for all modes
+        cli_override = (
+            args.performance_max_p95_ms != 5000.0
+            or args.performance_max_error_rate_pct != 1.0
+        )
+
+        # Note: Health check is always performed to ensure stack is running.
+        # Stack should be up from Layer 6 (fullstack integration) if not skipped.
+        perf_modes = PERFORMANCE_MODE_SEQUENCES[args.performance_mode]
+
+        # Track output directories for recovery comparison
+        # Maps (mode, sequence_index) -> output_dir
+        perf_output_dirs: Dict[tuple, Path] = {}
+
+        for seq_idx, perf_mode in enumerate(perf_modes):
+            # For sequences with duplicate modes (e.g., recovery has two baselines),
+            # append sequence index to distinguish them
+            mode_counts = {}
+            for i, m in enumerate(perf_modes[:seq_idx + 1]):
+                mode_counts[m] = mode_counts.get(m, 0) + 1
+
+            mode_occurrence = mode_counts[perf_mode]
+            if perf_modes.count(perf_mode) > 1:
+                # Multiple occurrences: label with sequence position
+                dir_name = f"{perf_mode}-seq{seq_idx}-{timestamp}"
+                step_label = f"{perf_mode} (seq {seq_idx})"
+            else:
+                # Single occurrence: use simple name
+                dir_name = f"{perf_mode}-{timestamp}"
+                step_label = perf_mode
+
+            perf_output = REPO_ROOT / "build-logs" / "performance" / dir_name
+            perf_output_dirs[(perf_mode, seq_idx)] = perf_output
+
+            # Use mode-specific SLO defaults unless CLI override is active
+            if cli_override:
+                max_p95_ms = args.performance_max_p95_ms
+                max_error_rate_pct = args.performance_max_error_rate_pct
+            else:
+                mode_defaults = PERFORMANCE_MODE_SLO_DEFAULTS.get(
+                    perf_mode,
+                    {"max_p95_ms": 5000.0, "max_error_rate_pct": 1.0},
+                )
+                max_p95_ms = mode_defaults["max_p95_ms"]
+                max_error_rate_pct = mode_defaults["max_error_rate_pct"]
+
+            steps.append(
+                Step(
+                    phase=phase,
+                    name=f"Performance test ({step_label})",
+                    cwd=REPO_ROOT,
+                    command=[
+                        py,
+                        str(perf_script),
+                        "--test-mode",
+                        perf_mode,
+                        "--repeats",
+                        str(args.performance_repeats),
+                        "--slo-max-error-rate-pct",
+                        str(max_error_rate_pct),
+                        "--slo-max-p95-ms",
+                        str(max_p95_ms),
+                        "--output-dir",
+                        str(perf_output),
+                    ],
+                )
+            )
+
+        # Add recovery comparison step if mode includes pre/post-stress baseline
+        if args.performance_mode in ("recovery", "full-with-recovery"):
+            # Find first and last baseline indices in the sequence
+            baseline_indices = [i for i, m in enumerate(perf_modes) if m == "baseline"]
+            if len(baseline_indices) >= 2:
+                pre_stress_idx = baseline_indices[0]
+                post_stress_idx = baseline_indices[-1]
+                steps.append(
+                    Step(
+                        phase=phase,
+                        name="Recovery analysis (compare pre-stress vs post-stress baseline)",
+                        cwd=REPO_ROOT,
+                        command=[
+                            py,
+                            str(Path(__file__).resolve()),
+                            "--internal-recovery-compare",
+                            str(perf_output_dirs[("baseline", pre_stress_idx)]),
+                            str(perf_output_dirs[("baseline", post_stress_idx)]),
+                        ],
+                    )
+                )
+
+        # Add cleanup step to tear down the stack after performance tests.
+        # Prefer a dedicated script when available; otherwise run docker compose
+        # directly to avoid shell quoting/path conversion issues on Windows.
+        phase = "Layer 8 - Cleanup"
+        cleanup_script = None
+        for candidate in (
+            REPO_ROOT / "scripts" / "ci" / "cleanup-fullstack-stack.sh",
+            REPO_ROOT / "scripts" / "dev" / "stack-down.sh",
+        ):
+            if candidate.exists():
+                cleanup_script = candidate
+                break
+
+        if cleanup_script is not None:
+            if not bash:
+                raise RuntimeError(
+                    "Unable to find 'bash' required for stack cleanup script."
+                )
+            steps.append(
+                Step(
+                    phase=phase,
+                    name="Cleanup fullstack stack",
+                    cwd=REPO_ROOT,
+                    command=[bash, str(cleanup_script)],
+                    env={"AGGRESSIVE_PRUNE": "1"},
+                )
+            )
+        else:
+            compose_file = (
+                REPO_ROOT / "scripts" / "ci" / "fullstack-integration.compose.yml"
+            )
+            steps.append(
+                Step(
+                    phase=phase,
+                    name="Cleanup fullstack stack",
+                    cwd=REPO_ROOT,
+                    command=[
+                        "docker",
+                        "compose",
+                        "-f",
+                        str(compose_file),
+                        "-p",
+                        "crm-fullstack-it-local",
+                        "down",
+                        "-v",
+                        "--remove-orphans",
+                    ],
+                )
+            )
 
     return steps
 
@@ -1170,10 +1352,15 @@ def write_summary(
         "timestamp": datetime.now().isoformat(),
         "suite": args.suite,
         "fullstack_mode": args.fullstack_mode,
+        "performance_mode": args.performance_mode,
+        "performance_repeats": args.performance_repeats,
+        "performance_max_error_rate_pct": args.performance_max_error_rate_pct,
+        "performance_max_p95_ms": args.performance_max_p95_ms,
         "local_phase5": args.local_phase5,
         "dry_run": args.dry_run,
         "skip_fullstack": args.skip_fullstack,
-        "skip_mocked_e2e": args.skip_mocked_e2e,
+        "skip_frontend_latency": args.skip_frontend_latency,
+        "skip_performance": args.skip_performance,
         "skip_terraform": args.skip_terraform,
         "skip_openapi": args.skip_openapi,
         "run_dir": str(run_dir),
@@ -1200,11 +1387,22 @@ def write_summary(
     lines.append(f"- Timestamp: `{datetime.now().isoformat()}`")
     lines.append(f"- Suite: `{args.suite}`")
     lines.append(f"- Fullstack mode: `{args.fullstack_mode}`")
+    lines.append(f"- Performance mode: `{args.performance_mode}`")
+    lines.append(f"- Performance repeats: `{args.performance_repeats}`")
+    lines.append(
+        f"- Performance SLO max error rate (%): `{args.performance_max_error_rate_pct}`"
+    )
+    lines.append(f"- Performance SLO max p95 (ms): `{args.performance_max_p95_ms}`")
     lines.append(f"- Local phase5 preset: `{args.local_phase5}`")
     lines.append(f"- Dry-run: `{args.dry_run}`")
     lines.append(f"- Success: `{ok}`")
     lines.append(f"- Total runtime (s): `{total_seconds:.1f}`")
     lines.append(f"- Run logs: `{run_dir}`")
+    if args.suite == "all" and not args.skip_performance:
+        lines.append(
+            "- Performance proof artifacts: "
+            "`build-logs/performance/<mode>-<timestamp>/concurrency-proof.{json,md}`"
+        )
     lines.append("")
     lines.append("| Status | Duration (s) | Phase | Step |")
     lines.append("|---|---:|---|---|")
@@ -1234,6 +1432,128 @@ def print_summary(results: List[StepResult], started_at: float) -> None:
     print("=" * 90)
 
 
+def compare_recovery_baseline(
+    pre_stress_dir: Path,
+    post_stress_dir: Path,
+) -> int:
+    """
+    Compare pre-stress and post-stress baseline results for recovery mode.
+
+    Fails if:
+    - Post-stress p95 is >2x worse than pre-stress
+    - Post-stress error rate is elevated beyond acceptable thresholds
+
+    Returns:
+        0 if recovery is acceptable
+        1 if recovery shows degradation
+    """
+    print()
+    print("=" * 80)
+    print("RECOVERY ANALYSIS: Comparing pre-stress vs post-stress baseline")
+    print("=" * 80)
+
+    # Load summary.json from both baseline runs
+    pre_summary_path = pre_stress_dir / "summary.json"
+    post_summary_path = post_stress_dir / "summary.json"
+
+    if not pre_summary_path.exists():
+        print(f"[ERROR] Pre-stress summary not found: {pre_summary_path}")
+        return 1
+
+    if not post_summary_path.exists():
+        print(f"[ERROR] Post-stress summary not found: {post_summary_path}")
+        return 1
+
+    try:
+        with pre_summary_path.open("r", encoding="utf-8") as f:
+            pre_summary = json.load(f)
+        with post_summary_path.open("r", encoding="utf-8") as f:
+            post_summary = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"[ERROR] Failed to load summary JSON: {e}")
+        return 1
+
+    def _as_metric_value(metric: object, preferred_key: str = "avg") -> float:
+        """
+        Convert summary aggregate metric to scalar float.
+
+        Supports both:
+        - legacy scalar format: 123.4
+        - aggregate object format: {"min": ..., "avg": ..., "max": ...}
+        """
+        if isinstance(metric, (int, float)):
+            return float(metric)
+
+        if isinstance(metric, dict):
+            candidate = metric.get(preferred_key)
+            if isinstance(candidate, (int, float)):
+                return float(candidate)
+            for key in ("max", "min"):
+                fallback = metric.get(key)
+                if isinstance(fallback, (int, float)):
+                    return float(fallback)
+
+        return 0.0
+
+    # Extract aggregate metrics
+    pre_agg = pre_summary.get("aggregate", {})
+    post_agg = post_summary.get("aggregate", {})
+
+    pre_p95 = _as_metric_value(pre_agg.get("p95_ms", 0.0), preferred_key="avg")
+    post_p95 = _as_metric_value(post_agg.get("p95_ms", 0.0), preferred_key="avg")
+    pre_error_rate = _as_metric_value(
+        pre_agg.get("error_rate_pct", 0.0), preferred_key="avg"
+    )
+    post_error_rate = _as_metric_value(
+        post_agg.get("error_rate_pct", 0.0), preferred_key="avg"
+    )
+
+    print()
+    print(f"Pre-stress baseline:  p95={pre_p95:.2f}ms  error_rate={pre_error_rate:.3f}%")
+    print(f"Post-stress baseline: p95={post_p95:.2f}ms  error_rate={post_error_rate:.3f}%")
+    print()
+
+    # Failure conditions
+    failures = []
+
+    # Check p95 degradation (>2x worse)
+    if pre_p95 > 0 and post_p95 > pre_p95 * 2.0:
+        p95_ratio = post_p95 / pre_p95
+        failures.append(
+            f"p95 degraded by {p95_ratio:.2f}x (pre: {pre_p95:.2f}ms, post: {post_p95:.2f}ms, threshold: 2.0x)"
+        )
+
+    # Check error rate elevation
+    # Allow small absolute increase (0.5%) or small relative increase (2x)
+    # but fail if both pre and post are above 0.5% and post is worse
+    error_rate_delta = post_error_rate - pre_error_rate
+    if error_rate_delta > 0.5:  # More than 0.5 percentage points increase
+        failures.append(
+            f"error rate elevated by {error_rate_delta:.3f} percentage points "
+            f"(pre: {pre_error_rate:.3f}%, post: {post_error_rate:.3f}%)"
+        )
+    elif post_error_rate > 0.5 and pre_error_rate > 0 and post_error_rate > pre_error_rate * 2.0:
+        error_ratio = post_error_rate / pre_error_rate
+        failures.append(
+            f"error rate elevated by {error_ratio:.2f}x "
+            f"(pre: {pre_error_rate:.3f}%, post: {post_error_rate:.3f}%, threshold: 2.0x)"
+        )
+
+    if failures:
+        print("[FAIL] Recovery validation failed:")
+        for failure in failures:
+            print(f"  - {failure}")
+        print()
+        print("Post-stress baseline shows degraded performance.")
+        print("=" * 80)
+        return 1
+
+    print("[PASS] Recovery validation passed")
+    print("System returned to healthy performance after stress was removed.")
+    print("=" * 80)
+    return 0
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run local CI-equivalent checks with per-step timing."
@@ -1256,9 +1576,9 @@ def parse_args() -> argparse.Namespace:
         help="Skip fullstack integration layer (Layer 4).",
     )
     parser.add_argument(
-        "--skip-mocked-e2e",
+        "--skip-frontend-latency",
         action="store_true",
-        help="Skip mocked frontend E2E layer (Layer 3).",
+        help="Skip frontend latency tests layer (Layer 5 - E2E with mocked backend).",
     )
     parser.add_argument(
         "--skip-terraform",
@@ -1269,6 +1589,40 @@ def parse_args() -> argparse.Namespace:
         "--skip-openapi",
         action="store_true",
         help="Skip Spectral OpenAPI contract linting from Layer 1.",
+    )
+    parser.add_argument(
+        "--skip-performance",
+        action="store_true",
+        help="Skip JMeter performance tests layer (Layer 7).",
+    )
+    parser.add_argument(
+        "--performance-mode",
+        choices=("baseline", "smoke", "concurrent", "burst", "stress", "full", "recovery", "full-with-recovery"),
+        default="full",
+        help=(
+            "Mode for JMeter performance tests "
+            "(default: full = concurrent+burst+stress; "
+            "recovery = baseline+stress+baseline; "
+            "full-with-recovery = baseline+concurrent+burst+stress+baseline)."
+        ),
+    )
+    parser.add_argument(
+        "--performance-repeats",
+        type=int,
+        default=1,
+        help="Number of repeats per performance mode for Layer 7 (default: 1).",
+    )
+    parser.add_argument(
+        "--performance-max-error-rate-pct",
+        type=float,
+        default=1.0,
+        help="SLO threshold: max error rate percentage per repeat (default: 1.0).",
+    )
+    parser.add_argument(
+        "--performance-max-p95-ms",
+        type=float,
+        default=5000.0,
+        help="SLO threshold: max p95 latency in ms per repeat (default: 5000).",
     )
     parser.add_argument(
         "--dry-run",
@@ -1283,32 +1637,58 @@ def parse_args() -> argparse.Namespace:
             "(forces suite=all, fullstack-mode=full, and skips Terraform/AWS checks)."
         ),
     )
+    parser.add_argument(
+        "--internal-recovery-compare",
+        nargs=2,
+        metavar=("PRE_DIR", "POST_DIR"),
+        help="Internal: Compare pre-stress and post-stress baseline results for recovery mode.",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+
+    # Handle internal recovery comparison (invoked as a subprocess from the recovery step)
+    if args.internal_recovery_compare:
+        pre_dir = Path(args.internal_recovery_compare[0])
+        post_dir = Path(args.internal_recovery_compare[1])
+        return compare_recovery_baseline(pre_dir, post_dir)
+
     started_at = time.monotonic()
+
+    if args.performance_repeats < 1:
+        print("[FAIL] --performance-repeats must be >= 1")
+        return 1
 
     if args.local_phase5:
         args.suite = "all"
         args.fullstack_mode = "full"
         args.skip_fullstack = False
-        args.skip_mocked_e2e = False
+        args.skip_frontend_latency = False
+        args.skip_performance = False
         args.skip_terraform = True
 
     print("Running local CI-equivalent pipeline")
     print(f"Repository root: {REPO_ROOT}")
     print(f"Suite: {args.suite}")
     print(f"Fullstack mode: {args.fullstack_mode}")
+    print(f"Performance mode: {args.performance_mode}")
     print(
         "Flags: "
         f"local_phase5={args.local_phase5}, "
         f"skip_fullstack={args.skip_fullstack}, "
-        f"skip_mocked_e2e={args.skip_mocked_e2e}, "
+        f"skip_frontend_latency={args.skip_frontend_latency}, "
+        f"skip_performance={args.skip_performance}, "
         f"skip_terraform={args.skip_terraform}, "
         f"skip_openapi={args.skip_openapi}, "
         f"dry_run={args.dry_run}"
+    )
+    print(
+        "Performance SLOs: "
+        f"repeats={args.performance_repeats}, "
+        f"max_error_rate_pct={args.performance_max_error_rate_pct}, "
+        f"max_p95_ms={args.performance_max_p95_ms}"
     )
 
     try:

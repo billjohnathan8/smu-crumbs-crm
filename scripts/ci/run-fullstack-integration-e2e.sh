@@ -8,6 +8,7 @@ FRONTEND_DIR="${ROOT_DIR}/services/frontend/crm-ui"
 INTEGRATION_TEST_DIR="${ROOT_DIR}/tests/integration"
 DB_ORCHESTRATOR_SCRIPT="${ROOT_DIR}/scripts/db/run-shared-postgres.sh"
 DB_ENDPOINT_GUARD_SCRIPT="${ROOT_DIR}/scripts/ci/guard-no-prod-db.sh"
+TRANSACTION_GENERATOR_SCRIPT="${ROOT_DIR}/services/backend/transaction/mock-sftp/mock_transactions.py"
 
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-http://127.0.0.1:18088}"
 COMPOSE_PROJECT_NAME="crm-fullstack-it-${GITHUB_RUN_ID:-local}"
@@ -239,6 +240,26 @@ aws_local_s3_put_object() {
     >/dev/null
 }
 
+generate_contract_transaction_csv() {
+  local output_path="$1"
+  local row_count="$2"
+  local seed="$3"
+  local start_transaction_id="$4"
+  local start_date="$5"
+  local end_date="$6"
+  local client_ids="$7"
+
+  "${PYTHON_CMD}" "${TRANSACTION_GENERATOR_SCRIPT}" \
+    --output "${output_path}" \
+    --row-count "${row_count}" \
+    --seed "${seed}" \
+    --start-transaction-id "${start_transaction_id}" \
+    --start-date "${start_date}" \
+    --end-date "${end_date}" \
+    --client-ids "${client_ids}" \
+    --client-id-mode sequential
+}
+
 normalize_text() {
   echo "$1" | tr -d '\r'
 }
@@ -352,19 +373,26 @@ cleanup() {
   local exit_code=$?
   end_phase
   dump_compose_logs
-  docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" down -v --remove-orphans \
-    >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
 
-  if [[ "${GITHUB_ACTIONS:-}" != "true" && "${FULLSTACK_LOCAL_DOCKER_PRUNE}" == "1" ]]; then
-    local leftover_ids=""
-    leftover_ids="$(docker ps -aq --filter "name=crm-fullstack-it-" 2>/dev/null || true)"
-    if [[ -n "${leftover_ids}" ]]; then
-      docker rm -f ${leftover_ids} >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
+  # Skip cleanup if SKIP_FULLSTACK_CLEANUP is set (used by test_all.py pipeline)
+  if [[ "${SKIP_FULLSTACK_CLEANUP:-}" == "1" ]]; then
+    echo "[INFO] Skipping stack cleanup (SKIP_FULLSTACK_CLEANUP=1)"
+    echo "       Stack remains running for subsequent performance tests"
+  else
+    docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" down -v --remove-orphans \
+      >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
+
+    if [[ "${GITHUB_ACTIONS:-}" != "true" && "${FULLSTACK_LOCAL_DOCKER_PRUNE}" == "1" ]]; then
+      local leftover_ids=""
+      leftover_ids="$(docker ps -aq --filter "name=crm-fullstack-it-" 2>/dev/null || true)"
+      if [[ -n "${leftover_ids}" ]]; then
+        docker rm -f ${leftover_ids} >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
+      fi
+      docker container prune -f >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
+      docker volume prune -f >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
+      docker network prune -f >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
+      docker system prune -af --volumes >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
     fi
-    docker container prune -f >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
-    docker volume prune -f >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
-    docker network prune -f >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
-    docker system prune -af --volumes >> "${LOG_DIR}/docker-compose.log" 2>&1 || true
   fi
 
   local total_elapsed
@@ -2090,11 +2118,7 @@ TX_IMPORT_CLIENT_ID="clt_s3_ci_import"
 # Keep direct-import smoke file outside scheduler prefix to avoid race collisions.
 TX_IMPORT_KEY="manual/ci-s3-import.csv"
 TX_IMPORT_FILE="${LOG_DIR}/ci-s3-import.csv"
-cat > "${TX_IMPORT_FILE}" <<'CSV'
-clientId,transaction,amount,date,status
-clt_s3_ci_import,D,100.00,2026-01-01,Completed
-clt_s3_ci_import,W,40.00,2026-01-02,Pending
-CSV
+generate_contract_transaction_csv "${TX_IMPORT_FILE}" 2 12001 91001 2026-01-01 2026-01-31 "${TX_IMPORT_CLIENT_ID}"
 
 aws_local_s3_put_object "scroogebank-crm-dev-transaction-sftp" "${TX_IMPORT_KEY}" "${TX_IMPORT_FILE}"
 
@@ -2134,10 +2158,7 @@ TX_SCHEDULED_CLIENT_ID="clt_s3_ci_scheduler"
 # Scheduler polls the configured `scheduled/` prefix in fullstack compose.
 TX_SCHEDULED_KEY="scheduled/ci-scheduled-${RUN_ID}.csv"
 TX_SCHEDULED_FILE="${LOG_DIR}/ci-scheduled-import.csv"
-cat > "${TX_SCHEDULED_FILE}" <<'CSV'
-clientId,transaction,amount,date,status
-clt_s3_ci_scheduler,D,215.00,2026-02-10,Completed
-CSV
+generate_contract_transaction_csv "${TX_SCHEDULED_FILE}" 1 12002 92001 2026-02-01 2026-02-28 "${TX_SCHEDULED_CLIENT_ID}"
 
 aws_local_s3_put_object "scroogebank-crm-dev-transaction-sftp" "${TX_SCHEDULED_KEY}" "${TX_SCHEDULED_FILE}"
 
@@ -2172,10 +2193,7 @@ echo "  Smoke: sftp-transaction-collector Lambda -> transaction-service import A
 TX_INGESTION_LAMBDA_CLIENT_ID="clt_s3_ci_ingestion_lambda"
 TX_INGESTION_LAMBDA_KEY="incoming/ci-ingestion-lambda-${RUN_ID}.csv"
 TX_INGESTION_LAMBDA_FILE="${LOG_DIR}/ci-ingestion-lambda.csv"
-cat > "${TX_INGESTION_LAMBDA_FILE}" <<'CSV'
-clientId,transaction,amount,date,status
-clt_s3_ci_ingestion_lambda,D,500.00,2026-02-11,Completed
-CSV
+generate_contract_transaction_csv "${TX_INGESTION_LAMBDA_FILE}" 1 12003 93001 2026-02-01 2026-02-28 "${TX_INGESTION_LAMBDA_CLIENT_ID}"
 
 aws_local_s3_put_object "scroogebank-crm-dev-transaction-sftp" "${TX_INGESTION_LAMBDA_KEY}" "${TX_INGESTION_LAMBDA_FILE}"
 
@@ -2494,11 +2512,7 @@ if [[ "${FULLSTACK_MODE}" == "full" || "${FULLSTACK_MODE}" == "pr" ]]; then
     TX_E2E_IMPORT_CLIENT_ID="clt_s3_e2e_${RUN_ID//[^0-9]/}"
     TX_E2E_IMPORT_KEY="manual/ci-playwright-import-${RUN_ID}.csv"
     TX_E2E_IMPORT_FILE="${LOG_DIR}/ci-playwright-import.csv"
-    cat > "${TX_E2E_IMPORT_FILE}" <<CSV
-clientId,transaction,amount,date,status
-${TX_E2E_IMPORT_CLIENT_ID},D,311.00,2026-03-01,Completed
-${TX_E2E_IMPORT_CLIENT_ID},W,89.00,2026-03-02,Pending
-CSV
+    generate_contract_transaction_csv "${TX_E2E_IMPORT_FILE}" 2 12004 94001 2026-03-01 2026-03-15 "${TX_E2E_IMPORT_CLIENT_ID}"
     aws_local_s3_put_object "scroogebank-crm-dev-transaction-sftp" "${TX_E2E_IMPORT_KEY}" "${TX_E2E_IMPORT_FILE}"
     E2E_TRANSACTION_IMPORT_SOURCE_PATH_VALUE="s3://scroogebank-crm-dev-transaction-sftp/${TX_E2E_IMPORT_KEY}"
   fi
