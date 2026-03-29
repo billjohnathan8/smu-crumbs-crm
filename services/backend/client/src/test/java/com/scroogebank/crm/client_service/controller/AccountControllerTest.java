@@ -51,7 +51,7 @@ class AccountControllerTest {
 		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "user"));
 
 		mockMvc = MockMvcBuilders.standaloneSetup(new AccountController(accountService, requestAuth))
-			.setControllerAdvice(new ApiExceptionHandler())
+			.setControllerAdvice(new ApiExceptionHandler(false))
 			.setMessageConverters(new JacksonJsonHttpMessageConverter(
 				JsonMapper.builder()
 					.findAndAddModules()

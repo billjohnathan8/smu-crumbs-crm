@@ -40,6 +40,7 @@ server:
   port: 8080
 
 app:
+  production-mode: ${APP_PRODUCTION_MODE:false}
   log-service-url: ${CLIENT_LOG_SERVICE_URL:${LOG_SERVICE_URL:http://localhost:4566/_aws/execute-api/local/local}}
   verification:
     sns-topic-arn: ${VERIFICATION_SNS_TOPIC_ARN:}

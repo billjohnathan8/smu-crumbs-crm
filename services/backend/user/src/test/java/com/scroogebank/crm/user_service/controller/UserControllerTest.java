@@ -62,7 +62,7 @@ class UserControllerTest {
         objectMapper = new ObjectMapper();
 
         mockMvc = MockMvcBuilders.standaloneSetup(new UserController(userAccountService, requestAuth))
-            .setControllerAdvice(new ApiExceptionHandler())
+            .setControllerAdvice(new ApiExceptionHandler(false))
             .build();
     }
 

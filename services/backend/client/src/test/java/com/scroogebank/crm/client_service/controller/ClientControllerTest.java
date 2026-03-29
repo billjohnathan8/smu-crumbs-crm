@@ -64,7 +64,7 @@ class ClientControllerTest {
 			.build();
 
         mockMvc = MockMvcBuilders.standaloneSetup(new ClientController(clientService, requestAuth))
-            .setControllerAdvice(new ApiExceptionHandler())
+            .setControllerAdvice(new ApiExceptionHandler(false))
         	.setMessageConverters(new JacksonJsonHttpMessageConverter(objectMapper))
             .build();
     }

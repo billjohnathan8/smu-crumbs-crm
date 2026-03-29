@@ -25,7 +25,7 @@ class ApiExceptionHandlerTest {
 
 	@Test
 	void handleValidation_buildsFieldErrorMessageAndIncludesRequestId() throws Exception {
-		ApiExceptionHandler handler = new ApiExceptionHandler();
+		ApiExceptionHandler handler = new ApiExceptionHandler(false);
 		HttpServletRequest request = mock(HttpServletRequest.class);
 		when(request.getAttribute("requestId")).thenReturn("req-1");
 
@@ -49,7 +49,7 @@ class ApiExceptionHandlerTest {
 
 	@Test
 	void handleValidation_whenNoFieldErrors_usesFallbackMessageAndNullRequestId() throws Exception {
-		ApiExceptionHandler handler = new ApiExceptionHandler();
+		ApiExceptionHandler handler = new ApiExceptionHandler(false);
 		HttpServletRequest request = mock(HttpServletRequest.class);
 		when(request.getAttribute("requestId")).thenReturn(null);
 
@@ -67,7 +67,7 @@ class ApiExceptionHandlerTest {
 
 	@Test
 	void handleUnreadableBody_returnsValidationError() {
-		ApiExceptionHandler handler = new ApiExceptionHandler();
+		ApiExceptionHandler handler = new ApiExceptionHandler(false);
 		HttpServletRequest request = mock(HttpServletRequest.class);
 		when(request.getAttribute("requestId")).thenReturn("req-parse");
 

@@ -52,7 +52,7 @@ class UserControllerTest {
 				transactionAuditLogger
 			)
 		)
-		.setControllerAdvice(new ApiExceptionHandler())
+		.setControllerAdvice(new ApiExceptionHandler(false))
 		.build();
 
 	@Test

@@ -31,6 +31,7 @@ spring:
     locations: classpath:db/migration
 
 app:
+  production-mode: ${APP_PRODUCTION_MODE:false}
   jwt:
     hmac-secret: ${JWT_HMAC_SECRET:}
     auth-mode: ${AUTH_MODE:hybrid}

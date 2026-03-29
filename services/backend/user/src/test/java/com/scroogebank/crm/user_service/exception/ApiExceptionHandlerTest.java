@@ -25,7 +25,7 @@ class ApiExceptionHandlerTest {
 	@BeforeEach
 	void setUp() {
 		mockMvc = MockMvcBuilders.standaloneSetup(new StubController())
-			.setControllerAdvice(new ApiExceptionHandler())
+			.setControllerAdvice(new ApiExceptionHandler(false))
 			.addFilters((request, response, chain) -> {
 				request.setAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE, "req_123");
 				chain.doFilter(request, response);
