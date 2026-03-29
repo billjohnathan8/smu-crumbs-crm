@@ -65,6 +65,9 @@ jobs:
       - deploy-aml
       - deploy-verification
       - deploy-sftp-transaction-collector
+      - deploy-aml-consumer
+      - deploy-audit-consumer
+      - deploy-log
     runs-on: ubuntu-latest
     steps:
       - name: Download Lambda intent artifacts
