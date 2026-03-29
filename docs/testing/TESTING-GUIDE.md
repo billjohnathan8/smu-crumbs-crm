@@ -370,35 +370,7 @@ bash scripts/dev/stack-up.sh
 
 This section is a command catalog for all performance-testing entry points in the repository.
 
-### 1) Dev Wrapper Commands (Recommended)
-
-```bash
-# Quick backend smoke load (10 threads)
-bash scripts/dev/run-perf-smoke.sh
-
-# Quick backend smoke + automatic stack cleanup
-bash scripts/dev/run-perf-smoke-with-cleanup.sh
-
-# Full backend load validation (100 concurrent threads)
-bash scripts/dev/run-perf-full.sh
-
-# Full lifecycle suite (gradual + burst + stress + cleanup)
-bash scripts/dev/run-perf-full-with-cleanup.sh
-
-# Full cross-layer suite (frontend latency + backend JMeter)
-bash scripts/dev/run-full-performance-suite.sh
-bash scripts/dev/run-full-performance-suite.sh --skip-frontend
-bash scripts/dev/run-full-performance-suite.sh --skip-backend
-```
-
-```powershell
-# PowerShell variant (Windows)
-.\scripts\dev\run-full-performance-suite.ps1
-.\scripts\dev\run-full-performance-suite.ps1 -SkipFrontend
-.\scripts\dev\run-full-performance-suite.ps1 -SkipBackend
-```
-
-### 2) Full-Lifecycle Suite Environment Flags
+### 1) Full-Lifecycle Suite Environment Flags
 
 ```bash
 # Run only gradual + stress (skip burst)
@@ -412,17 +384,7 @@ PERF_REPEATS=3 PERF_MAX_ERROR_RATE_PCT=1.0 PERF_MAX_P95_MS=5000 \
   bash scripts/dev/run-perf-full-with-cleanup.sh
 ```
 
-### 3) Canonical JMeter Scenario Scripts
-
-```bash
-bash scripts/performance/run-baseline.sh
-bash scripts/performance/run-100-threads.sh
-bash scripts/performance/run-100-threads-burst.sh
-bash scripts/performance/run-stress-test.sh
-bash scripts/performance/run-jmeter-against-aws.sh <alb-dns-name>
-```
-
-### 4) Python JMeter Runner (SLO + Repeats + Concurrency Proof)
+### 2) Python JMeter Runner (SLO + Repeats + Concurrency Proof)
 
 ```bash
 # Single mode run
@@ -449,7 +411,7 @@ python scripts/performance/run_jmeter_tests.py \
 
 Supported `--test-mode` values: `baseline`, `smoke`, `concurrent`, `burst`, `stress`.
 
-### 5) CI-Equivalent Performance Layer (`test_all.py`)
+### 3) CI-Equivalent Performance Layer (`test_all.py`)
 
 ```bash
 # Run full local CI flow with performance layer enabled
@@ -477,17 +439,7 @@ python scripts/pipelines/test_all.py \
 python scripts/pipelines/test_all.py --skip-performance
 ```
 
-### 6) Threshold Validation (CSV Gate)
-
-```bash
-python scripts/ci/validate-performance-thresholds.py \
-  --results-csv build-logs/performance/.../results.csv \
-  --error-rate-threshold 5.0 \
-  --p95-latency-threshold 5000 \
-  --fail-on-violation
-```
-
-### 7) Frontend Latency Performance Commands
+### 4) Frontend Latency Performance Commands
 
 ```bash
 cd services/frontend/crm-ui
@@ -513,7 +465,7 @@ bash scripts/dev/stack-down.sh
 **What it runs:**
 - PostgreSQL (port 5432)
 - LocalStack (port 4566) - AWS service mocks
-- Backend services (Spring Boot + Python Flask)
+- Backend services (Spring Boot + Python Lambda)
 - Nginx gateway (port 18088)
 
 **Use cases:**
