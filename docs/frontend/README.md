@@ -31,7 +31,7 @@ npm run format:check        # Check formatting without modifying files
 npm run typecheck
 npm run test:run
 npm run test:coverage
-npm run e2e:mocked
+npm run test:e2e:latency
 ```
 
 ## App Structure (High Level)
@@ -54,4 +54,4 @@ Integration defaults:
 - Admin: `admin@crm.local` / `admin123`
 - User: `user@crm.local` / `UserPass123!`
 
-Mocked E2E tests may use different fixture credentials (`admin@example.com`, `user@example.com`).
+Frontend latency tests (E2E with mocked backend) may use different fixture credentials (`admin@example.com`, `user@example.com`).
