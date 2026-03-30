@@ -15,10 +15,6 @@ on:
     secrets:
       AWS_ROLE_ARN:
         required: true
-      AWS_REGION:
-        required: true
-      LAMBDA_ARTIFACT_BUCKET:
-        required: true
 
 permissions:
   actions: write
@@ -32,8 +28,8 @@ jobs:
     timeout-minutes: 20
 
     env:
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      LAMBDA_ARTIFACT_BUCKET: ${{ secrets.LAMBDA_ARTIFACT_BUCKET }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      LAMBDA_ARTIFACT_BUCKET: ${{ vars.LAMBDA_ARTIFACT_BUCKET }}
       LAMBDA_SERVICE_NAME: ${{ inputs.service }}
       LAMBDA_WORKING_DIRECTORY: services/backend/${{ inputs.service }}
 
@@ -45,8 +41,8 @@ jobs:
       - name: Validate required secrets
         run: |
           test -n "${{ secrets.AWS_ROLE_ARN }}"
-          test -n "${{ secrets.AWS_REGION }}"
-          test -n "${{ secrets.LAMBDA_ARTIFACT_BUCKET }}"
+          test -n "${{ vars.AWS_REGION }}"
+          test -n "${{ vars.LAMBDA_ARTIFACT_BUCKET }}"
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4

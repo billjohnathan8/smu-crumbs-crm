@@ -15,8 +15,6 @@ on:
     secrets:
       AWS_ROLE_ARN:
         required: true
-      AWS_REGION:
-        required: true
 
     outputs:
       image-uri:
@@ -45,7 +43,7 @@ jobs:
       latest-tag: ${{ steps.meta.outputs.latest_tag }}
 
     env:
-      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
 
     steps:
       - name: Checkout code
@@ -55,7 +53,7 @@ jobs:
       - name: Validate required secrets
         run: |
           test -n "${{ secrets.AWS_ROLE_ARN }}"
-          test -n "${{ secrets.AWS_REGION }}"
+          test -n "${{ vars.AWS_REGION }}"
           test -n "${{ inputs.ecs_cluster }}"
 
       - name: Resolve service metadata
