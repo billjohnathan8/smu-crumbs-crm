@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useCallback, type FormEvent } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { useTheme } from '@/features/theme/useTheme'
@@ -155,16 +155,21 @@ export function CreateClientPage() {
     }
   }
 
-  const updateField = (field: keyof ClientCreateRequest, value: string) => {
-    setFormData({ ...formData, [field]: value })
-    if (errors[field]) {
-      setErrors({ ...errors, [field]: '' })
-    }
-  }
+  const updateField = useCallback((field: keyof ClientCreateRequest, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+    setErrors(prev => {
+      if (prev[field]) {
+        const { [field]: _, ...rest } = prev
+        return rest
+      }
+      return prev
+    })
+  }, [])
 
-  const inputCls = (field: keyof ClientCreateRequest) =>
+  const inputCls = useCallback((field: keyof ClientCreateRequest) =>
     `form-input ${errors[field] ? 'form-input-error' : ''}` +
     (theme === 'dark' ? ' bg-[var(--gray)]' : ' bg-[var(--off-white)]')
+  , [errors, theme])
 
   return (
     <SidebarLayout items={sidebarNav}>
