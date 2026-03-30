@@ -54,7 +54,9 @@ export default defineConfig({
     : {
         command: "npm run build && npm run preview",
         url: "http://localhost:4173",
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer: false,  // Always start fresh server to avoid stale connections
         timeout: 120 * 1000,
+        stdout: 'pipe',  // Capture server output for debugging
+        stderr: 'pipe',
       },
 });
