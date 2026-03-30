@@ -385,8 +385,8 @@ resource "aws_iam_role" "transfer_family" {
   assume_role_policy = data.aws_iam_policy_document.transfer_family_assume.json
 
   tags = {
-    Name        = "${var.name_prefix}-transfer-family-sftp"
-    Purpose     = "Allow Transfer Family SFTP users to access transaction S3 bucket"
+    Name    = "${var.name_prefix}-transfer-family-sftp"
+    Purpose = "Allow Transfer Family SFTP users to access transaction S3 bucket"
   }
 }
 
