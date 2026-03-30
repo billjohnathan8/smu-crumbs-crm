@@ -19,8 +19,8 @@ user_desired_count                = 1
 client_desired_count              = 2
 transaction_desired_count         = 1
 ecs_min_capacity                  = 2
-ecs_use_public_subnets            = true
-ecs_assign_public_ip              = true
+ecs_use_public_subnets            = false
+ecs_assign_public_ip              = false
 enable_ecs_container_insights     = false
 enable_service_discovery          = true
 
@@ -50,7 +50,7 @@ enable_audit_pipeline = false # implemented but disabled by default in integrati
 enable_aml_pipeline   = false # implemented but disabled by default in integration profile
 
 # --- Security / Observability ---
-enable_waf                    = false
+enable_waf                    = true
 enable_cloudtrail             = false
 enable_cloudwatch_alarms      = true
 alarm_notification_email      = "crm-alerts-integration@crm.local" # replace with a monitored mailbox before apply

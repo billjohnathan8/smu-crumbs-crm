@@ -34,17 +34,20 @@ resource "aws_security_group" "alb" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  egress {
-    description = "All outbound"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   tags = {
     Name = "${var.name_prefix}-alb-sg"
   }
+}
+
+# ALB only needs to forward traffic to ECS backend services on port 8080.
+resource "aws_security_group_rule" "alb_egress_to_ecs" {
+  type                     = "egress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.alb.id
+  source_security_group_id = aws_security_group.ecs_service.id
+  description              = "Forward traffic to ECS backend services"
 }
 
 resource "aws_security_group" "ecs_service" {
@@ -68,12 +71,22 @@ resource "aws_security_group" "ecs_service" {
     self        = true
   }
 
+  # Egress: HTTPS for AWS APIs (Secrets Manager, SSM, ECR, SQS, SNS, S3, SES, etc.)
   egress {
-    description = "All outbound"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    description = "HTTPS to AWS APIs and internet endpoints"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Egress: service-to-service communication
+  egress {
+    description = "Service-to-service traffic"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    self        = true
   }
 
   tags = {
@@ -86,11 +99,12 @@ resource "aws_security_group" "lambda" {
   description = "Security group for Lambda functions in VPC."
   vpc_id      = var.vpc_id
 
+  # Egress: HTTPS for AWS APIs (Secrets Manager, SSM, S3, SES, SNS, etc.)
   egress {
-    description = "All outbound"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    description = "HTTPS to AWS APIs and internet endpoints"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
@@ -101,7 +115,7 @@ resource "aws_security_group" "lambda" {
 
 resource "aws_security_group" "db" {
   name        = "${var.name_prefix}-db-sg"
-  description = "Allow PostgreSQL from ECS services and Lambda."
+  description = "Allow PostgreSQL from ECS services and Lambda only. No egress."
   vpc_id      = var.vpc_id
 
   ingress {
@@ -120,17 +134,33 @@ resource "aws_security_group" "db" {
     security_groups = [aws_security_group.lambda.id]
   }
 
-  egress {
-    description = "All outbound"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  # No egress rules — database has no legitimate outbound traffic need.
 
   tags = {
     Name = "${var.name_prefix}-db-sg"
   }
+}
+
+# ECS tasks -> DB (PostgreSQL)
+resource "aws_security_group_rule" "ecs_egress_to_db" {
+  type                     = "egress"
+  from_port                = var.db_port
+  to_port                  = var.db_port
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.ecs_service.id
+  source_security_group_id = aws_security_group.db.id
+  description              = "PostgreSQL from ECS services to DB"
+}
+
+# Lambda -> DB (PostgreSQL)
+resource "aws_security_group_rule" "lambda_egress_to_db" {
+  type                     = "egress"
+  from_port                = var.db_port
+  to_port                  = var.db_port
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.lambda.id
+  source_security_group_id = aws_security_group.db.id
+  description              = "PostgreSQL from Lambda to DB"
 }
 
 data "aws_iam_policy_document" "ecs_task_execution_assume" {

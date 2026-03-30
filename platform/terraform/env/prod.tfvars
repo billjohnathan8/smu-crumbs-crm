@@ -24,8 +24,8 @@ client_desired_count          = 2
 transaction_desired_count     = 1
 ecs_min_capacity              = 2
 ecs_max_capacity              = 2
-ecs_use_public_subnets        = true
-ecs_assign_public_ip          = true
+ecs_use_public_subnets        = false
+ecs_assign_public_ip          = false
 enable_ecs_container_insights = false
 
 # --- Database ---
@@ -54,7 +54,7 @@ enable_audit_pipeline = false # implemented but disabled by default in productio
 enable_aml_pipeline   = false # implemented but disabled by default in production profile
 
 # --- Observability & Security ---
-enable_waf                    = false
+enable_waf                    = true
 enable_cloudtrail             = false
 enable_cloudwatch_alarms      = true
 alarm_notification_email      = "crm-alerts-prod@crm.local" # replace with a monitored mailbox before apply
