@@ -642,6 +642,11 @@ variable "restrict_alb_ingress_to_cloudfront" {
   description = "Restrict ALB ingress to CloudFront origin-facing managed prefix list. Enable for CloudFront/WAF-fronted environments."
   type        = bool
   default     = false
+
+  validation {
+    condition     = !var.restrict_alb_ingress_to_cloudfront || var.enable_cloudfront
+    error_message = "restrict_alb_ingress_to_cloudfront requires enable_cloudfront=true to avoid blocking ALB access."
+  }
 }
 
 variable "enable_service_discovery" {
