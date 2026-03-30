@@ -636,7 +636,7 @@ class LambdaRouter:
 
     def _create_log(self, request: NormalizedRequest) -> RoutedResponse:
         user = self._require_user(request)
-        require_roles(user, {"admin", "user"})
+        require_roles(user, {"admin", "user", "service"})
 
         body = self._parse_body(CreateLogRequest, request)
         if user.role == "user" and body.userId != user.user_id:
@@ -717,7 +717,7 @@ class LambdaRouter:
 
     def _create_aml_alert(self, request: NormalizedRequest) -> RoutedResponse:
         user = self._require_user(request)
-        require_roles(user, {"admin"})
+        require_roles(user, {"admin", "service"})
 
         body = self._parse_body(CreateAmlAlertRequest, request)
 
@@ -915,7 +915,7 @@ class LambdaRouter:
         provider_message_id: str,
     ) -> RoutedResponse:
         user = self._require_user(request)
-        require_roles(user, {"admin"})
+        require_roles(user, {"admin", "service"})
 
         body = self._parse_body(UpdateCommunicationStatusRequest, request)
         row = self._service.update_communication_status_by_provider_message_id(

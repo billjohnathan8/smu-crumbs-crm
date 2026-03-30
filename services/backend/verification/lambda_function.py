@@ -26,7 +26,7 @@ Environment variables:
     VERIFICATION_LOG_BEARER_TOKEN           Optional. Bearer token fallback.
     JWT_HMAC_SECRET_ARN                     Optional fallback secret ARN.
     VERIFICATION_JWT_SUB                    Optional JWT subject (default: SYSTEM_VERIFICATION_FEEDBACK).
-    VERIFICATION_JWT_ROLE                   Optional JWT role (default: admin).
+    VERIFICATION_JWT_ROLE                   Optional JWT role (default: service).
     VERIFICATION_JWT_TTL_SECONDS            Optional token TTL seconds (default: 300).
 """
 
@@ -107,7 +107,7 @@ def _mint_service_jwt() -> str | None:
     header = {"alg": "HS256", "typ": "JWT"}
     payload = {
         "sub": os.environ.get("VERIFICATION_JWT_SUB", "SYSTEM_VERIFICATION_FEEDBACK"),
-        "role": os.environ.get("VERIFICATION_JWT_ROLE", "admin"),
+        "role": os.environ.get("VERIFICATION_JWT_ROLE", "service"),
         "iat": now_epoch,
         "exp": now_epoch + ttl_seconds,
     }
