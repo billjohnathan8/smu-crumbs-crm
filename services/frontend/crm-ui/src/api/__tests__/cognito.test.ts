@@ -72,9 +72,7 @@ describe('cognito api helpers', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(exchangeCodeForTokens('bad')).rejects.toThrow(
-      'Authentication failed'
-    )
+    await expect(exchangeCodeForTokens('bad')).rejects.toThrow('Authentication failed')
   })
 
   it('enables cognito in hybrid mode when domain and client id are configured', async () => {

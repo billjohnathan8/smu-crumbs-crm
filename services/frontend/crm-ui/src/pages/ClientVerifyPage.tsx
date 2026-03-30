@@ -142,9 +142,15 @@ export function ClientVerifyPage() {
       })
     } catch (error) {
       if (error instanceof ApiError) {
-        setMessage({ type: 'error', text: 'Upload failed. Please request a new verification link.' })
+        setMessage({
+          type: 'error',
+          text: 'Upload failed. Please request a new verification link.',
+        })
       } else {
-        setMessage({ type: 'error', text: 'Upload failed. Please request a new verification link.' })
+        setMessage({
+          type: 'error',
+          text: 'Upload failed. Please request a new verification link.',
+        })
       }
     } finally {
       setIsLoading(false)
@@ -251,9 +257,7 @@ export function ClientVerifyPage() {
                 </label>
                 <select
                   value={primaryId.docType}
-                  onChange={e =>
-                    setPrimaryId(prev => ({ ...prev, docType: e.target.value }))
-                  }
+                  onChange={e => setPrimaryId(prev => ({ ...prev, docType: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   disabled={isLoading}
                 >

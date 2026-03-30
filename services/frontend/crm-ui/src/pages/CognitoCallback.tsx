@@ -18,7 +18,11 @@ export function CognitoCallback() {
   const code = searchParams.get('code')
   const callbackState = searchParams.get('state')
   const callbackError = searchParams.get('error_description') || searchParams.get('error')
-  const error = callbackError ? 'Authentication failed' : !code ? 'Authentication failed' : runtimeError
+  const error = callbackError
+    ? 'Authentication failed'
+    : !code
+      ? 'Authentication failed'
+      : runtimeError
 
   useEffect(() => {
     window.history.replaceState(null, '', window.location.pathname)
