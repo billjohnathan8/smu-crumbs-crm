@@ -16,7 +16,7 @@ enforce_strict_prod_guardrails = false # budget-first production bring-up profil
 enable_stateful_service_scale_out = false
 enable_multi_az_nat               = false
 enable_nat_gateway                = true
-enable_vpc_flow_logs              = false
+enable_vpc_flow_logs              = true
 
 # --- ECS ---
 user_desired_count            = 1
@@ -55,7 +55,7 @@ enable_aml_pipeline   = false # implemented but disabled by default in productio
 
 # --- Observability & Security ---
 enable_waf                    = true
-enable_cloudtrail             = false
+enable_cloudtrail             = true
 enable_cloudwatch_alarms      = true
 alarm_notification_email      = "crm-alerts-prod@crm.local" # replace with a monitored mailbox before apply
 enable_backup                 = true

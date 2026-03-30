@@ -14,7 +14,7 @@ aws_region  = "ap-southeast-1"
 enable_stateful_service_scale_out = false
 enable_multi_az_nat               = false
 enable_nat_gateway                = true
-enable_vpc_flow_logs              = false
+enable_vpc_flow_logs              = true
 user_desired_count                = 1
 client_desired_count              = 2
 transaction_desired_count         = 1
@@ -51,10 +51,10 @@ enable_aml_pipeline   = false # implemented but disabled by default in integrati
 
 # --- Security / Observability ---
 enable_waf                    = true
-enable_cloudtrail             = false
+enable_cloudtrail             = true
 enable_cloudwatch_alarms      = true
 alarm_notification_email      = "crm-alerts-integration@crm.local" # replace with a monitored mailbox before apply
-enable_backup                 = false
+enable_backup                 = true
 cloudwatch_log_retention_days = 7
 
 # --- Frontend / Auth ---
