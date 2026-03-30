@@ -44,6 +44,7 @@ rds_performance_insights_enabled = false
 # - transaction ingestion scheduler path
 enable_log_lambda                 = true
 enable_sftp_transaction_collector = true
+enable_transfer_family_sftp       = true # Enable AWS Transfer Family SFTP for production
 enable_verification_pipeline      = true
 ses_sender_email                  = "verification@crm.local" # override with a verified sender in target AWS account
 

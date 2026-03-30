@@ -159,6 +159,29 @@ output "transaction_sftp_bucket_name" {
 }
 
 #--------------------------------------------------------------
+# Transfer Family Outputs
+#--------------------------------------------------------------
+output "sftp_server_id" {
+  description = "AWS Transfer Family server ID."
+  value       = module.transfer_family.sftp_server_id
+}
+
+output "sftp_endpoint" {
+  description = "AWS Transfer Family SFTP endpoint (connect using: sftp -i <key> user@endpoint)."
+  value       = module.transfer_family.sftp_endpoint
+}
+
+output "sftp_username" {
+  description = "SFTP username for transaction file uploads."
+  value       = module.transfer_family.sftp_username
+}
+
+output "sftp_home_directory_target" {
+  description = "S3 path where uploaded files land (logical home directory target)."
+  value       = module.transfer_family.sftp_home_directory_target
+}
+
+#--------------------------------------------------------------
 # Secrets Manager Outputs
 #--------------------------------------------------------------
 output "jwt_secret_arn" {

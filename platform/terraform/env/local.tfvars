@@ -32,6 +32,7 @@ rds_performance_insights_enabled = false
 # --- Feature Contract (local) ---
 enable_log_lambda                 = true
 enable_sftp_transaction_collector = true
+enable_transfer_family_sftp       = false # Not needed for local development (uses direct S3 upload)
 enable_verification_pipeline      = true
 ses_sender_email                  = "verification@crm.local"
 

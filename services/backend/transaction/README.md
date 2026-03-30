@@ -2,10 +2,11 @@
 
 ## Overview
 - Provides full transaction CRUD and import APIs.
-- Uses one ingestion contract:
-  - local filesystem mock files (`mock-sftp/*.csv`) for local development
-  - S3-backed mock ingestion for CI/deployed environments
-- Does not implement a real network SFTP client.
+- Supports multiple ingestion paths (all converge to S3 or filesystem):
+  - **AWS Transfer Family SFTP** (integration/prod): Real SFTP protocol → S3 landing zone
+  - **Direct S3 upload** (all environments): AWS CLI/SDK → S3 landing zone
+  - **Filesystem mock** (local dev): Direct file read from `MOCK_SFTP_ROOT`
+- Transaction service is **transport-agnostic**: reads from S3 or filesystem, regardless of how files arrived
 
 ## API Contract
 
@@ -27,16 +28,28 @@
 
 ## Official Ingestion Contract
 
-The only supported ingestion transport is:
-1. `POST /api/transactions/import` reads CSV from either:
-   - local path relative to `MOCK_SFTP_ROOT`, or
-   - explicit `s3://bucket/key`, or
-   - configured S3 default bucket (`TRANSACTION_IMPORT_S3_BUCKET`) + relative key.
-2. Optional polling scheduler (`TRANSACTION_SFTP_POLL_ENABLED=true`) lists CSV files and calls the same import API internally.
-3. In Terraform-managed environments, the scheduled `sftp-transaction-collector` Lambda selects a CSV object from S3 and calls this API with `sourcePath=s3://...`.
+**Import Flow**:
+1. Files arrive in S3 bucket via:
+   - **AWS Transfer Family SFTP** (integration/prod): External partner uploads via SFTP → files land in S3
+   - **Direct S3 upload** (all environments): AWS CLI/SDK → S3
+   - **Filesystem** (local dev only): Files placed in `MOCK_SFTP_ROOT`
+2. Scheduled `sftp-transaction-collector` Lambda scans S3 prefix for CSV files
+3. Lambda calls `POST /api/transactions/import` with `{"sourcePath":"s3://bucket/key"}`
+4. Transaction service reads CSV from S3 (or filesystem if local) and imports rows
 
-Not supported:
-- Real SFTP host/user/password/private-key transport.
+**Transaction Service Responsibilities**:
+- `POST /api/transactions/import` reads CSV from:
+  - Explicit `s3://bucket/key`, or
+  - Relative key + `TRANSACTION_IMPORT_S3_BUCKET`, or
+  - Local path relative to `MOCK_SFTP_ROOT` (local dev only)
+- Optional polling scheduler (`TRANSACTION_SFTP_POLL_ENABLED=true`) can list and auto-import CSV files
+
+**Not Implemented in Transaction Service**:
+- Direct SFTP client connection (handled by AWS Transfer Family at infrastructure layer)
+
+**Documentation**:
+- Transfer Family setup: [docs/infrastructure/transfer-family-setup.md](../../../docs/infrastructure/transfer-family-setup.md)
+- Full ingestion contract: [docs/api-contracts/sftp-transaction-ingestion-contract.md](../../../docs/api-contracts/sftp-transaction-ingestion-contract.md)
 
 ## Source Resolution Rules
 

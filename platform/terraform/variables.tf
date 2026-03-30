@@ -398,6 +398,40 @@ variable "transaction_import_api_path" {
   default     = "/api/transactions/import"
 }
 
+#--------------------------------------------------------------
+# AWS Transfer Family Configuration
+#--------------------------------------------------------------
+variable "enable_transfer_family_sftp" {
+  description = "Enable AWS Transfer Family SFTP server for external transaction file ingestion."
+  type        = bool
+  default     = false
+}
+
+variable "sftp_username" {
+  description = "SFTP username for transaction file uploads."
+  type        = string
+  default     = "crm-transaction-uploader"
+
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9_-]+$", var.sftp_username))
+    error_message = "sftp_username must contain only alphanumeric characters, hyphens, and underscores."
+  }
+}
+
+variable "sftp_user_ssh_public_key" {
+  description = "SSH public key for SFTP user authentication (OpenSSH format). Generate with: ssh-keygen -t rsa -b 4096 -f ~/.ssh/crm-sftp-demo -N \"\""
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.sftp_user_ssh_public_key == "" || can(regex("^(ssh-rsa|ssh-ed25519|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521) ", var.sftp_user_ssh_public_key))
+    error_message = "sftp_user_ssh_public_key must be a valid SSH public key in OpenSSH format or empty string."
+  }
+}
+
+#--------------------------------------------------------------
+# AML Lambda Configuration
+#--------------------------------------------------------------
 variable "aml_lambda_zip_path" {
   description = "Path to the packaged AML Lambda zip artifact."
   type        = string

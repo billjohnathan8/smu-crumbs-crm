@@ -341,6 +341,23 @@ module "s3" {
 }
 
 #--------------------------------------------------------------
+# Transfer Family Module
+# AWS Transfer Family SFTP server for external transaction file ingestion
+#--------------------------------------------------------------
+module "transfer_family" {
+  source = "./modules/transfer-family"
+
+  enable_transfer_family_sftp = var.enable_transfer_family_sftp
+  name_prefix                 = local.name_prefix
+  environment                 = var.environment
+  transaction_bucket_id       = module.s3.transaction_sftp_bucket_id
+  transaction_bucket_prefix   = var.transaction_sftp_remote_prefix
+  sftp_username               = var.sftp_username
+  sftp_user_ssh_public_key    = var.sftp_user_ssh_public_key
+  transfer_family_role_arn    = module.security.transfer_family_role_arn
+}
+
+#--------------------------------------------------------------
 # WAF Module
 # WAFv2 Web ACL with AWS Managed Rules (Common + SQLi) for CloudFront
 #--------------------------------------------------------------

@@ -92,6 +92,27 @@ Notes:
 - Full per-step timings for all layers are in `build-logs/test-all/last-run-summary.md` (total: `2903.9s`).
 - Runtime varies with Docker cache, dependency cache, and LocalStack/container startup conditions.
 
+# Transaction Ingestion
+
+Transaction CSV files can be ingested via three supported methods:
+
+1. **AWS Transfer Family SFTP** (integration/prod environments)
+   - Real SFTP protocol via AWS managed service
+   - SSH key-based authentication
+   - Files land in S3 bucket → Lambda collector → Transaction import API
+   - See [docs/infrastructure/transfer-family-setup.md](docs/infrastructure/transfer-family-setup.md)
+
+2. **Direct S3 Upload** (all environments)
+   - AWS CLI or SDK upload to S3 bucket
+   - Lambda collector picks up files on schedule
+   - Script: `scripts/ci/seed-transaction-fixture.sh`
+
+3. **Filesystem Mock** (local dev only)
+   - Transaction service reads directly from `MOCK_SFTP_ROOT`
+   - No S3 upload required
+
+**Contract**: [docs/api-contracts/sftp-transaction-ingestion-contract.md](docs/api-contracts/sftp-transaction-ingestion-contract.md)
+
 # Database (Local Postgres)
 - Host: `localhost` (or `postgres` inside Docker Compose network)
 - Port: `5432`
