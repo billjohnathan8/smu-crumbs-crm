@@ -21,6 +21,17 @@ resource "aws_network_acl" "private" {
     to_port    = 8080
   }
 
+  # Allow inbound PostgreSQL for fallback topology where RDS uses private subnets
+  # (when db_subnet_cidrs is empty in the root module).
+  ingress {
+    rule_no    = 150
+    protocol   = "tcp"
+    action     = "allow"
+    cidr_block = var.vpc_cidr
+    from_port  = 5432
+    to_port    = 5432
+  }
+
   # Allow inbound ephemeral return traffic (responses from AWS APIs, DB, etc.)
   ingress {
     rule_no    = 200
@@ -49,6 +60,26 @@ resource "aws_network_acl" "private" {
     cidr_block = "0.0.0.0/0"
     from_port  = 443
     to_port    = 443
+  }
+
+  # Allow DNS resolution against the VPC resolver (base CIDR + 2) for
+  # private workloads that call Cloud Map, Cognito, and other AWS endpoints.
+  egress {
+    rule_no    = 210
+    protocol   = "udp"
+    action     = "allow"
+    cidr_block = "${cidrhost(var.vpc_cidr, 2)}/32"
+    from_port  = 53
+    to_port    = 53
+  }
+
+  egress {
+    rule_no    = 220
+    protocol   = "tcp"
+    action     = "allow"
+    cidr_block = "${cidrhost(var.vpc_cidr, 2)}/32"
+    from_port  = 53
+    to_port    = 53
   }
 
   # Allow outbound ephemeral ports for return traffic to ALB and service-to-service
