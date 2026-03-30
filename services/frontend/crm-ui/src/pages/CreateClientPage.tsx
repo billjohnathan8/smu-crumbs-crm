@@ -159,17 +159,20 @@ export function CreateClientPage() {
     setFormData(prev => ({ ...prev, [field]: value }))
     setErrors(prev => {
       if (prev[field]) {
-        const { [field]: _, ...rest } = prev
-        return rest
+        const next = { ...prev }
+        delete next[field]
+        return next
       }
       return prev
     })
   }, [])
 
-  const inputCls = useCallback((field: keyof ClientCreateRequest) =>
-    `form-input ${errors[field] ? 'form-input-error' : ''}` +
-    (theme === 'dark' ? ' bg-[var(--gray)]' : ' bg-[var(--off-white)]')
-  , [errors, theme])
+  const inputCls = useCallback(
+    (field: keyof ClientCreateRequest) =>
+      `form-input ${errors[field] ? 'form-input-error' : ''}` +
+      (theme === 'dark' ? ' bg-[var(--gray)]' : ' bg-[var(--off-white)]'),
+    [errors, theme]
+  )
 
   return (
     <SidebarLayout items={sidebarNav}>

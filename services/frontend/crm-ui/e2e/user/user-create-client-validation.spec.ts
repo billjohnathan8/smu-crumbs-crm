@@ -1,7 +1,6 @@
 import { test, expect, Route } from "@playwright/test";
 import { setAuthState } from "../helpers/auth";
 import { uniqueEmail, uniquePhone, dobForAge } from "../helpers/testData";
-import { measureLatency } from "../utils/performance";
 
 test.describe("User Create Client - Validation (Flow 6)", () => {
   test.beforeEach(async ({ page, context }) => {
