@@ -348,9 +348,8 @@ public class ClientServiceImpl implements ClientService {
 		if (before == IdentityVerificationStatus.verified || before == IdentityVerificationStatus.rejected) {
 			throw new IllegalStateException("Verification upload not allowed");
 		}
-
-		// Validate verification token (token may be reused while verification remains pending).
-		if (!verificationTokenService.isValid(clientId, request.verificationToken())) {
+		// Validate and consume verification token in one step to prevent replay.
+		if (!verificationTokenService.consumeIfValid(clientId, request.verificationToken())) {
 			throw new UnauthorizedException("Unauthorized");
 		}
 
