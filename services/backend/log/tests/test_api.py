@@ -1112,4 +1112,3 @@ def test_rest_proxy_event_shapes_are_supported() -> None:
     assert rest_logs["statusCode"] == 200
     assert rest_logs_body is not None
     assert "data" in rest_logs_body
-

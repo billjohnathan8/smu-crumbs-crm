@@ -370,7 +370,7 @@ class LambdaRouter:
                 "validation_error",
                 _validation_message(exc),
             )
-        except ValueError as exc:
+        except ValueError:
             return _error_response(
                 request.request_id,
                 400,

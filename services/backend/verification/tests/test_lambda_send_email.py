@@ -355,6 +355,3 @@ class TestLambdaHandlerFlow1:
         response = lambda_function.lambda_handler(self._verification_event(), None)
 
         assert response["statusCode"] == 200
-
-
-
