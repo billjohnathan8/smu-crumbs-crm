@@ -78,7 +78,7 @@ enable_service_discovery      = true
 # --- Auth ---
 enable_cognito            = true
 cognito_mfa_configuration = "ON"
-auth_mode                 = "hybrid"
+auth_mode                 = "cognito"
 
 # --- Domain / DNS Ownership ---
 # Keep custom-domain disabled for first bring-up unless cert + DNS ownership are ready.
