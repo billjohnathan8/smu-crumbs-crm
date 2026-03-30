@@ -163,3 +163,9 @@ variable "transaction_sftp_bucket_arn" {
   type        = string
   default     = ""
 }
+
+variable "ses_identity" {
+  description = "SES identity (email or domain) allowed for SendEmail/SendRawEmail. Empty disables SES send policies."
+  type        = string
+  default     = ""
+}

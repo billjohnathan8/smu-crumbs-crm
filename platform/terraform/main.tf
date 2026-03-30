@@ -64,6 +64,7 @@ module "security" {
   verification_bucket_arn           = module.s3.verification_bucket_arn
   transaction_sftp_bucket_arn       = module.s3.transaction_sftp_bucket_arn
   verification_sns_topic_arn        = module.sns.verification_topic_arn
+  ses_identity                      = var.ses_domain != "" ? var.ses_domain : var.ses_sender_email
 }
 
 #--------------------------------------------------------------

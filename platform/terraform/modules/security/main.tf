@@ -11,6 +11,7 @@ locals {
   # pre-existing role (for example, LabRole in Learner Lab which blocks iam:CreateRole).
   effective_lab_role_arn = var.lab_role_arn != "" ? var.lab_role_arn : (var.lab_role_name != "" ? "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.lab_role_name}" : "")
   use_lab_role           = local.effective_lab_role_arn != ""
+  ses_identity_arn       = trimspace(var.ses_identity) == "" ? "" : "arn:aws:ses:${var.aws_region}:${data.aws_caller_identity.current.account_id}:identity/${trimspace(var.ses_identity)}"
 }
 
 resource "aws_security_group" "alb" {
@@ -576,7 +577,7 @@ resource "aws_iam_role_policy_attachment" "verification_lambda_basic" {
 }
 
 data "aws_iam_policy_document" "verification_lambda" {
-  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
+  count = var.enable_verification_pipeline && trimspace(local.ses_identity_arn) != "" && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "ReadVerificationBucket"
@@ -616,12 +617,12 @@ data "aws_iam_policy_document" "verification_lambda" {
       "ses:SendEmail",
       "ses:SendRawEmail",
     ]
-    resources = ["*"]
+    resources = [local.ses_identity_arn]
   }
 }
 
 resource "aws_iam_role_policy" "verification_lambda" {
-  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
+  count = var.enable_verification_pipeline && trimspace(local.ses_identity_arn) != "" && !local.use_lab_role ? 1 : 0
 
   name   = "${var.name_prefix}-verification-lambda"
   role   = aws_iam_role.verification_lambda[0].id
@@ -629,7 +630,7 @@ resource "aws_iam_role_policy" "verification_lambda" {
 }
 
 data "aws_iam_policy_document" "ecs_client_ses_send" {
-  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
+  count = var.enable_verification_pipeline && trimspace(local.ses_identity_arn) != "" && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "SendVerificationEmailViaSes"
@@ -638,12 +639,12 @@ data "aws_iam_policy_document" "ecs_client_ses_send" {
       "ses:SendEmail",
       "ses:SendRawEmail",
     ]
-    resources = ["*"]
+    resources = [local.ses_identity_arn]
   }
 }
 
 resource "aws_iam_role_policy" "ecs_task_client_ses_send" {
-  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
+  count = var.enable_verification_pipeline && trimspace(local.ses_identity_arn) != "" && !local.use_lab_role ? 1 : 0
 
   name   = "${var.name_prefix}-ecs-task-client-ses-send"
   role   = aws_iam_role.ecs_task["client"].id
