@@ -159,15 +159,20 @@ output "transaction_sftp_bucket_name" {
 }
 
 #--------------------------------------------------------------
-# Transfer Family Outputs
+# SFTP Ingestion Outputs
 #--------------------------------------------------------------
 output "sftp_server_id" {
-  description = "AWS Transfer Family server ID."
+  description = "AWS Transfer Family server ID (managed mode only)."
   value       = module.transfer_family.sftp_server_id
 }
 
+output "sftp_ec2_instance_id" {
+  description = "EC2 instance ID for self-hosted SFTP server (EC2 mode only)."
+  value       = module.transfer_family.sftp_ec2_instance_id
+}
+
 output "sftp_endpoint" {
-  description = "AWS Transfer Family SFTP endpoint (connect using: sftp -i <key> user@endpoint)."
+  description = "Active SFTP endpoint (Transfer Family endpoint or EC2 public endpoint)."
   value       = module.transfer_family.sftp_endpoint
 }
 

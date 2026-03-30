@@ -2,22 +2,22 @@
 set -euo pipefail
 
 #--------------------------------------------------------------
-# Upload Transaction CSV to AWS Transfer Family SFTP Endpoint
+# Upload Transaction CSV to SFTP Endpoint
 #
-# This script uploads a transaction CSV file to the AWS Transfer Family
+# This script uploads a transaction CSV file to the active SFTP endpoint
 # SFTP server using SSH key authentication. The file lands in the S3
 # transaction bucket where the existing collector/import flow processes it.
 #
 # Prerequisites:
 #   - SSH key pair generated (ssh-keygen -t rsa -b 4096)
 #   - SSH public key registered in Terraform (sftp_user_ssh_public_key variable)
-#   - Transfer Family server deployed (enable_transfer_family_sftp = true)
+#   - SFTP server deployed (Transfer Family or EC2 mode)
 #   - sftp command available (OpenSSH client)
 #
 # Usage:
 #   bash scripts/ci/upload-via-transfer-family.sh \
 #     --file ./transactions.csv \
-#     --sftp-endpoint s-abc123.server.transfer.ap-southeast-1.amazonaws.com \
+#     --sftp-endpoint sftp.example.com \
 #     --sftp-username crm-transaction-uploader \
 #     --ssh-key ~/.ssh/crm-sftp-demo \
 #     --remote-filename transactions-2026-03.csv
@@ -43,7 +43,7 @@ Usage:
 
 Required Options:
   --file <path>               Local CSV file to upload
-  --sftp-endpoint <endpoint>  AWS Transfer Family SFTP endpoint (e.g., s-abc123.server.transfer.us-east-1.amazonaws.com)
+  --sftp-endpoint <endpoint>  SFTP endpoint hostname or IP
 
 Optional Options:
   --sftp-username <username>  SFTP username (default: crm-transaction-uploader)
@@ -59,18 +59,18 @@ Examples:
   # Basic upload
   bash scripts/ci/upload-via-transfer-family.sh \
     --file ./mocked_transactions.csv \
-    --sftp-endpoint s-abc123.server.transfer.ap-southeast-1.amazonaws.com
+    --sftp-endpoint sftp.example.com
 
   # Upload with custom remote filename
   bash scripts/ci/upload-via-transfer-family.sh \
     --file ./data.csv \
-    --sftp-endpoint s-abc123.server.transfer.ap-southeast-1.amazonaws.com \
+    --sftp-endpoint sftp.example.com \
     --remote-filename transactions-2026-03.csv
 
   # Upload and trigger import API
   bash scripts/ci/upload-via-transfer-family.sh \
     --file ./data.csv \
-    --sftp-endpoint s-abc123.server.transfer.ap-southeast-1.amazonaws.com \
+    --sftp-endpoint sftp.example.com \
     --trigger-import-url https://crm-alb.example.com/api/transactions/import \
     --auth-token "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 
@@ -154,7 +154,7 @@ SSH_KEY_PATH="${SSH_KEY_PATH/#\~/$HOME}"
 # Ensure SSH key has correct permissions
 chmod 600 "${SSH_KEY_PATH}" 2>/dev/null || true
 
-echo "[INFO] Uploading to AWS Transfer Family SFTP endpoint"
+echo "[INFO] Uploading to SFTP endpoint"
 echo "  Local file:      ${FILE_PATH}"
 echo "  SFTP endpoint:   ${SFTP_ENDPOINT}"
 echo "  SFTP username:   ${SFTP_USERNAME}"

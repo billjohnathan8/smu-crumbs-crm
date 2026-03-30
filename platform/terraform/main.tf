@@ -56,6 +56,7 @@ module "security" {
   enable_aml_pipeline               = var.enable_aml_pipeline
   enable_verification_pipeline      = var.enable_verification_pipeline
   enable_sftp_transaction_collector = var.enable_sftp_transaction_collector
+  enable_transfer_family_sftp       = var.enable_transfer_family_sftp
   audit_sqs_arn                     = module.sqs.audit_queue_arn
   audit_dlq_arn                     = module.sqs.audit_dlq_arn
   aml_sqs_arn                       = module.sqs.aml_queue_arn
@@ -357,9 +358,20 @@ module "transfer_family" {
   source = "./modules/transfer-family"
 
   enable_transfer_family_sftp = var.enable_transfer_family_sftp
+  enable_ec2_sftp_server      = var.enable_ec2_sftp_server
   name_prefix                 = local.name_prefix
   environment                 = var.environment
+  aws_region                  = var.aws_region
+  vpc_id                      = module.network.vpc_id
+  public_subnet_ids           = module.network.public_subnet_ids
+  sftp_server_subnet_id       = var.sftp_server_subnet_id
+  sftp_instance_type          = var.sftp_instance_type
+  sftp_root_volume_size_gb    = var.sftp_root_volume_size_gb
+  sftp_ingress_cidr_blocks    = var.sftp_ingress_cidr_blocks
+  sftp_server_ami_id          = var.sftp_server_ami_id
+  sftp_allocate_eip           = var.sftp_allocate_eip
   transaction_bucket_id       = module.s3.transaction_sftp_bucket_id
+  transaction_bucket_arn      = module.s3.transaction_sftp_bucket_arn
   transaction_bucket_prefix   = var.transaction_sftp_remote_prefix
   sftp_username               = var.sftp_username
   sftp_user_ssh_public_key    = var.sftp_user_ssh_public_key

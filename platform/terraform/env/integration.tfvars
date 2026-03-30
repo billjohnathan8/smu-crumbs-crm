@@ -59,10 +59,10 @@ enable_backup                 = true
 cloudwatch_log_retention_days = 7
 
 # --- GuardDuty Threat Detection ---
-enable_guardduty                 = true
-guardduty_notification_enabled   = false # Start with notifications OFF to establish baseline
-guardduty_high_severity_only     = true  # Only notify on HIGH/CRITICAL when enabled
-guardduty_finding_frequency      = "FIFTEEN_MINUTES"
+enable_guardduty               = true
+guardduty_notification_enabled = false # Start with notifications OFF to establish baseline
+guardduty_high_severity_only   = true  # Only notify on HIGH/CRITICAL when enabled
+guardduty_finding_frequency    = "FIFTEEN_MINUTES"
 
 # --- Frontend / Auth ---
 enable_cloudfront         = true

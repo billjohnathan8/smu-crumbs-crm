@@ -407,6 +407,48 @@ variable "enable_transfer_family_sftp" {
   default     = false
 }
 
+variable "enable_ec2_sftp_server" {
+  description = "Enable self-hosted EC2 SFTP server for external transaction file ingestion."
+  type        = bool
+  default     = false
+}
+
+variable "sftp_instance_type" {
+  description = "EC2 instance type for self-hosted SFTP server."
+  type        = string
+  default     = "t4g.micro"
+}
+
+variable "sftp_root_volume_size_gb" {
+  description = "Root EBS volume size (GiB) for self-hosted SFTP server."
+  type        = number
+  default     = 8
+}
+
+variable "sftp_ingress_cidr_blocks" {
+  description = "Allowed CIDR blocks for inbound SFTP (port 22). Empty defaults to open ingress in non-prod."
+  type        = list(string)
+  default     = []
+}
+
+variable "sftp_server_subnet_id" {
+  description = "Optional subnet ID override for the self-hosted SFTP server. Leave empty to use first public subnet."
+  type        = string
+  default     = ""
+}
+
+variable "sftp_server_ami_id" {
+  description = "Optional AMI override for the self-hosted SFTP server. Leave empty to use latest Amazon Linux 2023 ARM64."
+  type        = string
+  default     = ""
+}
+
+variable "sftp_allocate_eip" {
+  description = "Attach an Elastic IP to the self-hosted SFTP server."
+  type        = bool
+  default     = true
+}
+
 variable "sftp_username" {
   description = "SFTP username for transaction file uploads."
   type        = string
@@ -1081,6 +1123,29 @@ check "prod_network_and_pipeline_guardrails" {
       trimspace(var.verification_frontend_base_url) != ""
     )
     error_message = "When enable_verification_pipeline is true, set app_domain_name or verification_frontend_base_url so verification emails have a stable public frontend link target."
+  }
+}
+
+check "sftp_mode_guardrails" {
+  assert {
+    condition     = !(var.enable_transfer_family_sftp && var.enable_ec2_sftp_server)
+    error_message = "enable_transfer_family_sftp and enable_ec2_sftp_server are mutually exclusive."
+  }
+
+  assert {
+    condition     = !var.enable_ec2_sftp_server || trimspace(var.sftp_user_ssh_public_key) != ""
+    error_message = "When enable_ec2_sftp_server is true, sftp_user_ssh_public_key must be non-empty."
+  }
+
+  assert {
+    condition = !(
+      contains(["prod", "production"], lower(trimspace(var.environment))) &&
+      var.enable_ec2_sftp_server
+      ) || (
+      length(var.sftp_ingress_cidr_blocks) > 0 &&
+      !contains(var.sftp_ingress_cidr_blocks, "0.0.0.0/0")
+    )
+    error_message = "For prod with enable_ec2_sftp_server=true, set explicit partner CIDR allowlist and avoid 0.0.0.0/0."
   }
 }
 

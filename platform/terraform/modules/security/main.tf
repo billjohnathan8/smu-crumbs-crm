@@ -442,7 +442,7 @@ data "aws_iam_policy_document" "transfer_family_assume" {
 }
 
 resource "aws_iam_role" "transfer_family" {
-  count = var.enable_sftp_transaction_collector && !local.use_lab_role ? 1 : 0
+  count = var.enable_transfer_family_sftp && !local.use_lab_role ? 1 : 0
 
   name               = "${var.name_prefix}-transfer-family-sftp"
   assume_role_policy = data.aws_iam_policy_document.transfer_family_assume.json
@@ -454,7 +454,7 @@ resource "aws_iam_role" "transfer_family" {
 }
 
 data "aws_iam_policy_document" "transfer_family_s3" {
-  count = var.enable_sftp_transaction_collector && !local.use_lab_role ? 1 : 0
+  count = var.enable_transfer_family_sftp && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "ListTransactionBucket"
@@ -480,7 +480,7 @@ data "aws_iam_policy_document" "transfer_family_s3" {
 }
 
 resource "aws_iam_role_policy" "transfer_family_s3" {
-  count = var.enable_sftp_transaction_collector && !local.use_lab_role ? 1 : 0
+  count = var.enable_transfer_family_sftp && !local.use_lab_role ? 1 : 0
 
   name   = "${var.name_prefix}-transfer-family-s3"
   role   = aws_iam_role.transfer_family[0].id

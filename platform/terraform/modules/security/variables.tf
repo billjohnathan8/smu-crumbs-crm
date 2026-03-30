@@ -116,6 +116,12 @@ variable "enable_sftp_transaction_collector" {
   default     = false
 }
 
+variable "enable_transfer_family_sftp" {
+  description = "Create IAM role and policies for AWS Transfer Family SFTP."
+  type        = bool
+  default     = false
+}
+
 variable "audit_sqs_arn" {
   description = "ARN of the audit SQS queue (for Lambda consumer policy)."
   type        = string
@@ -209,4 +215,3 @@ variable "guardduty_high_severity_only" {
   type        = bool
   default     = true
 }
-
