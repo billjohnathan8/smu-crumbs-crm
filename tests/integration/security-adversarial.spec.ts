@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { authHeaders, normalizeBaseURL } from "./helpers/apiClient";
 import {
@@ -18,7 +18,7 @@ function base64UrlJson(payload: object): string {
 function mintVerificationToken(clientId: string, expSecondsFromNow: number): string {
   const header = base64UrlJson({ alg: "HS256", typ: "JWT" });
   const exp = Math.floor(Date.now() / 1000) + expSecondsFromNow;
-  const body = base64UrlJson({ clientId, exp });
+  const body = base64UrlJson({ clientId, exp, jti: randomUUID() });
   const signingInput = `${header}.${body}`;
   const signature = createHmac("sha256", VERIFICATION_TOKEN_SECRET)
     .update(signingInput)

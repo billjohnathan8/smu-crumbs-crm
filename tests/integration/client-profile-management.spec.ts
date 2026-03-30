@@ -13,7 +13,7 @@
  * Run with: npm test
  */
 
-import { createHmac } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import {
   test,
   expect,
@@ -34,7 +34,7 @@ function base64UrlJson(payload: object): string {
 function mintVerificationToken(clientId: string, secret: string): string {
   const header = base64UrlJson({ alg: "HS256", typ: "JWT" });
   const exp = Math.floor(Date.now() / 1000) + 60 * 60;
-  const body = base64UrlJson({ clientId, exp });
+  const body = base64UrlJson({ clientId, exp, jti: randomUUID() });
   const signingInput = `${header}.${body}`;
   const signature = createHmac("sha256", secret).update(signingInput).digest("base64url");
   return `${signingInput}.${signature}`;
