@@ -15,7 +15,7 @@
 | 3 | PII / Sensitive Data in Logs | Mostly done — NRIC masking added | Medium |
 | 4 | Negative & Adversarial Test Cases | Mostly done — JWT/IDOR/injection/malformed/oversized tests added across Java services | Low–Medium |
 | 5 | CSRF & Replay-Attack Protection | Partial — gaps below (infrastructure-dependent) | Medium |
-| 6 | OpenAPI Security Alignment | Mostly done — Springdoc + security annotations added in all Java services | Medium |
+| 6 | OpenAPI Security Alignment | Done — Springdoc + security annotations + CI drift gate implemented | Low |
 | 7 | Detailed Errors Exposed to Users | Done — prod-mode validation sanitisation + frontend error-code mapping implemented | Low |
 
 ---
@@ -204,13 +204,12 @@
 | ~~**No security requirement on controllers**~~ | ~~All Java controllers~~ | **Fixed (2026-03-30)**: Added `@SecurityRequirement(name = "bearerAuth")` to secured controllers; public upload-verify endpoint marked as no-security in docs. |
 | ~~**No response documentation**~~ | ~~All Java controllers~~ | **Fixed (2026-03-30)**: Added `@Operation` and class-level `@ApiResponses` coverage for secured and auth controllers. |
 | ~~**Log Lambda has no API spec**~~ | ~~`services/backend/log`~~ | **Not a gap** — `docs/api-contracts/openapi/log.yaml` already documents API routes. |
-| **No CI drift gate between runtime-generated Java specs and committed contract files** | CI/workflow | Springdoc runtime docs now exist, but CI does not yet enforce sync between generated specs and `docs/api-contracts/openapi/*.yaml`. |
+| ~~**No CI drift gate between runtime-generated Java specs and committed contract files**~~ | ~~CI/workflow~~ | **Fixed (2026-03-30)**: CI now boots each Java service, fetches `/v3/api-docs`, and runs a drift checker against committed contracts (`user.yaml`, `client.yaml`, `transaction.yaml`). |
 
 ### What To Implement
 
-1. **CI gate for Java spec drift**: Add a CI step that fetches `/v3/api-docs` from each Java service and fails if generated docs drift from committed contract files.
-2. **Contract harmonisation**: Align runtime-generated OpenAPI output with `docs/api-contracts/openapi/*.yaml` naming/response examples so one source of truth can be enforced.
-3. **Optional hardening**: Disable Swagger UI in production by setting `SPRINGDOC_SWAGGER_UI_ENABLED=false` in production environments.
+1. **Contract harmonisation**: Continue aligning runtime-generated OpenAPI output with `docs/api-contracts/openapi/*.yaml` naming and examples to reduce intentional drift.
+2. **Optional hardening**: Disable Swagger UI in production by setting `SPRINGDOC_SWAGGER_UI_ENABLED=false` in production environments.
 
 ---
 
@@ -243,10 +242,9 @@
 
 Remaining items in priority order:
 
-1. **Issue 6 — OpenAPI CI drift gate** (runtime spec vs committed contract sync) — Task 6 follow-up
-2. **Issue 4 — Adversarial test consolidation + log Lambda route adversarial tests** — Task 9 follow-up
-3. **Issue 1 — JWT replay / deny-list** (requires new DynamoDB table + Terraform — deferred)
-4. **Issue 5 — Idempotency keys + token revocation** (requires infrastructure — deferred)
+1. **Issue 4 — Adversarial test consolidation + log Lambda route adversarial tests** — Task 9 follow-up
+2. **Issue 1 — JWT replay / deny-list** (requires new DynamoDB table + Terraform — deferred)
+3. **Issue 5 — Idempotency keys + token revocation** (requires infrastructure — deferred)
 
 ---
 
@@ -266,6 +264,7 @@ Remaining items in priority order:
 | Input-adversarial controller tests (Issue 4) | Added SQL-injection-style, malformed JSON, wrong-type, and oversized-input tests to user/client controller web tests; added unreadable-body 400 handler in user `ApiExceptionHandler` to avoid 500 on malformed JSON. | `user/UserControllerTest.java`, `client/ClientControllerTest.java`, `user/ApiExceptionHandler.java`, `docs/security-gap-analysis.md` | pending |
 | Frontend error-code mapping (Issue 7) | Added centralized error-code to user-facing message mapping and integrated it in `api/client.ts` so backend raw messages are not directly surfaced. Added unit tests for mapping and updated API client tests. | `crm-ui/src/utils/errorMessages.ts`, `crm-ui/src/api/client.ts`, `crm-ui/src/utils/__tests__/errorMessages.test.ts`, `crm-ui/src/api/__tests__/client.test.ts`, `docs/security-gap-analysis.md` | pending |
 | IDOR + transaction adversarial expansion (Issue 4) | Added client-service cross-owner IDOR tests for `get/update/delete`; added transaction request validation hardening (`clientId` constraints) plus transaction web tests for SQL-injection-style IDs, malformed JSON, and oversized IDs. | `client/ClientServiceImplTest.java`, `transaction/CreateTransactionRequest.java`, `transaction/TransactionsController.java`, `transaction/UserControllerTest.java`, `docs/security-gap-analysis.md` | pending |
+| OpenAPI CI drift gate (Issue 6 follow-up) | Added runtime-vs-contract OpenAPI drift gate in reusable CI lint workflow: boots each Java service, fetches `/v3/api-docs`, and compares normalized paths/methods/security requirements against committed contracts using `scripts/ci/check_openapi_drift.py`. | `.github/workflows/reusable-lint.yml`, `scripts/ci/check_openapi_drift.py`, `docs/security-gap-analysis.md` | pending |
 
 ### Deferred (requires infrastructure changes)
 

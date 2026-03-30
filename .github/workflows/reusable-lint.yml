@@ -27,7 +27,7 @@ on:
         type: boolean
         default: false
       run-openapi:
-        description: 'Run Spectral OpenAPI contract linting'
+        description: 'Run Spectral OpenAPI linting and runtime drift checks'
         required: false
         type: boolean
         default: false
@@ -466,6 +466,107 @@ jobs:
       - name: Lint OpenAPI specs
         timeout-minutes: 1
         run: spectral lint docs/api-contracts/openapi/*.yaml --fail-severity error
+
+  # ---- OpenAPI runtime drift gate (Springdoc vs committed contracts) ----
+  openapi-drift:
+    name: OpenAPI Drift (${{ matrix.service }})
+    if: inputs.run-openapi
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: user
+            working-directory: services/backend/user
+            contract-path: docs/api-contracts/openapi/user.yaml
+            port: 18081
+          - service: client
+            working-directory: services/backend/client
+            contract-path: docs/api-contracts/openapi/client.yaml
+            port: 18082
+          - service: transaction
+            working-directory: services/backend/transaction
+            contract-path: docs/api-contracts/openapi/transaction.yaml
+            port: 18083
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        timeout-minutes: 2
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        timeout-minutes: 2
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        timeout-minutes: 2
+        with:
+          python-version: '3.13'
+
+      - name: Install Python dependencies for drift checker
+        timeout-minutes: 1
+        run: python -m pip install --disable-pip-version-check pyyaml
+
+      - name: Start service and fetch generated OpenAPI
+        timeout-minutes: 8
+        env:
+          SERVER_PORT: ${{ matrix.port }}
+          SPRING_PROFILES_ACTIVE: test
+          SPRING_DATASOURCE_URL: jdbc:h2:mem:openapi-ci;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+          SPRING_DATASOURCE_USERNAME: sa
+          SPRING_DATASOURCE_PASSWORD: ""
+          SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.h2.Driver
+          SPRING_FLYWAY_ENABLED: "false"
+          SPRING_JPA_HIBERNATE_DDL_AUTO: create-drop
+          JWT_HMAC_SECRET: test-only-secret
+          ROOT_ADMIN_PASSWORD: RootPass!123
+          AWS_REGION: ap-southeast-1
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+        run: |
+          set -euo pipefail
+          cd "${{ matrix.working-directory }}"
+          chmod +x gradlew
+
+          ./gradlew bootRun --no-daemon --args="--server.port=${SERVER_PORT}" > "${RUNNER_TEMP}/${{ matrix.service }}-boot.log" 2>&1 &
+          APP_PID=$!
+          echo "Started ${{ matrix.service }} app PID=${APP_PID}"
+
+          cleanup() {
+            if kill -0 "${APP_PID}" 2>/dev/null; then
+              kill "${APP_PID}" || true
+              wait "${APP_PID}" || true
+            fi
+          }
+          trap cleanup EXIT
+
+          for _ in $(seq 1 60); do
+            if curl -fsS "http://127.0.0.1:${SERVER_PORT}/v3/api-docs" -o "${RUNNER_TEMP}/${{ matrix.service }}-generated.json"; then
+              echo "Fetched /v3/api-docs for ${{ matrix.service }}"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "Failed to fetch generated OpenAPI for ${{ matrix.service }}"
+          tail -n 200 "${RUNNER_TEMP}/${{ matrix.service }}-boot.log" || true
+          exit 1
+
+      - name: Compare generated OpenAPI with contract
+        timeout-minutes: 2
+        run: |
+          python scripts/ci/check_openapi_drift.py \
+            --service "${{ matrix.service }}" \
+            --generated "${RUNNER_TEMP}/${{ matrix.service }}-generated.json" \
+            --contract "${{ matrix.contract-path }}"
 
   # ---- Gitleaks secret scanner ----
   gitleaks:
