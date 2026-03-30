@@ -46,7 +46,7 @@ async function submitVerification(
       verificationToken: mintVerificationToken(clientId, VERIFICATION_TOKEN_SECRET),
       primaryDocumentType: "NRIC",
       primaryDocumentRef: "primary-id.jpg",
-      primaryDocumentBase64: Buffer.from("primary-doc").toString("base64"),
+      primaryDocumentBase64: Buffer.from([0xff, 0xd8, 0xff, 0x00, 0x11, 0x22]).toString("base64"),
       primaryDocumentMimeType: "image/jpeg",
       addressDocumentType: "UTILITY_BILL",
       addressDocumentRef: "proof-of-address.pdf",

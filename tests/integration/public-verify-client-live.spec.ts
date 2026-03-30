@@ -25,7 +25,7 @@ async function uploadVerificationDocuments(page: import("@playwright/test").Page
   await fileInputs.nth(0).setInputFiles({
     name: "primary-id.jpg",
     mimeType: "image/jpeg",
-    buffer: Buffer.from("fake-primary-document"),
+    buffer: Buffer.from([0xff, 0xd8, 0xff, 0x00, 0x11, 0x22, 0x33]),
   });
   await fileInputs.nth(1).setInputFiles({
     name: "proof-of-address.pdf",
@@ -47,7 +47,7 @@ test.describe("Public Verify Client Live Flow", () => {
 
     const verificationToken = mintVerificationToken(createdClient.clientId, VERIFICATION_TOKEN_SECRET);
 
-    await page.goto(`/verify-client?token=${encodeURIComponent(verificationToken)}`);
+    await page.goto(`/verify-client#token=${encodeURIComponent(verificationToken)}`);
     await expect(page.getByRole("heading", { name: "Identity Verification" })).toBeVisible();
 
     await uploadVerificationDocuments(page);
@@ -79,7 +79,7 @@ test.describe("Public Verify Client Live Flow", () => {
 
     const invalidToken = mintVerificationToken(createdClient.clientId, "wrong-secret");
 
-    await page.goto(`/verify-client?token=${encodeURIComponent(invalidToken)}`);
+    await page.goto(`/verify-client#token=${encodeURIComponent(invalidToken)}`);
     await expect(page.getByRole("heading", { name: "Identity Verification" })).toBeVisible();
 
     await uploadVerificationDocuments(page);
