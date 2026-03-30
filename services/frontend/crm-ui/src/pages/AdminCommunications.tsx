@@ -144,7 +144,7 @@ export function AdminCommunications() {
       if (err instanceof ApiError && err.status === 401) {
         logout()
       } else if (err instanceof ApiError && err.status === 400) {
-        setCommLookupError('Invalid communication id.')
+        setCommLookupError('Invalid id.')
       } else if (err instanceof ApiError && err.status === 403) {
         setCommLookupError('You are not authorized to view this communication.')
       } else {
@@ -173,7 +173,7 @@ export function AdminCommunications() {
       if (err instanceof ApiError && err.status === 401) {
         logout()
       } else if (err instanceof ApiError && err.status === 400) {
-        setProviderLookupError('Invalid communication id.')
+        setProviderLookupError('Invalid id.')
       } else if (err instanceof ApiError && err.status === 403) {
         setProviderLookupError('You are not authorized to view this communication.')
       } else {
