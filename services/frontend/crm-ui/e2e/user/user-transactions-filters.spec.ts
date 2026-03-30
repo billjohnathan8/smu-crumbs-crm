@@ -1,6 +1,5 @@
 import { test, expect, Route } from "@playwright/test";
-import { gotoWithNetworkRetry, setAuthState } from "../helpers/auth";
-import { setupAgentRoutes } from "../helpers/mockRoutes";
+import { setAuthState } from "../helpers/auth";
 
 test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
   const sampleTransactions = [
@@ -32,9 +31,8 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
 
   test.beforeEach(async ({ page, context }) => {
     await context.clearCookies();
-    // Install default API mocks before first navigation to avoid Vite proxy noise.
-    await setupAgentRoutes(page);
-    await gotoWithNetworkRetry(page, "/login");
+    // Clear all route handlers to prevent accumulation across tests
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
     await setAuthState(page, "user");
   });
 
@@ -216,8 +214,6 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
   });
 
   test("should filter transactions by date range", async ({ page }) => {
-    let lastRequestParams: URLSearchParams | null = null;
-
     await test.step("Set up routes", async () => {
       await page.route("**/api/**", (route: Route) => {
         const url = route.request().url();
@@ -252,7 +248,6 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
 
         if (url.includes("/api/transactions")) {
           const urlObj = new URL(url);
-          lastRequestParams = urlObj.searchParams;
 
           const fromDate = urlObj.searchParams.get("fromDate");
           const toDate = urlObj.searchParams.get("toDate");
@@ -292,18 +287,13 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
     });
 
     await test.step("Set date range filter", async () => {
-      const dateFilterRequest = page.waitForResponse(
-        (response) =>
-          response.url().includes("/api/transactions") &&
-          response.url().includes("fromDate=2024-01-16") &&
-          response.request().method() === "GET",
-      );
       await page.fill('input[type="date"]', "2024-01-16");
-      await dateFilterRequest;
     });
 
-    await test.step("Verify date filter was sent to API", async () => {
-      expect(lastRequestParams?.get("fromDate")).toBe("2024-01-16");
+    await test.step("Verify filtered results shown", async () => {
+      await expect(page.getByText("txn-002")).toBeVisible();
+      await expect(page.getByText("txn-003")).toBeVisible();
+      await expect(page.getByText("txn-001")).not.toBeVisible();
     });
   });
 

@@ -1,7 +1,7 @@
 param(
     [string]$ApiKey = "",
     [string]$TerraformPath = "platform/terraform",
-    [string]$UsageFile = "",
+    [string]$UsageFile = "platform/terraform/.infracost/usage-prod.yml",
     [int]$TopResources = 20,
     [string]$OutputMarkdown = "platform/terraform/.infracost/infracost-report.md"
 )

@@ -11,6 +11,7 @@ resource "aws_sqs_queue" "audit_dlq" {
 
   name                      = "${var.name_prefix}-audit-dlq"
   message_retention_seconds = var.dlq_retention_seconds
+  sqs_managed_sse_enabled   = true
 
   tags = {
     Name        = "${var.name_prefix}-audit-dlq"
@@ -29,6 +30,7 @@ resource "aws_sqs_queue" "audit" {
   visibility_timeout_seconds = var.audit_visibility_timeout
   message_retention_seconds  = var.message_retention_seconds
   receive_wait_time_seconds  = 20
+  sqs_managed_sse_enabled    = true
 
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.audit_dlq[0].arn
@@ -50,6 +52,7 @@ resource "aws_sqs_queue" "aml_dlq" {
 
   name                      = "${var.name_prefix}-aml-dlq"
   message_retention_seconds = var.dlq_retention_seconds
+  sqs_managed_sse_enabled   = true
 
   tags = {
     Name        = "${var.name_prefix}-aml-dlq"
@@ -68,6 +71,7 @@ resource "aws_sqs_queue" "aml" {
   visibility_timeout_seconds = var.aml_visibility_timeout
   message_retention_seconds  = var.message_retention_seconds
   receive_wait_time_seconds  = 20
+  sqs_managed_sse_enabled    = true
 
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.aml_dlq[0].arn

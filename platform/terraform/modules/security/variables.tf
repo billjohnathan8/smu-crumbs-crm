@@ -39,6 +39,12 @@ variable "vpc_id" {
   type        = string
 }
 
+variable "restrict_alb_ingress_to_cloudfront" {
+  description = "Restrict ALB ingress to CloudFront origin-facing managed prefix list instead of 0.0.0.0/0."
+  type        = bool
+  default     = false
+}
+
 variable "db_port" {
   description = "PostgreSQL port."
   type        = number
@@ -110,6 +116,12 @@ variable "enable_sftp_transaction_collector" {
   default     = false
 }
 
+variable "enable_transfer_family_sftp" {
+  description = "Create IAM role and policies for AWS Transfer Family SFTP."
+  type        = bool
+  default     = false
+}
+
 variable "audit_sqs_arn" {
   description = "ARN of the audit SQS queue (for Lambda consumer policy)."
   type        = string
@@ -162,4 +174,44 @@ variable "transaction_sftp_bucket_arn" {
   description = "ARN of the transaction ingestion source S3 bucket (legacy 'sftp' naming)."
   type        = string
   default     = ""
+}
+
+variable "ses_identity" {
+  description = "SES identity (email or domain) allowed for SendEmail/SendRawEmail. Empty disables SES send policies."
+  type        = string
+  default     = ""
+}
+
+#--------------------------------------------------------------
+# GuardDuty Variables
+#--------------------------------------------------------------
+
+variable "enable_guardduty" {
+  description = "Enable AWS GuardDuty threat detection service."
+  type        = bool
+  default     = false
+}
+
+variable "guardduty_finding_frequency" {
+  description = "Frequency of notifications for GuardDuty findings (FIFTEEN_MINUTES, ONE_HOUR, SIX_HOURS)."
+  type        = string
+  default     = "FIFTEEN_MINUTES"
+}
+
+variable "guardduty_notification_enabled" {
+  description = "Enable SNS notifications for GuardDuty findings."
+  type        = bool
+  default     = false
+}
+
+variable "guardduty_notification_topic_arn" {
+  description = "SNS topic ARN for GuardDuty findings notifications."
+  type        = string
+  default     = ""
+}
+
+variable "guardduty_high_severity_only" {
+  description = "Only notify on HIGH and CRITICAL severity GuardDuty findings."
+  type        = bool
+  default     = true
 }

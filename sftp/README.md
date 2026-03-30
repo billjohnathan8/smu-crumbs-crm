@@ -96,3 +96,57 @@ Safety:
 
 - Script blocks `--environment prod` unless `--allow-prod` is explicitly passed.
 - Intended for local/dev/staging fixture seeding only.
+
+## AWS Transfer Family SFTP Upload (Integration/Prod)
+
+For deployed environments with Transfer Family enabled, upload files via real SFTP protocol:
+
+### Prerequisites
+
+1. Generate SSH key pair (run once):
+   ```bash
+   ssh-keygen -t rsa -b 4096 -f ~/.ssh/crm-sftp-demo -N ""
+   ```
+
+2. Register public key in Terraform:
+   ```bash
+   export TF_VAR_sftp_user_ssh_public_key="$(cat ~/.ssh/crm-sftp-demo.pub)"
+   ```
+
+3. Deploy Transfer Family infrastructure:
+   ```bash
+   cd platform/terraform
+   terraform apply -var-file=env/integration.tfvars
+   ```
+
+4. Retrieve SFTP endpoint:
+   ```bash
+   SFTP_ENDPOINT=$(terraform output -raw sftp_endpoint)
+   SFTP_USERNAME=$(terraform output -raw sftp_username)
+   ```
+
+### Upload via SFTP
+
+**Interactive session**:
+```bash
+sftp -i ~/.ssh/crm-sftp-demo crm-transaction-uploader@<sftp-endpoint>
+put mocked_transactions.csv transactions-2026-03.csv
+bye
+```
+
+**Using helper script**:
+```bash
+bash scripts/ci/upload-via-transfer-family.sh \
+  --file ./mocked_transactions.csv \
+  --sftp-endpoint "$SFTP_ENDPOINT" \
+  --sftp-username "$SFTP_USERNAME" \
+  --ssh-key ~/.ssh/crm-sftp-demo \
+  --remote-filename transactions-2026-03.csv
+```
+
+Files uploaded via SFTP land in the same S3 bucket (`incoming/` prefix) where the Lambda collector picks them up.
+
+### Documentation
+
+- Setup guide: [docs/infrastructure/transfer-family-setup.md](../docs/infrastructure/transfer-family-setup.md)
+- Ingestion contract: [docs/api-contracts/sftp-transaction-ingestion-contract.md](../docs/api-contracts/sftp-transaction-ingestion-contract.md)

@@ -6,6 +6,7 @@ import {
   COGNITO_REDIRECT_URI,
   buildCognitoLoginUrl,
   buildCognitoLogoutUrl,
+  consumeExpectedOauthState,
   exchangeCodeForTokens,
 } from '../cognito'
 
@@ -26,8 +27,10 @@ describe('cognito api helpers', () => {
     expect(loginUrl).toContain(`https://${COGNITO_DOMAIN}/login?`)
     expect(loginUrl).toContain(`client_id=${encodeURIComponent(COGNITO_CLIENT_ID)}`)
     expect(loginUrl).toContain(`redirect_uri=${encodeURIComponent(COGNITO_REDIRECT_URI)}`)
+    expect(loginUrl).toContain('state=')
     expect(logoutUrl).toContain(`https://${COGNITO_DOMAIN}/logout?`)
     expect(logoutUrl).toContain(`client_id=${encodeURIComponent(COGNITO_CLIENT_ID)}`)
+    expect(consumeExpectedOauthState()).toBeTruthy()
   })
 
   it('exchanges authorization code for tokens', async () => {
@@ -69,9 +72,7 @@ describe('cognito api helpers', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(exchangeCodeForTokens('bad')).rejects.toThrow(
-      'Cognito token exchange failed: bad request'
-    )
+    await expect(exchangeCodeForTokens('bad')).rejects.toThrow('Authentication failed')
   })
 
   it('enables cognito in hybrid mode when domain and client id are configured', async () => {

@@ -5,12 +5,17 @@
 #--------------------------------------------------------------
 
 data "aws_caller_identity" "current" {}
+data "aws_ec2_managed_prefix_list" "cloudfront_origin_facing" {
+  count = var.restrict_alb_ingress_to_cloudfront ? 1 : 0
+  name  = "com.amazonaws.global.cloudfront.origin-facing"
+}
 
 locals {
   # When a lab role override is supplied, skip all IAM role creation and use the
   # pre-existing role (for example, LabRole in Learner Lab which blocks iam:CreateRole).
   effective_lab_role_arn = var.lab_role_arn != "" ? var.lab_role_arn : (var.lab_role_name != "" ? "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.lab_role_name}" : "")
   use_lab_role           = local.effective_lab_role_arn != ""
+  ses_identity_arn       = trimspace(var.ses_identity) == "" ? "" : "arn:aws:ses:${var.aws_region}:${data.aws_caller_identity.current.account_id}:identity/${trimspace(var.ses_identity)}"
 }
 
 resource "aws_security_group" "alb" {
@@ -18,33 +23,64 @@ resource "aws_security_group" "alb" {
   description = "Allow inbound HTTP and HTTPS traffic to ALB."
   vpc_id      = var.vpc_id
 
-  ingress {
-    description = "HTTP"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+  dynamic "ingress" {
+    for_each = var.restrict_alb_ingress_to_cloudfront ? [] : [1]
+    content {
+      description = "HTTP from internet (non-CloudFront-restricted mode)"
+      from_port   = 80
+      to_port     = 80
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
   }
 
-  ingress {
-    description = "HTTPS"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+  dynamic "ingress" {
+    for_each = var.restrict_alb_ingress_to_cloudfront ? [] : [1]
+    content {
+      description = "HTTPS from internet (non-CloudFront-restricted mode)"
+      from_port   = 443
+      to_port     = 443
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
   }
 
-  egress {
-    description = "All outbound"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+  dynamic "ingress" {
+    for_each = var.restrict_alb_ingress_to_cloudfront ? [1] : []
+    content {
+      description     = "HTTP from CloudFront origin-facing ranges"
+      from_port       = 80
+      to_port         = 80
+      protocol        = "tcp"
+      prefix_list_ids = [data.aws_ec2_managed_prefix_list.cloudfront_origin_facing[0].id]
+    }
+  }
+
+  dynamic "ingress" {
+    for_each = var.restrict_alb_ingress_to_cloudfront ? [1] : []
+    content {
+      description     = "HTTPS from CloudFront origin-facing ranges"
+      from_port       = 443
+      to_port         = 443
+      protocol        = "tcp"
+      prefix_list_ids = [data.aws_ec2_managed_prefix_list.cloudfront_origin_facing[0].id]
+    }
   }
 
   tags = {
     Name = "${var.name_prefix}-alb-sg"
   }
+}
+
+# ALB only needs to forward traffic to ECS backend services on port 8080.
+resource "aws_security_group_rule" "alb_egress_to_ecs" {
+  type                     = "egress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.alb.id
+  source_security_group_id = aws_security_group.ecs_service.id
+  description              = "Forward traffic to ECS backend services"
 }
 
 resource "aws_security_group" "ecs_service" {
@@ -68,12 +104,22 @@ resource "aws_security_group" "ecs_service" {
     self        = true
   }
 
+  # Egress: HTTPS for AWS APIs (Secrets Manager, SSM, ECR, SQS, SNS, S3, SES, etc.)
   egress {
-    description = "All outbound"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    description = "HTTPS to AWS APIs and internet endpoints"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Egress: service-to-service communication
+  egress {
+    description = "Service-to-service traffic"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    self        = true
   }
 
   tags = {
@@ -86,11 +132,12 @@ resource "aws_security_group" "lambda" {
   description = "Security group for Lambda functions in VPC."
   vpc_id      = var.vpc_id
 
+  # Egress: HTTPS for AWS APIs (Secrets Manager, SSM, S3, SES, SNS, etc.)
   egress {
-    description = "All outbound"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    description = "HTTPS to AWS APIs and internet endpoints"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
@@ -101,7 +148,7 @@ resource "aws_security_group" "lambda" {
 
 resource "aws_security_group" "db" {
   name        = "${var.name_prefix}-db-sg"
-  description = "Allow PostgreSQL from ECS services and Lambda."
+  description = "Allow PostgreSQL from ECS services and Lambda only. No egress."
   vpc_id      = var.vpc_id
 
   ingress {
@@ -120,17 +167,33 @@ resource "aws_security_group" "db" {
     security_groups = [aws_security_group.lambda.id]
   }
 
-  egress {
-    description = "All outbound"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  # No egress rules — database has no legitimate outbound traffic need.
 
   tags = {
     Name = "${var.name_prefix}-db-sg"
   }
+}
+
+# ECS tasks -> DB (PostgreSQL)
+resource "aws_security_group_rule" "ecs_egress_to_db" {
+  type                     = "egress"
+  from_port                = var.db_port
+  to_port                  = var.db_port
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.ecs_service.id
+  source_security_group_id = aws_security_group.db.id
+  description              = "PostgreSQL from ECS services to DB"
+}
+
+# Lambda -> DB (PostgreSQL)
+resource "aws_security_group_rule" "lambda_egress_to_db" {
+  type                     = "egress"
+  from_port                = var.db_port
+  to_port                  = var.db_port
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.lambda.id
+  source_security_group_id = aws_security_group.db.id
+  description              = "PostgreSQL from Lambda to DB"
 }
 
 data "aws_iam_policy_document" "ecs_task_execution_assume" {
@@ -365,6 +428,65 @@ resource "aws_iam_role_policy" "sftp_transaction_collector_secrets" {
   policy = data.aws_iam_policy_document.sftp_transaction_collector_secrets[0].json
 }
 
+# --- Transfer Family IAM role ---
+
+data "aws_iam_policy_document" "transfer_family_assume" {
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["transfer.amazonaws.com"]
+    }
+    actions = ["sts:AssumeRole"]
+  }
+}
+
+resource "aws_iam_role" "transfer_family" {
+  count = var.enable_transfer_family_sftp && !local.use_lab_role ? 1 : 0
+
+  name               = "${var.name_prefix}-transfer-family-sftp"
+  assume_role_policy = data.aws_iam_policy_document.transfer_family_assume.json
+
+  tags = {
+    Name    = "${var.name_prefix}-transfer-family-sftp"
+    Purpose = "Allow Transfer Family SFTP users to access transaction S3 bucket"
+  }
+}
+
+data "aws_iam_policy_document" "transfer_family_s3" {
+  count = var.enable_transfer_family_sftp && !local.use_lab_role ? 1 : 0
+
+  statement {
+    sid    = "ListTransactionBucket"
+    effect = "Allow"
+    actions = [
+      "s3:ListBucket",
+      "s3:GetBucketLocation",
+    ]
+    resources = [var.transaction_sftp_bucket_arn]
+  }
+
+  statement {
+    sid    = "ReadWriteTransactionFiles"
+    effect = "Allow"
+    actions = [
+      "s3:PutObject",
+      "s3:GetObject",
+      "s3:DeleteObject",
+      "s3:GetObjectVersion",
+    ]
+    resources = ["${var.transaction_sftp_bucket_arn}/*"]
+  }
+}
+
+resource "aws_iam_role_policy" "transfer_family_s3" {
+  count = var.enable_transfer_family_sftp && !local.use_lab_role ? 1 : 0
+
+  name   = "${var.name_prefix}-transfer-family-s3"
+  role   = aws_iam_role.transfer_family[0].id
+  policy = data.aws_iam_policy_document.transfer_family_s3[0].json
+}
+
 # --- Audit consumer Lambda role ---
 
 resource "aws_iam_role" "audit_consumer_lambda" {
@@ -487,7 +609,7 @@ resource "aws_iam_role_policy_attachment" "verification_lambda_basic" {
 }
 
 data "aws_iam_policy_document" "verification_lambda" {
-  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
+  count = var.enable_verification_pipeline && trimspace(local.ses_identity_arn) != "" && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "ReadVerificationBucket"
@@ -527,12 +649,12 @@ data "aws_iam_policy_document" "verification_lambda" {
       "ses:SendEmail",
       "ses:SendRawEmail",
     ]
-    resources = ["*"]
+    resources = [local.ses_identity_arn]
   }
 }
 
 resource "aws_iam_role_policy" "verification_lambda" {
-  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
+  count = var.enable_verification_pipeline && trimspace(local.ses_identity_arn) != "" && !local.use_lab_role ? 1 : 0
 
   name   = "${var.name_prefix}-verification-lambda"
   role   = aws_iam_role.verification_lambda[0].id
@@ -540,7 +662,7 @@ resource "aws_iam_role_policy" "verification_lambda" {
 }
 
 data "aws_iam_policy_document" "ecs_client_ses_send" {
-  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
+  count = var.enable_verification_pipeline && trimspace(local.ses_identity_arn) != "" && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "SendVerificationEmailViaSes"
@@ -549,12 +671,12 @@ data "aws_iam_policy_document" "ecs_client_ses_send" {
       "ses:SendEmail",
       "ses:SendRawEmail",
     ]
-    resources = ["*"]
+    resources = [local.ses_identity_arn]
   }
 }
 
 resource "aws_iam_role_policy" "ecs_task_client_ses_send" {
-  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
+  count = var.enable_verification_pipeline && trimspace(local.ses_identity_arn) != "" && !local.use_lab_role ? 1 : 0
 
   name   = "${var.name_prefix}-ecs-task-client-ses-send"
   role   = aws_iam_role.ecs_task["client"].id

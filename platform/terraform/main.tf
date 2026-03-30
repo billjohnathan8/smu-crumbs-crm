@@ -34,19 +34,20 @@ module "network" {
 module "security" {
   source = "./modules/security"
 
-  project_name              = var.project_name
-  environment               = var.environment
-  name_prefix               = local.name_prefix
-  aws_region                = var.aws_region
-  vpc_id                    = module.network.vpc_id
-  db_port                   = var.db_port
-  db_username               = var.db_username
-  jwt_hmac_secret           = var.jwt_hmac_secret
-  root_admin_password       = var.root_admin_password
-  aml_sftp_key_secret_arn   = var.aml_sftp_key_secret_arn
-  create_backend_iam_policy = var.create_backend_iam_policy
-  backend_state_bucket_name = var.backend_state_bucket_name
-  backend_lock_table_name   = var.backend_lock_table_name
+  project_name                       = var.project_name
+  environment                        = var.environment
+  name_prefix                        = local.name_prefix
+  aws_region                         = var.aws_region
+  vpc_id                             = module.network.vpc_id
+  restrict_alb_ingress_to_cloudfront = var.restrict_alb_ingress_to_cloudfront
+  db_port                            = var.db_port
+  db_username                        = var.db_username
+  jwt_hmac_secret                    = var.jwt_hmac_secret
+  root_admin_password                = var.root_admin_password
+  aml_sftp_key_secret_arn            = var.aml_sftp_key_secret_arn
+  create_backend_iam_policy          = var.create_backend_iam_policy
+  backend_state_bucket_name          = var.backend_state_bucket_name
+  backend_lock_table_name            = var.backend_lock_table_name
 
   lab_role_arn  = var.lab_role_arn
   lab_role_name = var.lab_role_name
@@ -55,6 +56,7 @@ module "security" {
   enable_aml_pipeline               = var.enable_aml_pipeline
   enable_verification_pipeline      = var.enable_verification_pipeline
   enable_sftp_transaction_collector = var.enable_sftp_transaction_collector
+  enable_transfer_family_sftp       = var.enable_transfer_family_sftp
   audit_sqs_arn                     = module.sqs.audit_queue_arn
   audit_dlq_arn                     = module.sqs.audit_dlq_arn
   aml_sqs_arn                       = module.sqs.aml_queue_arn
@@ -64,6 +66,14 @@ module "security" {
   verification_bucket_arn           = module.s3.verification_bucket_arn
   transaction_sftp_bucket_arn       = module.s3.transaction_sftp_bucket_arn
   verification_sns_topic_arn        = module.sns.verification_topic_arn
+  ses_identity                      = var.ses_domain != "" ? var.ses_domain : var.ses_sender_email
+
+  # GuardDuty threat detection
+  enable_guardduty                 = var.enable_guardduty
+  guardduty_finding_frequency      = var.guardduty_finding_frequency
+  guardduty_notification_enabled   = var.guardduty_notification_enabled
+  guardduty_notification_topic_arn = trimspace(var.alarm_notification_topic_arn) != "" ? trimspace(var.alarm_notification_topic_arn) : module.sns.alarm_topic_arn
+  guardduty_high_severity_only     = var.guardduty_high_severity_only
 }
 
 #--------------------------------------------------------------
@@ -300,6 +310,7 @@ module "ecs" {
   ecs_max_capacity                                = var.ecs_max_capacity
   ecs_target_cpu_utilization                      = var.ecs_target_cpu_utilization
   ecs_target_memory_utilization                   = var.ecs_target_memory_utilization
+  production_like_ha_task_floor                   = var.ecs_production_like_ha_task_floor
   enable_stateful_service_scale_out               = var.enable_stateful_service_scale_out
   enable_service_discovery                        = var.enable_service_discovery
   alb_dns_name                                    = module.alb.alb_dns_name
@@ -338,6 +349,34 @@ module "s3" {
   verification_bucket_name       = local.verification_bucket_name
   enable_transaction_sftp_bucket = var.enable_sftp_transaction_collector
   transaction_sftp_bucket_name   = local.transaction_sftp_bucket_name
+}
+
+#--------------------------------------------------------------
+# Transfer Family Module
+# AWS Transfer Family SFTP server for external transaction file ingestion
+#--------------------------------------------------------------
+module "transfer_family" {
+  source = "./modules/transfer-family"
+
+  enable_transfer_family_sftp = var.enable_transfer_family_sftp
+  enable_ec2_sftp_server      = var.enable_ec2_sftp_server
+  name_prefix                 = local.name_prefix
+  environment                 = var.environment
+  aws_region                  = var.aws_region
+  vpc_id                      = module.network.vpc_id
+  public_subnet_ids           = module.network.public_subnet_ids
+  sftp_server_subnet_id       = var.sftp_server_subnet_id
+  sftp_instance_type          = var.sftp_instance_type
+  sftp_root_volume_size_gb    = var.sftp_root_volume_size_gb
+  sftp_ingress_cidr_blocks    = var.sftp_ingress_cidr_blocks
+  sftp_server_ami_id          = var.sftp_server_ami_id
+  sftp_allocate_eip           = var.sftp_allocate_eip
+  transaction_bucket_id       = module.s3.transaction_sftp_bucket_id
+  transaction_bucket_arn      = module.s3.transaction_sftp_bucket_arn
+  transaction_bucket_prefix   = var.transaction_sftp_remote_prefix
+  sftp_username               = var.sftp_username
+  sftp_user_ssh_public_key    = var.sftp_user_ssh_public_key
+  transfer_family_role_arn    = module.security.transfer_family_role_arn
 }
 
 #--------------------------------------------------------------

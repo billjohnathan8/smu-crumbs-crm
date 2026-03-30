@@ -25,18 +25,18 @@ public class ApiExceptionHandler {
 	private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
 	@ExceptionHandler(ClientNotFoundException.class)
-	public ResponseEntity<ErrorResponse> handleNotFound(HttpServletRequest request, ClientNotFoundException ex) {
-		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(request, "not_found", ex.getMessage()));
+	public ResponseEntity<ErrorResponse> handleNotFound(HttpServletRequest request, ClientNotFoundException _ex) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(request, "not_found", "Not found"));
 	}
 
 	@ExceptionHandler(AccountNotFoundException.class)
-	public ResponseEntity<ErrorResponse> handleAccountNotFound(HttpServletRequest request, AccountNotFoundException ex) {
-		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(request, "not_found", ex.getMessage()));
+	public ResponseEntity<ErrorResponse> handleAccountNotFound(HttpServletRequest request, AccountNotFoundException _ex) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(request, "not_found", "Not found"));
 	}
 
 	@ExceptionHandler(DuplicateClientException.class)
-	public ResponseEntity<ErrorResponse> handleDuplicate(HttpServletRequest request, DuplicateClientException ex) {
-		return ResponseEntity.status(HttpStatus.CONFLICT).body(error(request, "conflict", ex.getMessage()));
+	public ResponseEntity<ErrorResponse> handleDuplicate(HttpServletRequest request, DuplicateClientException _ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(error(request, "conflict", "Conflict"));
 	}
 
 	@ExceptionHandler(MethodArgumentNotValidException.class)
@@ -51,8 +51,8 @@ public class ApiExceptionHandler {
 	}
 
 	@ExceptionHandler(ConstraintViolationException.class)
-	public ResponseEntity<ErrorResponse> handleConstraintViolation(HttpServletRequest request, ConstraintViolationException ex) {
-		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(request, "validation_error", ex.getMessage()));
+	public ResponseEntity<ErrorResponse> handleConstraintViolation(HttpServletRequest request, ConstraintViolationException _ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(request, "validation_error", "Invalid request"));
 	}
 
 	@ExceptionHandler(HttpMessageNotReadableException.class)
@@ -75,13 +75,13 @@ public class ApiExceptionHandler {
 	}
 
 	@ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
-	public ResponseEntity<ErrorResponse> handleForbidden(HttpServletRequest request, org.springframework.security.access.AccessDeniedException ex) {
-		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error(request, "forbidden", ex.getMessage()));
+	public ResponseEntity<ErrorResponse> handleForbidden(HttpServletRequest request, org.springframework.security.access.AccessDeniedException _ex) {
+		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error(request, "forbidden", "Forbidden"));
 	}
 
 	@ExceptionHandler(IllegalStateException.class)
-	public ResponseEntity<ErrorResponse> handleIllegalState(HttpServletRequest request, IllegalStateException ex) {
-		return ResponseEntity.status(HttpStatus.CONFLICT).body(error(request, "conflict", ex.getMessage()));
+	public ResponseEntity<ErrorResponse> handleIllegalState(HttpServletRequest request, IllegalStateException _ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(error(request, "conflict", "Conflict"));
 	}
 
 	@ExceptionHandler(IllegalArgumentException.class)

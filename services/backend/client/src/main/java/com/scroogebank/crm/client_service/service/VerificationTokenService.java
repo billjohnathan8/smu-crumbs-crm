@@ -6,6 +6,9 @@ import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -16,126 +19,144 @@ import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
-// **How the token is structured:**
-// ```
-// Header:    {"alg":"HS256","typ":"JWT"}  ->  Base64Url
-// Payload:   {"clientId":"clt_7","exp":1735689600}  ->  Base64Url
-// Signature: HMAC-SHA256(header.payload, secret)  ->  Base64Url
-//
-// Final token:  <header>.<payload>.<signature>
-//                  |         |          |
-//               header    payload   HMAC-SHA256
-
 @Component
 public class VerificationTokenService {
 
     private final Clock clock;
     private final byte[] secret;
+    private final JsonMapper jsonMapper;
+    private final ConcurrentMap<String, Long> consumedTokenHashesByExpiry;
 
-    public VerificationTokenService(Clock clock,
-            @Value("${app.jwt.hmac-secret:dev-only-insecure-secret}") String hmacSecret) {
+    public VerificationTokenService(
+        Clock clock,
+        @Value("${app.jwt.hmac-secret:dev-only-insecure-secret}") String hmacSecret
+    ) {
         this.clock = clock;
         this.secret = hmacSecret.getBytes(StandardCharsets.UTF_8);
+        this.jsonMapper = new JsonMapper();
+        this.consumedTokenHashesByExpiry = new ConcurrentHashMap<>();
     }
 
     /**
      * Generates a JWT verification token for the given clientId.
-     * Format: Base64Url(header).Base64Url({"clientId":"...","exp":...}).Base64Url(HMAC-SHA256)
-     *
-     * @param clientId   the public client identifier
-     * @param ttlSeconds how long the token is valid for (e.g. 7200 = 2 hours)
-     * @return dot-separated JWT token string
      */
     public String generateVerificationToken(String clientId, long ttlSeconds) {
         if (clientId == null || clientId.isBlank()) {
             throw new IllegalArgumentException("clientId cannot be null");
         }
-
         if (ttlSeconds <= 0) {
             throw new IllegalArgumentException("ttlSeconds must be positive");
         }
 
         try {
             Instant now = Instant.now(clock);
-            Instant expInstant = now.plusSeconds(ttlSeconds);
-            long exp = expInstant.getEpochSecond();
+            long exp = now.plusSeconds(ttlSeconds).getEpochSecond();
+            String jti = UUID.randomUUID().toString();
 
-            String header    = Base64.getUrlEncoder().withoutPadding()
-                                .encodeToString("{\"alg\":\"HS256\",\"typ\":\"JWT\"}".getBytes());
-            String payload   = Base64.getUrlEncoder().withoutPadding()
-                                .encodeToString(
-                                    ("{\"clientId\":\"" + clientId + "\",\"exp\":" + exp + "}").getBytes()
-                                );
+            String header = encodeBase64Url("{\"alg\":\"HS256\",\"typ\":\"JWT\"}");
+            String payload = encodeBase64Url(
+                "{\"clientId\":\"" + clientId + "\",\"exp\":" + exp + ",\"jti\":\"" + jti + "\"}"
+            );
             String signingInput = header + "." + payload;
             String signature = Base64.getUrlEncoder().withoutPadding()
-                                .encodeToString(hmacSha256(signingInput.getBytes(StandardCharsets.US_ASCII)));
-
+                .encodeToString(hmacSha256(signingInput.getBytes(StandardCharsets.US_ASCII)));
             return signingInput + "." + signature;
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new RuntimeException("Failed to generate verification token", e);
         }
     }
 
     /**
-     * Validates that the given token is valid for the given clientId.
-     * Verifies the HMAC-SHA256 signature, clientId match, and expiration.
-     *
-     * @param clientId the public client identifier
-     * @param token    the token from the email link (may be null if not provided)
-     * @return true if valid, false otherwise
+     * Validates token signature + claims without consuming it.
      */
-	public boolean isValid(String clientId, String token) {
-		if (token == null || token.isBlank()) {
-			return false;
-		}
+    public boolean isValid(String clientId, String token) {
+        return validateParsedPayload(clientId, token) != null;
+    }
 
-		try {
-			// 1. Split into 3 parts: header.payload.signature
+    /**
+     * Validates and atomically consumes a token for one-time usage.
+     */
+    public boolean consumeIfValid(String clientId, String token) {
+        TokenPayload payload = validateParsedPayload(clientId, token);
+        if (payload == null) {
+            return false;
+        }
+        evictExpiredConsumedTokens();
+
+        String tokenHash = sha256Hex(token);
+        Long previous = consumedTokenHashesByExpiry.putIfAbsent(tokenHash, payload.exp());
+        return previous == null;
+    }
+
+    private TokenPayload validateParsedPayload(String clientId, String token) {
+        if (token == null || token.isBlank() || clientId == null || clientId.isBlank()) {
+            return null;
+        }
+        try {
             String[] parts = token.split("\\.", 3);
             if (parts.length != 3) {
-                return false;
+                return null;
             }
 
-            // 2. Verify HMAC-SHA256 signature
             String signingInput = parts[0] + "." + parts[1];
             byte[] expectedSig = hmacSha256(signingInput.getBytes(StandardCharsets.US_ASCII));
             byte[] providedSig = Base64.getUrlDecoder().decode(parts[2]);
             if (!MessageDigest.isEqual(expectedSig, providedSig)) {
-                return false;
+                return null;
             }
 
-            // 3. Decode payload (index 1) - Base64URL encoded
-            byte[] decodedBytes = Base64.getUrlDecoder().decode(parts[1]);
-            String payloadJson  = new String(decodedBytes);
-
-            // 4. Parse payload JSON
-            JsonMapper mapper    = new JsonMapper();
-            TokenPayload payload = mapper.readValue(payloadJson, TokenPayload.class);
-
-            // 5. Check clientId matches
+            String payloadJson = new String(Base64.getUrlDecoder().decode(parts[1]), StandardCharsets.UTF_8);
+            TokenPayload payload = jsonMapper.readValue(payloadJson, TokenPayload.class);
+            if (payload.clientId() == null || payload.clientId().isBlank() || payload.exp() <= 0) {
+                return null;
+            }
             if (!clientId.equals(payload.clientId())) {
-                return false;
+                return null;
             }
+            return Instant.now(clock).getEpochSecond() < payload.exp() ? payload : null;
+        }
+        catch (IllegalArgumentException | JacksonException e) {
+            return null;
+        }
+    }
 
-            // 6. Check token has not expired
-            return Instant.now(clock).getEpochSecond() < payload.exp();
+    private void evictExpiredConsumedTokens() {
+        long now = Instant.now(clock).getEpochSecond();
+        consumedTokenHashesByExpiry.entrySet().removeIf(entry -> entry.getValue() <= now);
+    }
 
-		} catch (IllegalArgumentException | JacksonException e) {
-			return false;
-    	}
-	}
+    private static String encodeBase64Url(String value) {
+        return Base64.getUrlEncoder().withoutPadding()
+            .encodeToString(value.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static String sha256Hex(String token) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(token.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(hash.length * 2);
+            for (byte b : hash) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        }
+        catch (GeneralSecurityException e) {
+            throw new IllegalStateException("Failed to hash token", e);
+        }
+    }
 
     private byte[] hmacSha256(byte[] data) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(secret, "HmacSHA256"));
             return mac.doFinal(data);
-        } catch (GeneralSecurityException e) {
+        }
+        catch (GeneralSecurityException e) {
             throw new IllegalStateException("Failed to compute HMAC-SHA256", e);
         }
     }
 
     /** JWT payload record. */
-    private record TokenPayload(String clientId, long exp) {}
+    private record TokenPayload(String clientId, long exp, String jti) {}
 }
-

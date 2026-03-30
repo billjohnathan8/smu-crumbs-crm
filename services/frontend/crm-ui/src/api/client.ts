@@ -114,7 +114,7 @@ export async function apiRequest<T>(endpoint: string, options: RequestOptions = 
     }
 
     if (error instanceof Error) {
-      throw new ApiError(0, 'network_error', error.message || 'Network error occurred', undefined)
+      throw new ApiError(0, 'network_error', 'Network error occurred', undefined)
     }
 
     throw new ApiError(0, 'unknown_error', 'An unknown error occurred', undefined)

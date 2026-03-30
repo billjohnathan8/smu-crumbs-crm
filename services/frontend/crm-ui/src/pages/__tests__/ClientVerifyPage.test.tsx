@@ -285,7 +285,8 @@ describe('ClientVerifyPage', () => {
         expect.objectContaining({
           primaryDocumentRef: 'id.jpg',
           addressDocumentRef: 'bill.pdf',
-        })
+        }),
+        expect.any(String)
       )
     })
 

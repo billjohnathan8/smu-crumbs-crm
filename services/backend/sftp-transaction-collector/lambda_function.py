@@ -86,7 +86,7 @@ def _mint_service_jwt() -> str | None:
         "sub": os.environ.get(
             "TRANSACTION_IMPORT_JWT_SUB", "SYSTEM_TRANSACTION_INGESTION"
         ),
-        "role": os.environ.get("TRANSACTION_IMPORT_JWT_ROLE", "admin"),
+        "role": os.environ.get("TRANSACTION_IMPORT_JWT_ROLE", "service"),
         "iat": now_epoch,
         "exp": now_epoch + ttl_seconds,
     }

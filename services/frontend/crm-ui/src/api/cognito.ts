@@ -26,6 +26,7 @@ export const COGNITO_REDIRECT_URI =
   import.meta.env.VITE_COGNITO_REDIRECT_URI ?? `${window.location.origin}/auth/callback`
 
 export const COGNITO_SCOPES = 'openid email profile'
+const COGNITO_OAUTH_STATE_KEY = 'cognito_oauth_state'
 
 /** True when Cognito SSO login should be available in the UI. */
 export const isCognitoEnabled =
@@ -33,13 +34,25 @@ export const isCognitoEnabled =
 
 /** Build the Cognito Hosted UI authorization URL (PKCE code flow). */
 export function buildCognitoLoginUrl(): string {
+  const state =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  sessionStorage.setItem(COGNITO_OAUTH_STATE_KEY, state)
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: COGNITO_CLIENT_ID,
     redirect_uri: COGNITO_REDIRECT_URI,
     scope: COGNITO_SCOPES,
+    state,
   })
   return `https://${COGNITO_DOMAIN}/login?${params.toString()}`
+}
+
+export function consumeExpectedOauthState(): string | null {
+  const state = sessionStorage.getItem(COGNITO_OAUTH_STATE_KEY)
+  sessionStorage.removeItem(COGNITO_OAUTH_STATE_KEY)
+  return state
 }
 
 /** Build the Cognito Hosted UI logout URL. */
@@ -67,8 +80,7 @@ export async function exchangeCodeForTokens(code: string): Promise<CognitoTokenR
   })
 
   if (!response.ok) {
-    const text = await response.text()
-    throw new Error(`Cognito token exchange failed: ${text}`)
+    throw new Error('Authentication failed')
   }
 
   return response.json()

@@ -173,7 +173,7 @@ class ClientsServiceIT {
 			  "verificationToken": "%s",
 			  "primaryDocumentType": "NRIC",
 			  "primaryDocumentRef": "primary-id.jpg",
-			  "primaryDocumentBase64": "cHJpbWFyeS1kb2M=",
+			  "primaryDocumentBase64": "/9j/ABEi",
 			  "primaryDocumentMimeType": "image/jpeg",
 			  "addressDocumentType": "UTILITY_BILL",
 			  "addressDocumentRef": "proof-of-address.pdf",
@@ -350,7 +350,8 @@ class ClientsServiceIT {
 
 		String verificationToken = verificationTokenService.generateVerificationToken(clientId, 900);
 		uploadVerificationDocs(clientId, verificationToken);
-		JsonNode replayPayload = uploadVerificationDocs(clientId, verificationToken);
+		String replayToken = verificationTokenService.generateVerificationToken(clientId, 900);
+		JsonNode replayPayload = uploadVerificationDocs(clientId, replayToken);
 
 		assertThat(requiredText(replayPayload, "identityVerificationStatus")).isEqualTo("pending");
 		verify(s3Client, times(4)).putObject(any(PutObjectRequest.class), any(RequestBody.class));
@@ -406,9 +407,10 @@ class ClientsServiceIT {
 		HttpResponse<String> approveResponse = reviewVerification(clientId, "approve", adminAuth);
 		assertThat(approveResponse.statusCode()).isEqualTo(HttpStatus.OK.value());
 
+		String replayToken = verificationTokenService.generateVerificationToken(clientId, 900);
 		ResponseEntity<String> replayUpload = postJson(
 			"/api/clients/" + clientId + "/upload-verify",
-			uploadVerificationRequestBody(verificationToken),
+			uploadVerificationRequestBody(replayToken),
 			jsonHeaders(null)
 		);
 		assertThat(replayUpload.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
@@ -440,5 +442,6 @@ class ClientsServiceIT {
 		assertThat(requiredText(persisted, "identityVerificationStatus")).isEqualTo("unverified");
 	}
 }
+
 
 

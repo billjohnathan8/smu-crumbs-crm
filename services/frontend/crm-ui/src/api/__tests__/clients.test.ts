@@ -232,9 +232,36 @@ describe('clients API', () => {
       expect(client.apiPost).toHaveBeenCalledWith(
         '/api/clients/client-123/upload-verify',
         verifyRequest,
-        { skipAuth: true }
+        { skipAuth: true, headers: {} }
       )
       expect(result).toEqual(mockResponse)
+    })
+
+    it('should send idempotency key when provided', async () => {
+      const verifyRequest: UploadVerificationDocsRequest = {
+        verificationToken: '123123123123',
+        primaryDocumentType: 'NRIC',
+        primaryDocumentRef: 'asdfasdfasdf',
+        primaryDocumentBase64: 'asdfasdfasdf',
+        primaryDocumentMimeType: 'image/jpeg',
+        addressDocumentType: 'UTILITY_BILL',
+        addressDocumentRef: 'asdfasdfasdf',
+        addressDocumentBase64: 'asdfasdfasdf',
+        addressDocumentMimeType: 'image/jpeg',
+      }
+
+      vi.spyOn(client, 'apiPost').mockResolvedValue({
+        clientId: 'client-123',
+        identityVerificationStatus: 'pending',
+      })
+
+      await uploadVerificationDocs('client-123', verifyRequest, 'idem-1')
+
+      expect(client.apiPost).toHaveBeenCalledWith(
+        '/api/clients/client-123/upload-verify',
+        verifyRequest,
+        { skipAuth: true, headers: { 'Idempotency-Key': 'idem-1' } }
+      )
     })
 
     it('should return pending verification response', async () => {
