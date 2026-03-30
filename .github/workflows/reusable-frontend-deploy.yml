@@ -26,8 +26,6 @@ on:
     secrets:
       AWS_ROLE_ARN:
         required: true
-      CLOUDFRONT_DISTRIBUTION_ID:
-        required: true
 
 permissions:
   actions: write
@@ -42,7 +40,7 @@ jobs:
 
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
-      CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+      CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
 
     steps:
       - name: Checkout code
@@ -54,7 +52,7 @@ jobs:
           test -n "${{ secrets.AWS_ROLE_ARN }}"
           test -n "${{ vars.AWS_REGION }}"
           test -n "${{ vars.FRONTEND_BUCKET }}"
-          test -n "${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}"
+          test -n "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}"
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
