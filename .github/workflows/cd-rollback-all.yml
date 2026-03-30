@@ -7,6 +7,10 @@ on:
         description: Git SHA to rollback to
         required: true
         type: string
+        default: 27885d07f63cf9e02e485237ffa804132103fe7f
+  push:
+    branches:
+      - integration
 
 concurrency:
   group: cd-rollback-all
