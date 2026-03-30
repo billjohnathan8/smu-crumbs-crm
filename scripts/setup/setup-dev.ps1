@@ -60,6 +60,7 @@ function Show-PythonInstallHelp {
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Resolve-Path (Join-Path $scriptDir "..\..")
 $setupScript = Join-Path $repoRoot "scripts/pipelines/setup_dev_env.py"
+$devtoolsBin = Join-Path $repoRoot ".devtools\bin"
 
 if (-not (Test-Path $setupScript)) {
     Write-Host "[ERROR] Missing setup script: $setupScript"
@@ -83,4 +84,14 @@ if ($python.Major -lt 3 -or ($python.Major -eq 3 -and $python.Minor -lt 12)) {
 Write-Host "[OK] Using Python $($python.VersionText) via '$($python.Command)'."
 Write-Host "Running developer setup..."
 & $python.Path @($python.Args + @($setupScript) + $SetupArgs)
-exit $LASTEXITCODE
+$exitCode = $LASTEXITCODE
+
+if ($exitCode -eq 0 -and (Test-Path $devtoolsBin)) {
+    $currentPathEntries = $env:PATH -split ';'
+    if ($currentPathEntries -notcontains $devtoolsBin) {
+        $env:PATH = "$devtoolsBin;$env:PATH"
+        Write-Host "[OK] Added $devtoolsBin to PATH for this PowerShell session."
+    }
+}
+
+exit $exitCode
