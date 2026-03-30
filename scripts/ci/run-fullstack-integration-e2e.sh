@@ -8,7 +8,11 @@ FRONTEND_DIR="${ROOT_DIR}/services/frontend/crm-ui"
 INTEGRATION_TEST_DIR="${ROOT_DIR}/tests/integration"
 DB_ORCHESTRATOR_SCRIPT="${ROOT_DIR}/scripts/db/run-shared-postgres.sh"
 DB_ENDPOINT_GUARD_SCRIPT="${ROOT_DIR}/scripts/ci/guard-no-prod-db.sh"
-TRANSACTION_GENERATOR_SCRIPT="${ROOT_DIR}/services/backend/transaction/mock-sftp/mock_transactions.py"
+TRANSACTION_GENERATOR_SCRIPT="${ROOT_DIR}/sftp/mock_transactions.py"
+if [[ ! -f "${TRANSACTION_GENERATOR_SCRIPT}" ]]; then
+  echo "[FAIL] transaction generator script not found: ${TRANSACTION_GENERATOR_SCRIPT}" >&2
+  exit 1
+fi
 
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-http://127.0.0.1:18088}"
 COMPOSE_PROJECT_NAME="crm-fullstack-it-${GITHUB_RUN_ID:-local}"
