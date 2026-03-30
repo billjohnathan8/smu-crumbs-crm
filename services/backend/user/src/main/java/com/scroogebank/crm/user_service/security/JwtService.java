@@ -189,7 +189,7 @@ public class JwtService {
 	private void validateExp(Map<String, Object> claims) {
 		Object exp = claims.get("exp");
 		if (exp == null) {
-			return;
+			throw new JwtValidationException("missing_exp");
 		}
 		long expSeconds = asLong(exp);
 		Instant expInstant = Instant.ofEpochSecond(expSeconds);
@@ -263,7 +263,10 @@ public class JwtService {
 		if (!cognitoIssuer.equals(tokenIssuer)) {
 			throw new JwtValidationException("invalid_issuer");
 		}
-		if (!cognitoAudience.isBlank() && !matchesAudience(claims, cognitoAudience)) {
+		if (cognitoAudience.isBlank()) {
+			throw new JwtValidationException("cognito_audience_not_configured");
+		}
+		if (!matchesAudience(claims, cognitoAudience)) {
 			throw new JwtValidationException("invalid_audience");
 		}
 	}
@@ -510,7 +513,7 @@ public class JwtService {
 		}
 		String normalized = value.trim().toLowerCase().replace('-', '_').replace(' ', '_');
 		return switch (normalized) {
-			case "admin", "user", "super_admin" -> normalized;
+			case "admin", "user", "super_admin", "service" -> normalized;
 			case "superadmin" -> "super_admin";
 			default -> null;
 		};

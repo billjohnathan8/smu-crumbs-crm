@@ -46,6 +46,8 @@ def _normalize_role(raw_role: Any) -> str | None:
         return "admin"
     if normalized == "user":
         return "user"
+    if normalized == "service":
+        return "service"
     return None
 
 
@@ -85,13 +87,14 @@ def verify_hs256_jwt(token: str, secret: str) -> dict[str, Any]:
         raise UnauthorizedError("invalid_token")
 
     exp = payload.get("exp")
-    if exp is not None:
-        try:
-            exp_dt = datetime.fromtimestamp(int(exp), tz=timezone.utc)
-        except Exception as exc:
-            raise UnauthorizedError("invalid_token") from exc
-        if datetime.now(timezone.utc) >= exp_dt:
-            raise UnauthorizedError("token_expired")
+    if exp is None:
+        raise UnauthorizedError("missing_exp")
+    try:
+        exp_dt = datetime.fromtimestamp(int(exp), tz=timezone.utc)
+    except Exception as exc:
+        raise UnauthorizedError("invalid_token") from exc
+    if datetime.now(timezone.utc) >= exp_dt:
+        raise UnauthorizedError("token_expired")
 
     return payload
 
@@ -189,13 +192,14 @@ def verify_rs256_jwt(
 
     # Validate exp
     exp = payload.get("exp")
-    if exp is not None:
-        try:
-            exp_dt = datetime.fromtimestamp(int(exp), tz=timezone.utc)
-        except Exception as exc:
-            raise UnauthorizedError("invalid_token") from exc
-        if datetime.now(timezone.utc) >= exp_dt:
-            raise UnauthorizedError("token_expired")
+    if exp is None:
+        raise UnauthorizedError("missing_exp")
+    try:
+        exp_dt = datetime.fromtimestamp(int(exp), tz=timezone.utc)
+    except Exception as exc:
+        raise UnauthorizedError("invalid_token") from exc
+    if datetime.now(timezone.utc) >= exp_dt:
+        raise UnauthorizedError("token_expired")
 
     # Validate issuer
     if payload.get("iss") != issuer:
