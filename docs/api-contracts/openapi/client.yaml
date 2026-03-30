@@ -158,9 +158,10 @@ paths:
     post:
       tags: [clients]
       summary: Upload verification documents
-      description: Public tokenized upload endpoint. Valid upload sets status to `pending` for admin review.
+      description: Public tokenized upload endpoint. Token is delivered to the browser in the URL fragment (`#token=...`) and must be one-time and short-lived. Valid upload sets status to `pending` for admin review.
       parameters:
       - {name: clientId, in: path, required: true, schema: {$ref: '#/components/schemas/ClientId'}}
+      - {name: Idempotency-Key, in: header, required: false, schema: {type: string, minLength: 1, maxLength: 160}, description: Optional replay-protection key for duplicate browser submissions.}
       requestBody:
         required: true
         content:
@@ -171,6 +172,8 @@ paths:
         '400': {description: Validation error., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '409': {description: Conflict (duplicate submission or verification already submitted/reviewed)., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '429': {description: Too many requests., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
   /api/clients/{clientId}/verify/review:
     patch:
       tags: [clients]
@@ -297,7 +300,7 @@ components:
       type: object
       properties:
         error: {type: string, example: validation_error}
-        message: {type: string, example: Email is required}
+        message: {type: string, example: Invalid request}
         requestId: {type: string, example: 7f1d2c3b-0c44-4ce9-a7ed-4c0c0c8edc1d}
       required: [error, message]
     Pagination:
@@ -423,15 +426,15 @@ components:
     UploadVerificationDocsRequest:
       type: object
       properties:
-        verificationToken: {type: string, description: Signed token received from verification email link.}
+        verificationToken: {type: string, maxLength: 4096, pattern: '^[A-Za-z0-9._-]+$', description: Signed token received from verification email link (short-lived, one-time).}
         primaryDocumentType: {type: string, enum: [NRIC, PASSPORT, EMPLOYMENT_PASS]}
-        primaryDocumentRef: {type: string, description: Original filename for primary identity document.}
-        primaryDocumentBase64: {type: string, description: Base64-encoded primary identity document bytes.}
-        primaryDocumentMimeType: {type: string, description: "MIME type for primary identity document, e.g. image/jpeg."}
+        primaryDocumentRef: {type: string, maxLength: 120, pattern: '^[A-Za-z0-9._-]+$', description: Original filename for primary identity document.}
+        primaryDocumentBase64: {type: string, maxLength: 7000000, pattern: '^[A-Za-z0-9+/]+={0,2}$', description: Base64-encoded primary identity document bytes.}
+        primaryDocumentMimeType: {type: string, enum: [image/jpeg, image/png, application/pdf], description: MIME type for primary identity document.}
         addressDocumentType: {type: string, enum: [UTILITY_BILL, BANK_STATEMENT, GOVERNMENT_LETTER, TENANCY_AGREEMENT]}
-        addressDocumentRef: {type: string, description: Original filename for proof-of-address document.}
-        addressDocumentBase64: {type: string, description: Base64-encoded proof-of-address document bytes.}
-        addressDocumentMimeType: {type: string, description: "MIME type for proof-of-address document, e.g. application/pdf."}
+        addressDocumentRef: {type: string, maxLength: 120, pattern: '^[A-Za-z0-9._-]+$', description: Original filename for proof-of-address document.}
+        addressDocumentBase64: {type: string, maxLength: 7000000, pattern: '^[A-Za-z0-9+/]+={0,2}$', description: Base64-encoded proof-of-address document bytes.}
+        addressDocumentMimeType: {type: string, enum: [image/jpeg, image/png, application/pdf], description: MIME type for proof-of-address document.}
       required: [verificationToken, primaryDocumentType, primaryDocumentRef, primaryDocumentBase64, primaryDocumentMimeType, addressDocumentType, addressDocumentRef, addressDocumentBase64, addressDocumentMimeType]
       additionalProperties: false
     VerifyClientResponse:

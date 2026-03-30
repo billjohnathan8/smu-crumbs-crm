@@ -472,7 +472,7 @@ components:
           example: validation_error
         message:
           type: string
-          example: "Field 'clientId' is invalid"
+          example: "Invalid request"
         requestId:
           type: string
           example: 7f1d2c3b-0c44-4ce9-a7ed-4c0c0c8edc1d

@@ -644,7 +644,7 @@ paths:
       tags: [communications]
       summary: Update communication status by provider message id
       security: [{ BearerAuth: [] }]
-      x-required-roles: [admin]
+      x-required-roles: [admin, service]
       parameters:
         - name: providerMessageId
           in: path
@@ -733,7 +733,7 @@ components:
       type: object
       properties:
         error: { type: string, example: validation_error }
-        message: { type: string, example: "attributeName: Field required" }
+        message: { type: string, example: "Invalid request" }
         requestId: { type: string, example: 7f1d2c3b-0c44-4ce9-a7ed-4c0c0c8edc1d }
       required: [error, message]
 
