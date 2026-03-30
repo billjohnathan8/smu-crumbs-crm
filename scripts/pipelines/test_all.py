@@ -1254,7 +1254,12 @@ def run_step(step: Step, run_dir: Path, index: int, dry_run: bool) -> StepResult
 
         assert process.stdout is not None
         for line in process.stdout:
-            print(line, end="")
+            # Handle Windows console encoding issues (CP1252 can't display all Unicode)
+            try:
+                print(line, end="")
+            except UnicodeEncodeError:
+                # Fallback: encode to console encoding with replacement for unsupported chars
+                print(line.encode(sys.stdout.encoding or 'utf-8', errors='replace').decode(sys.stdout.encoding or 'utf-8', errors='replace'), end="")
             handle.write(line)
 
         return_code = process.wait()
