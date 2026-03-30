@@ -47,7 +47,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         timeout-minutes: 2
 
       - name: Validate required secrets
@@ -91,7 +91,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -108,7 +108,7 @@ jobs:
           echo "image_uri=${IMAGE_URI}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
         with:
           distribution: temurin
           java-version: '21'
@@ -120,7 +120,7 @@ jobs:
           ./gradlew clean bootJar -x test --no-daemon --console=plain
 
       - name: Log in to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@183a1442edf41672e66566b7fc560e297a290896 # v2
 
       - name: Build Docker image (local scan tag)
         id: local_image
@@ -133,7 +133,7 @@ jobs:
           echo "local_image=${LOCAL_IMAGE}" >> "$GITHUB_OUTPUT"
 
       - name: Trivy vulnerability scan (fail on HIGH/CRITICAL)
-        uses: aquasecurity/trivy-action@v0.35.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
           image-ref: ${{ steps.local_image.outputs.local_image }}
           format: table
@@ -270,7 +270,7 @@ jobs:
           echo "fragment_file=${FRAGMENT_FILE}" >> "$GITHUB_OUTPUT"
 
       - name: Upload deploy intent artifact (ECS)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: intent-ecs-${{ inputs.service }}
           path: ${{ steps.intent.outputs.fragment_file }}

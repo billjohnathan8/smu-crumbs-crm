@@ -35,7 +35,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         timeout-minutes: 2
 
       - name: Validate required secrets
@@ -45,13 +45,13 @@ jobs:
           test -n "${{ vars.LAMBDA_ARTIFACT_BUCKET }}"
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         timeout-minutes: 2
         with:
           python-version: ${{ inputs.python_version }}
@@ -99,6 +99,16 @@ jobs:
             echo "artifact_path=${artifact_path}"
             echo "s3_key=${s3_key}"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Trivy scan Lambda artifact (fail on HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          scan-type: fs
+          scan-ref: ${{ env.LAMBDA_WORKING_DIRECTORY }}/${{ steps.package.outputs.artifact_path }}
+          vuln-type: library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
 
       - name: Upload Lambda zip to S3
         run: |
@@ -193,7 +203,7 @@ jobs:
           echo "fragment_file=${FRAGMENT_FILE}" >> "$GITHUB_OUTPUT"
 
       - name: Upload deploy intent artifact (Lambda)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: intent-lambda-${{ inputs.service }}
           path: ${{ steps.intent.outputs.fragment_file }}

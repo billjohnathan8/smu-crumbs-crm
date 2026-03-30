@@ -25,26 +25,6 @@ on:
         required: true
         default: true
         type: boolean
-      aws_access_key_id:
-        description: Runtime AWS_ACCESS_KEY_ID (required)
-        required: false
-        type: string
-      aws_secret_access_key:
-        description: Runtime AWS_SECRET_ACCESS_KEY (required)
-        required: false
-        type: string
-      aws_session_token:
-        description: Runtime AWS_SESSION_TOKEN (required for lab)
-        required: false
-        type: string
-      root_admin_password:
-        description: Runtime root_admin_password (required)
-        required: false
-        type: string
-      jwt_hmac_secret:
-        description: Runtime jwt_hmac_secret (optional in lab)
-        required: false
-        type: string
       aws_lab_role_arn:
         description: Runtime AWS_LAB_ROLE_ARN (optional for lab; defaults to arn:aws:iam::<caller-account>:role/LabRole)
         required: false
@@ -53,6 +33,7 @@ on:
 permissions:
   actions: write
   contents: read
+  id-token: write
 
 jobs:
   infrastructure-up:
@@ -69,7 +50,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Validate runtime input contract
         shell: bash
@@ -78,19 +59,13 @@ jobs:
 
           DEPLOY_ENV="${{ inputs.environment }}"
 
-          test -n "${{ inputs.root_admin_password }}"
-          test -n "${{ inputs.aws_access_key_id }}"
-          test -n "${{ inputs.aws_secret_access_key }}"
-          if [[ "$DEPLOY_ENV" == "lab" ]]; then
-            test -n "${{ inputs.aws_session_token }}"
-          fi
+          test -n "${{ secrets.AWS_ROLE_ARN }}"
+          test -n "${{ secrets.ROOT_ADMIN_PASSWORD }}"
 
-      - name: Configure AWS temporary credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
         with:
-          aws-access-key-id: ${{ inputs.aws_access_key_id }}
-          aws-secret-access-key: ${{ inputs.aws_secret_access_key }}
-          aws-session-token: ${{ inputs.aws_session_token }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ inputs.environment == 'lab' && 'us-east-1' || 'ap-southeast-1' }}
 
       - name: Validate caller identity and lab role account
@@ -128,8 +103,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          ROOT_ADMIN_PASSWORD='${{ inputs.root_admin_password }}'
-          JWT_HMAC_SECRET='${{ inputs.jwt_hmac_secret }}'
+          ROOT_ADMIN_PASSWORD='${{ secrets.ROOT_ADMIN_PASSWORD }}'
+          JWT_HMAC_SECRET='${{ secrets.JWT_HMAC_SECRET }}'
           LAB_ROLE_ARN='${{ steps.caller.outputs.resolved_lab_role_arn }}'
 
           {
@@ -143,7 +118,7 @@ jobs:
           } > runtime.auto.tfvars
 
       - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
         with:
           terraform_version: "~1.10"
 
@@ -288,7 +263,7 @@ jobs:
           echo "Updated environment variable AWS_ROLE_ARN for environment '${DEPLOY_ENV}'."
 
       - name: Upload Terraform plan artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: terraform-plan-${{ inputs.environment }}-${{ github.run_id }}
           path: |
@@ -298,7 +273,7 @@ jobs:
 
       - name: Upload Terraform output and snapshot artifacts
         if: ${{ inputs.auto_apply }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: terraform-output-${{ inputs.environment }}-${{ github.run_id }}
           path: |
@@ -317,7 +292,7 @@ jobs:
             echo "## InfrastructureUp Summary"
             echo ""
             echo "- Environment: ${DEPLOY_ENV}"
-            echo "- AWS auth mode: runtime temporary credentials"
+            echo "- AWS auth mode: GitHub OIDC assume-role"
             echo "- Caller account: ${{ steps.caller.outputs.account_id }}"
             echo "- Resolved lab role ARN: ${{ steps.caller.outputs.resolved_lab_role_arn }}"
             echo "- SSM publish: ${{ inputs.publish_ssm }}"
