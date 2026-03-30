@@ -149,6 +149,14 @@ def detect_opentofu() -> Optional[str]:
     return shutil.which("opentofu") or shutil.which("tofu")
 
 
+def is_prod_env() -> bool:
+    for key in ("TERRAFORM_ENV", "TF_VAR_environment", "ENVIRONMENT"):
+        value = os.environ.get(key)
+        if value and value.strip().lower() in ("prod", "production", "prod-env"):
+            return True
+    return False
+
+
 def gradle_command(service_dir: Path, *args: str) -> List[str]:
     if is_windows():
         wrapper = service_dir / "gradlew.bat"
@@ -185,10 +193,12 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
     actionlint_cmd = detect_actionlint()
     tflint_available = shutil.which("tflint") is not None
     infracost_available = shutil.which("infracost") is not None
+    prod_env = is_prod_env()
 
     services_backend = REPO_ROOT / "services" / "backend"
     frontend_dir = REPO_ROOT / "services" / "frontend" / "crm-ui"
     terraform_dir = REPO_ROOT / "platform" / "terraform"
+    prod_tfvars = terraform_dir / "env" / "prod.tfvars"
 
     steps: List[Step] = []
 
@@ -497,14 +507,34 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                     "Install tflint to enable these Terraform lint checks."
                 )
             if infracost_available and os.environ.get("INFRACOST_API_KEY"):
-                steps.append(
-                    Step(
-                        phase=phase,
-                        name="Infracost breakdown",
-                        cwd=terraform_dir,
-                        command=["infracost", "breakdown", "--path=.", "--format=table"],
+                if prod_env:
+                    infracost_command = [
+                        "infracost",
+                        "breakdown",
+                        "--path=.",
+                        "--format=table",
+                    ]
+                    if prod_tfvars.exists():
+                        infracost_command.append(
+                            f"--terraform-var-file={prod_tfvars}"
+                        )
+                    else:
+                        print(
+                            f"[WARN] {prod_tfvars} not found; running Infracost without prod tfvars."
+                        )
+                    steps.append(
+                        Step(
+                            phase=phase,
+                            name="Infracost breakdown (prod-env only)",
+                            cwd=terraform_dir,
+                            command=infracost_command,
+                        )
                     )
-                )
+                else:
+                    print(
+                        "[INFO] Infracost runs only for prod-env; set TERRAFORM_ENV, "
+                        "TF_VAR_environment, or ENVIRONMENT to prod-env to enable."
+                    )
             else:
                 if not infracost_available:
                     print(
