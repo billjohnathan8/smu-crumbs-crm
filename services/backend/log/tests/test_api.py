@@ -1,4 +1,4 @@
-﻿"""Direct Lambda event contract tests for log-service APIs."""
+"""Direct Lambda event contract tests for log-service APIs."""
 
 from __future__ import annotations
 
@@ -518,7 +518,7 @@ def test_create_log_body_validation_returns_400() -> None:
     assert response["statusCode"] == 400
     assert body is not None
     assert body["error"] == "validation_error"
-    assert "attributeName" in body["message"]
+    assert body["message"] == "Invalid request"
 
 
 def test_create_log_service_validation_error_returns_400() -> None:
@@ -849,7 +849,7 @@ def test_create_communication_invalid_email_returns_400() -> None:
     assert response["statusCode"] == 400
     assert body is not None
     assert body["error"] == "validation_error"
-    assert "toEmail" in body["message"]
+    assert body["message"] == "Invalid request"
 
 
 def test_get_communication_invalid_id_and_not_found() -> None:
@@ -1112,3 +1112,4 @@ def test_rest_proxy_event_shapes_are_supported() -> None:
     assert rest_logs["statusCode"] == 200
     assert rest_logs_body is not None
     assert "data" in rest_logs_body
+

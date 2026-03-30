@@ -137,6 +137,25 @@ def _resolve_authorization_header() -> str | None:
     return None
 
 
+def _mask_email(value: str | None) -> str:
+    if not value:
+        return "[REDACTED]"
+    if "@" not in value:
+        return "[REDACTED]"
+    first, domain = value.split("@", 1)
+    if not first:
+        return f"***@{domain}"
+    return f"{first[0]}***@{domain}"
+
+
+def _mask_identifier(value: str | None) -> str:
+    if not value:
+        return "[REDACTED]"
+    if len(value) <= 4:
+        return "****"
+    return f"{value[:2]}***{value[-2:]}"
+
+
 # ---------------------------------------------------------------------------
 # Flow 1 — send verification email
 # ---------------------------------------------------------------------------
@@ -144,8 +163,8 @@ def _resolve_authorization_header() -> str | None:
 
 def _build_verification_link(client_id: str, token: str) -> str:
     frontend_base = os.environ.get("FRONTEND_BASE_URL", "").rstrip("/")
-    params = urllib.parse.urlencode({"clientId": client_id, "token": token})
-    path = f"/verify-client?{params}"
+    fragment = urllib.parse.urlencode({"token": token, "clientId": client_id})
+    path = f"/verify-client#{fragment}"
     return f"{frontend_base}{path}" if frontend_base else path
 
 
@@ -196,9 +215,9 @@ def _send_verification_email(
     )
     logger.info(
         "Sent verification email clientId=%s requestId=%s to=%s",
-        client_id,
+        _mask_identifier(client_id),
         request_id,
-        email,
+        _mask_email(email),
     )
 
 
@@ -305,29 +324,28 @@ def _handle_ses_feedback(
         return None  # nothing to update
 
     try:
-        status_code, body = _update_communication_feedback(
+        status_code, _body = _update_communication_feedback(
             log_api_base_url, provider_message_id, event_type, error_message
         )
         logger.info(
-            "Updated communication providerMessageId=%s eventType=%s status=%s body=%s",
-            provider_message_id,
+            "Updated communication providerMessageId=%s eventType=%s status=%s",
+            _mask_identifier(provider_message_id),
             event_type,
             status_code,
-            body,
         )
         return True
     except urllib.error.HTTPError as exc:
-        response_body = exc.read().decode("utf-8", errors="replace")
+        _ = exc.read()
         logger.warning(
-            "Failed to update communication providerMessageId=%s status=%s body=%s",
-            provider_message_id,
+            "Failed to update communication providerMessageId=%s status=%s",
+            _mask_identifier(provider_message_id),
             exc.code,
-            response_body,
         )
         return {"providerMessageId": provider_message_id, "statusCode": str(exc.code)}
     except Exception:
         logger.exception(
-            "Failed to update communication providerMessageId=%s", provider_message_id
+            "Failed to update communication providerMessageId=%s",
+            _mask_identifier(provider_message_id),
         )
         return {"providerMessageId": provider_message_id, "statusCode": "unknown"}
 
@@ -368,7 +386,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             except Exception:
                 logger.exception(
                     "Failed to send verification email clientId=%s",
-                    message.get("clientId"),
+                    _mask_identifier(str(message.get("clientId", ""))),
                 )
                 failures.append(
                     {

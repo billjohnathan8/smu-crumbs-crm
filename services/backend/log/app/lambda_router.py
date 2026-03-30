@@ -140,19 +140,8 @@ def _error_name_for_status(status_code: int) -> str:
 
 
 def _validation_message(exc: ValidationError) -> str:
-    errors = exc.errors()
-    if not errors:
-        return "Invalid request"
-
-    first = errors[0]
-    location = [
-        str(segment)
-        for segment in first.get("loc", ())
-        if segment not in {"body", "query", "path"}
-    ]
-    prefix = ".".join(location)
-    detail = first.get("msg", "Invalid value")
-    return f"{prefix}: {detail}" if prefix else str(detail)
+    _ = exc
+    return "Invalid request"
 
 
 def _normalize_headers(raw_headers: dict[str, Any] | None) -> dict[str, str]:
@@ -386,7 +375,7 @@ class LambdaRouter:
                 request.request_id,
                 400,
                 "validation_error",
-                str(exc),
+                "Invalid request",
             )
         except _HttpError as exc:
             return _error_response(

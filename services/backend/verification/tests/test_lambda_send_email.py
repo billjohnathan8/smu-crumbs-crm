@@ -18,7 +18,7 @@ class TestBuildVerificationLink:
 
         assert (
             link
-            == "https://app.example.com/verify-client?clientId=client-1&token=tok-abc"
+            == "https://app.example.com/verify-client#token=tok-abc&clientId=client-1"
         )
 
     def test_strips_trailing_slash_from_base(self, monkeypatch):
@@ -28,13 +28,13 @@ class TestBuildVerificationLink:
 
         assert (
             link
-            == "https://app.example.com/verify-client?clientId=client-1&token=tok-abc"
+            == "https://app.example.com/verify-client#token=tok-abc&clientId=client-1"
         )
 
     def test_returns_path_only_when_no_base_url(self):
         link = lambda_function._build_verification_link("client-1", "tok-abc")
 
-        assert link == "/verify-client?clientId=client-1&token=tok-abc"
+        assert link == "/verify-client#token=tok-abc&clientId=client-1"
 
     def test_url_encodes_special_characters(self, monkeypatch):
         monkeypatch.setenv("FRONTEND_BASE_URL", "https://app.example.com")
@@ -137,7 +137,7 @@ class TestSendVerificationEmail:
         html_body = captured["Message"]["Body"]["Html"]["Data"]
         text_body = captured["Message"]["Body"]["Text"]["Data"]
         expected_link = (
-            "https://app.example.com/verify-client?clientId=client-1&token=tok-abc"
+            "https://app.example.com/verify-client#token=tok-abc&clientId=client-1"
         )
 
         assert expected_link in html_body
@@ -355,3 +355,6 @@ class TestLambdaHandlerFlow1:
         response = lambda_function.lambda_handler(self._verification_event(), None)
 
         assert response["statusCode"] == 200
+
+
+
