@@ -11,9 +11,9 @@
 | # | Issue | Production Status | Gap Severity |
 |---|-------|-------------------|--------------|
 | 1 | Token Authenticity, RBAC, Resource Ownership, Zero-Trust | Mostly done — CORS fixed; JWT replay still pending | Medium |
-| 2 | Backend Input Validation | Mostly done — path variable constraints and adversarial payload checks added | Low |
+| 2 | Backend Input Validation | Done — path/query/input guards and adversarial payload checks now cover Java + log Lambda routes | Low |
 | 3 | PII / Sensitive Data in Logs | Mostly done — NRIC masking added | Medium |
-| 4 | Negative & Adversarial Test Cases | Mostly done — JWT/IDOR/injection/malformed/oversized tests added across Java services | Low–Medium |
+| 4 | Negative & Adversarial Test Cases | Done — adversarial suites consolidated and expanded across Java services + log Lambda routes | Low |
 | 5 | CSRF & Replay-Attack Protection | Partial — gaps below (infrastructure-dependent) | Medium |
 | 6 | OpenAPI Security Alignment | Done — Springdoc + security annotations + CI drift gate implemented | Low |
 | 7 | Detailed Errors Exposed to Users | Done — prod-mode validation sanitisation + frontend error-code mapping implemented | Low |
@@ -83,7 +83,7 @@
 |-----|----------|-------------|
 | ~~**Path variable validation**~~ | ~~All controllers~~ | **Fixed (2026-03-29)**: All `@PathVariable` parameters in all 4 controllers (User, Client, Account, Transactions) now have `@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$")`. All controllers are annotated `@Validated`. |
 | ~~**Log Lambda Pydantic strict mode**~~ | ~~`services/backend/log/app/schemas.py`~~ | **Not a gap** — All request schemas already set `model_config = ConfigDict(extra="forbid")`. No fix required. |
-| **No explicit SQL injection test cases in log Lambda routes** | Log Lambda | Java services now include SQL-injection style request tests. Equivalent HTTP-route-level adversarial payload tests are still missing for log Lambda endpoints. |
+| ~~**No explicit SQL injection test cases in log Lambda routes**~~ | ~~Log Lambda~~ | **Fixed (2026-03-30)**: Added route-level adversarial tests in `services/backend/log/tests/test_api.py` for malformed JSON and injection/path-traversal-style client identifiers. Assertions enforce controlled 4xx responses (never unhandled failures/500s). |
 | ~~**`@Validated` not confirmed on controller class**~~ | ~~All Java controllers~~ | **Fixed (2026-03-29)**: Confirmed and added `@Validated` to all controller classes. |
 
 ### What To Implement
@@ -148,12 +148,12 @@
 | ~~**Malformed JSON**~~ | ~~User + client + transaction services~~ | **Fixed (2026-03-30)**: Added malformed JSON tests in user/client/transaction web tests; user handler now maps unreadable JSON to 400 (`validation_error`). |
 | ~~**Oversized input**~~ | ~~User + client + transaction services~~ | **Fixed (2026-03-30)**: Added oversized input test coverage in user/client/transaction request paths (e.g., overlength `firstName` / `clientId`). |
 | **Token replay after logout** | All Java services | No test logs out, then re-uses the old token and asserts 401. (Depends on implementing token deny-list from Issue 1.) |
+| ~~**Adversarial payload test duplication across Java services**~~ | ~~User/Client/Transaction web tests~~ | **Fixed (2026-03-30)**: Converted representative SQL-injection/path-query adversarial cases to parameterized tests in user/client/transaction controller test suites to broaden payload coverage and reduce duplication. |
+| ~~**Missing route-level malformed/injection tests for Lambda router**~~ | ~~Log Lambda~~ | **Fixed (2026-03-30)**: Added parameterized adversarial route tests to `test_api.py` and tightened router handling for malformed JSON and invalid public IDs. |
 
 ### What To Implement
 
-1. **Parameterized consolidation**: Refactor current adversarial payload tests into shared parameterized suites for broader payload coverage and lower duplication.
-2. **Log Lambda adversarial route tests**: Add malformed/injection payload tests for API Gateway-backed log routes.
-3. **Optional integration assertion**: Add endpoint-level MockMvc checks that invalid JWTs produce HTTP 401 on representative secured routes.
+1. **Optional integration assertion**: Add endpoint-level MockMvc checks that invalid JWTs produce HTTP 401 on representative secured routes.
 
 ---
 
@@ -242,9 +242,8 @@
 
 Remaining items in priority order:
 
-1. **Issue 4 — Adversarial test consolidation + log Lambda route adversarial tests** — Task 9 follow-up
-2. **Issue 1 — JWT replay / deny-list** (requires new DynamoDB table + Terraform — deferred)
-3. **Issue 5 — Idempotency keys + token revocation** (requires infrastructure — deferred)
+1. **Issue 1 — JWT replay / deny-list** (requires new DynamoDB table + Terraform — deferred)
+2. **Issue 5 — Idempotency keys + token revocation** (requires infrastructure — deferred)
 
 ---
 
@@ -265,6 +264,7 @@ Remaining items in priority order:
 | Frontend error-code mapping (Issue 7) | Added centralized error-code to user-facing message mapping and integrated it in `api/client.ts` so backend raw messages are not directly surfaced. Added unit tests for mapping and updated API client tests. | `crm-ui/src/utils/errorMessages.ts`, `crm-ui/src/api/client.ts`, `crm-ui/src/utils/__tests__/errorMessages.test.ts`, `crm-ui/src/api/__tests__/client.test.ts`, `docs/security-gap-analysis.md` | pending |
 | IDOR + transaction adversarial expansion (Issue 4) | Added client-service cross-owner IDOR tests for `get/update/delete`; added transaction request validation hardening (`clientId` constraints) plus transaction web tests for SQL-injection-style IDs, malformed JSON, and oversized IDs. | `client/ClientServiceImplTest.java`, `transaction/CreateTransactionRequest.java`, `transaction/TransactionsController.java`, `transaction/UserControllerTest.java`, `docs/security-gap-analysis.md` | pending |
 | OpenAPI CI drift gate (Issue 6 follow-up) | Added runtime-vs-contract OpenAPI drift gate in reusable CI lint workflow: boots each Java service, fetches `/v3/api-docs`, and compares normalized paths/methods/security requirements against committed contracts using `scripts/ci/check_openapi_drift.py`. | `.github/workflows/reusable-lint.yml`, `scripts/ci/check_openapi_drift.py`, `docs/security-gap-analysis.md` | pending |
+| Adversarial suite consolidation + Lambda route hardening (Issue 4 follow-up) | Converted adversarial Java controller tests to parameterized suites (user/client/transaction), added log Lambda malformed JSON + injection/path traversal route tests, and hardened Lambda router error handling/path validation to return controlled 4xx responses. | `user/UserControllerTest.java`, `client/ClientControllerTest.java`, `transaction/UserControllerTest.java`, `log/tests/test_api.py`, `log/app/lambda_router.py`, `docs/security-gap-analysis.md` | pending |
 
 ### Deferred (requires infrastructure changes)
 

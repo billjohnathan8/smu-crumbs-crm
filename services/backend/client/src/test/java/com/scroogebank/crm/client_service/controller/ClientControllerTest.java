@@ -22,6 +22,8 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -219,11 +221,16 @@ class ClientControllerTest {
             .andExpect(jsonPath("$.message").value("Invalid request body"));
     }
 
-	@Test
-	void createClient_sqlInjectionFirstName_returnsBadRequest() throws Exception {
+	@ParameterizedTest
+	@ValueSource(strings = {
+		"' OR '1'='1",
+		"Robert'); DROP TABLE clients; --",
+		"\" OR \"1\"=\"1"
+	})
+	void createClient_adversarialFirstName_returnsBadRequest(String firstNamePayload) throws Exception {
 		String payload = """
 			{
-			  "firstName": "' OR '1'='1",
+			  "firstName": "%s",
 			  "lastName": "Taylor",
 			  "dateOfBirth": "1990-01-15",
 			  "gender": "Male",
@@ -235,7 +242,7 @@ class ClientControllerTest {
 			  "country": "United States",
 			  "postalCode": "62704"
 			}
-			""";
+			""".formatted(firstNamePayload.replace("\"", "\\\""));
 
 		mockMvc.perform(post("/api/clients")
 				.header("Authorization", AUTH_HEADER)

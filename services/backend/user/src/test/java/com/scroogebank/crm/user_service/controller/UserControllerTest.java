@@ -33,6 +33,8 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -189,19 +191,24 @@ class UserControllerTest {
             .andExpect(status().isForbidden());
     }
 
-	@Test
-	void createUser_sqlInjectionEmail_returnsBadRequest() throws Exception {
+	@ParameterizedTest
+	@ValueSource(strings = {
+		"' OR '1'='1",
+		"test@example.com'; DROP TABLE users; --",
+		"\" OR \"1\"=\"1"
+	})
+	void createUser_adversarialEmail_returnsBadRequest(String emailPayload) throws Exception {
 		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
 		String payload = """
 			{
 			  "firstName": "Ava",
 			  "lastName": "Stone",
-			  "email": "' OR '1'='1",
+			  "email": "%s",
 			  "role": "user",
 			  "sendInviteEmail": false,
 			  "temporaryPassword": "temp1234"
 			}
-			""";
+			""".formatted(emailPayload.replace("\"", "\\\""));
 
 		mockMvc.perform(post("/api/users")
 				.header("Authorization", "Bearer x")
