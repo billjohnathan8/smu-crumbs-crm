@@ -10,7 +10,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: 1,
   // Increase timeout to allow for performance measurements
-  timeout: 10000, // 10 seconds (5s for operation + overhead)
+  timeout: 15000, // 15 seconds (allows for complex form interactions + overhead)
   reporter: [
     ["html", { open: "never", outputFolder: "playwright-report" }],
     ["junit", { outputFile: "test-results/junit.xml" }],

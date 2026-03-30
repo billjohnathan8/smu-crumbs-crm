@@ -420,13 +420,18 @@ test.describe("User Create Client - Validation (Flow 6)", () => {
 
     await test.step("Navigate to create client page", async () => {
       await page.goto("/user/clients/new");
-      await page.waitForLoadState("domcontentloaded");
+      await page.waitForLoadState("networkidle");
+      // Wait for form to be fully rendered and interactive
+      await page.waitForSelector('input[name="firstName"]', { state: 'visible' });
+      await page.waitForSelector('input[name="emailAddress"]', { state: 'visible' });
     });
 
     await test.step("Fill and submit form", async () => {
       await page.fill('input[name="firstName"]', "John");
       await page.fill('input[name="lastName"]', "Doe");
       await page.fill('input[name="dateOfBirth"]', dobForAge(25));
+      // Explicitly blur the date input to ensure it releases focus
+      await page.locator('input[name="dateOfBirth"]').blur();
       await page.fill('input[name="emailAddress"]', uniqueEmail("john"));
       await page.fill('input[name="phoneNumber"]', uniquePhone());
       await page.fill('input[name="address"]', "123 Test St");
