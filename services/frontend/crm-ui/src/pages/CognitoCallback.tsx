@@ -31,15 +31,17 @@ export function CognitoCallback() {
       return
     }
 
-    const expectedState = consumeExpectedOauthState()
-    if (!callbackState || !expectedState || callbackState !== expectedState) {
-      setRuntimeError('Authentication failed')
-      return
-    }
-
     let cancelled = false
 
     const exchange = async () => {
+      const expectedState = consumeExpectedOauthState()
+      if (!callbackState || !expectedState || callbackState !== expectedState) {
+        if (!cancelled) {
+          setRuntimeError('Authentication failed')
+        }
+        return
+      }
+
       try {
         await loginWithCognitoCode(code)
         if (cancelled) return
@@ -53,7 +55,7 @@ export function CognitoCallback() {
         } else {
           navigate('/', { replace: true })
         }
-      } catch (err) {
+      } catch {
         if (!cancelled) {
           setRuntimeError('Authentication failed')
         }
