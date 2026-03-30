@@ -29,7 +29,7 @@ jobs:
 
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
-      LAMBDA_ARTIFACT_BUCKET: ${{ vars.LAMBDA_ARTIFACT_BUCKET }}
+      BACKEND_BUCKET: ${{ vars.BACKEND_BUCKET }}
       LAMBDA_SERVICE_NAME: ${{ inputs.service }}
       LAMBDA_WORKING_DIRECTORY: services/backend/${{ inputs.service }}
 
@@ -42,7 +42,7 @@ jobs:
         run: |
           test -n "${{ secrets.AWS_ROLE_ARN }}"
           test -n "${{ vars.AWS_REGION }}"
-          test -n "${{ vars.LAMBDA_ARTIFACT_BUCKET }}"
+          test -n "${{ vars.BACKEND_BUCKET }}"
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -104,7 +104,7 @@ jobs:
         run: |
           aws s3 cp \
             "${{ env.LAMBDA_WORKING_DIRECTORY }}/${{ steps.package.outputs.artifact_path }}" \
-            "s3://${{ env.LAMBDA_ARTIFACT_BUCKET }}/${{ steps.package.outputs.s3_key }}"
+            "s3://${{ env.BACKEND_BUCKET }}/${{ steps.package.outputs.s3_key }}"
 
       - name: Update Lambda function code
         id: publish
@@ -114,7 +114,7 @@ jobs:
 
           aws lambda update-function-code \
             --function-name "${{ env.LAMBDA_SERVICE_NAME }}" \
-            --s3-bucket "${{ env.LAMBDA_ARTIFACT_BUCKET }}" \
+            --s3-bucket "${{ env.BACKEND_BUCKET }}" \
             --s3-key "${{ steps.package.outputs.s3_key }}" \
             --publish > lambda-publish.json
 
@@ -203,7 +203,7 @@ jobs:
         run: |
           echo "Lambda: ${{ env.LAMBDA_SERVICE_NAME }}"
           echo "Artifact: ${{ steps.package.outputs.artifact_name }}"
-          echo "Uploaded to: s3://${{ env.LAMBDA_ARTIFACT_BUCKET }}/${{ steps.package.outputs.s3_key }}"
+          echo "Uploaded to: s3://${{ env.BACKEND_BUCKET }}/${{ steps.package.outputs.s3_key }}"
           echo "Updated function: ${{ env.LAMBDA_SERVICE_NAME }}"
           echo "Published version: ${{ steps.publish.outputs.published_version }}"
           echo "Version ARN: ${{ steps.publish.outputs.version_arn }}"

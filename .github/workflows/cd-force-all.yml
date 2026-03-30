@@ -50,13 +50,13 @@ jobs:
     timeout-minutes: 15
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
-      MANIFEST_BUCKET: ${{ vars.LAMBDA_ARTIFACT_BUCKET }}
+      MANIFEST_BUCKET: ${{ vars.BACKEND_BUCKET }}
     steps:
       - name: Validate required secrets
         run: |
           test -n "${{ secrets.AWS_ROLE_ARN }}"
           test -n "${{ vars.AWS_REGION }}"
-          test -n "${{ vars.LAMBDA_ARTIFACT_BUCKET }}"
+          test -n "${{ vars.BACKEND_BUCKET }}"
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4

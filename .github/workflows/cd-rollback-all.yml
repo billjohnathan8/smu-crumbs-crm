@@ -22,7 +22,7 @@ permissions:
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
-  MANIFEST_BUCKET: ${{ vars.LAMBDA_ARTIFACT_BUCKET }}
+  MANIFEST_BUCKET: ${{ vars.BACKEND_BUCKET }}
   ROLLBACK_SHA: ${{ inputs.rollback_sha }}
 
 jobs:
