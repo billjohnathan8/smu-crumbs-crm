@@ -102,13 +102,21 @@ export async function setAuthState(page: Page, role: "admin" | "user") {
     status: "active",
   };
 
+  const payload = { user, token: `mock-${role}-token` };
+
+  // Ensure future navigations are authenticated without needing a bootstrap page.
+  await page.addInitScript(({ user, token }) => {
+    localStorage.setItem("authToken", token);
+    localStorage.setItem("currentUser", JSON.stringify(user));
+  }, payload);
+
   const setState = async () => {
     await page.evaluate(
       ({ user, token }) => {
         localStorage.setItem("authToken", token);
         localStorage.setItem("currentUser", JSON.stringify(user));
       },
-      { user, token: `mock-${role}-token` },
+      payload,
     );
   };
 
@@ -122,6 +130,10 @@ export async function setAuthState(page: Page, role: "admin" | "user") {
       message.includes("Access is denied");
 
     if (!isStorageAccessError) throw error;
+
+    if (page.url() === "about:blank") {
+      return;
+    }
 
     await gotoWithNetworkRetry(page, "/login");
     await setState();
