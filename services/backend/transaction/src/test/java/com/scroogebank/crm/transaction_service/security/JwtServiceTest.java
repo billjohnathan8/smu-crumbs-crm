@@ -134,17 +134,14 @@ class JwtServiceTest {
 	}
 
 	@Test
-	void verifyAndParse_withoutExp_allowsToken() {
+	void verifyAndParse_withoutExp_throws() {
 		String token = signedToken(Map.of(
 			"sub", "usr_1",
 			"role", "user",
 			"iat", FIXED_CLOCK.instant().getEpochSecond()
 		));
 
-		AuthenticatedUser user = jwtService.verifyAndParse(token);
-
-		assertEquals("usr_1", user.userId());
-		assertEquals("user", user.role());
+		assertThrows(JwtValidationException.class, () -> jwtService.verifyAndParse(token));
 	}
 
 	@Test
@@ -420,13 +417,13 @@ class JwtServiceTest {
 	}
 
 	@Test
-	void cognitoToken_noAudienceRequired() throws Exception {
+	void cognitoToken_blankAudience_throws() throws Exception {
 		JwtService svc = new JwtService(objectMapper, FIXED_CLOCK, SECRET, "cognito", true,
 			COGNITO_ISSUER, "", COGNITO_JWKS_URL, 300, mockJwksClient(buildJwksJson(KID)));
 		HashMap<String, Object> claims = cognitoClaims("cognito:groups", List.of("admin"));
 		claims.remove("aud");
 		String token = rsaSignedToken(claims);
-		assertEquals("admin", svc.verifyAndParse(token).role());
+		assertThrows(JwtValidationException.class, () -> svc.verifyAndParse(token));
 	}
 
 	@Test
