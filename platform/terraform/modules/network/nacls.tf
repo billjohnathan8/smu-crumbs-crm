@@ -42,6 +42,16 @@ resource "aws_network_acl" "private" {
     to_port    = 65535
   }
 
+  # Allow UDP DNS response traffic from the VPC resolver (stateless NACLs).
+  ingress {
+    rule_no    = 210
+    protocol   = "udp"
+    action     = "allow"
+    cidr_block = "${cidrhost(var.vpc_cidr, 2)}/32"
+    from_port  = 1024
+    to_port    = 65535
+  }
+
   # Allow outbound to DB port within VPC
   egress {
     rule_no    = 100
