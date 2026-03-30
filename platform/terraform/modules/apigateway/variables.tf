@@ -41,3 +41,9 @@ variable "log_lambda_function_name" {
   description = "Lambda function name for API invoke permission."
   type        = string
 }
+
+variable "cloudfront_domain_name" {
+  description = "CloudFront distribution domain name for CORS origin restriction. When empty, CORS allows all origins."
+  type        = string
+  default     = ""
+}

@@ -25,17 +25,25 @@ locals {
     "PATCH /api/communications/provider/{providerMessageId}/status",
     "GET /api/clients/{clientId}/communications",
   ])
+
+  allowed_cors_origins = compact([
+    var.use_custom_domain ? "https://${var.app_domain_name}" : "",
+    var.cloudfront_domain_name != "" ? "https://${var.cloudfront_domain_name}" : "",
+  ])
 }
 
 resource "aws_apigatewayv2_api" "log" {
   name          = "${var.name_prefix}-log-http-api"
   protocol_type = "HTTP"
 
-  cors_configuration {
-    allow_origins = var.use_custom_domain ? ["https://${var.app_domain_name}"] : ["*"]
-    allow_methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
-    allow_headers = ["*"]
-    max_age       = 300
+  dynamic "cors_configuration" {
+    for_each = length(local.allowed_cors_origins) > 0 ? [1] : []
+    content {
+      allow_origins = local.allowed_cors_origins
+      allow_methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+      allow_headers = ["*"]
+      max_age       = 300
+    }
   }
 }
 
