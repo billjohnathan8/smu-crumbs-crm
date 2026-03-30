@@ -1,7 +1,7 @@
 # Integration Test Inventory (Current)
 
 This folder contains the Playwright live fullstack integration specs (UI + real backend APIs via `PLAYWRIGHT_BASE_URL`).
-Mocked protected-route coverage is maintained in `services/frontend/crm-ui/e2e/auth/protected-routes.spec.ts`.
+Frontend latency tests (with mocked backend) for protected-route coverage are maintained in `services/frontend/crm-ui/e2e/auth/protected-routes.spec.ts`.
 
 ## account-management.spec.ts (5)
 Services/APIs: Auth, User, Client, Account, Log (`/api/auth/login`, `/api/users`, `/api/clients`, `/api/accounts`, `/api/clients/{clientId}/accounts`, `/api/logs`).

@@ -65,30 +65,6 @@ username:         admin@crm.local
 default_password: Scrooge@Bank2026!
 ```
 
-# AWS Learner Lab Deployment
-
-One-command deployment to AWS Learner Lab (builds images, provisions infrastructure, pushes to ECR, deploys frontend):
-
-```powershell
-.\scripts\deploy-learnerlab.ps1
-```
-
-Bash (Linux/macOS/WSL):
-
-```bash
-./scripts/deploy-learnerlab.sh
-```
-
-The script is interactive — it prompts for AWS credentials and pauses for Terraform plan approval. Use skip flags for subsequent deploys (`-SkipBuild`, `-SkipInfra`, `-SkipFrontend`).
-
-For Terraform-only operations (plan/apply/destroy) across any environment:
-
-```powershell
-.\scripts\deploy\deploy-aws.ps1 -Env lab
-```
-
-Full runbook: [docs/diff/prep-learnerlab/BILL_LEARNERLAB_RUNBOOK.md](docs/diff/prep-learnerlab/BILL_LEARNERLAB_RUNBOOK.md)
-
 # Infrastructure Visualization
 Use these commands from repo root to visualize Terraform infrastructure:
 
@@ -98,39 +74,22 @@ make inframap-full
 make terraform-graph
 ```
 
-# Terraform-Only Local Pipeline
-Run the isolated Terraform-only local checks (not invoked by `test_all.py` unless run explicitly):
+Alternatively, use Brainboard.
 
-```bash
-python scripts/pipelines/test_terraform.py
-```
-
-Docs:
-- `docs/infrastructure/inframap-setup.md`
-- `docs/README.md`
-
-# Prerequisites
-- Docker Desktop (or Docker Engine)
-- Git
-- Java 21
-- Node.js 22+
-- Python 3.12+
-- Make
-
-# Local/CI Runtime Snapshot (2026-03-27)
+# Local/CI Runtime Snapshot (2026-03-29)
 Measured on this repository's latest local run. Use as planning guidance, not an SLA.
 
 | Command | Observed runtime | Source log |
 |---|---:|---|
-| `python scripts/pipelines/test_all.py` | `1483.8s` (~24m 44s) | `build-logs/test-all/last-run-summary.md` |
-| `test_all.py` Layer 6 (`Fullstack integration (full)`) | `777.3s` (~12m 57s) | `build-logs/test-all/last-run-summary.md` |
-| `test_all.py` Layer 5 (`Run mocked E2E`) | `95.9s` (~1m 36s) | `build-logs/test-all/last-run-summary.md` |
-| `run-fullstack-integration-e2e.sh` Phase 5 (`Playwright integration E2E`) | `99s` (~1m 39s) | `build-logs/test-all/20260327_192717/59-fullstack-integration-full.log` |
+| `python scripts/pipelines/test_all.py` | `2903.9s` (~48m 24s) | `build-logs/test-all/last-run-summary.md` |
+| `test_all.py` Layer 6 (`Fullstack integration (full)`) | `556.5s` (~9m 17s) | `build-logs/test-all/last-run-summary.md` |
+| `test_all.py` Layer 5 (`Frontend Latency Tests`) | `137.5s` (~2m 18s) | `build-logs/test-all/last-run-summary.md` |
+| `test_all.py` Layer 7 (`Performance test (stress)`) | `866.5s` (~14m 26s) | `build-logs/test-all/last-run-summary.md` |
 
 Notes:
 - Latest `test_all.py` run passed all layers (`ok: true`).
-- Latest fullstack integration run passed: `[PASS] Fullstack integration (full) (777.3s)`.
-- Full per-step timings for all layers are in `build-logs/test-all/last-run-summary.md` (total: `1483.8s`).
+- Latest fullstack integration run passed: `[PASS] Fullstack integration (full) (556.5s)`.
+- Full per-step timings for all layers are in `build-logs/test-all/last-run-summary.md` (total: `2903.9s`).
 - Runtime varies with Docker cache, dependency cache, and LocalStack/container startup conditions.
 
 # Database (Local Postgres)

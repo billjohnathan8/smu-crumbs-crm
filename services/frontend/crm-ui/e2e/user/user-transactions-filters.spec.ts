@@ -292,8 +292,14 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
     });
 
     await test.step("Set date range filter", async () => {
+      const dateFilterRequest = page.waitForResponse(
+        (response) =>
+          response.url().includes("/api/transactions") &&
+          response.url().includes("fromDate=2024-01-16") &&
+          response.request().method() === "GET",
+      );
       await page.fill('input[type="date"]', "2024-01-16");
-      await page.waitForLoadState("networkidle");
+      await dateFilterRequest;
     });
 
     await test.step("Verify date filter was sent to API", async () => {

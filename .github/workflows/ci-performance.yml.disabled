@@ -1,0 +1,326 @@
+# ============================================================================
+# THIS WORKFLOW IS DISABLED
+#
+# Performance tests are kept in the repo but NOT executed in GitHub Actions.
+# They consume significant resources (30-40 min runtime, 100+ threads) and
+# should be run manually in local/staging environments.
+#
+# To run locally:
+#   Backend (JMeter):  bash scripts/performance/run-100-threads.sh
+#   Frontend:          cd services/frontend/crm-ui && npm run test:e2e:latency
+#
+# To re-enable this workflow: rename this file back to ci-performance.yml
+# ============================================================================
+
+name: CI - Performance Testing (DISABLED)
+
+# CRITICAL EXECUTION CONTROL:
+# Performance tests ONLY run when:
+#   - Code is pushed to the main branch (post-merge validation)
+#   - OR manually triggered via workflow_dispatch
+#
+# Performance tests NEVER run on:
+#   - pull_request (keeps PRs fast)
+#   - push to feature/dev branches
+#   - inside other CI workflows
+#
+# Rationale:
+#   - Full performance tests are expensive (30-40 min runtime)
+#   - 100-thread load tests require significant resources
+#   - Post-merge execution prevents blocking development flow
+#   - Manual triggers allow on-demand testing (e.g., before releases)
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.github/**'
+      - '!.github/workflows/ci-performance.yml'
+  workflow_dispatch:
+    inputs:
+      threads:
+        description: 'Number of concurrent threads (default: 100)'
+        required: false
+        default: '100'
+        type: string
+      target:
+        description: 'Target environment (local or AWS ALB DNS)'
+        required: false
+        default: 'local'
+        type: string
+      alb_dns:
+        description: 'AWS ALB DNS name (required if target=aws)'
+        required: false
+        type: string
+
+concurrency:
+  group: ci-performance-${{ github.ref }}
+  cancel-in-progress: false  # Let performance tests complete
+
+permissions:
+  contents: read
+
+jobs:
+  performance-test-local:
+    name: Performance Test - 100 Concurrent Agents
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.target == 'local') }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        timeout-minutes: 2
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        timeout-minutes: 2
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        timeout-minutes: 2
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Python dependencies for threshold validation
+        timeout-minutes: 2
+        run: |
+          python -m pip install --upgrade pip
+
+      - name: Install Apache JMeter 5.6.3
+        timeout-minutes: 3
+        run: |
+          JMETER_VERSION=5.6.3
+          JMETER_URL="https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz"
+
+          echo "[INFO] Downloading JMeter ${JMETER_VERSION}..."
+          curl -fsSL "${JMETER_URL}" -o /tmp/jmeter.tgz
+
+          echo "[INFO] Extracting JMeter..."
+          sudo tar -xzf /tmp/jmeter.tgz -C /opt
+          sudo ln -s /opt/apache-jmeter-${JMETER_VERSION} /opt/jmeter
+
+          echo "/opt/jmeter/bin" >> $GITHUB_PATH
+
+          echo "[INFO] JMeter installed successfully"
+          /opt/jmeter/bin/jmeter --version
+
+      - name: Mark scripts executable
+        timeout-minutes: 1
+        run: |
+          chmod +x scripts/dev/stack-up.sh
+          chmod +x scripts/dev/stack-down.sh
+          chmod +x scripts/performance/run-100-threads.sh
+          chmod +x platform/localstack/init/01-setup.sh
+
+      - name: Start local dev stack
+        timeout-minutes: 15
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: ap-southeast-1
+          LOCAL_DB_NAME: crm
+          LOCAL_DB_USER: crm_app
+          LOCAL_DB_PASSWORD: devpassword
+        run: |
+          echo "[INFO] Starting local dev stack..."
+          bash scripts/dev/stack-up.sh
+
+          echo "[INFO] Stack started successfully"
+          docker ps
+
+      - name: Wait for services to be healthy
+        timeout-minutes: 5
+        run: |
+          echo "[INFO] Waiting for client-service health endpoint..."
+
+          MAX_ATTEMPTS=60
+          ATTEMPT=0
+
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            if curl --silent --fail http://127.0.0.1:18088/actuator/health >/dev/null 2>&1; then
+              echo "[OK] Client-service is healthy"
+              exit 0
+            fi
+
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "[WAIT] Attempt $ATTEMPT/$MAX_ATTEMPTS - waiting for health endpoint..."
+            sleep 5
+          done
+
+          echo "[FAIL] Client-service did not become healthy within timeout"
+          docker ps
+          docker logs crm-client-service || true
+          exit 1
+
+      - name: Run 100-thread performance test
+        timeout-minutes: 20
+        env:
+          THREADS: ${{ inputs.threads || '100' }}
+        run: |
+          echo "[INFO] Starting performance test with ${THREADS} threads..."
+          echo "[INFO] This validates CS301 requirement: 'Minimum 100 concurrent agents'"
+
+          # Auto-respond 'n' to restart prompt (stack is already fresh)
+          echo "n" | bash scripts/performance/run-100-threads.sh || {
+            echo "[FAIL] Performance test failed"
+            docker ps
+            docker stats --no-stream
+            exit 1
+          }
+
+      - name: Validate performance thresholds
+        timeout-minutes: 2
+        run: |
+          echo "[INFO] Validating performance thresholds..."
+
+          # Find the most recent performance test results
+          LATEST_RESULT=$(find build-logs/performance/100-threads-local -type d -name "202*" | sort -r | head -n1)
+
+          if [ -z "${LATEST_RESULT}" ]; then
+            echo "[FAIL] No performance test results found"
+            exit 1
+          fi
+
+          echo "[INFO] Analyzing results from: ${LATEST_RESULT}"
+          python scripts/ci/validate-performance-thresholds.py \
+            --results-csv "${LATEST_RESULT}/results.csv" \
+            --error-rate-threshold 5.0 \
+            --p95-latency-threshold 5000 \
+            --fail-on-violation
+
+      - name: Upload performance test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-test-results-${{ github.run_id }}
+          path: |
+            build-logs/performance/**
+            build-logs/dev-stack/**
+          retention-days: 30
+
+      - name: Upload JMeter HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jmeter-html-report-${{ github.run_id }}
+          path: |
+            build-logs/performance/100-threads-local/*/report/**
+          retention-days: 30
+
+      - name: Cleanup - Stop containers
+        if: always()
+        run: |
+          bash scripts/dev/stack-down.sh || true
+          docker ps -a
+
+  performance-test-aws:
+    name: Performance Test - AWS ALB
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.target == 'aws' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        timeout-minutes: 2
+
+      - name: Validate AWS ALB DNS input
+        run: |
+          if [ -z "${{ inputs.alb_dns }}" ]; then
+            echo "[FAIL] AWS ALB DNS is required when target=aws"
+            exit 1
+          fi
+          echo "[INFO] Target ALB: ${{ inputs.alb_dns }}"
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        timeout-minutes: 2
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Install Apache JMeter 5.6.3
+        timeout-minutes: 3
+        run: |
+          JMETER_VERSION=5.6.3
+          JMETER_URL="https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz"
+
+          echo "[INFO] Downloading JMeter ${JMETER_VERSION}..."
+          curl -fsSL "${JMETER_URL}" -o /tmp/jmeter.tgz
+
+          echo "[INFO] Extracting JMeter..."
+          sudo tar -xzf /tmp/jmeter.tgz -C /opt
+          sudo ln -s /opt/apache-jmeter-${JMETER_VERSION} /opt/jmeter
+
+          echo "/opt/jmeter/bin" >> $GITHUB_PATH
+
+          echo "[INFO] JMeter installed successfully"
+          /opt/jmeter/bin/jmeter --version
+
+      - name: Mark scripts executable
+        timeout-minutes: 1
+        run: chmod +x scripts/performance/run-jmeter-against-aws.sh
+
+      - name: Run performance test against AWS
+        timeout-minutes: 20
+        env:
+          ALB_DNS: ${{ inputs.alb_dns }}
+          THREADS: ${{ inputs.threads || '100' }}
+        run: |
+          echo "[INFO] Running performance test against AWS ALB"
+          echo "[INFO] Target: ${ALB_DNS}"
+          echo "[INFO] Threads: ${THREADS}"
+
+          bash scripts/performance/run-jmeter-against-aws.sh \
+            --alb-dns "${ALB_DNS}" \
+            --threads "${THREADS}"
+
+      - name: Upload AWS performance test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-test-aws-results-${{ github.run_id }}
+          path: build-logs/performance/**
+          retention-days: 30
+
+  summary:
+    name: Performance Test Summary
+    runs-on: ubuntu-latest
+    needs: [performance-test-local, performance-test-aws]
+    if: always()
+
+    steps:
+      - name: Performance test status
+        run: |
+          echo "========================================="
+          echo "  Performance Test Summary"
+          echo "========================================="
+          echo ""
+          echo "Local test: ${{ needs.performance-test-local.result }}"
+          echo "AWS test: ${{ needs.performance-test-aws.result }}"
+          echo ""
+
+          if [[ "${{ needs.performance-test-local.result }}" == "failure" ]] || [[ "${{ needs.performance-test-aws.result }}" == "failure" ]]; then
+            echo "❌ Performance tests FAILED"
+            echo ""
+            echo "Action required:"
+            echo "  1. Download artifacts from workflow run"
+            echo "  2. Review JMeter HTML reports"
+            echo "  3. Document bottlenecks in docs/performance/BOTTLENECK_ANALYSIS.md"
+            echo "  4. Consider optimization or infrastructure scaling"
+            exit 1
+          elif [[ "${{ needs.performance-test-local.result }}" == "success" ]] || [[ "${{ needs.performance-test-aws.result }}" == "success" ]]; then
+            echo "✅ Performance tests PASSED"
+            echo ""
+            echo "Results available in workflow artifacts"
+          else
+            echo "⏭️  Performance tests SKIPPED"
+          fi
