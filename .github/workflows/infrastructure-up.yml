@@ -57,8 +57,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          DEPLOY_ENV="${{ inputs.environment }}"
-
+          test -n "${{ inputs.environment }}"
           test -n "${{ secrets.AWS_ROLE_ARN }}"
           test -n "${{ secrets.ROOT_ADMIN_PASSWORD }}"
 

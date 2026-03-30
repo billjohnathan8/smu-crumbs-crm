@@ -265,13 +265,12 @@ jobs:
                 .key,
                 .value.bucket,
                 .value.release_prefix,
-                .value.build_output_dir,
                 .value.cloudfront_distribution_id,
                 .value.cloudfront_invalidation_paths
               ] | @tsv
           ' manifest-rollback.json \
           | while IFS=$'\t' read -r site bucket release_prefix \
-                                  build_output_dir dist_id paths; do
+                                  dist_id paths; do
               echo "Rolling back frontend site '$site'"
               echo "Syncing S3: s3://$bucket/$release_prefix/ -> s3://$bucket/live/"
               aws s3 sync \
@@ -337,30 +336,28 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "Rollback to SHA: ${ROLLBACK_SHA}" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "Rollback to SHA: ${ROLLBACK_SHA}"
+            echo ""
 
-          if [ -f summaries/ecs-summary/ecs-summary.md ]; then
-            echo "ECS:" >> "$GITHUB_STEP_SUMMARY"
-            cat summaries/ecs-summary/ecs-summary.md \
-              >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-          fi
+            if [ -f summaries/ecs-summary/ecs-summary.md ]; then
+              echo "ECS:"
+              cat summaries/ecs-summary/ecs-summary.md
+              echo ""
+            fi
 
-          if [ -f summaries/lambda-summary/lambda-summary.md ]; then
-            echo "Lambda:" >> "$GITHUB_STEP_SUMMARY"
-            cat summaries/lambda-summary/lambda-summary.md \
-              >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-          fi
+            if [ -f summaries/lambda-summary/lambda-summary.md ]; then
+              echo "Lambda:"
+              cat summaries/lambda-summary/lambda-summary.md
+              echo ""
+            fi
 
-          if [ -f summaries/frontend-summary/frontend-summary.md ]; then
-            echo "Frontend:" >> "$GITHUB_STEP_SUMMARY"
-            cat summaries/frontend-summary/frontend-summary.md \
-              >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-          fi
+            if [ -f summaries/frontend-summary/frontend-summary.md ]; then
+              echo "Frontend:"
+              cat summaries/frontend-summary/frontend-summary.md
+              echo ""
+            fi
 
-          echo "Updated current manifest:" >> "$GITHUB_STEP_SUMMARY"
-          echo "- s3://${MANIFEST_BUCKET}/manifests/prod/current.json" \
-            >> "$GITHUB_STEP_SUMMARY"
+            echo "Updated current manifest:"
+            echo "- s3://${MANIFEST_BUCKET}/manifests/prod/current.json"
+          } >> "$GITHUB_STEP_SUMMARY"
