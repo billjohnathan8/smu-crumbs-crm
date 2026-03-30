@@ -1954,11 +1954,11 @@ UPLOAD_VERIFY_RESPONSE="$(
       \"verificationToken\": \"${VERIFICATION_TOKEN}\",
       \"primaryDocumentType\": \"NRIC\",
       \"primaryDocumentRef\": \"ci-primary-id.jpg\",
-      \"primaryDocumentBase64\": \"cHJpbWFyeS1kb2M=\",
+      \"primaryDocumentBase64\": \"/9j/\",
       \"primaryDocumentMimeType\": \"image/jpeg\",
       \"addressDocumentType\": \"UTILITY_BILL\",
       \"addressDocumentRef\": \"ci-proof-of-address.pdf\",
-      \"addressDocumentBase64\": \"cHJvb2Ytb2YtYWRkcmVzcw==\",
+      \"addressDocumentBase64\": \"JVBERi0=\",
       \"addressDocumentMimeType\": \"application/pdf\"
     }"
 )"
