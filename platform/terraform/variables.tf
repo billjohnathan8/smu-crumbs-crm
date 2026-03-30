@@ -882,6 +882,33 @@ variable "alarm_notification_topic_arn" {
   default     = ""
 }
 
+#--------------------------------------------------------------
+# Threat Detection & Vulnerability Scanning
+#--------------------------------------------------------------
+variable "enable_guardduty" {
+  description = "Enable AWS GuardDuty threat detection service. Monitors for malicious activity, unauthorized behavior, and compromised resources."
+  type        = bool
+  default     = false
+}
+
+variable "guardduty_finding_frequency" {
+  description = "Frequency of notifications for GuardDuty findings (FIFTEEN_MINUTES, ONE_HOUR, SIX_HOURS)."
+  type        = string
+  default     = "FIFTEEN_MINUTES"
+}
+
+variable "guardduty_notification_enabled" {
+  description = "Enable SNS notifications for GuardDuty findings. Requires alarm_notification_topic_arn to be set."
+  type        = bool
+  default     = false
+}
+
+variable "guardduty_high_severity_only" {
+  description = "Only notify on HIGH and CRITICAL severity GuardDuty findings."
+  type        = bool
+  default     = true
+}
+
 variable "enable_codedeploy" {
   description = "Create CodeDeploy applications and deployment groups for ECS and Lambda services."
   type        = bool

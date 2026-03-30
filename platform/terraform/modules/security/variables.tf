@@ -175,3 +175,38 @@ variable "ses_identity" {
   type        = string
   default     = ""
 }
+
+#--------------------------------------------------------------
+# GuardDuty Variables
+#--------------------------------------------------------------
+
+variable "enable_guardduty" {
+  description = "Enable AWS GuardDuty threat detection service."
+  type        = bool
+  default     = false
+}
+
+variable "guardduty_finding_frequency" {
+  description = "Frequency of notifications for GuardDuty findings (FIFTEEN_MINUTES, ONE_HOUR, SIX_HOURS)."
+  type        = string
+  default     = "FIFTEEN_MINUTES"
+}
+
+variable "guardduty_notification_enabled" {
+  description = "Enable SNS notifications for GuardDuty findings."
+  type        = bool
+  default     = false
+}
+
+variable "guardduty_notification_topic_arn" {
+  description = "SNS topic ARN for GuardDuty findings notifications."
+  type        = string
+  default     = ""
+}
+
+variable "guardduty_high_severity_only" {
+  description = "Only notify on HIGH and CRITICAL severity GuardDuty findings."
+  type        = bool
+  default     = true
+}
+

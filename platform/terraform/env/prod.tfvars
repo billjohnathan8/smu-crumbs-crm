@@ -64,6 +64,12 @@ enable_codedeploy             = true
 backup_retention_days         = 30
 cloudwatch_log_retention_days = 30
 
+# --- GuardDuty Threat Detection ---
+enable_guardduty                 = true
+guardduty_notification_enabled   = true  # Notifications enabled for prod
+guardduty_high_severity_only     = true  # Only HIGH/CRITICAL alerts
+guardduty_finding_frequency      = "FIFTEEN_MINUTES"
+
 # --- S3 / CloudFront ---
 frontend_bucket_name          = "crumbs-scroogebank-frontend"
 transaction_sftp_bucket_name  = "crumbs-scroogebank-backend"

@@ -66,6 +66,13 @@ module "security" {
   transaction_sftp_bucket_arn       = module.s3.transaction_sftp_bucket_arn
   verification_sns_topic_arn        = module.sns.verification_topic_arn
   ses_identity                      = var.ses_domain != "" ? var.ses_domain : var.ses_sender_email
+
+  # GuardDuty threat detection
+  enable_guardduty                 = var.enable_guardduty
+  guardduty_finding_frequency      = var.guardduty_finding_frequency
+  guardduty_notification_enabled   = var.guardduty_notification_enabled
+  guardduty_notification_topic_arn = trimspace(var.alarm_notification_topic_arn) != "" ? trimspace(var.alarm_notification_topic_arn) : module.sns.alarm_topic_arn
+  guardduty_high_severity_only     = var.guardduty_high_severity_only
 }
 
 #--------------------------------------------------------------
