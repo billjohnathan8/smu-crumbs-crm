@@ -72,12 +72,17 @@ export async function deleteClient(clientId: string): Promise<void> {
  */
 export async function uploadVerificationDocs(
   clientId: string,
-  data: UploadVerificationDocsRequest
+  data: UploadVerificationDocsRequest,
+  idempotencyKey?: string
 ): Promise<VerifyClientResponse> {
+  const headers: Record<string, string> = {}
+  if (idempotencyKey) {
+    headers['Idempotency-Key'] = idempotencyKey
+  }
   return apiPost<VerifyClientResponse, UploadVerificationDocsRequest>(
     `${CLIENTS_BASE}/${clientId}/upload-verify`,
     data,
-    { skipAuth: true }
+    { skipAuth: true, headers }
   )
 }
 

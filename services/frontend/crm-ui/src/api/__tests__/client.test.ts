@@ -273,7 +273,7 @@ describe('apiRequest', () => {
     await expect(apiRequest('/test')).rejects.toMatchObject({
       status: 0,
       error: 'network_error',
-      message: 'Network failure',
+      message: 'Network error occurred',
     })
   })
 

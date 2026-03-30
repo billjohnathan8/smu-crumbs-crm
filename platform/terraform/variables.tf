@@ -172,6 +172,12 @@ variable "ecs_target_memory_utilization" {
   default     = 75
 }
 
+variable "ecs_production_like_ha_task_floor" {
+  description = "Minimum desired task count enforced for user/client/transaction in production-like environments."
+  type        = number
+  default     = 2
+}
+
 variable "ecs_use_public_subnets" {
   description = "Run ECS services in public subnets instead of private subnets. Useful for low-cost lab deployments when NAT Gateways are disabled."
   type        = bool
@@ -398,6 +404,82 @@ variable "transaction_import_api_path" {
   default     = "/api/transactions/import"
 }
 
+#--------------------------------------------------------------
+# AWS Transfer Family Configuration
+#--------------------------------------------------------------
+variable "enable_transfer_family_sftp" {
+  description = "Enable AWS Transfer Family SFTP server for external transaction file ingestion."
+  type        = bool
+  default     = false
+}
+
+variable "enable_ec2_sftp_server" {
+  description = "Enable self-hosted EC2 SFTP server for external transaction file ingestion."
+  type        = bool
+  default     = false
+}
+
+variable "sftp_instance_type" {
+  description = "EC2 instance type for self-hosted SFTP server."
+  type        = string
+  default     = "t4g.micro"
+}
+
+variable "sftp_root_volume_size_gb" {
+  description = "Root EBS volume size (GiB) for self-hosted SFTP server."
+  type        = number
+  default     = 8
+}
+
+variable "sftp_ingress_cidr_blocks" {
+  description = "Allowed CIDR blocks for inbound SFTP (port 22). Empty defaults to open ingress in non-prod."
+  type        = list(string)
+  default     = []
+}
+
+variable "sftp_server_subnet_id" {
+  description = "Optional subnet ID override for the self-hosted SFTP server. Leave empty to use first public subnet."
+  type        = string
+  default     = ""
+}
+
+variable "sftp_server_ami_id" {
+  description = "Optional AMI override for the self-hosted SFTP server. Leave empty to use latest Amazon Linux 2023 ARM64."
+  type        = string
+  default     = ""
+}
+
+variable "sftp_allocate_eip" {
+  description = "Attach an Elastic IP to the self-hosted SFTP server."
+  type        = bool
+  default     = true
+}
+
+variable "sftp_username" {
+  description = "SFTP username for transaction file uploads."
+  type        = string
+  default     = "crm-transaction-uploader"
+
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9_-]+$", var.sftp_username))
+    error_message = "sftp_username must contain only alphanumeric characters, hyphens, and underscores."
+  }
+}
+
+variable "sftp_user_ssh_public_key" {
+  description = "SSH public key for SFTP user authentication (OpenSSH format). Generate with: ssh-keygen -t rsa -b 4096 -f ~/.ssh/crm-sftp-demo -N \"\""
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.sftp_user_ssh_public_key == "" || can(regex("^(ssh-rsa|ssh-ed25519|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521) ", var.sftp_user_ssh_public_key))
+    error_message = "sftp_user_ssh_public_key must be a valid SSH public key in OpenSSH format or empty string."
+  }
+}
+
+#--------------------------------------------------------------
+# AML Lambda Configuration
+#--------------------------------------------------------------
 variable "aml_lambda_zip_path" {
   description = "Path to the packaged AML Lambda zip artifact."
   type        = string
@@ -602,6 +684,17 @@ variable "enable_cloudfront_oac" {
   description = "Create CloudFront Origin Access Control for the S3 frontend bucket. Disable when LabRole blocks cloudfront:CreateOriginAccessControl."
   type        = bool
   default     = true
+}
+
+variable "restrict_alb_ingress_to_cloudfront" {
+  description = "Restrict ALB ingress to CloudFront origin-facing managed prefix list. Enable for CloudFront/WAF-fronted environments."
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.restrict_alb_ingress_to_cloudfront || var.enable_cloudfront
+    error_message = "restrict_alb_ingress_to_cloudfront requires enable_cloudfront=true to avoid blocking ALB access."
+  }
 }
 
 variable "enable_service_discovery" {
@@ -837,6 +930,33 @@ variable "alarm_notification_topic_arn" {
   default     = ""
 }
 
+#--------------------------------------------------------------
+# Threat Detection & Vulnerability Scanning
+#--------------------------------------------------------------
+variable "enable_guardduty" {
+  description = "Enable AWS GuardDuty threat detection service. Monitors for malicious activity, unauthorized behavior, and compromised resources."
+  type        = bool
+  default     = false
+}
+
+variable "guardduty_finding_frequency" {
+  description = "Frequency of notifications for GuardDuty findings (FIFTEEN_MINUTES, ONE_HOUR, SIX_HOURS)."
+  type        = string
+  default     = "FIFTEEN_MINUTES"
+}
+
+variable "guardduty_notification_enabled" {
+  description = "Enable SNS notifications for GuardDuty findings. Requires alarm_notification_topic_arn to be set."
+  type        = bool
+  default     = false
+}
+
+variable "guardduty_high_severity_only" {
+  description = "Only notify on HIGH and CRITICAL severity GuardDuty findings."
+  type        = bool
+  default     = true
+}
+
 variable "enable_codedeploy" {
   description = "Create CodeDeploy applications and deployment groups for ECS and Lambda services."
   type        = bool
@@ -859,6 +979,11 @@ variable "backup_retention_days" {
 }
 
 check "stateful_service_scale_out_guardrails" {
+  assert {
+    condition     = var.ecs_production_like_ha_task_floor >= 1
+    error_message = "ecs_production_like_ha_task_floor must be at least 1."
+  }
+
   assert {
     condition     = var.enable_stateful_service_scale_out || var.user_desired_count == 1
     error_message = "user_desired_count must be 1 unless enable_stateful_service_scale_out is true."
@@ -1009,6 +1134,29 @@ check "prod_network_and_pipeline_guardrails" {
       trimspace(var.verification_frontend_base_url) != ""
     )
     error_message = "When enable_verification_pipeline is true, set app_domain_name or verification_frontend_base_url so verification emails have a stable public frontend link target."
+  }
+}
+
+check "sftp_mode_guardrails" {
+  assert {
+    condition     = !(var.enable_transfer_family_sftp && var.enable_ec2_sftp_server)
+    error_message = "enable_transfer_family_sftp and enable_ec2_sftp_server are mutually exclusive."
+  }
+
+  assert {
+    condition     = !var.enable_ec2_sftp_server || trimspace(var.sftp_user_ssh_public_key) != ""
+    error_message = "When enable_ec2_sftp_server is true, sftp_user_ssh_public_key must be non-empty."
+  }
+
+  assert {
+    condition = !(
+      contains(["prod", "production"], lower(trimspace(var.environment))) &&
+      var.enable_ec2_sftp_server
+      ) || (
+      length(var.sftp_ingress_cidr_blocks) > 0 &&
+      !contains(var.sftp_ingress_cidr_blocks, "0.0.0.0/0")
+    )
+    error_message = "For prod with enable_ec2_sftp_server=true, set explicit partner CIDR allowlist and avoid 0.0.0.0/0."
   }
 }
 

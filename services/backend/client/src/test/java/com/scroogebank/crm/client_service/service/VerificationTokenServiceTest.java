@@ -171,6 +171,19 @@ class VerificationTokenServiceTest {
         assertThat(verificationTokenService.isValid(CLIENT_ID, token)).isTrue();
     }
 
+    @Test
+    void consumeIfValid_validToken_firstUseTrue_secondUseFalse() {
+        String token = generateToken(CLIENT_ID, 3600);
+
+        assertThat(verificationTokenService.consumeIfValid(CLIENT_ID, token)).isTrue();
+        assertThat(verificationTokenService.consumeIfValid(CLIENT_ID, token)).isFalse();
+    }
+
+    @Test
+    void consumeIfValid_invalidToken_returnsFalse() {
+        assertThat(verificationTokenService.consumeIfValid(CLIENT_ID, "bad-token")).isFalse();
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private static String base64Url(String value) {
@@ -183,8 +196,7 @@ class VerificationTokenServiceTest {
     }
 
     private static long extractExp(String payloadJson) {
-        // payloadJson looks like {"clientId":"clt_7","exp":1735689600}
-        String expPart = payloadJson.split("\"exp\":")[1].replace("}", "").trim();
+        String expPart = payloadJson.split("\"exp\":")[1].split(",")[0].replace("}", "").trim();
         return Long.parseLong(expPart);
     }
 }

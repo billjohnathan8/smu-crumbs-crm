@@ -24,6 +24,39 @@ locals {
   ])
 }
 
+resource "aws_cloudfront_response_headers_policy" "security_headers" {
+  name    = "${var.name_prefix}-security-headers"
+  comment = "Security headers for all CloudFront responses."
+
+  security_headers_config {
+    strict_transport_security {
+      access_control_max_age_sec = 31536000
+      include_subdomains         = true
+      preload                    = true
+      override                   = true
+    }
+
+    content_type_options {
+      override = true
+    }
+
+    frame_options {
+      frame_option = "DENY"
+      override     = true
+    }
+
+    referrer_policy {
+      referrer_policy = "strict-origin-when-cross-origin"
+      override        = true
+    }
+
+    content_security_policy {
+      content_security_policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://*.amazoncognito.com https://*.auth.ap-southeast-1.amazoncognito.com; frame-ancestors 'none';"
+      override                = true
+    }
+  }
+}
+
 resource "aws_cloudfront_origin_access_control" "frontend" {
   count = var.enable_cloudfront_oac ? 1 : 0
 
@@ -80,37 +113,40 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 
   default_cache_behavior {
-    target_origin_id       = "frontend-s3"
-    viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
-    cached_methods         = ["GET", "HEAD", "OPTIONS"]
-    compress               = true
-    cache_policy_id        = local.cf_cache_policy_caching_optimized
+    target_origin_id           = "frontend-s3"
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD", "OPTIONS"]
+    cached_methods             = ["GET", "HEAD", "OPTIONS"]
+    compress                   = true
+    cache_policy_id            = local.cf_cache_policy_caching_optimized
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security_headers.id
   }
 
   dynamic "ordered_cache_behavior" {
     for_each = var.enable_log_api_origin ? local.log_api_path_patterns : toset([])
     content {
-      path_pattern             = ordered_cache_behavior.value
-      target_origin_id         = "log-api-gateway"
-      viewer_protocol_policy   = "redirect-to-https"
-      allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
-      cached_methods           = ["GET", "HEAD", "OPTIONS"]
-      compress                 = true
-      cache_policy_id          = local.cf_cache_policy_caching_disabled
-      origin_request_policy_id = local.cf_origin_request_policy_all_viewer_except_host
+      path_pattern               = ordered_cache_behavior.value
+      target_origin_id           = "log-api-gateway"
+      viewer_protocol_policy     = "redirect-to-https"
+      allowed_methods            = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
+      cached_methods             = ["GET", "HEAD", "OPTIONS"]
+      compress                   = true
+      cache_policy_id            = local.cf_cache_policy_caching_disabled
+      origin_request_policy_id   = local.cf_origin_request_policy_all_viewer_except_host
+      response_headers_policy_id = aws_cloudfront_response_headers_policy.security_headers.id
     }
   }
 
   ordered_cache_behavior {
-    path_pattern             = "/api/*"
-    target_origin_id         = "backend-alb"
-    viewer_protocol_policy   = "redirect-to-https"
-    allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
-    cached_methods           = ["GET", "HEAD", "OPTIONS"]
-    compress                 = true
-    cache_policy_id          = local.cf_cache_policy_caching_disabled
-    origin_request_policy_id = local.cf_origin_request_policy_all_viewer
+    path_pattern               = "/api/*"
+    target_origin_id           = "backend-alb"
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
+    cached_methods             = ["GET", "HEAD", "OPTIONS"]
+    compress                   = true
+    cache_policy_id            = local.cf_cache_policy_caching_disabled
+    origin_request_policy_id   = local.cf_origin_request_policy_all_viewer
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security_headers.id
   }
 
   custom_error_response {
@@ -137,7 +173,7 @@ resource "aws_cloudfront_distribution" "frontend" {
     cloudfront_default_certificate = var.use_custom_domain ? false : true
     acm_certificate_arn            = var.use_custom_domain ? var.frontend_certificate_arn : null
     ssl_support_method             = var.use_custom_domain ? "sni-only" : null
-    minimum_protocol_version       = var.use_custom_domain ? "TLSv1.2_2021" : "TLSv1"
+    minimum_protocol_version       = "TLSv1.2_2021"
   }
 }
 

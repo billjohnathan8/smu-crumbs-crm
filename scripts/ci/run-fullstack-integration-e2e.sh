@@ -8,7 +8,11 @@ FRONTEND_DIR="${ROOT_DIR}/services/frontend/crm-ui"
 INTEGRATION_TEST_DIR="${ROOT_DIR}/tests/integration"
 DB_ORCHESTRATOR_SCRIPT="${ROOT_DIR}/scripts/db/run-shared-postgres.sh"
 DB_ENDPOINT_GUARD_SCRIPT="${ROOT_DIR}/scripts/ci/guard-no-prod-db.sh"
-TRANSACTION_GENERATOR_SCRIPT="${ROOT_DIR}/services/backend/transaction/mock-sftp/mock_transactions.py"
+TRANSACTION_GENERATOR_SCRIPT="${ROOT_DIR}/sftp/mock_transactions.py"
+if [[ ! -f "${TRANSACTION_GENERATOR_SCRIPT}" ]]; then
+  echo "[FAIL] transaction generator script not found: ${TRANSACTION_GENERATOR_SCRIPT}" >&2
+  exit 1
+fi
 
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-http://127.0.0.1:18088}"
 COMPOSE_PROJECT_NAME="crm-fullstack-it-${GITHUB_RUN_ID:-local}"
@@ -1673,12 +1677,12 @@ mint_verification_token() {
   local client_id="$1"
 
   ${PYTHON_CMD} - "${client_id}" <<'PY'
-import base64, hashlib, hmac, json, sys, time
+import base64, hashlib, hmac, json, sys, time, uuid
 
 client_id = sys.argv[1]
 secret = "dev-only-insecure-secret"
 header = {"alg": "HS256", "typ": "JWT"}
-payload = {"clientId": client_id, "exp": int(time.time()) + 7200}
+payload = {"clientId": client_id, "exp": int(time.time()) + 7200, "jti": str(uuid.uuid4())}
 
 def b64url(d):
     return base64.urlsafe_b64encode(
@@ -1950,11 +1954,11 @@ UPLOAD_VERIFY_RESPONSE="$(
       \"verificationToken\": \"${VERIFICATION_TOKEN}\",
       \"primaryDocumentType\": \"NRIC\",
       \"primaryDocumentRef\": \"ci-primary-id.jpg\",
-      \"primaryDocumentBase64\": \"cHJpbWFyeS1kb2M=\",
+      \"primaryDocumentBase64\": \"/9j/\",
       \"primaryDocumentMimeType\": \"image/jpeg\",
       \"addressDocumentType\": \"UTILITY_BILL\",
       \"addressDocumentRef\": \"ci-proof-of-address.pdf\",
-      \"addressDocumentBase64\": \"cHJvb2Ytb2YtYWRkcmVzcw==\",
+      \"addressDocumentBase64\": \"JVBERi0=\",
       \"addressDocumentMimeType\": \"application/pdf\"
     }"
 )"

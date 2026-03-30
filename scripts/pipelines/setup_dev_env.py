@@ -134,6 +134,7 @@ class EnvironmentChecker:
                 "make": "winget install GnuWin32.Make",
                 "dot": "winget install Graphviz.Graphviz",
                 "inframap": "Use setup script portable install or download from GitHub releases",
+                "jmeter": "Installed automatically by setup script (portable) or download from Apache JMeter",
             }
         elif stdlib_platform.system() == "Darwin":
             install_cmds = {
@@ -145,6 +146,7 @@ class EnvironmentChecker:
                 "make": "brew install make",
                 "dot": "brew install graphviz",
                 "inframap": "Use setup script portable install or download from GitHub releases",
+                "jmeter": "Installed automatically by setup script (portable) or download from Apache JMeter",
             }
         else:  # Linux
             install_cmds = {
@@ -156,6 +158,7 @@ class EnvironmentChecker:
                 "make": "sudo apt-get install make",
                 "dot": "sudo apt-get install graphviz",
                 "inframap": "Use setup script portable install or download from GitHub releases",
+                "jmeter": "Installed automatically by setup script (portable) or download from Apache JMeter",
             }
         
         return install_cmds.get(tool, f"Install {tool} from official website")
@@ -252,18 +255,22 @@ class ToolInstaller:
     TOOL_VERSIONS = {
         "actionlint": "v1.7.5",
         "inframap": "latest",
+        "jmeter": "5.6.3",
     }
     
     def __init__(self, platform, logger, portable: bool = True):
         self.platform = platform
         self.logger = logger
         self.portable = portable
-        self.devtools_bin = repo_root / ".devtools" / "bin"
+        self.devtools_root = repo_root / ".devtools"
+        self.devtools_bin = self.devtools_root / "bin"
+        self.devtools_jmeter = self.devtools_root / "jmeter"
         self.installed_count = 0
     
     def ensure_devtools_dir(self):
         """Create .devtools/bin if it doesn't exist."""
         self.devtools_bin.mkdir(parents=True, exist_ok=True)
+        self.devtools_jmeter.mkdir(parents=True, exist_ok=True)
         self.logger.info(f"Using portable tools directory: {self.devtools_bin}")
     
     def _get_platform_arch(self) -> tuple[str, str]:
@@ -350,6 +357,71 @@ class ToolInstaller:
         self.logger.success(f"inframap installed to {binary_path}")
         self.installed_count += 1
     
+    def download_jmeter(self, version: Optional[str] = None):
+        """Download Apache JMeter to .devtools and expose a wrapper on PATH."""
+        version = version or self.TOOL_VERSIONS["jmeter"]
+        os_name, _ = self._get_platform_arch()
+
+        base_name = f"apache-jmeter-{version}"
+        install_dir = self.devtools_jmeter / base_name
+
+        if os_name == "windows":
+            archive_url = f"https://archive.apache.org/dist/jmeter/binaries/{base_name}.zip"
+            archive_file = self.devtools_jmeter / f"{base_name}.zip"
+        else:
+            archive_url = f"https://archive.apache.org/dist/jmeter/binaries/{base_name}.tgz"
+            archive_file = self.devtools_jmeter / f"{base_name}.tgz"
+
+        self.logger.info(f"Downloading Apache JMeter {version}...")
+        if not install_dir.exists():
+            self._download_file(archive_url, archive_file)
+
+            self.logger.info("Extracting Apache JMeter...")
+            if os_name == "windows":
+                with zipfile.ZipFile(archive_file, "r") as zip_ref:
+                    zip_ref.extractall(self.devtools_jmeter)
+            else:
+                with tarfile.open(archive_file, "r:gz") as tar_ref:
+                    tar_ref.extractall(self.devtools_jmeter)
+
+            archive_file.unlink(missing_ok=True)
+        else:
+            self.logger.info(f"Apache JMeter {version} already extracted at {install_dir}")
+
+        self._write_jmeter_wrapper(install_dir)
+        self.logger.success(f"Apache JMeter installed to {install_dir}")
+        self.installed_count += 1
+
+    def _write_jmeter_wrapper(self, install_dir: Path):
+        """Create a lightweight wrapper in .devtools/bin so jmeter is on PATH."""
+        if is_windows():
+            wrapper_path = self.devtools_bin / "jmeter.cmd"
+            target = install_dir / "bin" / "jmeter.bat"
+            wrapper = f"""@echo off
+setlocal
+call "{target}" %*
+"""
+            wrapper_path.write_text(wrapper, encoding="utf-8")
+        else:
+            wrapper_path = self.devtools_bin / "jmeter"
+            target = install_dir / "bin" / "jmeter"
+            wrapper = f"""#!/usr/bin/env bash
+set -euo pipefail
+exec "{target}" "$@"
+"""
+            wrapper_path.write_text(wrapper, encoding="utf-8")
+            wrapper_path.chmod(wrapper_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+            for executable_name in ("jmeter", "jmeter-server", "shutdown", "stoptest"):
+                executable_path = install_dir / "bin" / executable_name
+                if executable_path.exists():
+                    executable_path.chmod(
+                        executable_path.stat().st_mode
+                        | stat.S_IXUSR
+                        | stat.S_IXGRP
+                        | stat.S_IXOTH
+                    )
+
     def _download_file(self, url: str, dest: Path):
         """Download file with progress indication."""
         try:
@@ -401,6 +473,8 @@ class ToolInstaller:
                     self.download_actionlint()
                 elif tool == "inframap":
                     self.download_inframap()
+                elif tool == "jmeter":
+                    self.download_jmeter()
             except Exception as e:
                 self.logger.warning(f"Failed to install {tool}: {e}")
     
@@ -723,6 +797,7 @@ Examples:
             # Check portable tools
             checker.check_tool("actionlint", "actionlint", required=False)
             checker.check_tool("inframap", "inframap", required=False)
+            checker.check_tool("JMeter", "jmeter", required=False, version_flag="-v")
             checker.check_tool("graphviz-dot", "dot", required=False)
             
             checker.report()
@@ -785,6 +860,7 @@ Examples:
         logger.info("  - Run full local CI-equivalent checks: python scripts/pipelines/test_all.py")
         logger.info("  - Run backend tests:  python scripts/pipelines/test_backend.py")
         logger.info("  - Run frontend tests: python scripts/pipelines/test_frontend.py")
+        logger.info("  - Run JMeter (CLI or GUI): jmeter")
         logger.info("  - VS Code: Open workspace and install recommended extensions")
         
         return 0

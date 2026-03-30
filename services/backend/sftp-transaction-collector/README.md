@@ -4,7 +4,10 @@ Scheduled Lambda that drives the official transaction ingestion path in deployed
 
 `EventBridge schedule -> Lambda -> S3 object selection -> POST /api/transactions/import`
 
-This Lambda does not use a real SFTP client. It scans an S3 bucket used as the mock ingestion drop location.
+This Lambda scans an S3 bucket for transaction CSV files. Files can arrive in S3 via:
+- **AWS Transfer Family SFTP** (integration/prod) - Real SFTP protocol, files land in S3
+- **Direct S3 upload** (all environments) - AWS CLI or SDK upload to S3
+- The Lambda is transport-agnostic: it processes files regardless of how they arrived in S3
 
 ## Package Artifact
 
@@ -30,7 +33,7 @@ Optional:
 - `TRANSACTION_IMPORT_JWT_ROLE` (default: `admin`)
 - `TRANSACTION_IMPORT_JWT_TTL_SECONDS` (default: `300`)
 
-`TRANSACTION_SFTP_*` naming is legacy. The transport is S3-backed mock ingestion.
+`TRANSACTION_SFTP_*` naming is legacy. The bucket serves as the S3 landing zone for all ingestion methods (SFTP, direct upload, etc.).
 
 ## Behavior
 
@@ -46,3 +49,11 @@ Optional:
 ## Current Limitation
 
 - Processes one newest CSV per run (not all new CSV files).
+
+## AWS Transfer Family Integration
+
+Files uploaded via AWS Transfer Family SFTP endpoint land in the same S3 bucket (`TRANSACTION_SFTP_BUCKET`) and are processed by this Lambda identically to direct S3 uploads.
+
+**Setup**: See [docs/infrastructure/transfer-family-setup.md](../../../docs/infrastructure/transfer-family-setup.md)
+
+**Contract**: See [docs/api-contracts/sftp-transaction-ingestion-contract.md](../../../docs/api-contracts/sftp-transaction-ingestion-contract.md)

@@ -1,0 +1,62 @@
+#!/bin/bash
+set -euxo pipefail
+
+dnf update -y
+dnf install -y s3fs-fuse shadow-utils
+
+systemctl enable sshd
+
+groupadd -f sftpusers
+
+SFTP_USER="${sftp_username}"
+SFTP_KEY='${sftp_ssh_public_key}'
+SFTP_CHROOT="/sftp/${sftp_username}"
+SFTP_UPLOAD_DIR="$${SFTP_CHROOT}/upload"
+
+if ! id -u "${sftp_username}" >/dev/null 2>&1; then
+  useradd -M -d /nonexistent -s /usr/sbin/nologin -g sftpusers "${sftp_username}"
+fi
+
+mkdir -p /etc/ssh/authorized_keys
+mkdir -p "$${SFTP_CHROOT}" "$${SFTP_UPLOAD_DIR}"
+chown root:root "$${SFTP_CHROOT}"
+chmod 755 "$${SFTP_CHROOT}"
+chown "${sftp_username}:sftpusers" "$${SFTP_UPLOAD_DIR}"
+chmod 770 "$${SFTP_UPLOAD_DIR}"
+
+printf '%s\n' "$${SFTP_KEY}" > "/etc/ssh/authorized_keys/${sftp_username}"
+chmod 600 "/etc/ssh/authorized_keys/${sftp_username}"
+chown root:root "/etc/ssh/authorized_keys/${sftp_username}"
+
+if ! grep -q "^Subsystem sftp" /etc/ssh/sshd_config; then
+  echo "Subsystem sftp internal-sftp" >> /etc/ssh/sshd_config
+else
+  sed -i 's|^Subsystem[[:space:]]\+sftp.*|Subsystem sftp internal-sftp|' /etc/ssh/sshd_config
+fi
+
+cat >/etc/ssh/sshd_config.d/99-sftp-only.conf <<'EOFCONF'
+PasswordAuthentication no
+PermitRootLogin no
+PubkeyAuthentication yes
+AuthorizedKeysFile /etc/ssh/authorized_keys/%u
+
+Match Group sftpusers
+  ChrootDirectory /sftp/%u
+  ForceCommand internal-sftp
+  AllowTcpForwarding no
+  X11Forwarding no
+  PermitTunnel no
+  PasswordAuthentication no
+EOFCONF
+
+USER_UID="$(id -u "${sftp_username}")"
+USER_GID="$(id -g "${sftp_username}")"
+BUCKET_SPEC="${bucket_spec}"
+FSTAB_LINE="$${BUCKET_SPEC} $${SFTP_UPLOAD_DIR} fuse.s3fs _netdev,allow_other,iam_role=auto,url=https://s3.${aws_region}.amazonaws.com,use_path_request_style,uid=$${USER_UID},gid=$${USER_GID},umask=0002,mp_umask=0002,retries=5 0 0"
+
+grep -v " $${SFTP_UPLOAD_DIR} fuse.s3fs " /etc/fstab > /tmp/fstab.filtered || true
+cat /tmp/fstab.filtered > /etc/fstab
+echo "$${FSTAB_LINE}" >> /etc/fstab
+
+mount -a
+systemctl restart sshd

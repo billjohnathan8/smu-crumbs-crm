@@ -159,17 +159,16 @@ class JwtServiceTest {
 	}
 
 	@Test
-	void verifyAndParse_noExpClaim_isAllowed() {
+	void verifyAndParse_noExpClaim_throws() {
 		String token = signedToken(Map.of(
 			"sub", "usr_1",
 			"role", "admin",
 			"nonce", UUID.randomUUID().toString()
 		));
 
-		AuthenticatedUser user = jwtService.verifyAndParse(token);
-
-		assertEquals("usr_1", user.userId());
-		assertEquals(UserRole.admin, user.role());
+		JwtValidationException ex = assertThrows(JwtValidationException.class,
+			() -> jwtService.verifyAndParse(token));
+		assertEquals("missing_exp", ex.getMessage());
 	}
 
 	@Test
@@ -448,13 +447,15 @@ class JwtServiceTest {
 	}
 
 	@Test
-	void cognitoToken_noAudienceRequired() throws Exception {
+	void cognitoToken_blankAudience_throws() throws Exception {
 		JwtService svc = new JwtService(objectMapper, FIXED_CLOCK, SECRET, "cognito", true,
 			COGNITO_ISSUER, "", COGNITO_JWKS_URL, 300, mockJwksClient(buildJwksJson(KID)));
 		HashMap<String, Object> claims = cognitoClaims("cognito:groups", List.of("admin"));
 		claims.remove("aud");
 		String token = rsaSignedToken(claims);
-		assertEquals(UserRole.admin, svc.verifyAndParse(token).role());
+		JwtValidationException ex = assertThrows(JwtValidationException.class,
+			() -> svc.verifyAndParse(token));
+		assertEquals("cognito_audience_not_configured", ex.getMessage());
 	}
 
 	@Test
@@ -552,5 +553,62 @@ class JwtServiceTest {
 		assertThrows(IllegalArgumentException.class, () -> new JwtService(
 			objectMapper, FIXED_CLOCK, SECRET, "oauth2", true,
 			"", "", "", 300, HttpClient.newHttpClient()));
+	}
+
+	// --- Security remediation tests ---
+
+	@Test
+	void verifyAndParse_serviceRole_accepted() {
+		String token = signedToken(Map.of(
+			"sub", "SYSTEM_AML",
+			"role", "service",
+			"iat", FIXED_CLOCK.instant().getEpochSecond(),
+			"exp", FIXED_CLOCK.instant().plusSeconds(300).getEpochSecond()
+		));
+		AuthenticatedUser user = jwtService.verifyAndParse(token);
+		assertEquals("SYSTEM_AML", user.userId());
+		assertEquals(UserRole.service, user.role());
+	}
+
+	@Test
+	void verifyAndParse_roleEscalation_unknownRoleRejected() {
+		String token = signedToken(Map.of(
+			"sub", "usr_1",
+			"role", "root",
+			"iat", FIXED_CLOCK.instant().getEpochSecond(),
+			"exp", FIXED_CLOCK.instant().plusSeconds(3600).getEpochSecond()
+		));
+		assertThrows(JwtValidationException.class, () -> jwtService.verifyAndParse(token));
+	}
+
+	@Test
+	void cognitoToken_missingExp_throws() throws Exception {
+		JwtService svc = cognitoService(mockJwksClient(buildJwksJson(KID)));
+		HashMap<String, Object> claims = cognitoClaims("cognito:groups", List.of("admin"));
+		claims.remove("exp");
+		String token = rsaSignedToken(claims);
+		JwtValidationException ex = assertThrows(JwtValidationException.class,
+			() -> svc.verifyAndParse(token));
+		assertEquals("missing_exp", ex.getMessage());
+	}
+
+	@Test
+	void cognitoToken_wrongAudience_throws() throws Exception {
+		JwtService svc = cognitoService(mockJwksClient(buildJwksJson(KID)));
+		HashMap<String, Object> claims = cognitoClaims("cognito:groups", List.of("admin"));
+		claims.put("aud", "attacker-audience");
+		claims.remove("client_id");
+		String token = rsaSignedToken(claims);
+		JwtValidationException ex = assertThrows(JwtValidationException.class,
+			() -> svc.verifyAndParse(token));
+		assertEquals("invalid_audience", ex.getMessage());
+	}
+
+	@Test
+	void startupGuardrail_hybridDisallowedByDefault() {
+		assertThrows(IllegalStateException.class, () -> new JwtService(
+			objectMapper, FIXED_CLOCK, SECRET, "hybrid", false,
+			COGNITO_ISSUER, COGNITO_AUDIENCE, COGNITO_JWKS_URL, 300,
+			HttpClient.newHttpClient()));
 	}
 }

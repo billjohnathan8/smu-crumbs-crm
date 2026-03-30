@@ -5,6 +5,8 @@ import { setupAdminRoutes } from "../helpers/mockRoutes";
 test.describe("Admin Transactions Import", () => {
   test.beforeEach(async ({ page, context }) => {
     await context.clearCookies();
+    // Clear all route handlers to prevent accumulation across tests
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
     await setupAdminRoutes(page);
     await gotoWithNetworkRetry(page, "/login");
     await setAuthState(page, "admin");

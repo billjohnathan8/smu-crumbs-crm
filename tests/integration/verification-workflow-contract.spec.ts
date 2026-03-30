@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { expect, test, type APIRequestContext, type APIResponse } from "@playwright/test";
 import { authHeaders, expectOkJson, normalizeBaseURL } from "./helpers/apiClient";
 import { createAgentPairAndLogin, createClientForUser, loginAsSeedAdmin } from "./helpers/dataFactory";
@@ -17,7 +17,7 @@ function base64UrlJson(payload: object): string {
 function mintVerificationToken(clientId: string, secret: string): string {
   const header = base64UrlJson({ alg: "HS256", typ: "JWT" });
   const exp = Math.floor(Date.now() / 1000) + 60 * 60;
-  const body = base64UrlJson({ clientId, exp });
+  const body = base64UrlJson({ clientId, exp, jti: randomUUID() });
   const signingInput = `${header}.${body}`;
   const signature = createHmac("sha256", secret).update(signingInput).digest("base64url");
   return `${signingInput}.${signature}`;
@@ -46,7 +46,7 @@ async function submitVerification(
       verificationToken: mintVerificationToken(clientId, VERIFICATION_TOKEN_SECRET),
       primaryDocumentType: "NRIC",
       primaryDocumentRef: "primary-id.jpg",
-      primaryDocumentBase64: Buffer.from("primary-doc").toString("base64"),
+      primaryDocumentBase64: Buffer.from([0xff, 0xd8, 0xff, 0x00, 0x11, 0x22]).toString("base64"),
       primaryDocumentMimeType: "image/jpeg",
       addressDocumentType: "UTILITY_BILL",
       addressDocumentRef: "proof-of-address.pdf",

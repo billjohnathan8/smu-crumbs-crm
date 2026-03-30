@@ -35,12 +35,14 @@ describe('CognitoCallback', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
+    sessionStorage.clear()
   })
 
   it('shows loading spinner when code is present', () => {
     mockLoginWithCognitoCode.mockImplementation(() => new Promise(() => {}))
+    sessionStorage.setItem('cognito_oauth_state', 'state-1')
 
-    renderWithUrl('?code=auth_code_123')
+    renderWithUrl('?code=auth_code_123&state=state-1')
 
     expect(screen.getByText('Signing in with Cognito...')).toBeInTheDocument()
   })
@@ -49,28 +51,29 @@ describe('CognitoCallback', () => {
     renderWithUrl('')
 
     expect(screen.getByText('Authentication Failed')).toBeInTheDocument()
-    expect(screen.getByText('No authorization code received from Cognito.')).toBeInTheDocument()
+    expect(screen.getByText('Authentication failed')).toBeInTheDocument()
   })
 
   it('shows error when error_description is in URL', () => {
     renderWithUrl('?error_description=access_denied_by_user')
 
     expect(screen.getByText('Authentication Failed')).toBeInTheDocument()
-    expect(screen.getByText('access_denied_by_user')).toBeInTheDocument()
+    expect(screen.getByText('Authentication failed')).toBeInTheDocument()
   })
 
   it('shows error when error (without description) is in URL', () => {
     renderWithUrl('?error=access_denied')
 
     expect(screen.getByText('Authentication Failed')).toBeInTheDocument()
-    expect(screen.getByText('access_denied')).toBeInTheDocument()
+    expect(screen.getByText('Authentication failed')).toBeInTheDocument()
   })
 
   it('navigates to /admin after successful login for admin user', async () => {
     mockLoginWithCognitoCode.mockResolvedValue(undefined)
+    sessionStorage.setItem('cognito_oauth_state', 'state-1')
     localStorage.setItem('currentUser', JSON.stringify({ role: 'admin' }))
 
-    renderWithUrl('?code=valid_code')
+    renderWithUrl('?code=valid_code&state=state-1')
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/admin', { replace: true })
@@ -79,9 +82,10 @@ describe('CognitoCallback', () => {
 
   it('navigates to /admin for super_admin user', async () => {
     mockLoginWithCognitoCode.mockResolvedValue(undefined)
+    sessionStorage.setItem('cognito_oauth_state', 'state-1')
     localStorage.setItem('currentUser', JSON.stringify({ role: 'super_admin' }))
 
-    renderWithUrl('?code=valid_code')
+    renderWithUrl('?code=valid_code&state=state-1')
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/admin', { replace: true })
@@ -90,9 +94,10 @@ describe('CognitoCallback', () => {
 
   it('navigates to /user after successful login for regular user', async () => {
     mockLoginWithCognitoCode.mockResolvedValue(undefined)
+    sessionStorage.setItem('cognito_oauth_state', 'state-1')
     localStorage.setItem('currentUser', JSON.stringify({ role: 'user' }))
 
-    renderWithUrl('?code=valid_code')
+    renderWithUrl('?code=valid_code&state=state-1')
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/user', { replace: true })
@@ -101,9 +106,10 @@ describe('CognitoCallback', () => {
 
   it('navigates to / when no stored user after login', async () => {
     mockLoginWithCognitoCode.mockResolvedValue(undefined)
+    sessionStorage.setItem('cognito_oauth_state', 'state-1')
     // no currentUser in localStorage
 
-    renderWithUrl('?code=valid_code')
+    renderWithUrl('?code=valid_code&state=state-1')
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
@@ -112,19 +118,30 @@ describe('CognitoCallback', () => {
 
   it('shows error when loginWithCognitoCode throws an Error', async () => {
     mockLoginWithCognitoCode.mockRejectedValue(new Error('Token exchange failed'))
+    sessionStorage.setItem('cognito_oauth_state', 'state-1')
 
-    renderWithUrl('?code=valid_code')
+    renderWithUrl('?code=valid_code&state=state-1')
 
     await waitFor(() => {
       expect(screen.getByText('Authentication Failed')).toBeInTheDocument()
-      expect(screen.getByText('Token exchange failed')).toBeInTheDocument()
+      expect(screen.getByText('Authentication failed')).toBeInTheDocument()
     })
   })
 
   it('shows generic error when loginWithCognitoCode throws non-Error', async () => {
     mockLoginWithCognitoCode.mockRejectedValue('something went wrong')
+    sessionStorage.setItem('cognito_oauth_state', 'state-1')
 
-    renderWithUrl('?code=valid_code')
+    renderWithUrl('?code=valid_code&state=state-1')
+
+    await waitFor(() => {
+      expect(screen.getByText('Authentication Failed')).toBeInTheDocument()
+      expect(screen.getByText('Authentication failed')).toBeInTheDocument()
+    })
+  })
+
+  it('shows error when oauth state is missing or mismatched', async () => {
+    renderWithUrl('?code=valid_code&state=state-1')
 
     await waitFor(() => {
       expect(screen.getByText('Authentication Failed')).toBeInTheDocument()

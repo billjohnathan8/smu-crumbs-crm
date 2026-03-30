@@ -84,7 +84,7 @@ describe('AuthContext cognito and bypass paths', () => {
     expect(mockExchangeCodeForTokens).toHaveBeenCalledWith('code-123')
     expect(mockSetAuthToken).toHaveBeenCalledWith('access-1')
     expect(localStorage.getItem('refreshToken')).toBe('refresh-1')
-    expect(localStorage.getItem('idToken')).toBe('id-1')
+    expect(localStorage.getItem('idToken')).toBeNull()
     expect(localStorage.getItem('currentUser')).toBe(JSON.stringify(sampleUser))
     expect(result.current.user).toEqual(sampleUser)
   })

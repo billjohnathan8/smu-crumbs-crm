@@ -62,8 +62,8 @@ public class ClientServiceImpl implements ClientService {
 		this.snsEmailPublisherService = snsEmailPublisherService;
 		this.verificationLinkTokenTtlSeconds =
 			verificationLinkTokenTtlSeconds != null && verificationLinkTokenTtlSeconds > 0
-				? verificationLinkTokenTtlSeconds
-				: 7200;
+				? Math.min(verificationLinkTokenTtlSeconds, 1800)
+				: 900;
 	}
 
 	/**
@@ -339,11 +339,6 @@ public class ClientServiceImpl implements ClientService {
 		UploadVerificationDocsRequest request,
 		String requestId
 	) {
-		// Validate Verification Token
-		if (!verificationTokenService.isValid(clientId, request.verificationToken())) {
-			throw new UnauthorizedException("Invalid or expired verification token");
-		}
-
 		// Load client
 		long dbId = decodeClientId(clientId);
 		ClientEntity entity = clientRepository.findById(dbId)
@@ -351,8 +346,13 @@ public class ClientServiceImpl implements ClientService {
 
 		IdentityVerificationStatus before = entity.getIdentityVerificationStatus();
 		if (before == IdentityVerificationStatus.verified || before == IdentityVerificationStatus.rejected) {
-			throw new IllegalStateException("Verification upload is not allowed after review decision");
+			throw new IllegalStateException("Verification upload not allowed");
 		}
+		// Validate and consume verification token in one step to prevent replay.
+		if (!verificationTokenService.consumeIfValid(clientId, request.verificationToken())) {
+			throw new UnauthorizedException("Unauthorized");
+		}
+
 		// Upload documents to S3
 		String primaryKey = documentStorageService.upload(
 			clientId,
