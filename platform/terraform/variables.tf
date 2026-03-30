@@ -638,6 +638,12 @@ variable "enable_cloudfront_oac" {
   default     = true
 }
 
+variable "restrict_alb_ingress_to_cloudfront" {
+  description = "Restrict ALB ingress to CloudFront origin-facing managed prefix list. Enable for CloudFront/WAF-fronted environments."
+  type        = bool
+  default     = false
+}
+
 variable "enable_service_discovery" {
   description = "Enable AWS Cloud Map private DNS namespace and service discovery for ECS inter-service communication. Disable when LabRole blocks servicediscovery:CreatePrivateDnsNamespace."
   type        = bool

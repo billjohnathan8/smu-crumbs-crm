@@ -39,6 +39,12 @@ variable "vpc_id" {
   type        = string
 }
 
+variable "restrict_alb_ingress_to_cloudfront" {
+  description = "Restrict ALB ingress to CloudFront origin-facing managed prefix list instead of 0.0.0.0/0."
+  type        = bool
+  default     = false
+}
+
 variable "db_port" {
   description = "PostgreSQL port."
   type        = number

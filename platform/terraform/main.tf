@@ -34,19 +34,20 @@ module "network" {
 module "security" {
   source = "./modules/security"
 
-  project_name              = var.project_name
-  environment               = var.environment
-  name_prefix               = local.name_prefix
-  aws_region                = var.aws_region
-  vpc_id                    = module.network.vpc_id
-  db_port                   = var.db_port
-  db_username               = var.db_username
-  jwt_hmac_secret           = var.jwt_hmac_secret
-  root_admin_password       = var.root_admin_password
-  aml_sftp_key_secret_arn   = var.aml_sftp_key_secret_arn
-  create_backend_iam_policy = var.create_backend_iam_policy
-  backend_state_bucket_name = var.backend_state_bucket_name
-  backend_lock_table_name   = var.backend_lock_table_name
+  project_name                       = var.project_name
+  environment                        = var.environment
+  name_prefix                        = local.name_prefix
+  aws_region                         = var.aws_region
+  vpc_id                             = module.network.vpc_id
+  restrict_alb_ingress_to_cloudfront = var.restrict_alb_ingress_to_cloudfront
+  db_port                            = var.db_port
+  db_username                        = var.db_username
+  jwt_hmac_secret                    = var.jwt_hmac_secret
+  root_admin_password                = var.root_admin_password
+  aml_sftp_key_secret_arn            = var.aml_sftp_key_secret_arn
+  create_backend_iam_policy          = var.create_backend_iam_policy
+  backend_state_bucket_name          = var.backend_state_bucket_name
+  backend_lock_table_name            = var.backend_lock_table_name
 
   lab_role_arn  = var.lab_role_arn
   lab_role_name = var.lab_role_name
