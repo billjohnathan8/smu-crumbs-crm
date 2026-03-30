@@ -1677,12 +1677,12 @@ mint_verification_token() {
   local client_id="$1"
 
   ${PYTHON_CMD} - "${client_id}" <<'PY'
-import base64, hashlib, hmac, json, sys, time
+import base64, hashlib, hmac, json, sys, time, uuid
 
 client_id = sys.argv[1]
 secret = "dev-only-insecure-secret"
 header = {"alg": "HS256", "typ": "JWT"}
-payload = {"clientId": client_id, "exp": int(time.time()) + 7200}
+payload = {"clientId": client_id, "exp": int(time.time()) + 7200, "jti": str(uuid.uuid4())}
 
 def b64url(d):
     return base64.urlsafe_b64encode(
