@@ -604,7 +604,7 @@ class ClientServiceImplTest {
 	void uploadVerificationDocs_tokenValid_uploadsBothDocumentsToS3() {
 		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
-		when(verificationTokenService.consumeIfValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(verificationTokenService.isValid("clt_7", "valid-token-abc")).thenReturn(true);
 		when(documentStorageService.upload(eq("clt_7"), eq("primary"), any(), any(), any()))
 			.thenReturn("clients/clt_7/primary/nric_front.jpg");
 		when(documentStorageService.upload(eq("clt_7"), eq("address"), any(), any(), any()))
@@ -625,7 +625,7 @@ class ClientServiceImplTest {
 	void uploadVerificationDocs_tokenValid_persistsS3KeysAndSetsPending() {
 		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
-		when(verificationTokenService.consumeIfValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(verificationTokenService.isValid("clt_7", "valid-token-abc")).thenReturn(true);
 		when(documentStorageService.upload(eq("clt_7"), eq("primary"), any(), any(), any()))
 			.thenReturn("clients/clt_7/primary/nric_front.jpg");
 		when(documentStorageService.upload(eq("clt_7"), eq("address"), any(), any(), any()))
@@ -649,7 +649,7 @@ class ClientServiceImplTest {
 	void uploadVerificationDocs_tokenValid_returnsClientIdAndPendingStatus() {
 		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
-		when(verificationTokenService.consumeIfValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(verificationTokenService.isValid("clt_7", "valid-token-abc")).thenReturn(true);
 		when(documentStorageService.upload(any(), any(), any(), any(), any())).thenReturn("s3-key");
 		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -662,18 +662,27 @@ class ClientServiceImplTest {
 	}
 
 	@Test
-	void uploadVerificationDocs_pendingStatus_rejectsDuplicateSubmission() {
+	void uploadVerificationDocs_pendingStatus_allowsReplacementAndStaysPending() {
 		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
 		entity.setIdentityVerificationStatus(IdentityVerificationStatus.pending);
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
-		when(verificationTokenService.consumeIfValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(verificationTokenService.isValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(documentStorageService.upload(eq("clt_7"), eq("primary"), any(), any(), any()))
+			.thenReturn("clients/clt_7/primary/nric_front.jpg");
+		when(documentStorageService.upload(eq("clt_7"), eq("address"), any(), any(), any()))
+			.thenReturn("clients/clt_7/address/bill.pdf");
+		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-		assertThatThrownBy(() ->
-			clientService.uploadVerificationDocs("clt_7", validUploadRequest("valid-token-abc"), "req-1")
-		).isInstanceOf(IllegalStateException.class);
+		var response = clientService.uploadVerificationDocs("clt_7", validUploadRequest("valid-token-abc"), "req-1");
 
-		verify(documentStorageService, never()).upload(any(), any(), any(), any(), any());
-		verify(clientRepository, never()).save(any());
+		assertThat(response.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.pending);
+		verify(documentStorageService).upload(
+			"clt_7", "primary", "nric_front.jpg", "base64PrimaryData==", "image/jpeg"
+		);
+		verify(documentStorageService).upload(
+			"clt_7", "address", "bill.pdf", "base64AddressData==", "application/pdf"
+		);
+		verify(clientRepository).save(any());
 	}
 
 	@Test
@@ -681,7 +690,7 @@ class ClientServiceImplTest {
 		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
 		entity.setIdentityVerificationStatus(IdentityVerificationStatus.verified);
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
-		when(verificationTokenService.consumeIfValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(verificationTokenService.isValid("clt_7", "valid-token-abc")).thenReturn(true);
 
 		assertThatThrownBy(() ->
 			clientService.uploadVerificationDocs("clt_7", validUploadRequest("valid-token-abc"), "req-1")
@@ -698,7 +707,7 @@ class ClientServiceImplTest {
 		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
 		entity.setIdentityVerificationStatus(IdentityVerificationStatus.rejected);
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
-		when(verificationTokenService.consumeIfValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(verificationTokenService.isValid("clt_7", "valid-token-abc")).thenReturn(true);
 
 		assertThatThrownBy(() ->
 			clientService.uploadVerificationDocs("clt_7", validUploadRequest("valid-token-abc"), "req-1")
@@ -710,7 +719,7 @@ class ClientServiceImplTest {
 
 	@Test
 	void uploadVerificationDocs_tokenInvalid_throwsUnauthorizedException() {
-		when(verificationTokenService.consumeIfValid("clt_7", "bad-token")).thenReturn(false);
+		when(verificationTokenService.isValid("clt_7", "bad-token")).thenReturn(false);
 
 		assertThatThrownBy(() ->
 			clientService.uploadVerificationDocs("clt_7", validUploadRequest("bad-token"), "req-1")

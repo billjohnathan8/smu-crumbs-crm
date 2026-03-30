@@ -339,23 +339,21 @@ public class ClientServiceImpl implements ClientService {
 		UploadVerificationDocsRequest request,
 		String requestId
 	) {
-		// Validate and consume verification token in one step to prevent replay.
-		if (!verificationTokenService.consumeIfValid(clientId, request.verificationToken())) {
-			throw new UnauthorizedException("Unauthorized");
-		}
-
 		// Load client
 		long dbId = decodeClientId(clientId);
 		ClientEntity entity = clientRepository.findById(dbId)
         	.orElseThrow(() -> new ClientNotFoundException(clientId));
 
 		IdentityVerificationStatus before = entity.getIdentityVerificationStatus();
-		if (before == IdentityVerificationStatus.pending) {
-			throw new IllegalStateException("Verification already submitted");
-		}
 		if (before == IdentityVerificationStatus.verified || before == IdentityVerificationStatus.rejected) {
 			throw new IllegalStateException("Verification upload not allowed");
 		}
+
+		// Validate verification token (token may be reused while verification remains pending).
+		if (!verificationTokenService.isValid(clientId, request.verificationToken())) {
+			throw new UnauthorizedException("Unauthorized");
+		}
+
 		// Upload documents to S3
 		String primaryKey = documentStorageService.upload(
 			clientId,
