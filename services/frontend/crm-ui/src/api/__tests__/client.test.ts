@@ -167,7 +167,7 @@ describe('apiRequest', () => {
       expect(error).toMatchObject({
         status: 400,
         error: 'validation_error',
-        message: 'Invalid input',
+        message: 'Please check your input and try again.',
         requestId: 'req-456',
       })
     }
@@ -233,7 +233,7 @@ describe('apiRequest', () => {
     await expect(apiRequest('/test')).rejects.toMatchObject({
       status: 500,
       error: 'unknown_error',
-      message: 'Request failed with status 500',
+      message: 'An unexpected error occurred. Please try again.',
     })
   })
 
@@ -273,7 +273,7 @@ describe('apiRequest', () => {
     await expect(apiRequest('/test')).rejects.toMatchObject({
       status: 0,
       error: 'network_error',
-      message: 'Network failure',
+      message: 'Network error occurred. Please check your connection and try again.',
     })
   })
 
@@ -283,7 +283,7 @@ describe('apiRequest', () => {
     await expect(apiRequest('/test')).rejects.toMatchObject({
       status: 0,
       error: 'unknown_error',
-      message: 'An unknown error occurred',
+      message: 'An unexpected error occurred. Please try again.',
     })
   })
 

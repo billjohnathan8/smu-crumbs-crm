@@ -52,6 +52,7 @@ public class SecurityConfig {
 			.authorizeHttpRequests(authorize -> authorize
 				.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 				.requestMatchers("/health", "/api/v1/logs/health").permitAll()
+				.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
 				.requestMatchers("/api/auth/**").permitAll()
 				.requestMatchers("/api/test/**").access((authentication, context) ->
 					new AuthorizationDecision(testEndpointsEnabled)

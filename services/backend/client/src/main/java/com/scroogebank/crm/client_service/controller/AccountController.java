@@ -7,6 +7,11 @@ import com.scroogebank.crm.client_service.dto.AccountUpdateRequest;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 import com.scroogebank.crm.client_service.security.RequestAuth;
 import com.scroogebank.crm.client_service.service.AccountService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
@@ -27,6 +32,15 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @Validated
+@Tag(name = "Accounts")
+@SecurityRequirement(name = "bearerAuth")
+@ApiResponses({
+	@ApiResponse(responseCode = "400", description = "Validation failed"),
+	@ApiResponse(responseCode = "401", description = "Unauthorized"),
+	@ApiResponse(responseCode = "403", description = "Forbidden"),
+	@ApiResponse(responseCode = "404", description = "Not found"),
+	@ApiResponse(responseCode = "500", description = "Internal error")
+})
 public class AccountController {
 	private final AccountService accountService;
 	private final RequestAuth requestAuth;
@@ -45,6 +59,7 @@ public class AccountController {
 	 */
 	@PostMapping("/api/accounts")
 	@ResponseStatus(HttpStatus.CREATED)
+	@Operation(summary = "Create account")
 	public AccountDto createAccount(
 		HttpServletRequest httpRequest,
 		@Valid @RequestBody AccountCreateRequest request
@@ -62,12 +77,14 @@ public class AccountController {
 	 * @return account DTO
 	 */
 	@GetMapping("/api/accounts/{accountId}")
+	@Operation(summary = "Get account by id")
 	public AccountDto getAccount(HttpServletRequest httpRequest, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String accountId) {
 		AuthenticatedUser user = requestAuth.requireUser(httpRequest);
 		return accountService.getAccount(user, accountId);
 	}
 
 	@PutMapping("/api/accounts/{accountId}")
+	@Operation(summary = "Update account")
 	public AccountDto updateAccount(
 		HttpServletRequest httpRequest,
 		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String accountId,
@@ -80,6 +97,7 @@ public class AccountController {
 
 	@DeleteMapping("/api/accounts/{accountId}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
+	@Operation(summary = "Delete account")
 	public void deleteAccount(
 		HttpServletRequest httpRequest,
 		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String accountId
@@ -90,6 +108,7 @@ public class AccountController {
 	}
 
 	@GetMapping("/api/clients/{clientId}/accounts")
+	@Operation(summary = "List accounts for client")
 	public AccountListResponse listAccounts(
 		HttpServletRequest httpRequest,
 		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String clientId,

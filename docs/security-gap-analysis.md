@@ -1,6 +1,6 @@
 # Security Gap Analysis — Scrooge Global Bank CRM
 
-**Date:** 2026-03-29
+**Date:** 2026-03-30
 **Scope:** Production-ready security hardening across all backend services (user, client, transaction — Java/Spring Boot) and the log Lambda (Python).
 **Auth modes in scope:** `cognito` (production), `hybrid`. The `local` dev mode is intentionally lenient and excluded unless noted.
 
@@ -11,12 +11,12 @@
 | # | Issue | Production Status | Gap Severity |
 |---|-------|-------------------|--------------|
 | 1 | Token Authenticity, RBAC, Resource Ownership, Zero-Trust | Mostly done — CORS fixed; JWT replay still pending | Medium |
-| 2 | Backend Input Validation | Mostly done — path variable constraints added | Low–Medium |
+| 2 | Backend Input Validation | Mostly done — path variable constraints and adversarial payload checks added | Low |
 | 3 | PII / Sensitive Data in Logs | Mostly done — NRIC masking added | Medium |
-| 4 | Negative & Adversarial Test Cases | Partial — adversarial JWT/IDOR tests still pending | Medium |
+| 4 | Negative & Adversarial Test Cases | Mostly done — JWT/IDOR/injection/malformed/oversized tests added across Java services | Low–Medium |
 | 5 | CSRF & Replay-Attack Protection | Partial — gaps below (infrastructure-dependent) | Medium |
-| 6 | OpenAPI Security Alignment | Not implemented | High |
-| 7 | Detailed Errors Exposed to Users | Done — prod-mode validation sanitisation implemented | Low |
+| 6 | OpenAPI Security Alignment | Mostly done — Springdoc + security annotations added in all Java services | Medium |
+| 7 | Detailed Errors Exposed to Users | Done — prod-mode validation sanitisation + frontend error-code mapping implemented | Low |
 
 ---
 
@@ -83,7 +83,7 @@
 |-----|----------|-------------|
 | ~~**Path variable validation**~~ | ~~All controllers~~ | **Fixed (2026-03-29)**: All `@PathVariable` parameters in all 4 controllers (User, Client, Account, Transactions) now have `@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$")`. All controllers are annotated `@Validated`. |
 | ~~**Log Lambda Pydantic strict mode**~~ | ~~`services/backend/log/app/schemas.py`~~ | **Not a gap** — All request schemas already set `model_config = ConfigDict(extra="forbid")`. No fix required. |
-| **No explicit SQL injection test cases** | All Java services, log Lambda | ORM protects against standard SQL injection, but there are no test cases that send injection payloads to verify the protection is observable and documented. |
+| **No explicit SQL injection test cases in log Lambda routes** | Log Lambda | Java services now include SQL-injection style request tests. Equivalent HTTP-route-level adversarial payload tests are still missing for log Lambda endpoints. |
 | ~~**`@Validated` not confirmed on controller class**~~ | ~~All Java controllers~~ | **Fixed (2026-03-29)**: Confirmed and added `@Validated` to all controller classes. |
 
 ### What To Implement
@@ -105,7 +105,7 @@
   - `postalCode` → last 3 digits visible
 - Java service exception handlers log only a `requestId` correlation string — no PII in exception logs.
 - The log Lambda does not log request or response bodies to CloudWatch.
-- Log records stored in DynamoDB contain only pre-masked `beforeValue` and `afterValue` strings sent by the client service.
+- Log records are stored in PostgreSQL by the log service; audit entries contain pre-masked `beforeValue` and `afterValue` strings sent by the client service.
 
 ### What Is Missing / Gaps
 
@@ -113,7 +113,7 @@
 |-----|----------|-------------|
 | ~~**NRIC not explicitly masked**~~ | ~~`PiiMasker.java`, client service~~ | **Fixed (2026-03-29)**: Added `nric` to `PiiMasker` with masking pattern (first char + `***` middle + last 3 chars, e.g. `S****567A`). `dateOfBirth` added to fully-redacted fields. Tests added in `PiiMaskerTest`. |
 | **Account identifiers in transaction logs** | Transaction service | `TransactionsController` does not route through `PiiMasker`. Account IDs appear in log entries without masking review. |
-| **`toEmail` stored in communication records** | Log Lambda `schemas.py` line 74 | `CreateCommunicationRequest.toEmail` stores a full email address in the communications DynamoDB table. While necessary for sending, at-rest encryption and access control on this table should be confirmed. |
+| **`toEmail` stored in communication records** | Log service (`schemas.py` + SQL migration) | `CreateCommunicationRequest.toEmail` stores a full email address in the PostgreSQL `communications` table. While necessary for sending, at-rest encryption and access control should be confirmed. |
 | **CloudWatch log verbosity not audited** | All services | Structured logging format (Logback/SLF4J in Java, Python logging in Lambda) has not been audited to confirm no DEBUG-level statements accidentally log full request/response bodies containing PII. |
 
 ### What To Implement
@@ -121,7 +121,7 @@
 1. **Add NRIC to `PiiMasker`**: Add `nric` / `nricNumber` to the PII field list with masking pattern (e.g., show only last 3 characters: `****567A`).
 2. **Transaction log review**: Audit all log calls in `TransactionsController` and `TransactionsService` to confirm account IDs are treated as non-PII or are appropriately masked.
 3. **CloudWatch log audit**: Set log level to `INFO` in all production deployments. Add a Checkstyle/lint rule that flags `log.debug()` calls containing variable names matching `email`, `nric`, `phone`, `address`, `password`.
-4. **DynamoDB at-rest encryption**: Confirm the `communications` DynamoDB table has AWS-managed or customer-managed KMS encryption enabled in the Terraform module.
+4. **Database at-rest encryption**: Confirm PostgreSQL storage encryption and access controls for the `communications` table in each deployment environment.
 
 ---
 
@@ -140,21 +140,20 @@
 
 | Gap | Location | Description |
 |-----|----------|-------------|
-| **Expired JWT test** | All Java services | No test sends a token with an `exp` claim in the past and asserts 401. |
-| **Tampered JWT test** | All Java services | No test sends a valid token with a modified payload (e.g., role changed from `user` to `admin` without re-signing) and asserts 401. |
-| **IDOR (Insecure Direct Object Reference) test** | Client + transaction services | No test sends a valid agent JWT and attempts to access a client owned by a different agent, asserting 404. |
-| **SQL injection payloads** | All Java services | No test sends `' OR '1'='1` or `; DROP TABLE users` in string fields and asserts 400 (not 500). |
-| **Malformed JSON** | All Java services | No test sends a request with a missing required field, wrong type (e.g., number where string expected), or extra unknown field, and asserts 400. |
-| **Oversized input** | All Java services | No test sends a string exceeding `@Size(max=...)` constraint and asserts 400 with an appropriate error. |
+| ~~**Expired JWT test**~~ | ~~All Java services~~ | **Fixed (2026-03-30)**: Added `JwtAuthFilterTest.expiredToken_leavesContextEmpty` in user/client/transaction services (expired bearer token is rejected by filter). |
+| ~~**Tampered JWT test**~~ | ~~All Java services~~ | **Fixed (2026-03-30)**: Added payload-tampering role escalation tests in all 3 `JwtAuthFilterTest` classes (payload modified without re-signing is rejected). |
+| ~~**`alg:none` / unsupported alg test**~~ | ~~All Java services~~ | **Fixed (2026-03-30)**: Added `alg:none` adversarial token tests in all 3 `JwtAuthFilterTest` classes (security context remains empty). |
+| ~~**IDOR (Insecure Direct Object Reference) test**~~ | ~~Client + transaction services~~ | **Fixed (2026-03-30)**: Added explicit cross-owner IDOR coverage in client service (`get/update/delete` for non-owner returns `ClientNotFoundException` / masked 404 behavior) and transaction ownership-denial coverage remains asserted via `TransactionNotFoundException` mapping. |
+| ~~**SQL injection payloads**~~ | ~~User + client + transaction services~~ | **Fixed (2026-03-30)**: Added SQL-injection style payload tests in user/client/transaction web/service tests; invalid IDs now reject with 400/validation paths (never 500). |
+| ~~**Malformed JSON**~~ | ~~User + client + transaction services~~ | **Fixed (2026-03-30)**: Added malformed JSON tests in user/client/transaction web tests; user handler now maps unreadable JSON to 400 (`validation_error`). |
+| ~~**Oversized input**~~ | ~~User + client + transaction services~~ | **Fixed (2026-03-30)**: Added oversized input test coverage in user/client/transaction request paths (e.g., overlength `firstName` / `clientId`). |
 | **Token replay after logout** | All Java services | No test logs out, then re-uses the old token and asserts 401. (Depends on implementing token deny-list from Issue 1.) |
 
 ### What To Implement
 
-1. **Expired token test**: Generate a token with `exp = now - 1 second` and assert `GET /api/users/me` returns 401.
-2. **Tampered token test**: Take a valid token, Base64-decode the payload, change `"role":"user"` to `"role":"admin"`, re-encode without re-signing, and assert 401.
-3. **IDOR test**: Seed two agent users and two clients (one per agent). Log in as Agent A and `GET /api/clients/{clientBId}`. Assert 404.
-4. **SQL injection tests**: Add a `@ParameterizedTest` with injection payloads for `firstName`, `email`, `query` search parameter. Assert 400 or 404, never 500.
-5. **Malformed JSON tests**: Send `{}` (empty body), `{"firstName": 123}` (wrong type), and a body with a 500-character `firstName`. Assert 400 for each.
+1. **Parameterized consolidation**: Refactor current adversarial payload tests into shared parameterized suites for broader payload coverage and lower duplication.
+2. **Log Lambda adversarial route tests**: Add malformed/injection payload tests for API Gateway-backed log routes.
+3. **Optional integration assertion**: Add endpoint-level MockMvc checks that invalid JWTs produce HTTP 401 on representative secured routes.
 
 ---
 
@@ -186,32 +185,32 @@
 
 ### What Is Done
 
-- Nothing. There is no OpenAPI/Swagger implementation in any service.
-- No `springdoc-openapi` dependency in any `build.gradle`.
-- No `@Operation`, `@SecurityRequirement`, `@ApiResponse`, or `@SecurityScheme` annotations in any controller.
-- No OpenAPI yaml/json spec files under `docs/` or `services/`.
+- Contract OpenAPI specs already exist under `docs/api-contracts/openapi/` (`user.yaml`, `client.yaml`, `transaction.yaml`, `log.yaml`, `aml.yaml`).
+- All three Java services now include `org.springdoc:springdoc-openapi-starter-webmvc-ui`.
+- Each Java service now defines a global bearer scheme via `OpenApiConfig` with:
+  - `@SecurityScheme(name = "bearerAuth", type = HTTP, scheme = "bearer", bearerFormat = "JWT")`
+  - `@OpenAPIDefinition` service metadata.
+- Secured Java controllers are annotated with `@SecurityRequirement(name = "bearerAuth")`.
+- Public endpoint `POST /api/clients/{id}/upload-verify` is explicitly marked as no-security (`@SecurityRequirements`) in OpenAPI.
+- Java controllers now include OpenAPI operation summaries and standard response documentation via `@Operation` and `@ApiResponses`.
+- Swagger routes (`/v3/api-docs/**`, `/swagger-ui/**`, `/swagger-ui.html`) are now permitted in all Java `SecurityConfig` classes.
 
 ### What Is Missing / Gaps
 
 | Gap | Location | Description |
 |-----|----------|-------------|
-| **No OpenAPI dependency** | All Java `build.gradle` | `org.springdoc:springdoc-openapi-starter-webmvc-ui` is not included. |
-| **No bearer auth security scheme** | All Java services | No `@SecurityScheme(name = "bearerAuth", type = SecuritySchemeType.HTTP, scheme = "bearer", bearerFormat = "JWT")` defined. |
-| **No security requirement on controllers** | All Java controllers | No `@SecurityRequirement(name = "bearerAuth")` on controller classes or methods. |
-| **No response documentation** | All Java controllers | No `@ApiResponse` annotations documenting 401, 403, 400, 404 responses per endpoint. |
-| **Log Lambda has no API spec** | `services/backend/log` | No OpenAPI spec documents the 18 routes exposed via API Gateway. |
+| ~~**No OpenAPI dependency**~~ | ~~All Java `build.gradle`~~ | **Fixed (2026-03-30)**: Added `org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6` to user/client/transaction services. |
+| ~~**No bearer auth security scheme**~~ | ~~All Java services~~ | **Fixed (2026-03-30)**: Added `OpenApiConfig` with global `bearerAuth` `@SecurityScheme` in all 3 Java services. |
+| ~~**No security requirement on controllers**~~ | ~~All Java controllers~~ | **Fixed (2026-03-30)**: Added `@SecurityRequirement(name = "bearerAuth")` to secured controllers; public upload-verify endpoint marked as no-security in docs. |
+| ~~**No response documentation**~~ | ~~All Java controllers~~ | **Fixed (2026-03-30)**: Added `@Operation` and class-level `@ApiResponses` coverage for secured and auth controllers. |
+| ~~**Log Lambda has no API spec**~~ | ~~`services/backend/log`~~ | **Not a gap** — `docs/api-contracts/openapi/log.yaml` already documents API routes. |
+| **No CI drift gate between runtime-generated Java specs and committed contract files** | CI/workflow | Springdoc runtime docs now exist, but CI does not yet enforce sync between generated specs and `docs/api-contracts/openapi/*.yaml`. |
 
 ### What To Implement
 
-1. **Add springdoc-openapi** to all three Java services' `build.gradle`:
-   ```
-   implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.x'
-   ```
-2. **Define global security scheme** in a `@Configuration` class using `@SecurityScheme` for `bearerAuth`.
-3. **Annotate all controllers** with `@SecurityRequirement(name = "bearerAuth")` at the class level (public endpoints override with `@SecurityRequirement` absent).
-4. **Document standard responses** for each controller with `@ApiResponse` for 400, 401, 403, 404, 500.
-5. **Log Lambda spec**: Write an `openapi.yaml` for the API Gateway-backed log Lambda routes and place it under `docs/api-contracts/`.
-6. **CI gate**: Add a step that generates the OpenAPI spec and fails if the committed spec is out of sync with the generated one.
+1. **CI gate for Java spec drift**: Add a CI step that fetches `/v3/api-docs` from each Java service and fails if generated docs drift from committed contract files.
+2. **Contract harmonisation**: Align runtime-generated OpenAPI output with `docs/api-contracts/openapi/*.yaml` naming/response examples so one source of truth can be enforced.
+3. **Optional hardening**: Disable Swagger UI in production by setting `SPRINGDOC_SWAGGER_UI_ENABLED=false` in production environments.
 
 ---
 
@@ -231,12 +230,12 @@
 | Gap | Location | Description |
 |-----|----------|-------------|
 | ~~**Validation error messages expose field names**~~ | ~~All Java services `ApiExceptionHandler`~~ | **Fixed (2026-03-29)**: All three `ApiExceptionHandler` classes now accept `boolean productionMode` (injected via `APP_PRODUCTION_MODE` env var, default `false`). When `true`, both `MethodArgumentNotValidException` and `ConstraintViolationException` handlers return `"Validation failed"`. Dev mode retains full field details. Tests added for both modes in all three services. |
-| **Frontend renders raw API error messages** | `services/frontend/crm-ui` | The React frontend passes API error `message` strings directly to toast notifications / UI elements. If a backend ever returns a more detailed message, it surfaces to the user. Frontend should map known error codes to user-friendly strings and show a generic fallback for unknown codes. |
+| ~~**Frontend renders raw API error messages**~~ | ~~`services/frontend/crm-ui`~~ | **Fixed (2026-03-30)**: Added centralized `getUserFriendlyErrorMessage()` mapping and applied it in `api/client.ts` so API errors are normalised by error code before surfacing in UI state. Unknown codes now return a generic safe fallback message. |
 
 ### What To Implement
 
-1. **Strip validation field details in production**: In each `ApiExceptionHandler`, change the `MethodArgumentNotValidException` handler to return a generic `"Validation failed"` message in `production` profile, while retaining full field details in `local`/`dev` profile (useful for developers). Use Spring's active profile check.
-2. **Frontend error code mapping**: Create an `errorMessages.ts` map from known API `error` codes (e.g., `"unauthorized"`, `"forbidden"`, `"not_found"`, `"validation_failed"`) to user-friendly strings. For any unmapped code, display `"An unexpected error occurred. Please try again."`.
+1. **Keep mapping in sync with backend error codes**: Add new codes to `errorMessages.ts` whenever backend introduces additional `error` values.
+2. **Optional UI hardening**: Add per-page i18n/UX copy overrides while preserving centralized safe fallbacks.
 
 ---
 
@@ -244,12 +243,10 @@
 
 Remaining items in priority order:
 
-1. **Issue 6 — OpenAPI** (not implemented at all; required by project spec) — Task 6
-2. **Issue 4 — Adversarial JWT tests** (expired token, tampered payload, alg:none) — Task 8
-3. **Issue 4 — IDOR + injection tests** (cross-agent access, SQL injection payloads) — Task 9
-4. **Issue 7 — Frontend error code mapping** (`errorMessages.ts`) — Task 7
-5. **Issue 1 — JWT replay / deny-list** (requires new DynamoDB table + Terraform — deferred)
-6. **Issue 5 — Idempotency keys + token revocation** (requires infrastructure — deferred)
+1. **Issue 6 — OpenAPI CI drift gate** (runtime spec vs committed contract sync) — Task 6 follow-up
+2. **Issue 4 — Adversarial test consolidation + log Lambda route adversarial tests** — Task 9 follow-up
+3. **Issue 1 — JWT replay / deny-list** (requires new DynamoDB table + Terraform — deferred)
+4. **Issue 5 — Idempotency keys + token revocation** (requires infrastructure — deferred)
 
 ---
 
@@ -264,6 +261,11 @@ Remaining items in priority order:
 | NRIC PII masking (Issue 3) | Added `nric` field to `PiiMasker` (shows first char + masked middle + last 3). Added `dateOfBirth` to fully-redacted fields. Added 4 new tests. | `client/PiiMasker.java`, `client/PiiMaskerTest.java` | `7ee64b6` |
 | Validation sanitisation (Issue 7) | All 3 `ApiExceptionHandler` classes now take `boolean productionMode` via `@Value("${app.production-mode:false}")`. `handleValidation` and `handleConstraintViolation` return `"Validation failed"` in prod mode. `APP_PRODUCTION_MODE` env var added to all 3 `application.yaml`. Prod/dev mode tests added to all 3 `ApiExceptionHandlerTest`. | 3× `ApiExceptionHandler.java`, 3× `application.yaml`, 3× `ApiExceptionHandlerTest.java` | `950907b`, `1ac2c34`, `e176152` |
 | Path variable constraints (Issue 2) | Added `@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$")` to all `@PathVariable` parameters in all 4 controllers. Confirmed `@Validated` on all controller classes. | `UserController.java`, `ClientController.java`, `AccountController.java`, `TransactionsController.java` | `668b5f8` |
+| OpenAPI security alignment (Issue 6) | Added springdoc dependency to all Java services; added global `OpenApiConfig` with `bearerAuth`; added controller `@SecurityRequirement`, `@Operation`, and `@ApiResponses`; marked public upload-verify as no-security; allowed `/v3/api-docs` and Swagger UI routes in all Java `SecurityConfig`; added `springdoc` env toggles in all Java `application.yaml`. | 3× `build.gradle`, 3× `OpenApiConfig.java`, `AuthController.java`, `UserController.java`, `ClientController.java`, `AccountController.java`, `TransactionsController.java`, 3× `SecurityConfig.java`, 3× `application.yaml`, `docs/security-gap-analysis.md` | pending |
+| Adversarial JWT filter tests (Issue 4) | Added expired token, payload tampering (role escalation), and `alg:none` adversarial token tests in all 3 `JwtAuthFilterTest` classes to ensure invalid tokens do not populate `SecurityContext`. | 3× `JwtAuthFilterTest.java`, `docs/security-gap-analysis.md` | pending |
+| Input-adversarial controller tests (Issue 4) | Added SQL-injection-style, malformed JSON, wrong-type, and oversized-input tests to user/client controller web tests; added unreadable-body 400 handler in user `ApiExceptionHandler` to avoid 500 on malformed JSON. | `user/UserControllerTest.java`, `client/ClientControllerTest.java`, `user/ApiExceptionHandler.java`, `docs/security-gap-analysis.md` | pending |
+| Frontend error-code mapping (Issue 7) | Added centralized error-code to user-facing message mapping and integrated it in `api/client.ts` so backend raw messages are not directly surfaced. Added unit tests for mapping and updated API client tests. | `crm-ui/src/utils/errorMessages.ts`, `crm-ui/src/api/client.ts`, `crm-ui/src/utils/__tests__/errorMessages.test.ts`, `crm-ui/src/api/__tests__/client.test.ts`, `docs/security-gap-analysis.md` | pending |
+| IDOR + transaction adversarial expansion (Issue 4) | Added client-service cross-owner IDOR tests for `get/update/delete`; added transaction request validation hardening (`clientId` constraints) plus transaction web tests for SQL-injection-style IDs, malformed JSON, and oversized IDs. | `client/ClientServiceImplTest.java`, `transaction/CreateTransactionRequest.java`, `transaction/TransactionsController.java`, `transaction/UserControllerTest.java`, `docs/security-gap-analysis.md` | pending |
 
 ### Deferred (requires infrastructure changes)
 

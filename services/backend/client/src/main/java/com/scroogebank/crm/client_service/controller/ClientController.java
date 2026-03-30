@@ -10,6 +10,12 @@ import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 import com.scroogebank.crm.client_service.security.RequestAuth;
 import com.scroogebank.crm.client_service.service.ClientService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
 import jakarta.servlet.http.HttpServletRequest;
@@ -33,6 +39,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @Validated
 @RequestMapping("/api/clients")
+@Tag(name = "Clients")
+@SecurityRequirement(name = "bearerAuth")
+@ApiResponses({
+	@ApiResponse(responseCode = "400", description = "Validation failed"),
+	@ApiResponse(responseCode = "401", description = "Unauthorized"),
+	@ApiResponse(responseCode = "403", description = "Forbidden"),
+	@ApiResponse(responseCode = "404", description = "Not found"),
+	@ApiResponse(responseCode = "500", description = "Internal error")
+})
 public class ClientController {
 	private final ClientService clientService;
 	private final RequestAuth requestAuth;
@@ -52,6 +67,7 @@ public class ClientController {
 	 * @return list response with pagination metadata
 	 */
 	@GetMapping
+	@Operation(summary = "List clients")
 	public ClientListResponse listClients(
 		HttpServletRequest request,
 		@RequestParam(defaultValue = "50") int limit,
@@ -71,6 +87,7 @@ public class ClientController {
 	 */
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
+	@Operation(summary = "Create client")
 	public ClientDto createClient(
 		HttpServletRequest httpRequest,
 		@Valid @RequestBody ClientCreateRequest request
@@ -88,6 +105,7 @@ public class ClientController {
 	 * @return client DTO
 	 */
 	@GetMapping("/{id}")
+	@Operation(summary = "Get client by id")
 	public ClientDto getClient(HttpServletRequest request, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable("id") String clientId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		String authorizationHeader = request.getHeader("Authorization");
@@ -103,6 +121,7 @@ public class ClientController {
 	 * @return updated client DTO
 	 */
 	@PutMapping("/{id}")
+	@Operation(summary = "Update client")
 	public ClientDto updateClient(
 		HttpServletRequest httpRequest,
 		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable("id") String clientId,
@@ -121,6 +140,7 @@ public class ClientController {
 	 */
 	@DeleteMapping("/{id}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
+	@Operation(summary = "Delete client")
 	public void deleteClient(
 		HttpServletRequest httpRequest,
 		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable("id") String clientId
@@ -139,6 +159,8 @@ public class ClientController {
 	 * @return verification response
 	 */
 	@PostMapping("/{id}/upload-verify")
+	@Operation(summary = "Upload client verification documents with verification token")
+	@SecurityRequirements
 	public VerifyClientResponse uploadVerificationDocs(
 		HttpServletRequest httpRequest,
 		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable("id") String clientId,
@@ -156,6 +178,7 @@ public class ClientController {
 	 * @return verification response
 	 */
 	@PatchMapping("/{id}/verify/review")
+	@Operation(summary = "Review client verification")
 	public VerifyClientResponse reviewVerification(
 		HttpServletRequest httpRequest,
 		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable("id") String clientId,

@@ -189,6 +189,60 @@ class UserControllerTest {
             .andExpect(status().isForbidden());
     }
 
+	@Test
+	void createUser_sqlInjectionEmail_returnsBadRequest() throws Exception {
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
+		String payload = """
+			{
+			  "firstName": "Ava",
+			  "lastName": "Stone",
+			  "email": "' OR '1'='1",
+			  "role": "user",
+			  "sendInviteEmail": false,
+			  "temporaryPassword": "temp1234"
+			}
+			""";
+
+		mockMvc.perform(post("/api/users")
+				.header("Authorization", "Bearer x")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(payload))
+			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void createUser_oversizedFirstName_returnsBadRequest() throws Exception {
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
+		String payload = """
+			{
+			  "firstName": "%s",
+			  "lastName": "Stone",
+			  "email": "ava@example.com",
+			  "role": "user",
+			  "sendInviteEmail": false,
+			  "temporaryPassword": "temp1234"
+			}
+			""".formatted("A".repeat(500));
+
+		mockMvc.perform(post("/api/users")
+				.header("Authorization", "Bearer x")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(payload))
+			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void createUser_malformedJson_returnsBadRequest() throws Exception {
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
+		String payload = "{\"firstName\":\"Ava\",\"lastName\":\"Stone\",\"email\":\"ava@example.com\"";
+
+		mockMvc.perform(post("/api/users")
+				.header("Authorization", "Bearer x")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(payload))
+			.andExpect(status().isBadRequest());
+	}
+
     /** Admin can update a user by ID; controller returns 200 and delegates userId, body, and authenticated user to service. */
     @Test
     void updateUser_adminOk() throws Exception {

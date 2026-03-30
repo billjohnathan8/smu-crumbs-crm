@@ -1,4 +1,5 @@
 import type { ErrorResponse } from './types'
+import { getUserFriendlyErrorMessage } from '@/utils/errorMessages'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 
@@ -92,7 +93,12 @@ export async function apiRequest<T>(endpoint: string, options: RequestOptions = 
         }
       }
 
-      throw new ApiError(response.status, errorData.error, errorData.message, errorData.requestId)
+      throw new ApiError(
+        response.status,
+        errorData.error,
+        getUserFriendlyErrorMessage(errorData.error),
+        errorData.requestId
+      )
     }
 
     // Handle 204 No Content
@@ -110,14 +116,14 @@ export async function apiRequest<T>(endpoint: string, options: RequestOptions = 
 
     // Check for AbortError (can be DOMException or Error)
     if (error && typeof error === 'object' && 'name' in error && error.name === 'AbortError') {
-      throw new ApiError(408, 'request_timeout', 'Request timed out. Please try again.', undefined)
+      throw new ApiError(408, 'request_timeout', getUserFriendlyErrorMessage('request_timeout'), undefined)
     }
 
     if (error instanceof Error) {
-      throw new ApiError(0, 'network_error', error.message || 'Network error occurred', undefined)
+      throw new ApiError(0, 'network_error', getUserFriendlyErrorMessage('network_error'), undefined)
     }
 
-    throw new ApiError(0, 'unknown_error', 'An unknown error occurred', undefined)
+    throw new ApiError(0, 'unknown_error', getUserFriendlyErrorMessage('unknown_error'), undefined)
   } finally {
     clearTimeout(timeoutId)
   }

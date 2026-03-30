@@ -174,6 +174,31 @@ class ClientServiceImplTest {
 			.isInstanceOf(ClientNotFoundException.class);
 	}
 
+	@Test
+	void updateClient_agentCannotUpdateOtherOwnersClient_throwsNotFound() {
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
+		ClientPayload payload = samplePayload();
+		ClientEntity entity = entityFromPayload(7L, "usr_other", payload);
+		ClientUpdateRequest request = new ClientUpdateRequest("NewName", null, null, null, null, null, null, null, null, null, null);
+		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
+
+		assertThatThrownBy(() -> clientService.updateClient(user, "clt_7", request, "Bearer x", "req-1"))
+			.isInstanceOf(ClientNotFoundException.class);
+		verify(clientRepository, never()).save(any());
+	}
+
+	@Test
+	void deleteClient_agentCannotDeleteOtherOwnersClient_throwsNotFound() {
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
+		ClientPayload payload = samplePayload();
+		ClientEntity entity = entityFromPayload(7L, "usr_other", payload);
+		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
+
+		assertThatThrownBy(() -> clientService.deleteClient(user, "clt_7", "Bearer x", "req-1"))
+			.isInstanceOf(ClientNotFoundException.class);
+		verify(clientRepository, never()).delete(any());
+	}
+
 	/** Verifies that getClient(id) throws ClientNotFoundException when the repository returns empty. */
 	@Test
 	void getClient_whenNotFound_throwsClientNotFoundException() {

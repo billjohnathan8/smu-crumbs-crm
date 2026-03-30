@@ -40,6 +40,12 @@ spring:
     table: client_flyway_schema_history
     locations: classpath:db/migration  # default location for migration scripts
 
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_API_DOCS_ENABLED:true}
+  swagger-ui:
+    enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:true}
+
 server:
   port: 8080
 

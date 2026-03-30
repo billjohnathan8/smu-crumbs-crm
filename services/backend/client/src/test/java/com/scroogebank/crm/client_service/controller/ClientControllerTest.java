@@ -219,6 +219,81 @@ class ClientControllerTest {
             .andExpect(jsonPath("$.message").value("Invalid request body"));
     }
 
+	@Test
+	void createClient_sqlInjectionFirstName_returnsBadRequest() throws Exception {
+		String payload = """
+			{
+			  "firstName": "' OR '1'='1",
+			  "lastName": "Taylor",
+			  "dateOfBirth": "1990-01-15",
+			  "gender": "Male",
+			  "emailAddress": "jordan.taylor@example.com",
+			  "phoneNumber": "+15551234567",
+			  "address": "123 Main Street",
+			  "city": "Springfield",
+			  "state": "Illinois",
+			  "country": "United States",
+			  "postalCode": "62704"
+			}
+			""";
+
+		mockMvc.perform(post("/api/clients")
+				.header("Authorization", AUTH_HEADER)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(payload))
+			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void createClient_wrongTypeFirstName_returnsBadRequest() throws Exception {
+		String payload = """
+			{
+			  "firstName": 123,
+			  "lastName": "Taylor",
+			  "dateOfBirth": "1990-01-15",
+			  "gender": "Male",
+			  "emailAddress": "jordan.taylor@example.com",
+			  "phoneNumber": "+15551234567",
+			  "address": "123 Main Street",
+			  "city": "Springfield",
+			  "state": "Illinois",
+			  "country": "United States",
+			  "postalCode": "62704"
+			}
+			""";
+
+		mockMvc.perform(post("/api/clients")
+				.header("Authorization", AUTH_HEADER)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(payload))
+			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void createClient_oversizedFirstName_returnsBadRequest() throws Exception {
+		String payload = """
+			{
+			  "firstName": "%s",
+			  "lastName": "Taylor",
+			  "dateOfBirth": "1990-01-15",
+			  "gender": "Male",
+			  "emailAddress": "jordan.taylor@example.com",
+			  "phoneNumber": "+15551234567",
+			  "address": "123 Main Street",
+			  "city": "Springfield",
+			  "state": "Illinois",
+			  "country": "United States",
+			  "postalCode": "62704"
+			}
+			""".formatted("A".repeat(500));
+
+		mockMvc.perform(post("/api/clients")
+				.header("Authorization", AUTH_HEADER)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(payload))
+			.andExpect(status().isBadRequest());
+	}
+
     @Test
     void getClient_returnsClient() throws Exception {
         when(clientService.getClient(any(), eq("clt_7"), any(), any())).thenReturn(sampleDto("clt_7"));

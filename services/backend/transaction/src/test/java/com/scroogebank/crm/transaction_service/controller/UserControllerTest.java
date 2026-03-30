@@ -222,6 +222,71 @@ class UserControllerTest {
 	}
 
 	@Test
+	void createTransaction_sqlInjectionStyleClientId_returnsBadRequest() throws Exception {
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
+		String payload = """
+			{
+			  "clientId": "' OR '1'='1",
+			  "transaction": "D",
+			  "amount": 1200.50,
+			  "date": "2026-02-01",
+			  "status": "Completed"
+			}
+			""";
+
+		mockMvc.perform(post("/api/transactions")
+				.header("Authorization", "Bearer x")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(payload))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error").value("validation_error"));
+	}
+
+	@Test
+	void createTransaction_oversizedClientId_returnsBadRequest() throws Exception {
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
+		String payload = """
+			{
+			  "clientId": "%s",
+			  "transaction": "D",
+			  "amount": 1200.50,
+			  "date": "2026-02-01",
+			  "status": "Completed"
+			}
+			""".formatted("c".repeat(500));
+
+		mockMvc.perform(post("/api/transactions")
+				.header("Authorization", "Bearer x")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(payload))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error").value("validation_error"));
+	}
+
+	@Test
+	void createTransaction_malformedJson_returnsBadRequest() throws Exception {
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
+
+		mockMvc.perform(post("/api/transactions")
+				.header("Authorization", "Bearer x")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"clientId\":\"clt_1\",\"transaction\":\"D\""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error").value("validation_error"));
+	}
+
+	@Test
+	void listTransactions_sqlInjectionStyleClientIdQuery_returnsBadRequest() throws Exception {
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
+
+		mockMvc.perform(get("/api/transactions")
+				.header("Authorization", "Bearer x")
+				.queryParam("clientId", "' OR '1'='1"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error").value("validation_error"));
+	}
+
+	@Test
 	void listTransactionsForClient_normalizesPaginationBounds() throws Exception {
 		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
 		when(transactionsService.list(1, 0, "clt_1", null, null, null, null))
