@@ -426,7 +426,11 @@ components:
     UploadVerificationDocsRequest:
       type: object
       properties:
-        verificationToken: {type: string, maxLength: 4096, pattern: '^[A-Za-z0-9._-]+$', description: Signed token received from verification email link (short-lived, one-time).}
+        verificationToken:
+          type: string
+          maxLength: 4096
+          pattern: '^[A-Za-z0-9._-]+$'
+          description: "Signed token received from verification email link (short-lived, one-time)."
         primaryDocumentType: {type: string, enum: [NRIC, PASSPORT, EMPLOYMENT_PASS]}
         primaryDocumentRef: {type: string, maxLength: 120, pattern: '^[A-Za-z0-9._-]+$', description: Original filename for primary identity document.}
         primaryDocumentBase64: {type: string, maxLength: 7000000, pattern: '^[A-Za-z0-9+/]+={0,2}$', description: Base64-encoded primary identity document bytes.}
