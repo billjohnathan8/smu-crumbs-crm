@@ -1,0 +1,363 @@
+name: CD - Rollback to SHA
+
+on:
+  workflow_dispatch:
+    inputs:
+      rollback_sha:
+        description: Git SHA to rollback to
+        required: true
+        type: string
+
+concurrency:
+  group: cd-rollback-all
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  MANIFEST_BUCKET: ${{ vars.LAMBDA_ARTIFACT_BUCKET }}
+  ROLLBACK_SHA: ${{ inputs.rollback_sha }}
+
+jobs:
+  validate:
+    name: Validate manifest and environment
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Validate required inputs, vars, and secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${{ env.ROLLBACK_SHA }}"
+          test -n "${{ env.AWS_REGION }}"
+          test -n "${{ env.MANIFEST_BUCKET }}"
+          test -n "${{ secrets.AWS_ROLE_ARN }}"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download manifest for rollback SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws s3 cp \
+            "s3://${MANIFEST_BUCKET}/manifests/prod/git/${ROLLBACK_SHA}.json" \
+            manifest-rollback.json
+          jq -e . manifest-rollback.json >/dev/null
+
+      - name: Fail-fast validation of manifest content
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Ensure sections are objects or absent
+          jq -e '(.ecs // {}) | type == "object"' manifest-rollback.json >/dev/null
+          jq -e '(.lambda // {}) | type == "object"' manifest-rollback.json >/dev/null
+          jq -e '(.frontend // {}) | type == "object"' manifest-rollback.json >/dev/null
+
+          # Per-entry required fields if sections exist
+          # ECS: cluster, task_definition_arn
+          if [ "$(jq -r '(.ecs // {}) | length' manifest-rollback.json)" != "0" ]; then
+            jq -e '
+              (.ecs // {}) | to_entries
+              | all(.value.cluster and .value.task_definition_arn)
+            ' manifest-rollback.json >/dev/null
+          fi
+
+          # Lambda: alias, published_version
+          if [ "$(jq -r '(.lambda // {}) | length' manifest-rollback.json)" != "0" ]; then
+            jq -e '
+              (.lambda // {}) | to_entries
+              | all(.value.alias and .value.published_version)
+            ' manifest-rollback.json >/dev/null
+          fi
+
+          # Frontend: bucket, release_prefix, cloudfront_distribution_id,
+          # cloudfront_invalidation_paths
+          if [ "$(jq -r '(.frontend // {}) | length' manifest-rollback.json)" != "0" ]; then
+            jq -e '
+              (.frontend // {}) | to_entries
+              | all(
+                  .value.bucket
+                  and .value.release_prefix
+                  and .value.cloudfront_distribution_id
+                  and .value.cloudfront_invalidation_paths
+                )
+            ' manifest-rollback.json >/dev/null
+          fi
+
+          echo "Manifest validation passed."
+
+      - name: Upload manifest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest
+          path: manifest-rollback.json
+          retention-days: 7
+
+  rollback_ecs:
+    name: Rollback ECS services
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [validate]
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download manifest artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: manifest
+          path: .
+
+      - name: Rollback ECS
+        id: ecs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ECS_COUNT="$(jq -r '(.ecs // {}) | length' manifest-rollback.json)"
+          SUMMARY="ecs-summary.md"
+
+          if [ "$ECS_COUNT" = "0" ]; then
+            echo "- No ECS services in manifest. Skipping." | tee "$SUMMARY"
+            exit 0
+          fi
+
+          echo "ECS Rollback Plan:" > "$SUMMARY"
+
+          jq -r '
+            (.ecs // {}) | to_entries[]
+            | [.key, .value.cluster, .value.task_definition_arn] | @tsv
+          ' manifest-rollback.json \
+          | while IFS=$'\t' read -r svc cluster task_def_arn; do
+              echo "Rolling back ECS service '$svc' in cluster '$cluster' to task definition '$task_def_arn'"
+              aws ecs update-service \
+                --cluster "$cluster" \
+                --service "$svc" \
+                --task-definition "$task_def_arn" >/tmp/ecs-update.json
+
+              # Optional, but safer: wait for stabilization
+              aws ecs wait services-stable \
+                --cluster "$cluster" \
+                --services "$svc"
+
+              echo "- $svc (cluster: $cluster) -> $task_def_arn" >> "$SUMMARY"
+            done
+
+          echo "ECS rollback complete."
+
+      - name: Upload ECS summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ecs-summary
+          path: ecs-summary.md
+          retention-days: 7
+
+  rollback_lambda:
+    name: Rollback Lambda functions
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [validate]
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download manifest artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: manifest
+          path: .
+
+      - name: Rollback Lambda aliases to versions
+        id: lambda
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          L_COUNT="$(jq -r '(.lambda // {}) | length' manifest-rollback.json)"
+          SUMMARY="lambda-summary.md"
+
+          if [ "$L_COUNT" = "0" ]; then
+            echo "- No Lambda functions in manifest. Skipping." | tee "$SUMMARY"
+            exit 0
+          fi
+
+          echo "Lambda Rollback Plan:" > "$SUMMARY"
+
+          jq -r '
+            (.lambda // {}) | to_entries[]
+            | [.key, .value.published_version, .value.alias] | @tsv
+          ' manifest-rollback.json \
+          | while IFS=$'\t' read -r function_name version alias; do
+              echo "Updating Lambda alias '$alias' for '$function_name' to version '$version'"
+              aws lambda update-alias \
+                --function-name "$function_name" \
+                --name "$alias" \
+                --function-version "$version" >/tmp/lambda-update.json
+
+              echo "- $function_name: $alias -> $version" >> "$SUMMARY"
+            done
+
+          echo "Lambda rollback complete."
+
+      - name: Upload Lambda summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-summary
+          path: lambda-summary.md
+          retention-days: 7
+
+  rollback_frontend:
+    name: Rollback Frontend (S3 + CloudFront)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [validate]
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download manifest artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: manifest
+          path: .
+
+      - name: Rollback Frontend
+        id: fe
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          F_COUNT="$(jq -r '(.frontend // {}) | length' manifest-rollback.json)"
+          SUMMARY="frontend-summary.md"
+
+          if [ "$F_COUNT" = "0" ]; then
+            echo "- No Frontend sites in manifest. Skipping." | tee "$SUMMARY"
+            exit 0
+          fi
+
+          echo "Frontend Rollback Plan:" > "$SUMMARY"
+
+          jq -r '
+            (.frontend // {}) | to_entries[]
+            | [
+                .key,
+                .value.bucket,
+                .value.release_prefix,
+                .value.build_output_dir,
+                .value.cloudfront_distribution_id,
+                .value.cloudfront_invalidation_paths
+              ] | @tsv
+          ' manifest-rollback.json \
+          | while IFS=$'\t' read -r site bucket release_prefix \
+                                  build_output_dir dist_id paths; do
+              echo "Rolling back frontend site '$site'"
+              echo "Syncing S3: s3://$bucket/$release_prefix/ -> s3://$bucket/live/"
+              aws s3 sync \
+                "s3://$bucket/$release_prefix/" \
+                "s3://$bucket/live/" \
+                --delete
+
+              # Support multiple invalidation paths (space-separated)
+              read -r -a paths_arr <<< "$paths"
+              echo "Invalidating CloudFront cache for $dist_id (paths: $paths)"
+              INV_OUT="$(aws cloudfront create-invalidation \
+                --distribution-id "$dist_id" \
+                --paths "${paths_arr[@]}")"
+              INV_ID="$(jq -r '.Invalidation.Id' <<< "$INV_OUT")"
+
+              echo "- $site: s3://$bucket/$release_prefix -> live, CF Dist: $dist_id, Invalidation: $INV_ID" >> "$SUMMARY"
+            done
+
+          echo "Frontend rollback complete."
+
+      - name: Upload Frontend summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-summary
+          path: frontend-summary.md
+          retention-days: 7
+
+  finalize:
+    name: Update current manifest and publish summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs:
+      - rollback_ecs
+      - rollback_lambda
+      - rollback_frontend
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download manifest artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: manifest
+          path: .
+
+      - name: Upload current.json manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws s3 cp manifest-rollback.json \
+            "s3://${MANIFEST_BUCKET}/manifests/prod/current.json"
+
+      - name: Download summaries
+        uses: actions/download-artifact@v4
+        with:
+          path: summaries
+
+      - name: Rollback summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Rollback to SHA: ${ROLLBACK_SHA}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -f summaries/ecs-summary/ecs-summary.md ]; then
+            echo "ECS:" >> "$GITHUB_STEP_SUMMARY"
+            cat summaries/ecs-summary/ecs-summary.md \
+              >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ -f summaries/lambda-summary/lambda-summary.md ]; then
+            echo "Lambda:" >> "$GITHUB_STEP_SUMMARY"
+            cat summaries/lambda-summary/lambda-summary.md \
+              >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ -f summaries/frontend-summary/frontend-summary.md ]; then
+            echo "Frontend:" >> "$GITHUB_STEP_SUMMARY"
+            cat summaries/frontend-summary/frontend-summary.md \
+              >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo "Updated current manifest:" >> "$GITHUB_STEP_SUMMARY"
+          echo "- s3://${MANIFEST_BUCKET}/manifests/prod/current.json" \
+            >> "$GITHUB_STEP_SUMMARY"
