@@ -11,18 +11,19 @@ environment = "integration"
 aws_region  = "ap-southeast-1"
 
 # --- Network / ECS ---
-enable_stateful_service_scale_out = false
-enable_multi_az_nat               = false
-enable_nat_gateway                = true
-enable_vpc_flow_logs              = true
-user_desired_count                = 1
-client_desired_count              = 2
-transaction_desired_count         = 1
-ecs_min_capacity                  = 2
-ecs_use_public_subnets            = false
-ecs_assign_public_ip              = false
-enable_ecs_container_insights     = false
-enable_service_discovery          = true
+enable_stateful_service_scale_out  = false
+enable_multi_az_nat                = true
+enable_nat_gateway                 = true
+enable_vpc_flow_logs               = true
+restrict_alb_ingress_to_cloudfront = true
+user_desired_count                 = 1
+client_desired_count               = 2
+transaction_desired_count          = 1
+ecs_min_capacity                   = 2
+ecs_use_public_subnets             = false
+ecs_assign_public_ip               = false
+enable_ecs_container_insights      = false
+enable_service_discovery           = true
 
 # --- Database ---
 db_instance_class                = "db.t4g.micro"

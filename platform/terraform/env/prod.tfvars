@@ -13,10 +13,11 @@ aws_region                     = "ap-southeast-1"
 enforce_strict_prod_guardrails = false # budget-first production bring-up profile
 
 # --- Network ---
-enable_stateful_service_scale_out = false
-enable_multi_az_nat               = false
-enable_nat_gateway                = true
-enable_vpc_flow_logs              = true
+enable_stateful_service_scale_out  = false
+enable_multi_az_nat                = true
+enable_nat_gateway                 = true
+enable_vpc_flow_logs               = true
+restrict_alb_ingress_to_cloudfront = true
 
 # --- ECS ---
 user_desired_count            = 1
