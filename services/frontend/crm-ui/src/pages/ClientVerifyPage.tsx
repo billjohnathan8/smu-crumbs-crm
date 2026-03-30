@@ -41,8 +41,9 @@ export function ClientVerifyPage() {
 
   useEffect(() => {
     try {
-      const qp = new URLSearchParams(window.location.search)
-      const jwt = qp.get('token')
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+      const queryParams = new URLSearchParams(window.location.search)
+      const jwt = hashParams.get('token') || queryParams.get('token')
       if (!jwt) {
         setAuthState('unauthenticated')
         return
@@ -73,6 +74,7 @@ export function ClientVerifyPage() {
       setToken(jwt)
       setClientId(payload.clientId)
       setAuthState('valid')
+      window.history.replaceState(null, '', window.location.pathname)
     } catch {
       setAuthState('unauthenticated')
     }
@@ -129,16 +131,20 @@ export function ClientVerifyPage() {
         addressDocumentMimeType: proofOfAddress.file!.type,
       }
 
-      await uploadVerificationDocs(clientId, body)
+      const idempotencyKey =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      await uploadVerificationDocs(clientId, body, idempotencyKey)
       setMessage({
         type: 'success',
         text: 'Documents uploaded and verification requested. Thank you.',
       })
     } catch (error) {
       if (error instanceof ApiError) {
-        setMessage({ type: 'error', text: error.message || 'Upload failed. Please try again.' })
+        setMessage({ type: 'error', text: 'Upload failed. Please request a new verification link.' })
       } else {
-        setMessage({ type: 'error', text: 'Upload failed. Please try again.' })
+        setMessage({ type: 'error', text: 'Upload failed. Please request a new verification link.' })
       }
     } finally {
       setIsLoading(false)
@@ -246,7 +252,7 @@ export function ClientVerifyPage() {
                 <select
                   value={primaryId.docType}
                   onChange={e =>
-                    setPrimaryId(prev => ({ ...prev, docType: e.target.value, nric: '' }))
+                    setPrimaryId(prev => ({ ...prev, docType: e.target.value }))
                   }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   disabled={isLoading}
