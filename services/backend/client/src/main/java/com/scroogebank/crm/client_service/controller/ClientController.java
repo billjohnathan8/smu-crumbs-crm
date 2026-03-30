@@ -12,6 +12,9 @@ import com.scroogebank.crm.client_service.security.RequestAuth;
 import com.scroogebank.crm.client_service.service.ClientService;
 import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Instant;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,6 +23,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -31,8 +35,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/clients")
 public class ClientController {
+	private static final int MAX_UPLOAD_ATTEMPTS_PER_MINUTE = 8;
+	private static final long UPLOAD_RATE_WINDOW_SECONDS = 60;
+	private static final long IDEMPOTENCY_TTL_SECONDS = 300;
+
 	private final ClientService clientService;
 	private final RequestAuth requestAuth;
+	private final ConcurrentMap<String, AttemptWindow> uploadAttemptsByClientAndIp = new ConcurrentHashMap<>();
+	private final ConcurrentMap<String, Long> idempotencyKeysByClientAndKey = new ConcurrentHashMap<>();
 
 	public ClientController(ClientService clientService, RequestAuth requestAuth) {
 		this.clientService = clientService;
@@ -139,8 +149,10 @@ public class ClientController {
 	public VerifyClientResponse uploadVerificationDocs(
 		HttpServletRequest httpRequest,
 		@PathVariable("id") String clientId,
+		@RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
 		@Valid @RequestBody UploadVerificationDocsRequest request
 	) {
+		enforceUploadAbuseControls(httpRequest, clientId, idempotencyKey);
 		return clientService.uploadVerificationDocs(clientId, request, requestId(httpRequest));
 	}
 
@@ -173,4 +185,53 @@ public class ClientController {
 		Object value = request.getAttribute("requestId");
 		return value == null ? null : value.toString();
 	}
+
+	private void enforceUploadAbuseControls(HttpServletRequest request, String clientId, String idempotencyKey) {
+		long now = Instant.now().getEpochSecond();
+		evictExpired(now);
+
+		String ip = requestClientIp(request);
+		String rateKey = clientId + "|" + ip;
+		AttemptWindow window = uploadAttemptsByClientAndIp.compute(rateKey, (_key, current) -> {
+			if (current == null || now - current.windowStartEpochSeconds() >= UPLOAD_RATE_WINDOW_SECONDS) {
+				return new AttemptWindow(now, 1);
+			}
+			return new AttemptWindow(current.windowStartEpochSeconds(), current.attemptCount() + 1);
+		});
+		if (window.attemptCount() > MAX_UPLOAD_ATTEMPTS_PER_MINUTE) {
+			throw new IllegalStateException("Too many requests");
+		}
+
+		if (idempotencyKey == null || idempotencyKey.isBlank()) {
+			return;
+		}
+		String trimmedKey = idempotencyKey.trim();
+		if (trimmedKey.length() > 160) {
+			throw new IllegalArgumentException("Invalid request");
+		}
+		String idempotencyMapKey = clientId + "|" + trimmedKey;
+		Long previous = idempotencyKeysByClientAndKey.putIfAbsent(idempotencyMapKey, now + IDEMPOTENCY_TTL_SECONDS);
+		if (previous != null) {
+			throw new IllegalStateException("Duplicate submission");
+		}
+	}
+
+	private void evictExpired(long nowEpochSeconds) {
+		uploadAttemptsByClientAndIp.entrySet()
+			.removeIf(entry -> nowEpochSeconds - entry.getValue().windowStartEpochSeconds() >= UPLOAD_RATE_WINDOW_SECONDS);
+		idempotencyKeysByClientAndKey.entrySet()
+			.removeIf(entry -> entry.getValue() <= nowEpochSeconds);
+	}
+
+	private static String requestClientIp(HttpServletRequest request) {
+		String forwarded = request.getHeader("X-Forwarded-For");
+		if (forwarded != null && !forwarded.isBlank()) {
+			String[] parts = forwarded.split(",", 2);
+			return parts[0].trim();
+		}
+		String direct = request.getRemoteAddr();
+		return direct == null ? "unknown" : direct;
+	}
+
+	private record AttemptWindow(long windowStartEpochSeconds, int attemptCount) {}
 }

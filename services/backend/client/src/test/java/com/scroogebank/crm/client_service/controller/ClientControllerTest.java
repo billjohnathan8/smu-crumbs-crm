@@ -289,5 +289,48 @@ class ClientControllerTest {
             .content(uploadVerificationDocsRequestJson("bad-token")))
         .andExpect(status().isUnauthorized());
     }
-}
 
+    @Test
+    void uploadVerificationDocs_invalidMimeType_returnsBadRequest() throws Exception {
+        String payload = uploadVerificationDocsRequestJson("valid-token")
+            .replace("\"image/jpeg\"", "\"text/plain\"");
+
+        mockMvc.perform(post("/api/clients/clt_1/upload-verify")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(payload))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value("validation_error"));
+    }
+
+    @Test
+    void uploadVerificationDocs_overPostingField_returnsBadRequest() throws Exception {
+        String payload = uploadVerificationDocsRequestJson("valid-token")
+            .replace("\"verificationToken\": \"valid-token\"",
+                "\"verificationToken\": \"valid-token\", \"extraField\": \"x\"");
+
+        mockMvc.perform(post("/api/clients/clt_1/upload-verify")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(payload))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value("validation_error"));
+    }
+
+    @Test
+    void uploadVerificationDocs_duplicateIdempotencyKey_returnsConflict() throws Exception {
+        when(clientService.uploadVerificationDocs(eq("clt_1"), any(), any()))
+            .thenReturn(new VerifyClientResponse("clt_1", IdentityVerificationStatus.pending));
+
+        mockMvc.perform(post("/api/clients/clt_1/upload-verify")
+            .header("Idempotency-Key", "dup-key")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(uploadVerificationDocsRequestJson("valid-token")))
+        .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/clients/clt_1/upload-verify")
+            .header("Idempotency-Key", "dup-key")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(uploadVerificationDocsRequestJson("valid-token")))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.error").value("conflict"));
+    }
+}

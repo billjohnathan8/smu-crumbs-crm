@@ -173,7 +173,7 @@ class ClientsServiceIT {
 			  "verificationToken": "%s",
 			  "primaryDocumentType": "NRIC",
 			  "primaryDocumentRef": "primary-id.jpg",
-			  "primaryDocumentBase64": "cHJpbWFyeS1kb2M=",
+			  "primaryDocumentBase64": "/9j/ABEi",
 			  "primaryDocumentMimeType": "image/jpeg",
 			  "addressDocumentType": "UTILITY_BILL",
 			  "addressDocumentRef": "proof-of-address.pdf",
@@ -440,5 +440,6 @@ class ClientsServiceIT {
 		assertThat(requiredText(persisted, "identityVerificationStatus")).isEqualTo("unverified");
 	}
 }
+
 
 

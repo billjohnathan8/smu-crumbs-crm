@@ -43,7 +43,7 @@ import static org.mockito.Mockito.when;
  */
 @ExtendWith(MockitoExtension.class)
 class ClientServiceImplTest {
-	private static final long DEFAULT_VERIFICATION_LINK_TTL_SECONDS = 7200L;
+	private static final long DEFAULT_VERIFICATION_LINK_TTL_SECONDS = 900L;
 
 	@Mock
 	private ClientRepository clientRepository;
@@ -604,7 +604,7 @@ class ClientServiceImplTest {
 	void uploadVerificationDocs_tokenValid_uploadsBothDocumentsToS3() {
 		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
-		when(verificationTokenService.isValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(verificationTokenService.consumeIfValid("clt_7", "valid-token-abc")).thenReturn(true);
 		when(documentStorageService.upload(eq("clt_7"), eq("primary"), any(), any(), any()))
 			.thenReturn("clients/clt_7/primary/nric_front.jpg");
 		when(documentStorageService.upload(eq("clt_7"), eq("address"), any(), any(), any()))
@@ -625,7 +625,7 @@ class ClientServiceImplTest {
 	void uploadVerificationDocs_tokenValid_persistsS3KeysAndSetsPending() {
 		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
-		when(verificationTokenService.isValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(verificationTokenService.consumeIfValid("clt_7", "valid-token-abc")).thenReturn(true);
 		when(documentStorageService.upload(eq("clt_7"), eq("primary"), any(), any(), any()))
 			.thenReturn("clients/clt_7/primary/nric_front.jpg");
 		when(documentStorageService.upload(eq("clt_7"), eq("address"), any(), any(), any()))
@@ -649,7 +649,7 @@ class ClientServiceImplTest {
 	void uploadVerificationDocs_tokenValid_returnsClientIdAndPendingStatus() {
 		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
-		when(verificationTokenService.isValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(verificationTokenService.consumeIfValid("clt_7", "valid-token-abc")).thenReturn(true);
 		when(documentStorageService.upload(any(), any(), any(), any(), any())).thenReturn("s3-key");
 		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -662,25 +662,18 @@ class ClientServiceImplTest {
 	}
 
 	@Test
-	void uploadVerificationDocs_pendingStatus_allowsReplacementUploadAndKeepsPending() {
+	void uploadVerificationDocs_pendingStatus_rejectsDuplicateSubmission() {
 		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
 		entity.setIdentityVerificationStatus(IdentityVerificationStatus.pending);
-		entity.setPrimaryDocumentRef("clients/clt_7/primary/old-primary.jpg");
-		entity.setAddressDocumentRef("clients/clt_7/address/old-address.pdf");
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
-		when(verificationTokenService.isValid("clt_7", "valid-token-abc")).thenReturn(true);
-		when(documentStorageService.upload(eq("clt_7"), eq("primary"), any(), any(), any()))
-			.thenReturn("clients/clt_7/primary/new-primary.jpg");
-		when(documentStorageService.upload(eq("clt_7"), eq("address"), any(), any(), any()))
-			.thenReturn("clients/clt_7/address/new-address.pdf");
-		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+		when(verificationTokenService.consumeIfValid("clt_7", "valid-token-abc")).thenReturn(true);
 
-		var response = clientService.uploadVerificationDocs("clt_7", validUploadRequest("valid-token-abc"), "req-1");
+		assertThatThrownBy(() ->
+			clientService.uploadVerificationDocs("clt_7", validUploadRequest("valid-token-abc"), "req-1")
+		).isInstanceOf(IllegalStateException.class);
 
-		assertThat(response.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.pending);
-		verify(clientRepository).save(entity);
-		assertThat(entity.getPrimaryDocumentRef()).isEqualTo("clients/clt_7/primary/new-primary.jpg");
-		assertThat(entity.getAddressDocumentRef()).isEqualTo("clients/clt_7/address/new-address.pdf");
+		verify(documentStorageService, never()).upload(any(), any(), any(), any(), any());
+		verify(clientRepository, never()).save(any());
 	}
 
 	@Test
@@ -688,13 +681,13 @@ class ClientServiceImplTest {
 		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
 		entity.setIdentityVerificationStatus(IdentityVerificationStatus.verified);
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
-		when(verificationTokenService.isValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(verificationTokenService.consumeIfValid("clt_7", "valid-token-abc")).thenReturn(true);
 
 		assertThatThrownBy(() ->
 			clientService.uploadVerificationDocs("clt_7", validUploadRequest("valid-token-abc"), "req-1")
 		)
 			.isInstanceOf(IllegalStateException.class)
-			.hasMessageContaining("not allowed after review decision");
+			.hasMessageContaining("not allowed");
 
 		verify(documentStorageService, never()).upload(any(), any(), any(), any(), any());
 		verify(clientRepository, never()).save(any());
@@ -705,7 +698,7 @@ class ClientServiceImplTest {
 		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
 		entity.setIdentityVerificationStatus(IdentityVerificationStatus.rejected);
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
-		when(verificationTokenService.isValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(verificationTokenService.consumeIfValid("clt_7", "valid-token-abc")).thenReturn(true);
 
 		assertThatThrownBy(() ->
 			clientService.uploadVerificationDocs("clt_7", validUploadRequest("valid-token-abc"), "req-1")
@@ -717,7 +710,7 @@ class ClientServiceImplTest {
 
 	@Test
 	void uploadVerificationDocs_tokenInvalid_throwsUnauthorizedException() {
-		when(verificationTokenService.isValid("clt_7", "bad-token")).thenReturn(false);
+		when(verificationTokenService.consumeIfValid("clt_7", "bad-token")).thenReturn(false);
 
 		assertThatThrownBy(() ->
 			clientService.uploadVerificationDocs("clt_7", validUploadRequest("bad-token"), "req-1")
@@ -727,3 +720,4 @@ class ClientServiceImplTest {
 		verify(clientRepository, never()).save(any());
 	}
 }
+
