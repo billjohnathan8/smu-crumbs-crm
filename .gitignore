@@ -137,6 +137,9 @@ build-logs/migration-validation/
 /build-logs/
 test-results/
 
+# AWS Inventory
+aws/*
+
 # Local CI-generated Terraform artifact zips
 .ci-artifacts/
 
