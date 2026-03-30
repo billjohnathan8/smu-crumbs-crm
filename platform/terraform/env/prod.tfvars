@@ -20,16 +20,17 @@ enable_vpc_flow_logs               = true
 restrict_alb_ingress_to_cloudfront = true
 
 # --- ECS ---
-user_desired_count            = 1
-client_desired_count          = 2
-transaction_desired_count     = 1
-ecs_min_capacity              = 2
-ecs_max_capacity              = 2
-ecs_task_cpu                  = 512
-ecs_task_memory               = 1024
-ecs_use_public_subnets        = false
-ecs_assign_public_ip          = false
-enable_ecs_container_insights = false
+user_desired_count                = 1
+client_desired_count              = 2
+transaction_desired_count         = 1
+ecs_min_capacity                  = 2
+ecs_max_capacity                  = 2
+ecs_task_cpu                      = 512
+ecs_task_memory                   = 1024
+ecs_production_like_ha_task_floor = 2
+ecs_use_public_subnets            = false
+ecs_assign_public_ip              = false
+enable_ecs_container_insights     = false
 
 # --- Database ---
 db_instance_class                = "db.t4g.micro" # school budget baseline

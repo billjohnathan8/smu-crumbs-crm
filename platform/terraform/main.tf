@@ -310,6 +310,7 @@ module "ecs" {
   ecs_max_capacity                                = var.ecs_max_capacity
   ecs_target_cpu_utilization                      = var.ecs_target_cpu_utilization
   ecs_target_memory_utilization                   = var.ecs_target_memory_utilization
+  production_like_ha_task_floor                   = var.ecs_production_like_ha_task_floor
   enable_stateful_service_scale_out               = var.enable_stateful_service_scale_out
   enable_service_discovery                        = var.enable_service_discovery
   alb_dns_name                                    = module.alb.alb_dns_name

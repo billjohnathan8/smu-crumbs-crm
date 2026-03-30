@@ -132,6 +132,12 @@ variable "ecs_target_memory_utilization" {
   type        = number
 }
 
+variable "production_like_ha_task_floor" {
+  description = "Minimum desired task count enforced for critical customer-facing services in production-like environments."
+  type        = number
+  default     = 2
+}
+
 variable "ecs_task_execution_role_arn" {
   description = "Execution role ARN used by ECS task definitions."
   type        = string

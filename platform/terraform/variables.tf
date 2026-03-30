@@ -172,6 +172,12 @@ variable "ecs_target_memory_utilization" {
   default     = 75
 }
 
+variable "ecs_production_like_ha_task_floor" {
+  description = "Minimum desired task count enforced for user/client/transaction in production-like environments."
+  type        = number
+  default     = 2
+}
+
 variable "ecs_use_public_subnets" {
   description = "Run ECS services in public subnets instead of private subnets. Useful for low-cost lab deployments when NAT Gateways are disabled."
   type        = bool
@@ -973,6 +979,11 @@ variable "backup_retention_days" {
 }
 
 check "stateful_service_scale_out_guardrails" {
+  assert {
+    condition     = var.ecs_production_like_ha_task_floor >= 1
+    error_message = "ecs_production_like_ha_task_floor must be at least 1."
+  }
+
   assert {
     condition     = var.enable_stateful_service_scale_out || var.user_desired_count == 1
     error_message = "user_desired_count must be 1 unless enable_stateful_service_scale_out is true."
