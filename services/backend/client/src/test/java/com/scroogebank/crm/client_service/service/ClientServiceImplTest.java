@@ -690,7 +690,6 @@ class ClientServiceImplTest {
 		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
 		entity.setIdentityVerificationStatus(IdentityVerificationStatus.verified);
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
-		when(verificationTokenService.consumeIfValid("clt_7", "valid-token-abc")).thenReturn(true);
 
 		assertThatThrownBy(() ->
 			clientService.uploadVerificationDocs("clt_7", validUploadRequest("valid-token-abc"), "req-1")
@@ -707,7 +706,6 @@ class ClientServiceImplTest {
 		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
 		entity.setIdentityVerificationStatus(IdentityVerificationStatus.rejected);
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
-		when(verificationTokenService.consumeIfValid("clt_7", "valid-token-abc")).thenReturn(true);
 
 		assertThatThrownBy(() ->
 			clientService.uploadVerificationDocs("clt_7", validUploadRequest("valid-token-abc"), "req-1")
@@ -719,6 +717,9 @@ class ClientServiceImplTest {
 
 	@Test
 	void uploadVerificationDocs_tokenInvalid_throwsUnauthorizedException() {
+		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
+		entity.setIdentityVerificationStatus(IdentityVerificationStatus.pending);
+		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
 		when(verificationTokenService.consumeIfValid("clt_7", "bad-token")).thenReturn(false);
 
 		assertThatThrownBy(() ->
