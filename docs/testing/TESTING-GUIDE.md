@@ -108,14 +108,14 @@ This ordering provides fast feedback on code quality before running expensive in
 
 ### Runtime Baseline (Latest Local Runs)
 
-Runtime numbers from the latest build logs on `2026-03-29`.
+Runtime numbers from the latest build logs on `2026-03-30`.
 
 | Command | Observed Runtime | Result |
 |---|---:|---|
-| `python scripts/pipelines/test_all.py` | ~48m 24s | ✅ Passed |
-| Fullstack integration (Layer 6) | ~9m 17s | ✅ Passed |
-| Frontend Latency Tests (Layer 5) | ~2m 18s | ✅ Passed |
-| JMeter stress test (Layer 7) | ~14m 26s | ✅ Passed |
+| `python scripts/pipelines/test_all.py` | ~56m 50s | ✅ Passed |
+| Fullstack integration (Layer 6) | ~16m 03s | ✅ Passed |
+| Frontend Latency Tests (Layer 5) | ~2m 11s | ✅ Passed |
+| JMeter stress test (Layer 7) | ~14m 39s | ✅ Passed |
 
 **Detailed timings:** `build-logs/test-all/last-run-summary.md`
 

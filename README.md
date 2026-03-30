@@ -76,20 +76,20 @@ make terraform-graph
 
 Alternatively, use Brainboard.
 
-# Local/CI Runtime Snapshot (2026-03-29)
+# Local/CI Runtime Snapshot (2026-03-30)
 Measured on this repository's latest local run. Use as planning guidance, not an SLA.
 
 | Command | Observed runtime | Source log |
 |---|---:|---|
-| `python scripts/pipelines/test_all.py` | `2903.9s` (~48m 24s) | `build-logs/test-all/last-run-summary.md` |
-| `test_all.py` Layer 6 (`Fullstack integration (full)`) | `556.5s` (~9m 17s) | `build-logs/test-all/last-run-summary.md` |
-| `test_all.py` Layer 5 (`Frontend Latency Tests`) | `137.5s` (~2m 18s) | `build-logs/test-all/last-run-summary.md` |
-| `test_all.py` Layer 7 (`Performance test (stress)`) | `866.5s` (~14m 26s) | `build-logs/test-all/last-run-summary.md` |
+| `python scripts/pipelines/test_all.py` | `3410.1s` (~56m 50s) | `build-logs/test-all/last-run-summary.md` |
+| `test_all.py` Layer 6 (`Fullstack integration (full)`) | `962.7s` (~16m 03s) | `build-logs/test-all/last-run-summary.md` |
+| `test_all.py` Layer 5 (`Frontend Latency Tests`) | `131.1s` (~2m 11s) | `build-logs/test-all/last-run-summary.md` |
+| `test_all.py` Layer 7 (`Performance test (stress)`) | `879.3s` (~14m 39s) | `build-logs/test-all/last-run-summary.md` |
 
 Notes:
-- Latest `test_all.py` run passed all layers (`ok: true`).
-- Latest fullstack integration run passed: `[PASS] Fullstack integration (full) (556.5s)`.
-- Full per-step timings for all layers are in `build-logs/test-all/last-run-summary.md` (total: `2903.9s`).
+- Latest `test_all.py` run passed all recorded steps.
+- Latest fullstack integration run passed: `[PASS] Fullstack integration (full) (962.7s)`.
+- Full per-step timings for all layers are in `build-logs/test-all/last-run-summary.md` (total: `3410.1s`).
 - Runtime varies with Docker cache, dependency cache, and LocalStack/container startup conditions.
 
 # Transaction Ingestion
