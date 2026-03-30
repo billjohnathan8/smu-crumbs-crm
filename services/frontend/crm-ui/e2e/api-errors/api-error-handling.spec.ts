@@ -3,8 +3,10 @@ import { setAuthState } from '../helpers/auth'
 import { uniqueEmail } from '../helpers/testData'
 
 test.describe('API Error Handling (Flow 10)', () => {
-  test.beforeEach(async ({ context }) => {
+  test.beforeEach(async ({ page, context }) => {
     await context.clearCookies()
+    // Clear all route handlers to prevent accumulation across tests.
+    await page.unrouteAll({ behavior: 'ignoreErrors' })
   })
 
   test('should handle 401 Unauthorized and redirect to login', async ({ page }) => {

@@ -32,10 +32,14 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
 
   test.beforeEach(async ({ page, context }) => {
     await context.clearCookies();
+    // Clear all route handlers to prevent accumulation across tests
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
     // Install default API mocks before first navigation to avoid Vite proxy noise.
     await setupAgentRoutes(page);
     await gotoWithNetworkRetry(page, "/login");
     await setAuthState(page, "user");
+    // Remove default mocks after auth bootstrap. Each test registers its own API route.
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
   });
 
   test("should filter transactions by status", async ({ page }) => {

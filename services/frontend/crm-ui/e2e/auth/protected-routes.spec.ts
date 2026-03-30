@@ -102,6 +102,8 @@ async function setupRoleApiMocks(page: Page, role: "admin" | "user") {
 test.describe("Protected Routes (Mocked)", () => {
   test.beforeEach(async ({ page, context }) => {
     await context.clearCookies();
+    // Clear all route handlers to prevent accumulation across tests.
+    await page.unrouteAll({ behavior: "ignoreErrors" });
     await gotoWithNetworkRetry(page, "/login");
     await page.evaluate(() => {
       localStorage.clear();
