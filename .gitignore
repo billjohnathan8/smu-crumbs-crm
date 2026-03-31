@@ -61,6 +61,7 @@ platform/terraform/plan.json
 platform/terraform/lab-outputs.json
 tf-import/*
 platform/terraform/.infracost/*
+platform/terraform/.trivy/
 
 # Generated infrastructure diagrams
 docs/infrastructure/generated/*
