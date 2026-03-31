@@ -14,3 +14,5 @@ app:
     root: ./mock-sftp
   transactions-store:
     type: in-memory
+  cors:
+    allowed-origins: '*'

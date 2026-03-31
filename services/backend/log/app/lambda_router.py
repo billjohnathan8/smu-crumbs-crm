@@ -1,4 +1,4 @@
-﻿"""Direct AWS Lambda event router for log-service APIs."""
+"""Direct AWS Lambda event router for log-service APIs."""
 
 from __future__ import annotations
 
@@ -49,6 +49,7 @@ _PROVIDER_STATUS_PATTERN = re.compile(
 _CLIENT_COMMUNICATIONS_PATTERN = re.compile(
     r"^/api/clients/(?P<clientId>[^/]+)/communications$"
 )
+_PUBLIC_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 
 _JSON_CONTENT_TYPE = "application/json"
 _REQUEST_ID_HEADER = "X-Request-Id"
@@ -344,7 +345,17 @@ class LambdaRouter:
         )
 
     def handle(self, event: dict[str, Any]) -> dict[str, Any]:
-        request = normalize_event(event)
+        try:
+            request = normalize_event(event)
+        except ValueError as exc:
+            request_headers = _normalize_headers(event.get("headers"))
+            request_id = request_headers.get(_LOWER_REQUEST_ID_HEADER) or str(uuid.uuid4())
+            return _error_response(
+                request_id,
+                400,
+                "validation_error",
+                str(exc),
+            )
 
         try:
             routed = self._route(request)
@@ -531,6 +542,11 @@ class LambdaRouter:
     def _encode_prefixed_id(prefix: str, value: int) -> str:
         return f"{prefix}{value}"
 
+    @staticmethod
+    def _require_public_id(value: str, field_name: str) -> None:
+        if not _PUBLIC_ID_PATTERN.fullmatch(value):
+            raise ValueError(f"invalid {field_name}")
+
     def _to_log_entry(self, row: dict[str, Any]) -> dict[str, Any]:
         payload = LogEntry(
             logId=self._encode_prefixed_id("log_", int(row["id"])),
@@ -680,6 +696,7 @@ class LambdaRouter:
         request: NormalizedRequest,
         client_id: str,
     ) -> RoutedResponse:
+        self._require_public_id(client_id, "clientId")
         user = self._require_user(request)
         require_roles(user, {"admin", "user"})
 
@@ -862,6 +879,7 @@ class LambdaRouter:
         request: NormalizedRequest,
         client_id: str,
     ) -> RoutedResponse:
+        self._require_public_id(client_id, "clientId")
         user = self._require_user(request)
         require_roles(user, {"admin", "user"})
 

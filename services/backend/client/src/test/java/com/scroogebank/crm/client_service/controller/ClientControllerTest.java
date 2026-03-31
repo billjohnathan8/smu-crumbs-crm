@@ -22,6 +22,8 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -64,7 +66,7 @@ class ClientControllerTest {
 			.build();
 
         mockMvc = MockMvcBuilders.standaloneSetup(new ClientController(clientService, requestAuth))
-            .setControllerAdvice(new ApiExceptionHandler())
+            .setControllerAdvice(new ApiExceptionHandler(false))
         	.setMessageConverters(new JacksonJsonHttpMessageConverter(objectMapper))
             .build();
     }
@@ -218,6 +220,86 @@ class ClientControllerTest {
             .andExpect(jsonPath("$.error").value("validation_error"))
             .andExpect(jsonPath("$.message").value("Invalid request body"));
     }
+
+	@ParameterizedTest
+	@ValueSource(strings = {
+		"' OR '1'='1",
+		"Robert'); DROP TABLE clients; --",
+		"\" OR \"1\"=\"1"
+	})
+	void createClient_adversarialFirstName_returnsBadRequest(String firstNamePayload) throws Exception {
+		String payload = """
+			{
+			  "firstName": "%s",
+			  "lastName": "Taylor",
+			  "dateOfBirth": "1990-01-15",
+			  "gender": "Male",
+			  "emailAddress": "jordan.taylor@example.com",
+			  "phoneNumber": "+15551234567",
+			  "address": "123 Main Street",
+			  "city": "Springfield",
+			  "state": "Illinois",
+			  "country": "United States",
+			  "postalCode": "62704"
+			}
+			""".formatted(firstNamePayload.replace("\"", "\\\""));
+
+		mockMvc.perform(post("/api/clients")
+				.header("Authorization", AUTH_HEADER)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(payload))
+			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void createClient_wrongTypeFirstName_returnsBadRequest() throws Exception {
+		String payload = """
+			{
+			  "firstName": 123,
+			  "lastName": "Taylor",
+			  "dateOfBirth": "1990-01-15",
+			  "gender": "Male",
+			  "emailAddress": "jordan.taylor@example.com",
+			  "phoneNumber": "+15551234567",
+			  "address": "123 Main Street",
+			  "city": "Springfield",
+			  "state": "Illinois",
+			  "country": "United States",
+			  "postalCode": "62704"
+			}
+			""";
+
+		mockMvc.perform(post("/api/clients")
+				.header("Authorization", AUTH_HEADER)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(payload))
+			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void createClient_oversizedFirstName_returnsBadRequest() throws Exception {
+		String payload = """
+			{
+			  "firstName": "%s",
+			  "lastName": "Taylor",
+			  "dateOfBirth": "1990-01-15",
+			  "gender": "Male",
+			  "emailAddress": "jordan.taylor@example.com",
+			  "phoneNumber": "+15551234567",
+			  "address": "123 Main Street",
+			  "city": "Springfield",
+			  "state": "Illinois",
+			  "country": "United States",
+			  "postalCode": "62704"
+			}
+			""".formatted("A".repeat(500));
+
+		mockMvc.perform(post("/api/clients")
+				.header("Authorization", AUTH_HEADER)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(payload))
+			.andExpect(status().isBadRequest());
+	}
 
     @Test
     void getClient_returnsClient() throws Exception {

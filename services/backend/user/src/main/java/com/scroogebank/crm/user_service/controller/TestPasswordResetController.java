@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Test-only controller that exposes password reset tokens for local/test E2E workflows.
  */
 @RestController
-@Profile({"local", "test"})
+@Profile({"local", "test", "dev"})
 @RequestMapping("/api/test/password-reset")
 public class TestPasswordResetController {
 

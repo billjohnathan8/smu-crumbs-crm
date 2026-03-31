@@ -8,11 +8,16 @@ import com.scroogebank.crm.user_service.dto.UsersListResponse;
 import com.scroogebank.crm.user_service.security.AuthenticatedUser;
 import com.scroogebank.crm.user_service.security.RequestAuth;
 import com.scroogebank.crm.user_service.service.UserAccountService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +40,15 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 @RestController
 @Validated
 @RequestMapping("/api/users")
+@Tag(name = "Users")
+@SecurityRequirement(name = "bearerAuth")
+@ApiResponses({
+	@ApiResponse(responseCode = "400", description = "Validation failed"),
+	@ApiResponse(responseCode = "401", description = "Unauthorized"),
+	@ApiResponse(responseCode = "403", description = "Forbidden"),
+	@ApiResponse(responseCode = "404", description = "Not found"),
+	@ApiResponse(responseCode = "500", description = "Internal error")
+})
 public class UserController {
 	private final UserAccountService userAccountService;
 	private final RequestAuth requestAuth;
@@ -53,6 +67,7 @@ public class UserController {
 	 */
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
+	@Operation(summary = "Create user")
 	public UserDto createUser(HttpServletRequest request, @Valid @RequestBody CreateUserRequest body) {
 		AuthenticatedUser requester = requestAuth.requireUser(request);
 		return userAccountService.createUser(body, requester);
@@ -68,6 +83,7 @@ public class UserController {
 	 * @return paginated list of users
 	 */
 	@GetMapping
+	@Operation(summary = "List users")
 	public UsersListResponse listUsers(
 		HttpServletRequest request,
 		@RequestParam(defaultValue = "50") @Min(1) @Max(200) int limit,
@@ -89,7 +105,8 @@ public class UserController {
 	 * @return matching user
 	 */
 	@GetMapping("/{userId}")
-	public UserDto getUser(HttpServletRequest request, @PathVariable String userId) {
+	@Operation(summary = "Get user by id")
+	public UserDto getUser(HttpServletRequest request, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String userId) {
 		AuthenticatedUser requester = requestAuth.requireUser(request);
 		return userAccountService.getUser(userId, requester);
 	}
@@ -101,6 +118,7 @@ public class UserController {
 	 * @return current user profile
 	 */
 	@GetMapping("/me")
+	@Operation(summary = "Get current authenticated user")
 	public UserDto me(HttpServletRequest request) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		return userAccountService.getUser(user.userId(), user);
@@ -115,9 +133,10 @@ public class UserController {
 	 * @return updated user
 	 */
 	@PutMapping("/{userId}")
+	@Operation(summary = "Update user")
 	public UserDto updateUser(
 		HttpServletRequest request,
-		@PathVariable String userId,
+		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String userId,
 		@Valid @RequestBody UpdateUserRequest body
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
@@ -132,7 +151,8 @@ public class UserController {
 	 */
 	@DeleteMapping("/{userId}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
-	public void deleteUser(HttpServletRequest request, @PathVariable String userId) {
+	@Operation(summary = "Delete user")
+	public void deleteUser(HttpServletRequest request, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String userId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		userAccountService.deleteUser(userId, user);
 	}
@@ -145,7 +165,8 @@ public class UserController {
 	 * @return updated user
 	 */
 	@PostMapping("/{userId}/disable")
-	public UserDto disableUser(HttpServletRequest request, @PathVariable String userId) {
+	@Operation(summary = "Disable user")
+	public UserDto disableUser(HttpServletRequest request, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String userId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		return userAccountService.disableUser(userId, user);
 	}
@@ -159,9 +180,10 @@ public class UserController {
 	 * @return accepted response
 	 */
 	@PostMapping("/{userId}/reset-password")
+	@Operation(summary = "Reset user password")
 	public ResponseEntity<Void> resetPassword(
 		HttpServletRequest request,
-		@PathVariable String userId,
+		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String userId,
 		@Valid @RequestBody(required = false) ResetPasswordRequest body
 	) {
 		AuthenticatedUser requester = requestAuth.requireUser(request);
