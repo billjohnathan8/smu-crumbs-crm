@@ -14,7 +14,7 @@ enforce_strict_prod_guardrails = false # budget-first production bring-up profil
 
 # --- Network ---
 enable_stateful_service_scale_out  = false
-enable_multi_az_nat                = false
+enable_multi_az_nat                = true
 enable_nat_gateway                 = true
 enable_vpc_flow_logs               = true
 restrict_alb_ingress_to_cloudfront = true
@@ -34,7 +34,7 @@ enable_ecs_container_insights     = false
 
 # --- Database ---
 db_instance_class                = "db.t4g.micro" # school budget baseline
-db_multi_az                      = false
+db_multi_az                      = true
 db_backup_retention_days         = 1
 db_skip_final_snapshot           = true
 db_deletion_protection           = false
