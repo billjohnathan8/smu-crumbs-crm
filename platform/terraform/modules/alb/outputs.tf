@@ -29,7 +29,7 @@ output "target_group_green_names" {
 
 output "primary_listener_arn" {
   description = "Primary ALB listener ARN used for production traffic."
-  value       = var.use_custom_domain ? aws_lb_listener.https[0].arn : aws_lb_listener.http.arn
+  value       = aws_lb_listener.https[0].arn
 }
 
 output "alb_arn_suffix" {

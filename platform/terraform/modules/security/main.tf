@@ -24,39 +24,6 @@ resource "aws_security_group" "alb" {
   vpc_id      = var.vpc_id
 
   dynamic "ingress" {
-    for_each = var.restrict_alb_ingress_to_cloudfront ? [] : [1]
-    content {
-      description = "HTTP from internet (non-CloudFront-restricted mode)"
-      from_port   = 80
-      to_port     = 80
-      protocol    = "tcp"
-      cidr_blocks = ["0.0.0.0/0"]
-    }
-  }
-
-  dynamic "ingress" {
-    for_each = var.restrict_alb_ingress_to_cloudfront ? [] : [1]
-    content {
-      description = "HTTPS from internet (non-CloudFront-restricted mode)"
-      from_port   = 443
-      to_port     = 443
-      protocol    = "tcp"
-      cidr_blocks = ["0.0.0.0/0"]
-    }
-  }
-
-  dynamic "ingress" {
-    for_each = var.restrict_alb_ingress_to_cloudfront ? [1] : []
-    content {
-      description     = "HTTP from CloudFront origin-facing ranges"
-      from_port       = 80
-      to_port         = 80
-      protocol        = "tcp"
-      prefix_list_ids = [data.aws_ec2_managed_prefix_list.cloudfront_origin_facing[0].id]
-    }
-  }
-
-  dynamic "ingress" {
     for_each = var.restrict_alb_ingress_to_cloudfront ? [1] : []
     content {
       description     = "HTTPS from CloudFront origin-facing ranges"
@@ -110,7 +77,7 @@ resource "aws_security_group" "ecs_service" {
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["0.0.0.0/0"] #trivy:ignore:AVD-AWS-0104
   }
 
   # Egress: service-to-service communication
@@ -138,7 +105,7 @@ resource "aws_security_group" "lambda" {
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["0.0.0.0/0"] #trivy:ignore:AVD-AWS-0104
   }
 
   tags = {

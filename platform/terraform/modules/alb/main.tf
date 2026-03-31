@@ -26,7 +26,7 @@ locals {
 
 resource "aws_lb" "crm" {
   name                       = substr("${var.name_prefix}-alb", 0, 32)
-  internal                   = false
+  internal                   = true
   load_balancer_type         = "application"
   security_groups            = [var.alb_security_group_id]
   subnets                    = var.public_subnet_ids
@@ -72,36 +72,6 @@ resource "aws_lb_target_group" "service_green" {
   }
 }
 
-resource "aws_lb_listener" "http" {
-  load_balancer_arn = aws_lb.crm.arn
-  port              = 80
-  protocol          = "HTTP"
-
-  dynamic "default_action" {
-    for_each = var.use_custom_domain ? [1] : []
-    content {
-      type = "redirect"
-      redirect {
-        port        = "443"
-        protocol    = "HTTPS"
-        status_code = "HTTP_301"
-      }
-    }
-  }
-
-  dynamic "default_action" {
-    for_each = var.use_custom_domain ? [] : [1]
-    content {
-      type = "fixed-response"
-      fixed_response {
-        content_type = "application/json"
-        message_body = "{\"message\":\"Not Found\"}"
-        status_code  = "404"
-      }
-    }
-  }
-}
-
 resource "aws_lb_listener" "https" {
   count = var.use_custom_domain ? 1 : 0
 
@@ -127,7 +97,7 @@ resource "aws_lb_listener" "https" {
 # This must match before generic `/api/clients*` (client service).
 #--------------------------------------------------------------
 resource "aws_lb_listener_rule" "client_transactions" {
-  listener_arn = var.use_custom_domain ? aws_lb_listener.https[0].arn : aws_lb_listener.http.arn
+  listener_arn = aws_lb_listener.https[0].arn
   priority     = 15
 
   action {
@@ -145,7 +115,7 @@ resource "aws_lb_listener_rule" "client_transactions" {
 resource "aws_lb_listener_rule" "service" {
   for_each = local.service_routing
 
-  listener_arn = var.use_custom_domain ? aws_lb_listener.https[0].arn : aws_lb_listener.http.arn
+  listener_arn = aws_lb_listener.https[0].arn
   priority     = each.value.priority
 
   action {
