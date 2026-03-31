@@ -2,12 +2,12 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-GENERATOR_SCRIPT="${ROOT_DIR}/services/backend/transaction/mock-sftp/mock_transactions.py"
+GENERATOR_SCRIPT="${ROOT_DIR}/sftp/mock_transactions.py"
 
 ENVIRONMENT="local"
 BUCKET="scroogebank-crm-dev-transaction-sftp"
 KEY="manual/mocked-transactions.csv"
-OUTPUT_PATH="${ROOT_DIR}/services/backend/transaction/mock-sftp/mocked_transactions.csv"
+OUTPUT_PATH="${ROOT_DIR}/sftp/mocked_transactions.csv"
 ROW_COUNT=120
 SEED=301
 START_TRANSACTION_ID=1000

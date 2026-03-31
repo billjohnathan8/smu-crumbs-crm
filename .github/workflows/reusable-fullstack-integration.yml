@@ -64,7 +64,7 @@ jobs:
         timeout-minutes: 1
         run: |
           mkdir -p build-logs/fullstack-integration/preflight
-          python services/backend/transaction/mock-sftp/mock_transactions.py \
+          python sftp/mock_transactions.py \
             --output build-logs/fullstack-integration/preflight/mocked-transactions.csv \
             --row-count 8 \
             --seed 301 \
