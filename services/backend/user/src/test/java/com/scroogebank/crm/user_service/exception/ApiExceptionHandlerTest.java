@@ -14,7 +14,6 @@ import com.scroogebank.crm.user_service.security.UnauthorizedException;
 import com.scroogebank.crm.user_service.web.RequestIdFilter;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,12 +30,9 @@ import org.springframework.web.bind.annotation.RestController;
  * Verifies exception-to-response mappings for {@link ApiExceptionHandler}.
  */
 class ApiExceptionHandlerTest {
-	private MockMvc mockMvc;
-
-	@BeforeEach
-	void setUp() {
-		mockMvc = MockMvcBuilders.standaloneSetup(new StubController())
-			.setControllerAdvice(new ApiExceptionHandler(false))
+	private MockMvc buildMockMvc(boolean isProd) {
+		return MockMvcBuilders.standaloneSetup(new StubController())
+			.setControllerAdvice(new ApiExceptionHandler(isProd))
 			.addFilters((request, response, chain) -> {
 				request.setAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE, "req_123");
 				chain.doFilter(request, response);
@@ -46,6 +42,8 @@ class ApiExceptionHandlerTest {
 
 	@Test
 	void notFoundAndConflictMapCorrectly() throws Exception {
+		MockMvc mockMvc = buildMockMvc(false);
+
 		mockMvc.perform(get("/not-found"))
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.error").value("not_found"))
@@ -58,6 +56,8 @@ class ApiExceptionHandlerTest {
 
 	@Test
 	void unauthorizedForbiddenAndBadRequestMapCorrectly() throws Exception {
+		MockMvc mockMvc = buildMockMvc(false);
+
 		mockMvc.perform(get("/unauthorized"))
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.error").value("unauthorized"));
@@ -78,6 +78,8 @@ class ApiExceptionHandlerTest {
 
 	@Test
 	void internalExceptionMapsTo500() throws Exception {
+		MockMvc mockMvc = buildMockMvc(false);
+
 		mockMvc.perform(get("/boom"))
 			.andExpect(status().isInternalServerError())
 			.andExpect(jsonPath("$.error").value("internal_error"));
@@ -151,40 +153,41 @@ class ApiExceptionHandlerTest {
 	}
 
 	@RestController
-	private static class StubController {
+	static class StubController {
 		@GetMapping("/not-found")
-		ResponseEntity<Void> notFound() {
+		public ResponseEntity<Void> notFound() {
 			throw new UserNotFoundException("usr_404");
 		}
 
 		@GetMapping("/conflict")
-		ResponseEntity<Void> conflict() {
+		public ResponseEntity<Void> conflict() {
 			throw new DuplicateUserException("exists");
 		}
 
 		@GetMapping("/unauthorized")
-		ResponseEntity<Void> unauthorized() {
+		public ResponseEntity<Void> unauthorized() {
 			throw new UnauthorizedException("missing_bearer_token");
 		}
 
 		@GetMapping("/jwt")
-		ResponseEntity<Void> jwt() {
+		public ResponseEntity<Void> jwt() {
 			throw new JwtValidationException("invalid_signature");
 		}
 
 		@GetMapping("/forbidden")
-		ResponseEntity<Void> forbidden() {
+		public ResponseEntity<Void> forbidden() {
 			throw new ForbiddenException("forbidden");
 		}
 
 		@GetMapping("/bad-request")
-		ResponseEntity<Void> badRequest() {
+		public ResponseEntity<Void> badRequest() {
 			throw new IllegalArgumentException("bad");
 		}
 
 		@GetMapping("/boom")
-		ResponseEntity<Void> boom() {
+		public ResponseEntity<Void> boom() {
 			throw new RuntimeException("boom");
 		}
 	}
+
 }
