@@ -571,10 +571,13 @@ run_gradle_db_test() {
     SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
   )
   local simple_selector="${test_selector##*.}"
+  local db_error_pattern='Unable to obtain connection from database|Connection to 127\.0\.0\.1:[0-9]+ refused|Connection refused|database ".*" does not exist|the database system is starting up'
 
   if [[ "${include_integration}" == "true" ]]; then
     gradle_args+=(-PincludeIntegration=true)
   fi
+
+  wait_for_postgres_host_ready
 
   pushd "${service_dir}" >/dev/null
   chmod +x gradlew
@@ -584,6 +587,22 @@ run_gradle_db_test() {
     ./gradlew "${gradle_args[@]}" > "${gradle_log}" 2>&1; then
     popd >/dev/null
     return 0
+  fi
+
+  # Local Docker Desktop networking on Windows can intermittently flap right
+  # after DB recreation. Retry once when the failure looks DB-connectivity
+  # related, and recreate the DB if the previous connection reports it missing.
+  if grep -Eiq "${db_error_pattern}" "${gradle_log}"; then
+    if grep -Eiq 'database ".*" does not exist' "${gradle_log}"; then
+      recreate_component_test_db "${db_name}" || true
+    fi
+    wait_for_postgres_host_ready
+    if env "${base_env[@]}" \
+      GRADLE_USER_HOME="${gradle_user_home}" \
+      ./gradlew "${gradle_args[@]}" > "${gradle_log}" 2>&1; then
+      popd >/dev/null
+      return 0
+    fi
   fi
 
   # Retry with Gradle Windows wrapper when Java path/tooling mismatch is detected.
@@ -647,6 +666,46 @@ run_gradle_db_test() {
 
   popd >/dev/null
   echo "[FAIL] ${service_name} DB test command failed. See ${gradle_log}" >&2
+  return 1
+}
+
+wait_for_postgres_host_ready() {
+  local max_attempts="${1:-40}"
+  local delay_seconds="${2:-1}"
+
+  for ((attempt = 1; attempt <= max_attempts; attempt++)); do
+    local pg_container_id=""
+    pg_container_id="$(
+      docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" ps -q postgres 2>/dev/null \
+        | tr -d '\r\n[:space:]'
+    )"
+
+    if [[ -n "${pg_container_id}" ]] \
+      && docker inspect -f '{{.State.Running}}' "${pg_container_id}" 2>/dev/null | grep -q "true"; then
+      if "${PYTHON_CMD}" - "${LOCAL_DB_HOST_PORT}" <<'PY'
+import socket
+import sys
+
+port = int(sys.argv[1])
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.settimeout(1.0)
+try:
+    sock.connect(("127.0.0.1", port))
+except OSError:
+    raise SystemExit(1)
+finally:
+    sock.close()
+raise SystemExit(0)
+PY
+      then
+        return 0
+      fi
+    fi
+
+    sleep "${delay_seconds}"
+  done
+
+  echo "[FAIL] Postgres host endpoint 127.0.0.1:${LOCAL_DB_HOST_PORT} is not reachable for DB-backed tests." >&2
   return 1
 }
 
