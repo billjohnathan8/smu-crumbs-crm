@@ -1,5 +1,7 @@
 package com.scroogebank.crm.transaction_service.config;
 
+import java.net.http.HttpClient;
+import java.time.Duration;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,10 +17,15 @@ public class LogServiceClientConfig {
 	RestClient logServiceRestClient(
 		@Value("${app.log-service-url}") String logServiceUrl
 	) {
+		HttpClient httpClient = HttpClient.newBuilder()
+			.connectTimeout(Duration.ofSeconds(5))
+			.build();
+		JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
+		requestFactory.setReadTimeout(Duration.ofSeconds(5));
+
 		return RestClient.builder()
-			.requestFactory(new JdkClientHttpRequestFactory())
+			.requestFactory(requestFactory)
 			.baseUrl(logServiceUrl)
 			.build();
 	}
 }
-
