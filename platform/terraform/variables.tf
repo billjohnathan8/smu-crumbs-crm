@@ -909,6 +909,12 @@ variable "verification_bucket_name" {
   default     = ""
 }
 
+variable "backend_bucket_name" {
+  description = "S3 bucket name for the private backend bucket. Leave empty to skip creation."
+  type        = string
+  default     = ""
+}
+
 #--------------------------------------------------------------
 # Observability (CloudTrail and CloudWatch Alarms)
 #--------------------------------------------------------------

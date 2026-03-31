@@ -30,6 +30,12 @@ variable "verification_bucket_name" {
   default     = ""
 }
 
+variable "backend_bucket_name" {
+  description = "Private backend bucket name. Leave empty to skip creation."
+  type        = string
+  default     = ""
+}
+
 variable "enable_transaction_sftp_bucket" {
   description = "Create S3 bucket for transaction ingestion source files (legacy 'sftp' naming)."
   type        = bool

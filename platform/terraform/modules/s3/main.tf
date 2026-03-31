@@ -122,6 +122,52 @@ resource "aws_s3_bucket_public_access_block" "verification" {
   restrict_public_buckets = true
 }
 
+# --- Backend bucket (optional, mirrors verification bucket hardening) ---
+
+resource "aws_s3_bucket" "backend" {
+  count = trimspace(var.backend_bucket_name) != "" ? 1 : 0
+
+  bucket        = var.backend_bucket_name
+  force_destroy = false
+
+  tags = {
+    Name = var.backend_bucket_name
+  }
+}
+
+resource "aws_s3_bucket_versioning" "backend" {
+  count = trimspace(var.backend_bucket_name) != "" ? 1 : 0
+
+  bucket = aws_s3_bucket.backend[0].id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "backend" {
+  count = trimspace(var.backend_bucket_name) != "" ? 1 : 0
+
+  bucket = aws_s3_bucket.backend[0].id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "backend" {
+  count = trimspace(var.backend_bucket_name) != "" ? 1 : 0
+
+  bucket = aws_s3_bucket.backend[0].id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
 # --- Transaction ingestion source bucket (optional, legacy 'sftp' naming) ---
 
 resource "aws_s3_bucket" "transaction_sftp" {

@@ -37,6 +37,21 @@ output "verification_bucket_arn" {
   value       = var.enable_verification_bucket ? aws_s3_bucket.verification[0].arn : ""
 }
 
+output "backend_bucket_name" {
+  description = "Private backend bucket name."
+  value       = trimspace(var.backend_bucket_name) != "" ? aws_s3_bucket.backend[0].bucket : ""
+}
+
+output "backend_bucket_id" {
+  description = "Private backend bucket ID."
+  value       = trimspace(var.backend_bucket_name) != "" ? aws_s3_bucket.backend[0].id : ""
+}
+
+output "backend_bucket_arn" {
+  description = "Private backend bucket ARN."
+  value       = trimspace(var.backend_bucket_name) != "" ? aws_s3_bucket.backend[0].arn : ""
+}
+
 output "transaction_sftp_bucket_name" {
   description = "Transaction ingestion source bucket name (legacy 'sftp' naming)."
   value       = var.enable_transaction_sftp_bucket ? aws_s3_bucket.transaction_sftp[0].bucket : ""

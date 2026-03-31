@@ -158,6 +158,11 @@ output "transaction_sftp_bucket_name" {
   value       = module.s3.transaction_sftp_bucket_name
 }
 
+output "backend_bucket_name" {
+  description = "Private backend S3 bucket name."
+  value       = module.s3.backend_bucket_name
+}
+
 #--------------------------------------------------------------
 # SFTP Ingestion Outputs
 #--------------------------------------------------------------

@@ -59,8 +59,8 @@ ses_domain                        = ""                       # keep empty to use
 
 # Intentionally disabled until prerequisites are available:
 enable_aml_lambda     = true  # enabled: SFTP host/user can be auto-derived from transfer_family outputs; key secret ARN must be injected at runtime
-enable_audit_pipeline = false # implemented but disabled by default in production profile
-enable_aml_pipeline   = false # implemented but disabled by default in production profile
+enable_audit_pipeline = true # implemented but disabled by default in production profile
+enable_aml_pipeline   = true # implemented but disabled by default in production profile
 
 # --- Observability & Security ---
 enable_waf                    = false
@@ -80,8 +80,9 @@ guardduty_finding_frequency    = "FIFTEEN_MINUTES"
 
 # --- S3 / CloudFront ---
 frontend_bucket_name          = "crumbs-scroogebank-frontend"
-transaction_sftp_bucket_name  = "crumbs-scroogebank-backend"
+transaction_sftp_bucket_name  = "crumbs-scroogebank-sftp"
 verification_bucket_name      = "crumbs-scroogebank-verification"
+backend_bucket_name           = "crumbs-scroogebank-backend"
 frontend_bucket_force_destroy = false
 cloudfront_price_class        = "PriceClass_100"
 enable_cloudfront             = true
@@ -100,10 +101,10 @@ auth_mode                 = "cognito"
 # Guardrail override for this repo: allow Terraform Route53/ACM management for itsag2t3.com when you enable those flags.
 allow_school_registered_domain_management = true
 # For teardown while preserving DNS aliases, run scripts/destroy-app-keep-dns.(sh|ps1)
-# app_domain_name = ""
-manage_route53_records            = false
-manage_acm_dns_validation_records = false
-create_acm_certificates           = false
-# route53_hosted_zone_id        = "Z123EXAMPLE"
+app_domain_name = "itsag2t3.com"
+manage_route53_records            = true
+manage_acm_dns_validation_records = true
+create_acm_certificates           = true
+route53_hosted_zone_id        = "Z07853315ON2Q60THXVB"
 # existing_frontend_certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/..."
 # existing_alb_certificate_arn      = "arn:aws:acm:ap-southeast-1:123456789012:certificate/..."

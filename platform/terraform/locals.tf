@@ -69,6 +69,8 @@ locals {
 
   verification_bucket_name = var.verification_bucket_name != "" ? var.verification_bucket_name : "${local.name_prefix}-verification-${data.aws_caller_identity.current.account_id}"
 
+  backend_bucket_name = trimspace(var.backend_bucket_name) != "" ? var.backend_bucket_name : ""
+
   transaction_sftp_bucket_name = var.transaction_sftp_bucket_name != "" ? var.transaction_sftp_bucket_name : "${local.name_prefix}-transaction-sftp-${data.aws_caller_identity.current.account_id}"
 
   #--------------------------------------------------------------
