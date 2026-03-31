@@ -1201,6 +1201,20 @@ check "custom_domain_contract_guardrails" {
   }
 }
 
+check "school_registered_domain_guardrails" {
+  assert {
+    condition = !(
+      lower(trimspace(var.app_domain_name)) == "itsag2t3.com" &&
+      (
+        var.manage_route53_records ||
+        var.manage_acm_dns_validation_records ||
+        var.create_acm_certificates
+      )
+    )
+    error_message = "itsag2t3.com is a school-managed registered domain. Keep Route53/ACM management external (manage_route53_records=false, manage_acm_dns_validation_records=false, create_acm_certificates=false)."
+  }
+}
+
 check "natless_ecs_guardrails" {
   assert {
     condition     = var.enable_nat_gateway || var.ecs_use_public_subnets

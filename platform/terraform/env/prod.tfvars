@@ -96,6 +96,7 @@ auth_mode                 = "cognito"
 
 # --- Domain / DNS Ownership ---
 # Keep custom-domain disabled for first bring-up unless cert + DNS ownership are ready.
+# Guardrail: school-registered domain itsag2t3.com must remain externally managed.
 # app_domain_name = ""
 manage_route53_records            = false
 manage_acm_dns_validation_records = false
