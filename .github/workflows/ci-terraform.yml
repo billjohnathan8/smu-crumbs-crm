@@ -254,6 +254,39 @@ jobs:
         timeout-minutes: 3
         run: tflint --format compact
 
+      - name: Prepare Trivy scan artifact directory
+        timeout-minutes: 1
+        run: mkdir -p .trivy
+
+      - name: Run Trivy IaC scan (full JSON report)
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          scan-type: config
+          scan-ref: .
+          format: json
+          output: .trivy/trivy-iac-report.json
+          severity: HIGH,CRITICAL,MEDIUM,LOW
+          skip-dirs: .terraform,.infracost,.tfplan,.ci-artifacts
+          exit-code: '0'
+
+      - name: Run Trivy IaC scan (fail on CRITICAL)
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          scan-type: config
+          scan-ref: .
+          format: table
+          severity: CRITICAL
+          skip-dirs: .terraform,.infracost,.tfplan,.ci-artifacts
+          exit-code: '1'
+
+      - name: Upload Trivy IaC artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: trivy-iac-terraform-${{ github.run_id }}-${{ github.run_attempt }}
+          path: platform/terraform/.trivy/
+          retention-days: 7
+
       - name: Prepare Infracost artifact directory
         timeout-minutes: 1
         run: mkdir -p .infracost

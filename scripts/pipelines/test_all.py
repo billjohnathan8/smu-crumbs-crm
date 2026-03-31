@@ -192,6 +192,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
     bash = detect_bash()
     actionlint_cmd = detect_actionlint()
     tflint_available = shutil.which("tflint") is not None
+    trivy_available = shutil.which("trivy") is not None
     infracost_available = shutil.which("infracost") is not None
     prod_env = is_prod_env()
 
@@ -280,6 +281,8 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
             )
         )
 
+        # -- pip-audit: requirements-only vulnerability scans, safe to parallelize --
+        pip_audit_parallel_group = "lint-pip-audit"
         for label, svc_dir in [
             ("log", log_dir),
             ("aml", aml_dir),
@@ -301,6 +304,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                         "requirements.txt",
                         "--strict",
                     ],
+                    parallel_group=pip_audit_parallel_group,
                 )
             )
 
@@ -538,6 +542,74 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                 print(
                     "[WARN] tflint not found in PATH; skipping TFLint init/run. "
                     "Install tflint to enable these Terraform lint checks."
+                )
+            if trivy_available:
+                steps.append(
+                    Step(
+                        phase=phase,
+                        name="Prepare Trivy scan artifact directory",
+                        cwd=terraform_dir,
+                        command=[py, "-c", "from pathlib import Path; Path('.trivy').mkdir(parents=True, exist_ok=True)"],
+                    )
+                )
+                steps.append(
+                    Step(
+                        phase=phase,
+                        name="Trivy IaC scan (full JSON report)",
+                        cwd=terraform_dir,
+                        command=[
+                            "trivy",
+                            "config",
+                            "--format",
+                            "json",
+                            "--output",
+                            ".trivy/trivy-iac-report.json",
+                            "--severity",
+                            "HIGH,CRITICAL,MEDIUM,LOW",
+                            "--skip-dirs",
+                            ".terraform",
+                            "--skip-dirs",
+                            ".infracost",
+                            "--skip-dirs",
+                            ".tfplan",
+                            "--skip-dirs",
+                            ".ci-artifacts",
+                            "--exit-code",
+                            "0",
+                            ".",
+                        ],
+                    )
+                )
+                steps.append(
+                    Step(
+                        phase=phase,
+                        name="Trivy IaC scan (fail on CRITICAL)",
+                        cwd=terraform_dir,
+                        command=[
+                            "trivy",
+                            "config",
+                            "--format",
+                            "table",
+                            "--severity",
+                            "CRITICAL",
+                            "--skip-dirs",
+                            ".terraform",
+                            "--skip-dirs",
+                            ".infracost",
+                            "--skip-dirs",
+                            ".tfplan",
+                            "--skip-dirs",
+                            ".ci-artifacts",
+                            "--exit-code",
+                            "1",
+                            ".",
+                        ],
+                    )
+                )
+            else:
+                print(
+                    "[WARN] trivy not found in PATH; skipping Trivy IaC checks. "
+                    "Install trivy to enable Terraform misconfiguration scanning."
                 )
             if infracost_available and os.environ.get("INFRACOST_API_KEY"):
                 if prod_env:
@@ -1651,7 +1723,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--skip-terraform",
         action="store_true",
-        help="Skip all Terraform checks from Layer 1 (fmt, validate, tflint, checkov, credential check).",
+        help="Skip all Terraform checks from Layer 1 (fmt, validate, tflint, trivy, checkov, credential check).",
     )
     parser.add_argument(
         "--skip-openapi",
@@ -1696,6 +1768,14 @@ def parse_args() -> argparse.Namespace:
         "--dry-run",
         action="store_true",
         help="Print all commands and timing sections without executing commands.",
+    )
+    parser.add_argument(
+        "--fail-fast",
+        action="store_true",
+        help=(
+            "Stop immediately on the first failed step. "
+            "Default behavior is to continue running all steps and fail at the end."
+        ),
     )
     parser.add_argument(
         "--local-phase5",
@@ -1745,6 +1825,7 @@ def main() -> int:
     print(
         "Flags: "
         f"local_phase5={args.local_phase5}, "
+        f"fail_fast={args.fail_fast}, "
         f"skip_fullstack={args.skip_fullstack}, "
         f"skip_frontend_latency={args.skip_frontend_latency}, "
         f"skip_performance={args.skip_performance}, "
@@ -1802,14 +1883,19 @@ def main() -> int:
                 group, run_dir, group_index, args.dry_run
             )
             results.extend(group_results)
-            if any(result.status == "FAIL" for result in group_results):
+            if any(result.status == "FAIL" for result in group_results) and args.fail_fast:
+                print(
+                    "[INFO] --fail-fast enabled: stopping after failure in "
+                    f"parallel group '{step.parallel_group}'."
+                )
                 break
             index = next_index
             continue
 
         result = run_step(step, run_dir, index + 1, args.dry_run)
         results.append(result)
-        if result.status == "FAIL":
+        if result.status == "FAIL" and args.fail_fast:
+            print("[INFO] --fail-fast enabled: stopping after first failed step.")
             break
         index += 1
 
