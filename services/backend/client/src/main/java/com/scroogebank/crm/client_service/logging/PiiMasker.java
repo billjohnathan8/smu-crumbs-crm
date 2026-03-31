@@ -11,12 +11,19 @@ public final class PiiMasker {
 	private static final String REDACTED = "[REDACTED]";
 
 	private static final Set<String> FULLY_REDACTED_FIELDS = Set.of(
-		"address", "city", "state", "dateOfBirth"
+		"address", "city", "state",
+		"dateOfBirth",
+		"nric", "verificationToken", "token", "primaryDocumentRef", "addressDocumentRef",
+		"primaryDocumentBase64", "addressDocumentBase64", "primaryDocumentMimeType", "addressDocumentMimeType",
+		"clientId", "accountId", "assignedUserId", "userId"
 	);
 
 	private static final Set<String> PII_FIELDS = Set.of(
 		"emailAddress", "phoneNumber", "address", "city", "state", "postalCode",
-		"nric", "dateOfBirth"
+		"dateOfBirth",
+		"nric", "verificationToken", "token", "primaryDocumentRef", "addressDocumentRef",
+		"primaryDocumentBase64", "addressDocumentBase64", "primaryDocumentMimeType", "addressDocumentMimeType",
+		"clientId", "accountId", "assignedUserId", "userId"
 	);
 
 	private PiiMasker() {}

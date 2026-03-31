@@ -36,8 +36,22 @@ concurrency:
 permissions:
   contents: read
   id-token: write
+  pull-requests: read
 
 jobs:
+  dependency-review:
+    name: Dependency Review
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Dependency review (block on HIGH/CRITICAL)
+        uses: actions/dependency-review-action@0659a74c94536054bfa5aeb92241f70d680cc78e # V4.3.0
+        with:
+          fail-on-severity: high
+
   terraform-lint:
     name: Terraform Static Analysis
     runs-on: ubuntu-latest
@@ -51,11 +65,11 @@ jobs:
         working-directory: platform/terraform
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         timeout-minutes: 2
 
       - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
         timeout-minutes: 2
         with:
           terraform_version: "~1.10"
@@ -65,7 +79,7 @@ jobs:
         run: terraform fmt -check -recursive
 
       - name: Set up OpenTofu
-        uses: opentofu/setup-opentofu@v1
+        uses: opentofu/setup-opentofu@9d84900f3238fab8cd84ce47d658d25dd008be2f # v1
         timeout-minutes: 2
 
       - name: terraform init (no backend)
@@ -85,7 +99,7 @@ jobs:
         run: python3 ../../scripts/ci/run_opentofu_validate_isolated.py --tofu-bin tofu
 
       - name: Set up Python 3.13
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         timeout-minutes: 2
         with:
           python-version: '3.13'
@@ -130,7 +144,7 @@ jobs:
 
       - name: Configure AWS credentials for Terraform plan
         if: ${{ env.AWS_ROLE_ARN != '' && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) }}
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ap-southeast-1
@@ -220,14 +234,14 @@ jobs:
 
       - name: Upload Terraform plan artifact
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: terraform-plan-${{ github.run_id }}-${{ github.run_attempt }}
           path: platform/terraform/.tfplan/
           retention-days: 7
 
       - name: Set up TFLint
-        uses: terraform-linters/setup-tflint@v4
+        uses: terraform-linters/setup-tflint@6e87008f9dd1fe3e34e66aca6c97b4a69f72a7f4 # v4
         timeout-minutes: 3
         with:
           tflint_version: v0.53.0
@@ -246,7 +260,7 @@ jobs:
 
       - name: Set up Infracost
         if: ${{ env.INFRACOST_API_KEY != '' }}
-        uses: infracost/actions/setup@v3
+        uses: infracost/actions/setup@e9d6e6cd65e168e76b0de50ff9957d2fe8bb1832 # v3
         timeout-minutes: 2
         with:
           api-key: ${{ env.INFRACOST_API_KEY }}
@@ -265,7 +279,7 @@ jobs:
 
       - name: Upload Infracost artifact
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: infracost-terraform-${{ github.run_id }}-${{ github.run_attempt }}
           path: platform/terraform/.infracost/

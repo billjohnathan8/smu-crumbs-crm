@@ -13,7 +13,7 @@
  * Run with: npm test
  */
 
-import { createHmac } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import {
   test,
   expect,
@@ -34,7 +34,7 @@ function base64UrlJson(payload: object): string {
 function mintVerificationToken(clientId: string, secret: string): string {
   const header = base64UrlJson({ alg: "HS256", typ: "JWT" });
   const exp = Math.floor(Date.now() / 1000) + 60 * 60;
-  const body = base64UrlJson({ clientId, exp });
+  const body = base64UrlJson({ clientId, exp, jti: randomUUID() });
   const signingInput = `${header}.${body}`;
   const signature = createHmac("sha256", secret).update(signingInput).digest("base64url");
   return `${signingInput}.${signature}`;
@@ -243,7 +243,7 @@ test.describe("Client Profile Management (Feature 2)", () => {
         verificationToken,
         primaryDocumentType: "NRIC",
         primaryDocumentRef: "primary-id.jpg",
-        primaryDocumentBase64: Buffer.from("fake-primary-document").toString("base64"),
+        primaryDocumentBase64: Buffer.from([0xff, 0xd8, 0xff, 0x00, 0x11, 0x22]).toString("base64"),
         primaryDocumentMimeType: "image/jpeg",
         addressDocumentType: "UTILITY_BILL",
         addressDocumentRef: "proof-of-address.pdf",
@@ -330,3 +330,4 @@ test.describe("Client Profile Management (Feature 2)", () => {
     expect(hasUpdateLog, "UPDATE audit log should exist after client update").toBeTruthy();
   });
 });
+

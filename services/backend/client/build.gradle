@@ -21,6 +21,7 @@ repositories {
 }
 
 ext {
+	set("netty.version", "4.2.11.Final")
 }
 
 dependencies {

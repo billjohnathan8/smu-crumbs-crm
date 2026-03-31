@@ -132,6 +132,33 @@ def test_require_bearer_user_rejects_bad_claims() -> None:
         require_bearer_user(f"Bearer {bad_types}", secret)
 
 
+def test_verify_hs256_jwt_rejects_missing_exp() -> None:
+    """Tokens without an exp claim must be rejected."""
+    secret = "secret"
+    token = mint_token_with_claims(
+        {"sub": "usr_1", "role": "admin", "iat": 0},
+        secret,
+    )
+    with pytest.raises(UnauthorizedError, match="missing_exp"):
+        verify_hs256_jwt(token, secret)
+
+
+def test_require_bearer_user_service_role_accepted() -> None:
+    """The service role must be recognized for internal service-to-service tokens."""
+    secret = "secret"
+    token = mint_token("SYSTEM_AML", "service", secret)
+    user = require_bearer_user(f"Bearer {token}", secret)
+    assert user == AuthenticatedUser(user_id="SYSTEM_AML", role="service")
+
+
+def test_require_bearer_user_role_escalation_rejected() -> None:
+    """Unknown roles must be rejected to prevent privilege escalation."""
+    secret = "secret"
+    token = mint_token("usr_1", "root", secret)
+    with pytest.raises(UnauthorizedError):
+        require_bearer_user(f"Bearer {token}", secret)
+
+
 def test_require_bearer_user_normalizes_super_admin_to_admin() -> None:
     secret = "secret"
     token = mint_token("usr_1", "super_admin", secret)

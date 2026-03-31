@@ -37,7 +37,7 @@ curl http://localhost:4566/_localstack/health
 docker compose -f docker-compose.localstack.yml exec postgres pg_isready -U crm_app -d crm
 ```
 
-## 1b. Standardized DB Migrate / Seed / Verify
+## 1.1 Standardized DB Migrate / Seed / Verify
 
 Apply schema migrations for all stateful services:
 

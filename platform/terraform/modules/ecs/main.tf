@@ -12,7 +12,7 @@ locals {
   # Customer-facing/core services that require an HA baseline in production-like
   # environments to avoid single-task service outages.
   critical_customer_facing_services = toset(["user", "client", "transaction"])
-  critical_ha_task_floor            = 2
+  critical_ha_task_floor            = var.production_like_ha_task_floor
 
   # Services that require conservative horizontal scaling. They can run with
   # HA redundancy, but expansion beyond the HA baseline remains gated by

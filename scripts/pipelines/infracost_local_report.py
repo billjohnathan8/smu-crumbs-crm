@@ -30,6 +30,7 @@ DEFAULT_JSON_REPORT = DEFAULT_ARTIFACT_DIR / "infracost-report.json"
 DEFAULT_TABLE_REPORT = DEFAULT_ARTIFACT_DIR / "infracost-report.txt"
 DEFAULT_MARKDOWN_REPORT = DEFAULT_ARTIFACT_DIR / "infracost-report.md"
 DEFAULT_TERRAFORM_VAR_FILE = "env/prod.tfvars"
+DEFAULT_USAGE_FILE_RELATIVE = ".infracost/usage-prod.yml"
 
 HOURS_PER_MONTH = Decimal("730")
 MINUTES_PER_MONTH = Decimal("43800")
@@ -720,6 +721,10 @@ def main() -> int:
     output_table = Path(args.output_table).resolve()
     output_markdown = Path(args.output_markdown).resolve()
     usage_file = Path(args.usage_file).resolve() if args.usage_file else None
+    if usage_file is None:
+        candidate_usage_file = terraform_path / DEFAULT_USAGE_FILE_RELATIVE
+        if candidate_usage_file.exists():
+            usage_file = candidate_usage_file.resolve()
     if not terraform_path.exists():
         print(f"[FAIL] Terraform path does not exist: {terraform_path}", file=sys.stderr)
         return 1
@@ -742,11 +747,7 @@ def main() -> int:
         env["INFRACOST_API_KEY"] = args.api_key
 
     if not env.get("INFRACOST_API_KEY"):
-        print(
-            "[FAIL] INFRACOST_API_KEY is not set. Set env var or pass --api-key.",
-            file=sys.stderr,
-        )
-        return 1
+        print("[WARN] INFRACOST_API_KEY is not set; proceeding with local CLI authentication context.")
 
     try:
         validate_prerequisites(skip_breakdown=args.skip_breakdown)

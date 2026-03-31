@@ -82,7 +82,8 @@ DEFAULT_CLIENT_TRANSACTIONS_PATH_TEMPLATE = "/api/clients/{client_id}/transactio
 DEFAULT_AML_ALERTS_PATH = "/api/aml/alerts"
 DEFAULT_LOGS_PATH = "/api/logs"
 SERVICE_JWT_SUBJECT = "SYSTEM_AML"
-SERVICE_JWT_ROLE = "admin"
+SERVICE_JWT_ROLE = "service"
+SERVICE_JWT_TTL_SECONDS = 300
 
 _JWT_HMAC_SECRET_CACHE: str | None = None
 _LOG_WRITE_BASE_URL_CACHE: str | None = None
@@ -137,11 +138,13 @@ def _mint_service_jwt() -> str | None:
     if not secret:
         return None
 
+    now_epoch = int(datetime.now(timezone.utc).timestamp())
     header = {"alg": "HS256", "typ": "JWT"}
     payload = {
         "sub": SERVICE_JWT_SUBJECT,
         "role": SERVICE_JWT_ROLE,
-        "iat": int(datetime.now(timezone.utc).timestamp()),
+        "iat": now_epoch,
+        "exp": now_epoch + SERVICE_JWT_TTL_SECONDS,
     }
     header_segment = _b64url_encode(
         json.dumps(header, separators=(",", ":"), sort_keys=True).encode("utf-8")

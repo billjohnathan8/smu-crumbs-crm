@@ -45,7 +45,7 @@ class PiiMaskerTest {
 	}
 
 	@ParameterizedTest
-	@ValueSource(strings = {"address", "city", "state"})
+	@ValueSource(strings = {"address", "city", "state", "verificationToken", "clientId", "primaryDocumentRef"})
 	void fullyRedactedFields(String fieldName) {
 		assertThat(PiiMasker.mask(fieldName, "123 Main Street"))
 			.isEqualTo("[REDACTED]");

@@ -141,19 +141,8 @@ def _error_name_for_status(status_code: int) -> str:
 
 
 def _validation_message(exc: ValidationError) -> str:
-    errors = exc.errors()
-    if not errors:
-        return "Invalid request"
-
-    first = errors[0]
-    location = [
-        str(segment)
-        for segment in first.get("loc", ())
-        if segment not in {"body", "query", "path"}
-    ]
-    prefix = ".".join(location)
-    detail = first.get("msg", "Invalid value")
-    return f"{prefix}: {detail}" if prefix else str(detail)
+    _ = exc
+    return "Invalid request"
 
 
 def _normalize_headers(raw_headers: dict[str, Any] | None) -> dict[str, str]:
@@ -392,12 +381,12 @@ class LambdaRouter:
                 "validation_error",
                 _validation_message(exc),
             )
-        except ValueError as exc:
+        except ValueError:
             return _error_response(
                 request.request_id,
                 400,
                 "validation_error",
-                str(exc),
+                "Invalid request",
             )
         except _HttpError as exc:
             return _error_response(
@@ -652,7 +641,7 @@ class LambdaRouter:
 
     def _create_log(self, request: NormalizedRequest) -> RoutedResponse:
         user = self._require_user(request)
-        require_roles(user, {"admin", "user"})
+        require_roles(user, {"admin", "user", "service"})
 
         body = self._parse_body(CreateLogRequest, request)
         if user.role == "user" and body.userId != user.user_id:
@@ -734,7 +723,7 @@ class LambdaRouter:
 
     def _create_aml_alert(self, request: NormalizedRequest) -> RoutedResponse:
         user = self._require_user(request)
-        require_roles(user, {"admin"})
+        require_roles(user, {"admin", "service"})
 
         body = self._parse_body(CreateAmlAlertRequest, request)
 
@@ -933,7 +922,7 @@ class LambdaRouter:
         provider_message_id: str,
     ) -> RoutedResponse:
         user = self._require_user(request)
-        require_roles(user, {"admin"})
+        require_roles(user, {"admin", "service"})
 
         body = self._parse_body(UpdateCommunicationStatusRequest, request)
         row = self._service.update_communication_status_by_provider_message_id(

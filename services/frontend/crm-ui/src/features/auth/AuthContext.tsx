@@ -118,20 +118,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const loginWithCognitoCode = useCallback(async (code: string) => {
-    const tokens = await exchangeCodeForTokens(code)
-    // Cognito access_token is used for API calls to backend services
-    setAuthToken(tokens.access_token)
-    if (tokens.refresh_token) {
-      localStorage.setItem('refreshToken', tokens.refresh_token)
-    }
-    // Store id_token for potential client-side use
-    if (tokens.id_token) {
-      localStorage.setItem('idToken', tokens.id_token)
-    }
+    try {
+      const tokens = await exchangeCodeForTokens(code)
+      // Cognito access_token is used for API calls to backend services
+      setAuthToken(tokens.access_token)
+      if (tokens.refresh_token) {
+        localStorage.setItem('refreshToken', tokens.refresh_token)
+      }
 
-    const user = await getCurrentUser()
-    setUser(user)
-    localStorage.setItem('currentUser', JSON.stringify(user))
+      const user = await getCurrentUser()
+      setUser(user)
+      localStorage.setItem('currentUser', JSON.stringify(user))
+    } catch {
+      clearAuthToken()
+      setUser(null)
+      throw new Error('Authentication failed')
+    }
   }, [])
 
   const logout = useCallback(() => {

@@ -13,25 +13,29 @@ aws_region                     = "ap-southeast-1"
 enforce_strict_prod_guardrails = false # budget-first production bring-up profile
 
 # --- Network ---
-enable_stateful_service_scale_out = false
-enable_multi_az_nat               = false
-enable_nat_gateway                = true
-enable_vpc_flow_logs              = false
+enable_stateful_service_scale_out  = false
+enable_multi_az_nat                = false
+enable_nat_gateway                 = true
+enable_vpc_flow_logs               = true
+restrict_alb_ingress_to_cloudfront = true
 
 # --- ECS ---
-user_desired_count            = 1
-client_desired_count          = 2
-transaction_desired_count     = 1
-ecs_min_capacity              = 2
-ecs_max_capacity              = 2
-ecs_use_public_subnets        = true
-ecs_assign_public_ip          = true
-enable_ecs_container_insights = false
+user_desired_count                = 1
+client_desired_count              = 2
+transaction_desired_count         = 1
+ecs_min_capacity                  = 2
+ecs_max_capacity                  = 2
+ecs_task_cpu                      = 512
+ecs_task_memory                   = 1024
+ecs_production_like_ha_task_floor = 2
+ecs_use_public_subnets            = false
+ecs_assign_public_ip              = false
+enable_ecs_container_insights     = false
 
 # --- Database ---
 db_instance_class                = "db.t4g.micro" # school budget baseline
-db_multi_az                      = true
-db_backup_retention_days         = 7
+db_multi_az                      = false
+db_backup_retention_days         = 1
 db_skip_final_snapshot           = true
 db_deletion_protection           = false
 db_max_allocated_storage         = 20
@@ -44,6 +48,11 @@ rds_performance_insights_enabled = false
 # - transaction ingestion scheduler path
 enable_log_lambda                 = true
 enable_sftp_transaction_collector = true
+enable_transfer_family_sftp       = false
+enable_ec2_sftp_server            = true
+sftp_instance_type                = "t4g.micro"
+sftp_root_volume_size_gb          = 8
+sftp_ingress_cidr_blocks          = ["203.0.113.10/32"] # Replace with real partner office/public NAT CIDRs before apply.
 enable_verification_pipeline      = true
 ses_sender_email                  = "verification@crm.local" # override with a verified sender in target AWS account
 
@@ -54,13 +63,19 @@ enable_aml_pipeline   = false # implemented but disabled by default in productio
 
 # --- Observability & Security ---
 enable_waf                    = false
-enable_cloudtrail             = false
+enable_cloudtrail             = true
 enable_cloudwatch_alarms      = true
 alarm_notification_email      = "crm-alerts-prod@crm.local" # replace with a monitored mailbox before apply
 enable_backup                 = true
 enable_codedeploy             = true
-backup_retention_days         = 30
-cloudwatch_log_retention_days = 30
+backup_retention_days         = 7
+cloudwatch_log_retention_days = 7
+
+# --- GuardDuty Threat Detection ---
+enable_guardduty               = true
+guardduty_notification_enabled = true # Notifications enabled for prod
+guardduty_high_severity_only   = true # Only HIGH/CRITICAL alerts
+guardduty_finding_frequency    = "FIFTEEN_MINUTES"
 
 # --- S3 / CloudFront ---
 frontend_bucket_name          = "crumbs-scroogebank-frontend"
@@ -77,7 +92,7 @@ enable_service_discovery      = true
 # --- Auth ---
 enable_cognito            = true
 cognito_mfa_configuration = "ON"
-auth_mode                 = "hybrid"
+auth_mode                 = "cognito"
 
 # --- Domain / DNS Ownership ---
 # Keep custom-domain disabled for first bring-up unless cert + DNS ownership are ready.

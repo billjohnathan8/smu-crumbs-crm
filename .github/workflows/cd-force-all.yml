@@ -35,22 +35,28 @@ jobs:
     uses: ./.github/workflows/cd-lambda-force.yml
     secrets: inherit
 
+  deploy-frontend:
+    if: ${{ !failure() && !cancelled() }}
+    uses: ./.github/workflows/reusable-frontend-deploy.yml
+    secrets: inherit
+
   merge-and-publish-manifest:
     if: ${{ !failure() && !cancelled() }}
     needs:
       - deploy-ecs
       - deploy-lambda
+      - deploy-frontend
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      MANIFEST_BUCKET: ${{ secrets.LAMBDA_ARTIFACT_BUCKET }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      MANIFEST_BUCKET: ${{ vars.BACKEND_BUCKET }}
     steps:
       - name: Validate required secrets
         run: |
           test -n "${{ secrets.AWS_ROLE_ARN }}"
-          test -n "${{ secrets.AWS_REGION }}"
-          test -n "${{ secrets.LAMBDA_ARTIFACT_BUCKET }}"
+          test -n "${{ vars.AWS_REGION }}"
+          test -n "${{ vars.BACKEND_BUCKET }}"
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -70,7 +76,47 @@ jobs:
           name: manifest-lambda
           path: manifests
 
-      - name: Merge ECS and Lambda manifests
+      - name: Download frontend intent artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: intent-frontend-*
+          path: deploy-intents-frontend
+          merge-multiple: true
+
+      - name: Merge frontend intent fragments
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPO_SHA="${GITHUB_SHA}"
+          NOW_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          jq -n --arg repo_sha "${REPO_SHA}" --arg created_at "${NOW_UTC}" '{repo_sha:$repo_sha, created_at:$created_at, frontend:{}}' > manifests/manifest-frontend.json
+
+          shopt -s nullglob
+          fragments=(deploy-intents-frontend/*.json)
+          if [[ ${#fragments[@]} -eq 0 ]]; then
+            echo "No frontend intent artifacts were found"
+            exit 1
+          fi
+
+          for fragment in "${fragments[@]}"; do
+            site="$(jq -r '.frontend.site' "${fragment}")"
+            jq \
+              --arg site "${site}" \
+              --slurpfile f "${fragment}" \
+              '.frontend[$site] = {
+                bucket: $f[0].frontend.bucket,
+                deployed_version: $f[0].frontend.deployed_version,
+                release_prefix: $f[0].frontend.release_prefix,
+                build_output_dir: $f[0].frontend.build_output_dir,
+                cloudfront_distribution_id: $f[0].frontend.cloudfront_distribution_id,
+                cloudfront_invalidation_paths: $f[0].frontend.cloudfront_invalidation_paths
+              }' manifests/manifest-frontend.json > manifests/manifest-frontend.next.json
+            mv manifests/manifest-frontend.next.json manifests/manifest-frontend.json
+          done
+
+      - name: Merge ECS, Lambda, and Frontend manifests
         shell: bash
         run: |
           set -euo pipefail
@@ -83,6 +129,8 @@ jobs:
           cat manifests/manifest-ecs.json || echo "ECS file not found"
           echo -e "\n--- DEBUG: Lambda Source Manifest ---"
           cat manifests/manifest-lambda.json || echo "Lambda file not found"
+          echo -e "\n--- DEBUG: Frontend Source Manifest ---"
+          cat manifests/manifest-frontend.json || echo "Frontend file not found"
           echo "----------------------------------"
 
           if [[ ! -f manifests/manifest-ecs.json ]]; then
@@ -95,16 +143,23 @@ jobs:
             exit 1
           fi
 
+          if [[ ! -f manifests/manifest-frontend.json ]]; then
+            echo "Missing merged frontend manifest artifact"
+            exit 1
+          fi
+
           jq -n \
             --arg repo_sha "${REPO_SHA}" \
             --arg created_at "${NOW_UTC}" \
             --slurpfile ecs manifests/manifest-ecs.json \
             --slurpfile lambda manifests/manifest-lambda.json \
+            --slurpfile frontend manifests/manifest-frontend.json \
             '{
               repo_sha: $repo_sha,
               created_at: $created_at,
               ecs: ($ecs[0].ecs // {}),
-              lambda: ($lambda[0].lambda // {})
+              lambda: ($lambda[0].lambda // {}),
+              frontend: ($frontend[0].frontend // {})
             }' > manifest.json
 
           # --- DEBUG: Print the final merged manifest ---

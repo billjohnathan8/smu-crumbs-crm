@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
+import { consumeExpectedOauthState } from '@/api/cognito'
 
 /**
  * Handles the OAuth2 callback from Cognito Hosted UI.
@@ -15,11 +16,17 @@ export function CognitoCallback() {
   const { loginWithCognitoCode } = useAuth()
   const [runtimeError, setRuntimeError] = useState<string>('')
   const code = searchParams.get('code')
+  const callbackState = searchParams.get('state')
   const callbackError = searchParams.get('error_description') || searchParams.get('error')
-  const error =
-    callbackError || (!code ? 'No authorization code received from Cognito.' : runtimeError)
+  const error = callbackError
+    ? 'Authentication failed'
+    : !code
+      ? 'Authentication failed'
+      : runtimeError
 
   useEffect(() => {
+    window.history.replaceState(null, '', window.location.pathname)
+
     if (callbackError || !code) {
       return
     }
@@ -27,6 +34,14 @@ export function CognitoCallback() {
     let cancelled = false
 
     const exchange = async () => {
+      const expectedState = consumeExpectedOauthState()
+      if (!callbackState || !expectedState || callbackState !== expectedState) {
+        if (!cancelled) {
+          setRuntimeError('Authentication failed')
+        }
+        return
+      }
+
       try {
         await loginWithCognitoCode(code)
         if (cancelled) return
@@ -40,9 +55,9 @@ export function CognitoCallback() {
         } else {
           navigate('/', { replace: true })
         }
-      } catch (err) {
+      } catch {
         if (!cancelled) {
-          setRuntimeError(err instanceof Error ? err.message : 'Authentication failed')
+          setRuntimeError('Authentication failed')
         }
       }
     }
@@ -51,7 +66,7 @@ export function CognitoCallback() {
     return () => {
       cancelled = true
     }
-  }, [callbackError, code, loginWithCognitoCode, navigate])
+  }, [callbackError, callbackState, code, loginWithCognitoCode, navigate])
 
   if (error) {
     return (

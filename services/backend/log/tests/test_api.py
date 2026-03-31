@@ -519,7 +519,7 @@ def test_create_log_body_validation_returns_400() -> None:
     assert response["statusCode"] == 400
     assert body is not None
     assert body["error"] == "validation_error"
-    assert "attributeName" in body["message"]
+    assert body["message"] == "Invalid request"
 
 
 @pytest.mark.parametrize(
@@ -903,7 +903,7 @@ def test_create_communication_invalid_email_returns_400() -> None:
     assert response["statusCode"] == 400
     assert body is not None
     assert body["error"] == "validation_error"
-    assert "toEmail" in body["message"]
+    assert body["message"] == "Invalid request"
 
 
 def test_get_communication_invalid_id_and_not_found() -> None:
