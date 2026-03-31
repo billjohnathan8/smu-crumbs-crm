@@ -54,10 +54,11 @@ sftp_instance_type                = "t4g.micro"
 sftp_root_volume_size_gb          = 8
 sftp_ingress_cidr_blocks          = ["203.0.113.10/32"] # Replace with real partner office/public NAT CIDRs before apply.
 enable_verification_pipeline      = true
-ses_sender_email                  = "verification@crm.local" # override with a verified sender in target AWS account
+ses_sender_email                  = "verification@crm.local" # replace with a real mailbox you own, then verify this identity in SES (manual email confirmation link)
+ses_domain                        = ""                       # keep empty to use sender_email identity mode (manual verification)
 
 # Intentionally disabled until prerequisites are available:
-enable_aml_lambda     = false # requires real SFTP source + key management contract
+enable_aml_lambda     = true  # enabled: SFTP host/user can be auto-derived from transfer_family outputs; key secret ARN must be injected at runtime
 enable_audit_pipeline = false # implemented but disabled by default in production profile
 enable_aml_pipeline   = false # implemented but disabled by default in production profile
 
@@ -87,7 +88,7 @@ enable_cloudfront             = true
 enable_cloudfront_oac         = true
 enable_service_discovery      = true
 # Required when app_domain_name is not set and enable_verification_pipeline=true.
-# verification_frontend_base_url = "https://<your-frontend-domain>"
+verification_frontend_base_url = "https://itsag2t3.com"
 
 # --- Auth ---
 enable_cognito            = true
@@ -96,7 +97,8 @@ auth_mode                 = "cognito"
 
 # --- Domain / DNS Ownership ---
 # Keep custom-domain disabled for first bring-up unless cert + DNS ownership are ready.
-# Guardrail: school-registered domain itsag2t3.com must remain externally managed.
+# Guardrail override for this repo: allow Terraform Route53/ACM management for itsag2t3.com when you enable those flags.
+allow_school_registered_domain_management = true
 # For teardown while preserving DNS aliases, run scripts/destroy-app-keep-dns.(sh|ps1)
 # app_domain_name = ""
 manage_route53_records            = false

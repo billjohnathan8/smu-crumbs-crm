@@ -194,9 +194,9 @@ module "lambda" {
   aml_lambda_timeout_seconds                     = var.aml_lambda_timeout_seconds
   aml_lambda_role_arn                            = module.security.aml_lambda_role_arn
   aml_schedule_expression                        = var.aml_schedule_expression
-  aml_sftp_host                                  = var.aml_sftp_host
+  aml_sftp_host                                  = local.effective_aml_sftp_host
   aml_sftp_port                                  = var.aml_sftp_port
-  aml_sftp_user                                  = var.aml_sftp_user
+  aml_sftp_user                                  = local.effective_aml_sftp_user
   aml_sftp_key_secret_arn                        = var.aml_sftp_key_secret_arn
   aml_sftp_remote_path                           = var.aml_sftp_remote_path
   aml_entity_id                                  = var.aml_entity_id

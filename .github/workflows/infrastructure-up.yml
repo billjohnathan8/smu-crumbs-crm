@@ -61,6 +61,11 @@ jobs:
           test -n "${{ secrets.AWS_ROLE_ARN }}"
           test -n "${{ secrets.ROOT_ADMIN_PASSWORD }}"
 
+          if [[ "${{ inputs.environment }}" == "prod" ]]; then
+            test -n "${{ secrets.SFTP_USER_SSH_PUBLIC_KEY }}"
+            test -n "${{ secrets.AML_SFTP_KEY_SECRET_ARN }}"
+          fi
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
         with:
@@ -105,6 +110,10 @@ jobs:
           ROOT_ADMIN_PASSWORD='${{ secrets.ROOT_ADMIN_PASSWORD }}'
           JWT_HMAC_SECRET='${{ secrets.JWT_HMAC_SECRET }}'
           LAB_ROLE_ARN='${{ steps.caller.outputs.resolved_lab_role_arn }}'
+          SFTP_USER_SSH_PUBLIC_KEY='${{ secrets.SFTP_USER_SSH_PUBLIC_KEY }}'
+          AML_SFTP_KEY_SECRET_ARN='${{ secrets.AML_SFTP_KEY_SECRET_ARN }}'
+          AML_SFTP_HOST='${{ secrets.AML_SFTP_HOST }}'
+          AML_SFTP_USER='${{ secrets.AML_SFTP_USER }}'
 
           {
             echo "root_admin_password = $(jq -Rn --arg v "$ROOT_ADMIN_PASSWORD" '$v')"
@@ -113,6 +122,18 @@ jobs:
             fi
             if [[ "${{ inputs.environment }}" == "lab" && -n "$LAB_ROLE_ARN" ]]; then
               echo "lab_role_arn = $(jq -Rn --arg v "$LAB_ROLE_ARN" '$v')"
+            fi
+            if [[ -n "$SFTP_USER_SSH_PUBLIC_KEY" ]]; then
+              echo "sftp_user_ssh_public_key = $(jq -Rn --arg v "$SFTP_USER_SSH_PUBLIC_KEY" '$v')"
+            fi
+            if [[ -n "$AML_SFTP_KEY_SECRET_ARN" ]]; then
+              echo "aml_sftp_key_secret_arn = $(jq -Rn --arg v "$AML_SFTP_KEY_SECRET_ARN" '$v')"
+            fi
+            if [[ -n "$AML_SFTP_HOST" ]]; then
+              echo "aml_sftp_host = $(jq -Rn --arg v "$AML_SFTP_HOST" '$v')"
+            fi
+            if [[ -n "$AML_SFTP_USER" ]]; then
+              echo "aml_sftp_user = $(jq -Rn --arg v "$AML_SFTP_USER" '$v')"
             fi
           } > runtime.auto.tfvars
 

@@ -614,6 +614,12 @@ variable "create_acm_certificates" {
   default     = false
 }
 
+variable "allow_school_registered_domain_management" {
+  description = "Explicit override to allow Terraform Route53/ACM management for school-registered domains like itsag2t3.com. This does not manage domain registration."
+  type        = bool
+  default     = false
+}
+
 variable "existing_frontend_certificate_arn" {
   description = "Pre-existing ACM certificate ARN in us-east-1 for CloudFront. Used when create_acm_certificates=false."
   type        = string
@@ -1135,6 +1141,40 @@ check "prod_network_and_pipeline_guardrails" {
     )
     error_message = "When enable_verification_pipeline is true, set app_domain_name or verification_frontend_base_url so verification emails have a stable public frontend link target."
   }
+
+  assert {
+    condition = !(
+      contains(["prod", "production"], lower(trimspace(var.environment))) &&
+      var.enable_aml_lambda
+      ) || (
+      trimspace(var.aml_sftp_key_secret_arn) != ""
+    )
+    error_message = "For environment=prod with enable_aml_lambda=true, aml_sftp_key_secret_arn must be non-empty."
+  }
+
+  assert {
+    condition = !(
+      contains(["prod", "production"], lower(trimspace(var.environment))) &&
+      var.enable_aml_lambda
+      ) || (
+      trimspace(var.aml_sftp_host) != "" ||
+      var.enable_transfer_family_sftp ||
+      var.enable_ec2_sftp_server
+    )
+    error_message = "For environment=prod with enable_aml_lambda=true, set aml_sftp_host or enable one SFTP ingestion mode so host can be derived."
+  }
+
+  assert {
+    condition = !(
+      contains(["prod", "production"], lower(trimspace(var.environment))) &&
+      var.enable_aml_lambda
+      ) || (
+      trimspace(var.aml_sftp_user) != "" ||
+      var.enable_transfer_family_sftp ||
+      var.enable_ec2_sftp_server
+    )
+    error_message = "For environment=prod with enable_aml_lambda=true, set aml_sftp_user or enable one SFTP ingestion mode so user can be derived."
+  }
 }
 
 check "sftp_mode_guardrails" {
@@ -1209,9 +1249,10 @@ check "school_registered_domain_guardrails" {
         var.manage_route53_records ||
         var.manage_acm_dns_validation_records ||
         var.create_acm_certificates
-      )
+      ) &&
+      !var.allow_school_registered_domain_management
     )
-    error_message = "itsag2t3.com is a school-managed registered domain. Keep Route53/ACM management external (manage_route53_records=false, manage_acm_dns_validation_records=false, create_acm_certificates=false)."
+    error_message = "itsag2t3.com is guarded by default. Set allow_school_registered_domain_management=true only when you intentionally want Terraform to manage Route53/ACM for this domain. Domain registration is still out of scope."
   }
 }
 

@@ -57,6 +57,11 @@ locals {
     local.use_custom_domain ? "https://${var.app_domain_name}" : ""
   )
 
+  # AML SFTP endpoint/user defaults can be inferred from the active SFTP module
+  # when explicit AML overrides are not provided.
+  effective_aml_sftp_host = trimspace(var.aml_sftp_host) != "" ? trimspace(var.aml_sftp_host) : module.transfer_family.sftp_endpoint
+  effective_aml_sftp_user = trimspace(var.aml_sftp_user) != "" ? trimspace(var.aml_sftp_user) : module.transfer_family.sftp_username
+
   #--------------------------------------------------------------
   # S3 Bucket Names
   #--------------------------------------------------------------
