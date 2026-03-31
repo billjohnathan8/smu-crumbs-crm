@@ -70,6 +70,7 @@ class Step:
     command: List[str]
     env: Dict[str, str] = field(default_factory=dict)
     parallel_group: Optional[str] = None
+    retries: int = 0
 
 
 @dataclass
@@ -305,6 +306,7 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                         "--strict",
                     ],
                     parallel_group=pip_audit_parallel_group,
+                    retries=2,
                 )
             )
 
@@ -1330,44 +1332,65 @@ def run_step(step: Step, run_dir: Path, index: int, dry_run: bool) -> StepResult
     env = _build_env(step.env)
     run_command = resolve_windows_command(step.command)
 
+    return_code = 1
+    attempts = step.retries + 1
     with log_file.open("w", encoding="utf-8", errors="replace") as handle:
-        try:
-            process = subprocess.Popen(
-                run_command,
-                cwd=step.cwd,
-                env=env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-            )
-        except FileNotFoundError as exc:
-            elapsed = time.monotonic() - start
-            message = f"[FAIL] Unable to start command: {exc}"
-            print(message)
-            handle.write(message + "\n")
-            return StepResult(
-                phase=step.phase,
-                name=step.name,
-                command=cmd_display,
-                cwd=str(step.cwd),
-                status="FAIL",
-                duration_seconds=elapsed,
-                log_file=str(log_file),
-            )
+        for attempt in range(1, attempts + 1):
+            if attempt > 1:
+                retry_note = (
+                    f"[RETRY] Attempt {attempt}/{attempts} for step '{step.name}' "
+                    "after previous failure."
+                )
+                print(retry_note)
+                handle.write("\n" + "=" * 80 + "\n")
+                handle.write(retry_note + "\n")
 
-        assert process.stdout is not None
-        for line in process.stdout:
-            # Handle Windows console encoding issues (CP1252 can't display all Unicode)
             try:
-                print(line, end="")
-            except UnicodeEncodeError:
-                # Fallback: encode to console encoding with replacement for unsupported chars
-                print(line.encode(sys.stdout.encoding or 'utf-8', errors='replace').decode(sys.stdout.encoding or 'utf-8', errors='replace'), end="")
-            handle.write(line)
+                process = subprocess.Popen(
+                    run_command,
+                    cwd=step.cwd,
+                    env=env,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                )
+            except FileNotFoundError as exc:
+                elapsed = time.monotonic() - start
+                message = f"[FAIL] Unable to start command: {exc}"
+                print(message)
+                handle.write(message + "\n")
+                return StepResult(
+                    phase=step.phase,
+                    name=step.name,
+                    command=cmd_display,
+                    cwd=str(step.cwd),
+                    status="FAIL",
+                    duration_seconds=elapsed,
+                    log_file=str(log_file),
+                )
 
-        return_code = process.wait()
+            assert process.stdout is not None
+            for line in process.stdout:
+                # Handle Windows console encoding issues (CP1252 can't display all Unicode)
+                try:
+                    print(line, end="")
+                except UnicodeEncodeError:
+                    # Fallback: replace unsupported chars in console encoding.
+                    print(
+                        line.encode(
+                            sys.stdout.encoding or "utf-8", errors="replace"
+                        ).decode(sys.stdout.encoding or "utf-8", errors="replace"),
+                        end="",
+                    )
+                handle.write(line)
+
+            return_code = process.wait()
+            if return_code == 0:
+                break
+            if attempt < attempts:
+                time.sleep(2)
 
     elapsed = time.monotonic() - start
     status = "PASS" if return_code == 0 else "FAIL"
@@ -1405,35 +1428,50 @@ def run_parallel_step(
     env = _build_env(step.env)
     run_command = resolve_windows_command(step.command)
 
+    return_code = 1
+    attempts = step.retries + 1
     with log_file.open("w", encoding="utf-8", errors="replace") as handle:
-        try:
-            completed = subprocess.run(
-                run_command,
-                cwd=step.cwd,
-                env=env,
-                stdout=handle,
-                stderr=subprocess.STDOUT,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                check=False,
-            )
-        except FileNotFoundError as exc:
-            elapsed = time.monotonic() - start
-            message = f"[FAIL] Unable to start command: {exc}"
-            handle.write(message + "\n")
-            return StepResult(
-                phase=step.phase,
-                name=step.name,
-                command=cmd_display,
-                cwd=str(step.cwd),
-                status="FAIL",
-                duration_seconds=elapsed,
-                log_file=str(log_file),
-            )
+        for attempt in range(1, attempts + 1):
+            if attempt > 1:
+                handle.write("\n" + "=" * 80 + "\n")
+                handle.write(
+                    f"[RETRY] Attempt {attempt}/{attempts} for step '{step.name}' "
+                    "after previous failure.\n"
+                )
+            try:
+                completed = subprocess.run(
+                    run_command,
+                    cwd=step.cwd,
+                    env=env,
+                    stdout=handle,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    check=False,
+                )
+            except FileNotFoundError as exc:
+                elapsed = time.monotonic() - start
+                message = f"[FAIL] Unable to start command: {exc}"
+                handle.write(message + "\n")
+                return StepResult(
+                    phase=step.phase,
+                    name=step.name,
+                    command=cmd_display,
+                    cwd=str(step.cwd),
+                    status="FAIL",
+                    duration_seconds=elapsed,
+                    log_file=str(log_file),
+                )
+
+            return_code = completed.returncode
+            if return_code == 0:
+                break
+            if attempt < attempts:
+                time.sleep(2)
 
     elapsed = time.monotonic() - start
-    status = "PASS" if completed.returncode == 0 else "FAIL"
+    status = "PASS" if return_code == 0 else "FAIL"
     return StepResult(
         phase=step.phase,
         name=step.name,
