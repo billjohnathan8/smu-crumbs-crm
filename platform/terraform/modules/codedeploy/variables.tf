@@ -45,3 +45,14 @@ variable "lambda_deployments" {
     alias_name    = string
   }))
 }
+
+check "ecs_blue_green_target_group_contract" {
+  assert {
+    condition = alltrue([
+      for service, blue_name in var.ecs_blue_target_group_names :
+      trimspace(lookup(var.ecs_green_target_group_names, service, "")) != "" &&
+      trimspace(blue_name) != trimspace(lookup(var.ecs_green_target_group_names, service, ""))
+    ])
+    error_message = "Each ECS service must have distinct non-empty blue and green target group names."
+  }
+}

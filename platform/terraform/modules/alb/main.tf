@@ -22,6 +22,13 @@ locals {
       path_patterns = ["/api/transactions*"]
     }
   }
+
+  # AWS target group names are capped at 32 chars. Keep a short base so that
+  # blue/green suffixes are always retained and never collapse to the same name.
+  target_group_name_base = {
+    for service in keys(local.service_routing) :
+    service => trimsuffix(substr("${var.name_prefix}-${service}", 0, 26), "-")
+  }
 }
 
 resource "aws_lb" "crm" {
@@ -37,7 +44,7 @@ resource "aws_lb" "crm" {
 resource "aws_lb_target_group" "service" {
   for_each = local.service_routing
 
-  name        = trim(substr("${var.name_prefix}-${each.key}-tg", 0, 32), "-")
+  name        = "${local.target_group_name_base[each.key]}-b"
   port        = 8080
   protocol    = "HTTP"
   target_type = "ip"
@@ -56,7 +63,7 @@ resource "aws_lb_target_group" "service" {
 resource "aws_lb_target_group" "service_green" {
   for_each = var.enable_blue_green_tg ? local.service_routing : {}
 
-  name        = trim(substr("${var.name_prefix}-${each.key}-tg-green", 0, 32), "-")
+  name        = "${local.target_group_name_base[each.key]}-g"
   port        = 8080
   protocol    = "HTTP"
   target_type = "ip"
