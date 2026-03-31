@@ -1,0 +1,121 @@
+name: CD - Terraform Bootstrap Destroy
+description: Destroy Terraform backend resources (state bucket, lock table) for prod
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  destroy-terraform-backend:
+    name: Destroy Terraform backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_LOCK_DYNAMODB: ${{ vars.TF_LOCK_DYNAMODB }}
+
+    steps:
+      - name: Validate required GitHub configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -n "${AWS_REGION}" || { echo "Missing required GitHub Actions variable: AWS_REGION"; exit 1; }
+          test -n "${TF_STATE_BUCKET}" || { echo "Missing required GitHub Actions variable: TF_STATE_BUCKET"; exit 1; }
+          test -n "${TF_LOCK_DYNAMODB}" || { echo "Missing required GitHub Actions variable: TF_LOCK_DYNAMODB"; exit 1; }
+          test -n "${{ secrets.AWS_ACCESS_KEY_ID }}" || { echo "Missing required secret: AWS_ACCESS_KEY_ID"; exit 1; }
+          test -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" || { echo "Missing required secret: AWS_SECRET_ACCESS_KEY"; exit 1; }
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Destroy Terraform backend resources when present
+        id: destroy
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REGION="${AWS_REGION}"
+          BUCKET="${TF_STATE_BUCKET}"
+          LOCK_TABLE="${TF_LOCK_DYNAMODB}"
+
+          ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+
+          bucket_status="not_found"
+          table_status="not_found"
+
+          if aws s3api head-bucket --bucket "${BUCKET}" >/dev/null 2>&1; then
+            echo "Terraform state bucket found. Deleting: s3://${BUCKET} (${REGION})"
+
+            aws s3 rm "s3://${BUCKET}" --recursive >/dev/null 2>&1 || true
+
+            versions_payload="$(aws s3api list-object-versions --bucket "${BUCKET}" --output json)"
+            version_entries="$(echo "${versions_payload}" | jq -c '.Versions[]?, .DeleteMarkers[]?')"
+            if [[ -n "${version_entries}" ]]; then
+              while IFS= read -r entry; do
+                [[ -z "${entry}" ]] && continue
+                key="$(echo "${entry}" | jq -r '.Key')"
+                version_id="$(echo "${entry}" | jq -r '.VersionId')"
+                aws s3api delete-object \
+                  --bucket "${BUCKET}" \
+                  --key "${key}" \
+                  --version-id "${version_id}" >/dev/null
+              done <<< "${version_entries}"
+            fi
+
+            aws s3api delete-bucket --bucket "${BUCKET}" --region "${REGION}"
+            bucket_status="deleted"
+            echo "Deleted Terraform state bucket: s3://${BUCKET} (${REGION})"
+          else
+            echo "Terraform state bucket not found. Skipping delete: s3://${BUCKET} (${REGION})"
+          fi
+
+          if aws dynamodb describe-table --table-name "${LOCK_TABLE}" --region "${REGION}" >/dev/null 2>&1; then
+            echo "Terraform lock table found. Deleting: arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/${LOCK_TABLE}"
+            aws dynamodb delete-table --table-name "${LOCK_TABLE}" --region "${REGION}"
+            aws dynamodb wait table-not-exists --table-name "${LOCK_TABLE}" --region "${REGION}"
+            table_status="deleted"
+            echo "Deleted Terraform lock table: arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/${LOCK_TABLE}"
+          else
+            echo "Terraform lock table not found. Skipping delete: arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/${LOCK_TABLE}"
+          fi
+
+          {
+            echo "bucket_status=${bucket_status}"
+            echo "table_status=${table_status}"
+            echo "bucket_uri=s3://${BUCKET}"
+            echo "table_arn=arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/${LOCK_TABLE}"
+            echo "account_id=${ACCOUNT_ID}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish destroy summary
+        shell: bash
+        run: |
+          {
+            echo "## Terraform Backend Destroy Summary"
+            echo
+            echo "AWS account: ${{ steps.destroy.outputs.account_id }}"
+            echo "Region: ${AWS_REGION}"
+            echo
+            echo "S3 state bucket: ${{ steps.destroy.outputs.bucket_uri }}"
+            echo "Status: ${{ steps.destroy.outputs.bucket_status }}"
+            echo
+            echo "DynamoDB lock table: ${{ steps.destroy.outputs.table_arn }}"
+            echo "Status: ${{ steps.destroy.outputs.table_status }}"
+            echo
+            if [[ "${{ steps.destroy.outputs.bucket_status }}" == "not_found" && "${{ steps.destroy.outputs.table_status }}" == "not_found" ]]; then
+              echo "No resources were deleted. Terraform backend resources did not exist in the configured AWS account."
+            else
+              echo "Deleted resources:"
+              [[ "${{ steps.destroy.outputs.bucket_status }}" == "deleted" ]] && echo "- S3 bucket"
+              [[ "${{ steps.destroy.outputs.table_status }}" == "deleted" ]] && echo "- DynamoDB lock table"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
