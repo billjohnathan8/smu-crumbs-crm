@@ -469,7 +469,7 @@ variable "sftp_username" {
 variable "sftp_user_ssh_public_key" {
   description = "SSH public key for SFTP user authentication (OpenSSH format). Generate with: ssh-keygen -t rsa -b 4096 -f ~/.ssh/crm-sftp-demo -N \"\""
   type        = string
-  default     = ""
+  default     = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOP8201XI0Mm+5mcjErKodgbjgXrl8dG8LnXUR1Dpfbs matteo@MW"
 
   validation {
     condition     = var.sftp_user_ssh_public_key == "" || can(regex("^(ssh-rsa|ssh-ed25519|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521) ", var.sftp_user_ssh_public_key))
@@ -525,7 +525,7 @@ variable "aml_sftp_user" {
 variable "aml_sftp_key_secret_arn" {
   description = "Optional Secrets Manager ARN for AML SFTP private key. Not used for S3-based mock SFTP data."
   type        = string
-  default     = ""
+  default     = "arn:aws:secretsmanager:ap-southeast-1:699089610166:secret:/scroogebank/prod/aml/sftp/private-key-mSyhbc"
 }
 
 variable "aml_sftp_remote_path" {
