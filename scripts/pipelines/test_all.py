@@ -271,6 +271,39 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
                 )
             )
 
+        steps.append(
+            Step(
+                phase=phase,
+                name="Install pip-audit",
+                cwd=REPO_ROOT,
+                command=[py, "-m", "pip", "install", "--upgrade", "pip", "pip-audit"],
+            )
+        )
+
+        for label, svc_dir in [
+            ("log", log_dir),
+            ("aml", aml_dir),
+            ("sftp-transaction-collector", sftp_transaction_collector_dir),
+            ("verification", verification_dir),
+            ("audit-consumer", audit_consumer_dir),
+            ("aml-consumer", aml_consumer_dir),
+        ]:
+            steps.append(
+                Step(
+                    phase=phase,
+                    name=f"pip-audit ({label})",
+                    cwd=svc_dir,
+                    command=[
+                        py,
+                        "-m",
+                        "pip_audit",
+                        "-r",
+                        "requirements.txt",
+                        "--strict",
+                    ],
+                )
+            )
+
         # -- Black + Flake8: read-only checks, safe to parallelize --
         _python_lint_targets = [
             ("log", log_dir, ["app", "lambda_function.py", "tests"]),
