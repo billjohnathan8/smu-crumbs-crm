@@ -17,6 +17,7 @@ Usage:
 """
 
 import argparse
+import json
 import os
 import platform as stdlib_platform
 import re
@@ -135,6 +136,7 @@ class EnvironmentChecker:
                 "dot": "winget install Graphviz.Graphviz",
                 "inframap": "Use setup script portable install or download from GitHub releases",
                 "jmeter": "Installed automatically by setup script (portable) or download from Apache JMeter",
+                "trivy": "winget install aquasecurity.trivy",
             }
         elif stdlib_platform.system() == "Darwin":
             install_cmds = {
@@ -147,6 +149,7 @@ class EnvironmentChecker:
                 "dot": "brew install graphviz",
                 "inframap": "Use setup script portable install or download from GitHub releases",
                 "jmeter": "Installed automatically by setup script (portable) or download from Apache JMeter",
+                "trivy": "brew install trivy",
             }
         else:  # Linux
             install_cmds = {
@@ -159,6 +162,7 @@ class EnvironmentChecker:
                 "dot": "sudo apt-get install graphviz",
                 "inframap": "Use setup script portable install or download from GitHub releases",
                 "jmeter": "Installed automatically by setup script (portable) or download from Apache JMeter",
+                "trivy": "Install from https://aquasecurity.github.io/trivy/latest/getting-started/installation/",
             }
         
         return install_cmds.get(tool, f"Install {tool} from official website")
@@ -256,6 +260,7 @@ class ToolInstaller:
         "actionlint": "v1.7.5",
         "inframap": "latest",
         "jmeter": "5.6.3",
+        "trivy": "latest",
     }
     
     def __init__(self, platform, logger, portable: bool = True):
@@ -392,6 +397,77 @@ class ToolInstaller:
         self.logger.success(f"Apache JMeter installed to {install_dir}")
         self.installed_count += 1
 
+    def _fetch_github_json(self, url: str) -> dict:
+        """Fetch JSON from GitHub API with a basic User-Agent header."""
+        req = urllib.request.Request(url, headers={"User-Agent": "setup-dev-env"})
+        with urllib.request.urlopen(req, timeout=30) as response:
+            return json.loads(response.read().decode("utf-8"))
+
+    def download_trivy(self, version: Optional[str] = None):
+        """Download Trivy binary to .devtools/bin."""
+        version = version or self.TOOL_VERSIONS["trivy"]
+        os_name, arch = self._get_platform_arch()
+
+        trivy_os = {
+            "windows": "Windows",
+            "linux": "Linux",
+            "darwin": "macOS",
+        }.get(os_name, "Linux")
+        trivy_arch = {
+            "amd64": "64bit",
+            "arm64": "ARM64",
+        }.get(arch, "64bit")
+        extension = "zip" if os_name == "windows" else "tar.gz"
+
+        if version == "latest":
+            release = self._fetch_github_json("https://api.github.com/repos/aquasecurity/trivy/releases/latest")
+            version_label = release.get("tag_name", "latest")
+        else:
+            tag = version if version.startswith("v") else f"v{version}"
+            release = self._fetch_github_json(f"https://api.github.com/repos/aquasecurity/trivy/releases/tags/{tag}")
+            version_label = tag
+
+        assets = release.get("assets", [])
+        pattern = re.compile(rf"^trivy_.+_{trivy_os}-{trivy_arch}\.{re.escape(extension)}$")
+        candidate = next((asset for asset in assets if pattern.match(asset.get("name", ""))), None)
+        if not candidate:
+            raise RuntimeError(
+                f"No Trivy release asset found for {trivy_os}-{trivy_arch} ({extension}) in {version_label}"
+            )
+
+        archive_name = candidate["name"]
+        archive_url = candidate["browser_download_url"]
+        archive_path = self.devtools_bin / archive_name
+
+        self.logger.info(f"Downloading Trivy {version_label}...")
+        self._download_file(archive_url, archive_path)
+
+        dest = self.devtools_bin / ("trivy.exe" if os_name == "windows" else "trivy")
+        if os_name == "windows":
+            with zipfile.ZipFile(archive_path, "r") as zip_ref:
+                binary_member = next((m for m in zip_ref.namelist() if m.endswith("trivy.exe")), None)
+                if not binary_member:
+                    raise RuntimeError("Could not locate trivy.exe in archive")
+                with zip_ref.open(binary_member) as source, open(dest, "wb") as target:
+                    target.write(source.read())
+        else:
+            with tarfile.open(archive_path, "r:gz") as tar_ref:
+                binary_member = next((m for m in tar_ref.getmembers() if m.isfile() and m.name.endswith("/trivy")), None)
+                if not binary_member:
+                    binary_member = next((m for m in tar_ref.getmembers() if m.isfile() and m.name == "trivy"), None)
+                if not binary_member:
+                    raise RuntimeError("Could not locate trivy binary in archive")
+                extracted = tar_ref.extractfile(binary_member)
+                if extracted is None:
+                    raise RuntimeError("Failed to extract trivy binary from archive")
+                with extracted, open(dest, "wb") as target:
+                    target.write(extracted.read())
+            dest.chmod(dest.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+        archive_path.unlink(missing_ok=True)
+        self.logger.success(f"Trivy installed to {dest}")
+        self.installed_count += 1
+
     def _write_jmeter_wrapper(self, install_dir: Path):
         """Create a lightweight wrapper in .devtools/bin so jmeter is on PATH."""
         if is_windows():
@@ -475,6 +551,8 @@ exec "{target}" "$@"
                     self.download_inframap()
                 elif tool == "jmeter":
                     self.download_jmeter()
+                elif tool == "trivy":
+                    self.download_trivy()
             except Exception as e:
                 self.logger.warning(f"Failed to install {tool}: {e}")
     
@@ -798,6 +876,7 @@ Examples:
             checker.check_tool("actionlint", "actionlint", required=False)
             checker.check_tool("inframap", "inframap", required=False)
             checker.check_tool("JMeter", "jmeter", required=False, version_flag="-v")
+            checker.check_tool("trivy", "trivy", required=False)
             checker.check_tool("graphviz-dot", "dot", required=False)
             
             checker.report()

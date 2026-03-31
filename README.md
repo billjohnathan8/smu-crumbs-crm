@@ -31,7 +31,7 @@ python scripts/pipelines/setup_dev_env.py
 If Python is not installed yet, start with [docs/onboarding/new-dev-setup.md](docs/onboarding/new-dev-setup.md).
 On Linux/macOS/WSL, use `python3` if `python` is not available.
 
-Note: `setup_dev_env.py` can install `inframap` without Docker (portable binary download). Docker Desktop is still required for container-based workflows and Docker fallback paths.
+Note: `setup_dev_env.py` can install portable CLI tools (including `inframap` and `trivy`) into `.devtools/bin`. Docker Desktop is still required for container-based workflows and Docker fallback paths.
 
 # Local Dev Stack
 
