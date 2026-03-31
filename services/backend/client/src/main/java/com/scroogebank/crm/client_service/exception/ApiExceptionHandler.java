@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -23,6 +24,12 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @RestControllerAdvice
 public class ApiExceptionHandler {
 	private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
+
+	private final boolean productionMode;
+
+	public ApiExceptionHandler(@Value("${app.production-mode:false}") boolean productionMode) {
+		this.productionMode = productionMode;
+	}
 
 	@ExceptionHandler(ClientNotFoundException.class)
 	public ResponseEntity<ErrorResponse> handleNotFound(HttpServletRequest request, ClientNotFoundException _ex) {
@@ -41,7 +48,7 @@ public class ApiExceptionHandler {
 
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	public ResponseEntity<ErrorResponse> handleValidation(HttpServletRequest request, MethodArgumentNotValidException ex) {
-		String message = ex.getBindingResult().getFieldErrors().stream()
+		String message = productionMode ? "Validation failed" : ex.getBindingResult().getFieldErrors().stream()
 			.map(err -> err.getField() + ": " + (err.getDefaultMessage() == null ? "invalid" : err.getDefaultMessage()))
 			.collect(Collectors.joining("; "));
 		if (message.isBlank()) {
@@ -51,8 +58,9 @@ public class ApiExceptionHandler {
 	}
 
 	@ExceptionHandler(ConstraintViolationException.class)
-	public ResponseEntity<ErrorResponse> handleConstraintViolation(HttpServletRequest request, ConstraintViolationException _ex) {
-		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(request, "validation_error", "Invalid request"));
+	public ResponseEntity<ErrorResponse> handleConstraintViolation(HttpServletRequest request, ConstraintViolationException ex) {
+		String message = productionMode ? "Validation failed" : ex.getMessage();
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(request, "validation_error", message));
 	}
 
 	@ExceptionHandler(HttpMessageNotReadableException.class)
@@ -103,14 +111,6 @@ public class ApiExceptionHandler {
 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error(request, "internal_error", "Internal error"));
 	}
 
-	/**
-	 * Builds a standard error response and attaches the request id when available.
-	 *
-	 * @param request HTTP request
-	 * @param error short error code
-	 * @param message human-readable message
-	 * @return error response payload
-	 */
 	private static ErrorResponse error(HttpServletRequest request, String error, String message) {
 		Object requestId = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
 		return new ErrorResponse(error, message, requestId == null ? null : requestId.toString());

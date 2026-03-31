@@ -1,0 +1,20 @@
+const ERROR_MESSAGES: Record<string, string> = {
+  unauthorized: 'Your session has expired. Please log in again.',
+  forbidden: "You don't have permission to perform this action.",
+  not_found: 'The requested resource was not found.',
+  validation_failed: 'Please check your input and try again.',
+  validation_error: 'Please check your input and try again.',
+  conflict: 'This record has already been modified. Please refresh and try again.',
+  request_timeout: 'Request timed out. Please try again.',
+  network_error: 'Network error occurred. Please check your connection and try again.',
+  unknown_error: 'An unexpected error occurred. Please try again.',
+}
+
+const GENERIC_ERROR_MESSAGE = 'An unexpected error occurred. Please try again.'
+
+export function getUserFriendlyErrorMessage(errorCode?: string): string {
+  if (!errorCode) {
+    return GENERIC_ERROR_MESSAGE
+  }
+  return ERROR_MESSAGES[errorCode] ?? GENERIC_ERROR_MESSAGE
+}

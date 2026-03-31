@@ -2,6 +2,7 @@ package com.scroogebank.crm.transaction_service.config;
 
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -26,9 +27,14 @@ import com.scroogebank.crm.transaction_service.security.JwtAuthFilter;
 public class SecurityConfig {
 
 	private final JwtAuthFilter jwtAuthFilter;
+	private final List<String> corsAllowedOrigins;
 
-	public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
+	public SecurityConfig(
+		JwtAuthFilter jwtAuthFilter,
+		@Value("${app.cors.allowed-origins}") String corsAllowedOrigins
+	) {
 		this.jwtAuthFilter = jwtAuthFilter;
+		this.corsAllowedOrigins = List.of(corsAllowedOrigins.split(","));
 	}
 
 	@Bean
@@ -40,6 +46,7 @@ public class SecurityConfig {
 			.authorizeHttpRequests(authorize -> authorize
 				.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 				.requestMatchers("/health", "/api/v1/logs/health").permitAll()
+				.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
 				.anyRequest().authenticated()
 			)
 			.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
@@ -49,7 +56,7 @@ public class SecurityConfig {
 	@Bean
 	public CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration config = new CorsConfiguration();
-		config.setAllowedOriginPatterns(List.of("*"));
+		config.setAllowedOriginPatterns(corsAllowedOrigins);
 		config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 		config.setAllowedHeaders(List.of("*"));
 		config.setAllowCredentials(false);
