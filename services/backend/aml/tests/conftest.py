@@ -32,7 +32,6 @@ from tests.mocks import (  # noqa: E402
     MockHistoricalTransactionRepository,
 )
 
-
 # ---------------------------------------------------------------------------
 # Reusable date helpers
 # ---------------------------------------------------------------------------

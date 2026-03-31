@@ -15,7 +15,6 @@ from lambda_function import (
 )
 from tests.conftest import REF_DATE, make_deposit, make_withdrawal
 
-
 # ---------------------------------------------------------------------------
 # Pass-through (mule) detection
 # ---------------------------------------------------------------------------

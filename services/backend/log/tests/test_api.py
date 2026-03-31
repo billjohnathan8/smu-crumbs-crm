@@ -525,9 +525,9 @@ def test_create_log_body_validation_returns_400() -> None:
 @pytest.mark.parametrize(
     "raw_body",
     [
-        "{\"action\":\"CREATE\"",
+        '{"action":"CREATE"',
         "{not-json}",
-        "[\"unexpected\", \"array\"]",
+        '["unexpected", "array"]',
     ],
 )
 def test_create_log_malformed_json_body_returns_400(raw_body: str) -> None:
@@ -556,7 +556,9 @@ def test_create_log_malformed_json_body_returns_400(raw_body: str) -> None:
         "../../etc/passwd",
     ],
 )
-def test_list_logs_for_client_adversarial_path_values_are_rejected(payload: str) -> None:
+def test_list_logs_for_client_adversarial_path_values_are_rejected(
+    payload: str,
+) -> None:
     secret = "test-secret"
     router = _make_router(FakeLogService(), secret=secret)
     token = mint_token("usr_admin", "admin", secret)

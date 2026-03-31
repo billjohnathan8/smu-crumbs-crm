@@ -12,7 +12,6 @@ from lambda_function import (
 from tests.mocks import MockHistoricalTransactionRepository
 from tests.conftest import make_deposit
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

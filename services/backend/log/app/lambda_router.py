@@ -349,7 +349,9 @@ class LambdaRouter:
             request = normalize_event(event)
         except ValueError as exc:
             request_headers = _normalize_headers(event.get("headers"))
-            request_id = request_headers.get(_LOWER_REQUEST_ID_HEADER) or str(uuid.uuid4())
+            request_id = request_headers.get(_LOWER_REQUEST_ID_HEADER) or str(
+                uuid.uuid4()
+            )
             return _error_response(
                 request_id,
                 400,

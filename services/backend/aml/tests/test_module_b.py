@@ -13,7 +13,6 @@ from lambda_function import (
 )
 from tests.conftest import make_deposit, make_withdrawal
 
-
 # ---------------------------------------------------------------------------
 # Happy-path: classic structuring pattern
 # ---------------------------------------------------------------------------

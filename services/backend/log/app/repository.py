@@ -33,14 +33,12 @@ class LogRepository:
 
         with psycopg.connect(self._settings.dsn) as conn:
             with conn.cursor() as cur:
-                cur.execute(
-                    """
+                cur.execute("""
                     CREATE TABLE IF NOT EXISTS schema_migrations (
                         version VARCHAR(128) PRIMARY KEY,
                         applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     )
-                    """
-                )
+                    """)
                 for file_path in migration_files:
                     version = file_path.name
                     cur.execute(
