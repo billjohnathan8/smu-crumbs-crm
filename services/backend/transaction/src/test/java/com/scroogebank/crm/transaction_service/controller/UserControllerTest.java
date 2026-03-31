@@ -30,6 +30,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -52,7 +54,7 @@ class UserControllerTest {
 				transactionAuditLogger
 			)
 		)
-		.setControllerAdvice(new ApiExceptionHandler())
+		.setControllerAdvice(new ApiExceptionHandler(false))
 		.build();
 
 	@Test
@@ -217,6 +219,81 @@ class UserControllerTest {
 				.header("Authorization", "Bearer x")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"clientId\":\"\",\"amount\":-1}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error").value("validation_error"));
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {
+		"' OR '1'='1",
+		"clt_1; DROP TABLE transactions; --",
+		"../../etc/passwd"
+	})
+	void createTransaction_adversarialClientId_returnsBadRequest(String clientIdPayload) throws Exception {
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
+		String payload = """
+			{
+			  "clientId": "%s",
+			  "transaction": "D",
+			  "amount": 1200.50,
+			  "date": "2026-02-01",
+			  "status": "Completed"
+			}
+			""".formatted(clientIdPayload.replace("\"", "\\\""));
+
+		mockMvc.perform(post("/api/transactions")
+				.header("Authorization", "Bearer x")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(payload))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error").value("validation_error"));
+	}
+
+	@Test
+	void createTransaction_oversizedClientId_returnsBadRequest() throws Exception {
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
+		String payload = """
+			{
+			  "clientId": "%s",
+			  "transaction": "D",
+			  "amount": 1200.50,
+			  "date": "2026-02-01",
+			  "status": "Completed"
+			}
+			""".formatted("c".repeat(500));
+
+		mockMvc.perform(post("/api/transactions")
+				.header("Authorization", "Bearer x")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(payload))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error").value("validation_error"));
+	}
+
+	@Test
+	void createTransaction_malformedJson_returnsBadRequest() throws Exception {
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
+
+		mockMvc.perform(post("/api/transactions")
+				.header("Authorization", "Bearer x")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"clientId\":\"clt_1\",\"transaction\":\"D\""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error").value("validation_error"));
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {
+		"' OR '1'='1",
+		"clt_1; DROP TABLE transactions; --",
+		"../../etc/passwd"
+	})
+	void listTransactions_adversarialClientIdQuery_returnsBadRequest(String clientIdPayload) throws Exception {
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
+
+		mockMvc.perform(get("/api/transactions")
+				.header("Authorization", "Bearer x")
+				.queryParam("clientId", clientIdPayload))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.error").value("validation_error"));
 	}

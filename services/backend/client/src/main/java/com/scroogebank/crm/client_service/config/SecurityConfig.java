@@ -2,6 +2,7 @@ package com.scroogebank.crm.client_service.config;
 
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -28,18 +29,16 @@ import com.scroogebank.crm.client_service.security.JwtAuthFilter;
 public class SecurityConfig {
 
 	private final JwtAuthFilter jwtAuthFilter;
+	private final List<String> corsAllowedOrigins;
 
-	public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
+	public SecurityConfig(
+		JwtAuthFilter jwtAuthFilter,
+		@Value("${app.cors.allowed-origins}") String corsAllowedOrigins
+	) {
 		this.jwtAuthFilter = jwtAuthFilter;
+		this.corsAllowedOrigins = List.of(corsAllowedOrigins.split(","));
 	}
 
-	/**
-	 * Builds the security filter chain for the service.
-	 *
-	 * @param http security builder
-	 * @return configured filter chain
-	 * @throws Exception when configuration fails
-	 */
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 		return http
@@ -50,6 +49,7 @@ public class SecurityConfig {
 			.authorizeHttpRequests(authorize -> authorize
 				.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 				.requestMatchers("/health", "/api/v1/logs/health").permitAll()
+				.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
 				.requestMatchers(HttpMethod.POST, "/api/clients/*/upload-verify").permitAll()
 				.anyRequest().authenticated()
 			)
@@ -60,7 +60,7 @@ public class SecurityConfig {
 	@Bean
 	public CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration config = new CorsConfiguration();
-		config.setAllowedOriginPatterns(List.of("*"));
+		config.setAllowedOriginPatterns(corsAllowedOrigins);
 		config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 		config.setAllowedHeaders(List.of("*"));
 		config.setAllowCredentials(false);

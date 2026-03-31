@@ -32,7 +32,7 @@ class AuthControllerTest {
 		authService = mock(AuthService.class);
 		objectMapper = new ObjectMapper();
 		mockMvc = MockMvcBuilders.standaloneSetup(new AuthController(authService))
-			.setControllerAdvice(new ApiExceptionHandler())
+			.setControllerAdvice(new ApiExceptionHandler(false))
 			.build();
 	}
 

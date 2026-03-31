@@ -17,8 +17,14 @@ import com.scroogebank.crm.transaction_service.security.RequestAuth;
 import com.scroogebank.crm.transaction_service.service.ClientAccessValidator;
 import com.scroogebank.crm.transaction_service.service.InMemoryTransactionsStore;
 import com.scroogebank.crm.transaction_service.service.TransactionsService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Pattern;
 import java.time.LocalDate;
 import java.util.Objects;
 import java.util.StringJoiner;
@@ -36,12 +42,23 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.validation.annotation.Validated;
 
 /**
  * REST endpoints for transaction CRUD and import operations.
  */
 @RestController
+@Validated
 @RequestMapping("/api")
+@Tag(name = "Transactions")
+@SecurityRequirement(name = "bearerAuth")
+@ApiResponses({
+	@ApiResponse(responseCode = "400", description = "Validation failed"),
+	@ApiResponse(responseCode = "401", description = "Unauthorized"),
+	@ApiResponse(responseCode = "403", description = "Forbidden"),
+	@ApiResponse(responseCode = "404", description = "Not found"),
+	@ApiResponse(responseCode = "500", description = "Internal error")
+})
 public class TransactionsController {
 	private static final String SYSTEM_IMPORT_CLIENT_ID = "SYSTEM_IMPORT";
 	private final TransactionsService transactionsService;
@@ -66,11 +83,12 @@ public class TransactionsController {
 	 * have access to that client; otherwise an empty page is returned.
 	 */
 	@GetMapping("/transactions")
+	@Operation(summary = "List transactions")
 	public TransactionsListResponse listTransactions(
 		HttpServletRequest request,
 		@RequestParam(defaultValue = "50") int limit,
 		@RequestParam(defaultValue = "0") int offset,
-		@RequestParam(required = false) String clientId,
+		@RequestParam(required = false) @Pattern(regexp = "^$|^[A-Za-z0-9_-]{1,128}$") String clientId,
 		@RequestParam(required = false) TransactionStatus status,
 		@RequestParam(required = false, name = "transaction") TransactionKind kind,
 		@RequestParam(required = false) @DateTimeFormat(iso = ISO.DATE) LocalDate fromDate,
@@ -78,6 +96,9 @@ public class TransactionsController {
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		requireAnyRole(user, "admin", "user");
+		if (clientId != null && !clientId.isBlank() && !clientId.matches("^[A-Za-z0-9_-]{1,128}$")) {
+			throw new IllegalArgumentException("invalid clientId");
+		}
 
 		String authHeader = request.getHeader("Authorization");
 		if (user.isUser()) {
@@ -113,6 +134,7 @@ public class TransactionsController {
 	 */
 	@PostMapping("/transactions")
 	@ResponseStatus(HttpStatus.CREATED)
+	@Operation(summary = "Create transaction")
 	public TransactionDto createTransaction(
 		HttpServletRequest request,
 		@Valid @RequestBody CreateTransactionRequest body
@@ -137,7 +159,8 @@ public class TransactionsController {
 	 * Fetches a transaction by id. Users receive a 404 when access is forbidden.
 	 */
 	@GetMapping("/transactions/{transactionId}")
-	public TransactionDto getTransaction(HttpServletRequest request, @PathVariable String transactionId) {
+	@Operation(summary = "Get transaction by id")
+	public TransactionDto getTransaction(HttpServletRequest request, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String transactionId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		requireAnyRole(user, "admin", "user");
 
@@ -168,9 +191,10 @@ public class TransactionsController {
 	 * Updates an existing transaction. Admin-only.
 	 */
 	@PutMapping("/transactions/{transactionId}")
+	@Operation(summary = "Update transaction")
 	public TransactionDto updateTransaction(
 		HttpServletRequest request,
-		@PathVariable String transactionId,
+		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String transactionId,
 		@Valid @RequestBody UpdateTransactionRequest body
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
@@ -209,7 +233,8 @@ public class TransactionsController {
 	 */
 	@DeleteMapping("/transactions/{transactionId}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
-	public void deleteTransaction(HttpServletRequest request, @PathVariable String transactionId) {
+	@Operation(summary = "Delete transaction")
+	public void deleteTransaction(HttpServletRequest request, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String transactionId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		requireAnyRole(user, "admin");
 		TransactionDto existing = transactionsService.get(transactionId);
@@ -230,9 +255,10 @@ public class TransactionsController {
 	 * Lists transactions scoped to a single client id after access validation.
 	 */
 	@GetMapping("/clients/{clientId}/transactions")
+	@Operation(summary = "List transactions for client")
 	public TransactionsListResponse listTransactionsForClient(
 		HttpServletRequest request,
-		@PathVariable String clientId,
+		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String clientId,
 		@RequestParam(defaultValue = "50") int limit,
 		@RequestParam(defaultValue = "0") int offset
 	) {
@@ -260,6 +286,7 @@ public class TransactionsController {
 	 * Starts an import from the configured S3-backed transaction source. Admin-only.
 	 */
 	@PostMapping("/transactions/import")
+	@Operation(summary = "Start transaction import")
 	public ResponseEntity<ImportBatchDto> importTransactions(
 		HttpServletRequest request,
 		@RequestBody(required = false) ImportTransactionsRequest body
@@ -290,7 +317,8 @@ public class TransactionsController {
 	 * Retrieves import batch status by id. Admin-only.
 	 */
 	@GetMapping("/transactions/imports/{importBatchId}")
-	public ImportBatchDto getImportBatch(HttpServletRequest request, @PathVariable String importBatchId) {
+	@Operation(summary = "Get import batch status")
+	public ImportBatchDto getImportBatch(HttpServletRequest request, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String importBatchId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		requireAnyRole(user, "admin");
 		ImportBatchDto batch = transactionsService.getBatch(importBatchId);

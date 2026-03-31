@@ -34,7 +34,14 @@ spring:
     table: transaction_flyway_schema_history
     locations: classpath:db/migration
 
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_API_DOCS_ENABLED:true}
+  swagger-ui:
+    enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:true}
+
 app:
+  production-mode: ${APP_PRODUCTION_MODE:false}
   jwt:
     hmac-secret: ${JWT_HMAC_SECRET:}
     auth-mode: ${AUTH_MODE:local}
@@ -64,3 +71,5 @@ app:
     secret-access-key: ${TRANSACTION_IMPORT_S3_SECRET_ACCESS_KEY:}
   transactions-store:
     type: ${APP_TRANSACTIONS_STORE_TYPE:postgres}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:*}

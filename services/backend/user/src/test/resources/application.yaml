@@ -11,3 +11,5 @@ app:
   root-admin:
     email: root@example.com
     password: RootPass!123
+  cors:
+    allowed-origins: '*'

@@ -12,6 +12,7 @@ public final class PiiMasker {
 
 	private static final Set<String> FULLY_REDACTED_FIELDS = Set.of(
 		"address", "city", "state",
+		"dateOfBirth",
 		"nric", "verificationToken", "token", "primaryDocumentRef", "addressDocumentRef",
 		"primaryDocumentBase64", "addressDocumentBase64", "primaryDocumentMimeType", "addressDocumentMimeType",
 		"clientId", "accountId", "assignedUserId", "userId"
@@ -19,6 +20,7 @@ public final class PiiMasker {
 
 	private static final Set<String> PII_FIELDS = Set.of(
 		"emailAddress", "phoneNumber", "address", "city", "state", "postalCode",
+		"dateOfBirth",
 		"nric", "verificationToken", "token", "primaryDocumentRef", "addressDocumentRef",
 		"primaryDocumentBase64", "addressDocumentBase64", "primaryDocumentMimeType", "addressDocumentMimeType",
 		"clientId", "accountId", "assignedUserId", "userId"
@@ -48,6 +50,7 @@ public final class PiiMasker {
 			case "emailAddress" -> maskEmail(value);
 			case "phoneNumber" -> maskPhone(value);
 			case "postalCode" -> maskPostalCode(value);
+			case "nric" -> maskNric(value);
 			default -> REDACTED;
 		};
 	}
@@ -72,5 +75,17 @@ public final class PiiMasker {
 			return REDACTED;
 		}
 		return "*".repeat(code.length() - 3) + code.substring(code.length() - 3);
+	}
+
+	private static String maskNric(String nric) {
+		// Show first char, mask middle, show last 3 chars: S*****67A
+		if (nric.length() <= 4) {
+			return REDACTED;
+		}
+		int visibleSuffix = 3;
+		int maskLen = nric.length() - 1 - visibleSuffix;
+		return nric.charAt(0)
+			+ "*".repeat(maskLen)
+			+ nric.substring(nric.length() - visibleSuffix);
 	}
 }

@@ -40,10 +40,17 @@ spring:
     table: client_flyway_schema_history
     locations: classpath:db/migration  # default location for migration scripts
 
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_API_DOCS_ENABLED:true}
+  swagger-ui:
+    enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:true}
+
 server:
   port: 8080
 
 app:
+  production-mode: ${APP_PRODUCTION_MODE:false}
   log-service-url: ${CLIENT_LOG_SERVICE_URL:${LOG_SERVICE_URL:http://localhost:4566/_aws/execute-api/local/local}}
   verification:
     sns-topic-arn: ${VERIFICATION_SNS_TOPIC_ARN:}
@@ -71,3 +78,5 @@ app:
       audience: ${COGNITO_AUDIENCE:}
       jwks-url: ${COGNITO_JWKS_URL:}
       jwks-cache-ttl-seconds: ${COGNITO_JWKS_CACHE_TTL_SECONDS:300}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:*}

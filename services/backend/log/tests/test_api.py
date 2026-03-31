@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from urllib.parse import urlencode
 
+import pytest
 from app.auth import UnauthorizedError
 from app.lambda_router import LambdaRouter
 from app.schemas import (
@@ -519,6 +520,59 @@ def test_create_log_body_validation_returns_400() -> None:
     assert body is not None
     assert body["error"] == "validation_error"
     assert body["message"] == "Invalid request"
+
+
+@pytest.mark.parametrize(
+    "raw_body",
+    [
+        "{\"action\":\"CREATE\"",
+        "{not-json}",
+        "[\"unexpected\", \"array\"]",
+    ],
+)
+def test_create_log_malformed_json_body_returns_400(raw_body: str) -> None:
+    secret = "test-secret"
+    router = _make_router(FakeLogService(), secret=secret)
+    token = mint_token("usr_admin", "admin", secret)
+    event = _http_api_v2_event(
+        "POST",
+        "/api/logs",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    event["body"] = raw_body
+
+    response, body = _invoke(router, event)
+
+    assert response["statusCode"] == 400
+    assert body is not None
+    assert body["error"] == "validation_error"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        "' OR '1'='1",
+        "clt_1; DROP TABLE audit_logs; --",
+        "../../etc/passwd",
+    ],
+)
+def test_list_logs_for_client_adversarial_path_values_are_rejected(payload: str) -> None:
+    secret = "test-secret"
+    router = _make_router(FakeLogService(), secret=secret)
+    token = mint_token("usr_admin", "admin", secret)
+
+    response, body = _invoke(
+        router,
+        _http_api_v2_event(
+            "GET",
+            f"/api/clients/{payload}/logs",
+            headers={"Authorization": f"Bearer {token}"},
+        ),
+    )
+
+    assert response["statusCode"] in (400, 404)
+    assert body is not None
+    assert body["error"] in ("validation_error", "not_found")
 
 
 def test_create_log_service_validation_error_returns_400() -> None:
