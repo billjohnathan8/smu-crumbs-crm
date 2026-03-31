@@ -25,10 +25,11 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -135,28 +136,34 @@ public class PersistentTransactionsStore implements TransactionsStore {
 		LocalDate fromDate,
 		LocalDate toDate
 	) {
-		List<TransactionRecordEntity> rows = transactionRepository.findAll(Sort.by(Sort.Direction.ASC, "id"));
-		if (clientId != null && !clientId.isBlank()) {
-			String normalizedClientId = clientId.trim();
-			rows = rows.stream().filter(r -> normalizedClientId.equals(r.getClientId())).toList();
-		}
-		if (status != null) {
-			rows = rows.stream().filter(r -> status == r.getStatus()).toList();
-		}
-		if (kind != null) {
-			rows = rows.stream().filter(r -> kind == r.getKind()).toList();
-		}
-		if (fromDate != null) {
-			rows = rows.stream().filter(r -> !r.getDate().isBefore(fromDate)).toList();
-		}
-		if (toDate != null) {
-			rows = rows.stream().filter(r -> !r.getDate().isAfter(toDate)).toList();
+		int normalizedLimit = Math.max(1, Math.min(200, limit));
+		int normalizedOffset = Math.max(0, offset);
+		String normalizedClientId = normalizeOptional(clientId);
+
+		PageRequest pageRequest = PageRequest.of(
+			normalizedOffset / normalizedLimit,
+			normalizedLimit,
+			Sort.by(Sort.Direction.ASC, "id")
+		);
+
+		List<TransactionRecordEntity> rows = transactionRepository.search(
+			normalizedClientId,
+			status,
+			kind,
+			fromDate,
+			toDate,
+			pageRequest
+		);
+		long total = transactionRepository.countSearch(normalizedClientId, status, kind, fromDate, toDate);
+
+		int trim = normalizedOffset % normalizedLimit;
+		if (trim > 0 && trim < rows.size()) {
+			rows = rows.subList(trim, rows.size());
+		} else if (trim >= rows.size()) {
+			rows = List.of();
 		}
 
-		long total = rows.size();
-		int fromIndex = Math.min(Math.max(offset, 0), rows.size());
-		int toIndex = Math.min(fromIndex + Math.max(1, Math.min(200, limit)), rows.size());
-		List<TransactionDto> page = rows.subList(fromIndex, toIndex).stream()
+		List<TransactionDto> page = rows.stream()
 			.map(PersistentTransactionsStore::toDto)
 			.toList();
 		return new InMemoryTransactionsStore.ListResult(page, total);
@@ -237,6 +244,13 @@ public class PersistentTransactionsStore implements TransactionsStore {
 			return DEFAULT_SOURCE_PATH;
 		}
 		return sourcePath.trim();
+	}
+
+	private static String normalizeOptional(String value) {
+		if (value == null || value.isBlank()) {
+			return null;
+		}
+		return value.trim();
 	}
 
 	private TransactionRecordEntity toEntity(ParsedTransactionRow row, TransactionImportBatchEntity batch) {
