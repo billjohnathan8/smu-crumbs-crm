@@ -651,7 +651,7 @@ resource "aws_iam_role_policy" "ecs_task_client_ses_send" {
 }
 
 data "aws_iam_policy_document" "ecs_client_publish_verification_sns" {
-  count = var.enable_verification_pipeline && var.verification_sns_topic_arn != "" && !local.use_lab_role ? 1 : 0
+  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "PublishVerificationRequestedEvents"
@@ -664,7 +664,7 @@ data "aws_iam_policy_document" "ecs_client_publish_verification_sns" {
 }
 
 resource "aws_iam_role_policy" "ecs_task_client_publish_verification_sns" {
-  count = var.enable_verification_pipeline && var.verification_sns_topic_arn != "" && !local.use_lab_role ? 1 : 0
+  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
 
   name   = "${var.name_prefix}-ecs-task-client-verification-sns-publish"
   role   = aws_iam_role.ecs_task["client"].id
@@ -672,7 +672,7 @@ resource "aws_iam_role_policy" "ecs_task_client_publish_verification_sns" {
 }
 
 data "aws_iam_policy_document" "ecs_client_write_verification_s3" {
-  count = var.enable_verification_pipeline && var.verification_bucket_arn != "" && !local.use_lab_role ? 1 : 0
+  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "WriteVerificationDocuments"
@@ -685,7 +685,7 @@ data "aws_iam_policy_document" "ecs_client_write_verification_s3" {
 }
 
 resource "aws_iam_role_policy" "ecs_task_client_write_verification_s3" {
-  count = var.enable_verification_pipeline && var.verification_bucket_arn != "" && !local.use_lab_role ? 1 : 0
+  count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
 
   name   = "${var.name_prefix}-ecs-task-client-verification-s3-write"
   role   = aws_iam_role.ecs_task["client"].id
@@ -717,7 +717,7 @@ resource "aws_iam_role_policy" "ecs_task_sqs" {
 }
 
 data "aws_iam_policy_document" "ecs_transaction_s3_read" {
-  count = var.enable_sftp_transaction_collector && var.transaction_sftp_bucket_arn != "" && !local.use_lab_role ? 1 : 0
+  count = var.enable_sftp_transaction_collector && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "ReadTransactionIngestionS3Source"
@@ -734,7 +734,7 @@ data "aws_iam_policy_document" "ecs_transaction_s3_read" {
 }
 
 resource "aws_iam_role_policy" "ecs_task_transaction_s3_read" {
-  count = var.enable_sftp_transaction_collector && var.transaction_sftp_bucket_arn != "" && !local.use_lab_role ? 1 : 0
+  count = var.enable_sftp_transaction_collector && !local.use_lab_role ? 1 : 0
 
   name   = "${var.name_prefix}-ecs-task-transaction-s3-read"
   role   = aws_iam_role.ecs_task["transaction"].id

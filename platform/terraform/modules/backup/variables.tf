@@ -31,8 +31,20 @@ variable "rds_instance_arn" {
   default     = ""
 }
 
+variable "enable_rds_backup_selection" {
+  description = "Whether to create the RDS backup selection."
+  type        = bool
+  default     = true
+}
+
 variable "dynamodb_table_arns" {
   description = "List of DynamoDB table ARNs to back up."
   type        = list(string)
   default     = []
+}
+
+variable "enable_dynamodb_backup_selection" {
+  description = "Whether to create the DynamoDB backup selection."
+  type        = bool
+  default     = false
 }

@@ -474,11 +474,12 @@ module "sns" {
 module "ses" {
   source = "./modules/ses"
 
-  enable_ses             = true
-  sender_email           = var.ses_sender_email
-  domain                 = var.ses_domain
-  mail_from_subdomain    = var.ses_mail_from_subdomain
-  notification_topic_arn = module.sns.verification_topic_arn
+  enable_ses                 = true
+  sender_email               = var.ses_sender_email
+  domain                     = var.ses_domain
+  mail_from_subdomain        = var.ses_mail_from_subdomain
+  notification_topic_arn     = module.sns.verification_topic_arn
+  enable_notification_topics = var.enable_verification_pipeline
 }
 
 #--------------------------------------------------------------
@@ -529,11 +530,13 @@ module "observability" {
 module "backup" {
   source = "./modules/backup"
 
-  name_prefix           = local.name_prefix
-  enable_backup         = var.enable_backup
-  backup_retention_days = var.backup_retention_days
-  rds_instance_arn      = module.rds.rds_instance_arn
-  dynamodb_table_arns   = local.dynamodb_backup_arns
+  name_prefix                      = local.name_prefix
+  enable_backup                    = var.enable_backup
+  backup_retention_days            = var.backup_retention_days
+  rds_instance_arn                 = module.rds.rds_instance_arn
+  enable_rds_backup_selection      = true
+  dynamodb_table_arns              = local.dynamodb_backup_arns
+  enable_dynamodb_backup_selection = var.enable_audit_pipeline || var.enable_aml_pipeline
 }
 
 #--------------------------------------------------------------

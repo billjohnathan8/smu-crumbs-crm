@@ -31,3 +31,9 @@ variable "notification_topic_arn" {
   type        = string
   default     = ""
 }
+
+variable "enable_notification_topics" {
+  description = "Whether to create SES identity notification topic bindings."
+  type        = bool
+  default     = false
+}

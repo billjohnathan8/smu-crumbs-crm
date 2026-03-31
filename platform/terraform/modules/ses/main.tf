@@ -52,7 +52,7 @@ resource "aws_ses_domain_mail_from" "this" {
 resource "aws_ses_identity_notification_topic" "events" {
   for_each = (
     var.enable_ses &&
-    var.notification_topic_arn != "" &&
+    var.enable_notification_topics &&
     local.notification_identity != ""
   ) ? toset(["Bounce", "Complaint", "Delivery"]) : toset([])
 

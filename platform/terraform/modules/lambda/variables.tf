@@ -399,7 +399,7 @@ check "lambda_artifact_paths_module" {
     condition = !var.enable_log_lambda || (
       trimspace(var.log_lambda_zip_path) != "" &&
       fileexists(var.log_lambda_zip_path) &&
-      filesize(var.log_lambda_zip_path) > 0
+      length(filebase64(var.log_lambda_zip_path)) > 0
     )
     error_message = "When enable_log_lambda is true, log_lambda_zip_path must point to an existing, non-empty zip file."
   }
@@ -408,7 +408,7 @@ check "lambda_artifact_paths_module" {
     condition = !var.enable_aml_lambda || (
       trimspace(var.aml_lambda_zip_path) != "" &&
       fileexists(var.aml_lambda_zip_path) &&
-      filesize(var.aml_lambda_zip_path) > 0
+      length(filebase64(var.aml_lambda_zip_path)) > 0
     )
     error_message = "When enable_aml_lambda is true, aml_lambda_zip_path must point to an existing, non-empty zip file."
   }
@@ -417,7 +417,7 @@ check "lambda_artifact_paths_module" {
     condition = !var.enable_sftp_transaction_collector || (
       trimspace(var.sftp_transaction_collector_zip_path) != "" &&
       fileexists(var.sftp_transaction_collector_zip_path) &&
-      filesize(var.sftp_transaction_collector_zip_path) > 0
+      length(filebase64(var.sftp_transaction_collector_zip_path)) > 0
     )
     error_message = "When enable_sftp_transaction_collector is true, sftp_transaction_collector_zip_path must point to an existing, non-empty zip file."
   }
@@ -426,7 +426,7 @@ check "lambda_artifact_paths_module" {
     condition = !var.enable_audit_consumer || (
       trimspace(var.audit_consumer_zip_path) != "" &&
       fileexists(var.audit_consumer_zip_path) &&
-      filesize(var.audit_consumer_zip_path) > 0
+      length(filebase64(var.audit_consumer_zip_path)) > 0
     )
     error_message = "When enable_audit_consumer is true, audit_consumer_zip_path must point to an existing, non-empty zip file."
   }
@@ -435,7 +435,7 @@ check "lambda_artifact_paths_module" {
     condition = !var.enable_aml_consumer || (
       trimspace(var.aml_consumer_zip_path) != "" &&
       fileexists(var.aml_consumer_zip_path) &&
-      filesize(var.aml_consumer_zip_path) > 0
+      length(filebase64(var.aml_consumer_zip_path)) > 0
     )
     error_message = "When enable_aml_consumer is true, aml_consumer_zip_path must point to an existing, non-empty zip file."
   }
@@ -444,7 +444,7 @@ check "lambda_artifact_paths_module" {
     condition = !var.enable_verification_lambda || (
       trimspace(var.verification_zip_path) != "" &&
       fileexists(var.verification_zip_path) &&
-      filesize(var.verification_zip_path) > 0
+      length(filebase64(var.verification_zip_path)) > 0
     )
     error_message = "When enable_verification_lambda is true, verification_zip_path must point to an existing, non-empty zip file."
   }

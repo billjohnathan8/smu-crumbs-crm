@@ -65,7 +65,7 @@ resource "aws_iam_role_policy_attachment" "backup_restore" {
 }
 
 resource "aws_backup_selection" "rds" {
-  count = var.enable_backup && var.rds_instance_arn != "" ? 1 : 0
+  count = var.enable_backup && var.enable_rds_backup_selection ? 1 : 0
 
   name         = "${var.name_prefix}-rds"
   plan_id      = aws_backup_plan.this[0].id
@@ -75,7 +75,7 @@ resource "aws_backup_selection" "rds" {
 }
 
 resource "aws_backup_selection" "dynamodb" {
-  count = var.enable_backup && length(var.dynamodb_table_arns) > 0 ? 1 : 0
+  count = var.enable_backup && var.enable_dynamodb_backup_selection ? 1 : 0
 
   name         = "${var.name_prefix}-dynamodb"
   plan_id      = aws_backup_plan.this[0].id
