@@ -169,7 +169,10 @@ public class ClientController {
 	 * @return verification response
 	 */
 	@PostMapping("/{id}/upload-verify")
-	@Operation(summary = "Upload client verification documents with verification token")
+	@Operation(
+		summary = "Upload client verification documents with verification token",
+		security = {}
+	)
 	@SecurityRequirements
 	public VerifyClientResponse uploadVerificationDocs(
 		HttpServletRequest httpRequest,

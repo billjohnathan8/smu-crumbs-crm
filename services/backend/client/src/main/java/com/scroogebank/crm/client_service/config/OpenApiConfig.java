@@ -4,6 +4,9 @@ import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
+import java.util.Collections;
+import org.springdoc.core.customizers.OpenApiCustomizer;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
@@ -20,4 +23,18 @@ import org.springframework.context.annotation.Configuration;
 	bearerFormat = "JWT"
 )
 public class OpenApiConfig {
+
+	@Bean
+	public OpenApiCustomizer publicVerificationUploadOperationCustomizer() {
+		return openApi -> {
+			if (openApi.getPaths() == null) {
+				return;
+			}
+			var pathItem = openApi.getPaths().get("/api/clients/{id}/upload-verify");
+			if (pathItem != null && pathItem.getPost() != null) {
+				// This endpoint is intentionally public (token-based), not bearer-protected.
+				pathItem.getPost().setSecurity(Collections.emptyList());
+			}
+		};
+	}
 }
