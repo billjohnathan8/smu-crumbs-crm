@@ -1,5 +1,4 @@
 name: CD - Terraform Bootstrap Destroy
-description: Destroy Terraform backend resources (state bucket, lock table) for prod
 
 on:
   workflow_dispatch:

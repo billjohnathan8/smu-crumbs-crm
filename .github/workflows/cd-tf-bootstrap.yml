@@ -1,5 +1,4 @@
 name: CD - Terraform Bootstrap
-description: Setup Terraform backend resources (state bucket, lock table) for prod
 
 on:
   workflow_dispatch:
