@@ -20,8 +20,8 @@ import {
 } from "@playwright/test";
 import { authHeaders, loginViaApi, refreshViaApi } from "./helpers/apiClient";
 
-const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.local").trim();
-const ADMIN_PASSWORD = (process.env.E2E_ADMIN_PASSWORD ?? "admin123").trim();
+const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.com").trim();
+const ADMIN_PASSWORD = (process.env.E2E_ADMIN_PASSWORD ?? "Scrooge@Bank2026!").trim();
 const USER_PASSWORD = (process.env.E2E_USER_PASSWORD ?? "UserPass123!").trim();
 
 function uniqueSuffix(): string {

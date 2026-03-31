@@ -536,9 +536,9 @@ wait_for_http "http://127.0.0.1:18088/health" "gateway"
 echo ""
 echo "=== Phase 7: Seeding baseline principals ==="
 USER_BASE_URL="http://127.0.0.1:18081" \
-ROOT_ADMIN_EMAIL="${E2E_ADMIN_EMAIL:-admin@crm.local}" \
+ROOT_ADMIN_EMAIL="${E2E_ADMIN_EMAIL:-admin@crm.com}" \
 ROOT_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}" \
-SEED_USER_EMAIL="user@crm.local" \
+SEED_USER_EMAIL="agent1@crm.com" \
 SEED_AGENT_PASSWORD="${E2E_USER_PASSWORD:-UserPass123!}" \
 bash "${ROOT_DIR}/scripts/db/run-shared-postgres.sh" seed
 echo "[OK] Seeded"
@@ -557,7 +557,7 @@ echo "  transaction-service http://127.0.0.1:18083"
 echo "  frontend (static)   http://127.0.0.1:18085"
 echo ""
 echo "Root Admin Credentials:"
-echo "    username:         admin@crm.local"
+echo "    username:         admin@crm.com"
 echo "    default_password: Scrooge@Bank2026!"
 echo ""
 echo "Teardown: bash scripts/dev/stack-down.sh"

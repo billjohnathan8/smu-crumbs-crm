@@ -45,7 +45,7 @@ app:
       jwks-url: ${COGNITO_JWKS_URL:}
       jwks-cache-ttl-seconds: ${COGNITO_JWKS_CACHE_TTL_SECONDS:300}
   root-admin:
-    email: ${ROOT_ADMIN_EMAIL:admin@crm.local}
+    email: ${ROOT_ADMIN_EMAIL:admin@crm.com}
     password: ${ROOT_ADMIN_PASSWORD:}
   user-store:
     type: ${APP_USER_STORE_TYPE:postgres}

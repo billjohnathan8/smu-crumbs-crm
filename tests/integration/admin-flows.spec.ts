@@ -14,8 +14,8 @@
 
 import { test, expect, Page } from "@playwright/test";
 
-const ROOT_ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? "admin@crm.local";
-const ROOT_ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "admin123";
+const ROOT_ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? "admin@crm.com";
+const ROOT_ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "Scrooge@Bank2026!";
 
 const NEW_ADMIN_EMAIL = `admin.test.${Date.now()}@crm.local`;
 const NEW_ADMIN_PASSWORD = "AdminTest123!";

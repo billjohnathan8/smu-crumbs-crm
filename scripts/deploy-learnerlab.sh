@@ -571,7 +571,7 @@ echo "  Frontend URL:    $FRONTEND_URL"
 echo "  Logs directory:  $RUN_DIR"
 echo ""
 echo "  Login credentials:"
-echo "    Email:    admin@crm.local"
+echo "    Email:    admin@crm.com"
 echo "    Password: Scrooge@Bank2026!"
 echo ""
 

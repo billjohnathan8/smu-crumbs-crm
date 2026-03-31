@@ -79,7 +79,7 @@ Services after startup:
 Root Admin Credentials (seeded by stack-up):
 
 ```
-username:         admin@crm.local
+username:         admin@crm.com
 default_password: Scrooge@Bank2026!
 ```
 

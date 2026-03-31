@@ -7,15 +7,15 @@
  * - POST /api/auth/forgot-password
  * - POST /api/auth/reset-password
  * - TEST-ONLY endpoint to retrieve latest reset token for a user (enabled only in local/test profile), e.g.
- *   GET /api/test/password-reset/latest-token?email=admin@crm.local
+ *   GET /api/test/password-reset/latest-token?email=admin@crm.com
  *
  * Run with: npm run e2e:integration:real
  */
 
 import { test, expect, request as playwrightRequest } from '@playwright/test'
 
-const ROOT_ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? 'admin@crm.local'
-const ROOT_ADMIN_OLD_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'admin123'
+const ROOT_ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? 'admin@crm.com'
+const ROOT_ADMIN_OLD_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'Scrooge@Bank2026!'
 const ROOT_ADMIN_NEW_PASSWORD = process.env.E2E_ADMIN_NEW_PASSWORD ?? 'AdminReset123!'
 
 async function login(page: import('@playwright/test').Page, email: string, password: string) {

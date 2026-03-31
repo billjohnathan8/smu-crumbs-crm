@@ -1,5 +1,10 @@
 import { Page } from "@playwright/test";
 
+const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.com").trim();
+const ADMIN_PASSWORD = (process.env.E2E_ADMIN_PASSWORD ?? "Scrooge@Bank2026!").trim();
+const AGENT_EMAIL = (process.env.E2E_USER_EMAIL ?? "agent1@crm.com").trim();
+const AGENT_PASSWORD = (process.env.E2E_USER_PASSWORD ?? "UserPass123!").trim();
+
 async function clearBrowserStorage(page: Page) {
   const clear = async () => {
     await page.evaluate(() => {
@@ -59,8 +64,8 @@ export async function loginAsAdmin(page: Page) {
 
   await page.waitForLoadState("domcontentloaded");
 
-  await page.fill('[data-testid="email-input"]', "admin@example.com");
-  await page.fill('[data-testid="password-input"]', "password123");
+  await page.fill('[data-testid="email-input"]', ADMIN_EMAIL);
+  await page.fill('[data-testid="password-input"]', ADMIN_PASSWORD);
   await page.click('[data-testid="login-submit-button"]');
 
   // Wait for redirect to admin dashboard
@@ -79,8 +84,8 @@ export async function loginAsAgent(page: Page) {
 
   await page.waitForLoadState("domcontentloaded");
 
-  await page.fill('[data-testid="email-input"]', "user@example.com");
-  await page.fill('[data-testid="password-input"]', "password123");
+  await page.fill('[data-testid="email-input"]', AGENT_EMAIL);
+  await page.fill('[data-testid="password-input"]', AGENT_PASSWORD);
   await page.click('[data-testid="login-submit-button"]');
 
   // Wait for redirect to user dashboard

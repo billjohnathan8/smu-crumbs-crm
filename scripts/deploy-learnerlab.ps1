@@ -674,7 +674,7 @@ Write-Host "  Frontend URL:    $FRONTEND_URL" -ForegroundColor White
 Write-Host "  Logs directory:  $($script:RunDir)" -ForegroundColor White
 Write-Host ""
 Write-Host "  Login credentials:" -ForegroundColor White
-Write-Host "    Email:    admin@crm.local" -ForegroundColor White
+Write-Host "    Email:    admin@crm.com" -ForegroundColor White
 Write-Host "    Password: Scrooge@Bank2026!" -ForegroundColor White
 Write-Host ""
 

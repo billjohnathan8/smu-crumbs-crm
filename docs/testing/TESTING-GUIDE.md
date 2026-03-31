@@ -700,7 +700,7 @@ bash scripts/db/run-shared-postgres.sh migrate
 ### Seed Data
 
 **Baseline principals created:**
-- Admin user: `admin@crm.local` / `Scrooge@Bank2026!`
+- Admin user: `admin@crm.com` / `Scrooge@Bank2026!`
 - Test agents and clients
 - Sample transaction data (for testing)
 

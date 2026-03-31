@@ -51,7 +51,7 @@ The app calls relative `/api/*` paths.
 ## Test Credentials
 
 Integration defaults:
-- Admin: `admin@crm.local` / `admin123`
-- User: `user@crm.local` / `UserPass123!`
+- Admin: `admin@crm.com` / `Scrooge@Bank2026!`
+- User: `agent1@crm.com` / `UserPass123!`
 
 Frontend latency tests (E2E with mocked backend) may use different fixture credentials (`admin@example.com`, `user@example.com`).

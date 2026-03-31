@@ -249,7 +249,7 @@ open build-logs/performance/<test-name>/report/index.html
 **Error: "TOKEN_NOT_FOUND" or "CLIENT_ID_NOT_FOUND"**
 - Check JSON extractor paths match actual response structure
 - Enable "View Results Tree" listener in GUI mode to inspect responses
-- Verify admin credentials: `admin@crm.local` / `Scrooge@Bank2026!`
+- Verify admin credentials: `admin@crm.com` / `Scrooge@Bank2026!`
 
 **Error: "OutOfMemoryError" during high load**
 - Increase JMeter heap: `export HEAP="-Xms1g -Xmx4g"`

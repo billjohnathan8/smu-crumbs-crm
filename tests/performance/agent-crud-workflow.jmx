@@ -10,7 +10,7 @@
         <collectionProp name="Arguments.arguments">
           <elementProp name="ADMIN_EMAIL" elementType="Argument">
             <stringProp name="Argument.name">ADMIN_EMAIL</stringProp>
-            <stringProp name="Argument.value">admin@crm.local</stringProp>
+            <stringProp name="Argument.value">admin@crm.com</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="ADMIN_PASSWORD" elementType="Argument">

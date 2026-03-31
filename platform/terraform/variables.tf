@@ -286,7 +286,7 @@ variable "jwt_hmac_secret" {
 variable "root_admin_email" {
   description = "Initial root admin email for the user service."
   type        = string
-  default     = "admin@crm.local"
+  default     = "admin@crm.com"
 }
 
 variable "root_admin_password" {
@@ -1033,7 +1033,7 @@ check "prod_secret_strength_guardrails" {
       can(regex("[a-z]", var.root_admin_password)) &&
       can(regex("[0-9]", var.root_admin_password)) &&
       can(regex("[^A-Za-z0-9]", var.root_admin_password)) &&
-      trimspace(var.root_admin_password) != "admin123"
+      trimspace(var.root_admin_password) != "Scrooge@Bank2026!"
     )
     error_message = "For environment=prod, root_admin_password must be >=16 chars and include upper, lower, number, and symbol."
   }

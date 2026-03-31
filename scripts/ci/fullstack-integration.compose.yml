@@ -53,7 +53,7 @@ services:
       APP_USER_STORE_TYPE: postgres
       AUTH_MODE: local
       JWT_HMAC_SECRET: dev-only-insecure-secret
-      ROOT_ADMIN_EMAIL: ${E2E_ADMIN_EMAIL:-admin@crm.local}
+      ROOT_ADMIN_EMAIL: ${E2E_ADMIN_EMAIL:-admin@crm.com}
       ROOT_ADMIN_PASSWORD: ${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}
     depends_on:
       postgres:

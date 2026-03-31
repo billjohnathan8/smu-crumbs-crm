@@ -404,7 +404,7 @@ class UserAccountServiceTest {
 			"usr_1",
 			"Root",
 			"Admin",
-			"admin@crm.local",
+			"admin@crm.com",
 			UserRole.admin,
 			UserStatus.active,
 			Instant.parse("2026-02-05T00:00:00Z"),
@@ -531,7 +531,7 @@ class UserAccountServiceTest {
 			"usr_1",
 			"Root",
 			"Admin",
-			"admin@crm.local",
+			"admin@crm.com",
 			UserRole.admin,
 			UserStatus.active,
 			Instant.parse("2026-02-05T00:00:00Z"),
@@ -550,7 +550,7 @@ class UserAccountServiceTest {
 			"usr_1",
 			"Root",
 			"Admin",
-			"admin@crm.local",
+			"admin@crm.com",
 			UserRole.admin,
 			UserStatus.active,
 			Instant.parse("2026-02-05T00:00:00Z"),
@@ -560,7 +560,7 @@ class UserAccountServiceTest {
 
 		assertThrows(
 			AccessDeniedException.class,
-			() -> service.resetPassword("usr_1", new ResetPasswordRequest("admin@crm.local"), requester)
+			() -> service.resetPassword("usr_1", new ResetPasswordRequest("admin@crm.com"), requester)
 		);
 		verify(store, never()).resetPassword(any());
 	}

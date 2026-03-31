@@ -99,7 +99,7 @@ class AgentCRUDWorkflow:
     def _login(self) -> TestResult:
         """Login as admin (has permission to create clients)"""
         payload = {
-            "email": "admin@crm.local",
+            "email": "admin@crm.com",
             "password": "Scrooge@Bank2026!"
         }
         status, elapsed, error, resp = self._make_request("POST", "/api/auth/login", payload)

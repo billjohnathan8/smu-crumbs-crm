@@ -61,7 +61,7 @@ Services after startup:
 Root Admin Credentials (seeded by stack-up):
 
 ```
-username:         admin@crm.local
+username:         admin@crm.com
 default_password: Scrooge@Bank2026!
 ```
 
@@ -126,11 +126,11 @@ Transaction CSV files can be ingested via three supported methods:
 Local development/testing only. Do not use these values for production deployments.
 
 ## Frontend
-Root admin Email: admin@crm.local
-Password: admin123
+Root admin Email: admin@crm.com
+Password: Scrooge@Bank2026!
 
-User Account Email: user@crm.local
-Password: client123
+User Account Email: agent1@crm.com
+Password: UserPass123!
 
 ## Database (Project-wide)
 Created shared DB + user in Postgres:
