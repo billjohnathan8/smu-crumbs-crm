@@ -13,7 +13,7 @@ public final class PiiMasker {
 	private static final Set<String> FULLY_REDACTED_FIELDS = Set.of(
 		"address", "city", "state",
 		"dateOfBirth",
-		"nric", "verificationToken", "token", "primaryDocumentRef", "addressDocumentRef",
+		"verificationToken", "token", "primaryDocumentRef", "addressDocumentRef",
 		"primaryDocumentBase64", "addressDocumentBase64", "primaryDocumentMimeType", "addressDocumentMimeType",
 		"clientId", "accountId", "assignedUserId", "userId"
 	);
