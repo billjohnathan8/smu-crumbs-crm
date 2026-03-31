@@ -26,7 +26,7 @@ locals {
 
 resource "aws_lb" "crm" {
   name                       = substr("${var.name_prefix}-alb", 0, 32)
-  internal                   = false
+  internal                   = true
   load_balancer_type         = "application"
   security_groups            = [var.alb_security_group_id]
   subnets                    = var.public_subnet_ids
@@ -69,24 +69,6 @@ resource "aws_lb_target_group" "service_green" {
     timeout             = 5
     healthy_threshold   = 2
     unhealthy_threshold = 3
-  }
-}
-
-resource "aws_lb_listener" "http_redirect" {
-  load_balancer_arn = aws_lb.crm.arn
-  port              = 80
-  protocol          = "HTTP"
-
-  dynamic "default_action" {
-    for_each = var.use_custom_domain ? [1] : []
-    content {
-      type = "redirect"
-      redirect {
-        port        = "443"
-        protocol    = "HTTPS"
-        status_code = "HTTP_301"
-      }
-    }
   }
 }
 

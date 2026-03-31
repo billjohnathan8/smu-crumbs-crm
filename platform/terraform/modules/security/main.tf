@@ -23,27 +23,6 @@ resource "aws_security_group" "alb" {
   description = "Allow inbound HTTP and HTTPS traffic to ALB."
   vpc_id      = var.vpc_id
 
-  dynamic "ingress" {
-    for_each = var.restrict_alb_ingress_to_cloudfront ? [] : [1]
-    content {
-      description     = "HTTP from internet (non-CloudFront-restricted mode)"
-      from_port       = 80
-      to_port         = 80
-      protocol        = "tcp"
-      prefix_list_ids = [data.aws_ec2_managed_prefix_list.cloudfront_origin_facing[0].id]
-    }
-  }
-
-  dynamic "ingress" {
-    for_each = var.restrict_alb_ingress_to_cloudfront ? [] : [1]
-    content {
-      description     = "HTTPS from internet (non-CloudFront-restricted mode)"
-      from_port       = 443
-      to_port         = 443
-      protocol        = "tcp"
-      prefix_list_ids = [data.aws_ec2_managed_prefix_list.cloudfront_origin_facing[0].id]
-    }
-  }
 
   dynamic "ingress" {
     for_each = var.restrict_alb_ingress_to_cloudfront ? [1] : []
