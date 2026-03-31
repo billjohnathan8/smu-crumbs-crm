@@ -547,6 +547,10 @@ run_gradle_db_test() {
   local base_env=(
     APP_ENV=test
     AUTH_MODE=local
+    # DB component checks should not require SES wiring used by later smoke phases.
+    VERIFICATION_EMAIL_PROVIDER=mock
+    AWS_REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-ap-southeast-1}}"
+    VERIFICATION_EMAIL_AWS_REGION="${VERIFICATION_EMAIL_AWS_REGION:-${AWS_REGION:-${AWS_DEFAULT_REGION:-ap-southeast-1}}}"
     JWT_HMAC_SECRET=dev-only-insecure-secret
     APP_JWT_HMAC_SECRET=dev-only-insecure-secret
     APP_MOCK_SFTP_ROOT=build/mock-sftp
