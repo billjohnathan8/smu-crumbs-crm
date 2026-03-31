@@ -58,7 +58,7 @@ ses_sender_email                  = "verification@crm.local" # replace with a re
 ses_domain                        = ""                       # keep empty to use sender_email identity mode (manual verification)
 
 # Intentionally disabled until prerequisites are available:
-enable_aml_lambda     = true  # enabled: SFTP host/user can be auto-derived from transfer_family outputs; key secret ARN must be injected at runtime
+enable_aml_lambda     = true # enabled: SFTP host/user can be auto-derived from transfer_family outputs; key secret ARN must be injected at runtime
 enable_audit_pipeline = true # implemented but disabled by default in production profile
 enable_aml_pipeline   = true # implemented but disabled by default in production profile
 
@@ -101,10 +101,10 @@ auth_mode                 = "cognito"
 # Guardrail override for this repo: allow Terraform Route53/ACM management for itsag2t3.com when you enable those flags.
 allow_school_registered_domain_management = true
 # For teardown while preserving DNS aliases, run scripts/destroy-app-keep-dns.(sh|ps1)
-app_domain_name = "itsag2t3.com"
+app_domain_name                   = "itsag2t3.com"
 manage_route53_records            = true
 manage_acm_dns_validation_records = true
 create_acm_certificates           = true
-route53_hosted_zone_id        = "Z07853315ON2Q60THXVB"
+route53_hosted_zone_id            = "Z07853315ON2Q60THXVB"
 # existing_frontend_certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/..."
 # existing_alb_certificate_arn      = "arn:aws:acm:ap-southeast-1:123456789012:certificate/..."
