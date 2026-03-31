@@ -1,5 +1,5 @@
 name: CD - Terraform Infra Plan
-description: Bootstrap Terraform backend and generate a reviewed production plan
+# Bootstrap Terraform backend and generate a reviewed production plan.
 
 on:
   workflow_dispatch:

@@ -1,5 +1,5 @@
 name: CD - Terraform Infra Apply & Deploy
-description: Apply a reviewed production Terraform plan by commit SHA and force deploy
+# Apply a reviewed production Terraform plan by commit SHA and force deploy.
 
 on:
   workflow_dispatch:

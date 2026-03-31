@@ -1,5 +1,5 @@
 name: CD - Terraform Infra Destroy
-description: Destroy production Terraform-managed infrastructure while protecting shared backend and school-managed DNS
+# Destroy production Terraform-managed infrastructure while protecting shared backend and school-managed DNS.
 
 on:
   workflow_dispatch:
