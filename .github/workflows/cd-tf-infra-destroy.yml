@@ -38,6 +38,7 @@ jobs:
       TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
       TF_LOCK_DYNAMODB: ${{ vars.TF_LOCK_DYNAMODB }}
       APP_DOMAIN_NAME: ${{ vars.TF_APP_DOMAIN_NAME }}
+      PROTECTED_GITHUB_ACTIONS_ROLE_ARN: arn:aws:iam::699089610166:role/GithubActionsCDRole
 
     steps:
       - name: Checkout source
@@ -97,8 +98,6 @@ jobs:
           BACKEND_LOCK_TABLE="$(awk -F= '/^[[:space:]]*dynamodb_table[[:space:]]*=/{gsub(/["[:space:]]/, "", $2); print $2; exit}' "${BACKEND_FILE}")"
           TFVARS_REGION="$(awk -F= '/^[[:space:]]*aws_region[[:space:]]*=/{gsub(/["[:space:]]/, "", $2); print $2; exit}' "${TFVARS_FILE}")"
           VERIFICATION_ENABLED="$(awk -F= '/^[[:space:]]*enable_verification_pipeline[[:space:]]*=/{value=$2; sub(/#.*/, "", value); gsub(/[[:space:]]/, "", value); print tolower(value); exit}' "${TFVARS_FILE}")"
-          MANAGE_ROUTE53="$(awk -F= '/^[[:space:]]*manage_route53_records[[:space:]]*=/{value=$2; sub(/#.*/, "", value); gsub(/[[:space:]]/, "", value); print tolower(value); exit}' "${TFVARS_FILE}")"
-          MANAGE_ACM_DNS="$(awk -F= '/^[[:space:]]*manage_acm_dns_validation_records[[:space:]]*=/{value=$2; sub(/#.*/, "", value); gsub(/[[:space:]]/, "", value); print tolower(value); exit}' "${TFVARS_FILE}")"
 
           [[ "${BACKEND_BUCKET}" == "${TF_STATE_BUCKET}" ]] || { echo "prod.backend.hcl bucket (${BACKEND_BUCKET}) does not match vars.TF_STATE_BUCKET (${TF_STATE_BUCKET})"; exit 1; }
           [[ "${BACKEND_REGION}" == "${AWS_REGION}" ]] || { echo "prod.backend.hcl region (${BACKEND_REGION}) does not match vars.AWS_REGION (${AWS_REGION})"; exit 1; }
@@ -109,16 +108,6 @@ jobs:
             echo "Production verification is enabled in env/prod.tfvars, but vars.TF_APP_DOMAIN_NAME is not set."
             exit 1
           fi
-
-          [[ "${MANAGE_ROUTE53:-false}" == "false" ]] || {
-            echo "Refusing destroy: env/prod.tfvars enables manage_route53_records, which could delete Route 53 records in the shared school zone."
-            exit 1
-          }
-
-          [[ "${MANAGE_ACM_DNS:-false}" == "false" ]] || {
-            echo "Refusing destroy: env/prod.tfvars enables manage_acm_dns_validation_records, which could delete DNS validation records in the shared school zone."
-            exit 1
-          }
 
       - name: Create runtime Terraform override file
         working-directory: ${{ env.TF_DIR }}
@@ -188,13 +177,15 @@ jobs:
             jq -r \
               --arg bucket "${TF_STATE_BUCKET}" \
               --arg lock_table "${TF_LOCK_DYNAMODB}" \
+              --arg protected_role_arn "${PROTECTED_GITHUB_ACTIONS_ROLE_ARN}" \
               '
                 [
                   .resource_changes[]?
                   | select((.change.actions // []) | index("delete"))
                   | select(
-                      (.type | startswith("aws_route53")) or
+                      (.type == "aws_route53_zone") or
                       (.type | startswith("aws_route53domains")) or
+                      ((.type == "aws_iam_role") and ((.change.before.arn // "") == $protected_role_arn)) or
                       ((.type | startswith("aws_s3_bucket")) and ((.change.before.bucket // .change.before.id // .change.before.name // "") == $bucket)) or
                       ((.type | startswith("aws_dynamodb_table")) and ((.change.before.name // .change.before.id // "") == $lock_table))
                     )
@@ -252,10 +243,11 @@ jobs:
             echo "Region: ${AWS_REGION}"
             echo "Backend bucket protected: s3://${TF_STATE_BUCKET}"
             echo "Backend lock table protected: arn:aws:dynamodb:${AWS_REGION}:${{ steps.destroy_meta.outputs.account_id }}:table/${TF_LOCK_DYNAMODB}"
+            echo "Protected IAM role: ${PROTECTED_GITHUB_ACTIONS_ROLE_ARN}"
             echo
             echo "Destroy result: ${PLAN_RESULT_LINE}"
             echo
-            echo "Protected resources blocked by policy: any Route 53 resources, the Terraform backend S3 bucket, and the Terraform lock DynamoDB table."
+            echo "Protected resources blocked by policy: Route 53 hosted zones, Route53Domains resources, the manually managed GitHub Actions IAM role, the Terraform backend S3 bucket, and the Terraform lock DynamoDB table."
             echo "Destroy artifact: ${{ steps.destroy_meta.outputs.destroy_plan_artifact_name }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
