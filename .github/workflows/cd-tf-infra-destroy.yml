@@ -1,0 +1,266 @@
+name: CD - Terraform Infra Destroy
+description: Destroy production Terraform-managed infrastructure while protecting shared backend and school-managed DNS
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_destroy:
+        description: Type destroy-prod to confirm production teardown
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-tf-infra-destroy-prod
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    name: Bootstrap Terraform backend
+    uses: ./.github/workflows/cd-tf-bootstrap.yml
+    secrets: inherit
+
+  terraform-destroy:
+    name: Terraform destroy (prod)
+    needs:
+      - bootstrap
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      TF_IN_AUTOMATION: "1"
+      TF_INPUT: "0"
+      TF_DIR: platform/terraform
+      DEPLOY_ENV: prod
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_LOCK_DYNAMODB: ${{ vars.TF_LOCK_DYNAMODB }}
+      APP_DOMAIN_NAME: ${{ vars.TF_APP_DOMAIN_NAME }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Validate destroy request and GitHub configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          [[ "${{ inputs.confirm_destroy }}" == "destroy-prod" ]] || {
+            echo "confirm_destroy must be exactly destroy-prod"
+            exit 1
+          }
+
+          test -n "${AWS_REGION}" || { echo "Missing required GitHub Actions variable: AWS_REGION"; exit 1; }
+          test -n "${TF_STATE_BUCKET}" || { echo "Missing required GitHub Actions variable: TF_STATE_BUCKET"; exit 1; }
+          test -n "${TF_LOCK_DYNAMODB}" || { echo "Missing required GitHub Actions variable: TF_LOCK_DYNAMODB"; exit 1; }
+          test -n "${{ secrets.AWS_ACCESS_KEY_ID }}" || { echo "Missing required secret: AWS_ACCESS_KEY_ID"; exit 1; }
+          test -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" || { echo "Missing required secret: AWS_SECRET_ACCESS_KEY"; exit 1; }
+          test -n "${{ secrets.TF_ROOT_ADMIN_PASSWORD }}" || { echo "Missing required secret: TF_ROOT_ADMIN_PASSWORD"; exit 1; }
+          test -n "${{ secrets.TF_JWT_HMAC_SECRET }}" || { echo "Missing required secret: TF_JWT_HMAC_SECRET"; exit 1; }
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Capture destroy metadata
+        id: destroy_meta
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          COMMIT_SHA="$(git rev-parse HEAD)"
+          ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+
+          {
+            echo "commit_sha=${COMMIT_SHA}"
+            echo "account_id=${ACCOUNT_ID}"
+            echo "destroy_plan_artifact_name=${COMMIT_SHA}_tf_destroy_plan"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Validate Terraform prod configuration contract
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BACKEND_FILE="env/prod.backend.hcl"
+          TFVARS_FILE="env/prod.tfvars"
+
+          BACKEND_BUCKET="$(awk -F= '/^[[:space:]]*bucket[[:space:]]*=/{gsub(/["[:space:]]/, "", $2); print $2; exit}' "${BACKEND_FILE}")"
+          BACKEND_REGION="$(awk -F= '/^[[:space:]]*region[[:space:]]*=/{gsub(/["[:space:]]/, "", $2); print $2; exit}' "${BACKEND_FILE}")"
+          BACKEND_LOCK_TABLE="$(awk -F= '/^[[:space:]]*dynamodb_table[[:space:]]*=/{gsub(/["[:space:]]/, "", $2); print $2; exit}' "${BACKEND_FILE}")"
+          TFVARS_REGION="$(awk -F= '/^[[:space:]]*aws_region[[:space:]]*=/{gsub(/["[:space:]]/, "", $2); print $2; exit}' "${TFVARS_FILE}")"
+          VERIFICATION_ENABLED="$(awk -F= '/^[[:space:]]*enable_verification_pipeline[[:space:]]*=/{value=$2; sub(/#.*/, "", value); gsub(/[[:space:]]/, "", value); print tolower(value); exit}' "${TFVARS_FILE}")"
+          MANAGE_ROUTE53="$(awk -F= '/^[[:space:]]*manage_route53_records[[:space:]]*=/{value=$2; sub(/#.*/, "", value); gsub(/[[:space:]]/, "", value); print tolower(value); exit}' "${TFVARS_FILE}")"
+          MANAGE_ACM_DNS="$(awk -F= '/^[[:space:]]*manage_acm_dns_validation_records[[:space:]]*=/{value=$2; sub(/#.*/, "", value); gsub(/[[:space:]]/, "", value); print tolower(value); exit}' "${TFVARS_FILE}")"
+
+          [[ "${BACKEND_BUCKET}" == "${TF_STATE_BUCKET}" ]] || { echo "prod.backend.hcl bucket (${BACKEND_BUCKET}) does not match vars.TF_STATE_BUCKET (${TF_STATE_BUCKET})"; exit 1; }
+          [[ "${BACKEND_REGION}" == "${AWS_REGION}" ]] || { echo "prod.backend.hcl region (${BACKEND_REGION}) does not match vars.AWS_REGION (${AWS_REGION})"; exit 1; }
+          [[ "${BACKEND_LOCK_TABLE}" == "${TF_LOCK_DYNAMODB}" ]] || { echo "prod.backend.hcl dynamodb_table (${BACKEND_LOCK_TABLE}) does not match vars.TF_LOCK_DYNAMODB (${TF_LOCK_DYNAMODB})"; exit 1; }
+          [[ -z "${TFVARS_REGION}" || "${TFVARS_REGION}" == "${AWS_REGION}" ]] || { echo "prod.tfvars aws_region (${TFVARS_REGION}) does not match vars.AWS_REGION (${AWS_REGION})"; exit 1; }
+
+          if [[ "${VERIFICATION_ENABLED}" == "true" && -z "${APP_DOMAIN_NAME}" ]]; then
+            echo "Production verification is enabled in env/prod.tfvars, but vars.TF_APP_DOMAIN_NAME is not set."
+            exit 1
+          fi
+
+          [[ "${MANAGE_ROUTE53:-false}" == "false" ]] || {
+            echo "Refusing destroy: env/prod.tfvars enables manage_route53_records, which could delete Route 53 records in the shared school zone."
+            exit 1
+          }
+
+          [[ "${MANAGE_ACM_DNS:-false}" == "false" ]] || {
+            echo "Refusing destroy: env/prod.tfvars enables manage_acm_dns_validation_records, which could delete DNS validation records in the shared school zone."
+            exit 1
+          }
+
+      - name: Create runtime Terraform override file
+        working-directory: ${{ env.TF_DIR }}
+        env:
+          ROOT_ADMIN_PASSWORD: ${{ secrets.TF_ROOT_ADMIN_PASSWORD }}
+          JWT_HMAC_SECRET: ${{ secrets.TF_JWT_HMAC_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "::add-mask::${ROOT_ADMIN_PASSWORD}"
+          echo "::add-mask::${JWT_HMAC_SECRET}"
+
+          {
+            echo "root_admin_password = $(jq -Rn --arg v "$ROOT_ADMIN_PASSWORD" '$v')"
+            echo "jwt_hmac_secret = $(jq -Rn --arg v "$JWT_HMAC_SECRET" '$v')"
+            if [[ -n "${APP_DOMAIN_NAME}" ]]; then
+              echo "app_domain_name = $(jq -Rn --arg v "$APP_DOMAIN_NAME" '$v')"
+            fi
+          } > runtime.auto.tfvars
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.10"
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: terraform init -input=false -reconfigure -backend-config="env/${DEPLOY_ENV}.backend.hcl"
+
+      - name: Terraform validate
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: terraform validate -no-color
+
+      - name: Terraform destroy plan
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          terraform plan \
+            -destroy \
+            -input=false \
+            -lock-timeout=300s \
+            -var-file="env/${DEPLOY_ENV}.tfvars" \
+            -var-file="runtime.auto.tfvars" \
+            -out=tfplan-destroy
+
+      - name: Export destroy plan
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          terraform show -no-color tfplan-destroy > terraform-destroy-plan.txt
+          terraform show -json tfplan-destroy > terraform-destroy-plan.json
+
+      - name: Block protected resource deletions
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PROTECTED_MATCHES="$({
+            jq -r \
+              --arg bucket "${TF_STATE_BUCKET}" \
+              --arg lock_table "${TF_LOCK_DYNAMODB}" \
+              '
+                [
+                  .resource_changes[]?
+                  | select((.change.actions // []) | index("delete"))
+                  | select(
+                      (.type | startswith("aws_route53")) or
+                      (.type | startswith("aws_route53domains")) or
+                      ((.type | startswith("aws_s3_bucket")) and ((.change.before.bucket // .change.before.id // .change.before.name // "") == $bucket)) or
+                      ((.type | startswith("aws_dynamodb_table")) and ((.change.before.name // .change.before.id // "") == $lock_table))
+                    )
+                  | "\(.address) [\(.type)]"
+                ]
+                | unique
+                | .[]
+              ' terraform-destroy-plan.json
+          } || true)"
+
+          if [[ -n "${PROTECTED_MATCHES}" ]]; then
+            echo "Refusing destroy because the plan includes protected resources:"
+            printf '%s\n' "${PROTECTED_MATCHES}"
+            exit 1
+          fi
+
+      - name: Apply destroy plan
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: terraform apply -input=false -auto-approve tfplan-destroy
+
+      - name: Upload destroy artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.destroy_meta.outputs.destroy_plan_artifact_name }}
+          path: |
+            platform/terraform/terraform-destroy-plan.txt
+            platform/terraform/terraform-destroy-plan.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Publish destroy summary
+        if: ${{ always() }}
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -f terraform-destroy-plan.txt ]]; then
+            PLAN_RESULT_LINE="$(grep -E '^(Plan: [0-9]+ to add, [0-9]+ to change, [0-9]+ to destroy\.|No changes\.)' terraform-destroy-plan.txt | tail -n 1 || true)"
+          else
+            PLAN_RESULT_LINE="Destroy plan was not generated."
+          fi
+
+          if [[ -z "${PLAN_RESULT_LINE}" ]]; then
+            PLAN_RESULT_LINE="Destroy plan exported to artifact for review."
+          fi
+
+          {
+            echo "## Terraform Infra Destroy Summary"
+            echo
+            echo "Commit SHA: ${{ steps.destroy_meta.outputs.commit_sha }}"
+            echo "AWS account: ${{ steps.destroy_meta.outputs.account_id }}"
+            echo "Region: ${AWS_REGION}"
+            echo "Backend bucket protected: s3://${TF_STATE_BUCKET}"
+            echo "Backend lock table protected: arn:aws:dynamodb:${AWS_REGION}:${{ steps.destroy_meta.outputs.account_id }}:table/${TF_LOCK_DYNAMODB}"
+            echo
+            echo "Destroy result: ${PLAN_RESULT_LINE}"
+            echo
+            echo "Protected resources blocked by policy: any Route 53 resources, the Terraform backend S3 bucket, and the Terraform lock DynamoDB table."
+            echo "Destroy artifact: ${{ steps.destroy_meta.outputs.destroy_plan_artifact_name }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Cleanup Terraform working files
+        if: ${{ always() }}
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: rm -f runtime.auto.tfvars tfplan-destroy terraform-destroy-plan.txt terraform-destroy-plan.json

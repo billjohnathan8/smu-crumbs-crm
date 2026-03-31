@@ -23,6 +23,11 @@ on:
         required: false
         type: string
         default: '/*'
+      cloudfront_distribution_id_override:
+        description: Optional CloudFront distribution ID override
+        required: false
+        type: string
+        default: ''
     secrets:
       AWS_ROLE_ARN:
         required: true
@@ -40,7 +45,6 @@ jobs:
 
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
-      CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
 
     steps:
       - name: Checkout code
@@ -52,7 +56,28 @@ jobs:
           test -n "${{ secrets.AWS_ROLE_ARN }}"
           test -n "${{ vars.AWS_REGION }}"
           test -n "${{ vars.FRONTEND_BUCKET }}"
-          test -n "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}"
+
+      - name: Resolve CloudFront distribution ID
+        id: distribution
+        shell: bash
+        env:
+          CLOUDFRONT_DISTRIBUTION_ID_OVERRIDE: ${{ inputs.cloudfront_distribution_id_override }}
+          DEFAULT_CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          set -euo pipefail
+
+          DISTRIBUTION_ID="${CLOUDFRONT_DISTRIBUTION_ID_OVERRIDE:-}"
+          if [[ -z "${DISTRIBUTION_ID}" ]]; then
+            DISTRIBUTION_ID="${DEFAULT_CLOUDFRONT_DISTRIBUTION_ID:-}"
+          fi
+
+          [[ -n "${DISTRIBUTION_ID}" ]] || {
+            echo "Missing CloudFront distribution id. Provide cloudfront_distribution_id_override or set vars.CLOUDFRONT_DISTRIBUTION_ID."
+            exit 1
+          }
+
+          echo "cloudfront_distribution_id=${DISTRIBUTION_ID}" >> "$GITHUB_OUTPUT"
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -102,7 +127,7 @@ jobs:
       - name: Invalidate CloudFront cache
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
+            --distribution-id "${{ steps.distribution.outputs.cloudfront_distribution_id }}" \
             --paths ${{ inputs.cloudfront_invalidation_paths }}
 
       - name: Write deploy intent fragment (Frontend)
@@ -127,7 +152,7 @@ jobs:
             --arg bucket "${{ vars.FRONTEND_BUCKET }}" \
             --arg release_prefix "${RELEASE_PREFIX}" \
             --arg build_output_dir "${{ inputs.build_output_dir }}" \
-            --arg cloudfront_distribution_id "${CLOUDFRONT_DISTRIBUTION_ID}" \
+            --arg cloudfront_distribution_id "${{ steps.distribution.outputs.cloudfront_distribution_id }}" \
             --arg cloudfront_invalidation_paths "${{ inputs.cloudfront_invalidation_paths }}" \
             ' {
               type: $type,
@@ -160,5 +185,5 @@ jobs:
           echo "Build output: ${{ inputs.build_output_dir }}"
           echo "SHA release: s3://${{ vars.FRONTEND_BUCKET }}/git/${{ github.sha }}/"
           echo "Synced to: s3://${{ vars.FRONTEND_BUCKET }}/live/"
-          echo "CloudFront distribution: ${CLOUDFRONT_DISTRIBUTION_ID}"
+          echo "CloudFront distribution: ${{ steps.distribution.outputs.cloudfront_distribution_id }}"
           echo "CloudFront invalidation paths: ${{ inputs.cloudfront_invalidation_paths }}"

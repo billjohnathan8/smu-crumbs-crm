@@ -7,11 +7,6 @@ on:
         description: ECS service folder name under services/backend (user, client, transaction)
         required: true
         type: string
-      ecs_cluster:
-        description: ECS cluster name hosting the service
-        required: false
-        type: string
-        default: backend
     secrets:
       AWS_ROLE_ARN:
         required: true
@@ -54,7 +49,6 @@ jobs:
         run: |
           test -n "${{ secrets.AWS_ROLE_ARN }}"
           test -n "${{ vars.AWS_REGION }}"
-          test -n "${{ inputs.ecs_cluster }}"
 
       - name: Resolve service metadata
         id: meta
@@ -81,13 +75,17 @@ jobs:
 
           SHA_TAG="${GITHUB_SHA}"
           LATEST_TAG="latest"
-          ECR_REPOSITORY_NAME="services/${SERVICE}"
+          ECR_REPOSITORY_NAME="scroogebank-crm-prod-${SERVICE}"
+          ECS_SERVICE_NAME="scroogebank-crm-prod-${SERVICE}"
+          ECS_CLUSTER_NAME="scroogebank-crm-prod-ecs"
 
           {
             echo "working_directory=${WORKING_DIRECTORY}"
             echo "sha_tag=${SHA_TAG}"
             echo "latest_tag=${LATEST_TAG}"
             echo "ecr_repository_name=${ECR_REPOSITORY_NAME}"
+            echo "ecs_service_name=${ECS_SERVICE_NAME}"
+            echo "ecs_cluster_name=${ECS_CLUSTER_NAME}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS credentials (OIDC)
@@ -161,20 +159,21 @@ jobs:
         run: |
           set -euo pipefail
 
-          CLUSTER="${{ inputs.ecs_cluster }}"
+          CLUSTER="${{ steps.meta.outputs.ecs_cluster_name }}"
           SERVICE="${{ inputs.service }}"
+          ECS_SERVICE_NAME="${{ steps.meta.outputs.ecs_service_name }}"
           IMAGE_REPO="${{ steps.registry.outputs.image_uri }}"
           IMAGE_TAG="${{ steps.meta.outputs.sha_tag }}"
           IMAGE_REF="${IMAGE_REPO}:${IMAGE_TAG}"
 
           CURRENT_TASK_DEF_ARN="$(aws ecs describe-services \
             --cluster "${CLUSTER}" \
-            --services "${SERVICE}" \
+            --services "${ECS_SERVICE_NAME}" \
             --query 'services[0].taskDefinition' \
             --output text)"
 
           if [[ -z "${CURRENT_TASK_DEF_ARN}" || "${CURRENT_TASK_DEF_ARN}" == "None" ]]; then
-            echo "Unable to resolve current task definition for service ${SERVICE}"
+            echo "Unable to resolve current task definition for ECS service ${ECS_SERVICE_NAME}"
             exit 1
           fi
 
@@ -223,8 +222,8 @@ jobs:
       - name: Update ECS service to new task definition
         run: |
           aws ecs update-service \
-            --cluster "${{ inputs.ecs_cluster }}" \
-            --service "${{ inputs.service }}" \
+            --cluster "${{ steps.meta.outputs.ecs_cluster_name }}" \
+            --service "${{ steps.meta.outputs.ecs_service_name }}" \
             --task-definition "${{ steps.taskdef.outputs.new_task_definition_arn }}" \
             --force-new-deployment
 
@@ -235,7 +234,7 @@ jobs:
           set -euo pipefail
 
           SERVICE="${{ inputs.service }}"
-          CLUSTER="${{ inputs.ecs_cluster }}"
+          CLUSTER="${{ steps.meta.outputs.ecs_cluster_name }}"
           REPO_SHA="${GITHUB_SHA}"
           IMAGE_REPO="${{ steps.registry.outputs.image_uri }}"
           IMAGE_TAG="${{ steps.meta.outputs.sha_tag }}"
@@ -279,7 +278,8 @@ jobs:
       - name: Deployment summary
         run: |
           echo "Service: ${{ inputs.service }}"
-          echo "Cluster: ${{ inputs.ecs_cluster }}"
+          echo "ECS service: ${{ steps.meta.outputs.ecs_service_name }}"
+          echo "Cluster: ${{ steps.meta.outputs.ecs_cluster_name }}"
           echo "Trivy gate: passed"
           echo "Image: ${{ steps.registry.outputs.image_uri }}:${{ steps.meta.outputs.sha_tag }}"
           echo "Also tagged: ${{ steps.registry.outputs.image_uri }}:${{ steps.meta.outputs.latest_tag }}"

@@ -2,12 +2,6 @@ name: CD - Changes Deploy
 
 on:
   workflow_dispatch:
-    inputs:
-      ecs_cluster:
-        description: ECS cluster name hosting backend services
-        required: false
-        type: string
-        default: backend
   # push:
   #   branches:
   #     - integration
@@ -36,7 +30,6 @@ jobs:
     uses: ./.github/workflows/reusable-ecs-deploy.yml
     with:
       service: user
-      ecs_cluster: ${{ inputs.ecs_cluster || 'backend' }}
     secrets: inherit
 
   deploy-client:
@@ -48,7 +41,6 @@ jobs:
     uses: ./.github/workflows/reusable-ecs-deploy.yml
     with:
       service: client
-      ecs_cluster: ${{ inputs.ecs_cluster || 'backend' }}
     secrets: inherit
 
   deploy-transaction:
@@ -60,7 +52,6 @@ jobs:
     uses: ./.github/workflows/reusable-ecs-deploy.yml
     with:
       service: transaction
-      ecs_cluster: ${{ inputs.ecs_cluster || 'backend' }}
     secrets: inherit
 
   deploy-aml:
