@@ -116,11 +116,21 @@ export async function apiRequest<T>(endpoint: string, options: RequestOptions = 
 
     // Check for AbortError (can be DOMException or Error)
     if (error && typeof error === 'object' && 'name' in error && error.name === 'AbortError') {
-      throw new ApiError(408, 'request_timeout', getUserFriendlyErrorMessage('request_timeout'), undefined)
+      throw new ApiError(
+        408,
+        'request_timeout',
+        getUserFriendlyErrorMessage('request_timeout'),
+        undefined
+      )
     }
 
     if (error instanceof Error) {
-      throw new ApiError(0, 'network_error', getUserFriendlyErrorMessage('network_error'), undefined)
+      throw new ApiError(
+        0,
+        'network_error',
+        getUserFriendlyErrorMessage('network_error'),
+        undefined
+      )
     }
 
     throw new ApiError(0, 'unknown_error', getUserFriendlyErrorMessage('unknown_error'), undefined)
