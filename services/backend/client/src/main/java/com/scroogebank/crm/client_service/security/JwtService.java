@@ -294,18 +294,25 @@ public class JwtService {
 
 	private String mapRoleFromGroups(List<?> groups) {
 		boolean hasAdmin = false;
+		boolean hasSuperAdmin = false;
 		boolean hasAgent = false;
 		for (Object group : groups) {
 			if (!(group instanceof String value)) {
 				continue;
 			}
 			String normalizedRole = normalizeRole(value);
+			if ("super_admin".equals(normalizedRole)) {
+				hasSuperAdmin = true;
+			}
 			if ("admin".equals(normalizedRole)) {
 				hasAdmin = true;
 			}
 			if ("user".equals(normalizedRole)) {
 				hasAgent = true;
 			}
+		}
+		if (hasSuperAdmin) {
+			return "admin";
 		}
 		if (hasAdmin) {
 			return "admin";
@@ -521,4 +528,3 @@ public class JwtService {
 	private record CachedJwks(Map<String, RSAPublicKey> keysByKid, Instant expiresAt) {
 	}
 }
-
