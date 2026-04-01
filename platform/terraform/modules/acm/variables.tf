@@ -10,6 +10,15 @@ variable "name_prefix" {
 variable "app_domain_name" {
   description = "Base domain for the certificate (e.g., itsag2t3.com)."
   type        = string
+
+  validation {
+    condition = trimspace(var.app_domain_name) != "" && (
+      !can(regex("^[a-zA-Z][a-zA-Z0-9+.-]*://", trimspace(var.app_domain_name))) &&
+      !strcontains(trimspace(var.app_domain_name), "/") &&
+      !strcontains(trimspace(var.app_domain_name), " ")
+    )
+    error_message = "app_domain_name must be a bare DNS name only (for example: itsag2t3.com). Do not include http:// or https://."
+  }
 }
 
 variable "route53_zone_id" {

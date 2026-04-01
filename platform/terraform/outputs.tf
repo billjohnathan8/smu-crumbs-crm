@@ -115,7 +115,7 @@ output "terraform_manages_route53_records" {
 #--------------------------------------------------------------
 output "external_dns_frontend_name" {
   description = "DNS name to create externally for app traffic."
-  value       = var.app_domain_name != "" ? var.app_domain_name : null
+  value       = local.app_domain_name != "" ? local.app_domain_name : null
 }
 
 output "external_dns_frontend_target" {

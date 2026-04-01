@@ -588,6 +588,15 @@ variable "app_domain_name" {
   description = "Custom domain for the app (optional)."
   type        = string
   default     = ""
+
+  validation {
+    condition = trimspace(var.app_domain_name) == "" || (
+      !can(regex("^[a-zA-Z][a-zA-Z0-9+.-]*://", trimspace(var.app_domain_name))) &&
+      !strcontains(trimspace(var.app_domain_name), "/") &&
+      !strcontains(trimspace(var.app_domain_name), " ")
+    )
+    error_message = "app_domain_name must be a bare DNS name only (for example: itsag2t3.com). Do not include http:// or https://."
+  }
 }
 
 variable "route53_hosted_zone_id" {
@@ -1250,7 +1259,7 @@ check "custom_domain_contract_guardrails" {
 check "school_registered_domain_guardrails" {
   assert {
     condition = !(
-      lower(trimspace(var.app_domain_name)) == "itsag2t3.com" &&
+      lower(trimsuffix(trimspace(var.app_domain_name), ".")) == "itsag2t3.com" &&
       (
         var.manage_route53_records ||
         var.manage_acm_dns_validation_records ||

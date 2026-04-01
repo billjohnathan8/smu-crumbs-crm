@@ -125,7 +125,7 @@ module "acm" {
   count  = local.create_acm_certificates ? 1 : 0
 
   name_prefix                   = local.name_prefix
-  app_domain_name               = var.app_domain_name
+  app_domain_name               = local.app_domain_name
   route53_zone_id               = var.route53_hosted_zone_id
   alb_origin_subdomain          = var.alb_origin_subdomain
   manage_dns_validation_records = var.manage_acm_dns_validation_records
@@ -251,7 +251,7 @@ module "apigateway" {
   name_prefix                   = local.name_prefix
   cloudwatch_log_retention_days = var.cloudwatch_log_retention_days
   use_custom_domain             = local.use_custom_domain
-  app_domain_name               = var.app_domain_name
+  app_domain_name               = local.app_domain_name
   log_lambda_invoke_arn         = module.lambda.log_lambda_invoke_arn
   log_lambda_function_name      = module.lambda.log_lambda_name
 }
@@ -406,7 +406,7 @@ module "cloudfront" {
 
   name_prefix                          = local.name_prefix
   use_custom_domain                    = local.use_custom_domain
-  app_domain_name                      = var.app_domain_name
+  app_domain_name                      = local.app_domain_name
   cloudfront_price_class               = var.cloudfront_price_class
   frontend_certificate_arn             = local.frontend_certificate_arn
   alb_origin_domain_name               = local.alb_origin_domain_name

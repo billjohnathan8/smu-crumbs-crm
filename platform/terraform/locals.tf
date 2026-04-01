@@ -22,7 +22,8 @@ locals {
   #--------------------------------------------------------------
   # Domain and URL Resolution
   #--------------------------------------------------------------
-  use_custom_domain = trimspace(var.app_domain_name) != ""
+  app_domain_name   = lower(trimsuffix(trimspace(var.app_domain_name), "."))
+  use_custom_domain = local.app_domain_name != ""
 
   # External-certificate mode is explicit: both frontend and ALB cert ARNs
   # must be provided together.
@@ -37,7 +38,7 @@ locals {
   # ACM creation is opt-in for custom domains when cert ARNs are not provided.
   create_acm_certificates = local.use_custom_domain && var.create_acm_certificates && !local.use_existing_acm_certificates
 
-  alb_origin_domain_name = local.use_custom_domain ? "${var.alb_origin_subdomain}.${var.app_domain_name}" : null
+  alb_origin_domain_name = local.use_custom_domain ? "${var.alb_origin_subdomain}.${local.app_domain_name}" : null
 
   frontend_certificate_arn = local.use_custom_domain ? (
     local.use_existing_acm_certificates ? var.existing_frontend_certificate_arn : try(module.acm[0].frontend_certificate_arn, null)
@@ -54,7 +55,7 @@ locals {
   transaction_import_api_base_url = var.transaction_import_api_base_url != "" ? var.transaction_import_api_base_url : local.crm_api_base_url
 
   verification_frontend_base_url = trimspace(var.verification_frontend_base_url) != "" ? trimspace(var.verification_frontend_base_url) : (
-    local.use_custom_domain ? "https://${var.app_domain_name}" : ""
+    local.use_custom_domain ? "https://${local.app_domain_name}" : ""
   )
 
   # AML SFTP endpoint/user defaults can be inferred from the active SFTP module
