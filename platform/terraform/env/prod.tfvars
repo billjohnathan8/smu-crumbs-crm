@@ -18,22 +18,23 @@ enable_multi_az_nat                = true
 enable_nat_gateway                 = true
 enable_vpc_flow_logs               = true
 restrict_alb_ingress_to_cloudfront = true
+alb_internal                       = false # CloudFront origin must be publicly reachable
 
 # --- ECS ---
 user_desired_count                = 1
-client_desired_count              = 2
+client_desired_count              = 1
 transaction_desired_count         = 1
-ecs_min_capacity                  = 2
-ecs_max_capacity                  = 2
+ecs_min_capacity                  = 1
+ecs_max_capacity                  = 1
 ecs_task_cpu                      = 512
 ecs_task_memory                   = 1024
-ecs_production_like_ha_task_floor = 2
+ecs_production_like_ha_task_floor = 1
 ecs_use_public_subnets            = false
 ecs_assign_public_ip              = false
 enable_ecs_container_insights     = false
 
 # --- Database ---
-db_instance_class                = "db.t4g.micro" # school budget baseline
+db_instance_class                = "db.t4g.small" # temporary stability bump for DB connection headroom
 db_multi_az                      = true
 db_backup_retention_days         = 1
 db_skip_final_snapshot           = true

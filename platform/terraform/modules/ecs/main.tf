@@ -60,6 +60,26 @@ locals {
           value = var.db_jdbc_url
         },
         {
+          name  = "SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE"
+          value = "4"
+        },
+        {
+          name  = "SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE"
+          value = "1"
+        },
+        {
+          name  = "SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT"
+          value = "30000"
+        },
+        {
+          name  = "SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT"
+          value = "600000"
+        },
+        {
+          name  = "SPRING_DATASOURCE_HIKARI_MAX_LIFETIME"
+          value = "1200000"
+        },
+        {
           name  = "APP_USER_STORE_TYPE"
           value = "postgres"
         },
@@ -106,6 +126,26 @@ locals {
         {
           name  = "SPRING_DATASOURCE_URL"
           value = var.db_jdbc_url
+        },
+        {
+          name  = "SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE"
+          value = "4"
+        },
+        {
+          name  = "SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE"
+          value = "1"
+        },
+        {
+          name  = "SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT"
+          value = "30000"
+        },
+        {
+          name  = "SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT"
+          value = "600000"
+        },
+        {
+          name  = "SPRING_DATASOURCE_HIKARI_MAX_LIFETIME"
+          value = "1200000"
         },
         {
           name  = "CLIENT_LOG_SERVICE_URL"
@@ -178,6 +218,26 @@ locals {
         {
           name  = "SPRING_DATASOURCE_URL"
           value = var.db_jdbc_url
+        },
+        {
+          name  = "SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE"
+          value = "4"
+        },
+        {
+          name  = "SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE"
+          value = "1"
+        },
+        {
+          name  = "SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT"
+          value = "30000"
+        },
+        {
+          name  = "SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT"
+          value = "600000"
+        },
+        {
+          name  = "SPRING_DATASOURCE_HIKARI_MAX_LIFETIME"
+          value = "1200000"
         },
         {
           name  = "APP_TRANSACTIONS_STORE_TYPE"
