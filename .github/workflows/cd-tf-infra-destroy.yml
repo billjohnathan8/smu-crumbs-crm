@@ -129,6 +129,7 @@ jobs:
           {
             echo "root_admin_password = $(jq -Rn --arg v "$ROOT_ADMIN_PASSWORD" '$v')"
             echo "jwt_hmac_secret = $(jq -Rn --arg v "$JWT_HMAC_SECRET" '$v')"
+            echo "cloudtrail_bucket_force_destroy = true"
             if [[ -n "${APP_DOMAIN_NAME}" ]]; then
               echo "app_domain_name = $(jq -Rn --arg v "$APP_DOMAIN_NAME" '$v')"
             fi
@@ -243,6 +244,79 @@ jobs:
           for addr in "${CODEDEPLOY_STATE_ADDRS[@]}"; do
             terraform state rm "${addr}"
           done
+
+      - name: Pre-pass - destroy CloudTrail trail only
+        if: ${{ steps.eni_check.outputs.continue_destroy == 'true' }}
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if terraform state list | grep -Eq '^module\.observability\.aws_cloudtrail\.this(\[0\])?$'; then
+            terraform destroy \
+              -target=module.observability.aws_cloudtrail.this \
+              -input=false \
+              -auto-approve \
+              -lock-timeout=300s \
+              -var-file="env/${DEPLOY_ENV}.tfvars" \
+              -var-file="runtime.auto.tfvars"
+          else
+            echo "No CloudTrail trail resource found in state; skipping pre-pass trail destroy."
+          fi
+
+      - name: Pre-pass - drain CloudTrail bucket objects
+        if: ${{ steps.eni_check.outputs.continue_destroy == 'true' }}
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BUCKET_ADDR="module.observability.aws_s3_bucket.cloudtrail[0]"
+          if ! terraform state list | grep -Fxq "${BUCKET_ADDR}"; then
+            echo "No CloudTrail bucket resource found in state; skipping bucket drain."
+            exit 0
+          fi
+
+          BUCKET_NAME="$(terraform state show "${BUCKET_ADDR}" | awk -F= '/^[[:space:]]*bucket[[:space:]]*=/{gsub(/["[:space:]]/, "", $2); print $2; exit}')"
+          if [[ -z "${BUCKET_NAME}" ]]; then
+            echo "Unable to resolve CloudTrail bucket name from state; skipping bucket drain."
+            exit 0
+          fi
+
+          echo "Draining CloudTrail bucket before full destroy: ${BUCKET_NAME}"
+          aws s3 rm "s3://${BUCKET_NAME}" --recursive --region "${AWS_REGION}" || true
+
+          # Also clear versioned objects/delete markers if versioning was enabled previously.
+          for _ in {1..10}; do
+            VCOUNT="$(aws s3api list-object-versions \
+              --bucket "${BUCKET_NAME}" \
+              --region "${AWS_REGION}" \
+              --query 'length(Versions) + length(DeleteMarkers)' \
+              --output text 2>/dev/null || echo 0)"
+
+            if [[ "${VCOUNT}" == "None" || -z "${VCOUNT}" || "${VCOUNT}" == "0" ]]; then
+              break
+            fi
+
+            aws s3api list-object-versions \
+              --bucket "${BUCKET_NAME}" \
+              --region "${AWS_REGION}" \
+              --output json \
+              | jq -c '{Objects: (([.Versions[]? | {Key,VersionId}] + [.DeleteMarkers[]? | {Key,VersionId}])[:1000]), Quiet: true}' > delete-versions.json
+
+            OBJ_COUNT="$(jq '.Objects | length' delete-versions.json)"
+            if [[ "${OBJ_COUNT}" == "0" ]]; then
+              break
+            fi
+
+            aws s3api delete-objects \
+              --bucket "${BUCKET_NAME}" \
+              --region "${AWS_REGION}" \
+              --delete file://delete-versions.json || true
+          done
+
+          rm -f delete-versions.json
+          echo "CloudTrail bucket drain pre-pass complete: ${BUCKET_NAME}"
 
       - name: Terraform destroy plan
         if: ${{ steps.eni_check.outputs.continue_destroy == 'true' }}
