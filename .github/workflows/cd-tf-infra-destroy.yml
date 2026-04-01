@@ -189,6 +189,7 @@ jobs:
           fi
 
           ENI_COUNT="$(aws ec2 describe-network-interfaces \
+            --region "${AWS_REGION}" \
             --filters "Name=vpc-id,Values=${VPC_ID}" "Name=interface-type,Values=lambda" \
             --query 'length(NetworkInterfaces)' \
             --output text)"
