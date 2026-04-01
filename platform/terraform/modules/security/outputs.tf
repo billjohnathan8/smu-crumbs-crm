@@ -27,6 +27,11 @@ output "jwt_hmac_secret_arn" {
   value       = aws_secretsmanager_secret.jwt_hmac.arn
 }
 
+output "jwt_hmac_secret_version_id" {
+  description = "Current JWT HMAC secret version ID."
+  value       = aws_secretsmanager_secret_version.jwt_hmac.version_id
+}
+
 output "root_admin_password_secret_arn" {
   description = "Root admin password secret ARN."
   value       = aws_secretsmanager_secret.root_admin_password.arn

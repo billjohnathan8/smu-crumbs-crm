@@ -88,6 +88,10 @@ locals {
           value = var.auth_mode
         },
         {
+          name  = "JWT_HMAC_SECRET_VERSION"
+          value = var.jwt_hmac_secret_version_id
+        },
+        {
           name  = "COGNITO_ISSUER"
           value = var.cognito_issuer_url
         },
@@ -176,6 +180,10 @@ locals {
           value = var.auth_mode
         },
         {
+          name  = "JWT_HMAC_SECRET_VERSION"
+          value = var.jwt_hmac_secret_version_id
+        },
+        {
           name  = "COGNITO_ISSUER"
           value = var.cognito_issuer_url
         },
@@ -262,6 +270,10 @@ locals {
         {
           name  = "AUTH_MODE"
           value = var.auth_mode
+        },
+        {
+          name  = "JWT_HMAC_SECRET_VERSION"
+          value = var.jwt_hmac_secret_version_id
         },
         {
           name  = "COGNITO_ISSUER"

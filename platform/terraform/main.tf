@@ -303,6 +303,7 @@ module "ecs" {
   verification_documents_bucket                   = module.s3.verification_bucket_id
   root_admin_password_secret_arn                  = module.security.root_admin_password_secret_arn
   jwt_hmac_secret_arn                             = module.security.jwt_hmac_secret_arn
+  jwt_hmac_secret_version_id                      = module.security.jwt_hmac_secret_version_id
   db_username_secret_arn                          = module.security.db_username_secret_arn
   db_password_secret_arn                          = module.security.db_password_secret_arn
   ecs_task_cpu                                    = var.ecs_task_cpu

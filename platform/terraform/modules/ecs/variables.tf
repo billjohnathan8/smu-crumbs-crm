@@ -262,6 +262,11 @@ variable "jwt_hmac_secret_arn" {
   type        = string
 }
 
+variable "jwt_hmac_secret_version_id" {
+  description = "Current JWT_HMAC_SECRET version ID propagated to ECS task definitions to force synchronized rollouts on secret rotation."
+  type        = string
+}
+
 variable "db_username_secret_arn" {
   description = "Secret ARN for SPRING_DATASOURCE_USERNAME."
   type        = string
