@@ -410,7 +410,7 @@ module "cloudfront" {
   app_domain_name                      = local.app_domain_name
   cloudfront_price_class               = var.cloudfront_price_class
   frontend_certificate_arn             = local.frontend_certificate_arn
-  alb_origin_domain_name               = local.alb_origin_domain_name
+  alb_origin_domain_name               = local.cloudfront_backend_origin_domain_name
   alb_dns_name                         = module.alb.alb_dns_name
   frontend_bucket_id                   = module.s3.frontend_bucket_id
   frontend_bucket_arn                  = module.s3.frontend_bucket_arn
@@ -422,6 +422,30 @@ module "cloudfront" {
   route53_zone_id                      = var.route53_hosted_zone_id
   manage_route53_record                = local.manage_route53_records
   enable_cloudfront_oac                = var.enable_cloudfront_oac
+}
+
+resource "aws_route53_record" "cloudfront_backend_origin" {
+  count = (
+    var.enable_cloudfront &&
+    local.manage_route53_records &&
+    trimspace(var.cloudfront_backend_origin_domain_name) != ""
+  ) ? 1 : 0
+
+  zone_id         = var.route53_hosted_zone_id
+  name            = local.cloudfront_backend_origin_domain_name
+  type            = "A"
+  allow_overwrite = true
+
+  alias {
+    name                   = module.alb.alb_dns_name
+    zone_id                = module.alb.alb_zone_id
+    evaluate_target_health = false
+  }
+
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes  = [zone_id]
+  }
 }
 
 #--------------------------------------------------------------

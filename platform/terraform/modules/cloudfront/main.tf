@@ -24,9 +24,9 @@ locals {
   ])
 }
 
-resource "aws_cloudfront_response_headers_policy" "security_headers" {
-  name    = "${var.name_prefix}-security-headers"
-  comment = "Security headers for all CloudFront responses."
+resource "aws_cloudfront_response_headers_policy" "frontend_security_headers" {
+  name    = "${var.name_prefix}-frontend-security-headers"
+  comment = "Security headers for frontend document/static responses."
 
   security_headers_config {
     strict_transport_security {
@@ -53,6 +53,29 @@ resource "aws_cloudfront_response_headers_policy" "security_headers" {
     content_security_policy {
       content_security_policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://*.amazoncognito.com https://*.auth.ap-southeast-1.amazoncognito.com; frame-ancestors 'none';"
       override                = true
+    }
+  }
+}
+
+resource "aws_cloudfront_response_headers_policy" "api_security_headers" {
+  name    = "${var.name_prefix}-api-security-headers"
+  comment = "Security headers for API responses (without frame/CSP document restrictions)."
+
+  security_headers_config {
+    strict_transport_security {
+      access_control_max_age_sec = 31536000
+      include_subdomains         = true
+      preload                    = true
+      override                   = true
+    }
+
+    content_type_options {
+      override = true
+    }
+
+    referrer_policy {
+      referrer_policy = "strict-origin-when-cross-origin"
+      override        = true
     }
   }
 }
@@ -120,7 +143,7 @@ resource "aws_cloudfront_distribution" "frontend" {
     cached_methods             = ["GET", "HEAD", "OPTIONS"]
     compress                   = true
     cache_policy_id            = local.cf_cache_policy_caching_optimized
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.security_headers.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.frontend_security_headers.id
   }
 
   dynamic "ordered_cache_behavior" {
@@ -134,7 +157,7 @@ resource "aws_cloudfront_distribution" "frontend" {
       compress                   = true
       cache_policy_id            = local.cf_cache_policy_caching_disabled
       origin_request_policy_id   = local.cf_origin_request_policy_all_viewer_except_host
-      response_headers_policy_id = aws_cloudfront_response_headers_policy.security_headers.id
+      response_headers_policy_id = aws_cloudfront_response_headers_policy.api_security_headers.id
     }
   }
 
@@ -147,7 +170,7 @@ resource "aws_cloudfront_distribution" "frontend" {
     compress                   = true
     cache_policy_id            = local.cf_cache_policy_caching_disabled
     origin_request_policy_id   = local.cf_origin_request_policy_all_viewer
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.security_headers.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.api_security_headers.id
   }
 
   custom_error_response {

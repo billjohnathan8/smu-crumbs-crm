@@ -125,7 +125,7 @@ output "external_dns_frontend_target" {
 
 output "external_dns_alb_origin_name" {
   description = "DNS name to create externally for CloudFront-to-ALB origin."
-  value       = local.alb_origin_domain_name
+  value       = local.cloudfront_backend_origin_domain_name
 }
 
 output "external_dns_alb_origin_target" {

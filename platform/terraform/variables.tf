@@ -659,6 +659,12 @@ variable "alb_origin_subdomain" {
   default     = "api"
 }
 
+variable "cloudfront_backend_origin_domain_name" {
+  description = "Optional explicit DNS name for CloudFront backend origin. When set, CloudFront uses this hostname instead of <alb_origin_subdomain>.<app_domain_name>."
+  type        = string
+  default     = ""
+}
+
 variable "enforce_strict_prod_guardrails" {
   description = "Enforce strict production high-availability guardrails (Multi-AZ NAT/RDS and stricter RDS destruction settings). Set false for budget-first production-account bring-up."
   type        = bool

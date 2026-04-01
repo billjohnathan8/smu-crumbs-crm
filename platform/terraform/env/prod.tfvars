@@ -104,6 +104,7 @@ auth_mode                 = "cognito"
 allow_school_registered_domain_management = true
 # For teardown while preserving DNS aliases, run scripts/destroy-app-keep-dns.(sh|ps1)
 app_domain_name                   = "itsag2t3.com"
+cloudfront_backend_origin_domain_name = "api-cf.itsag2t3.com"
 manage_route53_records            = true
 manage_acm_dns_validation_records = true
 create_acm_certificates           = true
