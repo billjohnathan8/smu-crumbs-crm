@@ -1,6 +1,7 @@
 package com.scroogebank.crm.user_service.config;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -40,7 +41,11 @@ public class SecurityConfig {
 	) {
 		this.jwtAuthFilter = jwtAuthFilter;
 		this.testEndpointsEnabled = environment.acceptsProfiles(Profiles.of("local", "test"));
-		this.corsAllowedOrigins = List.of(corsAllowedOrigins.split(","));
+		List<String> parsedAllowedOrigins = Stream.of(corsAllowedOrigins.split(","))
+			.map(String::trim)
+			.filter(origin -> !origin.isEmpty())
+			.toList();
+		this.corsAllowedOrigins = parsedAllowedOrigins.isEmpty() ? List.of("*") : parsedAllowedOrigins;
 	}
 
 	@Bean
