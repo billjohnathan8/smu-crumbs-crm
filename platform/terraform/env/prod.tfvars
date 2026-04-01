@@ -103,11 +103,11 @@ auth_mode                 = "local"
 # Guardrail override for this repo: allow Terraform Route53/ACM management for itsag2t3.com when you enable those flags.
 allow_school_registered_domain_management = true
 # For teardown while preserving DNS aliases, run scripts/destroy-app-keep-dns.(sh|ps1)
-app_domain_name                   = "itsag2t3.com"
+app_domain_name                       = "itsag2t3.com"
 cloudfront_backend_origin_domain_name = "api-cf.itsag2t3.com"
-manage_route53_records            = true
-manage_acm_dns_validation_records = true
-create_acm_certificates           = true
-route53_hosted_zone_id            = "Z0847858V2EVICNOCKKL"
+manage_route53_records                = true
+manage_acm_dns_validation_records     = true
+create_acm_certificates               = true
+route53_hosted_zone_id                = "Z0847858V2EVICNOCKKL"
 # existing_frontend_certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/..."
 # existing_alb_certificate_arn      = "arn:aws:acm:ap-southeast-1:123456789012:certificate/..."

@@ -38,7 +38,7 @@ locals {
   # ACM creation is opt-in for custom domains when cert ARNs are not provided.
   create_acm_certificates = local.use_custom_domain && var.create_acm_certificates && !local.use_existing_acm_certificates
 
-  alb_origin_domain_name = local.use_custom_domain ? "${var.alb_origin_subdomain}.${local.app_domain_name}" : null
+  alb_origin_domain_name                = local.use_custom_domain ? "${var.alb_origin_subdomain}.${local.app_domain_name}" : null
   cloudfront_backend_origin_domain_name = trimspace(var.cloudfront_backend_origin_domain_name) != "" ? lower(trimsuffix(trimspace(var.cloudfront_backend_origin_domain_name), ".")) : local.alb_origin_domain_name
 
   frontend_certificate_arn = local.use_custom_domain ? (
