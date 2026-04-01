@@ -31,7 +31,8 @@ try {
 
 $targets = @(
   "module.alb.aws_route53_record.alb[0]",
-  "module.cloudfront[0].aws_route53_record.cloudfront[0]"
+  "module.cloudfront[0].aws_route53_record.cloudfront[0]",
+  "aws_route53_record.cloudfront_backend_origin[0]"
 )
 
 foreach ($target in $targets) {

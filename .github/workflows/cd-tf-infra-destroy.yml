@@ -156,25 +156,28 @@ jobs:
         run: |
           set -euo pipefail
 
-          if terraform state list | grep -Fxq "module.alb.aws_route53_record.alb[0]"; then
-            echo "Removing protected ALB Route53 record from state to avoid lifecycle.prevent_destroy failure."
-            terraform state rm module.alb.aws_route53_record.alb[0]
-          else
-            echo "No module.alb.aws_route53_record.alb[0] found in state; skipping."
-          fi
+          mapfile -t STATE_ADDRESSES < <(terraform state list 2>/dev/null || true)
 
-          if terraform state list | grep -Fxq "module.cloudfront[0].aws_route53_record.cloudfront[0]"; then
-            echo "Removing protected CloudFront Route53 record from state to avoid lifecycle.prevent_destroy failure."
-            terraform state rm 'module.cloudfront[0].aws_route53_record.cloudfront[0]'
-          else
-            echo "No module.cloudfront[0].aws_route53_record.cloudfront[0] found in state; skipping."
-          fi
+          detach_if_present() {
+            local target="$1"
+            if printf '%s\n' "${STATE_ADDRESSES[@]}" | grep -Fxq "${target}"; then
+              echo "Detaching protected DNS record from state: ${target}"
+              terraform state rm "${target}"
+            else
+              echo "Not present in state (skip): ${target}"
+            fi
+          }
 
-          if terraform state list | grep -Fxq "aws_route53_record.cloudfront_backend_origin[0]"; then
-            echo "Removing protected CloudFront backend origin Route53 record from state to avoid lifecycle.prevent_destroy failure."
-            terraform state rm 'aws_route53_record.cloudfront_backend_origin[0]'
-          else
-            echo "No aws_route53_record.cloudfront_backend_origin[0] found in state; skipping."
+          detach_if_present "module.alb.aws_route53_record.alb[0]"
+          detach_if_present "module.cloudfront[0].aws_route53_record.cloudfront[0]"
+          detach_if_present "aws_route53_record.cloudfront_backend_origin[0]"
+
+          # Defensive fallback for any future count/index/address shape drift.
+          mapfile -t REMAINING_PROTECTED_DNS < <(terraform state list | grep -E '(^module\.alb\.aws_route53_record\.alb(\[[0-9]+\])?$)|(^module\.cloudfront\[0\]\.aws_route53_record\.cloudfront(\[[0-9]+\])?$)|(^aws_route53_record\.cloudfront_backend_origin(\[[0-9]+\])?$)' || true)
+          if [[ "${#REMAINING_PROTECTED_DNS[@]}" -gt 0 ]]; then
+            echo "Detaching remaining protected DNS addresses discovered by pattern:"
+            printf ' - %s\n' "${REMAINING_PROTECTED_DNS[@]}"
+            terraform state rm "${REMAINING_PROTECTED_DNS[@]}"
           fi
 
       - name: Drain Terraform-managed S3 buckets

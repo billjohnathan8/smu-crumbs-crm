@@ -27,7 +27,8 @@ mapfile -t STATE_ADDRESSES < <(terraform state list 2>/dev/null || true)
 if [[ "${#STATE_ADDRESSES[@]}" -gt 0 ]]; then
   for target in \
     "module.alb.aws_route53_record.alb[0]" \
-    "module.cloudfront[0].aws_route53_record.cloudfront[0]"
+    "module.cloudfront[0].aws_route53_record.cloudfront[0]" \
+    "aws_route53_record.cloudfront_backend_origin[0]"
   do
     if printf '%s\n' "${STATE_ADDRESSES[@]}" | grep -Fxq "$target"; then
       echo "Detaching from state: $target"
