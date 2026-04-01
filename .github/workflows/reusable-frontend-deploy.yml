@@ -66,13 +66,22 @@ jobs:
         run: |
           set -euo pipefail
 
-          DISTRIBUTION_ID="${CLOUDFRONT_DISTRIBUTION_ID_OVERRIDE:-}"
+          trim() {
+            printf '%s' "${1:-}" | tr -d '\r\n' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//'
+          }
+
+          DISTRIBUTION_ID="$(trim "${CLOUDFRONT_DISTRIBUTION_ID_OVERRIDE:-}")"
           if [[ -z "${DISTRIBUTION_ID}" ]]; then
-            DISTRIBUTION_ID="${DEFAULT_CLOUDFRONT_DISTRIBUTION_ID:-}"
+            DISTRIBUTION_ID="$(trim "${DEFAULT_CLOUDFRONT_DISTRIBUTION_ID:-}")"
           fi
 
           [[ -n "${DISTRIBUTION_ID}" ]] || {
             echo "Missing CloudFront distribution id. Provide cloudfront_distribution_id_override or set vars.CLOUDFRONT_DISTRIBUTION_ID."
+            exit 1
+          }
+
+          [[ "${DISTRIBUTION_ID}" =~ ^[A-Z0-9]+$ ]] || {
+            echo "CloudFront distribution id contains invalid characters: '${DISTRIBUTION_ID}'"
             exit 1
           }
 
@@ -83,6 +92,11 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Validate CloudFront distribution exists
+        run: |
+          aws cloudfront get-distribution \
+            --id "${{ steps.distribution.outputs.cloudfront_distribution_id }}" >/dev/null
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
