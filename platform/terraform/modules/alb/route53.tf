@@ -11,6 +11,9 @@ resource "aws_route53_record" "alb" {
   zone_id = var.route53_zone_id
   name    = var.alb_subdomain
   type    = "A"
+  # Allow Terraform to adopt/replace an existing API A-record created manually
+  # or by a previous failed run without throwing "already exists".
+  allow_overwrite = true
 
   alias {
     name                   = aws_lb.crm.dns_name

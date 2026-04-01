@@ -10,8 +10,11 @@
 # regardless of where your application is deployed.
 #--------------------------------------------------------------
 resource "aws_acm_certificate" "us_cert" {
-  provider          = aws.us_east_1
-  domain_name       = "*.${var.app_domain_name}"
+  provider    = aws.us_east_1
+  domain_name = var.app_domain_name
+  subject_alternative_names = [
+    "*.${var.app_domain_name}"
+  ]
   validation_method = "DNS"
 
   lifecycle {

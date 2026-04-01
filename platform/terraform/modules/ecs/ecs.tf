@@ -115,9 +115,8 @@ resource "aws_ecs_service" "service" {
   dynamic "service_registries" {
     for_each = var.enable_service_discovery ? [1] : []
     content {
-      registry_arn   = aws_service_discovery_service.service[each.key].arn
-      container_name = each.key
-      container_port = 8080
+      # For the current Cloud Map service type, ECS expects only registry_arn.
+      registry_arn = aws_service_discovery_service.service[each.key].arn
     }
   }
 }

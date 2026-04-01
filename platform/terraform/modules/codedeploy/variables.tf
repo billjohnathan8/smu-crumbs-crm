@@ -48,7 +48,7 @@ variable "lambda_deployments" {
 
 check "ecs_blue_green_target_group_contract" {
   assert {
-    condition = alltrue([
+    condition = !var.enable_codedeploy || alltrue([
       for service, blue_name in var.ecs_blue_target_group_names :
       trimspace(lookup(var.ecs_green_target_group_names, service, "")) != "" &&
       trimspace(blue_name) != trimspace(lookup(var.ecs_green_target_group_names, service, ""))
