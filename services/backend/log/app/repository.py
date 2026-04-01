@@ -216,11 +216,16 @@ class LogRepository:
 
         with psycopg.connect(self._settings.dsn, row_factory=dict_row) as conn:
             with conn.cursor() as cur:
-                cur.execute(count_sql, params)
-                total_row = cur.fetchone()
-                total = int(total_row["total"]) if total_row else 0
-                cur.execute(list_sql, params)
-                rows = list(cur.fetchall())
+                try:
+                    cur.execute(count_sql, params)
+                    total_row = cur.fetchone()
+                    total = int(total_row["total"]) if total_row else 0
+                    cur.execute(list_sql, params)
+                    rows = list(cur.fetchall())
+                except psycopg.errors.UndefinedTable:
+                    # Keep read paths available during partial rollouts where V2
+                    # migrations have not yet materialized audit tables.
+                    return [], 0
         return rows, total
 
     def insert_communication(self, record: dict) -> int:
