@@ -142,6 +142,36 @@ jobs:
         with:
           terraform_version: "~1.10"
 
+      - name: Ensure Terraform Lambda zip artifacts exist
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+from pathlib import Path
+import zipfile
+
+artifacts = [
+    ("services/backend/log/lambda_function.py", "services/backend/log/log-lambda.zip"),
+    ("services/backend/aml/lambda_function.py", "services/backend/aml/aml-lambda.zip"),
+    ("services/backend/sftp-transaction-collector/lambda_function.py", "services/backend/sftp-transaction-collector/sftp-transaction-collector.zip"),
+    ("services/backend/audit-consumer/lambda_function.py", "services/backend/audit-consumer/audit-consumer-lambda.zip"),
+    ("services/backend/aml-consumer/lambda_function.py", "services/backend/aml-consumer/aml-consumer-lambda.zip"),
+    ("services/backend/verification/lambda_function.py", "services/backend/verification/verification-lambda.zip"),
+]
+
+for source_raw, zip_raw in artifacts:
+    source = Path(source_raw)
+    zip_path = Path(zip_raw)
+    if not source.exists():
+        raise FileNotFoundError(f"Missing Lambda source file: {source}")
+    zip_path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.write(source, arcname="lambda_function.py")
+    if zip_path.stat().st_size == 0:
+        raise ValueError(f"Lambda zip artifact is empty: {zip_path}")
+PY
+
       - name: Terraform init
         working-directory: ${{ env.TF_DIR }}
         run: terraform init -reconfigure -backend-config="env/${DEPLOY_ENV}.backend.hcl"
