@@ -47,7 +47,7 @@ app:
     allow-hybrid: ${APP_JWT_ALLOW_HYBRID:false}
     cognito:
       issuer: ${COGNITO_ISSUER:}
-      audience: ${COGNITO_AUDIENCE:}
+      audience: ${COGNITO_AUDIENCE:${COGNITO_CLIENT_ID:}}
       jwks-url: ${COGNITO_JWKS_URL:}
       jwks-cache-ttl-seconds: ${COGNITO_JWKS_CACHE_TTL_SECONDS:300}
   client-service-url: ${CLIENT_SERVICE_URL:http://localhost:8080}

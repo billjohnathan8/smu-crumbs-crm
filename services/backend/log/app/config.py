@@ -126,7 +126,9 @@ class Settings:
     cognito_issuer: str = field(default_factory=lambda: os.getenv("COGNITO_ISSUER", ""))
     # Cognito App Client ID used as the audience claim
     cognito_audience: str = field(
-        default_factory=lambda: os.getenv("COGNITO_CLIENT_ID", "")
+        default_factory=lambda: os.getenv(
+            "COGNITO_CLIENT_ID", os.getenv("COGNITO_AUDIENCE", "")
+        )
     )
     client_service_url: str = field(
         default_factory=lambda: os.getenv(
