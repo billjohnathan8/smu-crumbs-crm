@@ -69,6 +69,12 @@ variable "frontend_bucket_regional_domain_name" {
   type        = string
 }
 
+variable "frontend_origin_path" {
+  description = "Optional CloudFront origin path within the frontend bucket (for example '/live')."
+  type        = string
+  default     = "/live"
+}
+
 variable "waf_arn" {
   description = "Optional WAF ARN to attach to CloudFront."
   type        = string

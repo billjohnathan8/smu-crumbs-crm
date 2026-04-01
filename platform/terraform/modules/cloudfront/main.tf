@@ -78,6 +78,7 @@ resource "aws_cloudfront_distribution" "frontend" {
   origin {
     domain_name              = var.frontend_bucket_regional_domain_name
     origin_id                = "frontend-s3"
+    origin_path              = trimspace(var.frontend_origin_path)
     origin_access_control_id = var.enable_cloudfront_oac ? aws_cloudfront_origin_access_control.frontend[0].id : null
 
     s3_origin_config {
@@ -211,4 +212,3 @@ resource "aws_s3_bucket_policy" "frontend" {
   bucket = var.frontend_bucket_id
   policy = local.frontend_bucket_policy_json
 }
-

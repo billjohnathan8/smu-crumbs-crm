@@ -414,6 +414,7 @@ module "cloudfront" {
   frontend_bucket_id                   = module.s3.frontend_bucket_id
   frontend_bucket_arn                  = module.s3.frontend_bucket_arn
   frontend_bucket_regional_domain_name = module.s3.frontend_bucket_regional_domain_name
+  frontend_origin_path                 = "/live"
   enable_log_api_origin                = var.enable_log_lambda
   log_api_origin_domain_name           = var.enable_log_lambda ? module.apigateway[0].log_api_origin_domain_name : null
   waf_arn                              = module.waf.waf_arn
