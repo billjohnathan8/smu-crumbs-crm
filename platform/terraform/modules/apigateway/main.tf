@@ -32,6 +32,9 @@ locals {
   ])
 }
 
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
 resource "aws_apigatewayv2_api" "log" {
   name          = "${var.name_prefix}-log-http-api"
   protocol_type = "HTTP"
@@ -92,7 +95,7 @@ resource "aws_lambda_permission" "allow_api_gateway_invoke_log" {
   action        = "lambda:InvokeFunction"
   function_name = var.log_lambda_function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.log.execution_arn}/*/*"
+  source_arn    = "arn:aws:execute-api:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:${aws_apigatewayv2_api.log.id}/*/*"
 }
 
 resource "aws_ssm_parameter" "log_service_url" {
