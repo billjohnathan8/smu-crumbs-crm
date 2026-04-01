@@ -105,6 +105,6 @@ app_domain_name                   = "itsag2t3.com"
 manage_route53_records            = true
 manage_acm_dns_validation_records = true
 create_acm_certificates           = true
-route53_hosted_zone_id            = "Z07853315ON2Q60THXVB"
+route53_hosted_zone_id            = "Z0847858V2EVICNOCKKL"
 # existing_frontend_certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/..."
 # existing_alb_certificate_arn      = "arn:aws:acm:ap-southeast-1:123456789012:certificate/..."
