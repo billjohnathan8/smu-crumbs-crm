@@ -93,11 +93,6 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Validate CloudFront distribution exists
-        run: |
-          aws cloudfront get-distribution \
-            --id "${{ steps.distribution.outputs.cloudfront_distribution_id }}" >/dev/null
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
