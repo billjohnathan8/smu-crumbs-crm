@@ -150,6 +150,19 @@ jobs:
         shell: bash
         run: terraform validate -no-color
 
+      - name: Detach protected ALB DNS record from state
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if terraform state list | grep -Fxq "module.alb.aws_route53_record.alb[0]"; then
+            echo "Removing protected ALB Route53 record from state to avoid lifecycle.prevent_destroy failure."
+            terraform state rm module.alb.aws_route53_record.alb[0]
+          else
+            echo "No module.alb.aws_route53_record.alb[0] found in state; skipping."
+          fi
+
       - name: Pre-pass - destroy ALB module only
         working-directory: ${{ env.TF_DIR }}
         shell: bash
