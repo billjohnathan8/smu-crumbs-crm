@@ -370,20 +370,23 @@ jobs:
             echo "Bucket drain complete: ${bucket_name}"
           }
 
-          resolve_bucket_from_state() {
-            local addr="$1"
-            if terraform state list | grep -Fxq "${addr}"; then
-              terraform state show "${addr}" | awk -F= '/^[[:space:]]*bucket[[:space:]]*=/{gsub(/["[:space:]]/, "", $2); print $2; exit}'
+          mapfile -t S3_BUCKET_ADDRS < <(terraform state list | grep -E '^module\.(s3|observability)\.aws_s3_bucket\.' || true)
+          if [[ "${#S3_BUCKET_ADDRS[@]}" -eq 0 ]]; then
+            echo "No Terraform-managed S3 buckets found in state."
+            exit 0
+          fi
+
+          declare -A UNIQUE_BUCKETS=()
+          for addr in "${S3_BUCKET_ADDRS[@]}"; do
+            bucket_name="$(terraform state show "${addr}" | awk -F= '/^[[:space:]]*bucket[[:space:]]*=/{gsub(/["[:space:]]/, "", $2); print $2; exit}')"
+            if [[ -n "${bucket_name}" ]]; then
+              UNIQUE_BUCKETS["${bucket_name}"]=1
             fi
-          }
+          done
 
-          BACKEND_BUCKET="$(resolve_bucket_from_state "module.s3.aws_s3_bucket.backend[0]")"
-          FRONTEND_BUCKET="$(resolve_bucket_from_state "module.s3.aws_s3_bucket.frontend")"
-          CLOUDTRAIL_BUCKET="$(resolve_bucket_from_state "module.observability.aws_s3_bucket.cloudtrail[0]")"
-
-          drain_bucket "${BACKEND_BUCKET}"
-          drain_bucket "${FRONTEND_BUCKET}"
-          drain_bucket "${CLOUDTRAIL_BUCKET}"
+          for bucket_name in "${!UNIQUE_BUCKETS[@]}"; do
+            drain_bucket "${bucket_name}"
+          done
 
       - name: Pre-pass - destroy S3 module only
         if: ${{ steps.eni_check.outputs.continue_destroy == 'true' }}
