@@ -501,10 +501,10 @@ module "dynamodb" {
 module "observability" {
   source = "./modules/observability"
 
-  name_prefix                  = local.name_prefix
-  enable_cloudtrail            = var.enable_cloudtrail
+  name_prefix                     = local.name_prefix
+  enable_cloudtrail               = var.enable_cloudtrail
   cloudtrail_bucket_force_destroy = var.cloudtrail_bucket_force_destroy
-  alarm_notification_topic_arn = trimspace(var.alarm_notification_topic_arn) != "" ? trimspace(var.alarm_notification_topic_arn) : module.sns.alarm_topic_arn
+  alarm_notification_topic_arn    = trimspace(var.alarm_notification_topic_arn) != "" ? trimspace(var.alarm_notification_topic_arn) : module.sns.alarm_topic_arn
 
   enable_ecs_alarms = var.enable_cloudwatch_alarms
   ecs_cluster_name  = module.ecs.ecs_cluster_name
