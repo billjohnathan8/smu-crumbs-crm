@@ -1,5 +1,7 @@
 name: CD - Force Selective Deploy
-description: Manually trigger deployments of specific ECS services, Lambda functions, and/or the frontend with optional CloudFront distribution override for frontend invalidation paths. 
+# Manually trigger deployments of specific ECS services, Lambda functions,
+# and/or the frontend with optional CloudFront distribution override for
+# frontend invalidation paths.
 
 on:
   workflow_dispatch:
