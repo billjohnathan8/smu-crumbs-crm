@@ -40,6 +40,7 @@ resource "aws_lambda_function" "log" {
       AUTH_MODE              = var.auth_mode
       COGNITO_ISSUER         = var.cognito_issuer_url
       COGNITO_JWKS_URL       = var.cognito_jwks_url
+      COGNITO_AUDIENCE       = var.cognito_audience
       COGNITO_CLIENT_ID      = var.cognito_audience
     }
   }
