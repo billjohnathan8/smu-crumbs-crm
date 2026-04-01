@@ -200,42 +200,6 @@ jobs:
             echo "No module.cloudfront[0].aws_route53_record.cloudfront[0] found in state; skipping."
           fi
 
-      - name: Pre-pass - destroy ECS module only
-        working-directory: ${{ env.TF_DIR }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if terraform state list | grep -Eq '^module\.ecs\.'; then
-            terraform destroy \
-              -target=module.ecs \
-              -input=false \
-              -auto-approve \
-              -lock-timeout=300s \
-              -var-file="env/${DEPLOY_ENV}.tfvars" \
-              -var-file="runtime.auto.tfvars"
-          else
-            echo "No module.ecs resources found in state; skipping ECS pre-pass."
-          fi
-
-      - name: Pre-pass - destroy RDS module only
-        working-directory: ${{ env.TF_DIR }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if terraform state list | grep -Eq '^module\.rds\.'; then
-            terraform destroy \
-              -target=module.rds \
-              -input=false \
-              -auto-approve \
-              -lock-timeout=300s \
-              -var-file="env/${DEPLOY_ENV}.tfvars" \
-              -var-file="runtime.auto.tfvars"
-          else
-            echo "No module.rds resources found in state; skipping RDS pre-pass."
-          fi
-
       - name: Terraform destroy plan
         working-directory: ${{ env.TF_DIR }}
         run: |
