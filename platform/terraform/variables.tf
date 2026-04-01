@@ -211,6 +211,12 @@ variable "db_username" {
   default     = "crm_app"
 }
 
+variable "alb_internal" {
+  description = "Whether ALB should be internal/private. For CloudFront public origin, set to false."
+  type        = bool
+  default     = true
+}
+
 variable "db_port" {
   description = "PostgreSQL port."
   type        = number

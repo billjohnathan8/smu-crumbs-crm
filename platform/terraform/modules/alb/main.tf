@@ -33,7 +33,7 @@ locals {
 
 resource "aws_lb" "crm" {
   name                       = substr("${var.name_prefix}-alb", 0, 32)
-  internal                   = true
+  internal                   = var.alb_internal
   load_balancer_type         = "application"
   security_groups            = [var.alb_security_group_id]
   subnets                    = var.public_subnet_ids

@@ -148,6 +148,7 @@ module "alb" {
   vpc_id                    = module.network.vpc_id
   public_subnet_ids         = module.network.public_subnet_ids
   alb_security_group_id     = module.security.alb_security_group_id
+  alb_internal              = var.alb_internal
   use_custom_domain         = local.use_custom_domain
   alb_certificate_arn       = local.alb_certificate_arn
   service_health_check_path = "/health"

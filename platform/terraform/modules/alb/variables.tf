@@ -22,6 +22,12 @@ variable "alb_security_group_id" {
   type        = string
 }
 
+variable "alb_internal" {
+  description = "Whether the ALB is internal/private. Set false when used as a CloudFront public origin."
+  type        = bool
+  default     = true
+}
+
 variable "use_custom_domain" {
   description = "Whether HTTPS listener is required for custom domain."
   type        = bool
