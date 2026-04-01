@@ -190,9 +190,16 @@ jobs:
 
           ENI_COUNT="$(aws ec2 describe-network-interfaces \
             --region "${AWS_REGION}" \
-            --filters "Name=vpc-id,Values=${VPC_ID}" "Name=interface-type,Values=lambda" \
-            --query 'length(NetworkInterfaces)' \
+            --filters "Name=vpc-id,Values=${VPC_ID}" \
+            --query "length(NetworkInterfaces[?contains(Description, 'AWS Lambda VPC ENI')])" \
             --output text)"
+
+          echo "Lambda ENIs currently detected in VPC ${VPC_ID}:"
+          aws ec2 describe-network-interfaces \
+            --region "${AWS_REGION}" \
+            --filters "Name=vpc-id,Values=${VPC_ID}" \
+            --query "NetworkInterfaces[?contains(Description, 'AWS Lambda VPC ENI')].[NetworkInterfaceId,InterfaceType,Status,Description]" \
+            --output table || true
 
           echo "eni_count=${ENI_COUNT}" >> "$GITHUB_OUTPUT"
           if [[ "${ENI_COUNT}" =~ ^[0-9]+$ ]] && (( ENI_COUNT > 0 )); then
