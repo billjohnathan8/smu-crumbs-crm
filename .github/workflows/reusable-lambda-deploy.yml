@@ -32,6 +32,8 @@ jobs:
       BACKEND_BUCKET: ${{ vars.BACKEND_BUCKET }}
       LAMBDA_SERVICE_NAME: ${{ inputs.service }}
       LAMBDA_WORKING_DIRECTORY: services/backend/${{ inputs.service }}
+      PROJECT_NAME: ${{ vars.TF_PROJECT_NAME || 'scroogebank-crm' }}
+      DEPLOY_ENV: ${{ vars.DEPLOY_ENV || 'prod' }}
 
     steps:
       - name: Checkout code
@@ -116,6 +118,39 @@ jobs:
             "${{ env.LAMBDA_WORKING_DIRECTORY }}/${{ steps.package.outputs.artifact_path }}" \
             "s3://${{ env.BACKEND_BUCKET }}/${{ steps.package.outputs.s3_key }}"
 
+      - name: Resolve target Lambda function name
+        id: resolve_function
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SERVICE_NAME="${LAMBDA_SERVICE_NAME}"
+          SERVICE_SUFFIX="${SERVICE_NAME}"
+          if [[ "${SERVICE_NAME}" == "log" ]]; then
+            SERVICE_SUFFIX="log-service"
+          fi
+
+          CANDIDATES=(
+            "${SERVICE_NAME}"
+            "${PROJECT_NAME}-${DEPLOY_ENV}-${SERVICE_SUFFIX}"
+          )
+
+          RESOLVED=""
+          for candidate in "${CANDIDATES[@]}"; do
+            if aws lambda get-function --function-name "${candidate}" >/dev/null 2>&1; then
+              RESOLVED="${candidate}"
+              break
+            fi
+          done
+
+          if [[ -z "${RESOLVED}" ]]; then
+            echo "Unable to resolve Lambda function for service '${SERVICE_NAME}'. Tried: ${CANDIDATES[*]}"
+            exit 1
+          fi
+
+          echo "Resolved function name: ${RESOLVED}"
+          echo "function_name=${RESOLVED}" >> "$GITHUB_OUTPUT"
+
       - name: Update Lambda function code
         id: publish
         shell: bash
@@ -123,7 +158,7 @@ jobs:
           set -euo pipefail
 
           aws lambda update-function-code \
-            --function-name "${{ env.LAMBDA_SERVICE_NAME }}" \
+            --function-name "${{ steps.resolve_function.outputs.function_name }}" \
             --s3-bucket "${{ env.BACKEND_BUCKET }}" \
             --s3-key "${{ steps.package.outputs.s3_key }}" \
             --publish > lambda-publish.json
@@ -142,7 +177,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          FUNCTION_NAME="${{ env.LAMBDA_SERVICE_NAME }}"
+          FUNCTION_NAME="${{ steps.resolve_function.outputs.function_name }}"
           PUBLISHED_VERSION="${{ steps.publish.outputs.published_version }}"
 
           if aws lambda get-alias --function-name "${FUNCTION_NAME}" --name prod >/dev/null 2>&1; then
@@ -168,7 +203,7 @@ jobs:
           set -euo pipefail
 
           REPO_SHA="${GITHUB_SHA}"
-          FUNCTION_NAME="${{ env.LAMBDA_SERVICE_NAME }}"
+          FUNCTION_NAME="${{ steps.resolve_function.outputs.function_name }}"
           S3_KEY="${{ steps.package.outputs.s3_key }}"
           PUBLISHED_VERSION="${{ steps.publish.outputs.published_version }}"
           VERSION_ARN="${{ steps.publish.outputs.version_arn }}"
@@ -211,10 +246,11 @@ jobs:
 
       - name: Deployment summary
         run: |
-          echo "Lambda: ${{ env.LAMBDA_SERVICE_NAME }}"
+          echo "Lambda service: ${{ env.LAMBDA_SERVICE_NAME }}"
+          echo "Resolved function: ${{ steps.resolve_function.outputs.function_name }}"
           echo "Artifact: ${{ steps.package.outputs.artifact_name }}"
           echo "Uploaded to: s3://${{ env.BACKEND_BUCKET }}/${{ steps.package.outputs.s3_key }}"
-          echo "Updated function: ${{ env.LAMBDA_SERVICE_NAME }}"
+          echo "Updated function: ${{ steps.resolve_function.outputs.function_name }}"
           echo "Published version: ${{ steps.publish.outputs.published_version }}"
           echo "Version ARN: ${{ steps.publish.outputs.version_arn }}"
           echo "Alias: prod"
