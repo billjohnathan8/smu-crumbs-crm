@@ -55,53 +55,43 @@ resource "aws_security_group" "ecs_service" {
   description = "Allow app traffic from ALB and internal ECS traffic."
   vpc_id      = var.vpc_id
 
+  ingress {
+    description     = "Backend traffic from ALB"
+    from_port       = 8080
+    to_port         = 8080
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]
+  }
+
+  ingress {
+    description = "Service-to-service traffic"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    self        = true
+  }
+
+  # Egress: HTTPS for AWS APIs (Secrets Manager, SSM, ECR, SQS, SNS, S3, SES, etc.)
+  egress {
+    description = "HTTPS to AWS APIs and internet endpoints"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] #trivy:ignore:AVD-AWS-0104
+  }
+
+  # Egress: service-to-service communication
+  egress {
+    description = "Service-to-service traffic"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    self        = true
+  }
+
   tags = {
     Name = "${var.name_prefix}-ecs-sg"
   }
-}
-
-# ALB -> ECS services on application port
-resource "aws_security_group_rule" "ecs_ingress_from_alb" {
-  type                     = "ingress"
-  from_port                = 8080
-  to_port                  = 8080
-  protocol                 = "tcp"
-  security_group_id        = aws_security_group.ecs_service.id
-  source_security_group_id = aws_security_group.alb.id
-  description              = "Backend traffic from ALB"
-}
-
-# ECS service-to-service traffic
-resource "aws_security_group_rule" "ecs_ingress_from_self" {
-  type              = "ingress"
-  from_port         = 8080
-  to_port           = 8080
-  protocol          = "tcp"
-  security_group_id = aws_security_group.ecs_service.id
-  self              = true
-  description       = "Service-to-service traffic"
-}
-
-# ECS tasks -> AWS APIs and internet endpoints over HTTPS
-resource "aws_security_group_rule" "ecs_egress_https" {
-  type              = "egress"
-  from_port         = 443
-  to_port           = 443
-  protocol          = "tcp"
-  security_group_id = aws_security_group.ecs_service.id
-  cidr_blocks       = ["0.0.0.0/0"] #trivy:ignore:AVD-AWS-0104
-  description       = "HTTPS to AWS APIs and internet endpoints"
-}
-
-# ECS service-to-service egress
-resource "aws_security_group_rule" "ecs_egress_self" {
-  type              = "egress"
-  from_port         = 8080
-  to_port           = 8080
-  protocol          = "tcp"
-  security_group_id = aws_security_group.ecs_service.id
-  self              = true
-  description       = "Service-to-service traffic"
 }
 
 resource "aws_security_group" "lambda" {
