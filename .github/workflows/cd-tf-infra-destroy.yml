@@ -170,6 +170,74 @@ jobs:
             echo "No module.cloudfront[0].aws_route53_record.cloudfront[0] found in state; skipping."
           fi
 
+      - name: Drain Terraform-managed S3 buckets
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          drain_bucket() {
+            local bucket_name="$1"
+            if [[ -z "${bucket_name}" ]]; then
+              return 0
+            fi
+
+            echo "Draining bucket: ${bucket_name}"
+            aws s3 rm "s3://${bucket_name}" --recursive --region "${AWS_REGION}" || true
+
+            # Also clear versioned objects/delete markers.
+            for _ in {1..20}; do
+              local vcount
+              vcount="$(aws s3api list-object-versions \
+                --bucket "${bucket_name}" \
+                --region "${AWS_REGION}" \
+                --query 'length(Versions) + length(DeleteMarkers)' \
+                --output text 2>/dev/null || echo 0)"
+
+              if [[ "${vcount}" == "None" || -z "${vcount}" || "${vcount}" == "0" ]]; then
+                break
+              fi
+
+              aws s3api list-object-versions \
+                --bucket "${bucket_name}" \
+                --region "${AWS_REGION}" \
+                --output json \
+                | jq -c '{Objects: (([.Versions[]? | {Key,VersionId}] + [.DeleteMarkers[]? | {Key,VersionId}])[:1000]), Quiet: true}' > delete-versions.json
+
+              local obj_count
+              obj_count="$(jq '.Objects | length' delete-versions.json)"
+              if [[ "${obj_count}" == "0" ]]; then
+                break
+              fi
+
+              aws s3api delete-objects \
+                --bucket "${bucket_name}" \
+                --region "${AWS_REGION}" \
+                --delete file://delete-versions.json || true
+            done
+
+            rm -f delete-versions.json
+            echo "Bucket drain complete: ${bucket_name}"
+          }
+
+          mapfile -t S3_BUCKET_ADDRS < <(terraform state list | grep -E '^module\.(s3|observability)\.aws_s3_bucket\.' || true)
+          if [[ "${#S3_BUCKET_ADDRS[@]}" -eq 0 ]]; then
+            echo "No Terraform-managed S3 buckets found in state."
+            exit 0
+          fi
+
+          declare -A UNIQUE_BUCKETS=()
+          for addr in "${S3_BUCKET_ADDRS[@]}"; do
+            bucket_name="$(terraform state show "${addr}" | awk -F= '/^[[:space:]]*bucket[[:space:]]*=/{gsub(/["[:space:]]/, "", $2); print $2; exit}')"
+            if [[ -n "${bucket_name}" ]]; then
+              UNIQUE_BUCKETS["${bucket_name}"]=1
+            fi
+          done
+
+          for bucket_name in "${!UNIQUE_BUCKETS[@]}"; do
+            drain_bucket "${bucket_name}"
+          done
+
       - name: Terraform destroy plan
         working-directory: ${{ env.TF_DIR }}
         shell: bash
