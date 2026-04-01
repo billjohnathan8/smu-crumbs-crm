@@ -96,7 +96,7 @@ verification_frontend_base_url = "https://itsag2t3.com"
 # --- Auth ---
 enable_cognito            = true
 cognito_mfa_configuration = "ON"
-auth_mode                 = "cognito"
+auth_mode                 = "local"
 
 # --- Domain / DNS Ownership ---
 # Keep custom-domain disabled for first bring-up unless cert + DNS ownership are ready.
