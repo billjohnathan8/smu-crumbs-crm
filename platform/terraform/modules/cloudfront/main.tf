@@ -24,8 +24,8 @@ locals {
   ])
 }
 
-resource "aws_cloudfront_response_headers_policy" "frontend_security_headers" {
-  name    = "${var.name_prefix}-frontend-security-headers"
+resource "aws_cloudfront_response_headers_policy" "security_headers" {
+  name    = "${var.name_prefix}-security-headers"
   comment = "Security headers for frontend document/static responses."
 
   security_headers_config {
@@ -143,7 +143,7 @@ resource "aws_cloudfront_distribution" "frontend" {
     cached_methods             = ["GET", "HEAD", "OPTIONS"]
     compress                   = true
     cache_policy_id            = local.cf_cache_policy_caching_optimized
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.frontend_security_headers.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security_headers.id
   }
 
   dynamic "ordered_cache_behavior" {

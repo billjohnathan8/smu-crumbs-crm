@@ -30,5 +30,4 @@ resource "aws_service_discovery_service" "service" {
     routing_policy = "MULTIVALUE"
   }
 
-  health_check_custom_config {}
 }
