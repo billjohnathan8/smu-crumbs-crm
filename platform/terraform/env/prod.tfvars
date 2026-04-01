@@ -65,6 +65,7 @@ enable_aml_pipeline   = true # implemented but disabled by default in production
 # --- Observability & Security ---
 enable_waf                    = false
 enable_cloudtrail             = true
+cloudtrail_bucket_force_destroy = true
 enable_cloudwatch_alarms      = true
 alarm_notification_email      = "crm-alerts-prod@crm.local" # replace with a monitored mailbox before apply
 enable_backup                 = true

@@ -933,6 +933,12 @@ variable "enable_cloudtrail" {
   default     = true
 }
 
+variable "cloudtrail_bucket_force_destroy" {
+  description = "Allow Terraform destroy to delete non-empty CloudTrail S3 bucket."
+  type        = bool
+  default     = false
+}
+
 variable "enable_cloudwatch_alarms" {
   description = "Create CloudWatch alarms for ECS, RDS, and ALB."
   type        = bool
