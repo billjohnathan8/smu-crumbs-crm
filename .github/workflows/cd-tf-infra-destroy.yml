@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: cd-tf-infra-destroy-prod
+  group: cd-tf-infra-prod
   cancel-in-progress: false
 
 jobs:

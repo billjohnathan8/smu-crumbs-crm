@@ -15,7 +15,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: cd-tf-infra-apply-prod
+  group: cd-tf-infra-prod
   cancel-in-progress: false
 
 jobs:
