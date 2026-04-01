@@ -200,28 +200,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          artifacts=(
-            "services/backend/log/lambda_function.py:services/backend/log/log-lambda.zip"
-            "services/backend/aml/lambda_function.py:services/backend/aml/aml-lambda.zip"
-            "services/backend/sftp-transaction-collector/lambda_function.py:services/backend/sftp-transaction-collector/sftp-transaction-collector.zip"
-            "services/backend/audit-consumer/lambda_function.py:services/backend/audit-consumer/audit-consumer-lambda.zip"
-            "services/backend/aml-consumer/lambda_function.py:services/backend/aml-consumer/aml-consumer-lambda.zip"
-            "services/backend/verification/lambda_function.py:services/backend/verification/verification-lambda.zip"
-          )
-
-          for artifact in "${artifacts[@]}"; do
-            IFS=":" read -r source_path zip_path <<< "${artifact}"
-            [[ -f "${source_path}" ]] || { echo "Missing Lambda source file: ${source_path}"; exit 1; }
-
-            mkdir -p "$(dirname "${zip_path}")"
-            rm -f "${zip_path}"
-            (
-              cd "$(dirname "${source_path}")"
-              zip -q -r "${GITHUB_WORKSPACE}/${zip_path}" "$(basename "${source_path}")"
-            )
-            [[ -s "${zip_path}" ]] || { echo "Lambda zip artifact is empty: ${zip_path}"; exit 1; }
-          done
+          python3 .github/scripts/build_tf_lambda_zips.py
 
       - name: Terraform init
         working-directory: ${{ env.TF_DIR }}
