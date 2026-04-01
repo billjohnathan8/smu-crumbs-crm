@@ -161,10 +161,6 @@ try {
             ecs_cluster_name = $tf.ecs_cluster_name.value
             ecr_repository_urls = $tf.ecr_repository_urls.value
             ecr_repository_names = $tf.ecr_repository_names.value
-            codedeploy_ecs_application_name = $tf.codedeploy_ecs_application_name.value
-            codedeploy_ecs_deployment_group_names = $tf.codedeploy_ecs_deployment_group_names.value
-            codedeploy_lambda_application_name = $tf.codedeploy_lambda_application_name.value
-            codedeploy_lambda_deployment_group_names = $tf.codedeploy_lambda_deployment_group_names.value
             lambda_function_names = [ordered]@{
                 log = $tf.log_lambda_name.value
                 aml = $tf.aml_lambda_name.value
@@ -204,10 +200,6 @@ try {
         & $put "ecs/cluster-name" $tf.ecs_cluster_name.value
         & $put "ecr/repository-urls" (($tf.ecr_repository_urls.value | ConvertTo-Json -Compress))
         & $put "ecr/repository-names" (($tf.ecr_repository_names.value | ConvertTo-Json -Compress))
-        & $put "codedeploy/ecs/application-name" $tf.codedeploy_ecs_application_name.value
-        & $put "codedeploy/ecs/deployment-groups" (($tf.codedeploy_ecs_deployment_group_names.value | ConvertTo-Json -Compress))
-        & $put "codedeploy/lambda/application-name" $tf.codedeploy_lambda_application_name.value
-        & $put "codedeploy/lambda/deployment-groups" (($tf.codedeploy_lambda_deployment_group_names.value | ConvertTo-Json -Compress))
         & $put "lambda/function-names" ((@{
             log = $tf.log_lambda_name.value
             aml = $tf.aml_lambda_name.value

@@ -979,9 +979,9 @@ variable "guardduty_high_severity_only" {
 }
 
 variable "enable_codedeploy" {
-  description = "Create CodeDeploy applications and deployment groups for ECS and Lambda services."
+  description = "Enable CodeDeploy applications/deployment groups and switch ECS services to CODE_DEPLOY controller."
   type        = bool
-  default     = true
+  default     = false
 }
 
 #--------------------------------------------------------------

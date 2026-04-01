@@ -188,10 +188,6 @@ jobs:
                 ecs_cluster_name: ($tf.ecs_cluster_name.value // null),
                 ecr_repository_urls: ($tf.ecr_repository_urls.value // {}),
                 ecr_repository_names: ($tf.ecr_repository_names.value // {}),
-                codedeploy_ecs_application_name: ($tf.codedeploy_ecs_application_name.value // null),
-                codedeploy_ecs_deployment_group_names: ($tf.codedeploy_ecs_deployment_group_names.value // {}),
-                codedeploy_lambda_application_name: ($tf.codedeploy_lambda_application_name.value // null),
-                codedeploy_lambda_deployment_group_names: ($tf.codedeploy_lambda_deployment_group_names.value // {}),
                 lambda_function_names: {
                   log: ($tf.log_lambda_name.value // null),
                   aml: ($tf.aml_lambda_name.value // null),
@@ -252,10 +248,6 @@ jobs:
           put_string "ecs/cluster-name" "$(jq -r '.ecs_cluster_name.value // empty' "$TF_JSON")"
           put_json "ecr/repository-urls" "$(jq -c '.ecr_repository_urls.value // {}' "$TF_JSON")"
           put_json "ecr/repository-names" "$(jq -c '.ecr_repository_names.value // {}' "$TF_JSON")"
-          put_string "codedeploy/ecs/application-name" "$(jq -r '.codedeploy_ecs_application_name.value // empty' "$TF_JSON")"
-          put_json "codedeploy/ecs/deployment-groups" "$(jq -c '.codedeploy_ecs_deployment_group_names.value // {}' "$TF_JSON")"
-          put_string "codedeploy/lambda/application-name" "$(jq -r '.codedeploy_lambda_application_name.value // empty' "$TF_JSON")"
-          put_json "codedeploy/lambda/deployment-groups" "$(jq -c '.codedeploy_lambda_deployment_group_names.value // {}' "$TF_JSON")"
           put_json "lambda/function-names" "$(jq -cn --argjson tf "$(cat "$TF_JSON")" '{log: ($tf.log_lambda_name.value // null), aml: ($tf.aml_lambda_name.value // null), sftp_transaction_collector: ($tf.sftp_transaction_collector_name.value // null), verification: ($tf.verification_lambda_name.value // null)}')"
           put_string "frontend/s3-bucket" "$(jq -r '.frontend_bucket_name.value // empty' "$TF_JSON")"
           put_string "frontend/cloudfront-distribution-id" "$(jq -r '.cloudfront_distribution_id.value // empty' "$TF_JSON")"
@@ -325,8 +317,6 @@ jobs:
             echo ""
             echo "### Deployment identifiers"
             echo "- ecs_cluster_name: $(jq -r '.deploy_contract.ecs_cluster_name // ""' deploy-contract-snapshot.json)"
-            echo "- codedeploy_ecs_application_name: $(jq -r '.deploy_contract.codedeploy_ecs_application_name // ""' deploy-contract-snapshot.json)"
-            echo "- codedeploy_lambda_application_name: $(jq -r '.deploy_contract.codedeploy_lambda_application_name // ""' deploy-contract-snapshot.json)"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Cleanup runtime terraform override file

@@ -68,7 +68,7 @@ enable_cloudtrail             = true
 enable_cloudwatch_alarms      = true
 alarm_notification_email      = "crm-alerts-prod@crm.local" # replace with a monitored mailbox before apply
 enable_backup                 = true
-enable_codedeploy             = true
+enable_codedeploy             = false # deploy via direct ECS/Lambda update workflows (no CodeDeploy blue/green)
 backup_retention_days         = 7
 cloudwatch_log_retention_days = 7
 
