@@ -149,6 +149,24 @@ jobs:
         shell: bash
         run: terraform validate -no-color
 
+      - name: Detach CodeDeploy resources from state for teardown
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t CODEDEPLOY_STATE_ADDRS < <(terraform state list | grep '^module\.codedeploy\.' || true)
+          if [[ "${#CODEDEPLOY_STATE_ADDRS[@]}" -eq 0 ]]; then
+            echo "No module.codedeploy resources found in state."
+            exit 0
+          fi
+
+          printf '%s\n' "Removing CodeDeploy resources from state before destroy plan:"
+          printf '  %s\n' "${CODEDEPLOY_STATE_ADDRS[@]}"
+          for addr in "${CODEDEPLOY_STATE_ADDRS[@]}"; do
+            terraform state rm "${addr}"
+          done
+
       - name: Terraform destroy plan
         working-directory: ${{ env.TF_DIR }}
         shell: bash
