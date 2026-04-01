@@ -170,6 +170,13 @@ jobs:
             echo "No module.cloudfront[0].aws_route53_record.cloudfront[0] found in state; skipping."
           fi
 
+          if terraform state list | grep -Fxq "aws_route53_record.cloudfront_backend_origin[0]"; then
+            echo "Removing protected CloudFront backend origin Route53 record from state to avoid lifecycle.prevent_destroy failure."
+            terraform state rm 'aws_route53_record.cloudfront_backend_origin[0]'
+          else
+            echo "No aws_route53_record.cloudfront_backend_origin[0] found in state; skipping."
+          fi
+
       - name: Drain Terraform-managed S3 buckets
         working-directory: ${{ env.TF_DIR }}
         shell: bash
