@@ -709,6 +709,44 @@ PY
   return 1
 }
 
+postgres_psql_exec() {
+  local sql="$1"
+  local output=""
+  local pg_container_id=""
+  local compose_cmd=(
+    docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" exec -T postgres
+    psql -v ON_ERROR_STOP=1 -U "${LOCAL_DB_USER}" -d postgres
+    -c "${sql}"
+  )
+
+  if output="$("${compose_cmd[@]}" 2>&1)"; then
+    printf '%s\n' "${output}"
+    return 0
+  fi
+
+  # Docker Compose can intermittently fail to resolve a running service in
+  # local Windows/Git Bash environments. Fall back to direct docker exec.
+  if echo "${output}" | grep -Eiq 'service "postgres" is not running|no container found for service "postgres"'; then
+    pg_container_id="$(
+      docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" ps -q postgres 2>/dev/null \
+        | tr -d '\r\n[:space:]'
+    )"
+    if [[ -n "${pg_container_id}" ]]; then
+      if output="$(
+        docker exec -i "${pg_container_id}" \
+          psql -v ON_ERROR_STOP=1 -U "${LOCAL_DB_USER}" -d postgres \
+          -c "${sql}" 2>&1
+      )"; then
+        printf '%s\n' "${output}"
+        return 0
+      fi
+    fi
+  fi
+
+  printf '%s\n' "${output}"
+  return 1
+}
+
 recreate_component_test_db() {
   local db_name="$1"
   local terminate_output=""
@@ -721,24 +759,18 @@ recreate_component_test_db() {
   fi
 
   echo "  [db-check] Preparing isolated database: ${db_name}"
+  wait_for_postgres_host_ready
 
   if ! terminate_output="$(
-    docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" exec -T postgres \
-      psql -v ON_ERROR_STOP=1 -U "${LOCAL_DB_USER}" -d postgres \
-      -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${db_name}' AND pid <> pg_backend_pid();" \
-      2>&1
+    postgres_psql_exec \
+      "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${db_name}' AND pid <> pg_backend_pid();"
   )"; then
     echo "[FAIL] Unable to terminate active DB connections for ${db_name}" >&2
     [[ -n "${terminate_output}" ]] && echo "${terminate_output}" >&2
     return 1
   fi
 
-  if ! drop_output="$(
-    docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" exec -T postgres \
-      psql -v ON_ERROR_STOP=1 -U "${LOCAL_DB_USER}" -d postgres \
-      -c "DROP DATABASE IF EXISTS \"${db_name}\";" \
-      2>&1
-  )"; then
+  if ! drop_output="$(postgres_psql_exec "DROP DATABASE IF EXISTS \"${db_name}\";")"; then
     echo "[FAIL] Unable to drop existing DB ${db_name}" >&2
     [[ -n "${drop_output}" ]] && echo "${drop_output}" >&2
     return 1
@@ -750,12 +782,7 @@ recreate_component_test_db() {
     echo "  [db-check] Dropped existing database: ${db_name}"
   fi
 
-  if ! create_output="$(
-    docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT_NAME}" exec -T postgres \
-      psql -v ON_ERROR_STOP=1 -U "${LOCAL_DB_USER}" -d postgres \
-      -c "CREATE DATABASE \"${db_name}\" OWNER \"${LOCAL_DB_USER}\";" \
-      2>&1
-  )"; then
+  if ! create_output="$(postgres_psql_exec "CREATE DATABASE \"${db_name}\" OWNER \"${LOCAL_DB_USER}\";")"; then
     echo "[FAIL] Unable to create DB ${db_name}" >&2
     [[ -n "${create_output}" ]] && echo "${create_output}" >&2
     return 1
