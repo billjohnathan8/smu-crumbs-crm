@@ -226,6 +226,42 @@ jobs:
             -var-file="env/${DEPLOY_ENV}.tfvars" \
             -var-file="runtime.auto.tfvars"
 
+      - name: Pre-pass - destroy ECS module only
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if terraform state list | grep -Eq '^module\.ecs\.'; then
+            terraform destroy \
+              -target=module.ecs \
+              -input=false \
+              -auto-approve \
+              -lock-timeout=300s \
+              -var-file="env/${DEPLOY_ENV}.tfvars" \
+              -var-file="runtime.auto.tfvars"
+          else
+            echo "No module.ecs resources found in state; skipping ECS pre-pass."
+          fi
+
+      - name: Pre-pass - destroy RDS module only
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if terraform state list | grep -Eq '^module\.rds\.'; then
+            terraform destroy \
+              -target=module.rds \
+              -input=false \
+              -auto-approve \
+              -lock-timeout=300s \
+              -var-file="env/${DEPLOY_ENV}.tfvars" \
+              -var-file="runtime.auto.tfvars"
+          else
+            echo "No module.rds resources found in state; skipping RDS pre-pass."
+          fi
+
       - name: Capture VPC ID
         id: vpc
         working-directory: ${{ env.TF_DIR }}
@@ -265,11 +301,10 @@ jobs:
             --output table || true
 
           echo "eni_count=${ENI_COUNT}" >> "$GITHUB_OUTPUT"
+          echo "continue_destroy=true" >> "$GITHUB_OUTPUT"
           if [[ "${ENI_COUNT}" =~ ^[0-9]+$ ]] && (( ENI_COUNT > 0 )); then
-            echo "continue_destroy=false" >> "$GITHUB_OUTPUT"
-            echo "Lambda ENIs still draining (${ENI_COUNT}) in ${VPC_ID}. Stopping early; re-run this workflow later."
+            echo "Lambda ENIs still draining (${ENI_COUNT}) in ${VPC_ID}. Continuing destroy; rerun workflow if network teardown later fails."
           else
-            echo "continue_destroy=true" >> "$GITHUB_OUTPUT"
             echo "No Lambda ENIs detected in ${VPC_ID}. Continuing with full destroy."
           fi
 
