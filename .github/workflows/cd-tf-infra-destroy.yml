@@ -149,7 +149,76 @@ jobs:
         shell: bash
         run: terraform validate -no-color
 
+      - name: Fast pass - destroy Lambda module only
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          terraform destroy \
+            -target=module.lambda \
+            -input=false \
+            -auto-approve \
+            -lock-timeout=300s \
+            -var-file="env/${DEPLOY_ENV}.tfvars" \
+            -var-file="runtime.auto.tfvars"
+
+      - name: Capture VPC ID
+        id: vpc
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VPC_ID="$(terraform output -raw vpc_id 2>/dev/null || true)"
+          echo "vpc_id=${VPC_ID}" >> "$GITHUB_OUTPUT"
+          echo "Detected VPC ID: ${VPC_ID:-<none>}"
+
+      - name: Check Lambda ENIs once (no wait loop)
+        id: eni_check
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VPC_ID="${{ steps.vpc.outputs.vpc_id }}"
+          if [[ -z "${VPC_ID}" ]]; then
+            echo "eni_count=0" >> "$GITHUB_OUTPUT"
+            echo "continue_destroy=true" >> "$GITHUB_OUTPUT"
+            echo "VPC output not present; proceeding to full destroy."
+            exit 0
+          fi
+
+          ENI_COUNT="$(aws ec2 describe-network-interfaces \
+            --filters "Name=vpc-id,Values=${VPC_ID}" "Name=interface-type,Values=lambda" \
+            --query 'length(NetworkInterfaces)' \
+            --output text)"
+
+          echo "eni_count=${ENI_COUNT}" >> "$GITHUB_OUTPUT"
+          if [[ "${ENI_COUNT}" =~ ^[0-9]+$ ]] && (( ENI_COUNT > 0 )); then
+            echo "continue_destroy=false" >> "$GITHUB_OUTPUT"
+            echo "Lambda ENIs still draining (${ENI_COUNT}) in ${VPC_ID}. Stopping early; re-run this workflow later."
+          else
+            echo "continue_destroy=true" >> "$GITHUB_OUTPUT"
+            echo "No Lambda ENIs detected in ${VPC_ID}. Continuing with full destroy."
+          fi
+
+      - name: Stop early when Lambda ENIs are still draining
+        if: ${{ steps.eni_check.outputs.continue_destroy != 'true' }}
+        shell: bash
+        run: |
+          {
+            echo "## Terraform Infra Destroy Summary"
+            echo
+            echo "Commit SHA: ${{ steps.destroy_meta.outputs.commit_sha }}"
+            echo "AWS account: ${{ steps.destroy_meta.outputs.account_id }}"
+            echo "Region: ${AWS_REGION}"
+            echo "Fast pass: destroyed module.lambda"
+            echo "Lambda ENIs still present: ${{ steps.eni_check.outputs.eni_count }}"
+            echo "Action: rerun this workflow in 10-15 minutes."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Detach CodeDeploy resources from state for teardown
+        if: ${{ steps.eni_check.outputs.continue_destroy == 'true' }}
         working-directory: ${{ env.TF_DIR }}
         shell: bash
         run: |
@@ -168,6 +237,7 @@ jobs:
           done
 
       - name: Terraform destroy plan
+        if: ${{ steps.eni_check.outputs.continue_destroy == 'true' }}
         working-directory: ${{ env.TF_DIR }}
         shell: bash
         run: |
@@ -182,6 +252,7 @@ jobs:
             -out=tfplan-destroy
 
       - name: Export destroy plan
+        if: ${{ steps.eni_check.outputs.continue_destroy == 'true' }}
         working-directory: ${{ env.TF_DIR }}
         shell: bash
         run: |
@@ -191,6 +262,7 @@ jobs:
           terraform show -json tfplan-destroy > terraform-destroy-plan.json
 
       - name: Block protected resource deletions
+        if: ${{ steps.eni_check.outputs.continue_destroy == 'true' }}
         working-directory: ${{ env.TF_DIR }}
         shell: bash
         run: |
@@ -226,6 +298,7 @@ jobs:
           fi
 
       - name: Apply destroy plan
+        if: ${{ steps.eni_check.outputs.continue_destroy == 'true' }}
         working-directory: ${{ env.TF_DIR }}
         shell: bash
         run: terraform apply -input=false -auto-approve tfplan-destroy
@@ -248,7 +321,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ -f terraform-destroy-plan.txt ]]; then
+          if [[ "${{ steps.eni_check.outputs.continue_destroy }}" != "true" ]]; then
+            PLAN_RESULT_LINE="Paused after Lambda-only destroy; Lambda ENIs still draining (${{ steps.eni_check.outputs.eni_count }}). Re-run workflow in 10-15 minutes."
+          elif [[ -f terraform-destroy-plan.txt ]]; then
             PLAN_RESULT_LINE="$(grep -E '^(Plan: [0-9]+ to add, [0-9]+ to change, [0-9]+ to destroy\.|No changes\.)' terraform-destroy-plan.txt | tail -n 1 || true)"
           else
             PLAN_RESULT_LINE="Destroy plan was not generated."
