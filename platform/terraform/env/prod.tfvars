@@ -35,11 +35,12 @@ enable_ecs_container_insights     = false
 
 # --- Database ---
 db_instance_class                = "db.t4g.small" # temporary stability bump for DB connection headroom
+db_allocated_storage             = 30
 db_multi_az                      = true
 db_backup_retention_days         = 1
 db_skip_final_snapshot           = true
 db_deletion_protection           = false
-db_max_allocated_storage         = 20
+db_max_allocated_storage         = 100
 rds_performance_insights_enabled = false
 
 # --- Feature Contract (production-like) ---
