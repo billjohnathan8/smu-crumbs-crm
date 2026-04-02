@@ -244,6 +244,12 @@ variable "transaction_import_api_url" {
   default     = ""
 }
 
+variable "transaction_import_jwt_role" {
+  description = "Role claim minted by sftp-transaction-collector when calling transaction import API."
+  type        = string
+  default     = "admin"
+}
+
 # --- Audit consumer Lambda (SQS → DynamoDB) ---
 
 variable "enable_audit_consumer" {

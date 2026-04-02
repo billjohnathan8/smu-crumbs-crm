@@ -45,6 +45,12 @@ variable "restrict_alb_ingress_to_cloudfront" {
   default     = false
 }
 
+variable "allow_public_alb_https_ingress" {
+  description = "Allow direct public HTTPS access to ALB (0.0.0.0/0 and ::/0). Use when API DNS points directly to ALB."
+  type        = bool
+  default     = false
+}
+
 variable "db_port" {
   description = "PostgreSQL port."
   type        = number

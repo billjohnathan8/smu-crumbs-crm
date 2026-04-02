@@ -730,6 +730,12 @@ variable "restrict_alb_ingress_to_cloudfront" {
   }
 }
 
+variable "allow_public_alb_https_ingress" {
+  description = "Allow direct public HTTPS access to ALB (0.0.0.0/0 and ::/0). Enable when api DNS points directly to ALB."
+  type        = bool
+  default     = false
+}
+
 variable "enable_service_discovery" {
   description = "Enable AWS Cloud Map private DNS namespace and service discovery for ECS inter-service communication. Disable when LabRole blocks servicediscovery:CreatePrivateDnsNamespace."
   type        = bool

@@ -145,6 +145,7 @@ resource "aws_lambda_function" "sftp_transaction_collector" {
       TRANSACTION_SFTP_PREFIX                = var.transaction_sftp_remote_prefix
       TRANSACTION_IMPORT_URL                 = var.transaction_import_api_url
       TRANSACTION_IMPORT_JWT_HMAC_SECRET_ARN = var.jwt_hmac_secret_arn
+      TRANSACTION_IMPORT_JWT_ROLE            = var.transaction_import_jwt_role
       JWT_HMAC_SECRET_ARN                    = var.jwt_hmac_secret_arn
     }
   }

@@ -40,6 +40,7 @@ module "security" {
   aws_region                         = var.aws_region
   vpc_id                             = module.network.vpc_id
   restrict_alb_ingress_to_cloudfront = var.restrict_alb_ingress_to_cloudfront
+  allow_public_alb_https_ingress     = var.allow_public_alb_https_ingress
   db_port                            = var.db_port
   db_username                        = var.db_username
   jwt_hmac_secret                    = var.jwt_hmac_secret

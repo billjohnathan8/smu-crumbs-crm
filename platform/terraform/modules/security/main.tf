@@ -40,6 +40,30 @@ resource "aws_security_group_rule" "alb_ingress_from_cloudfront" {
   description       = "HTTPS from CloudFront origin-facing ranges"
 }
 
+resource "aws_security_group_rule" "alb_ingress_public_ipv4" {
+  count = var.allow_public_alb_https_ingress ? 1 : 0
+
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  security_group_id = aws_security_group.alb.id
+  cidr_blocks       = ["0.0.0.0/0"] #trivy:ignore:AVD-AWS-0107
+  description       = "HTTPS from public internet (direct ALB API access)"
+}
+
+resource "aws_security_group_rule" "alb_ingress_public_ipv6" {
+  count = var.allow_public_alb_https_ingress ? 1 : 0
+
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  security_group_id = aws_security_group.alb.id
+  ipv6_cidr_blocks  = ["::/0"] #trivy:ignore:AVD-AWS-0107
+  description       = "HTTPS from public internet (IPv6 direct ALB API access)"
+}
+
 # ALB only needs to forward traffic to ECS backend services on port 8080.
 resource "aws_security_group_rule" "alb_egress_to_ecs" {
   type                     = "egress"
