@@ -41,13 +41,11 @@ const roleLabelForUser = (target: User) => {
 
 const statusBadgeClass = (status: User['status']) => {
   if (status === 'disabled') return 'bg-warning/20 text-warning'
-  if (status === 'deleted') return 'bg-danger/20 text-danger'
   return 'bg-success/20 text-success'
 }
 
 const statusLabel = (status: User['status']) => {
   if (status === 'disabled') return 'Disabled'
-  if (status === 'deleted') return 'Deleted'
   return 'Active'
 }
 
