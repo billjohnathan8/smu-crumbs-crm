@@ -5,7 +5,7 @@ Scheduled Lambda that drives the official transaction ingestion path in deployed
 `EventBridge schedule -> Lambda -> S3 object selection -> POST /api/transactions/import`
 
 This Lambda scans an S3 bucket for transaction CSV files. Files can arrive in S3 via:
-- **AWS Transfer Family SFTP** (integration/prod) - Real SFTP protocol, files land in S3
+- **EC2** (integration/prod) - SFTP endpoint via EC2, files land in S3
 - **Direct S3 upload** (all environments) - AWS CLI or SDK upload to S3
 - The Lambda is transport-agnostic: it processes files regardless of how they arrived in S3
 
@@ -49,11 +49,3 @@ Optional:
 ## Current Limitation
 
 - Processes one newest CSV per run (not all new CSV files).
-
-## AWS Transfer Family Integration
-
-Files uploaded via AWS Transfer Family SFTP endpoint land in the same S3 bucket (`TRANSACTION_SFTP_BUCKET`) and are processed by this Lambda identically to direct S3 uploads.
-
-**Setup**: See [docs/infrastructure/transfer-family-setup.md](../../../docs/infrastructure/transfer-family-setup.md)
-
-**Contract**: See [docs/api-contracts/sftp-transaction-ingestion-contract.md](../../../docs/api-contracts/sftp-transaction-ingestion-contract.md)

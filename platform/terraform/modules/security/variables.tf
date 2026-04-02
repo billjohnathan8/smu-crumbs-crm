@@ -116,12 +116,6 @@ variable "enable_sftp_transaction_collector" {
   default     = false
 }
 
-variable "enable_transfer_family_sftp" {
-  description = "Create IAM role and policies for AWS Transfer Family SFTP."
-  type        = bool
-  default     = false
-}
-
 variable "enable_cognito" {
   description = "Enable Cognito-dependent IAM policies for ECS services."
   type        = bool

@@ -1,11 +1,8 @@
 # SFTP Ingestion Module
 
-This module supports two mutually exclusive modes:
+This module supports EC2-hosted OpenSSH SFTP only not AWS Transfer Family.
 
-1. `enable_transfer_family_sftp = true`: AWS Transfer Family (managed SFTP).
-2. `enable_ec2_sftp_server = true`: EC2-hosted OpenSSH SFTP server with `s3fs` mount.
-
-Both modes keep the same downstream contract:
+Current ingestion contract:
 
 `SFTP upload -> S3 bucket/prefix -> sftp-transaction-collector Lambda -> transaction import API`
 
@@ -19,6 +16,6 @@ Both modes keep the same downstream contract:
 
 ## Outputs
 
-- `sftp_endpoint`: active SFTP endpoint (Transfer Family hostname or EC2 public endpoint)
+- `sftp_endpoint`: active SFTP endpoint (EC2 public endpoint)
 - `sftp_username`: active SFTP username
 - `sftp_home_directory_target`: S3 landing path used by ingestion

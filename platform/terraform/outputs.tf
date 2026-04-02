@@ -166,29 +166,24 @@ output "backend_bucket_name" {
 #--------------------------------------------------------------
 # SFTP Ingestion Outputs
 #--------------------------------------------------------------
-output "sftp_server_id" {
-  description = "AWS Transfer Family server ID (managed mode only)."
-  value       = module.transfer_family.sftp_server_id
-}
-
 output "sftp_ec2_instance_id" {
   description = "EC2 instance ID for self-hosted SFTP server (EC2 mode only)."
-  value       = module.transfer_family.sftp_ec2_instance_id
+  value       = module.sftp_server.sftp_ec2_instance_id
 }
 
 output "sftp_endpoint" {
-  description = "Active SFTP endpoint (Transfer Family endpoint or EC2 public endpoint)."
-  value       = module.transfer_family.sftp_endpoint
+  description = "Active SFTP endpoint (EC2 public endpoint)."
+  value       = module.sftp_server.sftp_endpoint
 }
 
 output "sftp_username" {
   description = "SFTP username for transaction file uploads."
-  value       = module.transfer_family.sftp_username
+  value       = module.sftp_server.sftp_username
 }
 
 output "sftp_home_directory_target" {
   description = "S3 path where uploaded files land (logical home directory target)."
-  value       = module.transfer_family.sftp_home_directory_target
+  value       = module.sftp_server.sftp_home_directory_target
 }
 
 #--------------------------------------------------------------

@@ -97,9 +97,9 @@ Safety:
 - Script blocks `--environment prod` unless `--allow-prod` is explicitly passed.
 - Intended for local/dev/staging fixture seeding only.
 
-## AWS Transfer Family SFTP Upload (Integration/Prod)
+## AWS SFTP Upload (Integration/Prod)
 
-For deployed environments with Transfer Family enabled, upload files via real SFTP protocol:
+For deployed environments, upload files via real SFTP endpoint with EC2:
 
 ### Prerequisites
 
@@ -113,7 +113,7 @@ For deployed environments with Transfer Family enabled, upload files via real SF
    export TF_VAR_sftp_user_ssh_public_key="$(cat ~/.ssh/crm-sftp-demo.pub)"
    ```
 
-3. Deploy Transfer Family infrastructure:
+3. Deploy EC2 infrastructure:
    ```bash
    cd platform/terraform
    terraform apply -var-file=env/integration.tfvars
@@ -136,7 +136,7 @@ bye
 
 **Using helper script**:
 ```bash
-bash scripts/ci/upload-via-transfer-family.sh \
+bash scripts/ci/upload-via-sftp.sh \
   --file ./mocked_transactions.csv \
   --sftp-endpoint "$SFTP_ENDPOINT" \
   --sftp-username "$SFTP_USERNAME" \

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Production SFTP ingestion now uses a self-hosted EC2 SFTP server (OpenSSH + `s3fs`) instead of AWS Transfer Family.
+Production SFTP ingestion uses a self-hosted EC2 SFTP server (OpenSSH + `mount-s3`).
 
 Flow remains unchanged:
 
@@ -13,7 +13,6 @@ Flow remains unchanged:
 In `platform/terraform/env/prod.tfvars`:
 
 ```hcl
-enable_transfer_family_sftp = false
 enable_ec2_sftp_server      = true
 enable_sftp_transaction_collector = true
 ```
@@ -73,6 +72,3 @@ aws logs tail /aws/lambda/scroogebank-crm-prod-sftp-transaction-collector --foll
 ## Notes
 
 - The EC2 SFTP host is configured for SFTP-only access (no interactive shell).
-- If needed, AWS Transfer Family can still be re-enabled by toggling:
-  - `enable_transfer_family_sftp = true`
-  - `enable_ec2_sftp_server = false`

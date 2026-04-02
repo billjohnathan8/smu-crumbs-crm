@@ -1,13 +1,7 @@
 #--------------------------------------------------------------
 # SFTP Ingestion Module - Variables
-# Supports either AWS Transfer Family or self-hosted EC2 SFTP.
+# Self-hosted EC2 OpenSSH SFTP configuration.
 #--------------------------------------------------------------
-
-variable "enable_transfer_family_sftp" {
-  description = "Enable AWS Transfer Family SFTP server for transaction file ingestion."
-  type        = bool
-  default     = false
-}
 
 variable "enable_ec2_sftp_server" {
   description = "Enable self-hosted EC2 SFTP server for transaction file ingestion."
@@ -117,10 +111,4 @@ variable "sftp_user_ssh_public_key" {
     condition     = var.sftp_user_ssh_public_key == "" || can(regex("^(ssh-rsa|ssh-ed25519|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521) ", var.sftp_user_ssh_public_key))
     error_message = "sftp_user_ssh_public_key must be a valid SSH public key in OpenSSH format or empty string."
   }
-}
-
-variable "transfer_family_role_arn" {
-  description = "IAM role ARN for Transfer Family user to access S3 bucket."
-  type        = string
-  default     = ""
 }

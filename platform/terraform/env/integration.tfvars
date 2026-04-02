@@ -42,7 +42,6 @@ verification_bucket_name     = "crumbs-scroogebank-verification"
 # --- Feature Contract (integration) ---
 enable_log_lambda                 = true
 enable_sftp_transaction_collector = true
-enable_transfer_family_sftp       = true # Enable AWS Transfer Family SFTP for demo/testing
 enable_verification_pipeline      = true
 ses_sender_email                  = "verification@crm.local" # replace with a verified sender in real AWS integration
 

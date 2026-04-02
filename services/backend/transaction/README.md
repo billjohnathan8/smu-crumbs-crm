@@ -3,7 +3,7 @@
 ## Overview
 - Provides full transaction CRUD and import APIs.
 - Supports multiple ingestion paths (all converge to S3 or filesystem):
-  - **AWS Transfer Family SFTP** (integration/prod): Real SFTP protocol → S3 landing zone
+  - **EC2** (integration/prod): SFTP endpoint → S3 landing zone
   - **Direct S3 upload** (all environments): AWS CLI/SDK → S3 landing zone
   - **Filesystem mock** (local dev): Direct file read from `MOCK_SFTP_ROOT`
 - Transaction service is **transport-agnostic**: reads from S3 or filesystem, regardless of how files arrived
@@ -30,7 +30,7 @@
 
 **Import Flow**:
 1. Files arrive in S3 bucket via:
-   - **AWS Transfer Family SFTP** (integration/prod): External partner uploads via SFTP → files land in S3
+   - **EC2** (integration/prod): EC2 → files land in S3
    - **Direct S3 upload** (all environments): AWS CLI/SDK → S3
    - **Filesystem** (local dev only): Files placed in `MOCK_SFTP_ROOT`
 2. Scheduled `sftp-transaction-collector` Lambda scans S3 prefix for CSV files
@@ -44,11 +44,7 @@
   - Local path relative to `MOCK_SFTP_ROOT` (local dev only)
 - Optional polling scheduler (`TRANSACTION_SFTP_POLL_ENABLED=true`) can list and auto-import CSV files
 
-**Not Implemented in Transaction Service**:
-- Direct SFTP client connection (handled by AWS Transfer Family at infrastructure layer)
-
 **Documentation**:
-- Transfer Family setup: [docs/infrastructure/transfer-family-setup.md](../../../docs/infrastructure/transfer-family-setup.md)
 - Full ingestion contract: [docs/api-contracts/sftp-transaction-ingestion-contract.md](../../../docs/api-contracts/sftp-transaction-ingestion-contract.md)
 
 ## Source Resolution Rules

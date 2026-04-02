@@ -53,7 +53,6 @@ log_lambda_memory_size            = 1024
 log_db_connect_timeout_seconds    = 5
 log_run_migrations_on_start       = false
 enable_sftp_transaction_collector = true
-enable_transfer_family_sftp       = false
 enable_ec2_sftp_server            = true
 sftp_instance_type                = "t4g.micro"
 sftp_root_volume_size_gb          = 8
@@ -63,7 +62,7 @@ ses_sender_email                  = "verification@itsag2t3.com"
 ses_domain                        = "itsag2t3.com" # Domain identity + DKIM records are managed by Terraform when Route53 management is enabled.
 
 # Intentionally disabled until prerequisites are available:
-enable_aml_lambda     = true # enabled: SFTP host/user can be auto-derived from transfer_family outputs; key secret ARN must be injected at runtime
+enable_aml_lambda     = true # enabled: SFTP host/user can be auto-derived from sftp_server outputs; key secret ARN must be injected at runtime
 enable_audit_pipeline = true # implemented but disabled by default in production profile
 enable_aml_pipeline   = true # implemented but disabled by default in production profile
 

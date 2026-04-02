@@ -102,11 +102,6 @@ output "sftp_transaction_collector_role_arn" {
   value       = var.enable_sftp_transaction_collector ? (local.use_lab_role ? local.effective_lab_role_arn : aws_iam_role.sftp_transaction_collector[0].arn) : ""
 }
 
-output "transfer_family_role_arn" {
-  description = "Transfer Family SFTP IAM role ARN for S3 access."
-  value       = var.enable_transfer_family_sftp ? (local.use_lab_role ? local.effective_lab_role_arn : aws_iam_role.transfer_family[0].arn) : ""
-}
-
 #--------------------------------------------------------------
 # GuardDuty Outputs
 #--------------------------------------------------------------

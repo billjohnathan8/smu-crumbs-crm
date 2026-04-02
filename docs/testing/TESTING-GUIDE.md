@@ -618,7 +618,7 @@ SFTP_ENDPOINT=$(terraform output -raw sftp_endpoint)
 SFTP_USERNAME=$(terraform output -raw sftp_username)
 cd ../..
 
-bash scripts/ci/upload-via-transfer-family.sh \
+bash scripts/ci/upload-via-sftp.sh \
   --file services/backend/transaction/mock-sftp/mocked_transactions.csv \
   --sftp-endpoint "${SFTP_ENDPOINT}" \
   --sftp-username "${SFTP_USERNAME}" \

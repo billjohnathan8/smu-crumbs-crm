@@ -1,13 +1,10 @@
 #--------------------------------------------------------------
 # SFTP Ingestion Module
-# Supports:
-# 1) AWS Transfer Family (managed), or
-# 2) EC2-hosted OpenSSH SFTP with S3-backed upload path.
+# EC2-hosted OpenSSH SFTP with S3-backed upload path.
 #--------------------------------------------------------------
 
 locals {
-  transfer_enabled = var.enable_transfer_family_sftp
-  ec2_enabled      = var.enable_ec2_sftp_server
+  ec2_enabled = var.enable_ec2_sftp_server
 
   normalized_prefix = trim(var.transaction_bucket_prefix, "/")
   object_arn_prefix = local.normalized_prefix == "" ? "${var.transaction_bucket_arn}/*" : "${var.transaction_bucket_arn}/${local.normalized_prefix}/*"
@@ -187,47 +184,4 @@ resource "aws_eip" "sftp_ec2" {
     Name        = "${var.name_prefix}-sftp-ec2-eip"
     Environment = var.environment
   }
-}
-
-# --- Transfer Family (legacy managed SFTP path) ---
-
-resource "aws_transfer_server" "sftp" {
-  count = local.transfer_enabled ? 1 : 0
-
-  endpoint_type          = "PUBLIC"
-  protocols              = ["SFTP"]
-  identity_provider_type = "SERVICE_MANAGED"
-
-  tags = {
-    Name        = "${var.name_prefix}-sftp"
-    Environment = var.environment
-    Purpose     = "Transaction file ingestion via SFTP"
-  }
-}
-
-resource "aws_transfer_user" "sftp_user" {
-  count = local.transfer_enabled ? 1 : 0
-
-  server_id = aws_transfer_server.sftp[0].id
-  user_name = var.sftp_username
-  role      = var.transfer_family_role_arn
-
-  home_directory_type = "LOGICAL"
-  home_directory_mappings {
-    entry  = "/"
-    target = "/${var.transaction_bucket_id}/${var.transaction_bucket_prefix}"
-  }
-
-  tags = {
-    Name        = "${var.name_prefix}-sftp-user"
-    Environment = var.environment
-  }
-}
-
-resource "aws_transfer_ssh_key" "sftp_user" {
-  count = local.transfer_enabled && var.sftp_user_ssh_public_key != "" ? 1 : 0
-
-  server_id = aws_transfer_server.sftp[0].id
-  user_name = aws_transfer_user.sftp_user[0].user_name
-  body      = var.sftp_user_ssh_public_key
 }

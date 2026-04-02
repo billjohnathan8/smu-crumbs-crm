@@ -2,7 +2,7 @@
 set -euo pipefail
 
 #--------------------------------------------------------------
-# Upload Transaction CSV to SFTP Endpoint
+# Upload Transaction CSV to SFTP Endpoint (EC2 SFTP)
 #
 # This script uploads a transaction CSV file to the active SFTP endpoint
 # SFTP server using SSH key authentication. The file lands in the S3
@@ -11,11 +11,11 @@ set -euo pipefail
 # Prerequisites:
 #   - SSH key pair generated (ssh-keygen -t rsa -b 4096)
 #   - SSH public key registered in Terraform (sftp_user_ssh_public_key variable)
-#   - SFTP server deployed (Transfer Family or EC2 mode)
+#   - EC2 SFTP server deployed
 #   - sftp command available (OpenSSH client)
 #
 # Usage:
-#   bash scripts/ci/upload-via-transfer-family.sh \
+#   bash scripts/ci/upload-via-sftp.sh \
 #     --file ./transactions.csv \
 #     --sftp-endpoint sftp.example.com \
 #     --sftp-username crm-transaction-uploader \
@@ -39,7 +39,7 @@ AUTH_HEADER=""
 usage() {
   cat <<'EOF'
 Usage:
-  bash scripts/ci/upload-via-transfer-family.sh [options]
+  bash scripts/ci/upload-via-sftp.sh [options]
 
 Required Options:
   --file <path>               Local CSV file to upload
@@ -57,18 +57,18 @@ Optional Options:
 
 Examples:
   # Basic upload
-  bash scripts/ci/upload-via-transfer-family.sh \
+  bash scripts/ci/upload-via-sftp.sh \
     --file ./mocked_transactions.csv \
     --sftp-endpoint sftp.example.com
 
   # Upload with custom remote filename
-  bash scripts/ci/upload-via-transfer-family.sh \
+  bash scripts/ci/upload-via-sftp.sh \
     --file ./data.csv \
     --sftp-endpoint sftp.example.com \
     --remote-filename transactions-2026-03.csv
 
   # Upload and trigger import API
-  bash scripts/ci/upload-via-transfer-family.sh \
+  bash scripts/ci/upload-via-sftp.sh \
     --file ./data.csv \
     --sftp-endpoint sftp.example.com \
     --trigger-import-url https://crm-alb.example.com/api/transactions/import \
@@ -79,7 +79,7 @@ Examples:
   SFTP_ENDPOINT=$(terraform output -raw sftp_endpoint)
   SFTP_USERNAME=$(terraform output -raw sftp_username)
   cd ../..
-  bash scripts/ci/upload-via-transfer-family.sh \
+  bash scripts/ci/upload-via-sftp.sh \
     --file ./data.csv \
     --sftp-endpoint "$SFTP_ENDPOINT" \
     --sftp-username "$SFTP_USERNAME"
@@ -179,7 +179,7 @@ echo ""
 
 # Optional: Trigger transaction import API
 if [[ -n "${TRIGGER_IMPORT_URL}" ]]; then
-  # Determine S3 source path (assuming bucket name from Transfer Family home directory mapping)
+  # Determine S3 source path from SFTP landing prefix.
   # In practice, the bucket name would need to be retrieved from Terraform outputs
   # For now, construct a generic path that matches the import API contract
   SOURCE_PATH="incoming/${REMOTE_FILENAME}"

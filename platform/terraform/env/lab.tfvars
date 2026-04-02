@@ -41,7 +41,6 @@ rds_performance_insights_enabled = false
 enable_log_lambda                 = false # LabRole execution-role path for VPC Lambda is not guaranteed.
 enable_aml_lambda                 = false # Requires external SFTP endpoint/key ownership not provided in lab.
 enable_sftp_transaction_collector = false # Depends on Lambda + internal auth path that is out of learner-lab scope.
-enable_transfer_family_sftp       = false # LabRole restrictions: transfer:CreateServer API not supported.
 enable_audit_pipeline             = false # Partial scaffold only: runtime artifact absent in repository.
 enable_aml_pipeline               = false # Partial scaffold only: runtime artifact absent in repository.
 enable_verification_pipeline      = false # Requires SES sender ownership/verification; covered in local/integration.

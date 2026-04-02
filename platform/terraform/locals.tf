@@ -61,8 +61,8 @@ locals {
 
   # AML SFTP endpoint/user defaults can be inferred from the active SFTP module
   # when explicit AML overrides are not provided.
-  effective_aml_sftp_host = trimspace(var.aml_sftp_host) != "" ? trimspace(var.aml_sftp_host) : module.transfer_family.sftp_endpoint
-  effective_aml_sftp_user = trimspace(var.aml_sftp_user) != "" ? trimspace(var.aml_sftp_user) : module.transfer_family.sftp_username
+  effective_aml_sftp_host = trimspace(var.aml_sftp_host) != "" ? trimspace(var.aml_sftp_host) : module.sftp_server.sftp_endpoint
+  effective_aml_sftp_user = trimspace(var.aml_sftp_user) != "" ? trimspace(var.aml_sftp_user) : module.sftp_server.sftp_username
 
   #--------------------------------------------------------------
   # S3 Bucket Names

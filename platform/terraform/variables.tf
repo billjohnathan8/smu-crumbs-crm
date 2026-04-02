@@ -423,14 +423,8 @@ variable "transaction_import_api_path" {
 }
 
 #--------------------------------------------------------------
-# AWS Transfer Family Configuration
+# SFTP Configuration (EC2 self-hosted)
 #--------------------------------------------------------------
-variable "enable_transfer_family_sftp" {
-  description = "Enable AWS Transfer Family SFTP server for external transaction file ingestion."
-  type        = bool
-  default     = false
-}
-
 variable "enable_ec2_sftp_server" {
   description = "Enable self-hosted EC2 SFTP server for external transaction file ingestion."
   type        = bool
@@ -1240,10 +1234,9 @@ check "prod_network_and_pipeline_guardrails" {
       var.enable_aml_lambda
       ) || (
       trimspace(var.aml_sftp_host) != "" ||
-      var.enable_transfer_family_sftp ||
       var.enable_ec2_sftp_server
     )
-    error_message = "For environment=prod with enable_aml_lambda=true, set aml_sftp_host or enable one SFTP ingestion mode so host can be derived."
+    error_message = "For environment=prod with enable_aml_lambda=true, set aml_sftp_host or enable_ec2_sftp_server so host can be derived."
   }
 
   assert {
@@ -1252,19 +1245,13 @@ check "prod_network_and_pipeline_guardrails" {
       var.enable_aml_lambda
       ) || (
       trimspace(var.aml_sftp_user) != "" ||
-      var.enable_transfer_family_sftp ||
       var.enable_ec2_sftp_server
     )
-    error_message = "For environment=prod with enable_aml_lambda=true, set aml_sftp_user or enable one SFTP ingestion mode so user can be derived."
+    error_message = "For environment=prod with enable_aml_lambda=true, set aml_sftp_user or enable_ec2_sftp_server so user can be derived."
   }
 }
 
 check "sftp_mode_guardrails" {
-  assert {
-    condition     = !(var.enable_transfer_family_sftp && var.enable_ec2_sftp_server)
-    error_message = "enable_transfer_family_sftp and enable_ec2_sftp_server are mutually exclusive."
-  }
-
   assert {
     condition     = !var.enable_ec2_sftp_server || trimspace(var.sftp_user_ssh_public_key) != ""
     error_message = "When enable_ec2_sftp_server is true, sftp_user_ssh_public_key must be non-empty."

@@ -96,11 +96,11 @@ Notes:
 
 Transaction CSV files can be ingested via three supported methods:
 
-1. **SFTP Endpoint** (EC2 self-hosted in prod, Transfer Family optional elsewhere)
+1. **SFTP Endpoint** (EC2 self-hosted)
    - Real SFTP protocol with SSH key-based authentication
    - Prod default uses EC2 OpenSSH SFTP with S3-backed upload path
    - Files land in S3 bucket -> Lambda collector -> Transaction import API
-   - See [docs/infrastructure/transfer-family-setup.md](docs/infrastructure/transfer-family-setup.md)
+   - See [docs/infrastructure/sftp-setup.md](docs/infrastructure/sftp-setup.md)
 
 2. **Direct S3 Upload** (all environments)
    - AWS CLI or SDK upload to S3 bucket

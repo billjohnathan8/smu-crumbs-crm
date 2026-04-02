@@ -403,65 +403,6 @@ resource "aws_iam_role_policy" "sftp_transaction_collector_secrets" {
   policy = data.aws_iam_policy_document.sftp_transaction_collector_secrets[0].json
 }
 
-# --- Transfer Family IAM role ---
-
-data "aws_iam_policy_document" "transfer_family_assume" {
-  statement {
-    effect = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["transfer.amazonaws.com"]
-    }
-    actions = ["sts:AssumeRole"]
-  }
-}
-
-resource "aws_iam_role" "transfer_family" {
-  count = var.enable_transfer_family_sftp && !local.use_lab_role ? 1 : 0
-
-  name               = "${var.name_prefix}-transfer-family-sftp"
-  assume_role_policy = data.aws_iam_policy_document.transfer_family_assume.json
-
-  tags = {
-    Name    = "${var.name_prefix}-transfer-family-sftp"
-    Purpose = "Allow Transfer Family SFTP users to access transaction S3 bucket"
-  }
-}
-
-data "aws_iam_policy_document" "transfer_family_s3" {
-  count = var.enable_transfer_family_sftp && !local.use_lab_role ? 1 : 0
-
-  statement {
-    sid    = "ListTransactionBucket"
-    effect = "Allow"
-    actions = [
-      "s3:ListBucket",
-      "s3:GetBucketLocation",
-    ]
-    resources = [var.transaction_sftp_bucket_arn]
-  }
-
-  statement {
-    sid    = "ReadWriteTransactionFiles"
-    effect = "Allow"
-    actions = [
-      "s3:PutObject",
-      "s3:GetObject",
-      "s3:DeleteObject",
-      "s3:GetObjectVersion",
-    ]
-    resources = ["${var.transaction_sftp_bucket_arn}/*"]
-  }
-}
-
-resource "aws_iam_role_policy" "transfer_family_s3" {
-  count = var.enable_transfer_family_sftp && !local.use_lab_role ? 1 : 0
-
-  name   = "${var.name_prefix}-transfer-family-s3"
-  role   = aws_iam_role.transfer_family[0].id
-  policy = data.aws_iam_policy_document.transfer_family_s3[0].json
-}
-
 # --- Audit consumer Lambda role ---
 
 resource "aws_iam_role" "audit_consumer_lambda" {
