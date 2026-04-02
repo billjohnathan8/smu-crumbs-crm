@@ -314,7 +314,10 @@ public class InMemoryUserStore implements UserStore {
 	@Override
 	public List<UserDto> listUsers(int limit, int offset, String roleFilter) {
 		String normalizedRole = roleFilter == null ? null : roleFilter.trim();
-		List<UserRecord> records = new ArrayList<>(users.values());
+		List<UserRecord> records = new ArrayList<>(users.values()
+			.stream()
+			.filter(u -> u.status() != UserStatus.deleted)
+			.toList());
 		records.sort(Comparator.comparingLong(u -> u.id));
 		if (normalizedRole != null && !normalizedRole.isBlank()) {
 			UserRole role = UserRole.fromWireValue(normalizedRole);
@@ -338,10 +341,10 @@ public class InMemoryUserStore implements UserStore {
 	public long countUsers(String roleFilter) {
 		String normalizedRole = roleFilter == null ? null : roleFilter.trim();
 		if (normalizedRole == null || normalizedRole.isBlank()) {
-			return users.size();
+			return users.values().stream().filter(u -> u.status() != UserStatus.deleted).count();
 		}
 		UserRole role = UserRole.fromWireValue(normalizedRole);
-		return users.values().stream().filter(u -> u.role == role).count();
+		return users.values().stream().filter(u -> u.status() != UserStatus.deleted && u.role == role).count();
 	}
 
 	/**

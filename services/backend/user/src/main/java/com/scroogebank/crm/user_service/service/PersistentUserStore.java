@@ -175,6 +175,7 @@ public class PersistentUserStore implements UserStore {
 		existing.setStatus(UserStatus.deleted);
 		existing.setUpdatedAt(clock.instant());
 		userRepository.save(existing);
+		refreshTokenRepository.deleteByUser_Id(existing.getId());
 	}
 
 	@Transactional
@@ -221,6 +222,7 @@ public class PersistentUserStore implements UserStore {
 		return userRepository
 			.findByEmail(normalizeEmail(email))
 			.map(PersistentUserStore::toRecord)
+			.filter(record -> record.status() != UserStatus.deleted)
 			.orElse(null);
 	}
 
@@ -240,12 +242,9 @@ public class PersistentUserStore implements UserStore {
 		if (normalizedRole != null && !normalizedRole.isBlank()) {
 			role = UserRole.fromWireValue(normalizedRole);
 		}
-		final UserRole roleFilterValue = role;
-
-		List<UserEntity> rows = userRepository.findAll(Sort.by(Sort.Direction.ASC, "id"));
-		if (roleFilterValue != null) {
-			rows = rows.stream().filter(u -> u.getRole() == roleFilterValue).toList();
-		}
+		List<UserEntity> rows = role == null
+			? userRepository.findAllByStatusNot(UserStatus.deleted, Sort.by(Sort.Direction.ASC, "id"))
+			: userRepository.findAllByStatusNotAndRole(UserStatus.deleted, role, Sort.by(Sort.Direction.ASC, "id"));
 
 		int normalizedLimit = Math.max(1, Math.min(200, limit));
 		int normalizedOffset = Math.max(0, offset);
@@ -260,10 +259,10 @@ public class PersistentUserStore implements UserStore {
 		seedRootAdminIfMissing();
 		String normalizedRole = roleFilter == null ? null : roleFilter.trim();
 		if (normalizedRole == null || normalizedRole.isBlank()) {
-			return userRepository.count();
+			return userRepository.countByStatusNot(UserStatus.deleted);
 		}
 		UserRole role = UserRole.fromWireValue(normalizedRole);
-		return userRepository.countByRole(role);
+		return userRepository.countByStatusNotAndRole(UserStatus.deleted, role);
 	}
 
 	@Transactional
