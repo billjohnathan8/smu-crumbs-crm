@@ -95,7 +95,8 @@ public class ApiExceptionHandler {
 
 	@ExceptionHandler(IllegalArgumentException.class)
 	public ResponseEntity<ErrorResponse> handleBadRequest(HttpServletRequest request, IllegalArgumentException ex) {
-		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(request, "validation_error", "Invalid request"));
+		String message = (ex.getMessage() != null && !ex.getMessage().isBlank()) ? ex.getMessage() : "Invalid request";
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(request, "validation_error", message));
 	}
 
 	@ExceptionHandler(SnsPublishException.class)

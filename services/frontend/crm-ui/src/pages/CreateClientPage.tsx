@@ -166,6 +166,10 @@ export function CreateClientPage() {
       newErrors.postalCode = 'Postal code must be 4-10 characters'
     }
 
+    if (canViewAllClients && !formData.assignedUserId?.trim()) {
+      newErrors.assignedUserId = 'Please select an agent to assign this client to'
+    }
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -252,7 +256,10 @@ export function CreateClientPage() {
         <div className="bg-card  rounded-lg p-6">
           <div className="mb-6 rounded-lg border border-border bg-background-light p-4">
             <p className="text-sm text-text">
-              New clients are assigned to your user account by default. Verification status becomes
+              {canViewAllClients
+                ? 'Select an agent to assign this client to.'
+                : 'New clients are assigned to your account by default.'}{' '}
+              Verification status becomes
               <span className="font-medium"> pending </span>
               only after the client submits documents from the verification link email.
             </p>
@@ -267,7 +274,9 @@ export function CreateClientPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {canViewAllClients && (
                 <div>
-                  <label className="block text-sm font-normal text-text mb-2">Assigned Agent</label>
+                  <label className="block text-sm font-normal text-text mb-2">
+                    Assigned Agent <span className="text-danger">*</span>
+                  </label>
                   <select
                     name="assignedUserId"
                     value={formData.assignedUserId ?? ''}
@@ -275,13 +284,16 @@ export function CreateClientPage() {
                     className={inputCls('assignedUserId')}
                     disabled={isSubmitting}
                   >
-                    <option value="">Assign to me (default)</option>
+                    <option value="">-- Select an agent --</option>
                     {assignableAgents.map(agent => (
                       <option key={agent.id} value={agent.id}>
                         {agent.firstName} {agent.lastName} ({agent.email})
                       </option>
                     ))}
                   </select>
+                  {errors.assignedUserId && (
+                    <p className="text-danger text-xs mt-1">{errors.assignedUserId}</p>
+                  )}
                 </div>
               )}
               <div>

@@ -27,14 +27,14 @@ export async function listLogs(params?: ListLogsParams): Promise<PaginatedRespon
   if (params?.to) query.append('to', params.to)
 
   const endpoint = query.toString() ? `${BASE}?${query.toString()}` : BASE
-  return apiGet<PaginatedResponse<LogEntry>>(endpoint)
+  return apiGet<PaginatedResponse<LogEntry>>(endpoint, { timeout: 30000 })
 }
 
 /**
  * Get log entry by ID
  */
 export async function getLogById(logId: string): Promise<LogEntry> {
-  return apiGet<LogEntry>(`${BASE}/${logId}`)
+  return apiGet<LogEntry>(`${BASE}/${logId}`, { timeout: 30000 })
 }
 
 /**

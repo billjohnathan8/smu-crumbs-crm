@@ -32,7 +32,7 @@ export async function listAmlAlerts(
   if (params?.reviewStatus) query.append('reviewStatus', params.reviewStatus)
 
   const endpoint = query.toString() ? `${BASE}?${query.toString()}` : BASE
-  return apiGet<PaginatedResponse<AmlAlert>>(endpoint)
+  return apiGet<PaginatedResponse<AmlAlert>>(endpoint, { timeout: 30000 })
 }
 
 /**

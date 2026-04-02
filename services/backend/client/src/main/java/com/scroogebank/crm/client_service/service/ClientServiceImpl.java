@@ -152,9 +152,17 @@ public class ClientServiceImpl implements ClientService {
 		ClientEntity entity = new ClientEntity();
 		applyCreate(entity, request);
 		String requestedAgentId = request.assignedUserId() == null ? null : request.assignedUserId().trim();
-		String assignedAgentId = user.userId();
-		if (user.isAdmin() && requestedAgentId != null && !requestedAgentId.isBlank()) {
+		String assignedAgentId;
+		if (user.isAdmin()) {
+			if (requestedAgentId == null || requestedAgentId.isBlank()) {
+				throw new IllegalArgumentException("Admin users must specify an agent to assign the client to");
+			}
+			if (requestedAgentId.equals(user.userId())) {
+				throw new IllegalArgumentException("Admin users cannot assign clients to themselves");
+			}
 			assignedAgentId = requestedAgentId;
+		} else {
+			assignedAgentId = user.userId();
 		}
 		entity.setAssignedAgentId(assignedAgentId);
 		ClientEntity saved = clientRepository.save(entity);
