@@ -173,6 +173,7 @@ public class PersistentUserStore implements UserStore {
 		}
 		UserEntity existing = loadEntityById(dbId);
 		existing.setStatus(UserStatus.deleted);
+		existing.setEmail(deletedEmailTombstone(existing.getId()));
 		existing.setUpdatedAt(clock.instant());
 		userRepository.save(existing);
 		refreshTokenRepository.deleteByUser_Id(existing.getId());
@@ -424,6 +425,11 @@ public class PersistentUserStore implements UserStore {
 
 	private static String normalizeEmail(String email) {
 		return email.trim().toLowerCase(Locale.ROOT);
+	}
+
+	private static String deletedEmailTombstone(Long userId) {
+		// Keep deleted-user emails unique so the original address can be reused.
+		return "deleted-user-" + userId + "@deleted.local";
 	}
 
 	private static UserDto toDto(UserEntity entity) {
