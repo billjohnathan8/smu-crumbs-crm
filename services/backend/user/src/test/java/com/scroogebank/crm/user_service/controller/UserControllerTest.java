@@ -167,7 +167,7 @@ class UserControllerTest {
             Instant.parse("2026-02-05T00:00:00Z"),
             Instant.parse("2026-02-05T00:00:00Z")
         );
-		when(userAccountService.createUser(any(), any())).thenReturn(dto);
+		when(userAccountService.createUser(any(), any(), any(), any())).thenReturn(dto);
 
         mockMvc.perform(post("/api/users")
                 .header("Authorization", "Bearer x")
@@ -180,7 +180,7 @@ class UserControllerTest {
     @Test
     void createUser_agentForbidden() throws Exception {
         when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_2", "user"));
-        doThrow(new AccessDeniedException("root_admin")).when(userAccountService).createUser(any(CreateUserRequest.class), any(AuthenticatedUser.class));
+        doThrow(new AccessDeniedException("root_admin")).when(userAccountService).createUser(any(CreateUserRequest.class), any(AuthenticatedUser.class), any(), any());
 
         CreateUserRequest body = new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "temp1234");
 
@@ -265,7 +265,7 @@ class UserControllerTest {
             Instant.parse("2026-02-05T00:00:00Z"),
             Instant.parse("2026-02-05T00:00:00Z")
         );
-        when(userAccountService.updateUser(eq("usr_3"), any(), any(AuthenticatedUser.class))).thenReturn(dto);
+        when(userAccountService.updateUser(eq("usr_3"), any(), any(AuthenticatedUser.class), any(), any())).thenReturn(dto);
 
         mockMvc.perform(put("/api/users/usr_3")
                 .header("Authorization", "Bearer x")
@@ -279,7 +279,7 @@ class UserControllerTest {
     void deleteUser_rootAdminForbidden() throws Exception {
         when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
         org.mockito.Mockito.doThrow(new AccessDeniedException("root_admin"))
-			.when(userAccountService).deleteUser(eq("usr_1"), any(AuthenticatedUser.class));
+			.when(userAccountService).deleteUser(eq("usr_1"), any(AuthenticatedUser.class), any(), any());
 
         mockMvc.perform(delete("/api/users/usr_1").header("Authorization", "Bearer x"))
             .andExpect(status().isForbidden());
@@ -293,7 +293,7 @@ class UserControllerTest {
         mockMvc.perform(delete("/api/users/usr_3").header("Authorization", "Bearer x"))
             .andExpect(status().isNoContent());
 
-		verify(userAccountService).deleteUser(eq("usr_3"), any(AuthenticatedUser.class));
+		verify(userAccountService).deleteUser(eq("usr_3"), any(AuthenticatedUser.class), any(), any());
     }
 
     /** Admin can disable a user; controller returns 200 with updated user DTO (status disabled). */
@@ -310,7 +310,7 @@ class UserControllerTest {
             Instant.parse("2026-02-05T00:00:00Z"),
             Instant.parse("2026-02-05T00:00:00Z")
         );
-        when(userAccountService.disableUser(eq("usr_3"), any(AuthenticatedUser.class))).thenReturn(dto);
+        when(userAccountService.disableUser(eq("usr_3"), any(AuthenticatedUser.class), any(), any())).thenReturn(dto);
 
         mockMvc.perform(post("/api/users/usr_3/disable").header("Authorization", "Bearer x"))
             .andExpect(status().isOk());

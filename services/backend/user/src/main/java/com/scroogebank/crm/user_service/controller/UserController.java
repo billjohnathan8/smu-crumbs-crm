@@ -8,6 +8,7 @@ import com.scroogebank.crm.user_service.dto.UsersListResponse;
 import com.scroogebank.crm.user_service.security.AuthenticatedUser;
 import com.scroogebank.crm.user_service.security.RequestAuth;
 import com.scroogebank.crm.user_service.service.UserAccountService;
+import com.scroogebank.crm.user_service.web.RequestIdFilter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -19,6 +20,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -70,7 +72,7 @@ public class UserController {
 	@Operation(summary = "Create user")
 	public UserDto createUser(HttpServletRequest request, @Valid @RequestBody CreateUserRequest body) {
 		AuthenticatedUser requester = requestAuth.requireUser(request);
-		return userAccountService.createUser(body, requester);
+		return userAccountService.createUser(body, requester, authHeader(request), requestId(request));
 	}
 
 	/**
@@ -140,7 +142,7 @@ public class UserController {
 		@Valid @RequestBody UpdateUserRequest body
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		return userAccountService.updateUser(userId, body, user);
+		return userAccountService.updateUser(userId, body, user, authHeader(request), requestId(request));
 	}
 
 	/**
@@ -154,7 +156,7 @@ public class UserController {
 	@Operation(summary = "Delete user")
 	public void deleteUser(HttpServletRequest request, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String userId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		userAccountService.deleteUser(userId, user);
+		userAccountService.deleteUser(userId, user, authHeader(request), requestId(request));
 	}
 
 	/**
@@ -168,7 +170,7 @@ public class UserController {
 	@Operation(summary = "Disable user")
 	public UserDto disableUser(HttpServletRequest request, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String userId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		return userAccountService.disableUser(userId, user);
+		return userAccountService.disableUser(userId, user, authHeader(request), requestId(request));
 	}
 
 	/**
@@ -189,5 +191,14 @@ public class UserController {
 		AuthenticatedUser requester = requestAuth.requireUser(request);
 		userAccountService.resetPassword(userId, body, requester);
 		return ResponseEntity.status(HttpStatus.ACCEPTED).build();
+	}
+
+	private static String authHeader(HttpServletRequest request) {
+		return request.getHeader(HttpHeaders.AUTHORIZATION);
+	}
+
+	private static String requestId(HttpServletRequest request) {
+		Object id = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
+		return id != null ? id.toString() : null;
 	}
 }

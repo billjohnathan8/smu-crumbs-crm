@@ -8,10 +8,13 @@ import com.scroogebank.crm.user_service.dto.UserDto;
 import com.scroogebank.crm.user_service.dto.UserRole;
 import com.scroogebank.crm.user_service.dto.UserStatus;
 import com.scroogebank.crm.user_service.dto.UsersListResponse;
-import com.scroogebank.crm.user_service.security.AuthenticatedUser;	
 import com.scroogebank.crm.user_service.exception.AccessDeniedException;
 import com.scroogebank.crm.user_service.exception.UserNotFoundException;
+import com.scroogebank.crm.user_service.logging.UserAuditLogger;
+import com.scroogebank.crm.user_service.security.AuthenticatedUser;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -20,18 +23,22 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class UserAccountService {
+	private static final Logger LOGGER = LoggerFactory.getLogger(UserAccountService.class);
 	private static final String ROOT_ADMIN_USER_ID = "usr_1";
 
 	private final PersistentUserStore store;
+	private final UserAuditLogger userAuditLogger;
 	private final CognitoService cognitoService;
 	private final boolean cognitoSyncEnabled;
 
 	public UserAccountService(
 		PersistentUserStore store,
+		UserAuditLogger userAuditLogger,
 		@Nullable CognitoService cognitoService,
 		@Value("${app.jwt.auth-mode:local}") String authMode
 	) {
 		this.store = store;
+		this.userAuditLogger = userAuditLogger;
 		this.cognitoService = cognitoService;
 		this.cognitoSyncEnabled = !"local".equalsIgnoreCase(authMode == null ? "" : authMode.trim());
 	}
@@ -42,29 +49,49 @@ public class UserAccountService {
 	 * @param request create user payload
 	 * @return created user
 	 */
-	public UserDto createUser(CreateUserRequest request, AuthenticatedUser requester) {
+	public UserDto createUser(
+		CreateUserRequest request,
+		AuthenticatedUser requester,
+		String authorizationHeader,
+		String correlationId
+	) {
 		validateHierarchyPermissions(requester, request.role(), "create");
 
-		if (cognitoService == null || !cognitoSyncEnabled) {
-			return store.createUser(request);
+		UserDto created;
+		CognitoService cognito = getCognitoServiceOrNull();
+		if (cognito == null) {
+			created = store.createUser(request);
+		}
+		else {
+			String cognitoGroup = request.role() == UserRole.admin ? "ADMIN" : "USER";
+			String fullName = request.firstName() + " " + request.lastName();
+			cognito.createUser(request.email(), fullName, cognitoGroup);
+			try {
+				created = store.createUser(request);
+			}
+			catch (RuntimeException ex) {
+				// Compensate to avoid leaving a Cognito-only user when DB write fails.
+				try {
+					cognito.deleteUser(request.email());
+				}
+				catch (RuntimeException cleanupEx) {
+					ex.addSuppressed(cleanupEx);
+				}
+				throw ex;
+			}
 		}
 
-		String cognitoGroup = request.role() == UserRole.admin ? "ADMIN" : "USER";
-		String fullName = request.firstName() + " " + request.lastName();
-		cognitoService.createUser(request.email(), fullName, cognitoGroup);
-		try {
-			return store.createUser(request);
-		}
-		catch (RuntimeException ex) {
-			// Compensate to avoid leaving a Cognito-only user when DB write fails.
-			try {
-				cognitoService.deleteUser(request.email());
-			}
-			catch (RuntimeException cleanupEx) {
-				ex.addSuppressed(cleanupEx);
-			}
-			throw ex;
-		}
+		publishAuditSafe(
+			"CREATE",
+			"User ID",
+			null,
+			created.id(),
+			requester.userId(),
+			created.id(),
+			correlationId,
+			authorizationHeader
+		);
+		return created;
 	}
 
 	private CognitoService getCognitoServiceOrNull() {
@@ -106,13 +133,11 @@ public class UserAccountService {
 	 * @return user DTO
 	 */
 	public UserDto getUser(String userId, AuthenticatedUser requester) {
-		// Check if user exists
 		UserDto existingUser = store.getUser(userId);
 		if (existingUser == null || isDeleted(existingUser)) {
 			throw new UserNotFoundException(userId);
 		}
 
-		// Retrieve own data is always allowed
 		if (existingUser.id().equals(requester.userId())) {
 			return existingUser;
 		}
@@ -127,17 +152,49 @@ public class UserAccountService {
 	 * @param request update payload
 	 * @return updated user DTO
 	 */
-	public UserDto updateUser(String userId, UpdateUserRequest request, AuthenticatedUser user) {
-		// Check if user exists
+	public UserDto updateUser(
+		String userId,
+		UpdateUserRequest request,
+		AuthenticatedUser user,
+		String authorizationHeader,
+		String correlationId
+	) {
 		UserDto existingUser = store.getUser(userId);
 		if (existingUser == null || isDeleted(existingUser)) {
 			throw new UserNotFoundException(userId);
 		}
 
 		validateUpdatePermissions(userId, user, existingUser.role(), request.role());
+		UserDto updated = store.updateUser(userId, request);
 
-		// Delegate to the store when validation passes
-		return store.updateUser(userId, request);
+		StringBuilder attrs = new StringBuilder();
+		StringBuilder befores = new StringBuilder();
+		StringBuilder afters = new StringBuilder();
+		appendIfChanged(attrs, befores, afters, "firstName", existingUser.firstName(), updated.firstName());
+		appendIfChanged(attrs, befores, afters, "lastName", existingUser.lastName(), updated.lastName());
+		appendIfChanged(attrs, befores, afters, "email", existingUser.email(), updated.email());
+		appendIfChanged(
+			attrs,
+			befores,
+			afters,
+			"role",
+			existingUser.role() != null ? existingUser.role().name() : null,
+			updated.role() != null ? updated.role().name() : null
+		);
+		if (!attrs.isEmpty()) {
+			publishAuditSafe(
+				"UPDATE",
+				attrs.toString(),
+				befores.toString(),
+				afters.toString(),
+				user.userId(),
+				userId,
+				correlationId,
+				authorizationHeader
+			);
+		}
+
+		return updated;
 	}
 
 	/**
@@ -146,21 +203,19 @@ public class UserAccountService {
 	 * @param userId API user identifier
 	 * @param user authenticated user performing the delete
 	 */
-	public void deleteUser(String userId, AuthenticatedUser user) {
-		// Look up the target user's role
+	public void deleteUser(String userId, AuthenticatedUser user, String authorizationHeader, String correlationId) {
 		UserDto target = store.getUser(userId);
 		if (target == null || isDeleted(target)) {
 			throw new UserNotFoundException(userId);
 		}
-		UserRole targetRole = target.role();
 
-		validateHierarchyPermissions(user, targetRole, "delete");
-
-		CognitoService cognitoService = getCognitoServiceOrNull();
-		if (cognitoService != null) {
-			cognitoService.deleteUser(target.email());
+		validateHierarchyPermissions(user, target.role(), "delete");
+		CognitoService cognito = getCognitoServiceOrNull();
+		if (cognito != null) {
+			cognito.deleteUser(target.email());
 		}
 		store.deleteUser(userId);
+		publishAuditSafe("DELETE", "User ID", userId, null, user.userId(), userId, correlationId, authorizationHeader);
 	}
 
 	/**
@@ -169,9 +224,7 @@ public class UserAccountService {
 	 * @param userId API user identifier
 	 * @return updated user DTO
 	 */
-	public UserDto disableUser(String userId, AuthenticatedUser user) {
-
-		// Look up the target user's role
+	public UserDto disableUser(String userId, AuthenticatedUser user, String authorizationHeader, String correlationId) {
 		UserDto target = store.getUser(userId);
 		if (target == null || isDeleted(target)) {
 			throw new UserNotFoundException(userId);
@@ -179,25 +232,24 @@ public class UserAccountService {
 		if (isRootAdminUserId(target.id())) {
 			throw new AccessDeniedException("Root admin accounts cannot be disabled via the API");
 		}
-		UserRole targetRole = target.role();
-		
-		validateHierarchyPermissions(user, targetRole, "disable");
 
-		CognitoService cognitoService = getCognitoServiceOrNull();
-		if (cognitoService != null) {
-			cognitoService.disableUser(target.email());
+		validateHierarchyPermissions(user, target.role(), "disable");
+		CognitoService cognito = getCognitoServiceOrNull();
+		if (cognito != null) {
+			cognito.disableUser(target.email());
 		}
-		return store.disableUser(userId);
+		UserDto disabled = store.disableUser(userId);
+		publishAuditSafe("UPDATE", "status", "active", "disabled", user.userId(), userId, correlationId, authorizationHeader);
+		return disabled;
 	}
 
 	/**
 	 * Resets the user's password and invalidates refresh tokens.
 	 *
 	 * @param userId API user identifier
-	 * @param _request reset payload (currently unused)
+	 * @param request reset payload (currently unused)
 	 */
 	public void resetPassword(String userId, ResetPasswordRequest request, AuthenticatedUser requester) {
-		// Look up the target user's role
 		UserDto target = store.getUser(userId);
 		if (target == null || isDeleted(target)) {
 			throw new UserNotFoundException(userId);
@@ -205,17 +257,14 @@ public class UserAccountService {
 		if (isRootAdminUserId(target.id())) {
 			throw new AccessDeniedException("Root admin accounts cannot be reset via the admin API");
 		}
-		UserRole targetRole = target.role();
-
-		// Self-reset must use forgot-password flow and is not supported on admin reset route.
 		if (target.id().equals(requester.userId())) {
 			throw new AccessDeniedException("self_reset_not_supported_use_forgot_password");
 		}
-		validateHierarchyPermissions(requester, targetRole, "reset password for");
 
-		CognitoService cognitoService = getCognitoServiceOrNull();
-		if (cognitoService != null) {
-			cognitoService.resetPassword(target.email());
+		validateHierarchyPermissions(requester, target.role(), "reset password for");
+		CognitoService cognito = getCognitoServiceOrNull();
+		if (cognito != null) {
+			cognito.resetPassword(target.email());
 		}
 		store.resetPassword(userId);
 	}
@@ -232,9 +281,7 @@ public class UserAccountService {
 
 	private void validateHierarchyPermissions(AuthenticatedUser requester, UserRole targetRole, String action) {
 		switch (targetRole) {
-			case super_admin -> {
-				throw new AccessDeniedException("Root admin accounts cannot be " + action + " via the API");
-			}
+			case super_admin -> throw new AccessDeniedException("Root admin accounts cannot be " + action + " via the API");
 			case admin -> {
 				if (requester.role() != UserRole.super_admin && !isSeededRootAdmin(requester)) {
 					throw new AccessDeniedException("Only root admins can " + action + " admin user.");
@@ -298,5 +345,55 @@ public class UserAccountService {
 
 	private static boolean isDeleted(UserDto user) {
 		return user.status() == UserStatus.deleted;
+	}
+
+	private void publishAuditSafe(
+		String action,
+		String attributeName,
+		String beforeValue,
+		String afterValue,
+		String userId,
+		String clientId,
+		String correlationId,
+		String authorizationHeader
+	) {
+		if (authorizationHeader == null || authorizationHeader.isBlank()) {
+			return;
+		}
+		try {
+			userAuditLogger.logAuditEvent(
+				action,
+				attributeName,
+				beforeValue,
+				afterValue,
+				userId,
+				clientId,
+				correlationId,
+				authorizationHeader
+			);
+		}
+		catch (Exception ex) {
+			LOGGER.warn("User operation completed but audit logging failed. action={} targetUserId={}", action, clientId, ex);
+		}
+	}
+
+	private static void appendIfChanged(
+		StringBuilder attrs,
+		StringBuilder befores,
+		StringBuilder afters,
+		String name,
+		String oldVal,
+		String newVal
+	) {
+		if (newVal != null && !newVal.equals(oldVal)) {
+			if (!attrs.isEmpty()) {
+				attrs.append(", ");
+				befores.append(", ");
+				afters.append(", ");
+			}
+			attrs.append(name);
+			befores.append(oldVal);
+			afters.append(newVal);
+		}
 	}
 }

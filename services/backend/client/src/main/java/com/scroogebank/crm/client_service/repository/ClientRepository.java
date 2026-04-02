@@ -12,13 +12,17 @@ import org.springframework.data.repository.query.Param;
  * Persistence operations for client entities with search helpers.
  */
 public interface ClientRepository extends JpaRepository<ClientEntity, Long> {
-	boolean existsByEmailAddressIgnoreCase(String emailAddress);
+	@Query("SELECT COUNT(c) > 0 FROM ClientEntity c WHERE LOWER(c.emailAddress) = LOWER(:email) AND c.deleted = false")
+	boolean existsByEmailAddressIgnoreCase(@Param("email") String emailAddress);
 
-	boolean existsByPhoneNumber(String phoneNumber);
+	@Query("SELECT COUNT(c) > 0 FROM ClientEntity c WHERE c.phoneNumber = :phone AND c.deleted = false")
+	boolean existsByPhoneNumber(@Param("phone") String phoneNumber);
 
-	boolean existsByEmailAddressIgnoreCaseAndIdNot(String emailAddress, Long id);
+	@Query("SELECT COUNT(c) > 0 FROM ClientEntity c WHERE LOWER(c.emailAddress) = LOWER(:email) AND c.id <> :id AND c.deleted = false")
+	boolean existsByEmailAddressIgnoreCaseAndIdNot(@Param("email") String emailAddress, @Param("id") Long id);
 
-	boolean existsByPhoneNumberAndIdNot(String phoneNumber, Long id);
+	@Query("SELECT COUNT(c) > 0 FROM ClientEntity c WHERE c.phoneNumber = :phone AND c.id <> :id AND c.deleted = false")
+	boolean existsByPhoneNumberAndIdNot(@Param("phone") String phoneNumber, @Param("id") Long id);
 
 	Optional<ClientEntity> findById(Long id);
 
@@ -30,7 +34,7 @@ public interface ClientRepository extends JpaRepository<ClientEntity, Long> {
 	 */
 	@Query("""
 		SELECT c FROM ClientEntity c
-		WHERE c.assignedUserId = :userId
+		WHERE c.deleted = false AND c.assignedUserId = :userId
 		ORDER BY c.id
 		""")
 	List<ClientEntity> findByAssignedAgentId(@Param("userId") String userId);
@@ -46,7 +50,7 @@ public interface ClientRepository extends JpaRepository<ClientEntity, Long> {
 	@Query("""
 		UPDATE ClientEntity c
 		SET c.assignedUserId = :toUserId
-		WHERE c.assignedUserId = :fromUserId
+		WHERE c.assignedUserId = :fromUserId AND c.deleted = false
 		""")
 	int reassignClients(@Param("fromUserId") String fromUserId, @Param("toUserId") String toUserId);
 
@@ -58,7 +62,7 @@ public interface ClientRepository extends JpaRepository<ClientEntity, Long> {
 	 */
 	@Query("""
 		SELECT c FROM ClientEntity c
-		WHERE (:q IS NULL OR :q = '' OR
+		WHERE c.deleted = false AND (:q IS NULL OR :q = '' OR
 			LOWER(c.firstName) LIKE LOWER(CONCAT('%', :q, '%')) OR
 			LOWER(c.lastName) LIKE LOWER(CONCAT('%', :q, '%')) OR
 			LOWER(c.emailAddress) LIKE LOWER(CONCAT('%', :q, '%')) OR
@@ -77,7 +81,7 @@ public interface ClientRepository extends JpaRepository<ClientEntity, Long> {
 	 */
 	@Query("""
 		SELECT c FROM ClientEntity c
-		WHERE c.assignedUserId = :userId AND
+		WHERE c.deleted = false AND c.assignedUserId = :userId AND
 			(:q IS NULL OR :q = '' OR
 				LOWER(c.firstName) LIKE LOWER(CONCAT('%', :q, '%')) OR
 				LOWER(c.lastName) LIKE LOWER(CONCAT('%', :q, '%')) OR
@@ -87,4 +91,6 @@ public interface ClientRepository extends JpaRepository<ClientEntity, Long> {
 		ORDER BY c.id
 		""")
 	List<ClientEntity> searchByAgent(@Param("userId") String userId, @Param("q") String q);
+
+	long countByAssignedUserIdAndDeletedFalse(String assignedUserId);
 }

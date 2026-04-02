@@ -104,6 +104,9 @@ public class ClientEntity {
 	@Column(name = "updated_at", nullable = false)
 	private Instant updatedAt;
 
+	@Column(name = "deleted", nullable = false)
+	private boolean deleted = false;
+
 	/**
 	 * Initializes timestamps and default verification status before persistence.
 	 */
@@ -284,4 +287,7 @@ public class ClientEntity {
 	public void setVerificationVerifiedAt(Instant verificationVerifiedAt) {
 		this.verificationVerifiedAt = verificationVerifiedAt;
 	}
+
+	public boolean isDeleted() { return deleted; }
+	public void setDeleted(boolean deleted) { this.deleted = deleted; }
 }

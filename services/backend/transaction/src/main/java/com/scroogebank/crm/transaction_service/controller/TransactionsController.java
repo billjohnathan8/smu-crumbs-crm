@@ -95,24 +95,22 @@ public class TransactionsController {
 		@RequestParam(required = false) @DateTimeFormat(iso = ISO.DATE) LocalDate toDate
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAnyRole(user, "admin", "user");
+		requireAnyRole(user, "user");
 		if (clientId != null && !clientId.isBlank() && !clientId.matches("^[A-Za-z0-9_-]{1,128}$")) {
 			throw new IllegalArgumentException("invalid clientId");
 		}
 
 		String authHeader = request.getHeader("Authorization");
-		if (user.isUser()) {
-			// We can only verify ownership for a specific clientId without enumerating
-			// all user-owned clients from client-service. For safety, return empty
-			// unless a clientId is provided and authorized.
-			if (clientId == null || clientId.isBlank()) {
-				return new TransactionsListResponse(
-					java.util.List.of(),
-					new Pagination(normalizeLimit(limit), normalizeOffset(offset), 0)
-				);
-			}
-			clientAccessValidator.requireClientAccessible(user, authHeader, clientId);
+		// We can only verify ownership for a specific clientId without enumerating
+		// all user-owned clients from client-service. For safety, return empty
+		// unless a clientId is provided and authorized.
+		if (clientId == null || clientId.isBlank()) {
+			return new TransactionsListResponse(
+				java.util.List.of(),
+				new Pagination(normalizeLimit(limit), normalizeOffset(offset), 0)
+			);
 		}
+		clientAccessValidator.requireClientAccessible(user, authHeader, clientId);
 
 		InMemoryTransactionsStore.ListResult result = transactionsService.list(
 			normalizeLimit(limit),
@@ -162,17 +160,15 @@ public class TransactionsController {
 	@Operation(summary = "Get transaction by id")
 	public TransactionDto getTransaction(HttpServletRequest request, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String transactionId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAnyRole(user, "admin", "user");
+		requireAnyRole(user, "user");
 
 		TransactionDto tx = transactionsService.get(transactionId);
-		if (user.isUser()) {
-			String authHeader = request.getHeader("Authorization");
-			try {
-				clientAccessValidator.requireClientAccessible(user, authHeader, tx.clientId());
-			}
-			catch (ForbiddenException ex) {
-				throw new TransactionNotFoundException(transactionId);
-			}
+		String authHeader = request.getHeader("Authorization");
+		try {
+			clientAccessValidator.requireClientAccessible(user, authHeader, tx.clientId());
+		}
+		catch (ForbiddenException ex) {
+			throw new TransactionNotFoundException(transactionId);
 		}
 		publishAuditSafe(
 			"READ",
@@ -263,7 +259,7 @@ public class TransactionsController {
 		@RequestParam(defaultValue = "0") int offset
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAnyRole(user, "admin", "user");
+		requireAnyRole(user, "user");
 		String authHeader = request.getHeader("Authorization");
 		clientAccessValidator.requireClientAccessible(user, authHeader, clientId);
 

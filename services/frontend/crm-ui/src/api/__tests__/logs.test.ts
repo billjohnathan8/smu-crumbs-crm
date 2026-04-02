@@ -21,7 +21,7 @@ describe('logs API', () => {
 
       const result = await listLogs()
 
-      expect(client.apiGet).toHaveBeenCalledWith('/api/logs')
+      expect(client.apiGet).toHaveBeenCalledWith('/api/logs', { timeout: 30000 })
       expect(result).toEqual(mockResponse)
     })
 
@@ -33,7 +33,7 @@ describe('logs API', () => {
 
       await listLogs({ limit: 50, offset: 100 })
 
-      expect(client.apiGet).toHaveBeenCalledWith('/api/logs?limit=50&offset=100')
+      expect(client.apiGet).toHaveBeenCalledWith('/api/logs?limit=50&offset=100', { timeout: 30000 })
     })
 
     it('should filter logs by userId', async () => {
@@ -44,7 +44,7 @@ describe('logs API', () => {
 
       await listLogs({ userId: 'user-123' })
 
-      expect(client.apiGet).toHaveBeenCalledWith('/api/logs?userId=user-123')
+      expect(client.apiGet).toHaveBeenCalledWith('/api/logs?userId=user-123', { timeout: 30000 })
     })
 
     it('should filter logs by clientId', async () => {
@@ -55,7 +55,7 @@ describe('logs API', () => {
 
       await listLogs({ clientId: 'client-456' })
 
-      expect(client.apiGet).toHaveBeenCalledWith('/api/logs?clientId=client-456')
+      expect(client.apiGet).toHaveBeenCalledWith('/api/logs?clientId=client-456', { timeout: 30000 })
     })
 
     it('should filter logs by action', async () => {
@@ -66,7 +66,7 @@ describe('logs API', () => {
 
       await listLogs({ action: 'CREATE' })
 
-      expect(client.apiGet).toHaveBeenCalledWith('/api/logs?action=CREATE')
+      expect(client.apiGet).toHaveBeenCalledWith('/api/logs?action=CREATE', { timeout: 30000 })
     })
 
     it('should list logs with all params', async () => {
@@ -110,7 +110,7 @@ describe('logs API', () => {
 
       const result = await getLogById('log-123')
 
-      expect(client.apiGet).toHaveBeenCalledWith('/api/logs/log-123')
+      expect(client.apiGet).toHaveBeenCalledWith('/api/logs/log-123', { timeout: 30000 })
       expect(result).toEqual(mockLog)
     })
   })

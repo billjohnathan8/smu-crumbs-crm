@@ -59,6 +59,9 @@ public class AccountEntity {
 	@Column(name = "updated_at", nullable = false)
 	private Instant updatedAt;
 
+	@Column(name = "deleted", nullable = false)
+	private boolean deleted = false;
+
 	/**
 	 * Initializes timestamps before persistence.
 	 */
@@ -144,4 +147,7 @@ public class AccountEntity {
 	public Instant getUpdatedAt() {
 		return updatedAt;
 	}
+
+	public boolean isDeleted() { return deleted; }
+	public void setDeleted(boolean deleted) { this.deleted = deleted; }
 }

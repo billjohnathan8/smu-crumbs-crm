@@ -3,7 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { isRootAdminUser } from '@/features/auth/authorization'
 import { listUsers, deleteUser, disableUser } from '@/api/users'
-import { reassignClients } from '@/api/clients'
+import { reassignClients, countClientsByAgent } from '@/api/clients'
 import type { User, UserRole } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
@@ -63,6 +63,7 @@ export function AdminUserManagementPage() {
   const [transferFromUser, setTransferFromUser] = useState<User | null>(null)
   const [transferToUserId, setTransferToUserId] = useState('')
   const [isTransferring, setIsTransferring] = useState(false)
+  const [agentClientCounts, setAgentClientCounts] = useState<Record<string, number>>({})
 
   const isAdmin = user?.role === 'admin'
   const isRootAdmin = isRootAdminUser(user)
@@ -102,6 +103,25 @@ export function AdminUserManagementPage() {
 
     fetchUsers()
   }, [isRootAdmin, logout])
+
+  useEffect(() => {
+    const disabledAgents = users.filter(u => u.role === 'user' && u.status === 'disabled')
+    if (disabledAgents.length === 0) return
+    const fetchCounts = async () => {
+      const counts: Record<string, number> = {}
+      await Promise.all(
+        disabledAgents.map(async agent => {
+          try {
+            counts[agent.id] = await countClientsByAgent(agent.id)
+          } catch {
+            counts[agent.id] = -1
+          }
+        })
+      )
+      setAgentClientCounts(prev => ({ ...prev, ...counts }))
+    }
+    fetchCounts()
+  }, [users])
 
   const handleDeleteUser = async (userId: string, userRole: UserRole) => {
     // Check permissions
@@ -216,6 +236,7 @@ export function AdminUserManagementPage() {
           ? `Transferred ${response.count} client(s) successfully`
           : 'No clients were assigned to this agent'
       )
+      setAgentClientCounts(prev => ({ ...prev, [transferFromUser.id]: 0 }))
       closeTransferModal()
     } catch (err) {
       if (err instanceof ApiError) {
@@ -393,23 +414,33 @@ export function AdminUserManagementPage() {
                                 </button>
                               ) : (
                                 <>
-                                  <button
-                                    onClick={() => openTransferModal(u)}
-                                    className="px-3 py-1 rounded text-sm font-normal bg-accent text-white hover:opacity-80 transition-opacity"
-                                  >
-                                    Transfer
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteUser(u.id, u.role)}
-                                    disabled={deletingUserId === u.id}
-                                    className={`px-3 py-1 rounded text-sm font-normal transition-opacity ${
-                                      deletingUserId === u.id
-                                        ? 'gradient-dark-red opacity-50 cursor-not-allowed text-white'
-                                        : 'gradient-dark-red hover:opacity-80 text-white'
-                                    }`}
-                                  >
-                                    {deletingUserId === u.id ? 'Deleting...' : 'Delete'}
-                                  </button>
+                                  {(agentClientCounts[u.id] ?? -1) !== 0 && (
+                                    <button
+                                      onClick={() => openTransferModal(u)}
+                                      className="px-3 py-1 rounded text-sm font-normal bg-accent text-white hover:opacity-80 transition-opacity"
+                                    >
+                                      Transfer{agentClientCounts[u.id] != null && agentClientCounts[u.id] > 0
+                                        ? ` (${agentClientCounts[u.id]})`
+                                        : ''}
+                                    </button>
+                                  )}
+                                  {agentClientCounts[u.id] === 0 ? (
+                                    <button
+                                      onClick={() => handleDeleteUser(u.id, u.role)}
+                                      disabled={deletingUserId === u.id}
+                                      className={`px-3 py-1 rounded text-sm font-normal transition-opacity ${
+                                        deletingUserId === u.id
+                                          ? 'gradient-dark-red opacity-50 cursor-not-allowed text-white'
+                                          : 'gradient-dark-red hover:opacity-80 text-white'
+                                      }`}
+                                    >
+                                      {deletingUserId === u.id ? 'Deleting...' : 'Delete'}
+                                    </button>
+                                  ) : (
+                                    <span className="text-xs text-text-muted">
+                                      Transfer clients to enable delete
+                                    </span>
+                                  )}
                                 </>
                               )}
                             </div>
