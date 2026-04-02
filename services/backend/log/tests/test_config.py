@@ -79,6 +79,7 @@ def test_settings_defaults_to_cognito_in_prod_like_env(monkeypatch) -> None:
     settings = Settings()
 
     assert settings.auth_mode == "cognito"
+    assert settings.run_migrations_on_start is False
 
 
 def test_settings_rejects_hybrid_mode_in_prod_like_env(monkeypatch) -> None:
@@ -96,3 +97,14 @@ def test_settings_rejects_hybrid_mode_in_prod_like_env(monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="hybrid auth_mode is disabled"):
         Settings()
+
+
+def test_settings_parses_db_connect_timeout(monkeypatch) -> None:
+    monkeypatch.setenv("DB_USER", "dev-user")
+    monkeypatch.setenv("DB_PASSWORD", "dev-pass")
+    monkeypatch.setenv("JWT_HMAC_SECRET", "dev-jwt")
+    monkeypatch.setenv("DB_CONNECT_TIMEOUT_SECONDS", "7")
+
+    settings = Settings()
+
+    assert settings.db_connect_timeout_seconds == 7

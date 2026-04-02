@@ -19,7 +19,7 @@ describe('aml API', () => {
 
     const result = await listAmlAlerts()
 
-    expect(client.apiGet).toHaveBeenCalledWith('/api/aml/alerts')
+    expect(client.apiGet).toHaveBeenCalledWith('/api/aml/alerts', { timeout: 15000 })
     expect(result).toEqual(mockResponse)
   })
 
@@ -38,7 +38,8 @@ describe('aml API', () => {
     })
 
     expect(client.apiGet).toHaveBeenCalledWith(
-      '/api/aml/alerts?limit=20&offset=40&clientId=clt_1&alertType=STRUCTURING&reviewStatus=Pending'
+      '/api/aml/alerts?limit=20&offset=40&clientId=clt_1&alertType=STRUCTURING&reviewStatus=Pending',
+      { timeout: 15000 }
     )
   })
 

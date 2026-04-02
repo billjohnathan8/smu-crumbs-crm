@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from urllib.parse import urlencode
 
+import psycopg
 import pytest
 from app.auth import UnauthorizedError
 from app.lambda_router import LambdaRouter
@@ -302,6 +303,11 @@ class FakeLogServiceMissingCommunication(FakeLogService):
         return None
 
 
+class FakeLogServiceDbFailure(FakeLogService):
+    def list_logs(self, **_kwargs):
+        raise psycopg.OperationalError("db down")
+
+
 def _make_router(
     service: FakeLogService,
     secret: str = "test-secret",
@@ -426,6 +432,25 @@ def test_logs_requires_auth() -> None:
     assert response["statusCode"] == 401
     assert body is not None
     assert body["error"] == "unauthorized"
+
+
+def test_logs_returns_503_on_database_connectivity_failure() -> None:
+    secret = "test-secret"
+    router = _make_router(FakeLogServiceDbFailure(), secret=secret)
+    token = mint_token("usr_admin", "admin", secret)
+
+    response, body = _invoke(
+        router,
+        _http_api_v2_event(
+            "GET",
+            "/api/logs",
+            headers={"Authorization": f"Bearer {token}"},
+        ),
+    )
+
+    assert response["statusCode"] == 503
+    assert body is not None
+    assert body["error"] == "service_unavailable"
 
 
 def test_request_id_header_propagates_to_errors() -> None:
