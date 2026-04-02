@@ -45,6 +45,11 @@ state_has() {
   terraform state list 2>/dev/null | grep -Fxq "${address}"
 }
 
+state_has_prefix() {
+  local prefix="$1"
+  terraform state list 2>/dev/null | grep -Eq "^${prefix}(\\.|\\[|$)"
+}
+
 import_if_missing() {
   local address="$1"
   local import_id="$2"
@@ -58,6 +63,88 @@ import_if_missing() {
   echo "Importing existing ${label} into Terraform state: ${address}"
   terraform import "${tf_args[@]}" "${address}" "${import_id}"
 }
+
+move_transfer_family_module_if_needed() {
+  local old_prefix='module\.transfer_family'
+  local new_prefix='module\.sftp_server'
+
+  if state_has_prefix "${old_prefix}" && ! state_has_prefix "${new_prefix}"; then
+    echo "Moving Terraform state address: module.transfer_family -> module.sftp_server"
+    terraform state mv module.transfer_family module.sftp_server
+  fi
+}
+
+reconcile_sftp_server_if_needed() {
+  local enable_ec2_sftp_server
+  enable_ec2_sftp_server="$(tr '[:upper:]' '[:lower:]' <<< "$(get_tfvar_value "enable_ec2_sftp_server")")"
+
+  if [[ "${enable_ec2_sftp_server}" != "true" ]]; then
+    return 0
+  fi
+
+  local module_prefix='module\.sftp_server'
+  if state_has_prefix "${module_prefix}"; then
+    echo "SFTP module resources already tracked in state under module.sftp_server."
+    return 0
+  fi
+
+  local name_prefix="${PROJECT_NAME}-${ENVIRONMENT}"
+  local sg_name="${name_prefix}-sftp-ec2-sg"
+  local role_name="${name_prefix}-sftp-ec2"
+  local role_policy_name="${name_prefix}-sftp-ec2-s3"
+  local instance_name="${name_prefix}-sftp-ec2"
+  local eip_name="${name_prefix}-sftp-ec2-eip"
+
+  local vpc_id
+  vpc_id="$(terraform output -raw vpc_id 2>/dev/null || true)"
+
+  local sg_id=""
+  if [[ -n "${vpc_id}" ]]; then
+    sg_id="$(aws ec2 describe-security-groups \
+      --region "${AWS_REGION}" \
+      --filters "Name=group-name,Values=${sg_name}" "Name=vpc-id,Values=${vpc_id}" \
+      --query 'SecurityGroups[0].GroupId' \
+      --output text 2>/dev/null || true)"
+  fi
+  if [[ -n "${sg_id}" && "${sg_id}" != "None" ]]; then
+    import_if_missing "module.sftp_server.aws_security_group.sftp_ec2[0]" "${sg_id}" "SFTP security group ${sg_name}"
+  fi
+
+  if aws iam get-role --role-name "${role_name}" >/dev/null 2>&1; then
+    import_if_missing "module.sftp_server.aws_iam_role.sftp_ec2[0]" "${role_name}" "SFTP IAM role ${role_name}"
+  fi
+
+  if aws iam get-instance-profile --instance-profile-name "${role_name}" >/dev/null 2>&1; then
+    import_if_missing "module.sftp_server.aws_iam_instance_profile.sftp_ec2[0]" "${role_name}" "SFTP IAM instance profile ${role_name}"
+  fi
+
+  if aws iam get-role-policy --role-name "${role_name}" --policy-name "${role_policy_name}" >/dev/null 2>&1; then
+    import_if_missing "module.sftp_server.aws_iam_role_policy.sftp_ec2_s3[0]" "${role_name}:${role_policy_name}" "SFTP IAM inline policy ${role_policy_name}"
+  fi
+
+  local instance_id
+  instance_id="$(aws ec2 describe-instances \
+    --region "${AWS_REGION}" \
+    --filters "Name=tag:Name,Values=${instance_name}" "Name=instance-state-name,Values=pending,running,stopping,stopped" \
+    --query 'Reservations[0].Instances[0].InstanceId' \
+    --output text 2>/dev/null || true)"
+  if [[ -n "${instance_id}" && "${instance_id}" != "None" ]]; then
+    import_if_missing "module.sftp_server.aws_instance.sftp_ec2[0]" "${instance_id}" "SFTP EC2 instance ${instance_name}"
+  fi
+
+  local eip_alloc_id
+  eip_alloc_id="$(aws ec2 describe-addresses \
+    --region "${AWS_REGION}" \
+    --filters "Name=tag:Name,Values=${eip_name}" \
+    --query 'Addresses[0].AllocationId' \
+    --output text 2>/dev/null || true)"
+  if [[ -n "${eip_alloc_id}" && "${eip_alloc_id}" != "None" ]]; then
+    import_if_missing "module.sftp_server.aws_eip.sftp_ec2[0]" "${eip_alloc_id}" "SFTP Elastic IP ${eip_name}"
+  fi
+}
+
+move_transfer_family_module_if_needed
+reconcile_sftp_server_if_needed
 
 manage_route53_records="$(tr '[:upper:]' '[:lower:]' <<< "$(get_tfvar_value "manage_route53_records")")"
 route53_zone_id="$(get_tfvar_value "route53_hosted_zone_id")"
