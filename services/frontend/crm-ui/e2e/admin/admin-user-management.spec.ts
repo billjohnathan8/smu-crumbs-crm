@@ -96,7 +96,7 @@ test.describe("Admin User Management (Mocked)", () => {
     await page.getByTestId("password-input").fill("TempPass123!");
     await page.getByTestId("create-user-button").click();
 
-    await expect(page.getByText("User created successfully")).toBeVisible();
+    await expect(page.getByText("Agent created successfully")).toBeVisible();
 
     const payload = mockState.getCapturedCreatePayload();
     expect(payload).not.toBeNull();

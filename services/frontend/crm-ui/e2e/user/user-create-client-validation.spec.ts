@@ -63,7 +63,7 @@ test.describe("User Create Client - Validation (Flow 6)", () => {
       await page.fill('input[name="lastName"]', "Doe");
       await page.fill('input[name="dateOfBirth"]', dobForAge(25));
       await page.fill('input[name="emailAddress"]', "invalid-email");
-      await page.fill('input[name="phoneNumber"]', "+65 12345678");
+      await page.fill('input[name="phoneNumber"]', "+6512345678");
       await page.fill('input[name="address"]', "123 Test St");
       await page.fill('input[name="city"]', "Singapore");
       await page.fill('input[name="state"]', "Singapore");
@@ -141,7 +141,7 @@ test.describe("User Create Client - Validation (Flow 6)", () => {
 
     await test.step("Verify phone validation error", async () => {
       await expect(
-        page.getByText(/invalid phone format|min 8 digits/i),
+        page.getByText(/phone must start with \+ and contain 10-15 digits/i),
       ).toBeVisible();
     });
   });
@@ -444,7 +444,7 @@ test.describe("User Create Client - Validation (Flow 6)", () => {
 
     await test.step("Verify 422 validation error is shown", async () => {
       await expect(
-        page.getByText(/invalid data|check your inputs/i),
+        page.getByText(/please fix the highlighted fields|invalid data|check your inputs/i),
       ).toBeVisible({
         timeout: 5000,
       });

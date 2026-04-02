@@ -310,7 +310,7 @@ test.describe('API Error Handling (Flow 10)', () => {
       await page.fill('input[name="lastName"]', 'User')
       await page.fill('input[name="dateOfBirth"]', '1990-01-01')
       await page.fill('input[name="emailAddress"]', 'test@example.com')
-      await page.fill('input[name="phoneNumber"]', '+65 12345678')
+      await page.fill('input[name="phoneNumber"]', '+6512345678')
       await page.fill('input[name="address"]', '123 Test St')
       await page.fill('input[name="city"]', 'Singapore')
       await page.fill('input[name="state"]', 'Singapore')
@@ -321,7 +321,9 @@ test.describe('API Error Handling (Flow 10)', () => {
     })
 
     await test.step('Verify 422 error message is displayed', async () => {
-      await expect(page.locator('text=/Invalid data|validation|check your inputs/i')).toBeVisible({
+      await expect(
+        page.locator('text=/please fix the highlighted fields|invalid data|validation|check your inputs/i')
+      ).toBeVisible({
         timeout: 5000,
       })
     })

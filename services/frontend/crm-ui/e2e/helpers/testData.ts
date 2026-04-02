@@ -21,7 +21,7 @@ export function uniqueEmail(prefix = "test"): string {
  */
 export function uniquePhone(): string {
   const rand = Math.floor(Math.random() * 90000000) + 10000000;
-  return `+65 ${rand.toString().substring(0, 4)} ${rand.toString().substring(4)}`;
+  return `+65${rand.toString()}`;
 }
 
 /**
