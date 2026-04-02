@@ -49,6 +49,9 @@ rds_performance_insights_enabled = false
 # - verification dispatch + feedback path
 # - transaction ingestion scheduler path
 enable_log_lambda                 = true
+log_lambda_memory_size            = 1024
+log_db_connect_timeout_seconds    = 5
+log_run_migrations_on_start       = false
 enable_sftp_transaction_collector = true
 enable_transfer_family_sftp       = false
 enable_ec2_sftp_server            = true
