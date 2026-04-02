@@ -95,7 +95,7 @@ public class TransactionsController {
 		@RequestParam(required = false) @DateTimeFormat(iso = ISO.DATE) LocalDate toDate
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAnyRole(user, "user");
+		requireAnyRole(user, "user", "admin");
 		if (clientId != null && !clientId.isBlank() && !clientId.matches("^[A-Za-z0-9_-]{1,128}$")) {
 			throw new IllegalArgumentException("invalid clientId");
 		}
@@ -160,7 +160,7 @@ public class TransactionsController {
 	@Operation(summary = "Get transaction by id")
 	public TransactionDto getTransaction(HttpServletRequest request, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String transactionId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAnyRole(user, "user");
+		requireAnyRole(user, "user", "admin");
 
 		TransactionDto tx = transactionsService.get(transactionId);
 		String authHeader = request.getHeader("Authorization");
@@ -259,7 +259,7 @@ public class TransactionsController {
 		@RequestParam(defaultValue = "0") int offset
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAnyRole(user, "user");
+		requireAnyRole(user, "user", "admin");
 		String authHeader = request.getHeader("Authorization");
 		clientAccessValidator.requireClientAccessible(user, authHeader, clientId);
 
@@ -397,4 +397,3 @@ public class TransactionsController {
 		throw new ForbiddenException("forbidden");
 	}
 }
-
