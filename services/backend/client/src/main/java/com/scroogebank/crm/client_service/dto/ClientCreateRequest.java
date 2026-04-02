@@ -56,5 +56,37 @@ public record ClientCreateRequest(
 
 	@NotBlank
 	@Size(min = 4, max = 10)
-	String postalCode
-) {}
+	String postalCode,
+
+	@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$", message = "assignedUserId must be alphanumeric")
+	String assignedUserId
+) {
+	public ClientCreateRequest(
+		String firstName,
+		String lastName,
+		LocalDate dateOfBirth,
+		Gender gender,
+		String emailAddress,
+		String phoneNumber,
+		String address,
+		String city,
+		String state,
+		String country,
+		String postalCode
+	) {
+		this(
+			firstName,
+			lastName,
+			dateOfBirth,
+			gender,
+			emailAddress,
+			phoneNumber,
+			address,
+			city,
+			state,
+			country,
+			postalCode,
+			null
+		);
+	}
+}

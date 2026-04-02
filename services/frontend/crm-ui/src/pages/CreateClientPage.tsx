@@ -1,10 +1,11 @@
-import { useState, useCallback, type FormEvent } from 'react'
+import { useState, useEffect, useCallback, type FormEvent } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { useTheme } from '@/features/theme/useTheme'
 import { isRootAdminUser } from '@/features/auth/authorization'
 import { createClient } from '@/api/clients'
-import type { ClientCreateRequest, Gender } from '@/api/types'
+import { listUsers } from '@/api/users'
+import type { ClientCreateRequest, Gender, User } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 
@@ -60,15 +61,54 @@ export function CreateClientPage() {
   const [errors, setErrors] = useState<Partial<Record<keyof ClientCreateRequest, string>>>({})
   const [generalError, setGeneralError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [assignableAgents, setAssignableAgents] = useState<User[]>([])
+
+  useEffect(() => {
+    const loadAgents = async () => {
+      if (!canViewAllClients) {
+        return
+      }
+      try {
+        const response = await listUsers({ role: 'user', limit: 200, offset: 0 })
+        setAssignableAgents(response.data.filter(agent => agent.status === 'active'))
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          logout()
+          return
+        }
+        setGeneralError('Unable to load assignable agents')
+      }
+    }
+
+    loadAgents()
+  }, [canViewAllClients, logout])
 
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof ClientCreateRequest, string>> = {}
+    const firstName = formData.firstName.trim()
+    const lastName = formData.lastName.trim()
+    const email = formData.emailAddress.trim()
+    const phone = formData.phoneNumber.trim()
+    const address = formData.address.trim()
+    const city = formData.city.trim()
+    const state = formData.state.trim()
+    const country = formData.country.trim()
+    const postalCode = formData.postalCode.trim()
+    const lettersAndSpaces = /^[A-Za-z ]+$/
 
-    if (!formData.firstName.trim()) {
+    if (!firstName) {
       newErrors.firstName = 'First name is required'
+    } else if (firstName.length < 2 || firstName.length > 50) {
+      newErrors.firstName = 'First name must be 2-50 letters'
+    } else if (!lettersAndSpaces.test(firstName)) {
+      newErrors.firstName = 'First name can only contain letters and spaces'
     }
-    if (!formData.lastName.trim()) {
+    if (!lastName) {
       newErrors.lastName = 'Last name is required'
+    } else if (lastName.length < 2 || lastName.length > 50) {
+      newErrors.lastName = 'Last name must be 2-50 letters'
+    } else if (!lettersAndSpaces.test(lastName)) {
+      newErrors.lastName = 'Last name can only contain letters and spaces'
     }
 
     if (!formData.dateOfBirth) {
@@ -88,32 +128,42 @@ export function CreateClientPage() {
       }
     }
 
-    if (!formData.emailAddress.trim()) {
+    if (!email) {
       newErrors.emailAddress = 'Email is required'
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.emailAddress)) {
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       newErrors.emailAddress = 'Invalid email format'
     }
 
-    if (!formData.phoneNumber.trim()) {
+    if (!phone) {
       newErrors.phoneNumber = 'Phone number is required'
-    } else if (!/^[+]?[\d\s()-]{8,}$/.test(formData.phoneNumber)) {
-      newErrors.phoneNumber = 'Invalid phone format (min 8 digits)'
+    } else if (!/^\+\d{10,15}$/.test(phone)) {
+      newErrors.phoneNumber = 'Phone must start with + and contain 10-15 digits (e.g. +6588888888)'
     }
 
-    if (!formData.address.trim()) {
+    if (!address) {
       newErrors.address = 'Address is required'
+    } else if (address.length < 5 || address.length > 100) {
+      newErrors.address = 'Address must be 5-100 characters'
     }
-    if (!formData.city.trim()) {
+    if (!city) {
       newErrors.city = 'City is required'
+    } else if (city.length < 2 || city.length > 50) {
+      newErrors.city = 'City must be 2-50 characters'
     }
-    if (!formData.state.trim()) {
+    if (!state) {
       newErrors.state = 'State is required'
+    } else if (state.length < 2 || state.length > 50) {
+      newErrors.state = 'State must be 2-50 characters'
     }
-    if (!formData.country.trim()) {
+    if (!country) {
       newErrors.country = 'Country is required'
+    } else if (country.length < 2 || country.length > 50) {
+      newErrors.country = 'Country must be 2-50 characters'
     }
-    if (!formData.postalCode.trim()) {
+    if (!postalCode) {
       newErrors.postalCode = 'Postal code is required'
+    } else if (postalCode.length < 4 || postalCode.length > 10) {
+      newErrors.postalCode = 'Postal code must be 4-10 characters'
     }
 
     setErrors(newErrors)
@@ -129,7 +179,11 @@ export function CreateClientPage() {
     setIsSubmitting(true)
 
     try {
-      const client = await createClient(formData)
+      const payload: ClientCreateRequest = {
+        ...formData,
+        assignedUserId: formData.assignedUserId?.trim() || undefined,
+      }
+      const client = await createClient(payload)
       navigate(homePath, {
         replace: true,
         state: {
@@ -141,9 +195,11 @@ export function CreateClientPage() {
         if (err.status === 401) {
           logout()
         } else if (err.status === 409) {
-          setGeneralError('A client with this email already exists')
-        } else if (err.status === 422) {
-          setGeneralError('Invalid data provided. Please check your inputs.')
+          setGeneralError(err.message || 'A client with this email or phone number already exists')
+        } else if (err.status === 400 || err.status === 422) {
+          setGeneralError(
+            'Please fix the highlighted fields: first/last name (2-50 letters), phone (+10-15 digits), and address fields (required lengths).'
+          )
         } else {
           setGeneralError(err.message || 'Failed to create client')
         }
@@ -194,6 +250,13 @@ export function CreateClientPage() {
 
       <main className="max-w-4xl mx-auto mt-4">
         <div className="bg-card  rounded-lg p-6">
+          <div className="mb-6 rounded-lg border border-border bg-background-light p-4">
+            <p className="text-sm text-text">
+              New clients are assigned to your user account by default. Verification status becomes
+              <span className="font-medium"> pending </span>
+              only after the client submits documents from the verification link email.
+            </p>
+          </div>
           {generalError && (
             <div className="bg-danger/10 border border-danger rounded-lg p-4 mb-6">
               <p className="text-danger text-sm">{generalError}</p>
@@ -202,6 +265,25 @@ export function CreateClientPage() {
 
           <form onSubmit={handleSubmit} noValidate className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {canViewAllClients && (
+                <div>
+                  <label className="block text-sm font-normal text-text mb-2">Assigned Agent</label>
+                  <select
+                    name="assignedUserId"
+                    value={formData.assignedUserId ?? ''}
+                    onChange={e => updateField('assignedUserId', e.target.value)}
+                    className={inputCls('assignedUserId')}
+                    disabled={isSubmitting}
+                  >
+                    <option value="">Assign to me (default)</option>
+                    {assignableAgents.map(agent => (
+                      <option key={agent.id} value={agent.id}>
+                        {agent.firstName} {agent.lastName} ({agent.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-normal text-text mb-2">
                   First Name <span className="text-danger">*</span>

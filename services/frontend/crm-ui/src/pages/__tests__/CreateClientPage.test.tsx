@@ -49,7 +49,7 @@ describe('CreateClientPage', () => {
     await user.type(inputs[0], 'John') // First Name
     await user.type(inputs[1], 'Doe') // Last Name
     await user.type(inputs[2], 'john@example.com') // Email
-    await user.type(inputs[3], '+65 1234 5678') // Phone
+    await user.type(inputs[3], '+6588888888') // Phone
     await user.type(inputs[4], '123 Main St') // Address
     await user.type(inputs[5], 'Singapore') // City
     await user.type(inputs[6], 'Central') // State
@@ -188,7 +188,9 @@ describe('CreateClientPage', () => {
     await user.click(submitButton)
 
     await waitFor(() => {
-      expect(screen.getByText('Invalid phone format (min 8 digits)')).toBeInTheDocument()
+      expect(
+        screen.getByText('Phone must start with + and contain 10-15 digits (e.g. +6588888888)')
+      ).toBeInTheDocument()
     })
   })
 
@@ -291,7 +293,7 @@ describe('CreateClientPage', () => {
 
   it('should display API error for duplicate email (409)', async () => {
     const user = userEvent.setup()
-    const apiError = new ApiError(409, 'conflict', 'Client already exists')
+    const apiError = new ApiError(409, 'conflict', 'Email address already exists.')
 
     vi.spyOn(clientsApi, 'createClient').mockRejectedValue(apiError)
 
@@ -302,7 +304,7 @@ describe('CreateClientPage', () => {
     await user.click(submitButton)
 
     await waitFor(() => {
-      expect(screen.getByText('A client with this email already exists')).toBeInTheDocument()
+      expect(screen.getByText('Email address already exists.')).toBeInTheDocument()
     })
   })
 
@@ -320,7 +322,9 @@ describe('CreateClientPage', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('Invalid data provided. Please check your inputs.')
+        screen.getByText(
+          'Please fix the highlighted fields: first/last name (2-50 letters), phone (+10-15 digits), and address fields (required lengths).'
+        )
       ).toBeInTheDocument()
     })
   })

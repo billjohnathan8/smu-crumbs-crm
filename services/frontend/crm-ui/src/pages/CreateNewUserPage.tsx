@@ -28,6 +28,12 @@ const adminNav: NavItem[] = [
   { label: 'Settings', to: '/admin/settings' },
 ]
 
+const roleLabel = (role: UserRole) => {
+  if (role === 'admin') return 'Admin'
+  if (role === 'super_admin') return 'Root Admin'
+  return 'Agent'
+}
+
 export function CreateNewUserPage() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
@@ -105,7 +111,7 @@ export function CreateNewUserPage() {
     try {
       await createUser(formData)
 
-      setSuccessMessage(`${formData.role === 'admin' ? 'Admin' : 'User'} created successfully`)
+      setSuccessMessage(`${roleLabel(formData.role)} created successfully`)
 
       setFormData({
         firstName: '',
@@ -248,7 +254,7 @@ export function CreateNewUserPage() {
               >
                 {allowedRoles.map(role => (
                   <option key={role} value={role}>
-                    {role === 'admin' ? 'Admin' : 'User'}
+                    {roleLabel(role)}
                   </option>
                 ))}
               </select>

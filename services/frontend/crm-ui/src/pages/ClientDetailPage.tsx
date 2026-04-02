@@ -4,6 +4,7 @@ import { useAuth } from '@/features/auth/AuthContext'
 import { getClientById, reviewVerification, deleteClient, listClientAccounts } from '@/api/clients'
 import { listClientTransactions } from '@/api/transactions'
 import { listClientCommunications, sendCommunication } from '@/api/communications'
+import { getUserById } from '@/api/users'
 import type { Client, Transaction, Account, Communication, ReviewAction } from '@/api/types'
 import type { SendCommunicationRequest } from '@/api/communications'
 import { ApiError } from '@/api/client'
@@ -69,6 +70,7 @@ export function ClientDetailPage() {
   const clientsListPath = `${basePath}/clients`
 
   const [client, setClient] = useState<Client | null>(null)
+  const [agentName, setAgentName] = useState<string>('')
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
   const [communications, setCommunications] = useState<Communication[]>([])
@@ -118,6 +120,12 @@ export function ClientDetailPage() {
       setTransactions(txResponse.data)
       setAccounts(accountsData)
       setCommunications(commsResponse.data)
+
+      if (clientData.assignedUserId) {
+        getUserById(clientData.assignedUserId)
+          .then(u => setAgentName(`${u.firstName} ${u.lastName}`))
+          .catch(() => setAgentName(''))
+      }
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
@@ -325,6 +333,7 @@ export function ClientDetailPage() {
           onDelete={canDeleteClient ? () => setShowDeleteConfirm(true) : undefined}
           showVerifyButton={false}
           showVerifyForm={false}
+          agentName={agentName}
         />
 
         {canReviewVerification && client.identityVerificationStatus === 'pending' && (

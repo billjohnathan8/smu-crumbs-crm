@@ -93,10 +93,14 @@ export async function apiRequest<T>(endpoint: string, options: RequestOptions = 
         }
       }
 
+      const friendlyMessage = errorData.error === 'conflict' && errorData.message
+        ? errorData.message
+        : getUserFriendlyErrorMessage(errorData.error)
+
       throw new ApiError(
         response.status,
         errorData.error,
-        getUserFriendlyErrorMessage(errorData.error),
+        friendlyMessage,
         errorData.requestId
       )
     }

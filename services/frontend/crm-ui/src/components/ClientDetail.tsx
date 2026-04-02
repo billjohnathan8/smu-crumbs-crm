@@ -8,6 +8,7 @@ type ClientDetailProps = {
   onToggleVerify?: () => void
   showVerifyButton: boolean
   showVerifyForm: boolean
+  agentName?: string
 }
 
 export function ClientDetail({
@@ -18,6 +19,7 @@ export function ClientDetail({
   onToggleVerify,
   showVerifyButton,
   showVerifyForm,
+  agentName,
 }: ClientDetailProps) {
   return (
     <div className="bg-card  rounded-lg p-6">
@@ -55,6 +57,7 @@ export function ClientDetail({
           ['Gender', client.gender],
           ['Email', client.emailAddress],
           ['Phone', client.phoneNumber],
+          ['Assigned Agent', agentName || client.assignedUserId || '-'],
           ['Address', client.address],
           ['City', client.city],
           ['State', client.state],

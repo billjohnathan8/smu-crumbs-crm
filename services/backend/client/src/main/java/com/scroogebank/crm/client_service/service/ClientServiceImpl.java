@@ -147,7 +147,12 @@ public class ClientServiceImpl implements ClientService {
 		// create and save to db		
 		ClientEntity entity = new ClientEntity();
 		applyCreate(entity, request);
-		entity.setAssignedAgentId(user.userId());
+		String requestedAgentId = request.assignedUserId() == null ? null : request.assignedUserId().trim();
+		String assignedAgentId = user.userId();
+		if (user.isAdmin() && requestedAgentId != null && !requestedAgentId.isBlank()) {
+			assignedAgentId = requestedAgentId;
+		}
+		entity.setAssignedAgentId(assignedAgentId);
 		ClientEntity saved = clientRepository.save(entity);
 		String apiClientId = clientId(saved.getId());
 		
