@@ -248,6 +248,61 @@ jobs:
             drain_bucket "${bucket_name}"
           done
 
+      - name: Drain Terraform-managed ECR repositories
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          drain_repo() {
+            local repo_name="$1"
+            if [[ -z "${repo_name}" ]]; then
+              return 0
+            fi
+
+            echo "Draining ECR repository: ${repo_name}"
+
+            for _ in {1..20}; do
+              aws ecr list-images \
+                --repository-name "${repo_name}" \
+                --region "${AWS_REGION}" \
+                --query 'imageIds[:100]' \
+                --output json > delete-images.json
+
+              local image_count
+              image_count="$(jq 'length' delete-images.json)"
+              if [[ "${image_count}" == "0" ]]; then
+                break
+              fi
+
+              aws ecr batch-delete-image \
+                --repository-name "${repo_name}" \
+                --region "${AWS_REGION}" \
+                --image-ids file://delete-images.json >/dev/null || true
+            done
+
+            rm -f delete-images.json
+            echo "ECR drain complete: ${repo_name}"
+          }
+
+          mapfile -t ECR_REPO_ADDRS < <(terraform state list | grep -E '^module\.ecr\.aws_ecr_repository\.service\[' || true)
+          if [[ "${#ECR_REPO_ADDRS[@]}" -eq 0 ]]; then
+            echo "No Terraform-managed ECR repositories found in state."
+            exit 0
+          fi
+
+          declare -A UNIQUE_REPOS=()
+          for addr in "${ECR_REPO_ADDRS[@]}"; do
+            repo_name="$(terraform state show "${addr}" | awk -F= '/^[[:space:]]*name[[:space:]]*=/{gsub(/["[:space:]]/, "", $2); print $2; exit}')"
+            if [[ -n "${repo_name}" ]]; then
+              UNIQUE_REPOS["${repo_name}"]=1
+            fi
+          done
+
+          for repo_name in "${!UNIQUE_REPOS[@]}"; do
+            drain_repo "${repo_name}"
+          done
+
       - name: Terraform destroy plan
         working-directory: ${{ env.TF_DIR }}
         shell: bash

@@ -37,7 +37,11 @@ if [[ "${#STATE_ADDRESSES[@]}" -gt 0 ]]; then
   done
 fi
 
-TF_ARGS=("destroy" "-auto-approve" "-var-file=env/${ENVIRONMENT}.tfvars")
+TF_ARGS=(
+  "destroy"
+  "-auto-approve"
+  "-var-file=env/${ENVIRONMENT}.tfvars"
+)
 
 if [[ -f "runtime.auto.tfvars" ]]; then
   TF_ARGS+=("-var-file=runtime.auto.tfvars")
