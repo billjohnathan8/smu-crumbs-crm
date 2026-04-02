@@ -63,7 +63,7 @@ resource "aws_ecs_service" "service" {
   # desired_count already reflects module HA baseline rules from local.service_configs.
   desired_count                      = each.value.desired_count
   task_definition                    = aws_ecs_task_definition.service[each.key].arn
-  health_check_grace_period_seconds  = 60
+  health_check_grace_period_seconds  = 180
   deployment_minimum_healthy_percent = var.use_codedeploy_controller ? null : 50
   deployment_maximum_percent         = var.use_codedeploy_controller ? null : 200
 
