@@ -84,6 +84,10 @@ locals {
           value = "postgres"
         },
         {
+          name  = "USER_LOG_SERVICE_URL"
+          value = var.log_api_base_url
+        },
+        {
           name  = "AUTH_MODE"
           value = var.auth_mode
         },
