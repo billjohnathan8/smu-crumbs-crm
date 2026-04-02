@@ -55,6 +55,10 @@ services:
       JWT_HMAC_SECRET: dev-only-insecure-secret
       ROOT_ADMIN_EMAIL: ${E2E_ADMIN_EMAIL:-admin@crm.com}
       ROOT_ADMIN_PASSWORD: ${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}
+      AWS_REGION: ap-southeast-1
+      AWS_COGNITO_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
     depends_on:
       postgres:
         condition: service_healthy
