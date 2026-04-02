@@ -156,10 +156,12 @@ resource "aws_instance" "sftp_ec2" {
 
   user_data = templatefile("${path.module}/user_data.sh.tftpl", {
     aws_region          = var.aws_region
-    bucket_spec         = local.normalized_prefix == "" ? var.transaction_bucket_id : "${var.transaction_bucket_id}:${local.normalized_prefix}"
+    bucket_name         = var.transaction_bucket_id
+    bucket_prefix       = local.normalized_prefix == "" ? "" : "${local.normalized_prefix}/"
     sftp_username       = var.sftp_username
     sftp_ssh_public_key = trimspace(var.sftp_user_ssh_public_key)
   })
+  user_data_replace_on_change = true
 
   root_block_device {
     volume_type           = "gp3"

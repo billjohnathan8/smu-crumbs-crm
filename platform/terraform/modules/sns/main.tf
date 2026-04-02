@@ -4,6 +4,8 @@
 # Supports fan-out patterns and multi-subscriber notifications
 #--------------------------------------------------------------
 
+data "aws_caller_identity" "current" {}
+
 # Verification & Notification Topic
 # Publishes verification events and notifications to subscribed endpoints
 # Can be configured with email subscriptions for alerts
@@ -43,6 +45,72 @@ resource "aws_sns_topic" "alarm_notifications" {
     Service     = "observability"
     ManagedBy   = "terraform"
   }
+}
+
+data "aws_iam_policy_document" "alarm_topic_policy" {
+  count = var.enable_alarm_topic ? 1 : 0
+
+  statement {
+    sid    = "DefaultOwnerAccess"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = ["*"]
+    }
+
+    actions = [
+      "SNS:GetTopicAttributes",
+      "SNS:SetTopicAttributes",
+      "SNS:AddPermission",
+      "SNS:RemovePermission",
+      "SNS:DeleteTopic",
+      "SNS:Subscribe",
+      "SNS:ListSubscriptionsByTopic",
+      "SNS:Publish",
+    ]
+
+    resources = [aws_sns_topic.alarm_notifications[0].arn]
+
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceOwner"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+  }
+
+  statement {
+    sid    = "AllowCloudWatchAlarmPublish"
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["cloudwatch.amazonaws.com"]
+    }
+
+    actions   = ["SNS:Publish"]
+    resources = [aws_sns_topic.alarm_notifications[0].arn]
+  }
+
+  statement {
+    sid    = "AllowEventBridgePublish"
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["events.amazonaws.com"]
+    }
+
+    actions   = ["SNS:Publish"]
+    resources = [aws_sns_topic.alarm_notifications[0].arn]
+  }
+}
+
+resource "aws_sns_topic_policy" "alarm_notifications" {
+  count = var.enable_alarm_topic ? 1 : 0
+
+  arn    = aws_sns_topic.alarm_notifications[0].arn
+  policy = data.aws_iam_policy_document.alarm_topic_policy[0].json
 }
 
 # SNS Email subscription for CloudWatch alarm notifications.
