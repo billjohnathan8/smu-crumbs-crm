@@ -80,12 +80,12 @@ import_if_missing() {
   return "${import_rc}"
 }
 
-move_transfer_family_module_if_needed() {
+move_legacy_sftp_module_address_if_needed() {
   local old_prefix='module\.transfer_family'
   local new_prefix='module\.sftp_server'
 
   if state_has_prefix "${old_prefix}" && ! state_has_prefix "${new_prefix}"; then
-    echo "Moving Terraform state address: module.transfer_family -> module.sftp_server"
+    echo "Moving Terraform state address: legacy module.transfer_family -> module.sftp_server"
     terraform state mv module.transfer_family module.sftp_server
   fi
 }
@@ -159,7 +159,7 @@ reconcile_sftp_server_if_needed() {
   fi
 }
 
-move_transfer_family_module_if_needed
+move_legacy_sftp_module_address_if_needed
 reconcile_sftp_server_if_needed
 
 manage_route53_records="$(tr '[:upper:]' '[:lower:]' <<< "$(get_tfvar_value "manage_route53_records")")"

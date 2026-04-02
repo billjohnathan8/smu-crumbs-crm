@@ -1,6 +1,6 @@
-# SFTP Ingestion Module
+# SFTP Server Module
 
-This module supports EC2-hosted OpenSSH SFTP only not AWS Transfer Family.
+This module provisions an EC2-hosted OpenSSH SFTP server for transaction ingestion.
 
 Current ingestion contract:
 

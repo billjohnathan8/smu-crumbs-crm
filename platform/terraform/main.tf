@@ -368,7 +368,7 @@ module "s3" {
 # Self-hosted EC2 SFTP server for external transaction file ingestion
 #--------------------------------------------------------------
 module "sftp_server" {
-  source = "./modules/transfer-family"
+  source = "./modules/sftp-server"
 
   enable_ec2_sftp_server    = var.enable_ec2_sftp_server
   name_prefix               = local.name_prefix

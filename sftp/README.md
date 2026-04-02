@@ -148,5 +148,5 @@ Files uploaded via SFTP land in the same S3 bucket (`incoming/` prefix) where th
 
 ### Documentation
 
-- Setup guide: [docs/infrastructure/transfer-family-setup.md](../docs/infrastructure/transfer-family-setup.md)
+- Setup guide: [docs/infrastructure/sftp-setup.md](../docs/infrastructure/sftp-setup.md)
 - Ingestion contract: [docs/api-contracts/sftp-transaction-ingestion-contract.md](../docs/api-contracts/sftp-transaction-ingestion-contract.md)
