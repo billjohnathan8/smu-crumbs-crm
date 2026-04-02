@@ -1,0 +1,138 @@
+name: CD - Terraform State Reconcile
+# One-time/manual Terraform state reconciliation for already-existing AWS resources.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        default: prod
+        type: choice
+        options:
+          - prod
+      reconcile_sg_rules:
+        description: Import existing ALB/ECS/Lambda security group rules into Terraform state
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: cd-tf-state-reconcile-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    name: Bootstrap Terraform backend
+    uses: ./.github/workflows/cd-tf-bootstrap.yml
+    secrets: inherit
+
+  reconcile:
+    name: Reconcile Terraform state (${{ inputs.environment }})
+    needs:
+      - bootstrap
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      TF_IN_AUTOMATION: "1"
+      TF_INPUT: "0"
+      TF_DIR: platform/terraform
+      DEPLOY_ENV: ${{ inputs.environment }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_LOCK_DYNAMODB: ${{ vars.TF_LOCK_DYNAMODB }}
+      APP_DOMAIN_NAME: ${{ vars.TF_APP_DOMAIN_NAME }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Validate required GitHub configuration
+        env:
+          AWS_ACCESS_KEY_ID_SECRET: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY_SECRET: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          TF_ROOT_ADMIN_PASSWORD_SECRET: ${{ secrets.TF_ROOT_ADMIN_PASSWORD }}
+          TF_JWT_HMAC_SECRET_SECRET: ${{ secrets.TF_JWT_HMAC_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -n "${AWS_REGION}" || { echo "Missing required GitHub Actions variable: AWS_REGION"; exit 1; }
+          test -n "${TF_STATE_BUCKET}" || { echo "Missing required GitHub Actions variable: TF_STATE_BUCKET"; exit 1; }
+          test -n "${TF_LOCK_DYNAMODB}" || { echo "Missing required GitHub Actions variable: TF_LOCK_DYNAMODB"; exit 1; }
+          test -n "${AWS_ACCESS_KEY_ID_SECRET:-}" || { echo "Missing required secret: AWS_ACCESS_KEY_ID"; exit 1; }
+          test -n "${AWS_SECRET_ACCESS_KEY_SECRET:-}" || { echo "Missing required secret: AWS_SECRET_ACCESS_KEY"; exit 1; }
+          test -n "${TF_ROOT_ADMIN_PASSWORD_SECRET:-}" || { echo "Missing required secret: TF_ROOT_ADMIN_PASSWORD"; exit 1; }
+          test -n "${TF_JWT_HMAC_SECRET_SECRET:-}" || { echo "Missing required secret: TF_JWT_HMAC_SECRET"; exit 1; }
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Create runtime Terraform override file
+        working-directory: ${{ env.TF_DIR }}
+        env:
+          ROOT_ADMIN_PASSWORD: ${{ secrets.TF_ROOT_ADMIN_PASSWORD }}
+          JWT_HMAC_SECRET: ${{ secrets.TF_JWT_HMAC_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "::add-mask::${ROOT_ADMIN_PASSWORD}"
+          echo "::add-mask::${JWT_HMAC_SECRET}"
+
+          {
+            echo "root_admin_password = $(jq -Rn --arg v "$ROOT_ADMIN_PASSWORD" '$v')"
+            echo "jwt_hmac_secret = $(jq -Rn --arg v "$JWT_HMAC_SECRET" '$v')"
+            if [[ -n "${APP_DOMAIN_NAME}" ]]; then
+              echo "app_domain_name = $(jq -Rn --arg v "$APP_DOMAIN_NAME" '$v')"
+            fi
+          } > runtime.auto.tfvars
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.10"
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: terraform init -input=false -reconfigure -backend-config="env/${DEPLOY_ENV}.backend.hcl"
+
+      - name: Reconcile security group rules into state
+        if: ${{ inputs.reconcile_sg_rules }}
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: bash scripts/reconcile-security-group-rules.sh "${DEPLOY_ENV}"
+
+      - name: Terraform validate
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: terraform validate -no-color
+
+      - name: Publish reconcile summary
+        shell: bash
+        run: |
+          {
+            echo "## Terraform State Reconcile Summary"
+            echo
+            echo "- Environment: ${{ env.DEPLOY_ENV }}"
+            echo "- Reconcile SG rules: ${{ inputs.reconcile_sg_rules }}"
+            echo "- AWS region: ${{ env.AWS_REGION }}"
+            echo
+            echo "Next: run CD - Terraform Infra Plan (reconcile_existing_resources=false), then CD - Terraform Infra Apply & Deploy."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Cleanup Terraform working files
+        if: ${{ always() }}
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: rm -f runtime.auto.tfvars
