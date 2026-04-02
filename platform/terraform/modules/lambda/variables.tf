@@ -43,6 +43,18 @@ variable "log_lambda_timeout_seconds" {
   type        = number
 }
 
+variable "log_db_connect_timeout_seconds" {
+  description = "DB connect timeout in seconds for log Lambda."
+  type        = number
+  default     = 5
+}
+
+variable "log_run_migrations_on_start" {
+  description = "Whether log Lambda should run DB migrations during cold start."
+  type        = bool
+  default     = true
+}
+
 variable "private_subnet_ids" {
   description = "Private subnet IDs for Lambda VPC config."
   type        = list(string)

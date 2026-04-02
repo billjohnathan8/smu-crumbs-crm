@@ -353,6 +353,18 @@ variable "log_lambda_timeout_seconds" {
   default     = 30
 }
 
+variable "log_db_connect_timeout_seconds" {
+  description = "Database connection timeout (seconds) used by log Lambda."
+  type        = number
+  default     = 5
+}
+
+variable "log_run_migrations_on_start" {
+  description = "Whether log Lambda should run migrations during cold start."
+  type        = bool
+  default     = true
+}
+
 #--------------------------------------------------------------
 # AML / SFTP Ingestion Configuration
 #--------------------------------------------------------------
@@ -824,6 +836,15 @@ variable "auth_mode" {
   validation {
     condition     = contains(["local", "hybrid", "cognito"], lower(trimspace(var.auth_mode)))
     error_message = "auth_mode must be one of: local, hybrid, cognito."
+  }
+
+  validation {
+    condition = !(
+      contains(["prod", "production", "integration"], lower(trimspace(var.environment))) &&
+      var.enable_cognito &&
+      lower(trimspace(var.auth_mode)) == "local"
+    )
+    error_message = "auth_mode=local is not allowed when Cognito is enabled in production-like environments."
   }
 }
 

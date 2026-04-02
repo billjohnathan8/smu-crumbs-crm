@@ -178,6 +178,8 @@ module "lambda" {
   log_lambda_zip_path                            = var.log_lambda_zip_path
   log_lambda_memory_size                         = var.log_lambda_memory_size
   log_lambda_timeout_seconds                     = var.log_lambda_timeout_seconds
+  log_db_connect_timeout_seconds                 = var.log_db_connect_timeout_seconds
+  log_run_migrations_on_start                    = var.log_run_migrations_on_start
   private_subnet_ids                             = module.network.private_subnet_ids
   lambda_security_group_id                       = module.security.lambda_security_group_id
   log_lambda_role_arn                            = module.security.log_lambda_role_arn

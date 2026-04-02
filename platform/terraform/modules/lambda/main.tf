@@ -37,6 +37,8 @@ resource "aws_lambda_function" "log" {
       DB_USER_SECRET_ARN     = var.db_username_secret_arn
       DB_PASSWORD_SECRET_ARN = var.db_password_secret_arn
       JWT_HMAC_SECRET_ARN    = var.jwt_hmac_secret_arn
+      DB_CONNECT_TIMEOUT_SECONDS = tostring(var.log_db_connect_timeout_seconds)
+      RUN_MIGRATIONS_ON_START    = var.log_run_migrations_on_start ? "true" : "false"
       AUTH_MODE              = var.auth_mode
       COGNITO_ISSUER         = var.cognito_issuer_url
       COGNITO_JWKS_URL       = var.cognito_jwks_url
