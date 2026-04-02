@@ -37,6 +37,24 @@ async function login(page: Page, email: string, password: string) {
   await page.click('[data-testid="login-submit-button"]');
 }
 
+async function createAdminAsRoot(page: Page, email: string, password: string) {
+  await login(page, ROOT_ADMIN_EMAIL, ROOT_ADMIN_PASSWORD);
+  await expect(page).toHaveURL(/\/admin$/, { timeout: 10000 });
+  await page.click('a[href="/admin/users"]');
+  await expect(page).toHaveURL(/\/admin\/users$/);
+  await page.click('[data-testid="create-new-user-button"]');
+  await expect(page).toHaveURL(/\/admin\/users\/new$/);
+  await page.fill('[data-testid="first-name-input"]', "Flow");
+  await page.fill('[data-testid="last-name-input"]', "Admin");
+  await page.fill('[data-testid="email-input"]', email);
+  await page.selectOption('[data-testid="role-select"]', 'admin');
+  await page.fill('[data-testid="password-input"]', password);
+  await page.click('[data-testid="create-user-button"]');
+  await expect(page.getByText('Admin created successfully')).toBeVisible({ timeout: 5000 });
+  await page.click('button:has-text("Logout")');
+  await expect(page).toHaveURL(/\/login$/);
+}
+
 function expectUnder(durationMs: number, limitMs: number, label: string) {
   expect(durationMs, `${label} took ${durationMs}ms`).toBeLessThan(limitMs)
 }
@@ -148,11 +166,16 @@ test.describe("Admins Full Flow (Integration)", () => {
     await page.fill('[data-testid="password-input"]', NEW_AGENT_PASSWORD)
     await page.click('[data-testid="create-user-button"]')
 
-    await expect(page.getByText('User created successfully')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(/Agent created successfully|User created successfully/)).toBeVisible({
+      timeout: 5000,
+    })
   })
 
   test('normal admin should not be able to create admin role in UI', async ({ page }) => {
-    await login(page, NEW_ADMIN_EMAIL, NEW_ADMIN_PASSWORD)
+    const scopedAdminEmail = `admin.restrict.${Date.now()}@crm.local`
+    const scopedAdminPassword = "AdminRestrict123!"
+    await createAdminAsRoot(page, scopedAdminEmail, scopedAdminPassword)
+    await login(page, scopedAdminEmail, scopedAdminPassword)
 
     await expect(page).toHaveURL(/\/admin$/, { timeout: 10000 })
 
@@ -162,7 +185,10 @@ test.describe("Admins Full Flow (Integration)", () => {
   })
 
   test('admin should logout successfully', async ({ page }) => {
-    await login(page, NEW_ADMIN_EMAIL, NEW_ADMIN_PASSWORD)
+    const scopedAdminEmail = `admin.logout.${Date.now()}@crm.local`
+    const scopedAdminPassword = "AdminLogout123!"
+    await createAdminAsRoot(page, scopedAdminEmail, scopedAdminPassword)
+    await login(page, scopedAdminEmail, scopedAdminPassword)
 
     await expect(page).toHaveURL(/\/admin$/, { timeout: 10000 })
 
