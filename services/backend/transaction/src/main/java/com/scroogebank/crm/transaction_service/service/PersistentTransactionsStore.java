@@ -12,6 +12,7 @@ import com.scroogebank.crm.transaction_service.entity.TransactionImportBatchEnti
 import com.scroogebank.crm.transaction_service.entity.TransactionRecordEntity;
 import com.scroogebank.crm.transaction_service.exception.ImportBatchNotFoundException;
 import com.scroogebank.crm.transaction_service.exception.TransactionNotFoundException;
+import com.scroogebank.crm.transaction_service.config.AppProperties;
 import com.scroogebank.crm.transaction_service.repository.TransactionImportBatchRepository;
 import com.scroogebank.crm.transaction_service.repository.TransactionRecordRepository;
 import com.scroogebank.crm.transaction_service.service.imports.TransactionFileSource;
@@ -49,19 +50,22 @@ public class PersistentTransactionsStore implements TransactionsStore {
 	private final TransactionCsvParser csvParser;
 	private final TransactionRecordRepository transactionRepository;
 	private final TransactionImportBatchRepository batchRepository;
+	private final AppProperties appProperties;
 
 	public PersistentTransactionsStore(
 		Clock clock,
 		TransactionFileSource fileSource,
 		TransactionCsvParser csvParser,
 		TransactionRecordRepository transactionRepository,
-		TransactionImportBatchRepository batchRepository
+		TransactionImportBatchRepository batchRepository,
+		AppProperties appProperties
 	) {
 		this.clock = clock;
 		this.fileSource = fileSource;
 		this.csvParser = csvParser;
 		this.transactionRepository = transactionRepository;
 		this.batchRepository = batchRepository;
+		this.appProperties = appProperties;
 	}
 
 	@Transactional
@@ -173,7 +177,7 @@ public class PersistentTransactionsStore implements TransactionsStore {
 	@Override
 	public ImportBatchDto importTransactions(ImportTransactionsRequest request) {
 		String requestedClientId = request == null ? null : request.clientId();
-		String sourcePath = request == null ? DEFAULT_SOURCE_PATH : normalizeSourcePath(request.sourcePath());
+		String sourcePath = resolveImportSourcePath(request == null ? null : request.sourcePath());
 
 		Instant requestedAt = clock.instant();
 		TransactionImportBatchEntity batch = new TransactionImportBatchEntity();
@@ -239,11 +243,26 @@ public class PersistentTransactionsStore implements TransactionsStore {
 		return toDto(batch);
 	}
 
-	private static String normalizeSourcePath(String sourcePath) {
-		if (sourcePath == null || sourcePath.isBlank()) {
-			return DEFAULT_SOURCE_PATH;
+	private String resolveImportSourcePath(String sourcePath) {
+		if (sourcePath != null && !sourcePath.isBlank()) {
+			return sourcePath.trim();
 		}
-		return sourcePath.trim();
+
+		String remoteDir = appProperties == null || appProperties.getSftp() == null
+			? "."
+			: appProperties.getSftp().getRemoteDir();
+		try {
+			List<String> csvFiles = fileSource.listCsvFiles(remoteDir);
+			if (!csvFiles.isEmpty()) {
+				String resolvedPath = csvFiles.get(csvFiles.size() - 1);
+				logger.info("No sourcePath supplied; auto-selected latest available CSV '{}'", resolvedPath);
+				return resolvedPath;
+			}
+		}
+		catch (IOException ex) {
+			logger.warn("Failed to discover source CSV files from '{}': {}", remoteDir, ex.getMessage());
+		}
+		return DEFAULT_SOURCE_PATH;
 	}
 
 	private static String normalizeOptional(String value) {
