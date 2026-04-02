@@ -939,19 +939,32 @@ def build_steps(args: argparse.Namespace) -> List[Step]:
     if run_frontend:
         phase = "Layer 3 - Frontend Lint / Format / Typecheck"
         if is_windows():
-            # On Windows, node.exe (Vite dev server, previous builds) can hold a file lock
-            # on esbuild.exe inside node_modules, causing npm ci to fail with EPERM.
-            # Terminate any stale node processes before reinstalling.
+            # On Windows, stale frontend node.exe processes (Vite dev server, prior test
+            # runs) can hold a file lock on esbuild.exe inside node_modules, causing
+            # npm ci to fail with EPERM.
+            # Restrict cleanup to node processes tied to this frontend path so we do not
+            # terminate unrelated node processes (for example editor/terminal internals).
             steps.append(
                 Step(
                     phase=phase,
-                    name="Kill stale node processes (Windows pre-npm-ci)",
+                    name="Kill stale frontend node processes (Windows pre-npm-ci)",
                     cwd=frontend_dir,
                     command=[
-                        "cmd.exe",
-                        "/c",
-                        "taskkill /F /IM node.exe /T 2>nul & exit 0",
+                        "powershell",
+                        "-NoProfile",
+                        "-NonInteractive",
+                        "-ExecutionPolicy",
+                        "Bypass",
+                        "-Command",
+                        "$target = $env:CRM_UI_PATH; "
+                        "if ([string]::IsNullOrWhiteSpace($target)) { exit 0 }; "
+                        "$target = $target.ToLower(); "
+                        "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" "
+                        "| Where-Object { $_.CommandLine -and $_.CommandLine.ToLower().Contains($target) } "
+                        "| ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; "
+                        "exit 0",
                     ],
+                    env={"CRM_UI_PATH": str(frontend_dir)},
                 )
             )
         steps.append(
