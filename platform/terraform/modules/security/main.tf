@@ -666,7 +666,7 @@ resource "aws_iam_role_policy" "ecs_task_client_write_verification_s3" {
 }
 
 data "aws_iam_policy_document" "ecs_user_cognito_admin" {
-  count = var.enable_cognito && trimspace(var.cognito_user_pool_arn) != "" && !local.use_lab_role ? 1 : 0
+  count = var.enable_cognito && !local.use_lab_role ? 1 : 0
 
   statement {
     sid    = "ManageCognitoUsersInPool"
@@ -683,7 +683,7 @@ data "aws_iam_policy_document" "ecs_user_cognito_admin" {
 }
 
 resource "aws_iam_role_policy" "ecs_task_user_cognito_admin" {
-  count = var.enable_cognito && trimspace(var.cognito_user_pool_arn) != "" && !local.use_lab_role ? 1 : 0
+  count = var.enable_cognito && !local.use_lab_role ? 1 : 0
 
   name   = "${var.name_prefix}-ecs-task-user-cognito-admin"
   role   = aws_iam_role.ecs_task["user"].id
