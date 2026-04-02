@@ -506,9 +506,12 @@ module "ses" {
   source = "./modules/ses"
 
   enable_ses                 = true
+  aws_region                 = var.aws_region
   sender_email               = var.ses_sender_email
   domain                     = var.ses_domain
   mail_from_subdomain        = var.ses_mail_from_subdomain
+  manage_dns_records         = local.manage_route53_records
+  route53_zone_id            = var.route53_hosted_zone_id
   notification_topic_arn     = module.sns.verification_topic_arn
   enable_notification_topics = var.enable_verification_pipeline
 }

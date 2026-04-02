@@ -64,3 +64,4 @@ aws:
     user-pool-id: ${AWS_COGNITO_USER_POOL_ID:}
     client-id: ${AWS_COGNITO_CLIENT_ID:}
     region: ${AWS_REGION:ap-southeast-1}
+    endpoint-url: ${AWS_COGNITO_ENDPOINT_URL:}

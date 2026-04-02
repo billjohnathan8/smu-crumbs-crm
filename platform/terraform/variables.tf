@@ -1176,6 +1176,28 @@ check "prod_network_and_pipeline_guardrails" {
   }
 
   assert {
+    condition = !var.enable_verification_pipeline || (
+      trimspace(var.ses_domain) != "" ||
+      trimspace(var.ses_sender_email) != ""
+    )
+    error_message = "When enable_verification_pipeline is true, configure ses_domain or ses_sender_email for verification emails."
+  }
+
+  assert {
+    condition = !(
+      contains(["prod", "production", "integration"], lower(trimspace(var.environment))) &&
+      var.enable_verification_pipeline
+      ) || (
+      trimspace(var.ses_domain) != "" ||
+      (
+        trimspace(var.ses_sender_email) != "" &&
+        !endswith(lower(trimspace(var.ses_sender_email)), ".local")
+      )
+    )
+    error_message = "For production-like environments with enable_verification_pipeline=true, set ses_domain or use a non-.local ses_sender_email."
+  }
+
+  assert {
     condition = !(
       contains(["prod", "production"], lower(trimspace(var.environment))) &&
       var.enable_aml_lambda

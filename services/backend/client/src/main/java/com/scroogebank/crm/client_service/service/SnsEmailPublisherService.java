@@ -1,9 +1,9 @@
 package com.scroogebank.crm.client_service.service;
 
+import com.scroogebank.crm.client_service.exception.SnsPublishException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.sns.SnsClient;
 import software.amazon.awssdk.services.sns.model.PublishRequest;
@@ -44,7 +44,6 @@ public class SnsEmailPublisherService {
      * @param requestId correlation ID for tracing
      * @param tokenTtlSeconds verification token lifetime in seconds for user-facing expiry copy
      */
-    @Async
     public void publishVerificationEmail(
         String clientId,
         String email,
@@ -56,8 +55,7 @@ public class SnsEmailPublisherService {
         try {
             String topicArn = verificationTopicArn == null ? "" : verificationTopicArn.trim();
             if (topicArn.isEmpty()) {
-                LOGGER.warn("VERIFICATION_SNS_TOPIC_ARN not configured, skipping verification email for clientId={}", clientId);
-                return;
+                throw new SnsPublishException("VERIFICATION_SNS_TOPIC_ARN not configured");
             }
 
             Map<String, Object> payload = Map.of(
@@ -84,13 +82,14 @@ public class SnsEmailPublisherService {
                 "Published UPLOAD_VERIFICATION_REQUESTED to SNS clientId={} requestId={} messageId={}",
                 clientId, requestId, response.messageId()
             );
+        } catch (SnsPublishException ex) {
+            throw ex;
         } catch (SnsException ex) {
-            LOGGER.warn("Failed to publish SNS verification email for clientId={}: {}", clientId, ex.getMessage());
+            throw new SnsPublishException("Failed to publish SNS verification email", ex);
         } catch (IllegalArgumentException ex) {
-            LOGGER.warn("Failed to publish SNS verification email for clientId={}: {}", clientId, ex.getMessage());
+            throw new SnsPublishException("Invalid SNS verification email publish payload", ex);
         } catch (RuntimeException ex) {
-            LOGGER.warn("Failed to publish SNS verification email for clientId={}: {}", clientId, ex.getMessage());
+            throw new SnsPublishException("Unexpected SNS verification email publish failure", ex);
         }
     }
 }
-

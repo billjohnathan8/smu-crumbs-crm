@@ -291,7 +291,7 @@ class ClientsServiceIT {
 	}
 
 	@Test
-	void createClient_whenSnsPublishFails_stillCreatesClient_andRetryConflictsOnDuplicate() throws Exception {
+	void createClient_whenSnsPublishFails_returnsServiceUnavailable_andRetryCanSucceed() throws Exception {
 		String agentAuth = jsonHeadersToken(mintToken("usr_it_agent", "user"));
 		String email = "verify-it-" + UUID.randomUUID() + "@example.com";
 		String phone = "+1555" + ThreadLocalRandom.current().nextLong(1_000_000L, 10_000_000L);
@@ -305,9 +305,9 @@ class ClientsServiceIT {
 			jsonHeaders(agentAuth)
 		);
 
-		assertThat(firstCreate.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-		JsonNode createdPayload = objectMapper.readTree(firstCreate.getBody());
-		assertThat(requiredText(createdPayload, "emailAddress")).isEqualTo(email);
+		assertThat(firstCreate.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+		JsonNode firstErrorPayload = objectMapper.readTree(firstCreate.getBody());
+		assertThat(requiredText(firstErrorPayload, "error")).isEqualTo("service_unavailable");
 
 		when(snsClient.publish(any(PublishRequest.class)))
 			.thenReturn(PublishResponse.builder().messageId("msg-it-recovered").build());
@@ -318,9 +318,9 @@ class ClientsServiceIT {
 			jsonHeaders(agentAuth)
 		);
 
-		assertThat(retriedCreate.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
-		JsonNode conflictPayload = objectMapper.readTree(retriedCreate.getBody());
-		assertThat(requiredText(conflictPayload, "error")).isEqualTo("conflict");
+		assertThat(retriedCreate.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+		JsonNode retriedPayload = objectMapper.readTree(retriedCreate.getBody());
+		assertThat(requiredText(retriedPayload, "emailAddress")).isEqualTo(email);
 	}
 
 	@Test
@@ -442,6 +442,5 @@ class ClientsServiceIT {
 		assertThat(requiredText(persisted, "identityVerificationStatus")).isEqualTo("unverified");
 	}
 }
-
 
 

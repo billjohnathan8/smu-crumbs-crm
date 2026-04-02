@@ -10,6 +10,7 @@ import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.entity.Gender;
 import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
 import com.scroogebank.crm.client_service.exception.DuplicateClientException;
+import com.scroogebank.crm.client_service.exception.SnsPublishException;
 import com.scroogebank.crm.client_service.logging.ClientAuditLogger;
 import com.scroogebank.crm.client_service.repository.ClientRepository;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
@@ -294,7 +295,7 @@ class ClientServiceImplTest {
 	}
 
 	@Test
-	void createClient_whenSnsPublishFails_stillCreatesClient() {
+	void createClient_whenSnsPublishFails_throwsAndDoesNotReturnClient() {
 		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
 
@@ -308,13 +309,13 @@ class ClientServiceImplTest {
 			return e;
 		});
 		when(verificationTokenService.generateVerificationToken(any(), anyLong())).thenReturn("signed-token-abc");
-		doThrow(new RuntimeException("sns down"))
+		doThrow(new SnsPublishException("sns down"))
 			.when(snsEmailPublisherService)
 			.publishVerificationEmail(any(), any(), any(), any(), any(), anyLong());
 
-		var created = clientService.createClient(user, requestFrom(payload), "Bearer x", "req-1");
-
-		assertThat(created.clientId()).isEqualTo("clt_10");
+		assertThatThrownBy(() ->
+			clientService.createClient(user, requestFrom(payload), "Bearer x", "req-1")
+		).isInstanceOf(SnsPublishException.class);
 	}
 
 	/** Verifies that createClient() throws DuplicateClientException when the email is already in use (no save). */
@@ -755,4 +756,3 @@ class ClientServiceImplTest {
 		verify(clientRepository, never()).save(any());
 	}
 }
-

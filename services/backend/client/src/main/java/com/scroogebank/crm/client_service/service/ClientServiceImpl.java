@@ -170,19 +170,16 @@ public class ClientServiceImpl implements ClientService {
 		// generate token
 		String token = verificationTokenService.generateVerificationToken(apiClientId, verificationLinkTokenTtlSeconds);
 
-		// Publish verification event to SNS asynchronously (downstream SNS -> SES will send the email)
-		try {
-			snsEmailPublisherService.publishVerificationEmail(
-				apiClientId,
-				saved.getEmailAddress(),
-				token,
-				saved.getFirstName(),
-				requestId,
-				verificationLinkTokenTtlSeconds
-			);
-		} catch (Exception ex) {
-			LOGGER.warn("Client created but SNS verification publish failed for {}: {}", apiClientId, ex.getMessage());
-		}
+		// Publish verification event to SNS (downstream SNS -> Lambda -> SES sends email).
+		// Throwing here rolls back the transaction and preserves the API contract.
+		snsEmailPublisherService.publishVerificationEmail(
+			apiClientId,
+			saved.getEmailAddress(),
+			token,
+			saved.getFirstName(),
+			requestId,
+			verificationLinkTokenTtlSeconds
+		);
 
 		return toDto(saved);
 	}

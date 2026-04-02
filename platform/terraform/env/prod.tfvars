@@ -56,8 +56,8 @@ sftp_instance_type                = "t4g.micro"
 sftp_root_volume_size_gb          = 8
 sftp_ingress_cidr_blocks          = ["203.0.113.10/32"] # Replace with real partner office/public NAT CIDRs before apply.
 enable_verification_pipeline      = true
-ses_sender_email                  = "verification@crm.local" # replace with a real mailbox you own, then verify this identity in SES (manual email confirmation link)
-ses_domain                        = ""                       # keep empty to use sender_email identity mode (manual verification)
+ses_sender_email                  = "verification@itsag2t3.com"
+ses_domain                        = "itsag2t3.com" # Domain identity + DKIM records are managed by Terraform when Route53 management is enabled.
 
 # Intentionally disabled until prerequisites are available:
 enable_aml_lambda     = true # enabled: SFTP host/user can be auto-derived from transfer_family outputs; key secret ARN must be injected at runtime

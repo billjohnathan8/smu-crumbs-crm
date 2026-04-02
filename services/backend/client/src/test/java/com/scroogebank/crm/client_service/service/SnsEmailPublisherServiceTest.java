@@ -1,6 +1,7 @@
 package com.scroogebank.crm.client_service.service;
 
 
+import com.scroogebank.crm.client_service.exception.SnsPublishException;
 import tools.jackson.databind.json.JsonMapper;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +15,7 @@ import java.util.Map;
 import org.mockito.ArgumentCaptor;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -119,24 +121,24 @@ class SnsEmailPublisherServiceTest {
     }
 
     @Test
-    void publishVerificationEmail_withoutConfiguredTopicArn_doesNotThrow() {
+    void publishVerificationEmail_withoutConfiguredTopicArn_throws() {
         SnsEmailPublisherService service = new SnsEmailPublisherService(snsClient, objectMapper, "   ");
 
-        assertThatCode(() ->
+        assertThatThrownBy(() ->
             service.publishVerificationEmail(CLIENT_ID, EMAIL, TOKEN, FIRST_NAME, REQUEST_ID, TOKEN_TTL_SECONDS)
-        ).doesNotThrowAnyException();
+        ).isInstanceOf(SnsPublishException.class);
 
         verify(snsClient, never()).publish(any(PublishRequest.class));
     }
 
     @Test
-    void publishVerificationEmail_whenSnsClientThrows_doesNotPropagate() {
+    void publishVerificationEmail_whenSnsClientThrows_propagatesAsSnsPublishException() {
         reset(snsClient);
         when(snsClient.publish(any(PublishRequest.class))).thenThrow(new RuntimeException("sns down"));
 
-        assertThatCode(() ->
+        assertThatThrownBy(() ->
             publisher.publishVerificationEmail(CLIENT_ID, EMAIL, TOKEN, FIRST_NAME, REQUEST_ID, TOKEN_TTL_SECONDS)
-        ).doesNotThrowAnyException();
+        ).isInstanceOf(SnsPublishException.class);
     }
 
     // -------------------------------------------------------------------------
@@ -149,4 +151,3 @@ class SnsEmailPublisherServiceTest {
         return objectMapper.readValue(captor.getValue().message(), Map.class);
     }
 }
-

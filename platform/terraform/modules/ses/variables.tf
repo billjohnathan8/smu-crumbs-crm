@@ -20,10 +20,28 @@ variable "domain" {
   default     = ""
 }
 
+variable "aws_region" {
+  description = "AWS region used for SES MAIL FROM MX record targets."
+  type        = string
+  default     = "ap-southeast-1"
+}
+
 variable "mail_from_subdomain" {
   description = "Subdomain prefix for custom MAIL FROM domain (e.g. 'mail' creates mail.example.com)."
   type        = string
   default     = "mail"
+}
+
+variable "manage_dns_records" {
+  description = "Whether this module should create Route53 DNS records for SES domain verification and DKIM."
+  type        = bool
+  default     = false
+}
+
+variable "route53_zone_id" {
+  description = "Route53 hosted zone ID where SES verification/DKIM/MAIL FROM records are created."
+  type        = string
+  default     = ""
 }
 
 variable "notification_topic_arn" {
