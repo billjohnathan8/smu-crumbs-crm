@@ -42,7 +42,7 @@ get_tfvar_value() {
 
 state_has() {
   local address="$1"
-  terraform state list 2>/dev/null | grep -Fxq "${address}"
+  terraform state show "${address}" >/dev/null 2>&1
 }
 
 state_has_prefix() {
@@ -61,7 +61,23 @@ import_if_missing() {
   fi
 
   echo "Importing existing ${label} into Terraform state: ${address}"
-  terraform import "${tf_args[@]}" "${address}" "${import_id}"
+  set +e
+  local import_output
+  import_output="$(terraform import "${tf_args[@]}" "${address}" "${import_id}" 2>&1)"
+  local import_rc=$?
+  set -e
+
+  if [[ ${import_rc} -eq 0 ]]; then
+    return 0
+  fi
+
+  if grep -Fq "Resource already managed by Terraform" <<< "${import_output}"; then
+    echo "Already tracked in state during import attempt: ${label} (${address})"
+    return 0
+  fi
+
+  echo "${import_output}"
+  return "${import_rc}"
 }
 
 move_transfer_family_module_if_needed() {
