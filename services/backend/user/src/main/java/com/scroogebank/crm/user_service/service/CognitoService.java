@@ -9,6 +9,7 @@ import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminCreate
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AttributeType;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.CognitoIdentityProviderException;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.DeliveryMediumType;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.MessageActionType;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.UsernameExistsException;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminDeleteUserRequest;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminDisableUserRequest;
@@ -31,10 +32,9 @@ public class CognitoService {
         this.cognitoClient = cognitoClient;
     }
 
-    // Called on createUser — works for both ADMIN and USER groups
-    public void createUser(String email, String name, String groupName) {
+    public void createUser(String email, String name, String groupName, String temporaryPassword) {
         try {
-            AdminCreateUserRequest createRequest = AdminCreateUserRequest.builder()
+            AdminCreateUserRequest.Builder builder = AdminCreateUserRequest.builder()
                     .userPoolId(userPoolId)
                     .username(email)
                     .userAttributes(
@@ -42,10 +42,13 @@ public class CognitoService {
                             AttributeType.builder().name("name").value(name).build(),
                             AttributeType.builder().name("email_verified").value("false").build()
                     )
-                    .desiredDeliveryMediums(DeliveryMediumType.EMAIL)
-                    .build();
+                    .desiredDeliveryMediums(DeliveryMediumType.EMAIL);
 
-            cognitoClient.adminCreateUser(createRequest);
+            if (temporaryPassword != null && !temporaryPassword.isBlank()) {
+                builder.temporaryPassword(temporaryPassword);
+            }
+
+            cognitoClient.adminCreateUser(builder.build());
             // log.info("Created Cognito user: {}", email);
 
             addUserToGroup(email, groupName);
