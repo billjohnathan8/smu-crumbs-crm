@@ -324,7 +324,7 @@ public class ClientServiceImpl implements ClientService {
 		for (ClientEntity client : sourceClients) {
 			String apiClientId = clientId(client.getId());
 			publishAuditSafe(
-				"TRANSFER",
+				"UPDATE",
 				"assignedUserId",
 				fromUserId,
 				toUserId,
