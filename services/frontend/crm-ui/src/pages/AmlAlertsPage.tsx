@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { listAmlAlerts, updateAmlAlertReview } from '@/api/aml'
 import type { AmlAlert, AmlAlertType, AmlReviewStatus } from '@/api/types'
@@ -143,9 +144,9 @@ export function AmlAlertsPage() {
     <SidebarLayout items={navItems}>
       <div className="flex justify-between h-16 items-center">
         <div className="flex items-center space-x-4">
-          <a href={homePath} className="text-text-subtle text-2xl">
+          <Link to={homePath} className="text-text-subtle text-2xl">
             Dashboard
-          </a>
+          </Link>
           <span className="text-text-subtle text-2xl">/</span>
           <h1 className="text-2xl font-medium text-text">AML Alerts</h1>
         </div>
