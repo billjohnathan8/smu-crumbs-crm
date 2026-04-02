@@ -48,13 +48,16 @@ resource "aws_ses_domain_dkim" "this" {
 }
 
 resource "aws_route53_record" "ses_domain_dkim" {
-  for_each = local.manage_domain_dns ? toset(aws_ses_domain_dkim.this[0].dkim_tokens) : toset([])
+  for_each = local.manage_domain_dns ? {
+    # SES always yields 3 DKIM tokens; keep keys static so plan can evaluate for_each.
+    for i in range(3) : tostring(i) => i
+  } : {}
 
   zone_id = var.route53_zone_id
-  name    = "${each.value}._domainkey.${var.domain}"
+  name    = "${aws_ses_domain_dkim.this[0].dkim_tokens[each.value]}._domainkey.${var.domain}"
   type    = "CNAME"
   ttl     = 600
-  records = ["${each.value}.dkim.amazonses.com"]
+  records = ["${aws_ses_domain_dkim.this[0].dkim_tokens[each.value]}.dkim.amazonses.com"]
 }
 
 # Custom MAIL FROM Domain
