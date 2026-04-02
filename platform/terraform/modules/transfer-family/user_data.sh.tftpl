@@ -26,7 +26,8 @@ chmod 770 "$${SFTP_UPLOAD_DIR}"
 
 printf '%s\n' "$${SFTP_KEY}" > "/etc/ssh/authorized_keys/${sftp_username}"
 chmod 600 "/etc/ssh/authorized_keys/${sftp_username}"
-chown root:root "/etc/ssh/authorized_keys/${sftp_username}"
+# sshd validates keys as the target user, so the key file must be user-readable.
+chown "${sftp_username}:sftpusers" "/etc/ssh/authorized_keys/${sftp_username}"
 
 # Normalize any existing SFTP subsystem directive (tabs/spaces/paths), or add one if absent.
 if grep -Eq '^[[:space:]]*Subsystem[[:space:]]+sftp([[:space:]]|$)' /etc/ssh/sshd_config; then
@@ -38,7 +39,7 @@ fi
 # Keep a single canonical Subsystem sftp line to avoid sshd startup failure.
 awk '
   BEGIN { seen=0 }
-  /^Subsystem[[:space:]]+sftp([[:space:]]|$)/ {
+  /^[[:space:]]*Subsystem[[:space:]]+sftp([[:space:]]|$)/ {
     if (seen) next
     seen=1
     print "Subsystem sftp internal-sftp"
@@ -65,6 +66,8 @@ EOFCONF
 
 BUCKET_NAME="${bucket_name}"
 BUCKET_PREFIX="${bucket_prefix}"
+SFTP_UID="$(id -u ${sftp_username})"
+SFTP_GID="$(id -g ${sftp_username})"
 
 cat >/usr/local/bin/mount-sftp-upload.sh <<'EOFMOUNT'
 #!/bin/bash
@@ -79,9 +82,9 @@ if mountpoint -q "$${MOUNT_DIR}"; then
 fi
 
 if [[ -n "$${BUCKET_PREFIX}" ]]; then
-  mount-s3 "$${BUCKET_NAME}" "$${MOUNT_DIR}" --prefix "$${BUCKET_PREFIX}" --region "$${AWS_REGION}"
+  mount-s3 "$${BUCKET_NAME}" "$${MOUNT_DIR}" --prefix "$${BUCKET_PREFIX}" --region "$${AWS_REGION}" --allow-other --uid "__SFTP_UID__" --gid "__SFTP_GID__" --dir-mode 0770 --file-mode 0660 --allow-delete --allow-overwrite
 else
-  mount-s3 "$${BUCKET_NAME}" "$${MOUNT_DIR}" --region "$${AWS_REGION}"
+  mount-s3 "$${BUCKET_NAME}" "$${MOUNT_DIR}" --region "$${AWS_REGION}" --allow-other --uid "__SFTP_UID__" --gid "__SFTP_GID__" --dir-mode 0770 --file-mode 0660 --allow-delete --allow-overwrite
 fi
 EOFMOUNT
 
@@ -89,6 +92,8 @@ sed -i "s|__BUCKET_NAME__|$${BUCKET_NAME}|g" /usr/local/bin/mount-sftp-upload.sh
 sed -i "s|__BUCKET_PREFIX__|$${BUCKET_PREFIX}|g" /usr/local/bin/mount-sftp-upload.sh
 sed -i "s|__MOUNT_DIR__|$${SFTP_UPLOAD_DIR}|g" /usr/local/bin/mount-sftp-upload.sh
 sed -i "s|__AWS_REGION__|${aws_region}|g" /usr/local/bin/mount-sftp-upload.sh
+sed -i "s|__SFTP_UID__|$${SFTP_UID}|g" /usr/local/bin/mount-sftp-upload.sh
+sed -i "s|__SFTP_GID__|$${SFTP_GID}|g" /usr/local/bin/mount-sftp-upload.sh
 chmod 755 /usr/local/bin/mount-sftp-upload.sh
 
 cat >/etc/systemd/system/sftp-upload-mount.service <<'EOFSVC'
