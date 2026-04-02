@@ -20,9 +20,25 @@ export class ApiError extends Error {
 export interface RequestOptions extends RequestInit {
   timeout?: number
   skipAuth?: boolean
+  cacheTtlMs?: number
+  cacheKey?: string
 }
 
 const DEFAULT_TIMEOUT = 5000 // 5 seconds max latency requirement
+const DEFAULT_GET_CACHE_TTL_MS = 20_000
+
+type CacheEntry = {
+  expiresAt: number
+  data: unknown
+}
+
+type PendingEntry = {
+  expiresAt: number
+  promise: Promise<unknown>
+}
+
+const getCache = new Map<string, CacheEntry>()
+const pendingGetRequests = new Map<string, PendingEntry>()
 
 /**
  * Get the stored auth token from localStorage
@@ -143,7 +159,45 @@ export async function apiRequest<T>(endpoint: string, options: RequestOptions = 
  * GET request
  */
 export async function apiGet<T>(endpoint: string, options?: RequestOptions): Promise<T> {
-  return apiRequest<T>(endpoint, { ...options, method: 'GET' })
+  const ttl = options?.cacheTtlMs ?? DEFAULT_GET_CACHE_TTL_MS
+  const cacheKey = options?.cacheKey ?? endpoint
+  const now = Date.now()
+
+  if (ttl > 0) {
+    const cached = getCache.get(cacheKey)
+    if (cached && cached.expiresAt > now) {
+      return cached.data as T
+    }
+
+    const pending = pendingGetRequests.get(cacheKey)
+    if (pending && pending.expiresAt > now) {
+      return pending.promise as Promise<T>
+    }
+  }
+
+  const requestPromise = apiRequest<T>(endpoint, { ...options, method: 'GET' })
+
+  if (ttl > 0) {
+    pendingGetRequests.set(cacheKey, { expiresAt: now + ttl, promise: requestPromise })
+  }
+
+  try {
+    const response = await requestPromise
+    if (ttl > 0) {
+      const expiresAt = Date.now() + ttl
+      getCache.set(cacheKey, { expiresAt, data: response })
+    }
+    return response
+  } finally {
+    if (ttl > 0) {
+      pendingGetRequests.delete(cacheKey)
+    }
+  }
+}
+
+function invalidateGetCache(): void {
+  getCache.clear()
+  pendingGetRequests.clear()
 }
 
 /**
@@ -154,11 +208,13 @@ export async function apiPost<T, D = unknown>(
   data?: D,
   options?: RequestOptions
 ): Promise<T> {
-  return apiRequest<T>(endpoint, {
+  const response = await apiRequest<T>(endpoint, {
     ...options,
     method: 'POST',
     body: data ? JSON.stringify(data) : undefined,
   })
+  invalidateGetCache()
+  return response
 }
 
 /**
@@ -169,11 +225,13 @@ export async function apiPut<T, D = unknown>(
   data: D,
   options?: RequestOptions
 ): Promise<T> {
-  return apiRequest<T>(endpoint, {
+  const response = await apiRequest<T>(endpoint, {
     ...options,
     method: 'PUT',
     body: JSON.stringify(data),
   })
+  invalidateGetCache()
+  return response
 }
 
 /**
@@ -184,16 +242,24 @@ export async function apiPatch<T, D = unknown>(
   data: D,
   options?: RequestOptions
 ): Promise<T> {
-  return apiRequest<T>(endpoint, {
+  const response = await apiRequest<T>(endpoint, {
     ...options,
     method: 'PATCH',
     body: JSON.stringify(data),
   })
+  invalidateGetCache()
+  return response
 }
 
 /**
  * DELETE request
  */
 export async function apiDelete<T>(endpoint: string, options?: RequestOptions): Promise<T> {
-  return apiRequest<T>(endpoint, { ...options, method: 'DELETE' })
+  const response = await apiRequest<T>(endpoint, { ...options, method: 'DELETE' })
+  invalidateGetCache()
+  return response
+}
+
+export function __resetApiGetCacheForTests(): void {
+  invalidateGetCache()
 }
