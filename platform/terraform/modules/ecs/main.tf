@@ -280,6 +280,10 @@ locals {
           value = tostring(var.transaction_import_s3_path_style_access_enabled)
         },
         {
+          name  = "TRANSACTION_SFTP_REMOTE_DIR"
+          value = var.transaction_sftp_remote_dir
+        },
+        {
           name  = "AUTH_MODE"
           value = var.auth_mode
         },

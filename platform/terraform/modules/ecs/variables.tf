@@ -218,6 +218,12 @@ variable "transaction_import_s3_path_style_access_enabled" {
   default     = false
 }
 
+variable "transaction_sftp_remote_dir" {
+  description = "Source directory/prefix used when transaction import is triggered without an explicit sourcePath."
+  type        = string
+  default     = "incoming/"
+}
+
 variable "enable_service_discovery" {
   description = "Enable AWS Cloud Map private DNS namespace and service discovery for ECS inter-service communication. Disable when LabRole blocks servicediscovery:CreatePrivateDnsNamespace."
   type        = bool

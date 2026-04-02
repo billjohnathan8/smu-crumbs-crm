@@ -299,6 +299,7 @@ module "ecs" {
   transaction_import_s3_region                    = var.aws_region
   transaction_import_s3_endpoint                  = var.transaction_import_s3_endpoint
   transaction_import_s3_path_style_access_enabled = var.transaction_import_s3_path_style_access_enabled
+  transaction_sftp_remote_dir                     = var.transaction_sftp_remote_prefix
   db_jdbc_url                                     = module.rds.db_jdbc_url
   log_api_base_url                                = var.enable_log_lambda ? module.apigateway[0].log_api_base_url : ""
   verification_email_provider                     = var.enable_verification_pipeline ? "ses" : "mock"
