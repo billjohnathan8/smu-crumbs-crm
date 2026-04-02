@@ -36,6 +36,12 @@ variable "backend_bucket_name" {
   default     = ""
 }
 
+variable "backend_bucket_force_destroy" {
+  description = "Allow destroying non-empty backend bucket."
+  type        = bool
+  default     = false
+}
+
 variable "enable_transaction_sftp_bucket" {
   description = "Create S3 bucket for transaction ingestion source files (legacy 'sftp' naming)."
   type        = bool
@@ -46,4 +52,10 @@ variable "transaction_sftp_bucket_name" {
   description = "Transaction ingestion source S3 bucket name (legacy 'sftp' naming)."
   type        = string
   default     = ""
+}
+
+variable "transaction_sftp_bucket_force_destroy" {
+  description = "Allow destroying non-empty transaction ingestion source bucket."
+  type        = bool
+  default     = false
 }

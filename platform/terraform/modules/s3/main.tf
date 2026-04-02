@@ -128,7 +128,7 @@ resource "aws_s3_bucket" "backend" {
   count = trimspace(var.backend_bucket_name) != "" ? 1 : 0
 
   bucket        = var.backend_bucket_name
-  force_destroy = false
+  force_destroy = var.backend_bucket_force_destroy
 
   tags = {
     Name = var.backend_bucket_name
@@ -174,7 +174,7 @@ resource "aws_s3_bucket" "transaction_sftp" {
   count = var.enable_transaction_sftp_bucket ? 1 : 0
 
   bucket        = var.transaction_sftp_bucket_name
-  force_destroy = false
+  force_destroy = var.transaction_sftp_bucket_force_destroy
 
   tags = {
     Name = var.transaction_sftp_bucket_name

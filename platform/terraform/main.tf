@@ -351,14 +351,16 @@ module "ecs" {
 module "s3" {
   source = "./modules/s3"
 
-  frontend_bucket_name           = local.frontend_bucket_name
-  frontend_bucket_force_destroy  = var.frontend_bucket_force_destroy
-  frontend_bucket_allow_public   = var.frontend_bucket_allow_public
-  enable_verification_bucket     = var.enable_verification_pipeline
-  verification_bucket_name       = local.verification_bucket_name
-  backend_bucket_name            = local.backend_bucket_name
-  enable_transaction_sftp_bucket = var.enable_sftp_transaction_collector
-  transaction_sftp_bucket_name   = local.transaction_sftp_bucket_name
+  frontend_bucket_name                  = local.frontend_bucket_name
+  frontend_bucket_force_destroy         = var.frontend_bucket_force_destroy
+  frontend_bucket_allow_public          = var.frontend_bucket_allow_public
+  enable_verification_bucket            = var.enable_verification_pipeline
+  verification_bucket_name              = local.verification_bucket_name
+  backend_bucket_name                   = local.backend_bucket_name
+  backend_bucket_force_destroy          = var.backend_bucket_force_destroy
+  enable_transaction_sftp_bucket        = var.enable_sftp_transaction_collector
+  transaction_sftp_bucket_name          = local.transaction_sftp_bucket_name
+  transaction_sftp_bucket_force_destroy = var.transaction_sftp_bucket_force_destroy
 }
 
 #--------------------------------------------------------------

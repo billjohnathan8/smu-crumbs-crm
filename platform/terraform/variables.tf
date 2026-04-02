@@ -314,6 +314,12 @@ variable "transaction_sftp_bucket_name" {
   default     = ""
 }
 
+variable "transaction_sftp_bucket_force_destroy" {
+  description = "Allow Terraform destroy to delete non-empty transaction ingestion source bucket."
+  type        = bool
+  default     = false
+}
+
 variable "transaction_import_s3_endpoint" {
   description = "Optional S3 endpoint override used by transaction service when importing from S3."
   type        = string
@@ -955,6 +961,12 @@ variable "backend_bucket_name" {
   description = "S3 bucket name for the private backend bucket. Leave empty to skip creation."
   type        = string
   default     = ""
+}
+
+variable "backend_bucket_force_destroy" {
+  description = "Allow Terraform destroy to delete non-empty backend bucket."
+  type        = bool
+  default     = false
 }
 
 #--------------------------------------------------------------
