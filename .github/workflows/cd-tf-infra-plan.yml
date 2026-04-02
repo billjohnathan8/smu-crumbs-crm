@@ -3,6 +3,12 @@ name: CD - Terraform Infra Plan
 
 on:
   workflow_dispatch:
+    inputs:
+      reconcile_existing_resources:
+        description: Run one-time state reconciliation imports (normally false for already-managed infra)
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   actions: read
@@ -142,6 +148,7 @@ jobs:
         run: terraform init -input=false -reconfigure -backend-config="env/${DEPLOY_ENV}.backend.hcl"
 
       - name: Reconcile pre-existing AWS resources into Terraform state
+        if: ${{ inputs.reconcile_existing_resources }}
         working-directory: ${{ env.TF_DIR }}
         shell: bash
         run: bash scripts/reconcile-existing-resources.sh "${DEPLOY_ENV}"
