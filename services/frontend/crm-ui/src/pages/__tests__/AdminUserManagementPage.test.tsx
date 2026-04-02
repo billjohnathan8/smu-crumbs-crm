@@ -78,12 +78,12 @@ describe('AdminUserManagementPage', () => {
     // Mock getCurrentUser to prevent AuthProvider from hanging
   })
 
-it('should handle disable user cancel when window.confirm returns false', async () => {
+  it('should handle disable user cancel when window.confirm returns false', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
-  const disableSpy = vi.spyOn(usersApi, 'disableUser').mockResolvedValue({
-    ...mockAgentUser,
-    status: 'disabled',
-  })
+    const disableSpy = vi.spyOn(usersApi, 'disableUser').mockResolvedValue({
+      ...mockAgentUser,
+      status: 'disabled',
+    })
 
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
       data: [mockAgentUser],
@@ -93,35 +93,35 @@ it('should handle disable user cancel when window.confirm returns false', async 
     renderAdminUserManagementPage()
 
     await waitFor(() => {
-    expect(screen.getByText('Disable')).toBeInTheDocument()
+      expect(screen.getByText('Disable')).toBeInTheDocument()
     })
 
-  fireEvent.click(screen.getByText('Disable'))
+    fireEvent.click(screen.getByText('Disable'))
 
-  expect(disableSpy).not.toHaveBeenCalled()
+    expect(disableSpy).not.toHaveBeenCalled()
     confirmSpy.mockRestore()
   })
 
-it('should show error message when disable fails', async () => {
+  it('should show error message when disable fails', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
       data: [mockAgentUser],
       pagination: { total: 1, limit: 10, offset: 0 },
     })
-  vi.spyOn(usersApi, 'disableUser').mockRejectedValue(
-    new ApiError(500, 'server_error', 'Disable failed')
+    vi.spyOn(usersApi, 'disableUser').mockRejectedValue(
+      new ApiError(500, 'server_error', 'Disable failed')
     )
 
     renderAdminUserManagementPage()
 
     await waitFor(() => {
-    expect(screen.getByText('Disable')).toBeInTheDocument()
+      expect(screen.getByText('Disable')).toBeInTheDocument()
     })
 
-  fireEvent.click(screen.getByText('Disable'))
+    fireEvent.click(screen.getByText('Disable'))
 
     await waitFor(() => {
-    expect(screen.getByText('Disable failed')).toBeInTheDocument()
+      expect(screen.getByText('Disable failed')).toBeInTheDocument()
     })
 
     confirmSpy.mockRestore()

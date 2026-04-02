@@ -14,7 +14,12 @@ type ClientTableProps = {
   agentNameMap?: Record<string, string>
 }
 
-export function ClientTable({ clients, onView, showAssignedAgent = false, agentNameMap = {} }: ClientTableProps) {
+export function ClientTable({
+  clients,
+  onView,
+  showAssignedAgent = false,
+  agentNameMap = {},
+}: ClientTableProps) {
   if (clients.length === 0) {
     return <div className="p-6 text-center text-text-subtle">No clients found</div>
   }

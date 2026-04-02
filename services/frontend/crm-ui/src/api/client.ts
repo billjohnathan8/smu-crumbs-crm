@@ -93,16 +93,12 @@ export async function apiRequest<T>(endpoint: string, options: RequestOptions = 
         }
       }
 
-      const friendlyMessage = errorData.error === 'conflict' && errorData.message
-        ? errorData.message
-        : getUserFriendlyErrorMessage(errorData.error)
+      const friendlyMessage =
+        errorData.error === 'conflict' && errorData.message
+          ? errorData.message
+          : getUserFriendlyErrorMessage(errorData.error)
 
-      throw new ApiError(
-        response.status,
-        errorData.error,
-        friendlyMessage,
-        errorData.requestId
-      )
+      throw new ApiError(response.status, errorData.error, friendlyMessage, errorData.requestId)
     }
 
     // Handle 204 No Content

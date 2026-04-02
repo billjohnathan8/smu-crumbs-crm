@@ -427,8 +427,11 @@ export function AdminUserManagementPage() {
           <div className="w-full max-w-md rounded-lg bg-card p-6 shadow-lg">
             <h3 className="text-lg font-medium text-text mb-2">Transfer Clients</h3>
             <p className="text-sm text-text-subtle mb-4">
-              Move all clients from <strong>{transferFromUser.firstName} {transferFromUser.lastName}</strong> to
-              another active agent.
+              Move all clients from{' '}
+              <strong>
+                {transferFromUser.firstName} {transferFromUser.lastName}
+              </strong>{' '}
+              to another active agent.
             </p>
             <label className="block text-sm text-text mb-2" htmlFor="transfer-target">
               Target agent
