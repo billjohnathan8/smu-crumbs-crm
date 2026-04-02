@@ -359,11 +359,16 @@ class LogRepository:
 
         with psycopg.connect(self._settings.dsn, row_factory=dict_row) as conn:
             with conn.cursor() as cur:
-                cur.execute(count_sql, params)
-                total_row = cur.fetchone()
-                total = int(total_row["total"]) if total_row else 0
-                cur.execute(list_sql, params)
-                rows = list(cur.fetchall())
+                try:
+                    cur.execute(count_sql, params)
+                    total_row = cur.fetchone()
+                    total = int(total_row["total"]) if total_row else 0
+                    cur.execute(list_sql, params)
+                    rows = list(cur.fetchall())
+                except psycopg.errors.UndefinedTable:
+                    # Keep AML list paths available during partial rollouts where
+                    # V2 migrations have not yet materialized AML tables.
+                    return [], 0
         return rows, total
 
     def update_aml_alert_review(self, alert_id: str, review_status: str) -> dict | None:
