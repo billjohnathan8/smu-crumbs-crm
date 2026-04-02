@@ -105,6 +105,60 @@ paths:
         '403':
           description: Forbidden
           content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+  /api/clients/count:
+    get:
+      tags: [clients]
+      summary: Count clients assigned to a specific agent
+      description: Returns the number of non-deleted clients assigned to the provided user/agent id.
+      security: [{BearerAuth: []}]
+      x-required-roles: [admin, user]
+      parameters:
+      - {name: assignedUserId, in: query, required: true, schema: {type: string, minLength: 1}}
+      responses:
+        '200':
+          description: Count result.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ClientCountResponse'}
+        '400':
+          description: Validation error.
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+        '401':
+          description: Unauthorized
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+        '403':
+          description: Forbidden
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+  /api/clients/reassign:
+    post:
+      tags: [clients]
+      summary: Reassign clients between agents
+      description: Moves all non-deleted clients from one assigned user to another.
+      security: [{BearerAuth: []}]
+      x-required-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ReassignRequest'}
+      responses:
+        '200':
+          description: Reassignment result.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReassignResponse'}
+        '400':
+          description: Validation error.
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+        '401':
+          description: Unauthorized
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+        '403':
+          description: Forbidden
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+        '409':
+          description: Conflict (for example duplicate or invalid reassignment state).
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
   /api/clients/{clientId}:
     get:
       tags: [clients]
@@ -330,6 +384,25 @@ components:
     AccountStatus:
       type: string
       enum: [Active, Inactive, Pending]
+    ClientCountResponse:
+      type: object
+      properties:
+        count: {type: integer, format: int64, minimum: 0}
+      required: [count]
+      additionalProperties: false
+    ReassignRequest:
+      type: object
+      properties:
+        fromUserId: {type: string, minLength: 1}
+        toUserId: {type: string, minLength: 1}
+      required: [fromUserId, toUserId]
+      additionalProperties: false
+    ReassignResponse:
+      type: object
+      properties:
+        count: {type: integer, minimum: 0}
+      required: [count]
+      additionalProperties: false
     Client:
       type: object
       properties:
