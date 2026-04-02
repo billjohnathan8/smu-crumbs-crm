@@ -9,6 +9,7 @@ import type {
 } from './types'
 
 const BASE = '/api/aml/alerts'
+const AML_ALERTS_LIST_TIMEOUT_MS = 15000
 
 export interface ListAmlAlertsParams {
   limit?: number
@@ -32,7 +33,7 @@ export async function listAmlAlerts(
   if (params?.reviewStatus) query.append('reviewStatus', params.reviewStatus)
 
   const endpoint = query.toString() ? `${BASE}?${query.toString()}` : BASE
-  return apiGet<PaginatedResponse<AmlAlert>>(endpoint)
+  return apiGet<PaginatedResponse<AmlAlert>>(endpoint, { timeout: AML_ALERTS_LIST_TIMEOUT_MS })
 }
 
 /**
