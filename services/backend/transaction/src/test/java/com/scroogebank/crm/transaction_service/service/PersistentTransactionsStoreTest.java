@@ -2,6 +2,7 @@ package com.scroogebank.crm.transaction_service.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.scroogebank.crm.transaction_service.config.AppProperties;
 import com.scroogebank.crm.transaction_service.dto.CreateTransactionRequest;
 import com.scroogebank.crm.transaction_service.dto.ImportBatchDto;
 import com.scroogebank.crm.transaction_service.dto.ImportTransactionsRequest;
@@ -67,7 +68,8 @@ class PersistentTransactionsStoreTest {
 			new S3BackedTransactionFileSource(tempDir),
 			new TransactionCsvParser(),
 			transactionRepository,
-			batchRepository
+			batchRepository,
+			appProperties(".")
 		);
 		TransactionDto loaded = recreated.get(created.id());
 
@@ -94,7 +96,8 @@ class PersistentTransactionsStoreTest {
 			new S3BackedTransactionFileSource(tempDir),
 			new TransactionCsvParser(),
 			transactionRepository,
-			batchRepository
+			batchRepository,
+			appProperties(".")
 		);
 
 		ImportBatchDto first = localStore.importTransactions(new ImportTransactionsRequest(null, "transactions.csv"));
@@ -104,6 +107,37 @@ class PersistentTransactionsStoreTest {
 		assertEquals(2, first.importedRecords());
 		assertEquals(0, second.importedRecords());
 		assertEquals(2, listResult.total());
+	}
+
+	@Test
+	void importTransactions_blankSourcePathAutoSelectsLatestCsvFromConfiguredSourceDir() throws IOException {
+		setUp();
+		Files.createDirectories(tempDir.resolve("incoming"));
+		Files.writeString(tempDir.resolve("incoming/2026-04-01.csv"), """
+			clientId,transaction,amount,date,status
+			clt_1,D,100.00,2026-04-01,Completed
+			""");
+		Files.writeString(tempDir.resolve("incoming/2026-04-02.csv"), """
+			clientId,transaction,amount,date,status
+			clt_1,W,25.00,2026-04-02,Completed
+			""");
+
+		PersistentTransactionsStore localStore = new PersistentTransactionsStore(
+			clock,
+			new S3BackedTransactionFileSource(tempDir),
+			new TransactionCsvParser(),
+			transactionRepository,
+			batchRepository,
+			appProperties("incoming/")
+		);
+
+		ImportBatchDto batch = localStore.importTransactions(new ImportTransactionsRequest(null, null));
+		InMemoryTransactionsStore.ListResult listResult = localStore.list(50, 0, null, null, null, null, null);
+
+		assertEquals(1, batch.totalRecords());
+		assertEquals(1, batch.importedRecords());
+		assertEquals(1, listResult.total());
+		assertEquals(TransactionKind.W, listResult.data().get(0).transaction());
 	}
 
 	@Test
@@ -136,5 +170,13 @@ class PersistentTransactionsStoreTest {
 		assertEquals(0, new BigDecimal("120.00").compareTo(updated.amount()));
 		assertEquals(LocalDate.parse("2026-02-11"), updated.date());
 		assertEquals(TransactionStatus.Pending, updated.status());
+	}
+
+	private static AppProperties appProperties(String remoteDir) {
+		AppProperties appProperties = new AppProperties();
+		AppProperties.Sftp sftp = new AppProperties.Sftp();
+		sftp.setRemoteDir(remoteDir);
+		appProperties.setSftp(sftp);
+		return appProperties;
 	}
 }
