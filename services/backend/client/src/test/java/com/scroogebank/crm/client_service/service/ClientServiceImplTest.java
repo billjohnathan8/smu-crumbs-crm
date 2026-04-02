@@ -12,6 +12,7 @@ import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
 import com.scroogebank.crm.client_service.exception.DuplicateClientException;
 import com.scroogebank.crm.client_service.exception.SnsPublishException;
 import com.scroogebank.crm.client_service.logging.ClientAuditLogger;
+import com.scroogebank.crm.client_service.repository.AccountRepository;
 import com.scroogebank.crm.client_service.repository.ClientRepository;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 import com.scroogebank.crm.client_service.security.UnauthorizedException;
@@ -48,6 +49,8 @@ class ClientServiceImplTest {
 
 	@Mock
 	private ClientRepository clientRepository;
+	@Mock
+	private AccountRepository accountRepository;
 	@Mock
 	private ClientAuditLogger clientAuditLogger;
 	@Mock
@@ -454,7 +457,10 @@ class ClientServiceImplTest {
 		clientService.deleteClient(user, "clt_55", "Bearer x", "req-1");
 
 		verify(clientRepository).findById(55L);
-		verify(clientRepository).delete(entity);
+		ArgumentCaptor<ClientEntity> deletedCaptor = ArgumentCaptor.forClass(ClientEntity.class);
+		verify(clientRepository).save(deletedCaptor.capture());
+		assertThat(deletedCaptor.getValue().isDeleted()).isTrue();
+		verify(accountRepository).softDeleteByClientId(55L);
 		verify(clientAuditLogger).logAuditEvent(
 			eq("DELETE"),
 			any(),

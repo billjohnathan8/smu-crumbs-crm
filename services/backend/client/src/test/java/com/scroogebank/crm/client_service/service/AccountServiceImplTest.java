@@ -28,6 +28,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -151,7 +152,9 @@ class AccountServiceImplTest {
 
 		accountService.deleteAccount(admin, "acc_7", "Bearer x", "req-7");
 
-		verify(accountRepository).delete(existing);
+		ArgumentCaptor<AccountEntity> savedCaptor = ArgumentCaptor.forClass(AccountEntity.class);
+		verify(accountRepository).save(savedCaptor.capture());
+		assertThat(savedCaptor.getValue().isDeleted()).isTrue();
 	}
 
 	@Test
