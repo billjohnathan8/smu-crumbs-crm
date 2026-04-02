@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
+import psycopg
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .auth import ForbiddenError, UnauthorizedError, require_bearer_user, require_roles
@@ -396,6 +397,14 @@ class LambdaRouter:
                 exc.status_code,
                 _error_name_for_status(exc.status_code),
                 exc.detail,
+            )
+        except (psycopg.OperationalError, psycopg.InterfaceError):
+            LOGGER.exception("database connectivity failure")
+            return _error_response(
+                request.request_id,
+                503,
+                "service_unavailable",
+                "database unavailable",
             )
         except Exception as exc:  # pragma: no cover - safety net
             LOGGER.error("Unhandled exception: %s", exc, exc_info=True)
