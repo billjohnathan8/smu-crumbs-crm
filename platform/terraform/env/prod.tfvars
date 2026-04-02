@@ -68,19 +68,19 @@ enable_audit_pipeline = true # implemented but disabled by default in production
 enable_aml_pipeline   = true # implemented but disabled by default in production profile
 
 # --- Observability & Security ---
-enable_waf                           = false
-enable_cloudtrail                    = true
-cloudtrail_bucket_force_destroy      = true
-enable_cloudwatch_alarms             = true
-alarm_notification_email             = "bill.johnathan8@gmail.com"
+enable_waf                      = false
+enable_cloudtrail               = true
+cloudtrail_bucket_force_destroy = true
+enable_cloudwatch_alarms        = true
+alarm_notification_email        = "bill.johnathan8@gmail.com"
 alarm_notification_additional_emails = [
   "bm.woenardi.2023@scis.smu.edu.sg",
   "denise.lie.2023@scis.smu.edu.sg",
 ]
-enable_backup                        = true
-enable_codedeploy                    = false # deploy via direct ECS/Lambda update workflows (no CodeDeploy blue/green)
-backup_retention_days                = 7
-cloudwatch_log_retention_days        = 7
+enable_backup                 = true
+enable_codedeploy             = false # deploy via direct ECS/Lambda update workflows (no CodeDeploy blue/green)
+backup_retention_days         = 7
+cloudwatch_log_retention_days = 7
 
 # --- GuardDuty Threat Detection ---
 enable_guardduty               = true
