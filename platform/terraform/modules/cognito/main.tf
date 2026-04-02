@@ -79,17 +79,24 @@ resource "aws_cognito_user_pool" "this" {
 # Role-based access control groups for the CRM application.
 #--------------------------------------------------------------
 
+resource "aws_cognito_user_group" "super_admin" {
+  user_pool_id = aws_cognito_user_pool.this.id
+  name         = "SUPER_ADMIN"
+  precedence   = 0
+  description  = "Super administrator group with highest privileges."
+}
+
 resource "aws_cognito_user_group" "admin" {
   user_pool_id = aws_cognito_user_pool.this.id
   name         = "ADMIN"
-  precedence   = 0
-  description  = "Administrator group with highest privileges."
+  precedence   = 1
+  description  = "Administrator group with elevated privileges."
 }
 
 resource "aws_cognito_user_group" "user" {
   user_pool_id = aws_cognito_user_pool.this.id
   name         = "USER"
-  precedence   = 1
+  precedence   = 2
   description  = "User group with standard CRM access."
 }
 
