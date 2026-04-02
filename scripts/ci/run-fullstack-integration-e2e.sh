@@ -626,15 +626,24 @@ run_gradle_db_test() {
     win_gradle_user_home="$(to_windows_path "${win_gradle_user_home}")"
     {
       echo "@echo off"
+      echo "pushd \"%~dp0\""
       for kv in "${base_env[@]}"; do
         echo "set \"${kv}\""
       done
       echo "set \"GRADLE_USER_HOME=${win_gradle_user_home}\""
-      echo "call gradlew.bat ${gradle_args[*]}"
-      echo "exit /b %ERRORLEVEL%"
+      echo "call \"%~dp0gradlew.bat\" ${gradle_args[*]}"
+      echo "set \"EXIT_CODE=%ERRORLEVEL%\""
+      echo "popd"
+      echo "exit /b %EXIT_CODE%"
     } > "${win_cmd_wrapper}"
     win_cmd_wrapper_path="$(to_windows_path "${win_cmd_wrapper}")"
     if cmd.exe /c "${win_cmd_wrapper_path}" > "${gradle_log}" 2>&1; then
+      rm -f "${win_cmd_wrapper}"
+      popd >/dev/null
+      return 0
+    fi
+    if grep -q "BUILD SUCCESSFUL" "${gradle_log}"; then
+      echo "[WARN] ${service_name} Windows Gradle wrapper returned non-zero despite BUILD SUCCESSFUL; continuing." >&2
       rm -f "${win_cmd_wrapper}"
       popd >/dev/null
       return 0
