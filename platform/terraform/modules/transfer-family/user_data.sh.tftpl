@@ -28,11 +28,25 @@ printf '%s\n' "$${SFTP_KEY}" > "/etc/ssh/authorized_keys/${sftp_username}"
 chmod 600 "/etc/ssh/authorized_keys/${sftp_username}"
 chown root:root "/etc/ssh/authorized_keys/${sftp_username}"
 
-if ! grep -q "^Subsystem sftp" /etc/ssh/sshd_config; then
-  echo "Subsystem sftp internal-sftp" >> /etc/ssh/sshd_config
+# Normalize any existing SFTP subsystem directive (tabs/spaces/paths), or add one if absent.
+if grep -Eq '^[[:space:]]*Subsystem[[:space:]]+sftp([[:space:]]|$)' /etc/ssh/sshd_config; then
+  sed -i -E 's|^[[:space:]]*Subsystem[[:space:]]+sftp.*|Subsystem sftp internal-sftp|' /etc/ssh/sshd_config
 else
-  sed -i 's|^Subsystem[[:space:]]\+sftp.*|Subsystem sftp internal-sftp|' /etc/ssh/sshd_config
+  echo "Subsystem sftp internal-sftp" >> /etc/ssh/sshd_config
 fi
+
+# Keep a single canonical Subsystem sftp line to avoid sshd startup failure.
+awk '
+  BEGIN { seen=0 }
+  /^Subsystem[[:space:]]+sftp([[:space:]]|$)/ {
+    if (seen) next
+    seen=1
+    print "Subsystem sftp internal-sftp"
+    next
+  }
+  { print }
+' /etc/ssh/sshd_config > /etc/ssh/sshd_config.tmp
+mv /etc/ssh/sshd_config.tmp /etc/ssh/sshd_config
 
 cat >/etc/ssh/sshd_config.d/99-sftp-only.conf <<'EOFCONF'
 PasswordAuthentication no
