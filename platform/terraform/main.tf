@@ -57,6 +57,7 @@ module "security" {
   enable_verification_pipeline      = var.enable_verification_pipeline
   enable_sftp_transaction_collector = var.enable_sftp_transaction_collector
   enable_transfer_family_sftp       = var.enable_transfer_family_sftp
+  enable_cognito                    = var.enable_cognito
   audit_sqs_arn                     = module.sqs.audit_queue_arn
   audit_dlq_arn                     = module.sqs.audit_dlq_arn
   aml_sqs_arn                       = module.sqs.aml_queue_arn
@@ -66,6 +67,7 @@ module "security" {
   verification_bucket_arn           = module.s3.verification_bucket_arn
   transaction_sftp_bucket_arn       = module.s3.transaction_sftp_bucket_arn
   verification_sns_topic_arn        = module.sns.verification_topic_arn
+  cognito_user_pool_arn             = var.enable_cognito ? module.cognito[0].user_pool_arn : ""
   ses_identity                      = var.ses_domain != "" ? var.ses_domain : var.ses_sender_email
 
   # GuardDuty threat detection
@@ -290,6 +292,8 @@ module "ecs" {
   cognito_issuer_url                              = var.cognito_issuer_url != "" ? var.cognito_issuer_url : (var.enable_cognito ? module.cognito[0].issuer_url : "")
   cognito_jwks_url                                = var.cognito_jwks_url != "" ? var.cognito_jwks_url : (var.enable_cognito ? module.cognito[0].jwks_url : "")
   cognito_audience                                = var.cognito_audience != "" ? var.cognito_audience : (var.enable_cognito ? module.cognito[0].app_client_id : "")
+  cognito_user_pool_id                            = var.enable_cognito ? module.cognito[0].user_pool_id : ""
+  cognito_client_id                               = var.enable_cognito ? module.cognito[0].app_client_id : ""
   transaction_mock_sftp_root                      = var.transaction_mock_sftp_root
   transaction_import_s3_bucket                    = module.s3.transaction_sftp_bucket_name
   transaction_import_s3_region                    = var.aws_region

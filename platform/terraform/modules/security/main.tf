@@ -700,6 +700,31 @@ resource "aws_iam_role_policy" "ecs_task_client_write_verification_s3" {
   policy = data.aws_iam_policy_document.ecs_client_write_verification_s3[0].json
 }
 
+data "aws_iam_policy_document" "ecs_user_cognito_admin" {
+  count = var.enable_cognito && trimspace(var.cognito_user_pool_arn) != "" && !local.use_lab_role ? 1 : 0
+
+  statement {
+    sid    = "ManageCognitoUsersInPool"
+    effect = "Allow"
+    actions = [
+      "cognito-idp:AdminCreateUser",
+      "cognito-idp:AdminAddUserToGroup",
+      "cognito-idp:AdminDeleteUser",
+      "cognito-idp:AdminDisableUser",
+      "cognito-idp:AdminResetUserPassword",
+    ]
+    resources = [var.cognito_user_pool_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "ecs_task_user_cognito_admin" {
+  count = var.enable_cognito && trimspace(var.cognito_user_pool_arn) != "" && !local.use_lab_role ? 1 : 0
+
+  name   = "${var.name_prefix}-ecs-task-user-cognito-admin"
+  role   = aws_iam_role.ecs_task["user"].id
+  policy = data.aws_iam_policy_document.ecs_user_cognito_admin[0].json
+}
+
 # --- ECS task policy: allow sending to SQS queues ---
 
 data "aws_iam_policy_document" "ecs_sqs_send" {

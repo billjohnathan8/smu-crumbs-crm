@@ -177,6 +177,18 @@ variable "cognito_audience" {
   default     = ""
 }
 
+variable "cognito_user_pool_id" {
+  description = "Cognito user pool ID exposed to the user service for admin user lifecycle operations."
+  type        = string
+  default     = ""
+}
+
+variable "cognito_client_id" {
+  description = "Cognito app client ID exposed to the user service for admin user lifecycle operations."
+  type        = string
+  default     = ""
+}
+
 variable "transaction_mock_sftp_root" {
   description = "MOCK_SFTP_ROOT value for transaction service."
   type        = string

@@ -122,6 +122,12 @@ variable "enable_transfer_family_sftp" {
   default     = false
 }
 
+variable "enable_cognito" {
+  description = "Enable Cognito-dependent IAM policies for ECS services."
+  type        = bool
+  default     = false
+}
+
 variable "audit_sqs_arn" {
   description = "ARN of the audit SQS queue (for Lambda consumer policy)."
   type        = string
@@ -172,6 +178,12 @@ variable "verification_sns_topic_arn" {
 
 variable "transaction_sftp_bucket_arn" {
   description = "ARN of the transaction ingestion source S3 bucket (legacy 'sftp' naming)."
+  type        = string
+  default     = ""
+}
+
+variable "cognito_user_pool_arn" {
+  description = "ARN of the Cognito user pool used by the user service for admin lifecycle actions."
   type        = string
   default     = ""
 }

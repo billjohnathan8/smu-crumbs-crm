@@ -102,6 +102,18 @@ locals {
         {
           name  = "COGNITO_AUDIENCE"
           value = var.cognito_audience
+        },
+        {
+          name  = "AWS_COGNITO_USER_POOL_ID"
+          value = var.cognito_user_pool_id
+        },
+        {
+          name  = "AWS_COGNITO_CLIENT_ID"
+          value = var.cognito_client_id
+        },
+        {
+          name  = "AWS_REGION"
+          value = var.aws_region
         }
       ]
       secrets = [
