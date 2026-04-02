@@ -18,7 +18,7 @@ enable_multi_az_nat                = true
 enable_nat_gateway                 = true
 enable_vpc_flow_logs               = true
 restrict_alb_ingress_to_cloudfront = true
-allow_public_alb_https_ingress     = true # api.itsag2t3.com currently aliases directly to ALB (not CloudFront), so direct HTTPS ingress must remain enabled
+allow_public_alb_https_ingress     = true  # api.itsag2t3.com currently aliases directly to ALB (not CloudFront), so direct HTTPS ingress must remain enabled
 alb_internal                       = false # CloudFront origin must be publicly reachable
 
 # --- ECS ---
