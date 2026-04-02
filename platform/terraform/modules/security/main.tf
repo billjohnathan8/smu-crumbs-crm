@@ -23,20 +23,21 @@ resource "aws_security_group" "alb" {
   description = "Allow inbound HTTP and HTTPS traffic to ALB."
   vpc_id      = var.vpc_id
 
-  dynamic "ingress" {
-    for_each = var.restrict_alb_ingress_to_cloudfront ? [1] : []
-    content {
-      description     = "HTTPS from CloudFront origin-facing ranges"
-      from_port       = 443
-      to_port         = 443
-      protocol        = "tcp"
-      prefix_list_ids = [data.aws_ec2_managed_prefix_list.cloudfront_origin_facing[0].id]
-    }
-  }
-
   tags = {
     Name = "${var.name_prefix}-alb-sg"
   }
+}
+
+resource "aws_security_group_rule" "alb_ingress_from_cloudfront" {
+  count = var.restrict_alb_ingress_to_cloudfront ? 1 : 0
+
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  security_group_id = aws_security_group.alb.id
+  prefix_list_ids   = [data.aws_ec2_managed_prefix_list.cloudfront_origin_facing[0].id]
+  description       = "HTTPS from CloudFront origin-facing ranges"
 }
 
 # ALB only needs to forward traffic to ECS backend services on port 8080.
@@ -55,43 +56,49 @@ resource "aws_security_group" "ecs_service" {
   description = "Allow app traffic from ALB and internal ECS traffic."
   vpc_id      = var.vpc_id
 
-  ingress {
-    description     = "Backend traffic from ALB"
-    from_port       = 8080
-    to_port         = 8080
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb.id]
-  }
-
-  ingress {
-    description = "Service-to-service traffic"
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    self        = true
-  }
-
-  # Egress: HTTPS for AWS APIs (Secrets Manager, SSM, ECR, SQS, SNS, S3, SES, etc.)
-  egress {
-    description = "HTTPS to AWS APIs and internet endpoints"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] #trivy:ignore:AVD-AWS-0104
-  }
-
-  # Egress: service-to-service communication
-  egress {
-    description = "Service-to-service traffic"
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    self        = true
-  }
-
   tags = {
     Name = "${var.name_prefix}-ecs-sg"
   }
+}
+
+resource "aws_security_group_rule" "ecs_ingress_from_alb" {
+  type                     = "ingress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.ecs_service.id
+  source_security_group_id = aws_security_group.alb.id
+  description              = "Backend traffic from ALB"
+}
+
+resource "aws_security_group_rule" "ecs_ingress_self" {
+  type              = "ingress"
+  from_port         = 8080
+  to_port           = 8080
+  protocol          = "tcp"
+  security_group_id = aws_security_group.ecs_service.id
+  self              = true
+  description       = "Service-to-service traffic"
+}
+
+resource "aws_security_group_rule" "ecs_egress_https" {
+  type              = "egress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  security_group_id = aws_security_group.ecs_service.id
+  cidr_blocks       = ["0.0.0.0/0"] #trivy:ignore:AVD-AWS-0104
+  description       = "HTTPS to AWS APIs and internet endpoints"
+}
+
+resource "aws_security_group_rule" "ecs_egress_self" {
+  type              = "egress"
+  from_port         = 8080
+  to_port           = 8080
+  protocol          = "tcp"
+  security_group_id = aws_security_group.ecs_service.id
+  self              = true
+  description       = "Service-to-service traffic"
 }
 
 resource "aws_security_group" "lambda" {
@@ -99,18 +106,19 @@ resource "aws_security_group" "lambda" {
   description = "Security group for Lambda functions in VPC."
   vpc_id      = var.vpc_id
 
-  # Egress: HTTPS for AWS APIs (Secrets Manager, SSM, S3, SES, SNS, etc.)
-  egress {
-    description = "HTTPS to AWS APIs and internet endpoints"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] #trivy:ignore:AVD-AWS-0104
-  }
-
   tags = {
     Name = "${var.name_prefix}-lambda-sg"
   }
+}
+
+resource "aws_security_group_rule" "lambda_egress_https" {
+  type              = "egress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  security_group_id = aws_security_group.lambda.id
+  cidr_blocks       = ["0.0.0.0/0"] #trivy:ignore:AVD-AWS-0104
+  description       = "HTTPS to AWS APIs and internet endpoints"
 }
 
 resource "aws_security_group" "db" {
