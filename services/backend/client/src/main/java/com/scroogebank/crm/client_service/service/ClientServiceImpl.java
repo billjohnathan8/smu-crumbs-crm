@@ -29,6 +29,7 @@ import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
 import com.scroogebank.crm.client_service.exception.DuplicateClientException;
 import com.scroogebank.crm.client_service.logging.ClientAuditLogger;
 import com.scroogebank.crm.client_service.logging.PiiMasker;
+import com.scroogebank.crm.client_service.repository.AccountRepository;
 import com.scroogebank.crm.client_service.repository.ClientRepository;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 import com.scroogebank.crm.client_service.security.UnauthorizedException;
@@ -43,14 +44,16 @@ public class ClientServiceImpl implements ClientService {
 	private static final String CLIENT_ID_PREFIX = "clt_";
 
 	private final ClientRepository clientRepository;
+	private final AccountRepository accountRepository;
 	private final ClientAuditLogger clientAuditLogger;
 	private final DocumentStorageService documentStorageService;
 	private final VerificationTokenService verificationTokenService;
-    private final SnsEmailPublisherService snsEmailPublisherService;
+	private final SnsEmailPublisherService snsEmailPublisherService;
 	private final long verificationLinkTokenTtlSeconds;
 
 	public ClientServiceImpl(
 		ClientRepository clientRepository,
+		AccountRepository accountRepository,
 		ClientAuditLogger clientAuditLogger,
 		DocumentStorageService documentStorageService,
 		VerificationTokenService verificationTokenService,
@@ -58,6 +61,7 @@ public class ClientServiceImpl implements ClientService {
 		@Value("${app.verification.link-token-ttl-seconds:7200}") Long verificationLinkTokenTtlSeconds
 	) {
 		this.clientRepository = clientRepository;
+		this.accountRepository = accountRepository;
 		this.clientAuditLogger = clientAuditLogger;
 		this.documentStorageService = documentStorageService;
 		this.verificationTokenService = verificationTokenService;
@@ -274,7 +278,9 @@ public class ClientServiceImpl implements ClientService {
 	@Transactional
 	public void deleteClient(AuthenticatedUser user, String clientId, String authorizationHeader, String requestId) {
 		ClientEntity entity = loadOwnedClient(user, clientId);
-		clientRepository.delete(entity);
+		entity.setDeleted(true);
+		clientRepository.save(entity);
+		accountRepository.softDeleteByClientId(entity.getId());
 		publishAuditSafe(
 			"DELETE",
 			"Client ID",
@@ -450,6 +456,11 @@ public class ClientServiceImpl implements ClientService {
 	 * @param emailAddress email to check
 	 * @param phoneNumber phone to check
 	 */
+	@Override
+	public long countClientsByAgent(String assignedUserId) {
+		return clientRepository.countByAssignedUserIdAndDeletedFalse(assignedUserId);
+	}
+
 	private void checkCreateConflicts(String emailAddress, String phoneNumber) {
 		if (clientRepository.existsByEmailAddressIgnoreCase(emailAddress)) {
 			throw new DuplicateClientException("Email address already exists.");
@@ -584,6 +595,10 @@ public class ClientServiceImpl implements ClientService {
 		long dbId = decodeClientId(clientId);
 		ClientEntity client = clientRepository.findById(dbId)
 			.orElseThrow(() -> new ClientNotFoundException(clientId));
+
+		if (client.isDeleted()) {
+			throw new ClientNotFoundException(clientId);
+		}
 
 		if (!user.isAdmin() && !user.userId().equals(client.getAssignedAgentId())) {
 			throw new ClientNotFoundException(clientId);

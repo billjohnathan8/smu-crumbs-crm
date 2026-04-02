@@ -123,4 +123,12 @@ public interface ClientService {
 		UploadVerificationDocsRequest request,
 		String requestId
 	);
+
+	/**
+	 * Counts non-deleted clients assigned to the given agent.
+	 *
+	 * @param assignedUserId agent identifier
+	 * @return count of active clients
+	 */
+	long countClientsByAgent(String assignedUserId);
 }

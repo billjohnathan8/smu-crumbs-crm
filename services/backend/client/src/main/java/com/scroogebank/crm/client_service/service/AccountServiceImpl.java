@@ -136,7 +136,8 @@ public class AccountServiceImpl implements AccountService {
 	) {
 		AccountEntity entity = loadOwnedAccount(user, accountId);
 		String cltId = clientId(entity.getClient().getId());
-		accountRepository.delete(entity);
+		entity.setDeleted(true);
+		accountRepository.save(entity);
 
 		publishAuditSafe(
 			"DELETE", "Account ID", accountId, null,
@@ -197,6 +198,11 @@ public class AccountServiceImpl implements AccountService {
 		long dbAccountId = decodeAccountId(accountId);
 		AccountEntity entity = accountRepository.findById(dbAccountId)
 			.orElseThrow(() -> new AccountNotFoundException(accountId));
+
+		if (entity.isDeleted()) {
+			throw new AccountNotFoundException(accountId);
+		}
+
 		ClientEntity client = entity.getClient();
 		if (!user.isAdmin() && !user.userId().equals(client.getAssignedAgentId())) {
 			throw new AccountNotFoundException(accountId);

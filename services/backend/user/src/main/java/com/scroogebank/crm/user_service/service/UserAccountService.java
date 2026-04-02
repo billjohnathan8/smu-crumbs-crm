@@ -7,9 +7,13 @@ import com.scroogebank.crm.user_service.dto.UpdateUserRequest;
 import com.scroogebank.crm.user_service.dto.UserDto;
 import com.scroogebank.crm.user_service.dto.UserRole;
 import com.scroogebank.crm.user_service.dto.UsersListResponse;
-import com.scroogebank.crm.user_service.security.AuthenticatedUser;	
+import com.scroogebank.crm.user_service.logging.UserAuditLogger;
+import com.scroogebank.crm.user_service.security.AuthenticatedUser;
 import com.scroogebank.crm.user_service.exception.AccessDeniedException;
 import com.scroogebank.crm.user_service.exception.UserNotFoundException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
@@ -17,12 +21,15 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class UserAccountService {
+	private static final Logger LOGGER = LoggerFactory.getLogger(UserAccountService.class);
 	private static final String ROOT_ADMIN_USER_ID = "usr_1";
 
 	private final PersistentUserStore store;
+	private final UserAuditLogger userAuditLogger;
 
-	public UserAccountService(PersistentUserStore store) {
+	public UserAccountService(PersistentUserStore store, UserAuditLogger userAuditLogger) {
 		this.store = store;
+		this.userAuditLogger = userAuditLogger;
 	}
 
 	/**
@@ -31,10 +38,13 @@ public class UserAccountService {
 	 * @param request create user payload
 	 * @return created user
 	 */
-	public UserDto createUser(CreateUserRequest request, AuthenticatedUser requester) {
+	public UserDto createUser(CreateUserRequest request, AuthenticatedUser requester, String authorizationHeader, String correlationId) {
 		validateHierarchyPermissions(requester, request.role(), "create");
 
-		return store.createUser(request);
+		UserDto created = store.createUser(request);
+		publishAuditSafe("CREATE", "User ID", null, created.id(),
+			requester.userId(), created.id(), correlationId, authorizationHeader);
+		return created;
 	}
 
 	/**
@@ -90,8 +100,7 @@ public class UserAccountService {
 	 * @param request update payload
 	 * @return updated user DTO
 	 */
-	public UserDto updateUser(String userId, UpdateUserRequest request, AuthenticatedUser user) {
-		// Check if user exists
+	public UserDto updateUser(String userId, UpdateUserRequest request, AuthenticatedUser user, String authorizationHeader, String correlationId) {
 		UserDto existingUser = store.getUser(userId);
 		if (existingUser == null) {
 			throw new UserNotFoundException(userId);
@@ -99,8 +108,23 @@ public class UserAccountService {
 
 		validateUpdatePermissions(userId, user, existingUser.role(), request.role());
 
-		// Delegate to the store when validation passes
-		return store.updateUser(userId, request);
+		UserDto updated = store.updateUser(userId, request);
+
+		StringBuilder attrs = new StringBuilder();
+		StringBuilder befores = new StringBuilder();
+		StringBuilder afters = new StringBuilder();
+		appendIfChanged(attrs, befores, afters, "firstName", existingUser.firstName(), updated.firstName());
+		appendIfChanged(attrs, befores, afters, "lastName", existingUser.lastName(), updated.lastName());
+		appendIfChanged(attrs, befores, afters, "email", existingUser.email(), updated.email());
+		appendIfChanged(attrs, befores, afters, "role",
+			existingUser.role() != null ? existingUser.role().name() : null,
+			updated.role() != null ? updated.role().name() : null);
+		if (!attrs.isEmpty()) {
+			publishAuditSafe("UPDATE", attrs.toString(), befores.toString(), afters.toString(),
+				user.userId(), userId, correlationId, authorizationHeader);
+		}
+
+		return updated;
 	}
 
 	/**
@@ -109,8 +133,7 @@ public class UserAccountService {
 	 * @param userId API user identifier
 	 * @param user authenticated user performing the delete
 	 */
-	public void deleteUser(String userId, AuthenticatedUser user) {
-		// Look up the target user's role
+	public void deleteUser(String userId, AuthenticatedUser user, String authorizationHeader, String correlationId) {
 		UserDto target = store.getUser(userId);
 		if (target == null) {
 			throw new UserNotFoundException(userId);
@@ -119,8 +142,9 @@ public class UserAccountService {
 
 		validateHierarchyPermissions(user, targetRole, "delete");
 
-		// Root-admin protection and actual delete are enforced in the store
 		store.deleteUser(userId);
+		publishAuditSafe("DELETE", "User ID", userId, null,
+			user.userId(), userId, correlationId, authorizationHeader);
 	}
 
 	/**
@@ -129,9 +153,7 @@ public class UserAccountService {
 	 * @param userId API user identifier
 	 * @return updated user DTO
 	 */
-	public UserDto disableUser(String userId, AuthenticatedUser user) {
-
-		// Look up the target user's role
+	public UserDto disableUser(String userId, AuthenticatedUser user, String authorizationHeader, String correlationId) {
 		UserDto target = store.getUser(userId);
 		if (target == null) {
 			throw new UserNotFoundException(userId);
@@ -140,11 +162,13 @@ public class UserAccountService {
 			throw new AccessDeniedException("Root admin accounts cannot be disabled via the API");
 		}
 		UserRole targetRole = target.role();
-		
+
 		validateHierarchyPermissions(user, targetRole, "disable");
 
-		// Disable user
-		return store.disableUser(userId);
+		UserDto disabled = store.disableUser(userId);
+		publishAuditSafe("UPDATE", "status", "active", "disabled",
+			user.userId(), userId, correlationId, authorizationHeader);
+		return disabled;
 	}
 
 	/**
@@ -246,5 +270,44 @@ public class UserAccountService {
 
 	private boolean isSeededRootAdmin(AuthenticatedUser requester) {
 		return isRootAdminUserId(requester.userId());
+	}
+
+	private void publishAuditSafe(
+		String action,
+		String attributeName,
+		String beforeValue,
+		String afterValue,
+		String userId,
+		String clientId,
+		String correlationId,
+		String authorizationHeader
+	) {
+		if (authorizationHeader == null || authorizationHeader.isBlank()) {
+			return;
+		}
+		try {
+			userAuditLogger.logAuditEvent(
+				action, attributeName, beforeValue, afterValue,
+				userId, clientId, correlationId, authorizationHeader
+			);
+		} catch (Exception ex) {
+			LOGGER.warn("User operation completed but audit logging failed. action={} targetUserId={}", action, clientId, ex);
+		}
+	}
+
+	private static void appendIfChanged(
+		StringBuilder attrs, StringBuilder befores, StringBuilder afters,
+		String name, String oldVal, String newVal
+	) {
+		if (newVal != null && !newVal.equals(oldVal)) {
+			if (!attrs.isEmpty()) {
+				attrs.append(", ");
+				befores.append(", ");
+				afters.append(", ");
+			}
+			attrs.append(name);
+			befores.append(oldVal);
+			afters.append(newVal);
+		}
 	}
 }

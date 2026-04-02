@@ -69,6 +69,17 @@ public class ClientController {
 		this.requestAuth = requestAuth;
 	}
 
+	@GetMapping("/count")
+	@Operation(summary = "Count clients assigned to a specific agent")
+	public java.util.Map<String, Long> countClientsByAgent(
+		HttpServletRequest httpRequest,
+		@RequestParam String assignedUserId
+	) {
+		requestAuth.requireUser(httpRequest);
+		long count = clientService.countClientsByAgent(assignedUserId);
+		return java.util.Map.of("count", count);
+	}
+
 	/**
 	 * Lists clients visible to the authenticated user with pagination and optional query filtering.
 	 *
