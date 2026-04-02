@@ -10,6 +10,7 @@ import com.scroogebank.crm.user_service.dto.UsersListResponse;
 import com.scroogebank.crm.user_service.security.AuthenticatedUser;	
 import com.scroogebank.crm.user_service.exception.AccessDeniedException;
 import com.scroogebank.crm.user_service.exception.UserNotFoundException;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 
 /**
@@ -22,7 +23,7 @@ public class UserAccountService {
 	private final PersistentUserStore store;
 	private final CognitoService cognitoService;
 
-	public UserAccountService(PersistentUserStore store, CognitoService cognitoService) {
+	public UserAccountService(PersistentUserStore store, @Nullable CognitoService cognitoService) {
 		this.store = store;
 		this.cognitoService = cognitoService;
 	}
@@ -36,14 +37,30 @@ public class UserAccountService {
 	public UserDto createUser(CreateUserRequest request, AuthenticatedUser requester) {
 		validateHierarchyPermissions(requester, request.role(), "create");
 
-		// 1. Save to DB first
-        UserDto createdUser = store.createUser(request);
+		if (cognitoService == null) {
+			return store.createUser(request);
+		}
 
-        // 2. Register in Cognito based on role
-        String cognitoGroup = request.role() == UserRole.admin ? "ADMIN" : "USER";
-        cognitoService.createUser(request.email(), request.firstName(), cognitoGroup);
+		String cognitoGroup = request.role() == UserRole.admin ? "ADMIN" : "USER";
+		String fullName = request.firstName() + " " + request.lastName();
+		cognitoService.createUser(request.email(), fullName, cognitoGroup);
+		try {
+			return store.createUser(request);
+		}
+		catch (RuntimeException ex) {
+			// Compensate to avoid leaving a Cognito-only user when DB write fails.
+			try {
+				cognitoService.deleteUser(request.email());
+			}
+			catch (RuntimeException cleanupEx) {
+				ex.addSuppressed(cleanupEx);
+			}
+			throw ex;
+		}
+	}
 
-        return createdUser;
+	private CognitoService getCognitoServiceOrNull() {
+		return cognitoService;
 	}
 
 	/**
@@ -128,8 +145,10 @@ public class UserAccountService {
 
 		validateHierarchyPermissions(user, targetRole, "delete");
 
-		// Delete
-		cognitoService.deleteUser(target.email());
+		CognitoService cognitoService = getCognitoServiceOrNull();
+		if (cognitoService != null) {
+			cognitoService.deleteUser(target.email());
+		}
 		store.deleteUser(userId);
 	}
 
@@ -153,8 +172,10 @@ public class UserAccountService {
 		
 		validateHierarchyPermissions(user, targetRole, "disable");
 
-		// Disable user
-        cognitoService.disableUser(target.email());
+		CognitoService cognitoService = getCognitoServiceOrNull();
+		if (cognitoService != null) {
+			cognitoService.disableUser(target.email());
+		}
 		return store.disableUser(userId);
 	}
 
@@ -181,7 +202,10 @@ public class UserAccountService {
 		}
 		validateHierarchyPermissions(requester, targetRole, "reset password for");
 
-		cognitoService.resetPassword(target.email());
+		CognitoService cognitoService = getCognitoServiceOrNull();
+		if (cognitoService != null) {
+			cognitoService.resetPassword(target.email());
+		}
 		store.resetPassword(userId);
 	}
 

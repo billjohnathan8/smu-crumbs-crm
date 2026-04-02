@@ -10,7 +10,7 @@ import software.amazon.awssdk.services.cognitoidentityprovider.CognitoIdentityPr
 @Configuration
 public class CognitoConfig {
 
-    @Value("${aws.cognito.region}")
+    @Value("${aws.cognito.region:ap-southeast-1}")
     private String region;
 
     @Bean
