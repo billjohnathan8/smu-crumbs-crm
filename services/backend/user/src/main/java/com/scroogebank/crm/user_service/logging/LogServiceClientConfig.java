@@ -16,7 +16,7 @@ import org.springframework.web.client.RestClient;
 public class LogServiceClientConfig {
 	@Bean
 	RestClient logServiceRestClient(
-		@Value("${app.log-service-url}") String logServiceUrl
+		@Value("${app.log-service-url:http://localhost:4566/_aws/execute-api/local/local}") String logServiceUrl
 	) {
 		HttpClient httpClient = HttpClient.newBuilder()
 			.connectTimeout(Duration.ofSeconds(5))
