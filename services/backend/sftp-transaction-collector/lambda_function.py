@@ -1,5 +1,6 @@
 """
 SFTP Transaction Collector Lambda.
+cicd-test deploy --- IGNORE ---
 
 Flow:
 1. Triggered by EventBridge schedule.
