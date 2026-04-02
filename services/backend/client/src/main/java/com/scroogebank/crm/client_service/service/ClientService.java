@@ -4,6 +4,8 @@ import com.scroogebank.crm.client_service.dto.ClientCreateRequest;
 import com.scroogebank.crm.client_service.dto.ClientDto;
 import com.scroogebank.crm.client_service.dto.ClientListResponse;
 import com.scroogebank.crm.client_service.dto.ClientUpdateRequest;
+import com.scroogebank.crm.client_service.dto.ReassignRequest;
+import com.scroogebank.crm.client_service.dto.ReassignResponse;
 import com.scroogebank.crm.client_service.dto.ReviewVerificationRequest;
 import com.scroogebank.crm.client_service.dto.UploadVerificationDocsRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
@@ -93,6 +95,22 @@ public interface ClientService {
 		AuthenticatedUser user,
 		String clientId,
 		ReviewVerificationRequest request,
+		String authorizationHeader,
+		String requestId
+	);
+
+	/**
+	 * Reassigns all clients from one agent to another (admin only).
+	 *
+	 * @param user authenticated user
+	 * @param request reassignment payload
+	 * @param authorizationHeader bearer token for downstream audit logging
+	 * @param requestId request correlation id
+	 * @return count of reassigned clients
+	 */
+	ReassignResponse reassignClients(
+		AuthenticatedUser user,
+		ReassignRequest request,
 		String authorizationHeader,
 		String requestId
 	);

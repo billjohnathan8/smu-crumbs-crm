@@ -4,6 +4,8 @@ import com.scroogebank.crm.client_service.dto.ClientCreateRequest;
 import com.scroogebank.crm.client_service.dto.ClientDto;
 import com.scroogebank.crm.client_service.dto.ClientListResponse;
 import com.scroogebank.crm.client_service.dto.ClientUpdateRequest;
+import com.scroogebank.crm.client_service.dto.ReassignRequest;
+import com.scroogebank.crm.client_service.dto.ReassignResponse;
 import com.scroogebank.crm.client_service.dto.ReviewVerificationRequest;
 import com.scroogebank.crm.client_service.dto.UploadVerificationDocsRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
@@ -158,6 +160,24 @@ public class ClientController {
 		AuthenticatedUser user = requestAuth.requireUser(httpRequest);
 		String authorizationHeader = httpRequest.getHeader("Authorization");
 		clientService.deleteClient(user, clientId, authorizationHeader, requestId(httpRequest));
+	}
+
+	/**
+	 * Reassigns all clients from one agent to another (admin only).
+	 *
+	 * @param httpRequest HTTP request used for auth and correlation id extraction
+	 * @param request reassignment payload
+	 * @return transfer count
+	 */
+	@PostMapping("/reassign")
+	@Operation(summary = "Reassign clients between agents")
+	public ReassignResponse reassignClients(
+		HttpServletRequest httpRequest,
+		@Valid @RequestBody ReassignRequest request
+	) {
+		AuthenticatedUser user = requestAuth.requireUser(httpRequest);
+		String authorizationHeader = httpRequest.getHeader("Authorization");
+		return clientService.reassignClients(user, request, authorizationHeader, requestId(httpRequest));
 	}
 
 	/**

@@ -4,6 +4,7 @@ import com.scroogebank.crm.client_service.entity.ClientEntity;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -33,6 +34,21 @@ public interface ClientRepository extends JpaRepository<ClientEntity, Long> {
 		ORDER BY c.id
 		""")
 	List<ClientEntity> findByAssignedAgentId(@Param("userId") String userId);
+
+	/**
+	 * Bulk reassigns clients from one agent to another.
+	 *
+	 * @param fromUserId source user identifier
+	 * @param toUserId destination user identifier
+	 * @return number of updated rows
+	 */
+	@Modifying
+	@Query("""
+		UPDATE ClientEntity c
+		SET c.assignedUserId = :toUserId
+		WHERE c.assignedUserId = :fromUserId
+		""")
+	int reassignClients(@Param("fromUserId") String fromUserId, @Param("toUserId") String toUserId);
 
 	/**
 	 * Searches all clients using a loose match over name/email/phone.

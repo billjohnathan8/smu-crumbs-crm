@@ -26,6 +26,15 @@ export interface ListClientAccountsParams {
   offset?: number
 }
 
+export interface ReassignRequest {
+  fromUserId: string
+  toUserId: string
+}
+
+export interface ReassignResponse {
+  count: number
+}
+
 /**
  * List clients (users see only their own, admins see all)
  */
@@ -65,6 +74,13 @@ export async function updateClient(clientId: string, data: ClientUpdateRequest):
  */
 export async function deleteClient(clientId: string): Promise<void> {
   return apiDelete<void>(`${CLIENTS_BASE}/${clientId}`)
+}
+
+/**
+ * Reassign all clients from one agent to another
+ */
+export async function reassignClients(data: ReassignRequest): Promise<ReassignResponse> {
+  return apiPost<ReassignResponse, ReassignRequest>(`${CLIENTS_BASE}/reassign`, data)
 }
 
 /**

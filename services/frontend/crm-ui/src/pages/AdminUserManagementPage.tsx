@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { isRootAdminUser } from '@/features/auth/authorization'
-import { listUsers, deleteUser } from '@/api/users'
+import { listUsers, deleteUser, disableUser } from '@/api/users'
+import { reassignClients } from '@/api/clients'
 import type { User, UserRole } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
@@ -34,7 +35,13 @@ export function AdminUserManagementPage() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null)
+  const [disablingUserId, setDisablingUserId] = useState<string | null>(null)
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false)
+  const [transferFromUser, setTransferFromUser] = useState<User | null>(null)
+  const [transferToUserId, setTransferToUserId] = useState('')
+  const [isTransferring, setIsTransferring] = useState(false)
 
   const isAdmin = user?.role === 'admin'
   const isRootAdmin = isRootAdminUser(user)
@@ -51,6 +58,7 @@ export function AdminUserManagementPage() {
       try {
         setLoading(true)
         setError('')
+        setSuccessMessage('')
 
         // For root admin, get all users; for admin, get only users
         const params = isRootAdmin ? {} : { role: 'user' as UserRole }
@@ -92,10 +100,12 @@ export function AdminUserManagementPage() {
 
     setDeletingUserId(userId)
     setError('')
+    setSuccessMessage('')
 
     try {
       await deleteUser(userId)
       setUsers(prev => prev.filter(u => u.id !== userId))
+      setSuccessMessage('User deleted successfully')
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
@@ -113,6 +123,96 @@ export function AdminUserManagementPage() {
     }
   }
 
+  const handleDisableUser = async (target: User) => {
+    if (target.role !== 'user') {
+      setError('Only agents can be disabled from this view')
+      return
+    }
+    if (target.status === 'disabled') {
+      return
+    }
+    if (!confirm(`Disable ${target.firstName} ${target.lastName}?`)) {
+      return
+    }
+
+    setDisablingUserId(target.id)
+    setError('')
+    setSuccessMessage('')
+
+    try {
+      const updated = await disableUser(target.id)
+      setUsers(prev => prev.map(u => (u.id === target.id ? updated : u)))
+      setSuccessMessage('Agent disabled. Reassign clients using Transfer.')
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          logout()
+        } else if (err.status === 403) {
+          setError('You are not authorized to disable this user')
+        } else {
+          setError(err.message || 'Failed to disable user')
+        }
+      } else {
+        setError('An unexpected error occurred')
+      }
+    } finally {
+      setDisablingUserId(null)
+    }
+  }
+
+  const openTransferModal = (sourceUser: User) => {
+    setError('')
+    setSuccessMessage('')
+    setTransferFromUser(sourceUser)
+    setTransferToUserId('')
+    setIsTransferModalOpen(true)
+  }
+
+  const closeTransferModal = () => {
+    setIsTransferModalOpen(false)
+    setTransferFromUser(null)
+    setTransferToUserId('')
+  }
+
+  const handleTransferConfirm = async () => {
+    if (!transferFromUser) return
+    if (!transferToUserId) {
+      setError('Please select a target agent')
+      return
+    }
+
+    setIsTransferring(true)
+    setError('')
+    setSuccessMessage('')
+
+    try {
+      const response = await reassignClients({
+        fromUserId: transferFromUser.id,
+        toUserId: transferToUserId,
+      })
+      setSuccessMessage(
+        response.count > 0
+          ? `Transferred ${response.count} client(s) successfully`
+          : 'No clients were assigned to this agent'
+      )
+      closeTransferModal()
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          logout()
+        } else if (err.status === 403) {
+          setError('You are not authorized to transfer clients')
+        } else {
+          setError(err.message || 'Failed to transfer clients')
+        }
+      } else {
+        setError('An unexpected error occurred')
+      }
+    } finally {
+      setIsTransferring(false)
+    }
+  }
+
   if (!user) {
     return <Navigate to="/login" replace />
   }
@@ -124,6 +224,9 @@ export function AdminUserManagementPage() {
   // Group users by role for display
   const admins = users.filter(u => u.role === 'admin' || u.role === 'super_admin')
   const regularUsers = users.filter(u => u.role === 'user')
+  const transferTargets = regularUsers.filter(
+    u => u.status === 'active' && u.id !== transferFromUser?.id
+  )
 
   return (
     <SidebarLayout items={sidebarNav}>
@@ -155,6 +258,11 @@ export function AdminUserManagementPage() {
             <p className="text-danger text-sm">{error}</p>
           </div>
         )}
+        {successMessage && (
+          <div className="bg-success/10 border border-success rounded-lg p-4 mb-6">
+            <p className="text-success text-sm">{successMessage}</p>
+          </div>
+        )}
 
         {loading ? (
           <div className="text-center py-8">
@@ -173,6 +281,7 @@ export function AdminUserManagementPage() {
                         <th className="text-left py-2 px-4 font-normal text-text">Last Name</th>
                         <th className="text-left py-2 px-4 font-normal text-text">Email</th>
                         <th className="text-left py-2 px-4 font-normal text-text">Role</th>
+                        <th className="text-left py-2 px-4 font-normal text-text">Status</th>
                         <th className="text-left py-2 px-4 font-normal text-text">Actions</th>
                       </tr>
                     </thead>
@@ -233,17 +342,52 @@ export function AdminUserManagementPage() {
                           <td className="py-3 px-4 text-text">{u.email}</td>
                           <td className="py-3 px-4 text-text capitalize">{u.role}</td>
                           <td className="py-3 px-4">
-                            <button
-                              onClick={() => handleDeleteUser(u.id, u.role)}
-                              disabled={deletingUserId === u.id}
-                              className={`px-3 py-1 rounded text-sm font-normal transition-opacity ${
-                                deletingUserId === u.id
-                                  ? 'gradient-dark-red opacity-50 cursor-not-allowed text-white'
-                                  : 'gradient-dark-red hover:opacity-80 text-white'
+                            <span
+                              className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
+                                u.status === 'disabled'
+                                  ? 'bg-warning/20 text-warning'
+                                  : 'bg-success/20 text-success'
                               }`}
                             >
-                              {deletingUserId === u.id ? 'Deleting...' : 'Delete'}
-                            </button>
+                              {u.status === 'disabled' ? 'Disabled' : 'Active'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              {u.status === 'active' ? (
+                                <button
+                                  onClick={() => handleDisableUser(u)}
+                                  disabled={disablingUserId === u.id}
+                                  className={`px-3 py-1 rounded text-sm font-normal transition-opacity ${
+                                    disablingUserId === u.id
+                                      ? 'bg-warning/70 opacity-50 cursor-not-allowed text-white'
+                                      : 'bg-warning hover:opacity-80 text-white'
+                                  }`}
+                                >
+                                  {disablingUserId === u.id ? 'Disabling...' : 'Disable'}
+                                </button>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => openTransferModal(u)}
+                                    className="px-3 py-1 rounded text-sm font-normal bg-accent text-white hover:opacity-80 transition-opacity"
+                                  >
+                                    Transfer
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteUser(u.id, u.role)}
+                                    disabled={deletingUserId === u.id}
+                                    className={`px-3 py-1 rounded text-sm font-normal transition-opacity ${
+                                      deletingUserId === u.id
+                                        ? 'gradient-dark-red opacity-50 cursor-not-allowed text-white'
+                                        : 'gradient-dark-red hover:opacity-80 text-white'
+                                    }`}
+                                  >
+                                    {deletingUserId === u.id ? 'Deleting...' : 'Delete'}
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -255,6 +399,55 @@ export function AdminUserManagementPage() {
           </div>
         )}
       </main>
+      {isTransferModalOpen && transferFromUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-lg bg-card p-6 shadow-lg">
+            <h3 className="text-lg font-medium text-text mb-2">Transfer Clients</h3>
+            <p className="text-sm text-text-subtle mb-4">
+              Move all clients from <strong>{transferFromUser.firstName} {transferFromUser.lastName}</strong> to
+              another active agent.
+            </p>
+            <label className="block text-sm text-text mb-2" htmlFor="transfer-target">
+              Target agent
+            </label>
+            <select
+              id="transfer-target"
+              value={transferToUserId}
+              onChange={e => setTransferToUserId(e.target.value)}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-text mb-4"
+            >
+              <option value="">Select an active agent</option>
+              {transferTargets.map(target => (
+                <option key={target.id} value={target.id}>
+                  {target.firstName} {target.lastName} ({target.email})
+                </option>
+              ))}
+            </select>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeTransferModal}
+                disabled={isTransferring}
+                className="px-3 py-1.5 rounded border border-border text-text hover:bg-surface transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleTransferConfirm}
+                disabled={isTransferring || !transferToUserId}
+                className={`px-3 py-1.5 rounded text-white transition-opacity ${
+                  isTransferring || !transferToUserId
+                    ? 'gradient-dark-red opacity-50 cursor-not-allowed'
+                    : 'gradient-dark-red hover:opacity-80'
+                }`}
+              >
+                {isTransferring ? 'Transferring...' : 'Confirm Transfer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </SidebarLayout>
   )
 }

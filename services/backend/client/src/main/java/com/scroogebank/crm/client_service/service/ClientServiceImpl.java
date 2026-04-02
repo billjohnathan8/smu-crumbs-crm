@@ -19,6 +19,8 @@ import com.scroogebank.crm.client_service.dto.ClientDto;
 import com.scroogebank.crm.client_service.dto.ClientListResponse;
 import com.scroogebank.crm.client_service.dto.ClientUpdateRequest;
 import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
+import com.scroogebank.crm.client_service.dto.ReassignRequest;
+import com.scroogebank.crm.client_service.dto.ReassignResponse;
 import com.scroogebank.crm.client_service.dto.ReviewVerificationRequest;
 import com.scroogebank.crm.client_service.dto.UploadVerificationDocsRequest;
 import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
@@ -278,6 +280,45 @@ public class ClientServiceImpl implements ClientService {
 			requestId,
 			authorizationHeader
 		);
+	}
+
+	@Override
+	@Transactional
+	public ReassignResponse reassignClients(
+		AuthenticatedUser user,
+		ReassignRequest request,
+		String authorizationHeader,
+		String requestId
+	) {
+		if (!user.isAdmin()) {
+			throw new AccessDeniedException("Admin role required for client reassignment");
+		}
+		String fromUserId = request.fromUserId().trim();
+		String toUserId = request.toUserId().trim();
+		if (fromUserId.equals(toUserId)) {
+			throw new IllegalArgumentException("fromUserId and toUserId must be different");
+		}
+
+		List<ClientEntity> sourceClients = clientRepository.findByAssignedAgentId(fromUserId);
+		if (sourceClients.isEmpty()) {
+			return new ReassignResponse(0);
+		}
+		int transferredCount = clientRepository.reassignClients(fromUserId, toUserId);
+
+		for (ClientEntity client : sourceClients) {
+			String apiClientId = clientId(client.getId());
+			publishAuditSafe(
+				"TRANSFER",
+				"assignedUserId",
+				fromUserId,
+				toUserId,
+				user.userId(),
+				apiClientId,
+				requestId,
+				authorizationHeader
+			);
+		}
+		return new ReassignResponse(transferredCount);
 	}
 
 	@Override
