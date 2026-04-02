@@ -493,12 +493,13 @@ module "sqs" {
 module "sns" {
   source = "./modules/sns"
 
-  name_prefix                  = local.name_prefix
-  environment                  = var.environment
-  enable_verification_pipeline = var.enable_verification_pipeline
-  notification_email           = var.ses_notification_email
-  enable_alarm_topic           = var.enable_cloudwatch_alarms && trimspace(var.alarm_notification_topic_arn) == ""
-  alarm_notification_email     = var.alarm_notification_email
+  name_prefix                          = local.name_prefix
+  environment                          = var.environment
+  enable_verification_pipeline         = var.enable_verification_pipeline
+  notification_email                   = var.ses_notification_email
+  enable_alarm_topic                   = var.enable_cloudwatch_alarms && trimspace(var.alarm_notification_topic_arn) == ""
+  alarm_notification_email             = var.alarm_notification_email
+  alarm_notification_additional_emails = var.alarm_notification_additional_emails
 }
 
 #--------------------------------------------------------------

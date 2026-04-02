@@ -984,6 +984,12 @@ variable "alarm_notification_email" {
   default     = ""
 }
 
+variable "alarm_notification_additional_emails" {
+  description = "Additional email endpoints subscribed to the CloudWatch alarm SNS topic."
+  type        = list(string)
+  default     = []
+}
+
 variable "alarm_notification_topic_arn" {
   description = "Existing SNS topic ARN for CloudWatch alarm notifications. Leave empty to create and use the repo-managed alarm topic."
   type        = string

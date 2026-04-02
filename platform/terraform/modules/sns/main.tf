@@ -53,3 +53,15 @@ resource "aws_sns_topic_subscription" "alarm_email" {
   protocol  = "email"
   endpoint  = var.alarm_notification_email
 }
+
+# Additional SNS email subscriptions for CloudWatch alarm notifications.
+resource "aws_sns_topic_subscription" "alarm_email_additional" {
+  for_each = var.enable_alarm_topic ? toset([
+    for email in var.alarm_notification_additional_emails : trimspace(email)
+    if trimspace(email) != "" && trimspace(email) != trimspace(var.alarm_notification_email)
+  ]) : toset([])
+
+  topic_arn = aws_sns_topic.alarm_notifications[0].arn
+  protocol  = "email"
+  endpoint  = each.value
+}

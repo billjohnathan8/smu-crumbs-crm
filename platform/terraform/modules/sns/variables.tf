@@ -36,3 +36,9 @@ variable "alarm_notification_email" {
   type        = string
   default     = ""
 }
+
+variable "alarm_notification_additional_emails" {
+  description = "Additional email endpoints for CloudWatch alarm SNS subscriptions."
+  type        = list(string)
+  default     = []
+}
