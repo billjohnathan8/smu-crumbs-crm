@@ -59,14 +59,6 @@ find_sg_id_by_name() {
     --region "${AWS_REGION}"
 }
 
-find_rule_id() {
-  local query="$1"
-  aws ec2 describe-security-group-rules \
-    --query "${query}" \
-    --output text \
-    --region "${AWS_REGION}"
-}
-
 name_prefix="${PROJECT_NAME}-${ENVIRONMENT}"
 alb_sg_name="${name_prefix}-alb-sg"
 ecs_sg_name="${name_prefix}-ecs-sg"
@@ -100,18 +92,21 @@ echo "  ECS SG:    ${ecs_sg_id} (${ecs_sg_name})"
 echo "  Lambda SG: ${lambda_sg_id} (${lambda_sg_name})"
 echo "  Prefix list: ${cf_prefix_list_id}"
 
-alb_ingress_cf_rule_id="$(find_rule_id "SecurityGroupRules[?GroupId=='${alb_sg_id}' && IsEgress==\`false\` && IpProtocol=='tcp' && FromPort==\`443\` && ToPort==\`443\` && PrefixListId=='${cf_prefix_list_id}'].SecurityGroupRuleId | [0]")"
-ecs_ingress_from_alb_rule_id="$(find_rule_id "SecurityGroupRules[?GroupId=='${ecs_sg_id}' && IsEgress==\`false\` && IpProtocol=='tcp' && FromPort==\`8080\` && ToPort==\`8080\` && ReferencedGroupInfo.GroupId=='${alb_sg_id}'].SecurityGroupRuleId | [0]")"
-ecs_ingress_self_rule_id="$(find_rule_id "SecurityGroupRules[?GroupId=='${ecs_sg_id}' && IsEgress==\`false\` && IpProtocol=='tcp' && FromPort==\`8080\` && ToPort==\`8080\` && ReferencedGroupInfo.GroupId=='${ecs_sg_id}'].SecurityGroupRuleId | [0]")"
-ecs_egress_https_rule_id="$(find_rule_id "SecurityGroupRules[?GroupId=='${ecs_sg_id}' && IsEgress==\`true\` && IpProtocol=='tcp' && FromPort==\`443\` && ToPort==\`443\` && CidrIpv4=='0.0.0.0/0'].SecurityGroupRuleId | [0]")"
-ecs_egress_self_rule_id="$(find_rule_id "SecurityGroupRules[?GroupId=='${ecs_sg_id}' && IsEgress==\`true\` && IpProtocol=='tcp' && FromPort==\`8080\` && ToPort==\`8080\` && ReferencedGroupInfo.GroupId=='${ecs_sg_id}'].SecurityGroupRuleId | [0]")"
-lambda_egress_https_rule_id="$(find_rule_id "SecurityGroupRules[?GroupId=='${lambda_sg_id}' && IsEgress==\`true\` && IpProtocol=='tcp' && FromPort==\`443\` && ToPort==\`443\` && CidrIpv4=='0.0.0.0/0'].SecurityGroupRuleId | [0]")"
+# aws_security_group_rule import format is:
+# SECURITY_GROUP_ID_TYPE_PROTOCOL_FROMPORT_TOPORT_SOURCE
+# Sources are CIDR/prefix-list/security-group id.
+alb_ingress_cf_import_id="${alb_sg_id}_ingress_tcp_443_443_${cf_prefix_list_id}"
+ecs_ingress_from_alb_import_id="${ecs_sg_id}_ingress_tcp_8080_8080_${alb_sg_id}"
+ecs_ingress_self_import_id="${ecs_sg_id}_ingress_tcp_8080_8080_${ecs_sg_id}"
+ecs_egress_https_import_id="${ecs_sg_id}_egress_tcp_443_443_0.0.0.0/0"
+ecs_egress_self_import_id="${ecs_sg_id}_egress_tcp_8080_8080_${ecs_sg_id}"
+lambda_egress_https_import_id="${lambda_sg_id}_egress_tcp_443_443_0.0.0.0/0"
 
-import_if_missing "module.security.aws_security_group_rule.alb_ingress_from_cloudfront[0]" "${alb_ingress_cf_rule_id}" "ALB ingress 443 from CloudFront prefix list"
-import_if_missing "module.security.aws_security_group_rule.ecs_ingress_from_alb" "${ecs_ingress_from_alb_rule_id}" "ECS ingress 8080 from ALB SG"
-import_if_missing "module.security.aws_security_group_rule.ecs_ingress_self" "${ecs_ingress_self_rule_id}" "ECS self-ingress 8080"
-import_if_missing "module.security.aws_security_group_rule.ecs_egress_https" "${ecs_egress_https_rule_id}" "ECS egress 443 to 0.0.0.0/0"
-import_if_missing "module.security.aws_security_group_rule.ecs_egress_self" "${ecs_egress_self_rule_id}" "ECS self-egress 8080"
-import_if_missing "module.security.aws_security_group_rule.lambda_egress_https" "${lambda_egress_https_rule_id}" "Lambda egress 443 to 0.0.0.0/0"
+import_if_missing "module.security.aws_security_group_rule.alb_ingress_from_cloudfront[0]" "${alb_ingress_cf_import_id}" "ALB ingress 443 from CloudFront prefix list"
+import_if_missing "module.security.aws_security_group_rule.ecs_ingress_from_alb" "${ecs_ingress_from_alb_import_id}" "ECS ingress 8080 from ALB SG"
+import_if_missing "module.security.aws_security_group_rule.ecs_ingress_self" "${ecs_ingress_self_import_id}" "ECS self-ingress 8080"
+import_if_missing "module.security.aws_security_group_rule.ecs_egress_https" "${ecs_egress_https_import_id}" "ECS egress 443 to 0.0.0.0/0"
+import_if_missing "module.security.aws_security_group_rule.ecs_egress_self" "${ecs_egress_self_import_id}" "ECS self-egress 8080"
+import_if_missing "module.security.aws_security_group_rule.lambda_egress_https" "${lambda_egress_https_import_id}" "Lambda egress 443 to 0.0.0.0/0"
 
 echo "Security group rule reconciliation complete."
