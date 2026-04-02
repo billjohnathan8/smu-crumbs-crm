@@ -61,6 +61,7 @@ export function AdminDashboard() {
           listLogs({ limit: 10 }),
           listClients({ limit: 100 }),
         ])
+        let nextError = ''
 
         if (agentsResult.status === 'rejected') {
           const reason = agentsResult.reason
@@ -68,11 +69,26 @@ export function AdminDashboard() {
             logout()
             return
           }
-          setError(
+          nextError =
             reason instanceof ApiError
               ? reason.message || 'Failed to load dashboard data'
               : 'Failed to load dashboard data'
-          )
+        }
+        if (logsResult.status === 'rejected') {
+          const reason = logsResult.reason
+          if (reason instanceof ApiError && reason.status === 401) {
+            logout()
+            return
+          }
+          if (!nextError) {
+            nextError =
+              reason instanceof ApiError
+                ? reason.message || 'Failed to load recent activity logs'
+                : 'Failed to load recent activity logs'
+          }
+        }
+        if (nextError) {
+          setError(nextError)
         }
 
         const agentsResponse = agentsResult.status === 'fulfilled' ? agentsResult.value : null
