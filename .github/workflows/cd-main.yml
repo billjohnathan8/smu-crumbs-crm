@@ -132,11 +132,9 @@ jobs:
   merge-ecs-intents:
     if: >-
       ${{ always() && !cancelled() &&
-          !contains(needs.*.result, 'failure') &&
-          !contains(needs.*.result, 'cancelled') &&
-          (needs.changes.outputs.backend-user == 'true' ||
-           needs.changes.outputs.backend-client == 'true' ||
-           needs.changes.outputs.backend-transaction == 'true') }}
+          (needs.deploy-user.result == 'success' ||
+           needs.deploy-client.result == 'success' ||
+           needs.deploy-transaction.result == 'success') }}
     needs:
       - changes
       - deploy-user
@@ -193,14 +191,12 @@ jobs:
   merge-lambda-intents:
     if: >-
       ${{ always() && !cancelled() &&
-          !contains(needs.*.result, 'failure') &&
-          !contains(needs.*.result, 'cancelled') &&
-          (needs.changes.outputs.backend-aml == 'true' ||
-           needs.changes.outputs.backend-verification == 'true' ||
-           needs.changes.outputs.backend-sftp-transaction-collector == 'true' ||
-           needs.changes.outputs.backend-aml-consumer == 'true' ||
-           needs.changes.outputs.backend-audit-consumer == 'true' ||
-           needs.changes.outputs.backend-log == 'true') }}
+          (needs.deploy-aml.result == 'success' ||
+           needs.deploy-verification.result == 'success' ||
+           needs.deploy-sftp-transaction-collector.result == 'success' ||
+           needs.deploy-aml-consumer.result == 'success' ||
+           needs.deploy-audit-consumer.result == 'success' ||
+           needs.deploy-log.result == 'success') }}
     needs:
       - changes
       - deploy-aml
@@ -260,9 +256,7 @@ jobs:
   merge-frontend-intents:
     if: >-
       ${{ always() && !cancelled() &&
-          !contains(needs.*.result, 'failure') &&
-          !contains(needs.*.result, 'cancelled') &&
-          (needs.changes.outputs.frontend == 'true') }}
+          needs.deploy-frontend.result == 'success' }}
     needs:
       - changes
       - deploy-frontend
@@ -318,9 +312,9 @@ jobs:
   merge-and-publish-manifest:
     if: >-
       ${{ always() && !cancelled() &&
-          !contains(needs.*.result, 'failure') &&
-          !contains(needs.*.result, 'cancelled') &&
-          needs.changes.outputs.any-service == 'true' }}
+          (needs.merge-ecs-intents.result == 'success' ||
+           needs.merge-lambda-intents.result == 'success' ||
+           needs.merge-frontend-intents.result == 'success') }}
     needs:
       - changes
       - merge-ecs-intents
@@ -346,9 +340,7 @@ jobs:
 
       - name: Download grouped ECS manifest artifact
         if: >-
-          ${{ needs.changes.outputs.backend-user == 'true' ||
-              needs.changes.outputs.backend-client == 'true' ||
-              needs.changes.outputs.backend-transaction == 'true' }}
+          ${{ needs.merge-ecs-intents.result == 'success' }}
         uses: actions/download-artifact@v4
         with:
           name: manifest-ecs
@@ -356,12 +348,7 @@ jobs:
 
       - name: Download grouped Lambda manifest artifact
         if: >-
-          ${{ needs.changes.outputs.backend-aml == 'true' ||
-              needs.changes.outputs.backend-verification == 'true' ||
-              needs.changes.outputs.backend-sftp-transaction-collector == 'true' ||
-              needs.changes.outputs.backend-aml-consumer == 'true' ||
-              needs.changes.outputs.backend-audit-consumer == 'true' ||
-              needs.changes.outputs.backend-log == 'true' }}
+          ${{ needs.merge-lambda-intents.result == 'success' }}
         uses: actions/download-artifact@v4
         with:
           name: manifest-lambda
@@ -369,7 +356,7 @@ jobs:
 
       - name: Download grouped frontend manifest artifact
         if: >-
-          ${{ needs.changes.outputs.frontend == 'true' }}
+          ${{ needs.merge-frontend-intents.result == 'success' }}
         uses: actions/download-artifact@v4
         with:
           name: manifest-frontend
