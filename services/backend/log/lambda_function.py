@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 from typing import Any
 
 from app.config import Settings
@@ -19,12 +20,17 @@ class _Runtime:
 
 
 _runtime: _Runtime | None = None
+LOGGER = logging.getLogger("log")
 
 
 def _build_runtime() -> _Runtime:
     settings = Settings()
     service = LogService(LogRepository(settings))
-    service.bootstrap()
+    if settings.run_migrations_on_start:
+        try:
+            service.bootstrap()
+        except Exception:
+            LOGGER.exception("log service bootstrap failed")
     return _Runtime(
         settings=settings, service=service, router=LambdaRouter(service, settings)
     )
