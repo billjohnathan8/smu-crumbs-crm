@@ -42,8 +42,9 @@ public class ApiExceptionHandler {
 	}
 
 	@ExceptionHandler(DuplicateClientException.class)
-	public ResponseEntity<ErrorResponse> handleDuplicate(HttpServletRequest request, DuplicateClientException _ex) {
-		return ResponseEntity.status(HttpStatus.CONFLICT).body(error(request, "conflict", "Conflict"));
+	public ResponseEntity<ErrorResponse> handleDuplicate(HttpServletRequest request, DuplicateClientException ex) {
+		String message = (ex.getMessage() != null && !ex.getMessage().isBlank()) ? ex.getMessage() : "Conflict";
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(error(request, "conflict", message));
 	}
 
 	@ExceptionHandler(MethodArgumentNotValidException.class)

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { listClients } from '@/api/clients'
+import { listUsers } from '@/api/users'
 import type { Client } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
@@ -58,6 +59,7 @@ export function ClientListPage() {
   const [error, setError] = useState<string>('')
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
+  const [agentNameMap, setAgentNameMap] = useState<Record<string, string>>({})
 
   const fetchClients = async (page: number, q: string) => {
     setIsLoading(true)
@@ -97,6 +99,19 @@ export function ClientListPage() {
     fetchClients(currentPage, search)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, search])
+
+  useEffect(() => {
+    if (!canViewAllClients) return
+    listUsers({ role: 'user' })
+      .then(res => {
+        const map: Record<string, string> = {}
+        for (const u of res.data) {
+          map[u.id] = `${u.firstName} ${u.lastName}`
+        }
+        setAgentNameMap(map)
+      })
+      .catch(() => {})
+  }, [canViewAllClients])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -180,6 +195,8 @@ export function ClientListPage() {
               <ClientTable
                 clients={clients}
                 onView={clientId => navigate(clientDetailPath(clientId))}
+                showAssignedAgent={canViewAllClients}
+                agentNameMap={agentNameMap}
               />
 
               {totalPages > 1 && (

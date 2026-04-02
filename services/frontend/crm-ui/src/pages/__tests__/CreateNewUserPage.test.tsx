@@ -156,7 +156,7 @@ describe('CreateNewUserPage', () => {
         role: 'user',
         sendInviteEmail: true,
       })
-      expect(screen.getByText('User created successfully')).toBeInTheDocument()
+      expect(screen.getByText('Agent created successfully')).toBeInTheDocument()
     })
   })
 

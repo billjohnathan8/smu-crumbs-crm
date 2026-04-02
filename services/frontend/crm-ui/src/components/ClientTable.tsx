@@ -10,9 +10,11 @@ const statusColors: Record<string, string> = {
 type ClientTableProps = {
   clients: Client[]
   onView: (clientId: string) => void
+  showAssignedAgent?: boolean
+  agentNameMap?: Record<string, string>
 }
 
-export function ClientTable({ clients, onView }: ClientTableProps) {
+export function ClientTable({ clients, onView, showAssignedAgent = false, agentNameMap = {} }: ClientTableProps) {
   if (clients.length === 0) {
     return <div className="p-6 text-center text-text-subtle">No clients found</div>
   }
@@ -34,6 +36,11 @@ export function ClientTable({ clients, onView }: ClientTableProps) {
             <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
               KYC Status
             </th>
+            {showAssignedAgent && (
+              <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
+                Assigned Agent
+              </th>
+            )}
             <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
               Actions
             </th>
@@ -61,6 +68,13 @@ export function ClientTable({ clients, onView }: ClientTableProps) {
                   {client.identityVerificationStatus}
                 </span>
               </td>
+              {showAssignedAgent && (
+                <td className="px-6 py-4 text-sm text-text-muted">
+                  {client.assignedUserId
+                    ? agentNameMap[client.assignedUserId] || client.assignedUserId
+                    : '-'}
+                </td>
+              )}
               <td className="px-6 py-4">
                 <button
                   onClick={e => {

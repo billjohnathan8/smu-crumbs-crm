@@ -28,6 +28,17 @@ const adminNav: NavItem[] = [
   { label: 'Settings', to: '/admin/settings' },
 ]
 
+const roleLabel = (role: UserRole) => {
+  if (role === 'admin') return 'Admin'
+  if (role === 'super_admin') return 'Root Admin'
+  return 'Agent'
+}
+
+const roleLabelForUser = (target: User) => {
+  if (isRootAdminUser(target)) return 'Root Admin'
+  return roleLabel(target.role)
+}
+
 export function AdminUserManagementPage() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
@@ -291,7 +302,18 @@ export function AdminUserManagementPage() {
                           <td className="py-3 px-4 text-text">{admin.firstName}</td>
                           <td className="py-3 px-4 text-text">{admin.lastName}</td>
                           <td className="py-3 px-4 text-text">{admin.email}</td>
-                          <td className="py-3 px-4 text-text capitalize">{admin.role}</td>
+                          <td className="py-3 px-4 text-text">{roleLabelForUser(admin)}</td>
+                          <td className="py-3 px-4">
+                            <span
+                              className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
+                                admin.status === 'disabled'
+                                  ? 'bg-warning/20 text-warning'
+                                  : 'bg-success/20 text-success'
+                              }`}
+                            >
+                              {admin.status === 'disabled' ? 'Disabled' : 'Active'}
+                            </span>
+                          </td>
                           <td className="py-3 px-4">
                             {admin.id !== user.id && (
                               <button
@@ -331,6 +353,7 @@ export function AdminUserManagementPage() {
                         <th className="text-left py-2 px-4 font-normal text-text">Last Name</th>
                         <th className="text-left py-2 px-4 font-normal text-text">Email</th>
                         <th className="text-left py-2 px-4 font-normal text-text">Role</th>
+                        <th className="text-left py-2 px-4 font-normal text-text">Status</th>
                         <th className="text-left py-2 px-4 font-normal text-text">Actions</th>
                       </tr>
                     </thead>
@@ -340,7 +363,7 @@ export function AdminUserManagementPage() {
                           <td className="py-3 px-4 text-text">{u.firstName}</td>
                           <td className="py-3 px-4 text-text">{u.lastName}</td>
                           <td className="py-3 px-4 text-text">{u.email}</td>
-                          <td className="py-3 px-4 text-text capitalize">{u.role}</td>
+                          <td className="py-3 px-4 text-text">{roleLabelForUser(u)}</td>
                           <td className="py-3 px-4">
                             <span
                               className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${

@@ -111,6 +111,7 @@ export interface ClientCreateRequest {
   state: string
   country: string
   postalCode: string
+  assignedUserId?: string
 }
 
 export interface ClientUpdateRequest {

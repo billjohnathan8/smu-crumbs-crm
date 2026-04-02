@@ -78,9 +78,12 @@ describe('AdminUserManagementPage', () => {
     // Mock getCurrentUser to prevent AuthProvider from hanging
   })
 
-  it('should handle delete user cancel when window.confirm returns false', async () => {
+it('should handle disable user cancel when window.confirm returns false', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
-    const deleteSpy = vi.spyOn(usersApi, 'deleteUser').mockResolvedValue()
+  const disableSpy = vi.spyOn(usersApi, 'disableUser').mockResolvedValue({
+    ...mockAgentUser,
+    status: 'disabled',
+  })
 
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
       data: [mockAgentUser],
@@ -90,35 +93,35 @@ describe('AdminUserManagementPage', () => {
     renderAdminUserManagementPage()
 
     await waitFor(() => {
-      expect(screen.getByText('Delete')).toBeInTheDocument()
+    expect(screen.getByText('Disable')).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByText('Delete'))
+  fireEvent.click(screen.getByText('Disable'))
 
-    expect(deleteSpy).not.toHaveBeenCalled()
+  expect(disableSpy).not.toHaveBeenCalled()
     confirmSpy.mockRestore()
   })
 
-  it('should show error message when delete fails', async () => {
+it('should show error message when disable fails', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
       data: [mockAgentUser],
       pagination: { total: 1, limit: 10, offset: 0 },
     })
-    vi.spyOn(usersApi, 'deleteUser').mockRejectedValue(
-      new ApiError(500, 'server_error', 'Delete failed')
+  vi.spyOn(usersApi, 'disableUser').mockRejectedValue(
+    new ApiError(500, 'server_error', 'Disable failed')
     )
 
     renderAdminUserManagementPage()
 
     await waitFor(() => {
-      expect(screen.getByText('Delete')).toBeInTheDocument()
+    expect(screen.getByText('Disable')).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByText('Delete'))
+  fireEvent.click(screen.getByText('Disable'))
 
     await waitFor(() => {
-      expect(screen.getByText('Delete failed')).toBeInTheDocument()
+    expect(screen.getByText('Disable failed')).toBeInTheDocument()
     })
 
     confirmSpy.mockRestore()
@@ -165,7 +168,7 @@ it('should display users in table', async () => {
   await waitFor(() => {
     expect(screen.getAllByText('User').length).toBeGreaterThanOrEqual(2)
     expect(screen.getByText('user@example.com')).toBeInTheDocument()
-    expect(screen.getByText('user')).toBeInTheDocument()
+    expect(screen.getByText('Agent')).toBeInTheDocument()
   })
 })
 
@@ -178,30 +181,33 @@ it('should display admins in table for super admin', async () => {
   renderAdminUserManagementPage(mockSuperAdminUser)
 
   await waitFor(() => {
-    expect(screen.getByText('Admin')).toBeInTheDocument()
+    expect(screen.getAllByText('Admin').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('admin@example.com')).toBeInTheDocument()
-    expect(screen.getByText('admin')).toBeInTheDocument()
+    expect(screen.getByText('Agent')).toBeInTheDocument()
   })
 })
 
-it('should handle delete user', async () => {
+it('should handle disable user', async () => {
   const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
   vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
     data: [mockAgentUser],
     pagination: { total: 1, limit: 10, offset: 0 },
   })
-  vi.spyOn(usersApi, 'deleteUser').mockResolvedValue()
+  vi.spyOn(usersApi, 'disableUser').mockResolvedValue({
+    ...mockAgentUser,
+    status: 'disabled',
+  })
 
   renderAdminUserManagementPage()
 
   await waitFor(() => {
-    expect(screen.getByText('Delete')).toBeInTheDocument()
+    expect(screen.getByText('Disable')).toBeInTheDocument()
   })
 
-  fireEvent.click(screen.getByText('Delete'))
+  fireEvent.click(screen.getByText('Disable'))
 
   await waitFor(() => {
-    expect(usersApi.deleteUser).toHaveBeenCalledWith('user-123')
+    expect(usersApi.disableUser).toHaveBeenCalledWith('user-123')
   })
 
   confirmSpy.mockRestore()
@@ -219,7 +225,7 @@ it('should handle delete admin for super admin', async () => {
 
   await waitFor(() => {
     const deleteButtons = screen.getAllByText('Delete')
-    expect(deleteButtons).toHaveLength(2) // One for admin, one for user
+    expect(deleteButtons).toHaveLength(1) // only admin rows keep delete
   })
 
   const deleteButtons = screen.getAllByText('Delete')

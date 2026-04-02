@@ -72,8 +72,14 @@ export function App() {
 
             <Route element={<ProtectedRoute allowedRoles={['user']} />}>
               <Route path="/user" element={<UserDashboard />} />
+              <Route path="/user/clients" element={<ClientListPage />} />
               <Route path="/user/clients/new" element={<CreateClientPage />} />
+              <Route path="/user/clients/:clientId" element={<ClientDetailPage />} />
+              <Route path="/user/clients/:clientId/edit" element={<EditClientPage />} />
+              <Route path="/user/clients/:clientId/accounts" element={<ClientAccountsPage />} />
               <Route path="/user/transactions" element={<ViewTransactionsPage />} />
+              <Route path="/user/aml-alerts" element={<AmlAlertsPage />} />
+              <Route path="/user/settings" element={<SettingsPage />} />
             </Route>
 
             <Route path="/" element={<RootRedirect />} />

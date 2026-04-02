@@ -10,6 +10,7 @@ import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 
 interface Stats {
   totalAgents: number
+  totalAdmins: number
   totalClients: number
   recentActivities: number
 }
@@ -30,6 +31,7 @@ export function AdminDashboard() {
   const navigate = useNavigate()
   const [stats, setStats] = useState<Stats>({
     totalAgents: 0,
+    totalAdmins: 0,
     totalClients: 0,
     recentActivities: 0,
   })
@@ -44,17 +46,24 @@ export function AdminDashboard() {
       setError('')
 
       try {
-        const [usersResult, clientsResult, logsResult, allClientsResult] = await Promise.allSettled(
-          [
-            listUsers({ limit: 1 }),
-            listClients({ limit: 1 }),
-            listLogs({ limit: 10 }),
-            listClients({ limit: 100 }),
-          ]
-        )
+        const [
+          agentsResult,
+          adminsResult,
+          rootAdminsResult,
+          clientsResult,
+          logsResult,
+          allClientsResult,
+        ] = await Promise.allSettled([
+          listUsers({ limit: 1, role: 'user' }),
+          listUsers({ limit: 1, role: 'admin' }),
+          listUsers({ limit: 1, role: 'super_admin' }),
+          listClients({ limit: 1 }),
+          listLogs({ limit: 10 }),
+          listClients({ limit: 100 }),
+        ])
 
-        if (usersResult.status === 'rejected') {
-          const reason = usersResult.reason
+        if (agentsResult.status === 'rejected') {
+          const reason = agentsResult.reason
           if (reason instanceof ApiError && reason.status === 401) {
             logout()
             return
@@ -66,14 +75,19 @@ export function AdminDashboard() {
           )
         }
 
-        const usersResponse = usersResult.status === 'fulfilled' ? usersResult.value : null
+        const agentsResponse = agentsResult.status === 'fulfilled' ? agentsResult.value : null
+        const adminsResponse = adminsResult.status === 'fulfilled' ? adminsResult.value : null
+        const rootAdminsResponse =
+          rootAdminsResult.status === 'fulfilled' ? rootAdminsResult.value : null
         const clientsResponse = clientsResult.status === 'fulfilled' ? clientsResult.value : null
         const logsResponse = logsResult.status === 'fulfilled' ? logsResult.value : null
         const allClientsResponse =
           allClientsResult.status === 'fulfilled' ? allClientsResult.value : null
 
         setStats({
-          totalAgents: usersResponse?.pagination?.total || 0,
+          totalAgents: agentsResponse?.pagination?.total || 0,
+          totalAdmins:
+            (adminsResponse?.pagination?.total || 0) + (rootAdminsResponse?.pagination?.total || 0),
           totalClients: clientsResponse?.pagination?.total || 0,
           recentActivities: logsResponse?.pagination?.total || 0,
         })
@@ -139,10 +153,14 @@ export function AdminDashboard() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               <div className="gradient-dark-red rounded-2xl p-6">
                 <h3 className="text-white text-sm font-normal mb-2">Total Agents</h3>
                 <p className="text-4xl font-bold text-white">{stats.totalAgents}</p>
+              </div>
+              <div className="bg-card  rounded-2xl p-6">
+                <h3 className="text-text-muted text-sm font-normal mb-2">Total Admins</h3>
+                <p className="text-4xl font-bold text-text">{stats.totalAdmins}</p>
               </div>
               <div className="gradient-light-red rounded-2xl p-6">
                 <h3 className="text-white text-sm font-normal mb-2">Total Clients</h3>
