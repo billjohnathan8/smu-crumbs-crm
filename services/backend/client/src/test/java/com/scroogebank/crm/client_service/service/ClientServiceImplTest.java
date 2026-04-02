@@ -2,6 +2,7 @@ package com.scroogebank.crm.client_service.service;
 
 import com.scroogebank.crm.client_service.dto.ClientCreateRequest;
 import com.scroogebank.crm.client_service.dto.ClientPayload;
+import com.scroogebank.crm.client_service.dto.ReassignRequest;
 import com.scroogebank.crm.client_service.dto.ClientUpdateRequest;
 import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
 import com.scroogebank.crm.client_service.dto.ReviewVerificationRequest;
@@ -582,6 +583,44 @@ class ClientServiceImplTest {
 				"req-1"
 			)
 		).isInstanceOf(AccessDeniedException.class);
+	}
+
+	@Test
+	void reassignClients_adminLogsAuditAsUpdate() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		ClientEntity c1 = entityFromPayload(7L, "usr_from", samplePayload());
+		ClientEntity c2 = entityFromPayload(8L, "usr_from", samplePayload());
+		when(clientRepository.findByAssignedAgentId("usr_from")).thenReturn(List.of(c1, c2));
+		when(clientRepository.reassignClients("usr_from", "usr_to")).thenReturn(2);
+
+		var response = clientService.reassignClients(
+			admin,
+			new ReassignRequest("usr_from", "usr_to"),
+			"Bearer x",
+			"req-1"
+		);
+
+		assertThat(response.count()).isEqualTo(2);
+		verify(clientAuditLogger).logAuditEvent(
+			eq("UPDATE"),
+			eq("assignedUserId"),
+			eq("usr_from"),
+			eq("usr_to"),
+			eq("usr_admin"),
+			eq("clt_7"),
+			eq("req-1"),
+			eq("Bearer x")
+		);
+		verify(clientAuditLogger).logAuditEvent(
+			eq("UPDATE"),
+			eq("assignedUserId"),
+			eq("usr_from"),
+			eq("usr_to"),
+			eq("usr_admin"),
+			eq("clt_8"),
+			eq("req-1"),
+			eq("Bearer x")
+		);
 	}
 
 	@Test
