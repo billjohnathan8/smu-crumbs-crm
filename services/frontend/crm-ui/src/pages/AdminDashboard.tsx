@@ -25,6 +25,7 @@ const adminNav: NavItem[] = [
   { label: 'Settings', to: '/admin/settings' },
 ]
 
+// cicd-test deploy --- IGNORE ---
 export function AdminDashboard() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()

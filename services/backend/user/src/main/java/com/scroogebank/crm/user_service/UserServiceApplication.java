@@ -7,7 +7,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * Spring Boot entry point for the user-service application.
  */
 // Add a comment at the top
-// cicd-test deploy
 @SpringBootApplication
 public class UserServiceApplication {
 
