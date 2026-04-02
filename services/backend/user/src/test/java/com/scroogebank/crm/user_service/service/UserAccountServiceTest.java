@@ -6,7 +6,6 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -36,14 +35,8 @@ import com.scroogebank.crm.user_service.security.AuthenticatedUser;
  * Unit tests for {@link UserAccountService}.
  */
 class UserAccountServiceTest {
-	private PersistentUserStore store;
-	private UserAccountService service;
-
-	@BeforeEach
-	void setUp() {
-		store = mock(PersistentUserStore.class);
-		service = new UserAccountService(store, null, "local");
-	}
+	private final PersistentUserStore store = mock(PersistentUserStore.class);
+	private final UserAccountService service = new UserAccountService(store, null, "local");
 
 	@Test
 	void delegatesToStore() {
@@ -275,7 +268,11 @@ class UserAccountServiceTest {
 		);
 		when(store.getUser("usr_3")).thenReturn(deletedUser);
 
-		assertThrows(UserNotFoundException.class, () -> service.getUser("usr_3", requester));
+		UserNotFoundException notFound = assertThrows(
+			UserNotFoundException.class,
+			() -> service.getUser("usr_3", requester)
+		);
+		assertNotNull(notFound);
 	}
 
 	//  UPDATE USER TESTS  //
@@ -383,10 +380,11 @@ class UserAccountServiceTest {
 
 		when(store.getUser(existingAdmin.id())).thenReturn(existingAdmin);
 
-		assertThrows(
+		AccessDeniedException denied = assertThrows(
 			AccessDeniedException.class,
 			() -> service.updateUser(existingAdmin.id(), request, requester)
 		);
+		assertNotNull(denied);
 		verify(store, never()).updateUser(any(), any());
 	}
 
@@ -430,10 +428,11 @@ class UserAccountServiceTest {
 		);
 		when(store.getUser("usr_1")).thenReturn(rootAdmin);
 
-		assertThrows(
+		AccessDeniedException denied = assertThrows(
 			AccessDeniedException.class,
 			() -> service.updateUser("usr_1", new UpdateUserRequest("Root", "Admin", null, null), requester)
 		);
+		assertNotNull(denied);
 		verify(store, never()).updateUser(any(), any());
 	}
 
@@ -557,7 +556,11 @@ class UserAccountServiceTest {
 		);
 		when(store.getUser("usr_1")).thenReturn(rootAdmin);
 
-		assertThrows(AccessDeniedException.class, () -> service.disableUser("usr_1", requester));
+		AccessDeniedException denied = assertThrows(
+			AccessDeniedException.class,
+			() -> service.disableUser("usr_1", requester)
+		);
+		assertNotNull(denied);
 		verify(store, never()).disableUser(any());
 	}
 
@@ -576,10 +579,11 @@ class UserAccountServiceTest {
 		);
 		when(store.getUser("usr_1")).thenReturn(rootAdmin);
 
-		assertThrows(
+		AccessDeniedException denied = assertThrows(
 			AccessDeniedException.class,
 			() -> service.resetPassword("usr_1", new ResetPasswordRequest("admin@crm.com"), requester)
 		);
+		assertNotNull(denied);
 		verify(store, never()).resetPassword(any());
 	}
 
