@@ -1253,6 +1253,17 @@ check "sftp_mode_guardrails" {
     )
     error_message = "For prod with enable_ec2_sftp_server=true, set explicit partner CIDR allowlist and avoid 0.0.0.0/0."
   }
+
+  assert {
+    condition = !(
+      contains(["prod", "production"], lower(trimspace(var.environment))) &&
+      var.enable_ec2_sftp_server
+      ) || alltrue([
+        for cidr in var.sftp_ingress_cidr_blocks :
+        !can(regex("^(192\\.0\\.2\\.|198\\.51\\.100\\.|203\\.0\\.113\\.)", cidr))
+    ])
+    error_message = "For prod with enable_ec2_sftp_server=true, do not use TEST-NET placeholder CIDRs (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24)."
+  }
 }
 
 check "custom_domain_contract_guardrails" {
