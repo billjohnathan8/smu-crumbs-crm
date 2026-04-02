@@ -42,7 +42,7 @@ class UserAccountServiceTest {
 	@BeforeEach
 	void setUp() {
 		store = mock(PersistentUserStore.class);
-		service = new UserAccountService(store, null);
+		service = new UserAccountService(store, null, "local");
 	}
 
 	@Test

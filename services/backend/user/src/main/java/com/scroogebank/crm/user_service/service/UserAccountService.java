@@ -11,6 +11,7 @@ import com.scroogebank.crm.user_service.security.AuthenticatedUser;
 import com.scroogebank.crm.user_service.exception.AccessDeniedException;
 import com.scroogebank.crm.user_service.exception.UserNotFoundException;
 import org.springframework.lang.Nullable;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
@@ -22,10 +23,16 @@ public class UserAccountService {
 
 	private final PersistentUserStore store;
 	private final CognitoService cognitoService;
+	private final boolean cognitoSyncEnabled;
 
-	public UserAccountService(PersistentUserStore store, @Nullable CognitoService cognitoService) {
+	public UserAccountService(
+		PersistentUserStore store,
+		@Nullable CognitoService cognitoService,
+		@Value("${app.jwt.auth-mode:local}") String authMode
+	) {
 		this.store = store;
 		this.cognitoService = cognitoService;
+		this.cognitoSyncEnabled = !"local".equalsIgnoreCase(authMode == null ? "" : authMode.trim());
 	}
 
 	/**
@@ -37,7 +44,7 @@ public class UserAccountService {
 	public UserDto createUser(CreateUserRequest request, AuthenticatedUser requester) {
 		validateHierarchyPermissions(requester, request.role(), "create");
 
-		if (cognitoService == null) {
+		if (cognitoService == null || !cognitoSyncEnabled) {
 			return store.createUser(request);
 		}
 
@@ -60,6 +67,9 @@ public class UserAccountService {
 	}
 
 	private CognitoService getCognitoServiceOrNull() {
+		if (!cognitoSyncEnabled) {
+			return null;
+		}
 		return cognitoService;
 	}
 
