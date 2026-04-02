@@ -88,6 +88,10 @@ locals {
           value = var.auth_mode
         },
         {
+          name  = "APP_JWT_ALLOW_HYBRID"
+          value = tostring(lower(trimspace(var.auth_mode)) == "hybrid")
+        },
+        {
           name  = "JWT_HMAC_SECRET_VERSION"
           value = var.jwt_hmac_secret_version_id
         },
@@ -192,6 +196,10 @@ locals {
           value = var.auth_mode
         },
         {
+          name  = "APP_JWT_ALLOW_HYBRID"
+          value = tostring(lower(trimspace(var.auth_mode)) == "hybrid")
+        },
+        {
           name  = "JWT_HMAC_SECRET_VERSION"
           value = var.jwt_hmac_secret_version_id
         },
@@ -286,6 +294,10 @@ locals {
         {
           name  = "AUTH_MODE"
           value = var.auth_mode
+        },
+        {
+          name  = "APP_JWT_ALLOW_HYBRID"
+          value = tostring(lower(trimspace(var.auth_mode)) == "hybrid")
         },
         {
           name  = "JWT_HMAC_SECRET_VERSION"
