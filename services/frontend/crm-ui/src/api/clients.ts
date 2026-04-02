@@ -80,7 +80,9 @@ export async function deleteClient(clientId: string): Promise<void> {
  * Count clients assigned to a specific agent
  */
 export async function countClientsByAgent(assignedUserId: string): Promise<number> {
-  const res = await apiGet<{ count: number }>(`${CLIENTS_BASE}/count?assignedUserId=${encodeURIComponent(assignedUserId)}`)
+  const res = await apiGet<{ count: number }>(
+    `${CLIENTS_BASE}/count?assignedUserId=${encodeURIComponent(assignedUserId)}`
+  )
   return res.count
 }
 

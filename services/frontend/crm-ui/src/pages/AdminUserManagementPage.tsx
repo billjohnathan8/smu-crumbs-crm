@@ -419,7 +419,9 @@ export function AdminUserManagementPage() {
                                       onClick={() => openTransferModal(u)}
                                       className="px-3 py-1 rounded text-sm font-normal bg-accent text-white hover:opacity-80 transition-opacity"
                                     >
-                                      Transfer{agentClientCounts[u.id] != null && agentClientCounts[u.id] > 0
+                                      Transfer
+                                      {agentClientCounts[u.id] != null &&
+                                      agentClientCounts[u.id] > 0
                                         ? ` (${agentClientCounts[u.id]})`
                                         : ''}
                                     </button>

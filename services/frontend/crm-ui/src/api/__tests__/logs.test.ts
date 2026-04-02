@@ -33,7 +33,9 @@ describe('logs API', () => {
 
       await listLogs({ limit: 50, offset: 100 })
 
-      expect(client.apiGet).toHaveBeenCalledWith('/api/logs?limit=50&offset=100', { timeout: 30000 })
+      expect(client.apiGet).toHaveBeenCalledWith('/api/logs?limit=50&offset=100', {
+        timeout: 30000,
+      })
     })
 
     it('should filter logs by userId', async () => {
@@ -55,7 +57,9 @@ describe('logs API', () => {
 
       await listLogs({ clientId: 'client-456' })
 
-      expect(client.apiGet).toHaveBeenCalledWith('/api/logs?clientId=client-456', { timeout: 30000 })
+      expect(client.apiGet).toHaveBeenCalledWith('/api/logs?clientId=client-456', {
+        timeout: 30000,
+      })
     })
 
     it('should filter logs by action', async () => {
