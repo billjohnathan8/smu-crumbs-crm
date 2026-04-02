@@ -229,6 +229,26 @@ describe('AdminDashboard', () => {
     })
   })
 
+  it('should surface logs API error instead of silently showing zero activity', async () => {
+    vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
+      data: [],
+      pagination: { total: 1, limit: 1, offset: 0 },
+    })
+    vi.spyOn(clientsApi, 'listClients').mockResolvedValue({
+      data: [],
+      pagination: { total: 1, limit: 1, offset: 0 },
+    })
+    vi.spyOn(logsApi, 'listLogs').mockRejectedValue(
+      new ApiError(500, 'server_error', 'Failed to load recent activity logs')
+    )
+
+    renderAdminDashboard()
+
+    await waitFor(() => {
+      expect(screen.getByText(/Failed to load recent activity logs/i)).toBeInTheDocument()
+    })
+  })
+
   it('should render user management link', async () => {
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
       data: [],
