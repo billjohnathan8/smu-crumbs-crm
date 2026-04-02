@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { AmlAlertsPage } from '../AmlAlertsPage' // Adjust path as necessary
 import * as amlApi from '@/api/aml'
 import { ApiError } from '@/api/client'
@@ -66,7 +67,12 @@ describe('AmlAlertsPage', () => {
     })
   })
 
-  const renderComponent = () => render(<AmlAlertsPage />)
+  const renderComponent = () =>
+    render(
+      <MemoryRouter>
+        <AmlAlertsPage />
+      </MemoryRouter>
+    )
 
   it('should render correct dashboard link based on role', () => {
     // 1. Test Admin Role (Default)

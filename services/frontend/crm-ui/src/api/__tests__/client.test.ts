@@ -10,6 +10,7 @@ import {
   apiPost,
   apiPut,
   apiDelete,
+  __resetApiGetCacheForTests,
 } from '../client'
 
 describe('ApiError', () => {
@@ -71,6 +72,7 @@ describe('apiRequest', () => {
   beforeEach(() => {
     localStorage.clear()
     vi.clearAllMocks()
+    __resetApiGetCacheForTests()
     globalThis.fetch = vi.fn() as any
   })
 
@@ -327,6 +329,7 @@ describe('apiRequest', () => {
 describe('HTTP method helpers', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    __resetApiGetCacheForTests()
     globalThis.fetch = vi.fn() as any
   })
 
@@ -417,5 +420,46 @@ describe('HTTP method helpers', () => {
         method: 'DELETE',
       })
     )
+  })
+
+  it('should reuse cached GET responses for repeated requests', async () => {
+    ;(globalThis.fetch as any).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: 'cached' }),
+    })
+
+    const first = await apiGet('/test/cache')
+    const second = await apiGet('/test/cache')
+
+    expect(first).toEqual({ data: 'cached' })
+    expect(second).toEqual({ data: 'cached' })
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('should invalidate cached GET responses after a write request', async () => {
+    ;(globalThis.fetch as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: 'cached' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: 'fresh' }),
+      })
+
+    await apiGet('/test/cache')
+    await apiPost('/test/cache/mutate', { update: true })
+    const afterMutation = await apiGet('/test/cache')
+
+    expect(afterMutation).toEqual({ data: 'fresh' })
+    expect(globalThis.fetch).toHaveBeenCalledTimes(3)
   })
 })
