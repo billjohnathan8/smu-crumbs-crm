@@ -20,9 +20,11 @@ public class UserAccountService {
 	private static final String ROOT_ADMIN_USER_ID = "usr_1";
 
 	private final PersistentUserStore store;
+	private final CognitoService cognitoService;
 
-	public UserAccountService(PersistentUserStore store) {
+	public UserAccountService(PersistentUserStore store, CognitoService cognitoService) {
 		this.store = store;
+		this.cognitoService = cognitoService;
 	}
 
 	/**
@@ -34,7 +36,14 @@ public class UserAccountService {
 	public UserDto createUser(CreateUserRequest request, AuthenticatedUser requester) {
 		validateHierarchyPermissions(requester, request.role(), "create");
 
-		return store.createUser(request);
+		// 1. Save to DB first
+        UserDto createdUser = store.createUser(request);
+
+        // 2. Register in Cognito based on role
+        String cognitoGroup = request.role() == UserRole.admin ? "ADMIN" : "USER";
+        cognitoService.createUser(request.email(), request.firstName(), cognitoGroup);
+
+        return createdUser;
 	}
 
 	/**
@@ -119,7 +128,8 @@ public class UserAccountService {
 
 		validateHierarchyPermissions(user, targetRole, "delete");
 
-		// Root-admin protection and actual delete are enforced in the store
+		// Delete
+		cognitoService.deleteUser(target.email());
 		store.deleteUser(userId);
 	}
 
@@ -144,6 +154,7 @@ public class UserAccountService {
 		validateHierarchyPermissions(user, targetRole, "disable");
 
 		// Disable user
+        cognitoService.disableUser(target.email());
 		return store.disableUser(userId);
 	}
 
@@ -169,6 +180,8 @@ public class UserAccountService {
 			throw new AccessDeniedException("self_reset_not_supported_use_forgot_password");
 		}
 		validateHierarchyPermissions(requester, targetRole, "reset password for");
+
+		cognitoService.resetPassword(target.email());
 		store.resetPassword(userId);
 	}
 
