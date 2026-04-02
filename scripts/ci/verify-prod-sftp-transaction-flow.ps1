@@ -234,7 +234,7 @@ try {
     $batchFile = New-TemporaryFile
     try {
         Set-Content -LiteralPath $batchFile -Value @(
-            "put `"$CsvPath`" `"$remoteFileName`"",
+            "put `"$CsvPath`" `"upload/$remoteFileName`"",
             "bye"
         ) -Encoding ascii
 
