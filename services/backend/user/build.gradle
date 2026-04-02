@@ -33,6 +33,7 @@ dependencies {
 		}
 	}
 
+	implementation platform('software.amazon.awssdk:bom:2.31.49')
 	implementation 'org.springframework.boot:spring-boot-starter'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
@@ -42,6 +43,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-flyway'
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6'
 	implementation 'org.flywaydb:flyway-database-postgresql'
+	implementation 'software.amazon.awssdk:cognitoidentityprovider'
 	runtimeOnly 'org.postgresql:postgresql'
 	runtimeOnly 'com.h2database:h2'
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'

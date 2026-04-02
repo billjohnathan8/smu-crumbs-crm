@@ -26,10 +26,12 @@ public class UserAccountService {
 
 	private final PersistentUserStore store;
 	private final UserAuditLogger userAuditLogger;
+	private final CognitoService cognitoService;
 
-	public UserAccountService(PersistentUserStore store, UserAuditLogger userAuditLogger) {
+	public UserAccountService(PersistentUserStore store, UserAuditLogger userAuditLogger, CognitoService cognitoService) {
 		this.store = store;
 		this.userAuditLogger = userAuditLogger;
+		this.cognitoService = cognitoService;
 	}
 
 	/**
@@ -42,6 +44,10 @@ public class UserAccountService {
 		validateHierarchyPermissions(requester, request.role(), "create");
 
 		UserDto created = store.createUser(request);
+
+		String cognitoGroup = request.role() == UserRole.admin ? "ADMIN" : "USER";
+		cognitoService.createUser(request.email(), request.firstName(), cognitoGroup);
+
 		publishAuditSafe("CREATE", "User ID", null, created.id(),
 			requester.userId(), created.id(), correlationId, authorizationHeader);
 		return created;
@@ -142,6 +148,7 @@ public class UserAccountService {
 
 		validateHierarchyPermissions(user, targetRole, "delete");
 
+		cognitoService.deleteUser(target.email());
 		store.deleteUser(userId);
 		publishAuditSafe("DELETE", "User ID", userId, null,
 			user.userId(), userId, correlationId, authorizationHeader);
@@ -165,6 +172,7 @@ public class UserAccountService {
 
 		validateHierarchyPermissions(user, targetRole, "disable");
 
+		cognitoService.disableUser(target.email());
 		UserDto disabled = store.disableUser(userId);
 		publishAuditSafe("UPDATE", "status", "active", "disabled",
 			user.userId(), userId, correlationId, authorizationHeader);
@@ -193,6 +201,8 @@ public class UserAccountService {
 			throw new AccessDeniedException("self_reset_not_supported_use_forgot_password");
 		}
 		validateHierarchyPermissions(requester, targetRole, "reset password for");
+
+		cognitoService.resetPassword(target.email());
 		store.resetPassword(userId);
 	}
 
