@@ -260,6 +260,24 @@ class UserAccountServiceTest {
 		verify(store, never()).listUsers(anyInt(), anyInt(), any());
 	}
 
+	@Test
+	void getUser_deletedUserIsNotFound() {
+		AuthenticatedUser requester = new AuthenticatedUser("usr_1", "admin");
+		UserDto deletedUser = new UserDto(
+			"usr_3",
+			"Deleted",
+			"User",
+			"deleted.user@example.com",
+			UserRole.user,
+			UserStatus.deleted,
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:00Z")
+		);
+		when(store.getUser("usr_3")).thenReturn(deletedUser);
+
+		assertThrows(UserNotFoundException.class, () -> service.getUser("usr_3", requester));
+	}
+
 	//  UPDATE USER TESTS  //
 	//  ─── Happy Path ───
 	@ParameterizedTest

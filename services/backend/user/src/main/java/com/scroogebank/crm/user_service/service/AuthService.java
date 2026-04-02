@@ -42,7 +42,7 @@ public class AuthService {
 		if (record == null) {
 			throw new UnauthorizedException("invalid_credentials");
 		}
-		if (record.status() == UserStatus.disabled) {
+		if (record.status() != UserStatus.active) {
 			throw new UnauthorizedException("invalid_credentials");
 		}
 		if (!store.verifyPassword(record, request.password())) {
@@ -107,6 +107,9 @@ public class AuthService {
 			record = store.loadRecord(userId);
 		}
 		catch (RuntimeException ex) {
+			throw new UnauthorizedException("invalid_refresh_token");
+		}
+		if (record.status() != UserStatus.active) {
 			throw new UnauthorizedException("invalid_refresh_token");
 		}
 		String role = record.role() == null ? "user" : record.role().wireValue();

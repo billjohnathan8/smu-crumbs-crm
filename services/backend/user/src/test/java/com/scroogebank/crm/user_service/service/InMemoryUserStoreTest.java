@@ -200,6 +200,17 @@ class InMemoryUserStoreTest {
 	}
 
 	@Test
+	void deleteUser_excludesUserFromListAndCount() {
+		UserDto created = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "pw"));
+		assertEquals(2, store.countUsers(null));
+
+		store.deleteUser(created.id());
+
+		assertEquals(1, store.countUsers(null));
+		assertEquals(0, store.listUsers(50, 0, "user").size());
+	}
+
+	@Test
 	void getUser_missingUser_throwsNotFound() {
 		UserNotFoundException missingGet = assertThrows(UserNotFoundException.class, () -> store.getUser("usr_999"));
 		UserNotFoundException missingToken = assertThrows(UserNotFoundException.class, () -> store.issueRefreshToken("usr_999"));

@@ -6,11 +6,13 @@ import com.scroogebank.crm.user_service.dto.ResetPasswordRequest;
 import com.scroogebank.crm.user_service.dto.UpdateUserRequest;
 import com.scroogebank.crm.user_service.dto.UserDto;
 import com.scroogebank.crm.user_service.dto.UserRole;
+import com.scroogebank.crm.user_service.dto.UserStatus;
 import com.scroogebank.crm.user_service.dto.UsersListResponse;
 import com.scroogebank.crm.user_service.security.AuthenticatedUser;	
 import com.scroogebank.crm.user_service.exception.AccessDeniedException;
 import com.scroogebank.crm.user_service.exception.UserNotFoundException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 
 /**
@@ -26,7 +28,7 @@ public class UserAccountService {
 
 	public UserAccountService(
 		PersistentUserStore store,
-		CognitoService cognitoService,
+		@Nullable CognitoService cognitoService,
 		@Value("${app.jwt.auth-mode:local}") String authMode
 	) {
 		this.store = store;
@@ -106,7 +108,7 @@ public class UserAccountService {
 	public UserDto getUser(String userId, AuthenticatedUser requester) {
 		// Check if user exists
 		UserDto existingUser = store.getUser(userId);
-		if (existingUser == null) {
+		if (existingUser == null || isDeleted(existingUser)) {
 			throw new UserNotFoundException(userId);
 		}
 
@@ -128,7 +130,7 @@ public class UserAccountService {
 	public UserDto updateUser(String userId, UpdateUserRequest request, AuthenticatedUser user) {
 		// Check if user exists
 		UserDto existingUser = store.getUser(userId);
-		if (existingUser == null) {
+		if (existingUser == null || isDeleted(existingUser)) {
 			throw new UserNotFoundException(userId);
 		}
 
@@ -147,7 +149,7 @@ public class UserAccountService {
 	public void deleteUser(String userId, AuthenticatedUser user) {
 		// Look up the target user's role
 		UserDto target = store.getUser(userId);
-		if (target == null) {
+		if (target == null || isDeleted(target)) {
 			throw new UserNotFoundException(userId);
 		}
 		UserRole targetRole = target.role();
@@ -171,7 +173,7 @@ public class UserAccountService {
 
 		// Look up the target user's role
 		UserDto target = store.getUser(userId);
-		if (target == null) {
+		if (target == null || isDeleted(target)) {
 			throw new UserNotFoundException(userId);
 		}
 		if (isRootAdminUserId(target.id())) {
@@ -197,7 +199,7 @@ public class UserAccountService {
 	public void resetPassword(String userId, ResetPasswordRequest request, AuthenticatedUser requester) {
 		// Look up the target user's role
 		UserDto target = store.getUser(userId);
-		if (target == null) {
+		if (target == null || isDeleted(target)) {
 			throw new UserNotFoundException(userId);
 		}
 		if (isRootAdminUserId(target.id())) {
@@ -292,5 +294,9 @@ public class UserAccountService {
 
 	private boolean isSeededRootAdmin(AuthenticatedUser requester) {
 		return isRootAdminUserId(requester.userId());
+	}
+
+	private static boolean isDeleted(UserDto user) {
+		return user.status() == UserStatus.deleted;
 	}
 }

@@ -1,9 +1,12 @@
 package com.scroogebank.crm.user_service.repository;
 
 import com.scroogebank.crm.user_service.dto.UserRole;
+import com.scroogebank.crm.user_service.dto.UserStatus;
 import com.scroogebank.crm.user_service.entity.UserEntity;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Sort;
 
 /**
  * Repository for users.
@@ -14,4 +17,12 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
 	boolean existsByEmailAndIdNot(String email, Long id);
 
 	long countByRole(UserRole role);
+
+	List<UserEntity> findAllByStatusNot(UserStatus status, Sort sort);
+
+	List<UserEntity> findAllByStatusNotAndRole(UserStatus status, UserRole role, Sort sort);
+
+	long countByStatusNot(UserStatus status);
+
+	long countByStatusNotAndRole(UserStatus status, UserRole role);
 }

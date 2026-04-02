@@ -62,6 +62,15 @@ class AuthServiceTest {
 	}
 
 	@Test
+	void login_deletedUser_throwsUnauthorized() {
+		when(store.findByEmail("ava@example.com")).thenReturn(userRecord(2L, UserRole.user, UserStatus.deleted));
+
+		assertThrows(UnauthorizedException.class, () -> authService.login(
+			new LoginRequest("ava@example.com", "pw")
+		));
+	}
+
+	@Test
 	void login_wrongPassword_throwsUnauthorized() {
 		InMemoryUserStore.UserRecord record = userRecord(2L, UserRole.user, UserStatus.active);
 		when(store.findByEmail("ava@example.com")).thenReturn(record);
@@ -119,6 +128,16 @@ class AuthServiceTest {
 		assertEquals("access-2", response.accessToken());
 		assertEquals("new", response.refreshToken());
 		assertEquals("Bearer", response.tokenType());
+	}
+
+	@Test
+	void refresh_deletedUser_throwsUnauthorized() {
+		when(store.isRefreshTokenValid("old")).thenReturn(true);
+		when(store.userIdForRefreshToken("old")).thenReturn("usr_2");
+		when(store.rotateRefreshToken("old")).thenReturn("new");
+		when(store.loadRecord("usr_2")).thenReturn(userRecord(2L, UserRole.admin, UserStatus.deleted));
+
+		assertThrows(UnauthorizedException.class, () -> authService.refresh(new RefreshRequest("old")));
 	}
 
 	@Test
