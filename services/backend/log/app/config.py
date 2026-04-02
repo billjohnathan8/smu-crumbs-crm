@@ -55,6 +55,20 @@ def _parse_bool_env(name: str, default: bool) -> bool:
     raise RuntimeError(f"{name} must be a boolean value")
 
 
+def _parse_int_env(name: str, default: int, *, minimum: int = 1) -> int:
+    """Parse a positive integer env var with a configurable minimum."""
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        parsed = int(value.strip())
+    except ValueError as exc:
+        raise RuntimeError(f"{name} must be an integer value") from exc
+    if parsed < minimum:
+        raise RuntimeError(f"{name} must be >= {minimum}")
+    return parsed
+
+
 def _env_or_secret(env_var: str, secret_arn_var: str, default: str | None) -> str:
     """Prefer direct env values, then secret ARN, then optional default."""
     direct_value = os.getenv(env_var)
@@ -135,6 +149,15 @@ class Settings:
             "CLIENT_SERVICE_URL", "http://localhost:8080"
         ).rstrip("/")
     )
+    db_connect_timeout_seconds: int = field(
+        default_factory=lambda: _parse_int_env("DB_CONNECT_TIMEOUT_SECONDS", 5)
+    )
+    run_migrations_on_start: bool = field(
+        default_factory=lambda: _parse_bool_env(
+            "RUN_MIGRATIONS_ON_START",
+            _is_dev_environment(),
+        )
+    )
 
     def __post_init__(self) -> None:
         valid_modes = {"local", "cognito", "hybrid"}
@@ -164,5 +187,6 @@ class Settings:
             f"port={self.db_port} "
             f"dbname={self.db_name} "
             f"user={self.db_user} "
-            f"password={self.db_password}"
+            f"password={self.db_password} "
+            f"connect_timeout={self.db_connect_timeout_seconds}"
         )
