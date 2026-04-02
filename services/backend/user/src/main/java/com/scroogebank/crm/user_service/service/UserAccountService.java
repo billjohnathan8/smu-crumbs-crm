@@ -11,8 +11,8 @@ import com.scroogebank.crm.user_service.dto.UsersListResponse;
 import com.scroogebank.crm.user_service.security.AuthenticatedUser;	
 import com.scroogebank.crm.user_service.exception.AccessDeniedException;
 import com.scroogebank.crm.user_service.exception.UserNotFoundException;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 
 /**
