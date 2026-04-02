@@ -39,6 +39,18 @@ const roleLabelForUser = (target: User) => {
   return roleLabel(target.role)
 }
 
+const statusBadgeClass = (status: User['status']) => {
+  if (status === 'disabled') return 'bg-warning/20 text-warning'
+  if (status === 'deleted') return 'bg-danger/20 text-danger'
+  return 'bg-success/20 text-success'
+}
+
+const statusLabel = (status: User['status']) => {
+  if (status === 'disabled') return 'Disabled'
+  if (status === 'deleted') return 'Deleted'
+  return 'Active'
+}
+
 export function AdminUserManagementPage() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
@@ -305,13 +317,9 @@ export function AdminUserManagementPage() {
                           <td className="py-3 px-4 text-text">{roleLabelForUser(admin)}</td>
                           <td className="py-3 px-4">
                             <span
-                              className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                                admin.status === 'disabled'
-                                  ? 'bg-warning/20 text-warning'
-                                  : 'bg-success/20 text-success'
-                              }`}
+                              className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${statusBadgeClass(admin.status)}`}
                             >
-                              {admin.status === 'disabled' ? 'Disabled' : 'Active'}
+                              {statusLabel(admin.status)}
                             </span>
                           </td>
                           <td className="py-3 px-4">
@@ -366,13 +374,9 @@ export function AdminUserManagementPage() {
                           <td className="py-3 px-4 text-text">{roleLabelForUser(u)}</td>
                           <td className="py-3 px-4">
                             <span
-                              className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                                u.status === 'disabled'
-                                  ? 'bg-warning/20 text-warning'
-                                  : 'bg-success/20 text-success'
-                              }`}
+                              className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${statusBadgeClass(u.status)}`}
                             >
-                              {u.status === 'disabled' ? 'Disabled' : 'Active'}
+                              {statusLabel(u.status)}
                             </span>
                           </td>
                           <td className="py-3 px-4">
