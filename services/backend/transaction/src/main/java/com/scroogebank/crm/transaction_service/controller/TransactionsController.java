@@ -101,16 +101,17 @@ public class TransactionsController {
 		}
 
 		String authHeader = request.getHeader("Authorization");
-		// We can only verify ownership for a specific clientId without enumerating
-		// all user-owned clients from client-service. For safety, return empty
-		// unless a clientId is provided and authorized.
-		if (clientId == null || clientId.isBlank()) {
+		// Non-admin users must scope to a specific client because ownership is
+		// validated against client-service per-client.
+		if (!user.isAdmin() && (clientId == null || clientId.isBlank())) {
 			return new TransactionsListResponse(
 				java.util.List.of(),
 				new Pagination(normalizeLimit(limit), normalizeOffset(offset), 0)
 			);
 		}
-		clientAccessValidator.requireClientAccessible(user, authHeader, clientId);
+		if (clientId != null && !clientId.isBlank()) {
+			clientAccessValidator.requireClientAccessible(user, authHeader, clientId);
+		}
 
 		InMemoryTransactionsStore.ListResult result = transactionsService.list(
 			normalizeLimit(limit),
