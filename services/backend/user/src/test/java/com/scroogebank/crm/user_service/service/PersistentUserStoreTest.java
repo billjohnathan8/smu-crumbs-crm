@@ -4,6 +4,7 @@ import java.time.Clock;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -107,5 +108,21 @@ class PersistentUserStoreTest {
 				.isInstanceOf(AccessDeniedException.class);
 		assertThatThrownBy(() -> store.disableUser("usr_1")).isInstanceOf(AccessDeniedException.class);
 		assertThatThrownBy(() -> store.resetPassword("usr_1")).isInstanceOf(AccessDeniedException.class);
+	}
+
+	@Test
+	void deleteUser_allowsRecreateWithSameEmail() {
+		UserDto first = store.createUser(
+			new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "TempPass!123")
+		);
+
+		store.deleteUser(first.id());
+
+		UserDto recreated = store.createUser(
+			new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "TempPass!123")
+		);
+
+		assertEquals("ava@example.com", recreated.email());
+		assertNotEquals(first.id(), recreated.id());
 	}
 }
