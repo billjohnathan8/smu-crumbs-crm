@@ -455,6 +455,8 @@ build_java_jar() {
   local service_name="$2"
   local gradle_user_home="${service_dir}/.gradle-local"
   local java_runtime_is_windows=false
+  local bootjar_glob="${service_dir}/build/libs/*-SNAPSHOT.jar"
+  local bootjar_ready=false
 
   detect_windows_java_runtime() {
     java -XshowSettings:properties -version 2>&1 | grep -q "os.name = Windows"
@@ -499,7 +501,11 @@ build_java_jar() {
   # detached process — cmd.exe exits with code 0 immediately while the build runs
   # in the background, so the JAR is never present when Docker builds the image.
   local is_git_bash=false
-  [[ -n "${MSYSTEM:-}" ]] && is_git_bash=true
+  if [[ -n "${MSYSTEM:-}" ]]; then
+    is_git_bash=true
+  elif [[ "$(uname -s 2>/dev/null || true)" =~ ^(MINGW|MSYS|CYGWIN) ]]; then
+    is_git_bash=true
+  fi
 
   if [[ "${java_runtime_is_windows}" == "true" ]] \
     && [[ "${is_git_bash}" == "false" ]] \
@@ -525,6 +531,22 @@ build_java_jar() {
       return 1
     fi
   fi
+
+  # Guard against wrapper/host-shell races: only report success once the
+  # executable bootJar artifact is actually materialized on disk.
+  for _ in $(seq 1 120); do
+    if compgen -G "${bootjar_glob}" >/dev/null; then
+      bootjar_ready=true
+      break
+    fi
+    sleep 1
+  done
+  if [[ "${bootjar_ready}" != "true" ]]; then
+    echo "[FAIL] ${service_name} bootJar artifact not found at ${bootjar_glob}" >> "${gradle_log}"
+    popd >/dev/null
+    return 1
+  fi
+
   popd >/dev/null
 }
 
