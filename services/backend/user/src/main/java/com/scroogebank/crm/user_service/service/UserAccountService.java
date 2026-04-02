@@ -10,7 +10,6 @@ import com.scroogebank.crm.user_service.dto.UsersListResponse;
 import com.scroogebank.crm.user_service.security.AuthenticatedUser;	
 import com.scroogebank.crm.user_service.exception.AccessDeniedException;
 import com.scroogebank.crm.user_service.exception.UserNotFoundException;
-import org.springframework.lang.Nullable;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -27,7 +26,7 @@ public class UserAccountService {
 
 	public UserAccountService(
 		PersistentUserStore store,
-		@Nullable CognitoService cognitoService,
+		CognitoService cognitoService,
 		@Value("${app.jwt.auth-mode:local}") String authMode
 	) {
 		this.store = store;
