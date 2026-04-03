@@ -86,7 +86,7 @@ export function ForgotPasswordPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="bg-card  rounded-lg p-8">
-          <h1 className="text-2xl font-medium text-text mb-2 text-center">
+          <h1 className="text-2xl font-normal text-text mb-2 text-center">
             Get back into your account
           </h1>
           <p className="text-text-muted text-center mb-6">

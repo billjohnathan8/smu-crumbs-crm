@@ -15,7 +15,7 @@ export function BankAccountsPreview({
     <div className="bg-card  rounded-lg">
       <div className="px-6 py-4 border-b border-border flex items-center justify-between">
         <h2 className="text-lg font-bold text-text">Bank Accounts</h2>
-        <button onClick={onManageAccounts} className="text-primary hover:underline text-sm">
+        <button onClick={onManageAccounts} className="underline-hover text-primary text-sm">
           Manage accounts →
         </button>
       </div>

@@ -20,6 +20,7 @@ import { EditClientPage } from '@/pages/EditClientPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
+import { ActivityLogsPage } from '@/pages/ActivityLogsPage'
 
 function RootRedirect() {
   const { user, isAuthenticated, isLoading } = useAuth()
@@ -64,6 +65,7 @@ export function App() {
               <Route path="/admin/communications" element={<AdminCommunications />} />
               <Route path="/admin/transactions" element={<ViewTransactionsPage />} />
               <Route path="/admin/aml-alerts" element={<AmlAlertsPage />} />
+              <Route path="/admin/logs" element={<ActivityLogsPage />} />
               <Route path="/admin/accounts" element={<Navigate to="/admin/users" replace />} />
               <Route path="/admin/users" element={<AdminUserManagementPage />} />
               <Route path="/admin/users/new" element={<CreateNewUserPage />} />
@@ -79,6 +81,7 @@ export function App() {
               <Route path="/user/clients/:clientId/accounts" element={<ClientAccountsPage />} />
               <Route path="/user/transactions" element={<ViewTransactionsPage />} />
               <Route path="/user/aml-alerts" element={<AmlAlertsPage />} />
+              <Route path="/user/logs" element={<ActivityLogsPage />} />
               <Route path="/user/settings" element={<SettingsPage />} />
             </Route>
 

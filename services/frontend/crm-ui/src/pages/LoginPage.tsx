@@ -100,7 +100,7 @@ export function LoginPage() {
                   alt="Scrooge Global Bank"
                   className=" h-[96px] w-auto object-contain sm:h-[96px]"
                 />
-                <h1 className="text-2xl font-medium text-text">Login to the CRM</h1>
+                <h1 className="text-2xl font-normal text-text">Login to the CRM</h1>
                 <p className="mt-2 text-text-muted">Sign in to your account</p>
               </div>
 

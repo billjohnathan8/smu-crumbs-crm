@@ -12,6 +12,7 @@ const userNav: NavItem[] = [
   { label: 'Create Client', to: '/user/clients/new' },
   { label: 'Transactions', to: '/user/transactions' },
   { label: 'AML Alerts', to: '/user/aml-alerts' },
+  { label: 'Activity Logs', to: '/user/logs' },
   { label: 'Settings', to: '/user/settings' },
 ]
 
@@ -68,7 +69,7 @@ export function UserDashboard() {
       <div>
         <div className="flex justify-between h-16 items-center">
           <div>
-            <h1 className="text-2xl font-medium text-text">User Dashboard</h1>
+            <h1 className="text-2xl font-normal text-text">User Dashboard</h1>
             <p className="text-lg text-text-muted">
               Welcome, {user?.firstName} {user?.lastName}
             </p>
@@ -90,11 +91,11 @@ export function UserDashboard() {
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-              <div className="gradient-dark-red rounded-2xl p-6">
+              <div className="gradient-dark-red rounded-lg p-6">
                 <h3 className="text-white text-sm font-normal mb-2">My Clients</h3>
                 <p className="text-4xl font-bold text-white">{clientCount}</p>
               </div>
-              <div className="bg-card  rounded-2xl p-6">
+              <div className="bg-card rounded-lg p-6">
                 <h3 className="text-text-muted text-sm font-normal mb-2">Recent Activities</h3>
                 <p className="text-4xl font-bold text-text">{recentActivities.length}</p>
               </div>

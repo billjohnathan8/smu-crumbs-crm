@@ -12,6 +12,7 @@ const adminNav: NavItem[] = [
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
+  { label: 'Activity Logs', to: '/admin/logs' },
   { label: 'User Management', to: '/admin/users' },
   { label: 'Settings', to: '/admin/settings' },
 ]
@@ -22,6 +23,7 @@ const userNav: NavItem[] = [
   { label: 'Create Client', to: '/user/clients/new' },
   { label: 'Transactions', to: '/user/transactions' },
   { label: 'AML Alerts', to: '/user/aml-alerts' },
+  { label: 'Activity Logs', to: '/user/logs' },
   { label: 'Settings', to: '/user/settings' },
 ]
 
@@ -51,7 +53,7 @@ export function SettingsPage() {
   return (
     <SidebarLayout items={navItems}>
       <div className="p-6 max-w-2xl mx-auto">
-        <h1 className="text-2xl font-medium text-text mb-6">Settings</h1>
+        <h1 className="text-2xl font-normal text-text mb-6">Settings</h1>
 
         <div className="space-y-6">
           <div className="bg-card  rounded-lg p-6">

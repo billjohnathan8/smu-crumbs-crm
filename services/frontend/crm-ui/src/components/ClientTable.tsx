@@ -86,7 +86,7 @@ export function ClientTable({
                     e.stopPropagation()
                     onView(client.clientId)
                   }}
-                  className="text-primary hover:underline text-sm"
+                  className="underline-hover text-primary text-sm"
                 >
                   View
                 </button>
