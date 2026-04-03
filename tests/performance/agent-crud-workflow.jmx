@@ -18,6 +18,11 @@
             <stringProp name="Argument.value">Scrooge@Bank2026!</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
+          <elementProp name="ASSIGNED_USER_ID" elementType="Argument">
+            <stringProp name="Argument.name">ASSIGNED_USER_ID</stringProp>
+            <stringProp name="Argument.value">${__P(assignedUserId,usr_2)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
         </collectionProp>
       </elementProp>
       <stringProp name="TestPlan.user_define_classpath"></stringProp>
@@ -73,6 +78,16 @@
         <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="Agent Think Time" enabled="true">
           <stringProp name="ConstantTimer.delay">${__P(thinktime,0)}</stringProp>
         </ConstantTimer>
+        <hashTree/>
+
+        <CounterConfig guiclass="CounterConfigGui" testclass="CounterConfig" testname="Unique Client Counter" enabled="true">
+          <stringProp name="CounterConfig.start">${__intSum(40000000,${__time(HHmmss,)},)}</stringProp>
+          <stringProp name="CounterConfig.end">89999999</stringProp>
+          <stringProp name="CounterConfig.incr">1</stringProp>
+          <stringProp name="CounterConfig.name">uniq_counter</stringProp>
+          <stringProp name="CounterConfig.format"></stringProp>
+          <boolProp name="CounterConfig.per_user">false</boolProp>
+        </CounterConfig>
         <hashTree/>
 
         <!-- Step 1: Login to get JWT token -->
@@ -138,15 +153,16 @@
                 <stringProp name="Argument.value">{&#xd;
   &quot;firstName&quot;: &quot;LoadTest&quot;,&#xd;
   &quot;lastName&quot;: &quot;User&quot;,&#xd;
-  &quot;emailAddress&quot;: &quot;loadtest${__UUID()}@test.local&quot;,&#xd;
-  &quot;phoneNumber&quot;: &quot;+65${__Random(10000000,99999999)}&quot;,&#xd;
+  &quot;emailAddress&quot;: &quot;loadtest${uniq_counter}@test.local&quot;,&#xd;
+  &quot;phoneNumber&quot;: &quot;+65${uniq_counter}&quot;,&#xd;
   &quot;dateOfBirth&quot;: &quot;1990-01-01&quot;,&#xd;
   &quot;gender&quot;: &quot;Male&quot;,&#xd;
   &quot;address&quot;: &quot;${__Random(1,999)} Test Street&quot;,&#xd;
   &quot;city&quot;: &quot;Singapore&quot;,&#xd;
   &quot;state&quot;: &quot;Singapore&quot;,&#xd;
   &quot;postalCode&quot;: &quot;${__Random(100000,999999)}&quot;,&#xd;
-  &quot;country&quot;: &quot;Singapore&quot;&#xd;
+  &quot;country&quot;: &quot;Singapore&quot;,&#xd;
+  &quot;assignedUserId&quot;: &quot;${ASSIGNED_USER_ID}&quot;&#xd;
 }</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
