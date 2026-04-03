@@ -49,6 +49,16 @@ const statusColors: Record<string, string> = {
   rejected: 'bg-danger/20 text-danger',
 }
 
+function sanitizeCommunicationsForViewer(
+  communications: Communication[],
+  isManagementUser: boolean
+): Communication[] {
+  if (isManagementUser) {
+    return communications
+  }
+  return communications.map(comm => ({ ...comm, providerMessageId: null }))
+}
+
 export function ClientDetailPage() {
   const { clientId } = useParams<{ clientId: string }>()
   const { user, logout } = useAuth()
@@ -127,7 +137,7 @@ export function ClientDetailPage() {
       setClient(clientData)
       setTransactions(txResponse.data)
       setAccounts(accountsData)
-      setCommunications(commsResponse.data)
+      setCommunications(sanitizeCommunicationsForViewer(commsResponse.data, isManagementUser))
 
       if (clientData.assignedUserId) {
         getUserById(clientData.assignedUserId)
@@ -271,7 +281,7 @@ export function ClientDetailPage() {
       setComposeData({ toEmail: '', subject: '', body: '' })
 
       const commsResponse = await listClientCommunications(clientId, { limit: 10 })
-      setCommunications(commsResponse.data)
+      setCommunications(sanitizeCommunicationsForViewer(commsResponse.data, isManagementUser))
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) logout()

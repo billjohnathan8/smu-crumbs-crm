@@ -136,7 +136,7 @@ describe('AdminCommunications', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Lookup by Communication ID/i)).toBeInTheDocument()
-      expect(screen.getByText(/Lookup by Provider Message ID/i)).toBeInTheDocument()
+      expect(screen.getByText(/Lookup by Client Name/i)).toBeInTheDocument()
     })
   })
 

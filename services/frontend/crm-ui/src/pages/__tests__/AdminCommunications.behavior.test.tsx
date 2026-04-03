@@ -5,10 +5,12 @@ import { MemoryRouter } from 'react-router-dom'
 import { AdminCommunications } from '../AdminCommunications'
 import { ThemeProvider } from '@/features/theme/ThemeContext'
 import * as communicationsApi from '@/api/communications'
+import * as clientsApi from '@/api/clients'
 import { ApiError } from '@/api/client'
-import type { Communication, PaginatedResponse, User } from '@/api/types'
+import type { Client, Communication, PaginatedResponse, User } from '@/api/types'
 
 vi.mock('@/api/communications')
+vi.mock('@/api/clients')
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
@@ -32,6 +34,23 @@ const adminUser: User = {
   email: 'admin@example.com',
   role: 'admin',
   status: 'active',
+}
+
+const matchedClient: Client = {
+  clientId: 'client-1',
+  firstName: 'John',
+  lastName: 'Doe',
+  dateOfBirth: '1990-01-01',
+  gender: 'Male',
+  emailAddress: 'john@example.com',
+  phoneNumber: '+65 1234 5678',
+  address: '1 Street',
+  city: 'Singapore',
+  state: 'Central',
+  country: 'Singapore',
+  postalCode: '123456',
+  identityVerificationStatus: 'verified',
+  createdAt: '2026-03-21T10:00:00Z',
 }
 
 const baseCommunication: Communication = {
@@ -66,6 +85,10 @@ describe('AdminCommunications behavior', () => {
     vi.clearAllMocks()
     mockUseAuth.mockReturnValue({ user: adminUser, logout: mockLogout })
     vi.mocked(communicationsApi.listQueuedCommunications).mockResolvedValue(queuedResponse)
+    vi.mocked(clientsApi.listClients).mockResolvedValue({
+      data: [],
+      pagination: { limit: 5, offset: 0, total: 0 },
+    })
   })
 
   it('does not fetch communications when user is not admin/super_admin', async () => {
@@ -223,21 +246,19 @@ describe('AdminCommunications behavior', () => {
     })
   })
 
-  it('looks up by provider message id and handles API errors', async () => {
+  it('looks up by client name and handles API errors', async () => {
     const user = userEvent.setup()
-    vi.mocked(communicationsApi.getCommunicationByProviderMessageId).mockRejectedValue(
-      new ApiError(403, 'forbidden', 'Forbidden')
-    )
+    vi.mocked(clientsApi.listClients).mockRejectedValue(new ApiError(403, 'forbidden', 'Forbidden'))
 
     renderPage()
 
-    await screen.findByText('Lookup by Provider Message ID')
-    await user.type(screen.getByPlaceholderText('Provider message ID...'), ' provider_1 ')
+    await screen.findByText('Lookup by Client Name')
+    await user.type(screen.getByPlaceholderText('Client name...'), ' John ')
     await user.click(screen.getAllByRole('button', { name: 'Lookup' })[1])
 
     await waitFor(() => {
-      expect(communicationsApi.getCommunicationByProviderMessageId).toHaveBeenCalledWith(
-        'provider_1',
+      expect(clientsApi.listClients).toHaveBeenCalledWith(
+        { q: 'John', limit: 5 },
         { timeout: 15000 }
       )
       expect(
@@ -246,33 +267,71 @@ describe('AdminCommunications behavior', () => {
     })
   })
 
-  it('shows fallback message on provider lookup non-api failure', async () => {
+  it('shows no-client message on client-name lookup miss', async () => {
     const user = userEvent.setup()
-    vi.mocked(communicationsApi.getCommunicationByProviderMessageId).mockRejectedValue(
-      new Error('provider failed')
-    )
+    vi.mocked(clientsApi.listClients).mockResolvedValue({
+      data: [],
+      pagination: { limit: 5, offset: 0, total: 0 },
+    })
 
     renderPage()
 
-    await screen.findByText('Lookup by Provider Message ID')
-    await user.type(screen.getByPlaceholderText('Provider message ID...'), 'provider_x')
+    await screen.findByText('Lookup by Client Name')
+    await user.type(screen.getByPlaceholderText('Client name...'), 'unknown')
     await user.click(screen.getAllByRole('button', { name: 'Lookup' })[1])
 
     await waitFor(() => {
-      expect(screen.getByText('Communication not found')).toBeInTheDocument()
+      expect(screen.getByText('No client found for that name.')).toBeInTheDocument()
     })
   })
 
-  it('logs out when provider lookup returns 401', async () => {
+  it('shows no-communications message when matched client has no communications', async () => {
     const user = userEvent.setup()
-    vi.mocked(communicationsApi.getCommunicationByProviderMessageId).mockRejectedValue(
+    vi.mocked(clientsApi.listClients).mockResolvedValue({
+      data: [matchedClient],
+      pagination: { limit: 5, offset: 0, total: 1 },
+    })
+    vi.mocked(communicationsApi.listClientCommunications).mockResolvedValue({
+      data: [],
+      pagination: { limit: 1, offset: 0, total: 0 },
+    })
+
+    renderPage()
+
+    await screen.findByText('Lookup by Client Name')
+    await user.type(screen.getByPlaceholderText('Client name...'), 'john')
+    await user.click(screen.getAllByRole('button', { name: 'Lookup' })[1])
+
+    await waitFor(() => {
+      expect(screen.getByText('No communications found for this client.')).toBeInTheDocument()
+    })
+  })
+
+  it('shows fallback message on client-name lookup non-api failure', async () => {
+    const user = userEvent.setup()
+    vi.mocked(clientsApi.listClients).mockRejectedValue(new Error('lookup failed'))
+
+    renderPage()
+
+    await screen.findByText('Lookup by Client Name')
+    await user.type(screen.getByPlaceholderText('Client name...'), 'john')
+    await user.click(screen.getAllByRole('button', { name: 'Lookup' })[1])
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to look up by client name')).toBeInTheDocument()
+    })
+  })
+
+  it('logs out when client-name lookup returns 401', async () => {
+    const user = userEvent.setup()
+    vi.mocked(clientsApi.listClients).mockRejectedValue(
       new ApiError(401, 'unauthorized', 'Unauthorized')
     )
 
     renderPage()
 
-    await screen.findByText('Lookup by Provider Message ID')
-    await user.type(screen.getByPlaceholderText('Provider message ID...'), 'provider_401')
+    await screen.findByText('Lookup by Client Name')
+    await user.type(screen.getByPlaceholderText('Client name...'), 'john')
     await user.click(screen.getAllByRole('button', { name: 'Lookup' })[1])
 
     await waitFor(() => {
@@ -280,34 +339,32 @@ describe('AdminCommunications behavior', () => {
     })
   })
 
-  it('renders provider lookup result for successful response', async () => {
+  it('renders client-name lookup result for successful response', async () => {
     const user = userEvent.setup()
-    vi.mocked(communicationsApi.getCommunicationByProviderMessageId).mockResolvedValue({
-      ...baseCommunication,
-      status: 'failed',
-      providerMessageId: 'provider_1',
-      errorMessage: 'provider rejected',
+    vi.mocked(clientsApi.listClients).mockResolvedValue({
+      data: [matchedClient],
+      pagination: { limit: 5, offset: 0, total: 1 },
+    })
+    vi.mocked(communicationsApi.listClientCommunications).mockResolvedValue({
+      data: [{ ...baseCommunication, status: 'failed', errorMessage: 'provider rejected' }],
+      pagination: { limit: 1, offset: 0, total: 1 },
     })
 
     renderPage()
 
-    await screen.findByText('Lookup by Provider Message ID')
-    await user.type(screen.getByPlaceholderText('Provider message ID...'), 'provider_1')
+    await screen.findByText('Lookup by Client Name')
+    await user.type(screen.getByPlaceholderText('Client name...'), 'john')
     await user.click(screen.getAllByRole('button', { name: 'Lookup' })[1])
 
     await waitFor(() => {
       expect(screen.getByText('provider rejected')).toBeInTheDocument()
+      expect(screen.getByText('John Doe (client-1)')).toBeInTheDocument()
     })
   })
 
-  it('shows loading labels during lookups and supports header actions', async () => {
+  it('shows loading labels during communication-id lookup and supports header actions', async () => {
     const user = userEvent.setup()
-    vi.mocked(communicationsApi.getCommunicationById).mockImplementation(
-      () => new Promise(() => {})
-    )
-    vi.mocked(communicationsApi.getCommunicationByProviderMessageId).mockImplementation(
-      () => new Promise(() => {})
-    )
+    vi.mocked(communicationsApi.getCommunicationById).mockImplementation(() => new Promise(() => {}))
 
     renderPage()
 

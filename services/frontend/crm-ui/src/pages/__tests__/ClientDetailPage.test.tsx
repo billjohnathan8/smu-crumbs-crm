@@ -374,4 +374,34 @@ describe('ClientDetailPage', () => {
       expect(screen.getByText('All fields are required')).toBeInTheDocument()
     })
   })
+
+  it('does not show provider message id metadata to normal users', async () => {
+    vi.spyOn(communicationsApi, 'listClientCommunications').mockResolvedValue({
+      data: [
+        {
+          communicationId: 'com_1',
+          clientId: 'client-123',
+          userId: 'user-1',
+          channel: 'email',
+          toEmail: 'john@example.com',
+          subject: 'Test communication',
+          body: 'Hello',
+          status: 'sent',
+          providerMessageId: 'ses-msg-123',
+          createdAt: '2026-04-03T10:00:00Z',
+          updatedAt: '2026-04-03T10:01:00Z',
+        },
+      ],
+      pagination: { limit: 10, offset: 0, total: 1 },
+    })
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByText('Test communication')).toBeInTheDocument()
+    })
+
+    expect(screen.queryByText('Provider ID:')).not.toBeInTheDocument()
+    expect(screen.queryByText('ses-msg-123')).not.toBeInTheDocument()
+  })
 })

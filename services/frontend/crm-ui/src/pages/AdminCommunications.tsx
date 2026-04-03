@@ -4,10 +4,11 @@ import { useAuth } from '@/features/auth/AuthContext'
 import {
   listQueuedCommunications,
   getCommunicationById,
-  getCommunicationByProviderMessageId,
+  listClientCommunications,
 } from '@/api/communications'
 import type { Communication, CommunicationStatus } from '@/api/types'
 import { ApiError } from '@/api/client'
+import { listClients } from '@/api/clients'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 import { CommunicationsPanel } from '@/components/CommunicationsPanel'
 
@@ -41,10 +42,10 @@ export function AdminCommunications() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const [providerLookupId, setProviderLookupId] = useState('')
-  const [providerLookupResult, setProviderLookupResult] = useState<Communication | null>(null)
-  const [providerLookupError, setProviderLookupError] = useState('')
-  const [isLookingUp, setIsLookingUp] = useState(false)
+  const [clientNameLookup, setClientNameLookup] = useState('')
+  const [clientLookupResult, setClientLookupResult] = useState<Communication | null>(null)
+  const [clientLookupError, setClientLookupError] = useState('')
+  const [isClientLookingUp, setIsClientLookingUp] = useState(false)
 
   const [commLookupId, setCommLookupId] = useState('')
   const [commLookupResult, setCommLookupResult] = useState<Communication | null>(null)
@@ -115,30 +116,53 @@ export function AdminCommunications() {
     }
   }
 
-  const handleProviderLookup = async () => {
-    if (!providerLookupId.trim()) return
+  const handleClientNameLookup = async () => {
+    const query = clientNameLookup.trim()
+    if (!query) return
 
-    setIsLookingUp(true)
-    setProviderLookupError('')
-    setProviderLookupResult(null)
+    setIsClientLookingUp(true)
+    setClientLookupError('')
+    setClientLookupResult(null)
 
     try {
-      const result = await getCommunicationByProviderMessageId(providerLookupId.trim(), {
-        timeout: COMMUNICATION_LOOKUP_TIMEOUT_MS,
+      const matchedClients = await listClients(
+        { q: query, limit: 5 },
+        { timeout: COMMUNICATION_LOOKUP_TIMEOUT_MS }
+      )
+      if (!matchedClients.data.length) {
+        setClientLookupError('No client found for that name.')
+        return
+      }
+
+      const primaryClient = matchedClients.data[0]
+      const latestComms = await listClientCommunications(
+        primaryClient.clientId,
+        { limit: 1, offset: 0 },
+        { timeout: COMMUNICATION_LOOKUP_TIMEOUT_MS }
+      )
+      if (!latestComms.data.length) {
+        setClientLookupError('No communications found for this client.')
+        return
+      }
+
+      setClientLookupResult({
+        ...latestComms.data[0],
+        clientId: `${primaryClient.firstName} ${primaryClient.lastName} (${primaryClient.clientId})`,
       })
-      setProviderLookupResult(result)
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         logout()
       } else if (err instanceof ApiError && err.status === 400) {
-        setProviderLookupError('Invalid id.')
+        setClientLookupError('Invalid client name.')
       } else if (err instanceof ApiError && err.status === 403) {
-        setProviderLookupError('You are not authorized to view this communication.')
+        setClientLookupError('You are not authorized to view this communication.')
       } else {
-        setProviderLookupError(err instanceof ApiError ? err.message : 'Communication not found')
+        setClientLookupError(
+          err instanceof ApiError ? err.message : 'Failed to look up by client name'
+        )
       }
     } finally {
-      setIsLookingUp(false)
+      setIsClientLookingUp(false)
     }
   }
 
@@ -276,27 +300,25 @@ export function AdminCommunications() {
           </div>
 
           <div className="rounded-lg  bg-card p-4">
-            <h3 className="mb-3 font-normal text-text">Lookup by Provider Message ID</h3>
+            <h3 className="mb-3 font-normal text-text">Lookup by Client Name</h3>
             <div className="flex gap-2">
               <input
                 type="text"
-                value={providerLookupId}
-                onChange={e => setProviderLookupId(e.target.value)}
+                value={clientNameLookup}
+                onChange={e => setClientNameLookup(e.target.value)}
                 className="flex-1 rounded  bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="Provider message ID..."
+                placeholder="Client name..."
               />
               <button
-                onClick={handleProviderLookup}
-                disabled={isLookingUp || !providerLookupId.trim()}
+                onClick={handleClientNameLookup}
+                disabled={isClientLookingUp || !clientNameLookup.trim()}
                 className="rounded bg-primary px-4 py-2 text-sm font-medium text-white transition-all duration-200 hover:brightness-[0.8] disabled:opacity-50"
               >
-                {isLookingUp ? 'Looking up...' : 'Lookup'}
+                {isClientLookingUp ? 'Looking up...' : 'Lookup'}
               </button>
             </div>
-            {providerLookupError && (
-              <p className="mt-2 text-sm text-danger">{providerLookupError}</p>
-            )}
-            {providerLookupResult && renderCommunicationDetail(providerLookupResult, 'Result')}
+            {clientLookupError && <p className="mt-2 text-sm text-danger">{clientLookupError}</p>}
+            {clientLookupResult && renderCommunicationDetail(clientLookupResult, 'Result')}
           </div>
         </div>
 

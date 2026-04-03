@@ -97,6 +97,17 @@ describe('clients API', () => {
 
       expect(client.apiGet).toHaveBeenCalledWith('/api/clients?limit=0&offset=0')
     })
+
+    it('should pass request options when provided', async () => {
+      vi.spyOn(client, 'apiGet').mockResolvedValue({
+        data: [],
+        pagination: { total: 0, limit: 10, offset: 0 },
+      })
+
+      await listClients({ q: 'john' }, { timeout: 15000 })
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/clients?q=john', { timeout: 15000 })
+    })
   })
 
   describe('getClientById', () => {

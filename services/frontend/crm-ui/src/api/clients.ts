@@ -40,14 +40,19 @@ export interface ReassignResponse {
 /**
  * List clients (users see only their own, admins see all)
  */
-export async function listClients(params?: ListClientsParams): Promise<PaginatedResponse<Client>> {
+export async function listClients(
+  params?: ListClientsParams,
+  options?: RequestOptions
+): Promise<PaginatedResponse<Client>> {
   const query = new URLSearchParams()
   if (params?.limit !== undefined) query.append('limit', params.limit.toString())
   if (params?.offset !== undefined) query.append('offset', params.offset.toString())
   if (params?.q) query.append('q', params.q)
 
   const endpoint = query.toString() ? `${CLIENTS_BASE}?${query.toString()}` : CLIENTS_BASE
-  return apiGet<PaginatedResponse<Client>>(endpoint)
+  return options
+    ? apiGet<PaginatedResponse<Client>>(endpoint, options)
+    : apiGet<PaginatedResponse<Client>>(endpoint)
 }
 
 /**
