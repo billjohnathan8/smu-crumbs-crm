@@ -123,7 +123,7 @@ resource "aws_lb_listener_rule" "block_transaction_edit" {
   listener_arn = aws_lb_listener.https[0].arn
   # Keep this rule at a high, dedicated priority to avoid collisions
   # with existing/manual listener rules in long-lived environments.
-  priority     = 25000
+  priority = 25000
 
   action {
     type = "fixed-response"
