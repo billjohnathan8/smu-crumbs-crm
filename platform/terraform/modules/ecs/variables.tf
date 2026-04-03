@@ -224,6 +224,12 @@ variable "transaction_sftp_remote_dir" {
   default     = "incoming/"
 }
 
+variable "transaction_updates_enabled" {
+  description = "Enable transaction update API endpoint handling in transaction service."
+  type        = bool
+  default     = false
+}
+
 variable "enable_service_discovery" {
   description = "Enable AWS Cloud Map private DNS namespace and service discovery for ECS inter-service communication. Disable when LabRole blocks servicediscovery:CreatePrivateDnsNamespace."
   type        = bool

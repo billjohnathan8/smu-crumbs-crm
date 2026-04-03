@@ -25,6 +25,7 @@ alb_internal                       = false # CloudFront origin must be publicly 
 user_desired_count                = 1
 client_desired_count              = 1
 transaction_desired_count         = 1
+transaction_updates_enabled       = false
 ecs_min_capacity                  = 1
 ecs_max_capacity                  = 1
 ecs_task_cpu                      = 512
@@ -102,9 +103,10 @@ enable_service_discovery      = true
 verification_frontend_base_url = "https://itsag2t3.com"
 
 # --- Auth ---
-enable_cognito            = true
-cognito_mfa_configuration = "ON"
-auth_mode                 = "hybrid"
+enable_cognito                     = true
+cognito_mfa_configuration          = "ON"
+cognito_password_require_uppercase = false
+auth_mode                          = "hybrid"
 
 # --- Domain / DNS Ownership ---
 # Keep custom-domain disabled for first bring-up unless cert + DNS ownership are ready.

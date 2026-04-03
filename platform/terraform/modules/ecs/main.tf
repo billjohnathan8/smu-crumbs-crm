@@ -296,6 +296,10 @@ locals {
           value = var.transaction_sftp_remote_dir
         },
         {
+          name  = "TRANSACTION_UPDATES_ENABLED"
+          value = tostring(var.transaction_updates_enabled)
+        },
+        {
           name  = "AUTH_MODE"
           value = var.auth_mode
         },

@@ -332,6 +332,12 @@ variable "transaction_import_s3_path_style_access_enabled" {
   default     = false
 }
 
+variable "transaction_updates_enabled" {
+  description = "Enable transaction update API endpoint handling in transaction service."
+  type        = bool
+  default     = false
+}
+
 #--------------------------------------------------------------
 # Lambda Functions Configuration
 #--------------------------------------------------------------
@@ -832,6 +838,12 @@ variable "cognito_mfa_configuration" {
     condition     = contains(["OFF", "ON", "OPTIONAL"], upper(trimspace(var.cognito_mfa_configuration)))
     error_message = "cognito_mfa_configuration must be one of: OFF, OPTIONAL, ON."
   }
+}
+
+variable "cognito_password_require_uppercase" {
+  description = "Whether Cognito passwords must include uppercase characters."
+  type        = bool
+  default     = true
 }
 
 variable "auth_mode" {
