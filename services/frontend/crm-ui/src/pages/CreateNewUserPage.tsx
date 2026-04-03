@@ -101,7 +101,9 @@ export function CreateNewUserPage() {
     }
 
     if (formData.temporaryPassword && formData.temporaryPassword.trim()) {
-      const invalidRules = getPasswordRules(formData.temporaryPassword).filter(rule => !rule.passed)
+      const invalidRules = getPasswordRules(formData.temporaryPassword).filter(
+        rule => rule.required && !rule.passed
+      )
       if (invalidRules.length > 0) {
         newErrors.temporaryPassword = `Password does not meet requirements: ${invalidRules
           .map(rule => rule.label.toLowerCase())
@@ -174,7 +176,7 @@ export function CreateNewUserPage() {
   const passwordStrength = hasTemporaryPassword ? getPasswordStrength(temporaryPassword) : null
   const strengthPercent = passwordStrength ? getPasswordStrengthPercent(passwordStrength) : 0
   const strengthLabelClass =
-    passwordStrength === 'strong'
+    passwordStrength === 'good'
       ? 'text-success'
       : passwordStrength === 'medium'
         ? 'text-yellow-500'
@@ -314,7 +316,7 @@ export function CreateNewUserPage() {
                     <div className="h-2 flex-1 rounded-full bg-border overflow-hidden">
                       <div
                         className={`h-full transition-all duration-200 ${
-                          passwordStrength === 'strong'
+                          passwordStrength === 'good'
                             ? 'bg-success'
                             : passwordStrength === 'medium'
                               ? 'bg-yellow-500'
@@ -328,14 +330,13 @@ export function CreateNewUserPage() {
                     {passwordRules.map(rule => (
                       <li
                         key={rule.label}
-                        className={`text-xs ${rule.passed ? 'text-success' : 'text-text-subtle'}`}
+                        className={`text-xs ${
+                          rule.passed ? 'text-success' : rule.required ? 'text-text-subtle' : 'text-yellow-500'
+                        }`}
                       >
                         {rule.label}
                       </li>
                     ))}
-                    <li className="text-xs text-text-subtle">
-                      Avoid reusing passwords across sites.
-                    </li>
                   </ul>
                 </>
               )}
