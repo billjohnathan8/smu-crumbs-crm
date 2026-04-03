@@ -519,14 +519,16 @@ public class ClientServiceImpl implements ClientService {
 		String normalizedKind = documentKind == null ? "" : documentKind.trim().toLowerCase(Locale.ROOT);
 		String documentType;
 		String documentRef;
-		if ("primary".equals(normalizedKind)) {
-			documentType = entity.getPrimaryDocumentType();
-			documentRef = entity.getPrimaryDocumentRef();
-		} else if ("address".equals(normalizedKind)) {
-			documentType = entity.getAddressDocumentType();
-			documentRef = entity.getAddressDocumentRef();
-		} else {
-			throw new IllegalArgumentException("documentKind must be one of: primary, address");
+		switch (normalizedKind) {
+			case "primary" -> {
+				documentType = entity.getPrimaryDocumentType();
+				documentRef = entity.getPrimaryDocumentRef();
+			}
+			case "address" -> {
+				documentType = entity.getAddressDocumentType();
+				documentRef = entity.getAddressDocumentRef();
+			}
+			default -> throw new IllegalArgumentException("documentKind must be one of: primary, address");
 		}
 
 		if (documentRef == null || documentRef.isBlank()) {
