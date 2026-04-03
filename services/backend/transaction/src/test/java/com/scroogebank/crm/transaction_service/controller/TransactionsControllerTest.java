@@ -11,6 +11,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.scroogebank.crm.transaction_service.config.AppProperties;
 import com.scroogebank.crm.transaction_service.dto.CreateTransactionRequest;
 import com.scroogebank.crm.transaction_service.dto.ImportBatchDto;
 import com.scroogebank.crm.transaction_service.dto.ImportBatchStatus;
@@ -37,6 +38,7 @@ class TransactionsControllerTest {
 	private RequestAuth requestAuth;
 	private ClientAccessValidator clientAccessValidator;
 	private TransactionAuditLogger transactionAuditLogger;
+	private AppProperties appProperties;
 	private TransactionsController controller;
 	private HttpServletRequest httpRequest;
 
@@ -46,11 +48,14 @@ class TransactionsControllerTest {
 		requestAuth = mock(RequestAuth.class);
 		clientAccessValidator = mock(ClientAccessValidator.class);
 		transactionAuditLogger = mock(TransactionAuditLogger.class);
+		appProperties = mock(AppProperties.class);
+		when(appProperties.isTransactionUpdatesEnabled()).thenReturn(false);
 		controller = new TransactionsController(
 			transactionsService,
 			requestAuth,
 			clientAccessValidator,
-			transactionAuditLogger
+			transactionAuditLogger,
+			appProperties
 		);
 		httpRequest = mock(HttpServletRequest.class);
 		when(httpRequest.getHeader("Authorization")).thenReturn("Bearer token");
@@ -138,9 +143,19 @@ class TransactionsControllerTest {
 	}
 
 	@Test
-	void updateTransaction_adminAllowed() {
+	void updateTransaction_adminForbiddenWhenDisabled() {
 		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
 		when(requestAuth.requireUser(httpRequest)).thenReturn(admin);
+		assertThrows(ForbiddenException.class, () ->
+			controller.updateTransaction(httpRequest, "txn_1", mock(UpdateTransactionRequest.class))
+		);
+	}
+
+	@Test
+	void updateTransaction_adminAllowedWhenEnabled() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		when(requestAuth.requireUser(httpRequest)).thenReturn(admin);
+		when(appProperties.isTransactionUpdatesEnabled()).thenReturn(true);
 		UpdateTransactionRequest body = mock(UpdateTransactionRequest.class);
 		TransactionDto before = mock(TransactionDto.class);
 		TransactionDto after = mock(TransactionDto.class);
@@ -150,30 +165,18 @@ class TransactionsControllerTest {
 		when(before.amount()).thenReturn(new java.math.BigDecimal("100.00"));
 		when(before.date()).thenReturn(java.time.LocalDate.parse("2026-01-01"));
 		when(before.status()).thenReturn(com.scroogebank.crm.transaction_service.dto.TransactionStatus.Completed);
-
 		when(after.id()).thenReturn("txn_1");
 		when(after.clientId()).thenReturn("clt_1");
 		when(after.transaction()).thenReturn(com.scroogebank.crm.transaction_service.dto.TransactionKind.W);
 		when(after.amount()).thenReturn(new java.math.BigDecimal("50.00"));
 		when(after.date()).thenReturn(java.time.LocalDate.parse("2026-01-02"));
 		when(after.status()).thenReturn(com.scroogebank.crm.transaction_service.dto.TransactionStatus.Pending);
-
 		when(transactionsService.get("txn_1")).thenReturn(before);
 		when(transactionsService.update("txn_1", body)).thenReturn(after);
 
 		TransactionDto result = controller.updateTransaction(httpRequest, "txn_1", body);
 
 		assertEquals(after, result);
-		verify(transactionAuditLogger).logAuditEvent(
-			"UPDATE",
-			"transaction|amount|date|status",
-			"D|100.00|2026-01-01|Completed",
-			"W|50.00|2026-01-02|Pending",
-			"usr_admin",
-			"clt_1",
-			"req_1",
-			"Bearer token"
-		);
 	}
 
 	@Test

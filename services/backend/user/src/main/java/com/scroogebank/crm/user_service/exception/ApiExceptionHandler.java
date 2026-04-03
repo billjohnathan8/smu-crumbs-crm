@@ -42,6 +42,15 @@ public class ApiExceptionHandler {
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(error(request, "conflict", ex.getMessage()));
 	}
 
+	@ExceptionHandler(ExternalProvisioningException.class)
+	public ResponseEntity<ErrorResponse> handleExternalProvisioning(
+		HttpServletRequest request,
+		ExternalProvisioningException ex
+	) {
+		String message = productionMode ? "Identity provisioning is temporarily unavailable." : ex.getMessage();
+		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(error(request, "service_unavailable", message));
+	}
+
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	public ResponseEntity<ErrorResponse> handleValidation(HttpServletRequest request, MethodArgumentNotValidException ex) {
 		String message = productionMode ? "Validation failed" : ex.getBindingResult().getFieldErrors().stream()

@@ -70,12 +70,12 @@ describe('SettingsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Alice Admin')).toBeInTheDocument()
       expect(screen.getByText('alice@example.com')).toBeInTheDocument()
-      expect(screen.getByText('admin')).toBeInTheDocument()
+      expect(screen.getByText('Admin')).toBeInTheDocument()
     })
   })
 
-  it('shows super_admin role with space when user is super_admin', async () => {
-    const superAdmin: User = { ...mockAdminUser, role: 'super_admin' }
+  it('shows root admin label when seeded root identity is loaded', async () => {
+    const superAdmin: User = { ...mockAdminUser, id: 'usr_1', role: 'super_admin' }
     vi.mocked(authApi.getCurrentUser).mockResolvedValue(superAdmin)
     localStorage.setItem('authToken', 'token')
     localStorage.setItem('currentUser', JSON.stringify(superAdmin))
@@ -89,7 +89,7 @@ describe('SettingsPage', () => {
       </ThemeProvider>
     )
     await waitFor(() => {
-      expect(screen.getByText('super admin')).toBeInTheDocument()
+      expect(screen.getByText('Root Admin')).toBeInTheDocument()
     })
   })
 

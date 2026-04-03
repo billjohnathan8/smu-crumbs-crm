@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.scroogebank.crm.transaction_service.config.AppProperties;
 import com.scroogebank.crm.transaction_service.dto.CreateTransactionRequest;
 import com.scroogebank.crm.transaction_service.dto.ImportBatchDto;
 import com.scroogebank.crm.transaction_service.dto.ImportBatchStatus;
@@ -45,13 +46,15 @@ class UserControllerTest {
 	private final RequestAuth requestAuth = mock(RequestAuth.class);
 	private final ClientAccessValidator clientAccessValidator = mock(ClientAccessValidator.class);
 	private final TransactionAuditLogger transactionAuditLogger = mock(TransactionAuditLogger.class);
+	private final AppProperties appProperties = mock(AppProperties.class);
 	private final MockMvc mockMvc = MockMvcBuilders
 		.standaloneSetup(
 			new TransactionsController(
 				transactionsService,
 				requestAuth,
 				clientAccessValidator,
-				transactionAuditLogger
+				transactionAuditLogger,
+				appProperties
 			)
 		)
 		.setControllerAdvice(new ApiExceptionHandler(false))
@@ -313,4 +316,3 @@ class UserControllerTest {
 			.andExpect(jsonPath("$.pagination.offset").value(0));
 	}
 }
-

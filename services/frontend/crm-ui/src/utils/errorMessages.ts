@@ -5,6 +5,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   validation_failed: 'Please check your input and try again.',
   validation_error: 'Please check your input and try again.',
   conflict: 'This record has already been modified. Please refresh and try again.',
+  service_unavailable: 'Service is temporarily unavailable. Please try again shortly.',
   request_timeout: 'Request timed out. Please try again.',
   network_error: 'Network error occurred. Please check your connection and try again.',
   unknown_error: 'An unexpected error occurred. Please try again.',

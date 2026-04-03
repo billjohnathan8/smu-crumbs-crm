@@ -186,18 +186,12 @@ describe('ViewTransactionsPage', () => {
     })
   })
 
-  it('allows admin to edit a transaction', async () => {
+  it('does not show edit actions even for admin', async () => {
     mockRole = 'admin'
-    const user = userEvent.setup()
 
     vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
       data: mockTransactions,
       pagination: { limit: 20, offset: 0, total: 2 },
-    })
-    const updateSpy = vi.spyOn(transactionsApi, 'updateTransaction').mockResolvedValue({
-      ...mockTransactions[0],
-      status: 'Failed',
-      amount: 333,
     })
     vi.spyOn(transactionsApi, 'getTransactionImportBatch').mockResolvedValue(mockImportBatch)
 
@@ -205,20 +199,7 @@ describe('ViewTransactionsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/txn-1/)).toBeInTheDocument()
-    })
-
-    await user.click(screen.getAllByRole('button', { name: 'Edit' })[0])
-    await user.clear(screen.getByLabelText('Edit Transaction Amount'))
-    await user.type(screen.getByLabelText('Edit Transaction Amount'), '333')
-    await user.selectOptions(screen.getByLabelText('Edit Transaction Status'), 'Failed')
-    await user.click(screen.getByRole('button', { name: 'Save Changes' }))
-
-    await waitFor(() => {
-      expect(updateSpy).toHaveBeenCalledWith(
-        'txn-1',
-        expect.objectContaining({ status: 'Failed', amount: 333 })
-      )
-      expect(screen.getByText('Transaction updated successfully.')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
     })
   })
 
