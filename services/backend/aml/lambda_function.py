@@ -384,7 +384,7 @@ class HistoricalTransactionRepositoryProtocol(Protocol):
 class CRMWriteClientProtocol(Protocol):
     """Persists AML alerts and audit log entries to the CRM."""
 
-    def write_alert(self, alert: AMLAlert) -> None: ...
+    def write_alert(self, alert: AMLAlert) -> str: ...
 
     def write_log(self, log: LogEntry) -> None: ...
 
@@ -677,9 +677,9 @@ class CRMWriteClient:
         self._base_url = _resolve_log_write_base_url(read_base_url)
 
     # CRMWriteClientProtocol
-    def write_alert(self, alert: AMLAlert) -> None:
+    def write_alert(self, alert: AMLAlert) -> str:
         alerts_path = os.environ.get("CRM_AML_ALERTS_PATH", DEFAULT_AML_ALERTS_PATH)
-        self._post(
+        response = self._post(
             alerts_path,
             {
                 "alertId": alert.alert_id,
@@ -691,6 +691,11 @@ class CRMWriteClient:
                 "reviewStatus": alert.review_status,
             },
         )
+        if isinstance(response, dict):
+            alert_id = response.get("alertId")
+            if isinstance(alert_id, str) and alert_id.startswith(AML_ALERT_ID_PREFIX):
+                return alert_id
+        return alert.alert_id
 
     def write_log(self, log: LogEntry) -> None:
         logs_path = os.environ.get("CRM_LOGS_PATH", DEFAULT_LOGS_PATH)
@@ -708,7 +713,7 @@ class CRMWriteClient:
             },
         )
 
-    def _post(self, path: str, payload: dict[str, Any]) -> None:
+    def _post(self, path: str, payload: dict[str, Any]) -> dict[str, Any] | None:
         import urllib.error  # noqa: PLC0415
         import urllib.request  # noqa: PLC0415
 
@@ -724,8 +729,23 @@ class CRMWriteClient:
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=DEFAULT_HTTP_TIMEOUT_SECONDS):
-                pass
+            with urllib.request.urlopen(req, timeout=DEFAULT_HTTP_TIMEOUT_SECONDS) as resp:
+                raw_body = resp.read()
+                if isinstance(raw_body, (bytes, bytearray)):
+                    raw = raw_body.decode("utf-8", errors="replace").strip()
+                elif isinstance(raw_body, str):
+                    raw = raw_body.strip()
+                else:
+                    return None
+                if not raw:
+                    return None
+                try:
+                    parsed = json.loads(raw)
+                except json.JSONDecodeError:
+                    return None
+                if isinstance(parsed, dict):
+                    return parsed
+                return None
         except urllib.error.HTTPError as exc:
             error_body = exc.read().decode("utf-8", errors="replace")
             logger.error(
@@ -1194,7 +1214,8 @@ def run_aml_engine(
 
     # Persist each alert and its corresponding audit log entry
     for alert in all_alerts:
-        crm_client.write_alert(alert)
+        canonical_alert_id = crm_client.write_alert(alert)
+        alert.alert_id = canonical_alert_id
         crm_client.write_log(create_log_entry_for_alert(alert))
 
     summary: dict[str, Any] = {
