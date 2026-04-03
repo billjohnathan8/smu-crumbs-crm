@@ -14,6 +14,7 @@ const userNav: NavItem[] = [
   { label: 'Create Client', to: '/user/clients/new' },
   { label: 'Transactions', to: '/user/transactions' },
   { label: 'AML Alerts', to: '/user/aml-alerts' },
+  { label: 'Activity Logs', to: '/user/logs' },
   { label: 'Settings', to: '/user/settings' },
 ]
 
@@ -24,6 +25,7 @@ const adminNav: NavItem[] = [
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
+  { label: 'Activity Logs', to: '/admin/logs' },
   { label: 'User Management', to: '/admin/users' },
   { label: 'Settings', to: '/admin/settings' },
 ]
@@ -320,7 +322,7 @@ export function AdminUserManagementPage() {
               Dashboard
             </button>
             <span className="text-text-subtle text-2xl">/</span>
-            <h1 className="text-2xl font-medium text-text">User Management</h1>
+            <h1 className="text-2xl font-normal text-text">User Management</h1>
           </div>
 
           <div className="flex items-center space-x-4">
@@ -404,7 +406,7 @@ export function AdminUserManagementPage() {
 
             {isRootAdmin && admins.length > 0 && (
               <div className="bg-card  rounded-lg p-6">
-                <h2 className="text-xl font-bold text-text mb-4">Admins</h2>
+                <h2 className="text-xl font-normal text-text mb-4">Admins</h2>
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
@@ -496,8 +498,8 @@ export function AdminUserManagementPage() {
                                   disabled={disablingUserId === u.id}
                                   className={`px-3 py-1 rounded text-sm font-normal transition-opacity ${
                                     disablingUserId === u.id
-                                      ? 'bg-warning/70 opacity-50 cursor-not-allowed text-white'
-                                      : 'bg-warning hover:opacity-80 text-white'
+                                      ? 'border border-danger text-danger opacity-50 cursor-not-allowed'
+                                      : 'border border-danger text-danger hover:bg-danger/10'
                                   }`}
                                 >
                                   {disablingUserId === u.id ? 'Disabling...' : 'Disable'}

@@ -87,13 +87,13 @@ export function AccountsTable({
               <td className="px-6 py-3 text-right space-x-2">
                 <button
                   onClick={() => onEdit(acct)}
-                  className="text-primary hover:underline text-sm"
+                  className="underline-hover text-primary text-sm"
                 >
                   Edit
                 </button>
                 <button
                   onClick={() => onDelete(acct.accountId)}
-                  className="text-danger hover:underline text-sm"
+                  className="underline-hover text-danger text-sm"
                 >
                   Delete
                 </button>

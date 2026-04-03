@@ -31,6 +31,7 @@ const userNav: NavItem[] = [
   { label: 'Create Client', to: '/user/clients/new' },
   { label: 'Transactions', to: '/user/transactions' },
   { label: 'AML Alerts', to: '/user/aml-alerts' },
+  { label: 'Activity Logs', to: '/user/logs' },
   { label: 'Settings', to: '/user/settings' },
 ]
 
@@ -41,6 +42,7 @@ const adminNav: NavItem[] = [
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
+  { label: 'Activity Logs', to: '/admin/logs' },
   { label: 'User Management', to: '/admin/users' },
   { label: 'Settings', to: '/admin/settings' },
 ]
@@ -357,7 +359,7 @@ export function ClientAccountsPage() {
               {client.firstName} {client.lastName}
             </button>
             <span className="text-text-muted">/</span>
-            <h1 className="text-2xl font-medium text-text">Bank Accounts</h1>
+            <h1 className="text-2xl font-normal text-text">Bank Accounts</h1>
           </div>
         </div>
       </nav>

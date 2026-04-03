@@ -43,7 +43,7 @@ export function SidebarLayout({ items, children }: SidebarLayoutProps) {
   }, [])
 
   const linkBase =
-    'flex items-center gap-2 rounded-md px-3 py-2 text-md transition-all duration-200 ease-out'
+    'flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-all duration-200 ease-out'
   const inactive = 'text-text hover:bg-background-light hover:scale-[1.01]'
   const active = 'gradient-dark-red text-white font-medium'
 
@@ -87,7 +87,7 @@ export function SidebarLayout({ items, children }: SidebarLayoutProps) {
             <div className="p-3 flex-shrink-0">
               <button
                 onClick={handleLogout}
-                className="underline-hover flex items-center gap-2 font-medium rounded-md px-3 py-2 text-md text-danger hover:bg-danger/10 transition-colors w-full text-left"
+                className="underline-hover flex items-center gap-2 font-medium rounded-md px-3 py-2 text-sm text-danger hover:bg-danger/10 transition-colors w-full text-left"
               >
                 Logout
               </button>
