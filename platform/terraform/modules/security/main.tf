@@ -677,10 +677,11 @@ data "aws_iam_policy_document" "ecs_client_write_verification_s3" {
   count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
 
   statement {
-    sid    = "WriteVerificationDocuments"
+    sid    = "ReadWriteVerificationDocuments"
     effect = "Allow"
     actions = [
       "s3:PutObject",
+      "s3:GetObject",
     ]
     resources = ["${var.verification_bucket_arn}/*"]
   }

@@ -5,6 +5,7 @@ import com.scroogebank.crm.client_service.dto.ClientDto;
 import com.scroogebank.crm.client_service.dto.ClientListResponse;
 import com.scroogebank.crm.client_service.dto.ClientCreateRequest;
 import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
+import com.scroogebank.crm.client_service.dto.VerificationDocumentResponse;
 import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
 import com.scroogebank.crm.client_service.entity.Gender;
 import com.scroogebank.crm.client_service.exception.ApiExceptionHandler;
@@ -414,5 +415,27 @@ class ClientControllerTest {
             .content(uploadVerificationDocsRequestJson("valid-token")))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.error").value("conflict"));
+    }
+
+    @Test
+    void getVerificationDocument_returnsDocumentPayload() throws Exception {
+        when(clientService.getVerificationDocument(any(), eq("clt_1"), eq("primary")))
+            .thenReturn(
+                new VerificationDocumentResponse(
+                    "clt_1",
+                    "primary",
+                    "NRIC",
+                    "clients/clt_1/primary/doc.jpg",
+                    "image/jpeg",
+                    "dGVzdA=="
+                )
+            );
+
+        mockMvc.perform(get("/api/clients/clt_1/verify/documents/primary").header("Authorization", AUTH_HEADER))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.clientId").value("clt_1"))
+            .andExpect(jsonPath("$.documentKind").value("primary"))
+            .andExpect(jsonPath("$.mimeType").value("image/jpeg"))
+            .andExpect(jsonPath("$.documentBase64").value("dGVzdA=="));
     }
 }

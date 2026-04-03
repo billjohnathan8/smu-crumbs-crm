@@ -194,7 +194,7 @@ export function ClientVerifyPage() {
 
   if (authState === 'checking') {
     return (
-      <div className="min-h-screen flex items-center justify-center text-gray-500">
+      <div className="dark min-h-screen flex items-center justify-center bg-background text-text-muted">
         Validating link...
       </div>
     )
@@ -202,10 +202,10 @@ export function ClientVerifyPage() {
 
   if (authState === 'unauthenticated') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-white border border-gray-200 rounded-xl shadow-sm p-8 text-center">
-          <h1 className="text-xl font-bold text-gray-900 mb-2">Verification Link Invalid</h1>
-          <p className="text-sm text-gray-500">
+      <div className="dark min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-card border border-border rounded-xl shadow-sm p-8 text-center">
+          <h1 className="text-xl font-bold text-text mb-2">Verification Link Invalid</h1>
+          <p className="text-sm text-text-muted">
             This verification link is invalid or has expired. Please request a new verification
             email.
           </p>
@@ -215,12 +215,12 @@ export function ClientVerifyPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-      <div className="w-full max-w-2xl bg-white border border-gray-200 rounded-xl shadow-sm p-8">
+    <div className="dark min-h-screen bg-background flex items-center justify-center p-6">
+      <div className="w-full max-w-2xl bg-card border border-border rounded-xl shadow-sm p-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Identity Verification</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-text">Identity Verification</h1>
+          <p className="mt-1 text-sm text-text-muted">
             Please provide your identity and address documents to complete verification.
           </p>
         </div>
@@ -230,8 +230,8 @@ export function ClientVerifyPage() {
           <div
             className={`mb-6 px-4 py-3 rounded-lg text-sm font-medium ${
               message.type === 'error'
-                ? 'bg-red-50 text-red-700 border border-red-200'
-                : 'bg-green-50 text-green-700 border border-green-200'
+                ? 'bg-danger/15 text-danger border border-danger/50'
+                : 'bg-success/15 text-success border border-success/50'
             }`}
           >
             {message.text}
@@ -242,23 +242,23 @@ export function ClientVerifyPage() {
           {/* ── Primary Identity Document ── */}
           <section>
             <div className="mb-4">
-              <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400">
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-text-subtle">
                 Primary Identity Document
               </h2>
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-xs text-text-subtle">
                 Accepted: Singapore NRIC, Passport, Employment / S Pass / Work Permit
               </p>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Document Type <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-text mb-1">
+                  Document Type <span className="text-danger">*</span>
                 </label>
                 <select
                   value={primaryId.docType}
                   onChange={e => setPrimaryId(prev => ({ ...prev, docType: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background-light text-text focus:outline-none focus:ring-2 focus:ring-primary"
                   disabled={isLoading}
                 >
                   {PRIMARY_ID_TYPES.map(t => (
@@ -270,13 +270,13 @@ export function ClientVerifyPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Upload Document <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-text mb-1">
+                  Upload Document <span className="text-danger">*</span>
                 </label>
                 <div className="flex items-center gap-3">
                   <label
-                    className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm 
-                      font-medium text-gray-700 hover:bg-gray-50 transition ${
+                    className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm 
+                      font-medium text-text hover:bg-background-light transition ${
                         isLoading ? 'opacity-50 pointer-events-none' : ''
                       }`}
                   >
@@ -302,24 +302,24 @@ export function ClientVerifyPage() {
                       disabled={isLoading}
                     />
                   </label>
-                  <span className="text-sm text-gray-500 truncate max-w-xs">
+                  <span className="text-sm text-text-muted truncate max-w-xs">
                     {primaryId.file ? primaryId.file.name : 'No file chosen'}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-gray-400">Accepted formats: JPG, PNG, PDF</p>
+                <p className="mt-1 text-xs text-text-subtle">Accepted formats: JPG, PNG, PDF</p>
               </div>
             </div>
           </section>
 
-          <hr className="border-gray-100" />
+          <hr className="border-border" />
 
           {/* ── Proof of Address ── */}
           <section>
             <div className="mb-4">
-              <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400">
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-text-subtle">
                 Proof of Address
               </h2>
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-xs text-text-subtle">
                 Accepted: Utility bill, bank statement, government letter, or tenancy agreement
                 (dated within 3 months where applicable)
               </p>
@@ -327,13 +327,13 @@ export function ClientVerifyPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Document Type <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-text mb-1">
+                  Document Type <span className="text-danger">*</span>
                 </label>
                 <select
                   value={proofOfAddress.docType}
                   onChange={e => setProofOfAddress(prev => ({ ...prev, docType: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background-light text-text focus:outline-none focus:ring-2 focus:ring-primary"
                   disabled={isLoading}
                 >
                   {PROOF_OF_ADDRESS_TYPES.map(t => (
@@ -345,13 +345,13 @@ export function ClientVerifyPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Upload Document <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-text mb-1">
+                  Upload Document <span className="text-danger">*</span>
                 </label>
                 <div className="flex items-center gap-3">
                   <label
-                    className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm 
-                      font-medium text-gray-700 hover:bg-gray-50 transition ${
+                    className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm 
+                      font-medium text-text hover:bg-background-light transition ${
                         isLoading ? 'opacity-50 pointer-events-none' : ''
                       }`}
                   >
@@ -377,11 +377,11 @@ export function ClientVerifyPage() {
                       disabled={isLoading}
                     />
                   </label>
-                  <span className="text-sm text-gray-500 truncate max-w-xs">
+                  <span className="text-sm text-text-muted truncate max-w-xs">
                     {proofOfAddress.file ? proofOfAddress.file.name : 'No file chosen'}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-gray-400">Accepted formats: JPG, PNG, PDF</p>
+                <p className="mt-1 text-xs text-text-subtle">Accepted formats: JPG, PNG, PDF</p>
               </div>
             </div>
           </section>
@@ -391,7 +391,7 @@ export function ClientVerifyPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="flex-1 sm:flex-none px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 
+              className="flex-1 sm:flex-none px-6 py-2.5 bg-primary hover:bg-primary-hover disabled:opacity-60 
                 text-white text-sm font-semibold rounded-lg transition"
             >
               {isLoading ? 'Uploading...' : 'Upload & Verify'}
@@ -400,7 +400,7 @@ export function ClientVerifyPage() {
               type="button"
               onClick={handleReset}
               disabled={isLoading}
-              className="px-6 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition disabled:opacity-60"
+              className="px-6 py-2.5 border border-border text-text text-sm font-medium rounded-lg hover:bg-background-light transition disabled:opacity-60"
             >
               Reset
             </button>

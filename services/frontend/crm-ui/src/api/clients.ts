@@ -6,6 +6,7 @@ import type {
   UploadVerificationDocsRequest,
   VerifyClientResponse,
   ReviewVerificationRequest,
+  VerificationDocument,
   Account,
   AccountCreateRequest,
   AccountUpdateRequest,
@@ -122,6 +123,18 @@ export async function reviewVerification(
   return apiPatch<VerifyClientResponse, ReviewVerificationRequest>(
     `${CLIENTS_BASE}/${clientId}/verify/review`,
     data
+  )
+}
+
+/**
+ * Fetch an uploaded KYC document for authenticated verification review.
+ */
+export async function getVerificationDocument(
+  clientId: string,
+  documentKind: 'primary' | 'address'
+): Promise<VerificationDocument> {
+  return apiGet<VerificationDocument>(
+    `${CLIENTS_BASE}/${clientId}/verify/documents/${documentKind}`
   )
 }
 

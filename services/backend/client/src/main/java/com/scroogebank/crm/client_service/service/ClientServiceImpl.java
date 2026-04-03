@@ -1,6 +1,7 @@
 package com.scroogebank.crm.client_service.service;
 
 import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -23,6 +24,7 @@ import com.scroogebank.crm.client_service.dto.ReassignRequest;
 import com.scroogebank.crm.client_service.dto.ReassignResponse;
 import com.scroogebank.crm.client_service.dto.ReviewVerificationRequest;
 import com.scroogebank.crm.client_service.dto.UploadVerificationDocsRequest;
+import com.scroogebank.crm.client_service.dto.VerificationDocumentResponse;
 import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
 import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
@@ -453,6 +455,46 @@ public class ClientServiceImpl implements ClientService {
 		// );
 
 		return new VerifyClientResponse(clientId(saved.getId()), saved.getIdentityVerificationStatus());
+	}
+
+	@Override
+	public VerificationDocumentResponse getVerificationDocument(
+		AuthenticatedUser user,
+		String clientId,
+		String documentKind
+	) {
+		ClientEntity entity = loadOwnedClient(user, clientId);
+		String normalizedKind = documentKind == null ? "" : documentKind.trim().toLowerCase(Locale.ROOT);
+		String documentType;
+		String documentRef;
+		if ("primary".equals(normalizedKind)) {
+			documentType = entity.getPrimaryDocumentType();
+			documentRef = entity.getPrimaryDocumentRef();
+		} else if ("address".equals(normalizedKind)) {
+			documentType = entity.getAddressDocumentType();
+			documentRef = entity.getAddressDocumentRef();
+		} else {
+			throw new IllegalArgumentException("documentKind must be one of: primary, address");
+		}
+
+		if (documentRef == null || documentRef.isBlank()) {
+			throw new IllegalStateException("Verification document not available");
+		}
+
+		String expectedPrefix = "clients/%s/%s/".formatted(clientId, normalizedKind);
+		if (!documentRef.startsWith(expectedPrefix)) {
+			throw new IllegalStateException("Verification document reference does not match client");
+		}
+
+		DocumentStorageService.StoredDocument storedDocument = documentStorageService.download(documentRef);
+		return new VerificationDocumentResponse(
+			clientId(entity.getId()),
+			normalizedKind,
+			documentType,
+			documentRef,
+			storedDocument.mimeType(),
+			Base64.getEncoder().encodeToString(storedDocument.bytes())
+		);
 	}
 
 	/**

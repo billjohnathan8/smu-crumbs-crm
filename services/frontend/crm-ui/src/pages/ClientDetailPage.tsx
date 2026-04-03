@@ -338,6 +338,11 @@ export function ClientDetailPage() {
 
         {canReviewVerification && client.identityVerificationStatus === 'pending' && (
           <VerificationReviewPanel
+            clientId={client.clientId}
+            primaryDocumentType={client.primaryDocumentType}
+            primaryDocumentRef={client.primaryDocumentRef}
+            addressDocumentType={client.addressDocumentType}
+            addressDocumentRef={client.addressDocumentRef}
             reviewError={reviewError}
             isReviewing={isReviewing}
             onApprove={() => handleReviewVerification('approve')}

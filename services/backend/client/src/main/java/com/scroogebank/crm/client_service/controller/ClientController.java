@@ -8,6 +8,7 @@ import com.scroogebank.crm.client_service.dto.ReassignRequest;
 import com.scroogebank.crm.client_service.dto.ReassignResponse;
 import com.scroogebank.crm.client_service.dto.ReviewVerificationRequest;
 import com.scroogebank.crm.client_service.dto.UploadVerificationDocsRequest;
+import com.scroogebank.crm.client_service.dto.VerificationDocumentResponse;
 import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 import com.scroogebank.crm.client_service.security.RequestAuth;
@@ -233,6 +234,25 @@ public class ClientController {
 		AuthenticatedUser user = requestAuth.requireUser(httpRequest);
 		String authorizationHeader = httpRequest.getHeader("Authorization");
 		return clientService.reviewVerification(user, clientId, request, authorizationHeader, requestId(httpRequest));
+	}
+
+	/**
+	 * Fetches an uploaded KYC document for client verification review.
+	 *
+	 * @param request HTTP request used for auth
+	 * @param clientId public client identifier
+	 * @param documentKind one of "primary" or "address"
+	 * @return document payload including MIME type and base64 content
+	 */
+	@GetMapping("/{id}/verify/documents/{documentKind}")
+	@Operation(summary = "Get uploaded verification document")
+	public VerificationDocumentResponse getVerificationDocument(
+		HttpServletRequest request,
+		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable("id") String clientId,
+		@Pattern(regexp = "^(primary|address)$") @PathVariable String documentKind
+	) {
+		AuthenticatedUser user = requestAuth.requireUser(request);
+		return clientService.getVerificationDocument(user, clientId, documentKind);
 	}
 
 	/**

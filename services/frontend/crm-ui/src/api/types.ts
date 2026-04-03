@@ -94,6 +94,11 @@ export interface Client {
   country: string
   postalCode: string
   identityVerificationStatus: IdentityVerificationStatus
+  primaryDocumentType?: string | null
+  primaryDocumentRef?: string | null
+  addressDocumentType?: string | null
+  addressDocumentRef?: string | null
+  verificationVerifiedAt?: string | null
   assignedUserId?: string
   createdAt?: string
   updatedAt?: string
@@ -153,6 +158,15 @@ export type ReviewAction = 'approve' | 'reject'
 
 export interface ReviewVerificationRequest {
   action: ReviewAction
+}
+
+export interface VerificationDocument {
+  clientId: string
+  documentKind: 'primary' | 'address'
+  documentType: string | null
+  documentRef: string
+  mimeType: string
+  documentBase64: string
 }
 
 export interface Account {

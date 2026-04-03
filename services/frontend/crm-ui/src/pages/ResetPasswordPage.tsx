@@ -276,7 +276,11 @@ export function ResetPasswordPage() {
                         <li
                           key={rule.label}
                           className={`text-xs ${
-                            rule.passed ? 'text-success' : rule.required ? 'text-text-subtle' : 'text-yellow-500'
+                            rule.passed
+                              ? 'text-success'
+                              : rule.required
+                                ? 'text-text-subtle'
+                                : 'text-yellow-500'
                           }`}
                         >
                           {rule.label}

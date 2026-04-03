@@ -268,6 +268,7 @@ describe('core components', () => {
 
     const { rerender } = render(
       <VerificationReviewPanel
+        clientId="clt_1"
         reviewError="Review failed"
         isReviewing={false}
         onApprove={onApprove}
@@ -283,6 +284,7 @@ describe('core components', () => {
 
     rerender(
       <VerificationReviewPanel
+        clientId="clt_1"
         reviewError=""
         isReviewing
         onApprove={onApprove}

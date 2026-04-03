@@ -8,6 +8,7 @@ import com.scroogebank.crm.client_service.dto.ReassignRequest;
 import com.scroogebank.crm.client_service.dto.ReassignResponse;
 import com.scroogebank.crm.client_service.dto.ReviewVerificationRequest;
 import com.scroogebank.crm.client_service.dto.UploadVerificationDocsRequest;
+import com.scroogebank.crm.client_service.dto.VerificationDocumentResponse;
 import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 
@@ -122,6 +123,20 @@ public interface ClientService {
 		String clientId,
 		UploadVerificationDocsRequest request,
 		String requestId
+	);
+
+	/**
+	 * Fetches a stored KYC document for a client visible to the caller.
+	 *
+	 * @param user authenticated user
+	 * @param clientId public client identifier
+	 * @param documentKind one of {@code primary} or {@code address}
+	 * @return document payload including MIME type and base64 content
+	 */
+	VerificationDocumentResponse getVerificationDocument(
+		AuthenticatedUser user,
+		String clientId,
+		String documentKind
 	);
 
 	/**

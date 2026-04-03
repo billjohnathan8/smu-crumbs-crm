@@ -10,7 +10,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.ServerSideEncryption;
 
@@ -99,6 +102,49 @@ public class DocumentStorageService {
         return key;
     }
 
+    /**
+     * Downloads a stored verification document from S3.
+     *
+     * @param key object key in the verification bucket
+     * @return bytes and inferred MIME metadata
+     */
+    public StoredDocument download(String key) {
+        String configuredBucket = bucket == null ? "" : bucket.trim();
+        if (configuredBucket.isEmpty()) {
+            throw new IllegalStateException("VERIFICATION_DOCUMENTS_BUCKET must be configured for verification document uploads.");
+        }
+        if (key == null || key.isBlank()) {
+            throw new IllegalArgumentException("Verification document reference is missing");
+        }
+
+        ResponseBytes<GetObjectResponse> objectBytes = s3Client.getObjectAsBytes(
+            GetObjectRequest.builder()
+                .bucket(configuredBucket)
+                .key(key)
+                .build()
+        );
+
+        String mimeType = normalizeMimeType(objectBytes.response().contentType());
+        if (!ALLOWED_MIME_TYPES.containsKey(mimeType)) {
+            mimeType = inferMimeTypeFromKey(key);
+        }
+        return new StoredDocument(objectBytes.asByteArray(), mimeType);
+    }
+
+    private static String inferMimeTypeFromKey(String key) {
+        String lower = key.toLowerCase(Locale.ROOT);
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+            return "image/jpeg";
+        }
+        if (lower.endsWith(".png")) {
+            return "image/png";
+        }
+        if (lower.endsWith(".pdf")) {
+            return "application/pdf";
+        }
+        return "application/octet-stream";
+    }
+
     private static String normalizeMimeType(String mimeType) {
         return mimeType == null ? "" : mimeType.trim().toLowerCase(Locale.ROOT);
     }
@@ -148,4 +194,6 @@ public class DocumentStorageService {
             && bytes[6] == 0x1A
             && bytes[7] == 0x0A;
     }
+
+    public record StoredDocument(byte[] bytes, String mimeType) {}
 }
