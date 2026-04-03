@@ -173,6 +173,8 @@ resource "aws_cloudfront_distribution" "frontend" {
     response_headers_policy_id = aws_cloudfront_response_headers_policy.api_security_headers.id
   }
 
+  # With private S3 + OAC, missing SPA routes resolve as 403 from S3.
+  # Keep 403/404 fallback so deep links like /login and /admin/... load index.html.
   custom_error_response {
     error_code            = 403
     response_code         = 200

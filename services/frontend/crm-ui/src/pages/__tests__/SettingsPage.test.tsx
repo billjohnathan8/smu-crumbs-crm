@@ -93,6 +93,19 @@ describe('SettingsPage', () => {
     })
   })
 
+  it('shows root admin label for canonical root email even with non-seeded id', async () => {
+    const rootByEmail: User = {
+      ...mockAdminUser,
+      id: 'custom-root-id',
+      email: 'admin@crm.com',
+      role: 'admin',
+    }
+    renderSettings(rootByEmail)
+    await waitFor(() => {
+      expect(screen.getByText('Root Admin')).toBeInTheDocument()
+    })
+  })
+
   it('shows Appearance section with theme toggle', async () => {
     renderSettings(mockAdminUser)
     await waitFor(() => {

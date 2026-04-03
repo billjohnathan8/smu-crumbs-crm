@@ -119,6 +119,32 @@ resource "aws_lb_listener_rule" "client_transactions" {
   }
 }
 
+resource "aws_lb_listener_rule" "block_transaction_edit" {
+  listener_arn = aws_lb_listener.https[0].arn
+  priority     = 25
+
+  action {
+    type = "fixed-response"
+    fixed_response {
+      content_type = "application/json"
+      message_body = "{\"message\":\"Transaction editing is disabled.\"}"
+      status_code  = "405"
+    }
+  }
+
+  condition {
+    path_pattern {
+      values = ["/api/transactions*"]
+    }
+  }
+
+  condition {
+    http_request_method {
+      values = ["PUT", "PATCH"]
+    }
+  }
+}
+
 resource "aws_lb_listener_rule" "service" {
   for_each = local.service_routing
 
