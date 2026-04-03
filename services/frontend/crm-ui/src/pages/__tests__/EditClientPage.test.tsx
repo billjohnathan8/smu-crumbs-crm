@@ -257,9 +257,7 @@ describe('UserEditClient', () => {
     await user.click(screen.getByRole('button', { name: /Save Changes/i }))
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/Postal code must match Singapore format/i)
-      ).toBeInTheDocument()
+      expect(screen.getByText(/Postal code must match Singapore format/i)).toBeInTheDocument()
     })
   })
 

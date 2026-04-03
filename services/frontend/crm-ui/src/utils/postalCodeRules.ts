@@ -31,17 +31,17 @@ export const COUNTRY_OPTIONS = RULES.map(rule => rule.country)
 
 export function getPostalCodeRule(country: string): PostalCodeRule {
   const normalized = country.trim().toLowerCase()
-  return (
-    RULES.find(rule => rule.country.toLowerCase() === normalized) ??
-    FALLBACK_RULE
-  )
+  return RULES.find(rule => rule.country.toLowerCase() === normalized) ?? FALLBACK_RULE
 }
 
 export function isPostalCodeValidForCountry(country: string, postalCode: string): boolean {
   const normalizedPostalCode = postalCode.trim()
-  if (!normalizedPostalCode || normalizedPostalCode.length < 4 || normalizedPostalCode.length > 10) {
+  if (
+    !normalizedPostalCode ||
+    normalizedPostalCode.length < 4 ||
+    normalizedPostalCode.length > 10
+  ) {
     return false
   }
   return getPostalCodeRule(country).regex.test(normalizedPostalCode)
 }
-

@@ -231,9 +231,7 @@ describe('CreateClientPage', () => {
     await user.click(screen.getByRole('button', { name: /Create Client/i }))
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/Postal code must match Singapore format/i)
-      ).toBeInTheDocument()
+      expect(screen.getByText(/Postal code must match Singapore format/i)).toBeInTheDocument()
     })
   })
 

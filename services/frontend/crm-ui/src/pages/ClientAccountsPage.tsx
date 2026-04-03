@@ -248,7 +248,9 @@ export function ClientAccountsPage() {
       openingOptions.accountTypeAllowedCurrencies[formData.accountType as AccountType] ?? []
     const branchSet = new Set(branchCurrencies)
     const typeSet = new Set(typeCurrencies)
-    const intersection = [...branchSet].filter(currency => typeSet.size === 0 || typeSet.has(currency))
+    const intersection = [...branchSet].filter(
+      currency => typeSet.size === 0 || typeSet.has(currency)
+    )
     if (intersection.length > 0) return intersection
     if (branchCurrencies.length > 0) return branchCurrencies
     if (typeCurrencies.length > 0) return typeCurrencies
