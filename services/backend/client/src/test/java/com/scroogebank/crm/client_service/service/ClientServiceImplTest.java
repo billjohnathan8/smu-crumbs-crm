@@ -855,17 +855,27 @@ class ClientServiceImplTest {
 	}
 
 	@Test
-	void uploadVerificationDocs_rejectedStatus_throwsConflictAndSkipsUpload() {
+	void uploadVerificationDocs_rejectedStatus_allowsReplacementAndStaysPending() {
 		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
 		entity.setIdentityVerificationStatus(IdentityVerificationStatus.rejected);
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
+		when(verificationTokenService.consumeIfValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(documentStorageService.upload(eq("clt_7"), eq("primary"), any(), any(), any()))
+			.thenReturn("clients/clt_7/primary/nric_front.jpg");
+		when(documentStorageService.upload(eq("clt_7"), eq("address"), any(), any(), any()))
+			.thenReturn("clients/clt_7/address/bill.pdf");
+		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-		assertThatThrownBy(() ->
-			clientService.uploadVerificationDocs("clt_7", validUploadRequest("valid-token-abc"), "req-1")
-		).isInstanceOf(IllegalStateException.class);
+		var response = clientService.uploadVerificationDocs("clt_7", validUploadRequest("valid-token-abc"), "req-1");
 
-		verify(documentStorageService, never()).upload(any(), any(), any(), any(), any());
-		verify(clientRepository, never()).save(any());
+		assertThat(response.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.pending);
+		verify(documentStorageService).upload(
+			"clt_7", "primary", "nric_front.jpg", "base64PrimaryData==", "image/jpeg"
+		);
+		verify(documentStorageService).upload(
+			"clt_7", "address", "bill.pdf", "base64AddressData==", "application/pdf"
+		);
+		verify(clientRepository).save(any());
 	}
 
 	@Test

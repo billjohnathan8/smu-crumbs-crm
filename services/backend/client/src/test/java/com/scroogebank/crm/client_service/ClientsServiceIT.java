@@ -395,7 +395,7 @@ class ClientsServiceIT {
 	}
 
 	@Test
-	void uploadVerificationDocs_afterReviewDecision_returnsConflictAndDoesNotResetStatus() throws Exception {
+	void uploadVerificationDocs_afterApproval_returnsConflictAndDoesNotResetStatus() throws Exception {
 		String agentAuth = jsonHeadersToken(mintToken("usr_it_agent", "user"));
 		String adminAuth = jsonHeadersToken(mintToken("usr_it_admin", "admin"));
 		JsonNode created = createClient(agentAuth, "ReplayAfterReview");
@@ -424,6 +424,44 @@ class ClientsServiceIT {
 	}
 
 	@Test
+	void resendVerificationLink_afterReject_allowsFreshUploadAndReturnsToPending() throws Exception {
+		String agentAuth = jsonHeadersToken(mintToken("usr_it_agent", "user"));
+		String adminAuth = jsonHeadersToken(mintToken("usr_it_admin", "admin"));
+		JsonNode created = createClient(agentAuth, "ReplayAfterReject");
+		String clientId = requiredText(created, "clientId");
+
+		String verificationToken = verificationTokenService.generateVerificationToken(clientId, 900);
+		uploadVerificationDocs(clientId, verificationToken);
+
+		HttpResponse<String> rejectResponse = reviewVerification(clientId, "reject", adminAuth);
+		assertThat(rejectResponse.statusCode()).isEqualTo(HttpStatus.OK.value());
+
+		ResponseEntity<String> resendResponse = postJson(
+			"/api/clients/" + clientId + "/verify/resend",
+			"{}",
+			jsonHeaders(adminAuth)
+		);
+		assertThat(resendResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+		JsonNode resendPayload = objectMapper.readTree(resendResponse.getBody());
+		assertThat(requiredText(resendPayload, "identityVerificationStatus")).isEqualTo("rejected");
+
+		String replayToken = verificationTokenService.generateVerificationToken(clientId, 900);
+		ResponseEntity<String> replayUpload = postJson(
+			"/api/clients/" + clientId + "/upload-verify",
+			uploadVerificationRequestBody(replayToken),
+			jsonHeaders(null)
+		);
+		assertThat(replayUpload.getStatusCode()).isEqualTo(HttpStatus.OK);
+		JsonNode replayPayload = objectMapper.readTree(replayUpload.getBody());
+		assertThat(requiredText(replayPayload, "identityVerificationStatus")).isEqualTo("pending");
+
+		verify(s3Client, times(4)).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+
+		JsonNode persisted = getClient(clientId, adminAuth);
+		assertThat(requiredText(persisted, "identityVerificationStatus")).isEqualTo("pending");
+	}
+
+	@Test
 	void uploadVerificationDocs_malformedToken_returnsUnauthorized() throws Exception {
 		String agentAuth = jsonHeadersToken(mintToken("usr_it_agent", "user"));
 		JsonNode created = createClient(agentAuth, "Malformed");
@@ -442,5 +480,4 @@ class ClientsServiceIT {
 		assertThat(requiredText(persisted, "identityVerificationStatus")).isEqualTo("unverified");
 	}
 }
-
 

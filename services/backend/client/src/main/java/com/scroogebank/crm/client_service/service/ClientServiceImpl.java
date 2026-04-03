@@ -445,7 +445,7 @@ public class ClientServiceImpl implements ClientService {
         	.orElseThrow(() -> new ClientNotFoundException(clientId));
 
 		IdentityVerificationStatus before = entity.getIdentityVerificationStatus();
-		if (before == IdentityVerificationStatus.verified || before == IdentityVerificationStatus.rejected) {
+		if (before == IdentityVerificationStatus.verified) {
 			throw new IllegalStateException("Verification upload not allowed");
 		}
 		// Validate and consume verification token in one step to prevent replay.
