@@ -61,3 +61,27 @@ docker rm $(docker ps -a -q --filter "ancestor=lambda/python:3.12" --filter "sta
 ```
 
 See [infrastructure/localstack-setup.md](infrastructure/localstack-setup.md#7-cleaning-up-leftover-lambda-containers) for the full cleanup reference.
+
+## Terraform apply fails with existing Route53 record or Secrets Manager pending deletion
+
+Symptoms:
+- `InvalidChangeBatch: Tried to create resource record set ... but it already exists`
+- `You can't create this secret because a secret with this name is already scheduled for deletion`
+
+Fix from `platform/terraform`:
+
+```bash
+# 1) Optional but required when secrets are stuck in pending deletion
+bash scripts/force-delete-stale-resources.sh prod
+
+# 2) Import pre-existing Route53/secrets and other managed resources into state
+bash scripts/reconcile-existing-resources.sh prod
+
+# 3) Re-run plan/apply
+terraform plan -var-file="env/prod.tfvars" -var-file="runtime.auto.tfvars" -out=tfplan
+terraform apply -auto-approve tfplan
+```
+
+Notes:
+- Replace `prod` with `lab` as needed.
+- Ensure `AWS_REGION` is set (`ap-southeast-1` for prod, `us-east-1` for lab) before running scripts.

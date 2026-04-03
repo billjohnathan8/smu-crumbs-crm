@@ -15,6 +15,16 @@ on:
         required: true
         default: true
         type: boolean
+      reconcile_existing_resources:
+        description: Import pre-existing Route53/secrets and other managed resources into Terraform state before plan
+        required: true
+        default: true
+        type: boolean
+      force_delete_stale_resources:
+        description: Force-delete stale Secrets Manager/log resources before reconciliation (use only when stuck in pending deletion)
+        required: true
+        default: false
+        type: boolean
       publish_ssm:
         description: Publish non-sensitive deploy metadata to SSM
         required: true
@@ -47,6 +57,7 @@ jobs:
       TF_INPUT: "0"
       TF_DIR: platform/terraform
       DEPLOY_ENV: ${{ inputs.environment }}
+      AWS_REGION: ${{ inputs.environment == 'lab' && 'us-east-1' || 'ap-southeast-1' }}
 
     steps:
       - name: Checkout code
@@ -151,6 +162,18 @@ jobs:
       - name: Terraform init
         working-directory: ${{ env.TF_DIR }}
         run: terraform init -reconfigure -backend-config="env/${DEPLOY_ENV}.backend.hcl"
+
+      - name: Force delete stale resources (optional)
+        if: ${{ inputs.force_delete_stale_resources }}
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: bash scripts/force-delete-stale-resources.sh "${DEPLOY_ENV}"
+
+      - name: Reconcile pre-existing AWS resources into Terraform state
+        if: ${{ inputs.reconcile_existing_resources }}
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: bash scripts/reconcile-existing-resources.sh "${DEPLOY_ENV}"
 
       - name: Terraform plan
         working-directory: ${{ env.TF_DIR }}
