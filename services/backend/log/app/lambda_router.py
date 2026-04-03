@@ -921,7 +921,7 @@ class LambdaRouter:
         communication_id: str,
     ) -> RoutedResponse:
         user = self._require_user(request)
-        require_roles(user, {"admin"})
+        require_roles(user, {"service"})
 
         db_id = self._decode_prefixed_id("com_", communication_id)
         body = self._parse_body(UpdateCommunicationStatusRequest, request)

@@ -854,6 +854,16 @@ def test_communications_endpoints_enforce_role_scope_and_updates() -> None:
             body={"status": "sent", "providerMessageId": "ses-message-1"},
         ),
     )
+    service_token = mint_token("svc_worker", "service", secret)
+    by_id_service, by_id_service_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "PATCH",
+            f"/api/communications/{communication_id}/status",
+            headers={"Authorization": f"Bearer {service_token}"},
+            body={"status": "sent", "providerMessageId": "ses-message-1"},
+        ),
+    )
     by_provider, by_provider_body = _invoke(
         router,
         _http_api_v2_event(
@@ -872,9 +882,12 @@ def test_communications_endpoints_enforce_role_scope_and_updates() -> None:
     assert queued_ok["statusCode"] == 200
     assert queued_ok_body is not None
     assert len(queued_ok_body["data"]) == 1
-    assert by_id["statusCode"] == 200
+    assert by_id["statusCode"] == 403
     assert by_id_body is not None
-    assert by_id_body["status"] == "sent"
+    assert by_id_body["error"] == "forbidden"
+    assert by_id_service["statusCode"] == 200
+    assert by_id_service_body is not None
+    assert by_id_service_body["status"] == "sent"
     assert by_provider["statusCode"] == 200
     assert by_provider_body is not None
     assert by_provider_body["status"] == "failed"
