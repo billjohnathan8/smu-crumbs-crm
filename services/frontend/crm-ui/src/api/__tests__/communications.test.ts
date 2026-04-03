@@ -3,6 +3,7 @@ import {
   sendCommunication,
   listClientCommunications,
   getCommunicationById,
+  getCommunicationByProviderMessageId,
   listQueuedCommunications,
   updateCommunicationStatus,
   updateCommunicationStatusByProviderMessageId,
@@ -91,6 +92,17 @@ describe('communications API', () => {
       const result = await getCommunicationById('comm-1')
 
       expect(client.apiGet).toHaveBeenCalledWith('/api/communications/comm-1')
+      expect(result).toEqual(mockComm)
+    })
+  })
+
+  describe('getCommunicationByProviderMessageId', () => {
+    it('should get a communication by provider message ID', async () => {
+      vi.spyOn(client, 'apiGet').mockResolvedValue(mockComm)
+
+      const result = await getCommunicationByProviderMessageId('ses-msg-123')
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/communications/provider/ses-msg-123')
       expect(result).toEqual(mockComm)
     })
   })

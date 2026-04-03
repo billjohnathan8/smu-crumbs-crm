@@ -606,7 +606,7 @@ paths:
       tags: [communications]
       summary: Update communication delivery status
       security: [{ BearerAuth: [] }]
-      x-required-roles: [admin]
+      x-required-roles: [service]
       parameters:
         - name: communicationId
           in: path
@@ -639,12 +639,45 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
 
+  /api/communications/provider/{providerMessageId}:
+    get:
+      tags: [communications]
+      summary: Get communication by provider message id
+      security: [{ BearerAuth: [] }]
+      x-required-roles: [admin, service]
+      parameters:
+        - name: providerMessageId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Communication.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Communication" }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
   /api/communications/provider/{providerMessageId}/status:
     patch:
       tags: [communications]
       summary: Update communication status by provider message id
       security: [{ BearerAuth: [] }]
-      x-required-roles: [admin, service]
+      x-required-roles: [service]
       parameters:
         - name: providerMessageId
           in: path

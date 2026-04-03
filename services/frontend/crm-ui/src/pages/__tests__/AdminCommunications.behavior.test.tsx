@@ -164,7 +164,9 @@ describe('AdminCommunications behavior', () => {
     await user.click(screen.getAllByRole('button', { name: 'Lookup' })[0])
 
     await waitFor(() => {
-      expect(communicationsApi.getCommunicationById).toHaveBeenCalledWith('com_1')
+      expect(communicationsApi.getCommunicationById).toHaveBeenCalledWith('com_1', {
+        timeout: 15000,
+      })
     })
     expect(screen.getByText('Provider ID:')).toBeInTheDocument()
     expect(screen.getByText('Error:')).toBeInTheDocument()
@@ -223,7 +225,7 @@ describe('AdminCommunications behavior', () => {
 
   it('looks up by provider message id and handles API errors', async () => {
     const user = userEvent.setup()
-    vi.mocked(communicationsApi.updateCommunicationStatusByProviderMessageId).mockRejectedValue(
+    vi.mocked(communicationsApi.getCommunicationByProviderMessageId).mockRejectedValue(
       new ApiError(403, 'forbidden', 'Forbidden')
     )
 
@@ -234,9 +236,9 @@ describe('AdminCommunications behavior', () => {
     await user.click(screen.getAllByRole('button', { name: 'Lookup' })[1])
 
     await waitFor(() => {
-      expect(communicationsApi.updateCommunicationStatusByProviderMessageId).toHaveBeenCalledWith(
+      expect(communicationsApi.getCommunicationByProviderMessageId).toHaveBeenCalledWith(
         'provider_1',
-        {}
+        { timeout: 15000 }
       )
       expect(
         screen.getByText('You are not authorized to view this communication.')
@@ -246,7 +248,7 @@ describe('AdminCommunications behavior', () => {
 
   it('shows fallback message on provider lookup non-api failure', async () => {
     const user = userEvent.setup()
-    vi.mocked(communicationsApi.updateCommunicationStatusByProviderMessageId).mockRejectedValue(
+    vi.mocked(communicationsApi.getCommunicationByProviderMessageId).mockRejectedValue(
       new Error('provider failed')
     )
 
@@ -263,7 +265,7 @@ describe('AdminCommunications behavior', () => {
 
   it('logs out when provider lookup returns 401', async () => {
     const user = userEvent.setup()
-    vi.mocked(communicationsApi.updateCommunicationStatusByProviderMessageId).mockRejectedValue(
+    vi.mocked(communicationsApi.getCommunicationByProviderMessageId).mockRejectedValue(
       new ApiError(401, 'unauthorized', 'Unauthorized')
     )
 
@@ -280,7 +282,7 @@ describe('AdminCommunications behavior', () => {
 
   it('renders provider lookup result for successful response', async () => {
     const user = userEvent.setup()
-    vi.mocked(communicationsApi.updateCommunicationStatusByProviderMessageId).mockResolvedValue({
+    vi.mocked(communicationsApi.getCommunicationByProviderMessageId).mockResolvedValue({
       ...baseCommunication,
       status: 'failed',
       providerMessageId: 'provider_1',
@@ -303,7 +305,7 @@ describe('AdminCommunications behavior', () => {
     vi.mocked(communicationsApi.getCommunicationById).mockImplementation(
       () => new Promise(() => {})
     )
-    vi.mocked(communicationsApi.updateCommunicationStatusByProviderMessageId).mockImplementation(
+    vi.mocked(communicationsApi.getCommunicationByProviderMessageId).mockImplementation(
       () => new Promise(() => {})
     )
 

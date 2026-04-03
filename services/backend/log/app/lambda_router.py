@@ -47,6 +47,9 @@ _COMMUNICATION_STATUS_PATTERN = re.compile(
 _PROVIDER_STATUS_PATTERN = re.compile(
     r"^/api/communications/provider/(?P<providerMessageId>[^/]+)/status$"
 )
+_PROVIDER_COMMUNICATION_PATTERN = re.compile(
+    r"^/api/communications/provider/(?P<providerMessageId>[^/]+)$"
+)
 _CLIENT_COMMUNICATIONS_PATTERN = re.compile(
     r"^/api/clients/(?P<clientId>[^/]+)/communications$"
 )
@@ -470,6 +473,12 @@ class LambdaRouter:
             return self._update_communication_status_by_provider_message_id(
                 request,
                 provider_match.group("providerMessageId"),
+            )
+        provider_lookup_match = _PROVIDER_COMMUNICATION_PATTERN.fullmatch(path)
+        if method == "GET" and provider_lookup_match:
+            return self._get_communication_by_provider_message_id(
+                request,
+                provider_lookup_match.group("providerMessageId"),
             )
 
         communication_status_match = _COMMUNICATION_STATUS_PATTERN.fullmatch(path)
@@ -936,13 +945,26 @@ class LambdaRouter:
         provider_message_id: str,
     ) -> RoutedResponse:
         user = self._require_user(request)
-        require_roles(user, {"admin", "service"})
+        require_roles(user, {"service"})
 
         body = self._parse_body(UpdateCommunicationStatusRequest, request)
         row = self._service.update_communication_status_by_provider_message_id(
             provider_message_id,
             body,
         )
+        if row is None:
+            raise _HttpError(404, "Not found")
+        return RoutedResponse(200, self._to_communication(row))
+
+    def _get_communication_by_provider_message_id(
+        self,
+        request: NormalizedRequest,
+        provider_message_id: str,
+    ) -> RoutedResponse:
+        user = self._require_user(request)
+        require_roles(user, {"admin", "service"})
+
+        row = self._service.get_communication_by_provider_message_id(provider_message_id)
         if row is None:
             raise _HttpError(404, "Not found")
         return RoutedResponse(200, self._to_communication(row))

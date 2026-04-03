@@ -189,6 +189,15 @@ class FakeLogService:
                 return row
         return None
 
+    def get_communication_by_provider_message_id(
+        self,
+        provider_message_id: str,
+    ) -> dict | None:
+        for row in self.communications:
+            if row.get("provider_message_id") == provider_message_id:
+                return row
+        return None
+
     def list_communications(
         self,
         limit: int,
@@ -864,12 +873,33 @@ def test_communications_endpoints_enforce_role_scope_and_updates() -> None:
             body={"status": "sent", "providerMessageId": "ses-message-1"},
         ),
     )
+    get_by_provider_admin, get_by_provider_admin_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "GET",
+            "/api/communications/provider/ses-message-1",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        ),
+    )
     by_provider, by_provider_body = _invoke(
         router,
         _http_api_v2_event(
             "PATCH",
             "/api/communications/provider/ses-message-1/status",
             headers={"Authorization": f"Bearer {admin_token}"},
+            body={
+                "status": "failed",
+                "deliveryEvent": "BOUNCE",
+                "errorMessage": "mailbox full",
+            },
+        ),
+    )
+    by_provider_service, by_provider_service_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "PATCH",
+            "/api/communications/provider/ses-message-1/status",
+            headers={"Authorization": f"Bearer {service_token}"},
             body={
                 "status": "failed",
                 "deliveryEvent": "BOUNCE",
@@ -888,9 +918,15 @@ def test_communications_endpoints_enforce_role_scope_and_updates() -> None:
     assert by_id_service["statusCode"] == 200
     assert by_id_service_body is not None
     assert by_id_service_body["status"] == "sent"
-    assert by_provider["statusCode"] == 200
+    assert get_by_provider_admin["statusCode"] == 200
+    assert get_by_provider_admin_body is not None
+    assert get_by_provider_admin_body["communicationId"] == communication_id
+    assert by_provider["statusCode"] == 403
     assert by_provider_body is not None
-    assert by_provider_body["status"] == "failed"
+    assert by_provider_body["error"] == "forbidden"
+    assert by_provider_service["statusCode"] == 200
+    assert by_provider_service_body is not None
+    assert by_provider_service_body["status"] == "failed"
 
 
 def test_create_communication_missing_row_returns_500() -> None:

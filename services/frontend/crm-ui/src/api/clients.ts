@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut, apiPatch, apiDelete } from './client'
+import { apiGet, apiPost, apiPut, apiPatch, apiDelete, type RequestOptions } from './client'
 import type {
   Client,
   ClientCreateRequest,
@@ -53,8 +53,10 @@ export async function listClients(params?: ListClientsParams): Promise<Paginated
 /**
  * Get client by ID
  */
-export async function getClientById(clientId: string): Promise<Client> {
-  return apiGet<Client>(`${CLIENTS_BASE}/${clientId}`)
+export async function getClientById(clientId: string, options?: RequestOptions): Promise<Client> {
+  return options
+    ? apiGet<Client>(`${CLIENTS_BASE}/${clientId}`, options)
+    : apiGet<Client>(`${CLIENTS_BASE}/${clientId}`)
 }
 
 /**
@@ -151,7 +153,8 @@ export async function getVerificationDocument(
  */
 export async function listClientAccountsPaginated(
   clientId: string,
-  params?: ListClientAccountsParams
+  params?: ListClientAccountsParams,
+  options?: RequestOptions
 ): Promise<PaginatedResponse<Account>> {
   const query = new URLSearchParams()
   if (params?.limit !== undefined) query.append('limit', params.limit.toString())
@@ -160,7 +163,9 @@ export async function listClientAccountsPaginated(
   const endpoint = query.toString()
     ? `${CLIENTS_BASE}/${clientId}/accounts?${query.toString()}`
     : `${CLIENTS_BASE}/${clientId}/accounts`
-  return apiGet<PaginatedResponse<Account>>(endpoint)
+  return options
+    ? apiGet<PaginatedResponse<Account>>(endpoint, options)
+    : apiGet<PaginatedResponse<Account>>(endpoint)
 }
 
 /**
@@ -168,19 +173,24 @@ export async function listClientAccountsPaginated(
  */
 export async function listClientAccounts(
   clientId: string,
-  params?: ListClientAccountsParams
+  params?: ListClientAccountsParams,
+  options?: RequestOptions
 ): Promise<Account[]> {
-  const response = await listClientAccountsPaginated(clientId, params)
+  const response = await listClientAccountsPaginated(clientId, params, options)
   return response.data
 }
 
 /**
  * Get server-enforced account opening options for a client/user context.
  */
-export async function getAccountOpeningOptions(clientId: string): Promise<AccountOpeningOptions> {
-  return apiGet<AccountOpeningOptions>(
-    `/api/account-opening-options?clientId=${encodeURIComponent(clientId)}`
-  )
+export async function getAccountOpeningOptions(
+  clientId: string,
+  options?: RequestOptions
+): Promise<AccountOpeningOptions> {
+  const endpoint = `/api/account-opening-options?clientId=${encodeURIComponent(clientId)}`
+  return options
+    ? apiGet<AccountOpeningOptions>(endpoint, options)
+    : apiGet<AccountOpeningOptions>(endpoint)
 }
 
 /**

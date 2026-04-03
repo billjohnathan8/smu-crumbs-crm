@@ -4,9 +4,9 @@ import { useAuth } from '@/features/auth/AuthContext'
 import {
   listQueuedCommunications,
   getCommunicationById,
-  updateCommunicationStatusByProviderMessageId,
+  getCommunicationByProviderMessageId,
 } from '@/api/communications'
-import type { Communication, CommunicationStatus, UpdateCommunicationStatusRequest } from '@/api/types'
+import type { Communication, CommunicationStatus } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 import { CommunicationsPanel } from '@/components/CommunicationsPanel'
@@ -27,6 +27,7 @@ const statusColors: Record<CommunicationStatus, string> = {
   sent: 'bg-success/20 text-success',
   failed: 'bg-danger/20 text-danger',
 }
+const COMMUNICATION_LOOKUP_TIMEOUT_MS = 15000
 
 export function AdminCommunications() {
   const { user, logout } = useAuth()
@@ -95,7 +96,9 @@ export function AdminCommunications() {
     setCommLookupResult(null)
 
     try {
-      const result = await getCommunicationById(commLookupId.trim())
+      const result = await getCommunicationById(commLookupId.trim(), {
+        timeout: COMMUNICATION_LOOKUP_TIMEOUT_MS,
+      })
       setCommLookupResult(result)
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -120,11 +123,9 @@ export function AdminCommunications() {
     setProviderLookupResult(null)
 
     try {
-      const data: UpdateCommunicationStatusRequest = {}
-      const result = await updateCommunicationStatusByProviderMessageId(
-        providerLookupId.trim(),
-        data
-      )
+      const result = await getCommunicationByProviderMessageId(providerLookupId.trim(), {
+        timeout: COMMUNICATION_LOOKUP_TIMEOUT_MS,
+      })
       setProviderLookupResult(result)
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {

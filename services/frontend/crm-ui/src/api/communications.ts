@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPatch } from './client'
+import { apiGet, apiPost, apiPatch, type RequestOptions } from './client'
 import type { Communication, PaginatedResponse, UpdateCommunicationStatusRequest } from './types'
 
 const BASE = '/api/communications'
@@ -28,7 +28,8 @@ export async function sendCommunication(data: SendCommunicationRequest): Promise
  */
 export async function listClientCommunications(
   clientId: string,
-  params?: ListClientCommunicationsParams
+  params?: ListClientCommunicationsParams,
+  options?: RequestOptions
 ): Promise<PaginatedResponse<Communication>> {
   const query = new URLSearchParams()
   if (params?.limit !== undefined) query.append('limit', params.limit.toString())
@@ -37,14 +38,33 @@ export async function listClientCommunications(
   const endpoint = query.toString()
     ? `/api/clients/${clientId}/communications?${query.toString()}`
     : `/api/clients/${clientId}/communications`
-  return apiGet<PaginatedResponse<Communication>>(endpoint)
+  return options
+    ? apiGet<PaginatedResponse<Communication>>(endpoint, options)
+    : apiGet<PaginatedResponse<Communication>>(endpoint)
 }
 
 /**
  * Get a single communication by ID.
  */
-export async function getCommunicationById(communicationId: string): Promise<Communication> {
-  return apiGet<Communication>(`${BASE}/${communicationId}`)
+export async function getCommunicationById(
+  communicationId: string,
+  options?: RequestOptions
+): Promise<Communication> {
+  return options
+    ? apiGet<Communication>(`${BASE}/${communicationId}`, options)
+    : apiGet<Communication>(`${BASE}/${communicationId}`)
+}
+
+/**
+ * Get a single communication by provider message ID.
+ */
+export async function getCommunicationByProviderMessageId(
+  providerMessageId: string,
+  options?: RequestOptions
+): Promise<Communication> {
+  return options
+    ? apiGet<Communication>(`${BASE}/provider/${providerMessageId}`, options)
+    : apiGet<Communication>(`${BASE}/provider/${providerMessageId}`)
 }
 
 export interface ListQueuedCommunicationsParams {
@@ -55,13 +75,16 @@ export interface ListQueuedCommunicationsParams {
  * List queued/pending communications (admin only).
  */
 export async function listQueuedCommunications(
-  params?: ListQueuedCommunicationsParams
+  params?: ListQueuedCommunicationsParams,
+  options?: RequestOptions
 ): Promise<PaginatedResponse<Communication>> {
   const query = new URLSearchParams()
   if (params?.limit !== undefined) query.append('limit', params.limit.toString())
 
   const endpoint = query.toString() ? `${BASE}/queued?${query.toString()}` : `${BASE}/queued`
-  return apiGet<PaginatedResponse<Communication>>(endpoint)
+  return options
+    ? apiGet<PaginatedResponse<Communication>>(endpoint, options)
+    : apiGet<PaginatedResponse<Communication>>(endpoint)
 }
 
 /**

@@ -62,6 +62,7 @@ const FALLBACK_ACCOUNT_OPENING_OPTIONS: AccountOpeningOptions = {
     Business: ['SGD', 'USD'],
   },
 }
+const CLIENT_ACCOUNTS_REQUEST_TIMEOUT_MS = 15000
 
 export function ClientAccountsPage() {
   const { clientId } = useParams<{ clientId: string }>()
@@ -117,12 +118,14 @@ export function ClientAccountsPage() {
 
     try {
       const [clientData, accountsData] = await Promise.all([
-        getClientById(clientId),
-        listClientAccounts(clientId),
+        getClientById(clientId, { timeout: CLIENT_ACCOUNTS_REQUEST_TIMEOUT_MS }),
+        listClientAccounts(clientId, undefined, { timeout: CLIENT_ACCOUNTS_REQUEST_TIMEOUT_MS }),
       ])
       let optionsData: AccountOpeningOptions
       try {
-        optionsData = await getAccountOpeningOptions(clientId)
+        optionsData = await getAccountOpeningOptions(clientId, {
+          timeout: CLIENT_ACCOUNTS_REQUEST_TIMEOUT_MS,
+        })
       } catch (optionsError) {
         if (optionsError instanceof ApiError && optionsError.status === 401) {
           logout()
