@@ -5,7 +5,6 @@ import {
   createClientForUser,
   loginAsSeedAdmin,
 } from "./helpers/dataFactory";
-import { uniqueId } from "./helpers/testData";
 
 const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.com").trim();
 const ADMIN_PASSWORD = (process.env.E2E_ADMIN_PASSWORD ?? "Scrooge@Bank2026!").trim();
@@ -56,7 +55,7 @@ test.describe("Admin Live Ops Smoke", () => {
     page,
     request,
   }) => {
-    const branchId = `BR-${uniqueId()}`;
+    const branchId = "SG-003";
 
     await loginViaUi(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await expect(page.getByRole("heading", { name: "Admin Dashboard" })).toBeVisible();
@@ -68,7 +67,7 @@ test.describe("Admin Live Ops Smoke", () => {
     await expect(page.getByRole("heading", { name: "Create Account" })).toBeVisible();
 
     await page.getByLabel(/Initial Deposit/i).fill("1500");
-    await page.getByLabel(/Branch ID/i).fill(branchId);
+    await page.getByLabel(/Branch ID/i).selectOption(branchId);
     await page.getByRole("button", { name: "Create Account" }).click();
 
     await expect(page.getByTestId("account-modal")).not.toBeVisible();

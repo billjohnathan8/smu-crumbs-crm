@@ -1,10 +1,14 @@
 package com.scroogebank.crm.client_service.service;
 
 import com.scroogebank.crm.client_service.api.Pagination;
+import com.scroogebank.crm.client_service.config.AppProperties;
 import com.scroogebank.crm.client_service.dto.AccountCreateRequest;
 import com.scroogebank.crm.client_service.dto.AccountDto;
 import com.scroogebank.crm.client_service.dto.AccountListResponse;
+import com.scroogebank.crm.client_service.dto.AccountOpeningOptionsDto;
+import com.scroogebank.crm.client_service.dto.AccountType;
 import com.scroogebank.crm.client_service.dto.AccountUpdateRequest;
+import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
 import com.scroogebank.crm.client_service.entity.AccountEntity;
 import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.exception.AccountNotFoundException;
@@ -15,7 +19,12 @@ import com.scroogebank.crm.client_service.repository.AccountRepository;
 import com.scroogebank.crm.client_service.repository.ClientRepository;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 import com.scroogebank.crm.client_service.util.IdCodec;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.StringJoiner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,15 +43,18 @@ public class AccountServiceImpl implements AccountService {
 	private final AccountRepository accountRepository;
 	private final ClientRepository clientRepository;
 	private final ClientAuditLogger auditLogger;
+	private final AppProperties appProperties;
 
 	public AccountServiceImpl(
 		AccountRepository accountRepository,
 		ClientRepository clientRepository,
-		ClientAuditLogger auditLogger
+		ClientAuditLogger auditLogger,
+		AppProperties appProperties
 	) {
 		this.accountRepository = accountRepository;
 		this.clientRepository = clientRepository;
 		this.auditLogger = auditLogger;
+		this.appProperties = appProperties;
 	}
 
 	@Override
@@ -54,6 +66,11 @@ public class AccountServiceImpl implements AccountService {
 		String requestId
 	) {
 		ClientEntity client = loadOwnedClient(user, request.clientId());
+		enforceVerifiedClient(client);
+		String normalizedCurrency = normalizeCurrency(request.currency());
+		String normalizedBranchId = normalizeBranchId(request.branchId());
+		validateBranchAccess(user, normalizedBranchId);
+		validateCurrencyPolicy(normalizedBranchId, request.accountType(), normalizedCurrency);
 
 		AccountEntity entity = new AccountEntity();
 		entity.setClient(client);
@@ -61,8 +78,8 @@ public class AccountServiceImpl implements AccountService {
 		entity.setAccountStatus(request.accountStatus());
 		entity.setOpeningDate(request.openingDate());
 		entity.setInitialDeposit(request.initialDeposit());
-		entity.setCurrency(request.currency());
-		entity.setBranchId(request.branchId());
+		entity.setCurrency(normalizedCurrency);
+		entity.setBranchId(normalizedBranchId);
 
 		AccountEntity saved = accountRepository.save(entity);
 
@@ -107,10 +124,17 @@ public class AccountServiceImpl implements AccountService {
 				entity.getAccountStatus().name(), request.accountStatus().name());
 			entity.setAccountStatus(request.accountStatus());
 		}
-		if (request.branchId() != null && !request.branchId().equals(entity.getBranchId())) {
-			collectChange(attrs, befores, afters, "branchId",
-				entity.getBranchId(), request.branchId());
-			entity.setBranchId(request.branchId());
+		if (request.branchId() != null) {
+			String normalizedBranchId = normalizeBranchId(request.branchId());
+			if (normalizedBranchId.equals(entity.getBranchId())) {
+				// no-op after normalization
+			}
+			else {
+				validateBranchAccess(user, normalizedBranchId);
+				collectChange(attrs, befores, afters, "branchId",
+					entity.getBranchId(), normalizedBranchId);
+				entity.setBranchId(normalizedBranchId);
+			}
 		}
 
 		AccountEntity saved = accountRepository.save(entity);
@@ -160,6 +184,30 @@ public class AccountServiceImpl implements AccountService {
 		return new AccountListResponse(data, new Pagination(normalizedLimit, normalizedOffset, total));
 	}
 
+	@Override
+	public AccountOpeningOptionsDto getAccountOpeningOptions(AuthenticatedUser user, String clientId) {
+		ClientEntity client = loadOwnedClient(user, clientId);
+		String resolvedDefaultBranch = resolveDefaultBranchForUser(user);
+		List<String> branches = resolveAuthorizedBranches(user);
+		Map<String, List<String>> branchCurrencyMap = new LinkedHashMap<>();
+		for (String branch : branches) {
+			branchCurrencyMap.put(branch, resolveBranchAllowedCurrencies(branch));
+		}
+		Map<String, List<String>> byAccountType = new LinkedHashMap<>();
+		for (Map.Entry<String, Set<String>> entry : appProperties.getAccountOpening().getCurrencyPolicyByAccountType().entrySet()) {
+			byAccountType.put(entry.getKey(), sortedList(entry.getValue()));
+		}
+		return new AccountOpeningOptionsDto(
+			clientId(client.getId()),
+			resolvedDefaultBranch,
+			user.isAdmin() && appProperties.getAccountOpening().isAdminCanOverrideBranch(),
+			branches,
+			sortedList(appProperties.getAccountOpening().getAllowedCurrencies()),
+			branchCurrencyMap,
+			byAccountType
+		);
+	}
+
 	private void collectChange(
 		StringJoiner attrs, StringJoiner befores, StringJoiner afters,
 		String fieldName, String oldValue, String newValue
@@ -167,6 +215,123 @@ public class AccountServiceImpl implements AccountService {
 		attrs.add(fieldName);
 		befores.add(oldValue != null ? PiiMasker.mask(fieldName, oldValue) : "");
 		afters.add(PiiMasker.mask(fieldName, newValue));
+	}
+
+	private void enforceVerifiedClient(ClientEntity client) {
+		if (!appProperties.getAccountOpening().isRequireVerifiedClient()) {
+			return;
+		}
+		if (client.getIdentityVerificationStatus() != IdentityVerificationStatus.verified) {
+			throw new IllegalArgumentException("Client must be verified before opening an account");
+		}
+	}
+
+	private void validateBranchAccess(AuthenticatedUser user, String branchId) {
+		List<String> activeBranches = normalizedActiveBranches();
+		if (!activeBranches.contains(branchId)) {
+			throw new IllegalArgumentException("Unknown or inactive branchId: " + branchId);
+		}
+		if (user.isAdmin()) {
+			if (appProperties.getAccountOpening().isAdminCanOverrideBranch()) {
+				return;
+			}
+			String defaultBranch = resolveDefaultBranchForUser(user);
+			if (!branchId.equals(defaultBranch)) {
+				throw new IllegalArgumentException("Branch override is not allowed");
+			}
+			return;
+		}
+		String userBranch = resolveDefaultBranchForUser(user);
+		if (!branchId.equals(userBranch)) {
+			throw new IllegalArgumentException("Branch override is only allowed for admins");
+		}
+	}
+
+	private void validateCurrencyPolicy(String branchId, AccountType accountType, String currency) {
+		Set<String> global = normalizedSet(appProperties.getAccountOpening().getAllowedCurrencies());
+		if (!global.contains(currency)) {
+			throw new IllegalArgumentException("Unsupported currency: " + currency);
+		}
+		Set<String> byBranch = normalizedSet(appProperties.getAccountOpening().getBranchAllowedCurrencies().getOrDefault(branchId, Set.of()));
+		if (!byBranch.isEmpty() && !byBranch.contains(currency)) {
+			throw new IllegalArgumentException("Currency " + currency + " is not allowed for branch " + branchId);
+		}
+		Set<String> byType = normalizedSet(
+			appProperties.getAccountOpening().getCurrencyPolicyByAccountType().getOrDefault(accountType.name(), Set.of())
+		);
+		if (!byType.isEmpty() && !byType.contains(currency)) {
+			throw new IllegalArgumentException("Currency " + currency + " is not allowed for account type " + accountType.name());
+		}
+	}
+
+	private String normalizeCurrency(String currency) {
+		return normalizeUpper(currency);
+	}
+
+	private String normalizeBranchId(String branchId) {
+		return normalizeUpper(branchId);
+	}
+
+	private static String normalizeUpper(String value) {
+		if (value == null) {
+			return null;
+		}
+		return value.trim().toUpperCase();
+	}
+
+	private String resolveDefaultBranchForUser(AuthenticatedUser user) {
+		Map<String, String> byUser = appProperties.getAccountOpening().getUserHomeBranchByUserId();
+		String configured = byUser.get(user.userId());
+		String branch = normalizeUpper(configured == null ? appProperties.getAccountOpening().getDefaultUserBranch() : configured);
+		if (branch == null || branch.isBlank()) {
+			throw new IllegalStateException("Account opening branch policy is misconfigured: defaultUserBranch is blank");
+		}
+		if (!normalizedActiveBranches().contains(branch)) {
+			throw new IllegalStateException("Account opening branch policy is misconfigured: default/home branch is inactive");
+		}
+		return branch;
+	}
+
+	private List<String> resolveAuthorizedBranches(AuthenticatedUser user) {
+		if (user.isAdmin() && appProperties.getAccountOpening().isAdminCanOverrideBranch()) {
+			return normalizedActiveBranches();
+		}
+		return List.of(resolveDefaultBranchForUser(user));
+	}
+
+	private List<String> resolveBranchAllowedCurrencies(String branchId) {
+		Set<String> global = normalizedSet(appProperties.getAccountOpening().getAllowedCurrencies());
+		Set<String> byBranch = normalizedSet(appProperties.getAccountOpening().getBranchAllowedCurrencies().getOrDefault(branchId, Set.of()));
+		if (byBranch.isEmpty()) {
+			return sortedList(global);
+		}
+		Set<String> intersection = new LinkedHashSet<>(global);
+		intersection.retainAll(byBranch);
+		return sortedList(intersection);
+	}
+
+	private List<String> normalizedActiveBranches() {
+		return sortedList(appProperties.getAccountOpening().getActiveBranches());
+	}
+
+	private static Set<String> normalizedSet(Set<String> input) {
+		Set<String> normalized = new LinkedHashSet<>();
+		if (input == null) {
+			return normalized;
+		}
+		for (String value : input) {
+			String cleaned = normalizeUpper(value);
+			if (cleaned != null && !cleaned.isBlank()) {
+				normalized.add(cleaned);
+			}
+		}
+		return normalized;
+	}
+
+	private static List<String> sortedList(Set<String> input) {
+		List<String> list = new ArrayList<>(normalizedSet(input));
+		list.sort(String::compareTo);
+		return list;
 	}
 
 	private AccountDto toDto(AccountEntity entity) {

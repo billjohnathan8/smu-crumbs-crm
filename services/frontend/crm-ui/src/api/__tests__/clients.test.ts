@@ -8,6 +8,7 @@ import {
   uploadVerificationDocs,
   reviewVerification,
   createAccount,
+  getAccountOpeningOptions,
   updateAccount,
   listClientAccounts,
   listClientAccountsPaginated,
@@ -360,6 +361,25 @@ describe('clients API', () => {
 
       expect(client.apiPost).toHaveBeenCalledWith('/api/accounts', accountRequest)
       expect(result).toEqual(mockAccount)
+    })
+  })
+
+  describe('getAccountOpeningOptions', () => {
+    it('should fetch account opening options for a client', async () => {
+      vi.spyOn(client, 'apiGet').mockResolvedValue({
+        clientId: 'client-123',
+        defaultBranchId: 'SG-001',
+        canOverrideBranch: true,
+        authorizedBranches: ['SG-001', 'SG-002'],
+        allowedCurrencies: ['SGD', 'USD'],
+        branchAllowedCurrencies: { 'SG-001': ['SGD', 'USD'], 'SG-002': ['SGD'] },
+        accountTypeAllowedCurrencies: { Savings: ['SGD'] },
+      })
+
+      const result = await getAccountOpeningOptions('client-123')
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/account-opening-options?clientId=client-123')
+      expect(result.defaultBranchId).toBe('SG-001')
     })
   })
 

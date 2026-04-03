@@ -110,7 +110,7 @@ test.describe("Cross-Agent Data Isolation", () => {
         accountStatus: "Active",
         initialDeposit: 1000,
         currency: "SGD",
-        branchId: `BR-ISO-${seed}`,
+        branchId: "SG-001",
       },
     );
     const transactionA = await createTransactionForClient(
@@ -148,7 +148,7 @@ test.describe("Cross-Agent Data Isolation", () => {
     const bPutAccount = await request.put(`${baseURL}/api/accounts/${accountA.accountId}`, {
       headers: authHeaders(agentB.tokens.accessToken),
       data: {
-        branchId: `BR-HACK-${seed}`,
+        branchId: "SG-002",
       },
     });
     await expectApiError(bPutAccount, 404, "not_found");
@@ -204,7 +204,7 @@ test.describe("Cross-Agent Data Isolation", () => {
     );
     expect(aAccountPayload.accountId).toBe(accountA.accountId);
     expect(aAccountPayload.clientId).toBe(clientA.clientId);
-    expect(aAccountPayload.branchId).toBe(`BR-ISO-${seed}`);
+    expect(aAccountPayload.branchId).toBe("SG-001");
 
     const aGetTransaction = await request.get(`${baseURL}/api/transactions/${transactionA.id}`, {
       headers: authHeaders(agentA.tokens.accessToken),

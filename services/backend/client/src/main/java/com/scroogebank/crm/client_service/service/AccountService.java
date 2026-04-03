@@ -3,6 +3,7 @@ package com.scroogebank.crm.client_service.service;
 import com.scroogebank.crm.client_service.dto.AccountCreateRequest;
 import com.scroogebank.crm.client_service.dto.AccountDto;
 import com.scroogebank.crm.client_service.dto.AccountListResponse;
+import com.scroogebank.crm.client_service.dto.AccountOpeningOptionsDto;
 import com.scroogebank.crm.client_service.dto.AccountUpdateRequest;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 
@@ -73,4 +74,13 @@ public interface AccountService {
 	 * @return list response with pagination metadata
 	 */
 	AccountListResponse listAccounts(AuthenticatedUser user, String clientId, int limit, int offset);
+
+	/**
+	 * Resolves account opening options for the authenticated caller on a specific client.
+	 *
+	 * @param user authenticated user
+	 * @param clientId public client identifier
+	 * @return account opening options
+	 */
+	AccountOpeningOptionsDto getAccountOpeningOptions(AuthenticatedUser user, String clientId);
 }

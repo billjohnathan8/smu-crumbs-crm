@@ -46,6 +46,14 @@ const mockClient: Client = {
 }
 
 describe('UserEditClient', () => {
+  const getCountrySelect = () => {
+    const field = document.querySelector('select[name="country"]') as HTMLSelectElement | null
+    if (!field) {
+      throw new Error('Country select not found')
+    }
+    return field
+  }
+
   beforeEach(() => {
     vi.clearAllMocks()
     vi.spyOn(clientsApi, 'getClientById').mockResolvedValue(mockClient)
@@ -231,6 +239,27 @@ describe('UserEditClient', () => {
     await waitFor(() => {
       expect(screen.getByText('Invalid email format')).toBeInTheDocument()
       expect(screen.getByText('Invalid phone format (min 8 digits)')).toBeInTheDocument()
+    })
+  })
+
+  it('should show validation error when postal code does not match selected country', async () => {
+    renderComponent()
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('123456')).toBeInTheDocument()
+    })
+
+    await user.selectOptions(getCountrySelect(), 'Singapore')
+    const postalInput = screen.getByDisplayValue('123456')
+    await user.clear(postalInput)
+    await user.type(postalInput, '62704')
+    await user.click(screen.getByRole('button', { name: /Save Changes/i }))
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Postal code must match Singapore format/i)
+      ).toBeInTheDocument()
     })
   })
 

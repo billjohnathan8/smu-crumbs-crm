@@ -81,7 +81,7 @@ async function setupAdminClientRoutes(page: Page) {
       openingDate: "2024-01-10",
       initialDeposit: 2500,
       currency: "SGD",
-      branchId: "BR-001",
+      branchId: "SG-001",
     },
   ];
 
@@ -203,6 +203,31 @@ async function setupAdminClientRoutes(page: Page) {
         body: JSON.stringify({
           data: clientAccounts,
           pagination: { limit: clientAccounts.length || 20, offset: 0, total: clientAccounts.length },
+        }),
+      });
+    }
+
+    if (path === "/api/account-opening-options" && method === "GET") {
+      const clientId = url.searchParams.get("clientId") ?? "clt_001";
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          clientId,
+          defaultBranchId: "SG-001",
+          canOverrideBranch: true,
+          authorizedBranches: ["SG-001", "SG-002", "SG-003"],
+          allowedCurrencies: ["SGD", "USD"],
+          branchAllowedCurrencies: {
+            "SG-001": ["SGD", "USD"],
+            "SG-002": ["SGD"],
+            "SG-003": ["SGD", "USD"],
+          },
+          accountTypeAllowedCurrencies: {
+            Savings: ["SGD"],
+            Checking: ["SGD", "USD"],
+            Business: ["SGD", "USD"],
+          },
         }),
       });
     }
@@ -339,31 +364,31 @@ test.describe("Admin Client Management (Mocked)", () => {
       await page.getByRole("button", { name: "+ New Account" }).click();
       await expect(page.getByRole("heading", { name: "Create Account" })).toBeVisible();
       await page.getByLabel(/Initial Deposit/i).fill("1500");
-      await page.getByLabel(/Branch ID/i).fill("BR-NEW-01");
+      await page.getByLabel(/Branch ID/i).selectOption("SG-003");
       await page.getByRole("button", { name: "Create Account" }).click();
-      await expect(page.getByText("BR-NEW-01")).toBeVisible();
+      await expect(page.getByText("SG-003")).toBeVisible();
     }, "Create account form submission");
 
     await measureLatency(async () => {
-      const createdRow = page.locator("tr", { hasText: "BR-NEW-01" });
+      const createdRow = page.locator("tr", { hasText: "SG-003" });
       await createdRow.getByRole("button", { name: "Edit" }).click();
       await expect(page.getByRole("heading", { name: "Edit Account" })).toBeVisible();
       await page.getByLabel(/Account Status/i).selectOption("Inactive");
-      await page.getByLabel(/Branch ID/i).fill("BR-EDIT-01");
+      await page.getByLabel(/Branch ID/i).selectOption("SG-002");
       await page.getByRole("button", { name: "Save Changes" }).click();
 
-      await expect(page.getByText("BR-EDIT-01")).toBeVisible();
+      await expect(page.getByText("SG-002")).toBeVisible();
       await expect(page.getByText("Inactive")).toBeVisible();
     }, "Edit account form submission");
 
-    const updatedRow = page.locator("tr", { hasText: "BR-EDIT-01" });
+    const updatedRow = page.locator("tr", { hasText: "SG-002" });
     await updatedRow.getByRole("button", { name: "Delete" }).click();
     await expect(page.getByTestId("delete-account-modal")).toBeVisible();
     await page
       .getByTestId("delete-account-modal")
       .getByRole("button", { name: "Delete Account" })
       .click();
-    await expect(page.getByText("BR-EDIT-01")).not.toBeVisible();
+    await expect(page.getByText("SG-002")).not.toBeVisible();
   });
 
   test("opens create client page from admin client list", async ({ page }) => {

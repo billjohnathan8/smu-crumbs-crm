@@ -10,6 +10,7 @@ import type {
   Account,
   AccountCreateRequest,
   AccountUpdateRequest,
+  AccountOpeningOptions,
   PaginatedResponse,
 } from './types'
 
@@ -164,6 +165,15 @@ export async function listClientAccounts(
 ): Promise<Account[]> {
   const response = await listClientAccountsPaginated(clientId, params)
   return response.data
+}
+
+/**
+ * Get server-enforced account opening options for a client/user context.
+ */
+export async function getAccountOpeningOptions(clientId: string): Promise<AccountOpeningOptions> {
+  return apiGet<AccountOpeningOptions>(
+    `/api/account-opening-options?clientId=${encodeURIComponent(clientId)}`
+  )
 }
 
 /**

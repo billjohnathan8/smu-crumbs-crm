@@ -1,6 +1,6 @@
 import { type APIRequestContext } from "@playwright/test";
 import { authHeaders, expectOkJson, loginViaApi, type TokenResponse } from "./apiClient";
-import { uniqueEmail, uniqueId } from "./testData";
+import { uniqueEmail } from "./testData";
 
 const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.com").trim();
 const ADMIN_PASSWORD = (process.env.E2E_ADMIN_PASSWORD ?? "Scrooge@Bank2026!").trim();
@@ -166,7 +166,7 @@ export async function createAccountForClient(
       openingDate: input?.openingDate ?? new Date().toISOString().split("T")[0],
       initialDeposit: input?.initialDeposit ?? 1000,
       currency: input?.currency ?? "SGD",
-      branchId: input?.branchId ?? `BR-${uniqueId()}`,
+      branchId: input?.branchId ?? "SG-001",
     },
   });
   return expectOkJson<{ accountId: string; clientId: string }>(response, "create account");

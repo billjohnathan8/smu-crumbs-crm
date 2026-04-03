@@ -226,6 +226,26 @@ locals {
         {
           name  = "COGNITO_AUDIENCE"
           value = var.cognito_audience
+        },
+        {
+          name  = "APP_ACCOUNT_OPENING_ACTIVE_BRANCHES"
+          value = "SG-001,SG-002,SG-003"
+        },
+        {
+          name  = "APP_ACCOUNT_OPENING_ALLOWED_CURRENCIES"
+          value = "SGD,USD"
+        },
+        {
+          name  = "APP_ACCOUNT_OPENING_DEFAULT_USER_BRANCH"
+          value = "SG-001"
+        },
+        {
+          name  = "APP_ACCOUNT_OPENING_ADMIN_CAN_OVERRIDE_BRANCH"
+          value = "true"
+        },
+        {
+          name  = "APP_ACCOUNT_OPENING_REQUIRE_VERIFIED_CLIENT"
+          value = "true"
         }
       ]
       secrets = [

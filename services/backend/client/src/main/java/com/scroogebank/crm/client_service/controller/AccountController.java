@@ -3,6 +3,7 @@ package com.scroogebank.crm.client_service.controller;
 import com.scroogebank.crm.client_service.dto.AccountCreateRequest;
 import com.scroogebank.crm.client_service.dto.AccountDto;
 import com.scroogebank.crm.client_service.dto.AccountListResponse;
+import com.scroogebank.crm.client_service.dto.AccountOpeningOptionsDto;
 import com.scroogebank.crm.client_service.dto.AccountUpdateRequest;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 import com.scroogebank.crm.client_service.security.RequestAuth;
@@ -117,6 +118,16 @@ public class AccountController {
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(httpRequest);
 		return accountService.listAccounts(user, clientId, limit, offset);
+	}
+
+	@GetMapping("/api/account-opening-options")
+	@Operation(summary = "Get account opening options")
+	public AccountOpeningOptionsDto getAccountOpeningOptions(
+		HttpServletRequest httpRequest,
+		@RequestParam @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") String clientId
+	) {
+		AuthenticatedUser user = requestAuth.requireUser(httpRequest);
+		return accountService.getAccountOpeningOptions(user, clientId);
 	}
 
 	/**

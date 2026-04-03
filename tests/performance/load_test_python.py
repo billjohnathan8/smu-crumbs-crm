@@ -194,12 +194,12 @@ class AgentCRUDWorkflow:
         # Use correct payload format matching AccountCreateRequest DTO
         payload = {
             "clientId": self.client_id,
-            "accountType": "SAVINGS",
-            "accountStatus": "ACTIVE",
+            "accountType": "Savings",
+            "accountStatus": "Active",
             "openingDate": "2026-03-28",
             "initialDeposit": 1000.00,
             "currency": "SGD",
-            "branchId": "BR001"
+            "branchId": "SG-001"
         }
         status, elapsed, error, resp = self._make_request("POST", "/api/accounts", payload)
         success = 200 <= status < 300

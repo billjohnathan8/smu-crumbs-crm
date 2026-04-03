@@ -284,6 +284,21 @@ paths:
         '404': {description: Client not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  /api/account-opening-options:
+    get:
+      tags: [accounts]
+      summary: Get account opening options
+      description: Returns server-side branch and currency options for account opening for the authenticated user and client.
+      security: [{BearerAuth: []}]
+      x-required-roles: [user, admin]
+      parameters:
+      - {name: clientId, in: query, required: true, schema: {$ref: '#/components/schemas/ClientId'}}
+      responses:
+        '200': {description: Account opening options., content: {application/json: {schema: {$ref: '#/components/schemas/AccountOpeningOptions'}}}}
+        '400': {description: Validation error., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '404': {description: Client not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
   /api/accounts/{accountId}:
     get:
       tags: [accounts]
@@ -586,8 +601,8 @@ components:
         accountStatus: {$ref: '#/components/schemas/AccountStatus'}
         openingDate: {type: string, format: date}
         initialDeposit: {type: number, minimum: 0}
-        currency: {type: string, example: SGD}
-        branchId: {type: string}
+        currency: {type: string, example: SGD, pattern: '^[A-Z]{3}$'}
+        branchId: {type: string, pattern: '^[A-Za-z0-9-]{2,40}$'}
       required: [clientId, accountType, accountStatus, openingDate, initialDeposit, currency, branchId]
       additionalProperties: false
     AccountUpdateRequest:
@@ -596,6 +611,29 @@ components:
       properties:
         accountType: {$ref: '#/components/schemas/AccountType'}
         accountStatus: {$ref: '#/components/schemas/AccountStatus'}
-        branchId: {type: string, example: UBS-SG-002}
+        branchId: {type: string, example: UBS-SG-002, pattern: '^[A-Za-z0-9-]{2,40}$'}
       additionalProperties: false
+    AccountOpeningOptions:
+      type: object
+      properties:
+        clientId: {$ref: '#/components/schemas/ClientId'}
+        defaultBranchId: {type: string, example: SG-001}
+        canOverrideBranch: {type: boolean}
+        authorizedBranches:
+          type: array
+          items: {type: string, example: SG-001}
+        allowedCurrencies:
+          type: array
+          items: {type: string, example: SGD}
+        branchAllowedCurrencies:
+          type: object
+          additionalProperties:
+            type: array
+            items: {type: string, example: SGD}
+        accountTypeAllowedCurrencies:
+          type: object
+          additionalProperties:
+            type: array
+            items: {type: string, example: SGD}
+      required: [clientId, defaultBranchId, canOverrideBranch, authorizedBranches, allowedCurrencies, branchAllowedCurrencies, accountTypeAllowedCurrencies]
   responses: {}

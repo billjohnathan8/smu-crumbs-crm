@@ -10,11 +10,14 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.scroogebank.crm.client_service.config.AppProperties;
 import com.scroogebank.crm.client_service.dto.AccountCreateRequest;
 import com.scroogebank.crm.client_service.dto.AccountDto;
+import com.scroogebank.crm.client_service.dto.AccountOpeningOptionsDto;
 import com.scroogebank.crm.client_service.dto.AccountStatus;
 import com.scroogebank.crm.client_service.dto.AccountType;
 import com.scroogebank.crm.client_service.dto.AccountUpdateRequest;
+import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
 import com.scroogebank.crm.client_service.entity.AccountEntity;
 import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.exception.AccountNotFoundException;
@@ -46,7 +49,7 @@ class AccountServiceImplTest {
 		accountRepository = mock(AccountRepository.class);
 		clientRepository = mock(ClientRepository.class);
 		auditLogger = mock(ClientAuditLogger.class);
-		accountService = new AccountServiceImpl(accountRepository, clientRepository, auditLogger);
+		accountService = new AccountServiceImpl(accountRepository, clientRepository, auditLogger, new AppProperties());
 	}
 
 	@Test
@@ -58,8 +61,8 @@ class AccountServiceImplTest {
 			AccountStatus.Active,
 			LocalDate.parse("2026-02-01"),
 			new BigDecimal("500.00"),
-			"USD",
-			"br_1"
+			"sgd",
+			"sg-001"
 		);
 		ClientEntity client = client(1L, "usr_owner");
 		AccountEntity saved = account(10L, client);
@@ -91,8 +94,8 @@ class AccountServiceImplTest {
 			AccountStatus.Active,
 			LocalDate.parse("2026-02-01"),
 			new BigDecimal("500.00"),
-			"USD",
-			"br_1"
+			"sgd",
+			"sg-001"
 		);
 		ClientEntity client = client(1L, "usr_owner");
 		AccountEntity saved = account(10L, client);
@@ -114,8 +117,8 @@ class AccountServiceImplTest {
 			AccountStatus.Active,
 			LocalDate.parse("2026-02-01"),
 			new BigDecimal("100.00"),
-			"USD",
-			"br_1"
+			"SGD",
+			"SG-001"
 		);
 		when(clientRepository.findById(2L)).thenReturn(Optional.of(client(2L, "usr_other")));
 
@@ -188,18 +191,18 @@ class AccountServiceImplTest {
 		when(accountRepository.save(any(AccountEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
 		AccountUpdateRequest request = new AccountUpdateRequest(
-			AccountType.Business, AccountStatus.Pending, "br_new"
+			AccountType.Business, AccountStatus.Pending, "SG-002"
 		);
 		AccountDto updated = accountService.updateAccount(admin, "acc_10", request, "Bearer x", "req-u");
 
 		assertThat(updated.accountType()).isEqualTo(AccountType.Business);
 		assertThat(updated.accountStatus()).isEqualTo(AccountStatus.Pending);
-		assertThat(updated.branchId()).isEqualTo("br_new");
+		assertThat(updated.branchId()).isEqualTo("SG-002");
 		verify(auditLogger).logAuditEvent(
 			eq("UPDATE"),
 			eq("accountType|accountStatus|branchId"),
-			eq("Savings|Active|br_1"),
-			eq("Business|Pending|br_new"),
+			eq("Savings|Active|SG-001"),
+			eq("Business|Pending|SG-002"),
 			eq("usr_admin"),
 			eq("clt_1"),
 			eq("req-u"),
@@ -227,7 +230,7 @@ class AccountServiceImplTest {
 		when(accountRepository.findById(10L)).thenReturn(Optional.of(existing));
 		when(accountRepository.save(any(AccountEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
-		AccountUpdateRequest request = new AccountUpdateRequest(AccountType.Savings, AccountStatus.Active, "br_1");
+		AccountUpdateRequest request = new AccountUpdateRequest(AccountType.Savings, AccountStatus.Active, "SG-001");
 		accountService.updateAccount(admin, "acc_10", request, "Bearer x", "req-u");
 
 		verify(auditLogger, never()).logAuditEvent(any(), any(), any(), any(), any(), any(), any(), any());
@@ -299,10 +302,50 @@ class AccountServiceImplTest {
 		assertThat(response.pagination().total()).isEqualTo(2);
 	}
 
+	@Test
+	void createAccount_rejectsUnverifiedClient() {
+		AppProperties strictPolicy = new AppProperties();
+		strictPolicy.getAccountOpening().setRequireVerifiedClient(true);
+		accountService = new AccountServiceImpl(accountRepository, clientRepository, auditLogger, strictPolicy);
+
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AccountCreateRequest request = new AccountCreateRequest(
+			"clt_1",
+			AccountType.Savings,
+			AccountStatus.Active,
+			LocalDate.parse("2026-02-01"),
+			new BigDecimal("500.00"),
+			"SGD",
+			"SG-001"
+		);
+		ClientEntity client = client(1L, "usr_owner");
+		client.setIdentityVerificationStatus(IdentityVerificationStatus.pending);
+		when(clientRepository.findById(1L)).thenReturn(Optional.of(client));
+
+		assertThatThrownBy(() -> accountService.createAccount(admin, request, "Bearer x", "req-1"))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessageContaining("verified");
+		verify(accountRepository, never()).save(any());
+	}
+
+	@Test
+	void getAccountOpeningOptions_userGetsSingleHomeBranch() {
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
+		ClientEntity client = client(1L, "usr_1");
+		when(clientRepository.findById(1L)).thenReturn(Optional.of(client));
+
+		AccountOpeningOptionsDto options = accountService.getAccountOpeningOptions(user, "clt_1");
+
+		assertThat(options.canOverrideBranch()).isFalse();
+		assertThat(options.authorizedBranches()).containsExactly("SG-001");
+		assertThat(options.allowedCurrencies()).contains("SGD", "USD");
+	}
+
 	private ClientEntity client(Long id, String assignedUserId) {
 		ClientEntity entity = new ClientEntity();
 		entity.setId(id);
 		entity.setAssignedAgentId(assignedUserId);
+		entity.setIdentityVerificationStatus(IdentityVerificationStatus.verified);
 		return entity;
 	}
 
@@ -314,8 +357,8 @@ class AccountServiceImplTest {
 		entity.setAccountStatus(AccountStatus.Active);
 		entity.setOpeningDate(LocalDate.parse("2026-02-01"));
 		entity.setInitialDeposit(new BigDecimal("100.00"));
-		entity.setCurrency("USD");
-		entity.setBranchId("br_1");
+		entity.setCurrency("SGD");
+		entity.setBranchId("SG-001");
 		return entity;
 	}
 

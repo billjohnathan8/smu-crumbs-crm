@@ -28,6 +28,22 @@ vi.mock('react-router-dom', async () => {
 })
 
 describe('CreateClientPage', () => {
+  const getInput = (name: string) => {
+    const field = document.querySelector(`input[name="${name}"]`) as HTMLInputElement | null
+    if (!field) {
+      throw new Error(`Input not found: ${name}`)
+    }
+    return field
+  }
+
+  const getSelect = (name: string) => {
+    const field = document.querySelector(`select[name="${name}"]`) as HTMLSelectElement | null
+    if (!field) {
+      throw new Error(`Select not found: ${name}`)
+    }
+    return field
+  }
+
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -44,17 +60,15 @@ describe('CreateClientPage', () => {
 
   // Helper to fill form with valid data
   const fillValidForm = async (user: ReturnType<typeof userEvent.setup>) => {
-    const inputs = screen.getAllByRole('textbox')
-
-    await user.type(inputs[0], 'John') // First Name
-    await user.type(inputs[1], 'Doe') // Last Name
-    await user.type(inputs[2], 'john@example.com') // Email
-    await user.type(inputs[3], '+6588888888') // Phone
-    await user.type(inputs[4], '123 Main St') // Address
-    await user.type(inputs[5], 'Singapore') // City
-    await user.type(inputs[6], 'Central') // State
-    await user.type(inputs[7], 'Singapore') // Country
-    await user.type(inputs[8], '123456') // Postal Code
+    await user.type(getInput('firstName'), 'John')
+    await user.type(getInput('lastName'), 'Doe')
+    await user.type(getInput('emailAddress'), 'john@example.com')
+    await user.type(getInput('phoneNumber'), '+6588888888')
+    await user.type(getInput('address'), '123 Main St')
+    await user.type(getInput('city'), 'Singapore')
+    await user.type(getInput('state'), 'Central')
+    await user.selectOptions(getSelect('country'), 'Singapore')
+    await user.type(getInput('postalCode'), '123456')
 
     // Fill date of birth (20 years old - valid)
     const dobInput = screen.getByLabelText(/Date of Birth/i)
@@ -190,6 +204,35 @@ describe('CreateClientPage', () => {
     await waitFor(() => {
       expect(
         screen.getByText('Phone must start with + and contain 10-15 digits (e.g. +6588888888)')
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('should show validation error when postal code does not match selected country format', async () => {
+    const user = userEvent.setup()
+    renderComponent()
+
+    await user.type(getInput('firstName'), 'John')
+    await user.type(getInput('lastName'), 'Doe')
+    await user.type(getInput('emailAddress'), 'john@example.com')
+    await user.type(getInput('phoneNumber'), '+6588888888')
+    await user.type(getInput('address'), '123 Main St')
+    await user.type(getInput('city'), 'Singapore')
+    await user.type(getInput('state'), 'Central')
+    await user.selectOptions(getSelect('country'), 'Singapore')
+    await user.type(getInput('postalCode'), '62704')
+
+    const dobInput = screen.getByLabelText(/Date of Birth/i)
+    const twentyYearsAgo = new Date()
+    twentyYearsAgo.setFullYear(twentyYearsAgo.getFullYear() - 20)
+    const dobValue = twentyYearsAgo.toISOString().split('T')[0]
+    await user.type(dobInput, dobValue)
+
+    await user.click(screen.getByRole('button', { name: /Create Client/i }))
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Postal code must match Singapore format/i)
       ).toBeInTheDocument()
     })
   })

@@ -21,7 +21,7 @@ const baseFormData: AccountCreateRequest = {
   openingDate: '2026-03-21',
   initialDeposit: 100,
   currency: 'SGD',
-  branchId: 'br_1',
+  branchId: 'SG-001',
 }
 
 describe('core components', () => {
@@ -42,6 +42,9 @@ describe('core components', () => {
         setFormData={setFormData}
         formError="Form failed"
         isSubmitting={false}
+        branchOptions={['SG-001', 'SG-002']}
+        currencyOptions={['SGD', 'USD']}
+        canOverrideBranch
         onSubmit={onSubmit}
         onClose={onClose}
       />
@@ -74,6 +77,9 @@ describe('core components', () => {
         setFormData={vi.fn()}
         formError=""
         isSubmitting
+        branchOptions={['SG-001', 'SG-002']}
+        currencyOptions={['SGD', 'USD']}
+        canOverrideBranch={false}
         onSubmit={vi.fn()}
         onClose={vi.fn()}
       />
@@ -112,7 +118,7 @@ describe('core components', () => {
         openingDate: '2026-01-01',
         initialDeposit: 10,
         currency: 'SGD',
-        branchId: 'br_1',
+        branchId: 'SG-001',
       },
       {
         accountId: 'account-0002-abc',
@@ -122,7 +128,7 @@ describe('core components', () => {
         openingDate: '2026-01-02',
         initialDeposit: 20,
         currency: 'SGD',
-        branchId: 'br_2',
+        branchId: 'SG-002',
       },
       {
         accountId: 'account-0003-abc',
@@ -132,7 +138,7 @@ describe('core components', () => {
         openingDate: '2026-01-03',
         initialDeposit: 30,
         currency: 'SGD',
-        branchId: 'br_3',
+        branchId: 'SG-003',
       },
     ]
 

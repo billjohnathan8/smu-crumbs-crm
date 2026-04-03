@@ -56,7 +56,7 @@ const mockAccounts: Account[] = [
     openingDate: '2024-01-01',
     initialDeposit: 1000,
     currency: 'SGD',
-    branchId: 'branch-001',
+    branchId: 'SG-001',
     createdAt: '2024-01-01T00:00:00Z',
   },
   {
@@ -67,7 +67,7 @@ const mockAccounts: Account[] = [
     openingDate: '2024-02-01',
     initialDeposit: 500,
     currency: 'SGD',
-    branchId: 'branch-002',
+    branchId: 'SG-002',
     createdAt: '2024-02-01T00:00:00Z',
   },
 ]
@@ -78,6 +78,23 @@ describe('ClientAccountsPage', () => {
     mockRole = 'user'
     vi.spyOn(clientsApi, 'getClientById').mockResolvedValue(mockClient)
     vi.spyOn(clientsApi, 'listClientAccounts').mockResolvedValue(mockAccounts)
+    vi.spyOn(clientsApi, 'getAccountOpeningOptions').mockResolvedValue({
+      clientId: 'client-123',
+      defaultBranchId: 'SG-001',
+      canOverrideBranch: true,
+      authorizedBranches: ['SG-001', 'SG-002', 'SG-003'],
+      allowedCurrencies: ['SGD', 'USD'],
+      branchAllowedCurrencies: {
+        'SG-001': ['SGD', 'USD'],
+        'SG-002': ['SGD'],
+        'SG-003': ['SGD', 'USD'],
+      },
+      accountTypeAllowedCurrencies: {
+        Savings: ['SGD'],
+        Checking: ['SGD', 'USD'],
+        Business: ['SGD', 'USD'],
+      },
+    })
   })
 
   const renderComponent = () =>
@@ -150,7 +167,7 @@ describe('ClientAccountsPage', () => {
       openingDate: '2024-03-01',
       initialDeposit: 2000,
       currency: 'SGD',
-      branchId: 'branch-003',
+      branchId: 'SG-003',
       createdAt: '2024-03-01T00:00:00Z',
     }
     vi.spyOn(clientsApi, 'createAccount').mockResolvedValue(newAccount)
@@ -168,9 +185,7 @@ describe('ClientAccountsPage', () => {
       expect(screen.getByTestId('account-modal')).toBeInTheDocument()
     })
 
-    // Fill branch ID
-    const branchInput = screen.getByDisplayValue('')
-    await user.type(branchInput, 'branch-003')
+    await user.selectOptions(screen.getByLabelText(/Branch ID/i), 'SG-003')
 
     // Submit
     await user.click(screen.getByRole('button', { name: /Create Account/i }))
@@ -285,7 +300,7 @@ describe('ClientAccountsPage', () => {
     })
   })
 
-  it('should validate create account form for required branch id', async () => {
+  it('should not show branch-required error when default branch is prefilled', async () => {
     renderComponent()
     const user = userEvent.setup()
 
@@ -294,17 +309,13 @@ describe('ClientAccountsPage', () => {
     })
 
     await user.click(screen.getByText('+ New Account'))
-    await user.click(screen.getByRole('button', { name: /Create Account/i }))
-
-    await waitFor(() => {
-      expect(screen.getByText('Branch ID is required')).toBeInTheDocument()
-    })
+    expect(screen.queryByText('Branch ID is required')).not.toBeInTheDocument()
   })
 
   it('should update account successfully in edit mode', async () => {
     vi.spyOn(clientsApi, 'updateAccount').mockResolvedValue({
       ...mockAccounts[0],
-      branchId: 'branch-updated',
+      branchId: 'SG-003',
     })
 
     renderComponent()
@@ -319,15 +330,14 @@ describe('ClientAccountsPage', () => {
       expect(screen.getByText('Edit Account')).toBeInTheDocument()
     })
 
-    await user.clear(screen.getByDisplayValue('branch-001'))
-    await user.type(screen.getByDisplayValue(''), 'branch-updated')
+    await user.selectOptions(screen.getByLabelText(/Branch ID/i), 'SG-003')
     await user.click(screen.getByRole('button', { name: /Save Changes/i }))
 
     await waitFor(() => {
       expect(clientsApi.updateAccount).toHaveBeenCalledWith('account-001-xxxx-yyyy', {
         accountType: 'Savings',
         accountStatus: 'Active',
-        branchId: 'branch-updated',
+        branchId: 'SG-003',
       })
     })
   })
@@ -345,7 +355,7 @@ describe('ClientAccountsPage', () => {
     })
 
     await user.click(screen.getByText('+ New Account'))
-    await user.type(screen.getByDisplayValue(''), 'branch-009')
+    await user.selectOptions(screen.getByLabelText(/Branch ID/i), 'SG-001')
     await user.click(screen.getByRole('button', { name: /Create Account/i }))
 
     await waitFor(() => {

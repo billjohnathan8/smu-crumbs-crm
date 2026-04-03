@@ -198,6 +198,16 @@ export interface AccountUpdateRequest {
   branchId?: string
 }
 
+export interface AccountOpeningOptions {
+  clientId: string
+  defaultBranchId: string
+  canOverrideBranch: boolean
+  authorizedBranches: string[]
+  allowedCurrencies: string[]
+  branchAllowedCurrencies: Record<string, string[]>
+  accountTypeAllowedCurrencies: Partial<Record<AccountType, string[]>>
+}
+
 // Transaction types (transaction-service)
 export type TransactionKind = 'D' | 'W'
 export type TransactionStatus = 'Completed' | 'Pending' | 'Failed'

@@ -4,11 +4,19 @@ import { useAuth } from '@/features/auth/AuthContext'
 import {
   getClientById,
   listClientAccounts,
+  getAccountOpeningOptions,
   createAccount,
   updateAccount,
   deleteAccount,
 } from '@/api/clients'
-import type { Client, Account, AccountCreateRequest, AccountUpdateRequest } from '@/api/types'
+import type {
+  Client,
+  Account,
+  AccountCreateRequest,
+  AccountUpdateRequest,
+  AccountOpeningOptions,
+  AccountType,
+} from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 import { AccountsTable } from '@/components/AccountsTable'
@@ -70,6 +78,7 @@ export function ClientAccountsPage() {
   })
   const [formError, setFormError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [openingOptions, setOpeningOptions] = useState<AccountOpeningOptions | null>(null)
 
   const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -86,9 +95,11 @@ export function ClientAccountsPage() {
         getClientById(clientId),
         listClientAccounts(clientId),
       ])
+      const optionsData = await getAccountOpeningOptions(clientId)
 
       setClient(clientData)
       setAccounts(accountsData)
+      setOpeningOptions(optionsData)
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         logout()
@@ -119,7 +130,7 @@ export function ClientAccountsPage() {
       openingDate: new Date().toISOString().split('T')[0],
       initialDeposit: 0,
       currency: 'SGD',
-      branchId: '',
+      branchId: openingOptions?.defaultBranchId ?? 'SG-001',
     })
     setFormError('')
     setEditingAccount(null)
@@ -230,6 +241,28 @@ export function ClientAccountsPage() {
       currency: 'SGD',
     }).format(amount)
 
+  const currencyOptionsForForm = () => {
+    if (!openingOptions) return ['SGD']
+    const branchCurrencies = openingOptions.branchAllowedCurrencies[formData.branchId] ?? []
+    const typeCurrencies =
+      openingOptions.accountTypeAllowedCurrencies[formData.accountType as AccountType] ?? []
+    const branchSet = new Set(branchCurrencies)
+    const typeSet = new Set(typeCurrencies)
+    const intersection = [...branchSet].filter(currency => typeSet.size === 0 || typeSet.has(currency))
+    if (intersection.length > 0) return intersection
+    if (branchCurrencies.length > 0) return branchCurrencies
+    if (typeCurrencies.length > 0) return typeCurrencies
+    return openingOptions.allowedCurrencies.length > 0 ? openingOptions.allowedCurrencies : ['SGD']
+  }
+
+  useEffect(() => {
+    const currencies = currencyOptionsForForm()
+    if (!currencies.includes(formData.currency)) {
+      setFormData(prev => ({ ...prev, currency: currencies[0] ?? 'SGD' }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.branchId, formData.accountType, openingOptions])
+
   if (isLoading) {
     return (
       <SidebarLayout items={sidebarNav}>
@@ -318,6 +351,9 @@ export function ClientAccountsPage() {
             setFormData={setFormData}
             formError={formError}
             isSubmitting={isSubmitting}
+            branchOptions={openingOptions?.authorizedBranches ?? ['SG-001']}
+            currencyOptions={currencyOptionsForForm()}
+            canOverrideBranch={Boolean(openingOptions?.canOverrideBranch)}
             onSubmit={handleSubmit}
             onClose={() => setModalMode(null)}
           />

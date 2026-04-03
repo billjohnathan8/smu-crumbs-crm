@@ -15,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.scroogebank.crm.client_service.api.Pagination;
 import com.scroogebank.crm.client_service.dto.AccountDto;
 import com.scroogebank.crm.client_service.dto.AccountListResponse;
+import com.scroogebank.crm.client_service.dto.AccountOpeningOptionsDto;
 import com.scroogebank.crm.client_service.dto.AccountStatus;
 import com.scroogebank.crm.client_service.dto.AccountType;
 import com.scroogebank.crm.client_service.exception.AccountNotFoundException;
@@ -26,6 +27,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -99,7 +101,7 @@ class AccountControllerTest {
 					  "openingDate": "2026-02-01",
 					  "initialDeposit": 100.00,
 					  "currency": "USD",
-					  "branchId": "br_1",
+					  "branchId": "SG-001",
 					  "unknownField": "unexpected"
 					}
 					"""))
@@ -152,6 +154,26 @@ class AccountControllerTest {
 			.andExpect(jsonPath("$.message").value("Invalid request parameter: offset"));
 	}
 
+	@Test
+	void getAccountOpeningOptions_returnsOk() throws Exception {
+		when(accountService.getAccountOpeningOptions(any(), eq("clt_1"))).thenReturn(
+			new AccountOpeningOptionsDto(
+				"clt_1",
+				"SG-001",
+				true,
+				List.of("SG-001", "SG-002"),
+				List.of("SGD", "USD"),
+				Map.of("SG-001", List.of("SGD", "USD")),
+				Map.of("Savings", List.of("SGD"))
+			)
+		);
+
+		mockMvc.perform(get("/api/account-opening-options?clientId=clt_1").header("Authorization", AUTH_HEADER))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.defaultBranchId").value("SG-001"))
+			.andExpect(jsonPath("$.authorizedBranches[0]").value("SG-001"));
+	}
+
 	private String createRequestJson(String clientId) {
 		return """
 			{
@@ -161,7 +183,7 @@ class AccountControllerTest {
 			  "openingDate": "2026-02-01",
 			  "initialDeposit": 100.00,
 			  "currency": "USD",
-			  "branchId": "br_1"
+			  "branchId": "SG-001"
 			}
 			""".formatted(clientId);
 	}
@@ -175,10 +197,9 @@ class AccountControllerTest {
 			LocalDate.parse("2026-02-01"),
 			new BigDecimal("100.00"),
 			"USD",
-			"br_1",
+			"SG-001",
 			Instant.parse("2026-02-05T00:00:00Z"),
 			Instant.parse("2026-02-05T00:00:00Z")
 		);
 	}
 }
-

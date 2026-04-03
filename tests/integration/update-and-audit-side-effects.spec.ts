@@ -9,10 +9,6 @@ import {
 } from "./helpers/dataFactory";
 import { waitForAuditLogAction } from "./helpers/polling";
 
-function uniqueSuffix(): string {
-  return `${Date.now()}-${Math.floor(Math.random() * 100_000)}`;
-}
-
 interface AuditLogRowWithDetails {
   logId: string;
   action: string;
@@ -49,8 +45,8 @@ test.describe("Update And Audit Side Effects (P1)", () => {
       postalCode: "123123",
     });
 
-    const initialBranchId = `BR-OLD-${uniqueSuffix()}`;
-    const updatedBranchId = `BR-NEW-${uniqueSuffix()}`;
+    const initialBranchId = "SG-001";
+    const updatedBranchId = "SG-002";
 
     const createdAccount = await createAccountForClient(
       request,

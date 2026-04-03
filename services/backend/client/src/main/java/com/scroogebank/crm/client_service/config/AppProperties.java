@@ -2,6 +2,10 @@ package com.scroogebank.crm.client_service.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
 
 @Configuration
 @ConfigurationProperties(prefix = "app")
@@ -10,6 +14,7 @@ public class AppProperties {
 	private String logServiceUrl;
 	private Jwt jwt = new Jwt();
 	private VerificationEmail verificationEmail = new VerificationEmail();
+	private AccountOpening accountOpening = new AccountOpening();
 
 	public String getLogServiceUrl() {
 		return logServiceUrl;
@@ -33,6 +38,14 @@ public class AppProperties {
 
 	public void setVerificationEmail(VerificationEmail verificationEmail) {
 		this.verificationEmail = verificationEmail;
+	}
+
+	public AccountOpening getAccountOpening() {
+		return accountOpening;
+	}
+
+	public void setAccountOpening(AccountOpening accountOpening) {
+		this.accountOpening = accountOpening;
 	}
 
 	public static class Jwt {
@@ -158,6 +171,91 @@ public class AppProperties {
 
 		public void setServiceUserId(String serviceUserId) {
 			this.serviceUserId = serviceUserId;
+		}
+	}
+
+	public static class AccountOpening {
+		private Set<String> activeBranches = new LinkedHashSet<>(Set.of("SG-001", "SG-002", "SG-003"));
+		private Set<String> allowedCurrencies = new LinkedHashSet<>(Set.of("SGD", "USD"));
+		private String defaultUserBranch = "SG-001";
+		private boolean adminCanOverrideBranch = true;
+		private boolean requireVerifiedClient = false;
+		private Map<String, String> userHomeBranchByUserId = new LinkedHashMap<>();
+		private Map<String, Set<String>> currencyPolicyByAccountType = new LinkedHashMap<>();
+		private Map<String, Set<String>> branchAllowedCurrencies = new LinkedHashMap<>();
+
+		public AccountOpening() {
+			currencyPolicyByAccountType.put("Savings", new LinkedHashSet<>(Set.of("SGD")));
+			currencyPolicyByAccountType.put("Checking", new LinkedHashSet<>(Set.of("SGD", "USD")));
+			currencyPolicyByAccountType.put("Business", new LinkedHashSet<>(Set.of("SGD", "USD")));
+
+			branchAllowedCurrencies.put("SG-001", new LinkedHashSet<>(Set.of("SGD", "USD")));
+			branchAllowedCurrencies.put("SG-002", new LinkedHashSet<>(Set.of("SGD")));
+			branchAllowedCurrencies.put("SG-003", new LinkedHashSet<>(Set.of("SGD", "USD")));
+		}
+
+		public Set<String> getActiveBranches() {
+			return activeBranches;
+		}
+
+		public void setActiveBranches(Set<String> activeBranches) {
+			this.activeBranches = activeBranches;
+		}
+
+		public Set<String> getAllowedCurrencies() {
+			return allowedCurrencies;
+		}
+
+		public void setAllowedCurrencies(Set<String> allowedCurrencies) {
+			this.allowedCurrencies = allowedCurrencies;
+		}
+
+		public String getDefaultUserBranch() {
+			return defaultUserBranch;
+		}
+
+		public void setDefaultUserBranch(String defaultUserBranch) {
+			this.defaultUserBranch = defaultUserBranch;
+		}
+
+		public boolean isAdminCanOverrideBranch() {
+			return adminCanOverrideBranch;
+		}
+
+		public void setAdminCanOverrideBranch(boolean adminCanOverrideBranch) {
+			this.adminCanOverrideBranch = adminCanOverrideBranch;
+		}
+
+		public Map<String, String> getUserHomeBranchByUserId() {
+			return userHomeBranchByUserId;
+		}
+
+		public void setUserHomeBranchByUserId(Map<String, String> userHomeBranchByUserId) {
+			this.userHomeBranchByUserId = userHomeBranchByUserId;
+		}
+
+		public boolean isRequireVerifiedClient() {
+			return requireVerifiedClient;
+		}
+
+		public void setRequireVerifiedClient(boolean requireVerifiedClient) {
+			this.requireVerifiedClient = requireVerifiedClient;
+		}
+
+		public Map<String, Set<String>> getCurrencyPolicyByAccountType() {
+			return currencyPolicyByAccountType;
+		}
+
+		public void setCurrencyPolicyByAccountType(Map<String, Set<String>> currencyPolicyByAccountType) {
+			this.currencyPolicyByAccountType = currencyPolicyByAccountType;
+		}
+
+		public Map<String, Set<String>> getBranchAllowedCurrencies() {
+			return branchAllowedCurrencies;
+		}
+
+		public void setBranchAllowedCurrencies(Map<String, Set<String>> branchAllowedCurrencies) {
+			this.branchAllowedCurrencies = branchAllowedCurrencies;
 		}
 	}
 }

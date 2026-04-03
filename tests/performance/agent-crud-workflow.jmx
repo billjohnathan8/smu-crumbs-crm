@@ -274,7 +274,7 @@
   &quot;openingDate&quot;: &quot;2026-01-01&quot;,&#xd;
   &quot;currency&quot;: &quot;SGD&quot;,&#xd;
   &quot;initialDeposit&quot;: ${__Random(1000,50000)},&#xd;
-  &quot;branchId&quot;: &quot;BR-SG-${__Random(1,99)}&quot;&#xd;
+  &quot;branchId&quot;: &quot;SG-001&quot;&#xd;
 }</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>

@@ -9,6 +9,9 @@ type AccountFormModalProps = {
   setFormData: React.Dispatch<React.SetStateAction<AccountCreateRequest>>
   formError: string
   isSubmitting: boolean
+  branchOptions: string[]
+  currencyOptions: string[]
+  canOverrideBranch: boolean
   onSubmit: (e: FormEvent) => void
   onClose: () => void
 }
@@ -19,6 +22,9 @@ export function AccountFormModal({
   setFormData,
   formError,
   isSubmitting,
+  branchOptions,
+  currencyOptions,
+  canOverrideBranch,
   onSubmit,
   onClose,
 }: AccountFormModalProps) {
@@ -123,14 +129,19 @@ export function AccountFormModal({
                 >
                   Currency
                 </label>
-                <input
+                <select
                   id="account-currency"
-                  type="text"
                   value={formData.currency}
                   onChange={e => setFormData({ ...formData, currency: e.target.value })}
-                  className="w-full px-4 py-2 bg-background-light  rounded-lg text-text"
+                  className="w-full px-4 py-2 bg-background-light rounded-lg text-text"
                   disabled={isSubmitting}
-                />
+                >
+                  {currencyOptions.map(currency => (
+                    <option key={currency} value={currency}>
+                      {currency}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -156,14 +167,19 @@ export function AccountFormModal({
             <label htmlFor="account-branch-id" className="block text-sm font-normal text-text mb-1">
               Branch ID <span className="text-danger">*</span>
             </label>
-            <input
+            <select
               id="account-branch-id"
-              type="text"
               value={formData.branchId}
               onChange={e => setFormData({ ...formData, branchId: e.target.value })}
-              className="w-full px-4 py-2 bg-background-light  rounded-lg text-text"
-              disabled={isSubmitting}
-            />
+              className="w-full px-4 py-2 bg-background-light rounded-lg text-text"
+              disabled={isSubmitting || !canOverrideBranch}
+            >
+              {branchOptions.map(branch => (
+                <option key={branch} value={branch}>
+                  {branch}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="flex justify-end space-x-3 pt-2">
