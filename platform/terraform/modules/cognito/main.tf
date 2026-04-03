@@ -55,6 +55,7 @@ resource "aws_cognito_user_pool" "this" {
     invite_message_template {
       email_subject = "Your temporary CRM login password"
       email_message = "Your username is {username}\nYour temporary password is '{####}'\nCopy the password inside quotes exactly."
+      sms_message   = "Temp password for {username}: {####}"
     }
   }
 
