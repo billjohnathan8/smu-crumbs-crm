@@ -366,7 +366,9 @@ def test_list_queued_communications_returns_empty_when_table_missing(
     class UndefinedTableCursor(FakeCursor):
         def execute(self, sql: str, params=None) -> None:
             self.executed.append((sql, params))
-            raise psycopg.errors.UndefinedTable("relation \"communications\" does not exist")
+            raise psycopg.errors.UndefinedTable(
+                'relation "communications" does not exist'
+            )
 
     cursor = UndefinedTableCursor()
 
