@@ -15,6 +15,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
 
 import com.scroogebank.crm.client_service.communication.CommunicationRecord;
 import com.scroogebank.crm.client_service.communication.CommunicationStatus;
@@ -151,6 +152,27 @@ class VerificationEmailDispatchServiceTest {
 
 		verify(communicationClient).listQueuedCommunications(eq(50), eq("Bearer svc-token"));
 		verify(communicationClient).updateCommunicationStatus(eq("com_10"), any(), eq("Bearer svc-token"));
+	}
+
+	@Test
+	void processQueuedCommunications_statusUpdateFailure_isSwallowed() {
+		CommunicationRecord queued = communication(
+			"com_10",
+			CommunicationStatus.queued,
+			0,
+			null
+		);
+		when(communicationClient.listQueuedCommunications(eq(50), eq("Bearer svc-token"))).thenReturn(List.of(queued));
+		when(verificationEmailSender.send(any())).thenReturn("ses-99");
+		doThrow(new RuntimeException("log service down"))
+			.when(communicationClient)
+			.updateCommunicationStatus(eq("com_10"), any(), eq("Bearer svc-token"));
+
+		dispatchService.processQueuedCommunications();
+
+		verify(communicationClient).listQueuedCommunications(eq(50), eq("Bearer svc-token"));
+		verify(communicationClient).updateCommunicationStatus(eq("com_10"), any(), eq("Bearer svc-token"));
+		verify(verificationEmailSender, times(1)).send(any());
 	}
 
 	@Test

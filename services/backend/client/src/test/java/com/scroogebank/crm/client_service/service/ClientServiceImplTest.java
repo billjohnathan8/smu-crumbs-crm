@@ -184,7 +184,7 @@ class ClientServiceImplTest {
 		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
 		ClientEntity entity = entityFromPayload(7L, "usr_other", payload);
-		ClientUpdateRequest request = new ClientUpdateRequest("NewName", null, null, null, null, null, null, null, null, null, null);
+		ClientUpdateRequest request = new ClientUpdateRequest("NewName", null, null, null, null, null, null, null, null, null, null, null);
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
 
 		assertThatThrownBy(() -> clientService.updateClient(user, "clt_7", request, "Bearer x", "req-1"))
@@ -299,7 +299,7 @@ class ClientServiceImplTest {
 	}
 
 	@Test
-	void createClient_whenSnsPublishFails_throwsAndDoesNotReturnClient() {
+	void createClient_whenSnsPublishFails_stillReturnsCreatedClient() {
 		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
 
@@ -317,9 +317,10 @@ class ClientServiceImplTest {
 			.when(snsEmailPublisherService)
 			.publishVerificationEmail(any(), any(), any(), any(), any(), anyLong());
 
-		assertThatThrownBy(() ->
-			clientService.createClient(user, requestFrom(payload), "Bearer x", "req-1")
-		).isInstanceOf(SnsPublishException.class);
+		var result = clientService.createClient(user, requestFrom(payload), "Bearer x", "req-1");
+
+		assertThat(result.clientId()).isEqualTo("clt_10");
+		verify(clientRepository).save(any());
 	}
 
 	/** Verifies that createClient() throws DuplicateClientException when the email is already in use (no save). */
@@ -396,7 +397,8 @@ class ClientServiceImplTest {
 			payload.city(),
 			payload.state(),
 			payload.country(),
-			payload.postalCode()
+			payload.postalCode(),
+			null
 		);
 		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
 		existing.setFirstName("OldFirst");
@@ -423,11 +425,55 @@ class ClientServiceImplTest {
 		);
 	}
 
+	@Test
+	void updateClient_adminCanReassignClientAndAuditAssignedUserIdChange() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		ClientPayload payload = samplePayload();
+		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
+		ClientUpdateRequest request = new ClientUpdateRequest(
+			null, null, null, null, null, null, null, null, null, null, null, "usr_2"
+		);
+		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
+		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		var result = clientService.updateClient(admin, "clt_12", request, "Bearer x", "req-1");
+
+		assertThat(result.assignedUserId()).isEqualTo("usr_2");
+		assertThat(existing.getAssignedAgentId()).isEqualTo("usr_2");
+		verify(clientAuditLogger).logAuditEvent(
+			eq("UPDATE"),
+			eq("assignedUserId"),
+			eq("usr_1"),
+			eq("usr_2"),
+			eq("usr_admin"),
+			eq("clt_12"),
+			eq("req-1"),
+			eq("Bearer x")
+		);
+	}
+
+	@Test
+	void updateClient_nonAdminCannotReassignClient_throwsAccessDenied() {
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
+		ClientPayload payload = samplePayload();
+		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
+		ClientUpdateRequest request = new ClientUpdateRequest(
+			null, null, null, null, null, null, null, null, null, null, null, "usr_2"
+		);
+		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
+
+		assertThatThrownBy(() -> clientService.updateClient(user, "clt_12", request, "Bearer x", "req-1"))
+			.isInstanceOf(AccessDeniedException.class)
+			.hasMessageContaining("Admin role required for client reassignment");
+
+		verify(clientRepository, never()).save(any());
+	}
+
 	/** Verifies that updateClient() throws ClientNotFoundException when the client id does not exist (no save). */
 	@Test
 	void updateClient_whenNotFound_throwsClientNotFoundException() {
 		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
-		ClientUpdateRequest request = new ClientUpdateRequest(null, null, null, null, null, null, null, null, null, null, null);
+		ClientUpdateRequest request = new ClientUpdateRequest(null, null, null, null, null, null, null, null, null, null, null, null);
 		when(clientRepository.findById(999L)).thenReturn(Optional.empty());
 
 		assertThatThrownBy(() -> clientService.updateClient(user, "clt_999", request, "Bearer x", "req-1"))
@@ -443,7 +489,7 @@ class ClientServiceImplTest {
 	void updateClient_whenEmailExistsForOtherId_throwsDuplicateClientException() {
 		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
-		ClientUpdateRequest request = new ClientUpdateRequest(null, null, null, null, payload.emailAddress(), null, null, null, null, null, null);
+		ClientUpdateRequest request = new ClientUpdateRequest(null, null, null, null, payload.emailAddress(), null, null, null, null, null, null, null);
 		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
 		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
 		when(clientRepository.existsByEmailAddressIgnoreCaseAndIdNot(payload.emailAddress(), 12L)).thenReturn(true);
@@ -460,7 +506,7 @@ class ClientServiceImplTest {
 	void updateClient_whenPhoneExistsForOtherId_throwsDuplicateClientException() {
 		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
-		ClientUpdateRequest request = new ClientUpdateRequest(null, null, null, null, null, payload.phoneNumber(), null, null, null, null, null);
+		ClientUpdateRequest request = new ClientUpdateRequest(null, null, null, null, null, payload.phoneNumber(), null, null, null, null, null, null);
 		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
 		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
 		when(clientRepository.existsByPhoneNumberAndIdNot(payload.phoneNumber(), 12L)).thenReturn(true);
@@ -480,7 +526,7 @@ class ClientServiceImplTest {
 		existing.setCountry("Singapore");
 		existing.setPostalCode("123456");
 		ClientUpdateRequest request = new ClientUpdateRequest(
-			null, null, null, null, null, null, null, null, null, null, "ABCDE"
+			null, null, null, null, null, null, null, null, null, null, "ABCDE", null
 		);
 		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
 
@@ -538,7 +584,7 @@ class ClientServiceImplTest {
 		ClientPayload payload = samplePayload();
 		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
 		ClientUpdateRequest request = new ClientUpdateRequest(
-			"NewName", null, null, null, null, null, null, null, null, null, null
+			"NewName", null, null, null, null, null, null, null, null, null, null, null
 		);
 		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
 		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -563,7 +609,7 @@ class ClientServiceImplTest {
 		ClientPayload payload = samplePayload();
 		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
 		ClientUpdateRequest request = new ClientUpdateRequest(
-			"NewFirst", "NewLast", null, null, null, null, null, null, null, null, null
+			"NewFirst", "NewLast", null, null, null, null, null, null, null, null, null, null
 		);
 		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
 		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -588,7 +634,7 @@ class ClientServiceImplTest {
 		ClientPayload payload = samplePayload();
 		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
 		ClientUpdateRequest request = new ClientUpdateRequest(
-			null, null, null, null, null, null, null, null, null, null, null
+			null, null, null, null, null, null, null, null, null, null, null, null
 		);
 		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
 		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -604,7 +650,7 @@ class ClientServiceImplTest {
 		ClientPayload payload = samplePayload();
 		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
 		ClientUpdateRequest request = new ClientUpdateRequest(
-			payload.firstName(), payload.lastName(), null, null, null, null, null, null, null, null, null
+			payload.firstName(), payload.lastName(), null, null, null, null, null, null, null, null, null, null
 		);
 		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
 		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));

@@ -121,7 +121,7 @@ public class VerificationEmailDispatchService {
 			String providerMessageId = verificationEmailSender.send(
 				new VerificationEmail(communication.toEmail(), communication.subject(), communication.body())
 			);
-			communicationClient.updateCommunicationStatus(
+			safeUpdateCommunicationStatus(
 				communication.communicationId(),
 				new UpdateCommunicationStatusRequest(
 					CommunicationStatus.sent,
@@ -132,7 +132,8 @@ public class VerificationEmailDispatchService {
 					now,
 					"SEND_ACCEPTED"
 				),
-				authorizationHeader
+				authorizationHeader,
+				requestId
 			);
 			LOGGER.info(
 				"Dispatched verification communication id={} providerMessageId={} requestId={}",
@@ -145,7 +146,7 @@ public class VerificationEmailDispatchService {
 			int nextRetryCount = currentRetryCount + 1;
 			boolean exhausted = nextRetryCount >= maxAttempts;
 			Instant nextAttemptAt = exhausted ? null : now.plusSeconds(backoffSeconds(nextRetryCount));
-			communicationClient.updateCommunicationStatus(
+			safeUpdateCommunicationStatus(
 				communication.communicationId(),
 				new UpdateCommunicationStatusRequest(
 					exhausted ? CommunicationStatus.failed : CommunicationStatus.queued,
@@ -156,7 +157,8 @@ public class VerificationEmailDispatchService {
 					now,
 					exhausted ? "DISPATCH_FAILED_FINAL" : "DISPATCH_FAILED_RETRY"
 				),
-				authorizationHeader
+				authorizationHeader,
+				requestId
 			);
 			LOGGER.warn(
 				"Verification communication dispatch failed id={} retry={} exhausted={} requestId={}",
@@ -165,6 +167,30 @@ public class VerificationEmailDispatchService {
 				exhausted,
 				requestId,
 				ex
+			);
+		}
+	}
+
+	private void safeUpdateCommunicationStatus(
+		String communicationId,
+		UpdateCommunicationStatusRequest request,
+		String authorizationHeader,
+		String requestId
+	) {
+		try {
+			communicationClient.updateCommunicationStatus(
+				communicationId,
+				request,
+				authorizationHeader
+			);
+		}
+		catch (Exception updateEx) {
+			LOGGER.error(
+				"Failed to persist verification communication status update id={} status={} requestId={}",
+				communicationId,
+				request.status(),
+				requestId,
+				updateEx
 			);
 		}
 	}

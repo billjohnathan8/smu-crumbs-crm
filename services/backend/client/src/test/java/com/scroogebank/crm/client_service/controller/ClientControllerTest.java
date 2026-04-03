@@ -432,6 +432,26 @@ class ClientControllerTest {
     }
 
     @Test
+    void uploadVerificationDocs_failedAttempt_releasesIdempotencyKeyForRetry() throws Exception {
+        when(clientService.uploadVerificationDocs(eq("clt_1"), any(), any()))
+            .thenThrow(new UnauthorizedException("Invalid or expired verification token"))
+            .thenReturn(new VerifyClientResponse("clt_1", IdentityVerificationStatus.pending));
+
+        mockMvc.perform(post("/api/clients/clt_1/upload-verify")
+            .header("Idempotency-Key", "retry-key")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(uploadVerificationDocsRequestJson("bad-token")))
+        .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(post("/api/clients/clt_1/upload-verify")
+            .header("Idempotency-Key", "retry-key")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(uploadVerificationDocsRequestJson("valid-token")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.identityVerificationStatus").value("pending"));
+    }
+
+    @Test
     void getVerificationDocument_returnsDocumentPayload() throws Exception {
         when(clientService.getVerificationDocument(any(), eq("clt_1"), eq("primary")))
             .thenReturn(

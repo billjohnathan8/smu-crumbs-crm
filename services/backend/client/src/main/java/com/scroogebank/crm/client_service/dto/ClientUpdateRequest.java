@@ -43,5 +43,8 @@ public record ClientUpdateRequest(
 	String country,
 
 	@Size(min = 4, max = 10)
-	String postalCode
+	String postalCode,
+
+	@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$", message = "assignedUserId must be alphanumeric")
+	String assignedUserId
 ) {}

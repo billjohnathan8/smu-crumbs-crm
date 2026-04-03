@@ -89,7 +89,13 @@ public class ApiExceptionHandler {
 	}
 
 	@ExceptionHandler(IllegalStateException.class)
-	public ResponseEntity<ErrorResponse> handleIllegalState(HttpServletRequest request, IllegalStateException _ex) {
+	public ResponseEntity<ErrorResponse> handleIllegalState(HttpServletRequest request, IllegalStateException ex) {
+		Object requestId = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
+		log.warn(
+			"Conflict IllegalStateException (requestId={}): {}",
+			requestId == null ? "unknown" : requestId.toString(),
+			ex.getMessage()
+		);
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(error(request, "conflict", "Conflict"));
 	}
 

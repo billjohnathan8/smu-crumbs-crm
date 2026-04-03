@@ -212,8 +212,17 @@ public class ClientController {
 		@RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
 		@Valid @RequestBody UploadVerificationDocsRequest request
 	) {
-		enforceUploadAbuseControls(httpRequest, clientId, idempotencyKey);
-		return clientService.uploadVerificationDocs(clientId, request, requestId(httpRequest));
+		long now = Instant.now().getEpochSecond();
+		evictExpired(now);
+		enforceUploadRateLimit(httpRequest, clientId, now);
+		IdempotencyReservation reservation = reserveIdempotencyKey(clientId, idempotencyKey, now);
+		try {
+			return clientService.uploadVerificationDocs(clientId, request, requestId(httpRequest));
+		}
+		catch (RuntimeException ex) {
+			releaseIdempotencyKey(reservation);
+			throw ex;
+		}
 	}
 
 	/**
@@ -284,10 +293,7 @@ public class ClientController {
 		return value == null ? null : value.toString();
 	}
 
-	private void enforceUploadAbuseControls(HttpServletRequest request, String clientId, String idempotencyKey) {
-		long now = Instant.now().getEpochSecond();
-		evictExpired(now);
-
+	private void enforceUploadRateLimit(HttpServletRequest request, String clientId, long now) {
 		String ip = requestClientIp(request);
 		String rateKey = clientId + "|" + ip;
 		AttemptWindow window = uploadAttemptsByClientAndIp.compute(rateKey, (_key, current) -> {
@@ -299,19 +305,30 @@ public class ClientController {
 		if (window.attemptCount() > MAX_UPLOAD_ATTEMPTS_PER_MINUTE) {
 			throw new IllegalStateException("Too many requests");
 		}
+	}
 
+	private IdempotencyReservation reserveIdempotencyKey(String clientId, String idempotencyKey, long now) {
 		if (idempotencyKey == null || idempotencyKey.isBlank()) {
-			return;
+			return null;
 		}
 		String trimmedKey = idempotencyKey.trim();
 		if (trimmedKey.length() > 160) {
 			throw new IllegalArgumentException("Invalid request");
 		}
+		long expiresAtEpochSeconds = now + IDEMPOTENCY_TTL_SECONDS;
 		String idempotencyMapKey = clientId + "|" + trimmedKey;
-		Long previous = idempotencyKeysByClientAndKey.putIfAbsent(idempotencyMapKey, now + IDEMPOTENCY_TTL_SECONDS);
+		Long previous = idempotencyKeysByClientAndKey.putIfAbsent(idempotencyMapKey, expiresAtEpochSeconds);
 		if (previous != null) {
 			throw new IllegalStateException("Duplicate submission");
 		}
+		return new IdempotencyReservation(idempotencyMapKey, expiresAtEpochSeconds);
+	}
+
+	private void releaseIdempotencyKey(IdempotencyReservation reservation) {
+		if (reservation == null) {
+			return;
+		}
+		idempotencyKeysByClientAndKey.remove(reservation.mapKey(), reservation.expiresAtEpochSeconds());
 	}
 
 	private void evictExpired(long nowEpochSeconds) {
@@ -332,4 +349,6 @@ public class ClientController {
 	}
 
 	private record AttemptWindow(long windowStartEpochSeconds, int attemptCount) {}
+
+	private record IdempotencyReservation(String mapKey, long expiresAtEpochSeconds) {}
 }

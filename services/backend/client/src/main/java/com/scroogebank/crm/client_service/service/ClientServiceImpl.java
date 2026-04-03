@@ -29,6 +29,7 @@ import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
 import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
 import com.scroogebank.crm.client_service.exception.DuplicateClientException;
+import com.scroogebank.crm.client_service.exception.SnsPublishException;
 import com.scroogebank.crm.client_service.logging.ClientAuditLogger;
 import com.scroogebank.crm.client_service.logging.PiiMasker;
 import com.scroogebank.crm.client_service.repository.AccountRepository;
@@ -187,15 +188,24 @@ public class ClientServiceImpl implements ClientService {
 		String token = verificationTokenService.generateVerificationToken(apiClientId, verificationLinkTokenTtlSeconds);
 
 		// Publish verification event to SNS (downstream SNS -> Lambda -> SES sends email).
-		// Throwing here rolls back the transaction and preserves the API contract.
-		snsEmailPublisherService.publishVerificationEmail(
-			apiClientId,
-			saved.getEmailAddress(),
-			token,
-			saved.getFirstName(),
-			requestId,
-			verificationLinkTokenTtlSeconds
-		);
+		// Fail open: create should still succeed when notification infrastructure is degraded.
+		try {
+			snsEmailPublisherService.publishVerificationEmail(
+				apiClientId,
+				saved.getEmailAddress(),
+				token,
+				saved.getFirstName(),
+				requestId,
+				verificationLinkTokenTtlSeconds
+			);
+		} catch (SnsPublishException ex) {
+			LOGGER.error(
+				"Client created but verification email dispatch failed. clientId={} requestId={}",
+				apiClientId,
+				requestId,
+				ex
+			);
+		}
 
 		return toDto(saved);
 	}
@@ -244,8 +254,9 @@ public class ClientServiceImpl implements ClientService {
 		collectChange(attrs, befores, afters, "state", entity.getState(), request.state());
 		collectChange(attrs, befores, afters, "country", entity.getCountry(), request.country());
 		collectChange(attrs, befores, afters, "postalCode", entity.getPostalCode(), request.postalCode());
+		collectChange(attrs, befores, afters, "assignedUserId", entity.getAssignedAgentId(), request.assignedUserId());
 
-		applyUpdate(entity, request);
+		applyUpdate(user, entity, request);
 		ClientEntity saved = clientRepository.save(entity);
 
 		String attrString = attrs.toString();
@@ -610,7 +621,7 @@ public class ClientServiceImpl implements ClientService {
 	 * @param entity client entity to update
 	 * @param request update payload
 	 */
-	private void applyUpdate(ClientEntity entity, ClientUpdateRequest request) {
+	private void applyUpdate(AuthenticatedUser user, ClientEntity entity, ClientUpdateRequest request) {
 		if (request.firstName() != null) {
 			entity.setFirstName(request.firstName());
 		}
@@ -643,6 +654,19 @@ public class ClientServiceImpl implements ClientService {
 		}
 		if (request.postalCode() != null) {
 			entity.setPostalCode(request.postalCode());
+		}
+		if (request.assignedUserId() != null) {
+			if (!user.isAdmin()) {
+				throw new AccessDeniedException("Admin role required for client reassignment");
+			}
+			String requestedAgentId = request.assignedUserId().trim();
+			if (requestedAgentId.isBlank()) {
+				throw new IllegalArgumentException("assignedUserId must not be blank");
+			}
+			if (requestedAgentId.equals(user.userId())) {
+				throw new IllegalArgumentException("Admin users cannot assign clients to themselves");
+			}
+			entity.setAssignedAgentId(requestedAgentId);
 		}
 	}
 

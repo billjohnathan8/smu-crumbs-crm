@@ -479,5 +479,32 @@ class ClientsServiceIT {
 		JsonNode persisted = getClient(clientId, agentAuth);
 		assertThat(requiredText(persisted, "identityVerificationStatus")).isEqualTo("unverified");
 	}
-}
 
+	@Test
+	void uploadVerificationDocs_failedAttemptWithIdempotencyKey_allowsRetryWithSameKey() throws Exception {
+		String agentAuth = jsonHeadersToken(mintToken("usr_it_agent", "user"));
+		JsonNode created = createClient(agentAuth, "RetryIdem");
+		String clientId = requiredText(created, "clientId");
+
+		HttpHeaders badAttemptHeaders = jsonHeaders(null);
+		badAttemptHeaders.set("Idempotency-Key", "idem-retry-1");
+		ResponseEntity<String> badAttempt = postJson(
+			"/api/clients/" + clientId + "/upload-verify",
+			uploadVerificationRequestBody("not-a-jwt"),
+			badAttemptHeaders
+		);
+		assertThat(badAttempt.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+
+		String verificationToken = verificationTokenService.generateVerificationToken(clientId, 900);
+		HttpHeaders retryHeaders = jsonHeaders(null);
+		retryHeaders.set("Idempotency-Key", "idem-retry-1");
+		ResponseEntity<String> retryAttempt = postJson(
+			"/api/clients/" + clientId + "/upload-verify",
+			uploadVerificationRequestBody(verificationToken),
+			retryHeaders
+		);
+		assertThat(retryAttempt.getStatusCode()).isEqualTo(HttpStatus.OK);
+		JsonNode retryPayload = objectMapper.readTree(retryAttempt.getBody());
+		assertThat(requiredText(retryPayload, "identityVerificationStatus")).isEqualTo("pending");
+	}
+}
