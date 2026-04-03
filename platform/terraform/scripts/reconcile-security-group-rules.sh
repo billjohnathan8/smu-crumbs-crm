@@ -47,7 +47,24 @@ import_if_missing() {
   fi
 
   echo "Importing existing ${label} into Terraform state: ${address} -> ${import_id}"
-  terraform import "${tf_args[@]}" "${address}" "${import_id}"
+  set +e
+  local import_output
+  import_output="$(terraform import "${tf_args[@]}" "${address}" "${import_id}" 2>&1)"
+  local import_rc=$?
+  set -e
+
+  if [[ ${import_rc} -eq 0 ]]; then
+    return 0
+  fi
+
+  if grep -Fq "Resource already managed by Terraform" <<< "${import_output}" \
+    || grep -Fq "already managing a remote object for ${address}" <<< "${import_output}"; then
+    echo "Already tracked in state during import attempt: ${label} (${address})"
+    return 0
+  fi
+
+  echo "${import_output}"
+  return "${import_rc}"
 }
 
 find_sg_id_by_name() {
