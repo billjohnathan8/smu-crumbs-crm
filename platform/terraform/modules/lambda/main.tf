@@ -295,7 +295,7 @@ resource "aws_lambda_function" "verification" {
       LOG_API_BASE_URL                 = var.log_api_base_url
       VERIFICATION_JWT_HMAC_SECRET_ARN = var.verification_jwt_hmac_secret_arn
       VERIFICATION_JWT_SUB             = "SYSTEM_VERIFICATION_FEEDBACK"
-      VERIFICATION_JWT_ROLE            = "admin"
+      VERIFICATION_JWT_ROLE            = "service"
     }
   }
 

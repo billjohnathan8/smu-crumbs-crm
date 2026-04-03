@@ -53,7 +53,7 @@ SES event -> SNS -> Lambda -> PATCH /api/communications/provider/{id}/status
 | `VERIFICATION_JWT_HMAC_SECRET_ARN` | Optional | Secrets Manager ARN for service JWT secret |
 | `JWT_HMAC_SECRET_ARN` | Optional | Fallback secret ARN |
 | `VERIFICATION_JWT_SUB` | Optional | Service JWT subject (default: `SYSTEM_VERIFICATION_FEEDBACK`) |
-| `VERIFICATION_JWT_ROLE` | Optional | Service JWT role (default: `admin`) |
+| `VERIFICATION_JWT_ROLE` | Optional | Service JWT role (default: `service`) |
 | `VERIFICATION_JWT_TTL_SECONDS` | Optional | Service JWT TTL seconds (default: `300`) |
 
 ---
