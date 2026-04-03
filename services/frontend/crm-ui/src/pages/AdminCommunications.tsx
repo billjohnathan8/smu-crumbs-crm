@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import {
   listCommunications,
+  listQueuedCommunications,
   getCommunicationById,
   listClientCommunications,
   type ListCommunicationsParams,
@@ -117,7 +118,17 @@ export function AdminCommunications() {
     setError('')
 
     try {
-      const response = await listCommunications(buildListParams(filters, page))
+      let response
+      try {
+        response = await listCommunications(buildListParams(filters, page))
+      } catch (err) {
+        // Backward compatibility: some environments expose queued communications only.
+        if (err instanceof ApiError && err.status === 404) {
+          response = await listQueuedCommunications(buildListParams(filters, page))
+        } else {
+          throw err
+        }
+      }
       setCommunications(response.data)
       setTotalCommunications(response.pagination?.total || 0)
     } catch (err) {
@@ -431,7 +442,7 @@ export function AdminCommunications() {
         <CommunicationsPanel
           communications={communications}
           formatDate={formatDateTime}
-          title="All Communications"
+          title="Queued Communications"
           titleAsHeading={false}
           emptyMessage="No communications found"
           onRefresh={() => fetchCommunications(activeFilters, currentPage, true)}

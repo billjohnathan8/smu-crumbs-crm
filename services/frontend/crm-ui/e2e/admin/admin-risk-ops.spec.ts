@@ -214,7 +214,7 @@ test.describe("Admin Communications and AML (Mocked)", () => {
     });
   });
 
-  test("updates queued communication status and supports ID lookup", async ({ page }) => {
+test("shows queued communications as read-only and supports ID lookup", async ({ page }) => {
     await setupAdminRiskOpsRoutes(page);
     await gotoWithNetworkRetry(page, "/login");
     await setAuthState(page, "admin");
@@ -222,10 +222,9 @@ test.describe("Admin Communications and AML (Mocked)", () => {
     await gotoWithNetworkRetry(page, "/admin/communications");
     await expect(page.getByRole("heading", { name: "Communications", exact: true })).toBeVisible();
     await expect(page.getByText("Queued Communications")).toBeVisible();
-
-    await page.locator("tbody tr").first().locator("select").selectOption("sent");
-    await page.locator("tbody tr").first().getByRole("button", { name: "Update" }).click();
-    await expect(page.locator("tbody tr").first().locator("select")).toHaveValue("sent");
+    await expect(page.locator("tbody tr").first().locator("select")).toHaveCount(0);
+    await expect(page.locator("tbody tr").first().getByRole("button", { name: "Update" })).toHaveCount(0);
+    await expect(page.locator("tbody tr").first().getByText("queued")).toBeVisible();
 
     await page.getByPlaceholder("com_...").fill("com_001");
     await page.getByRole("button", { name: /^Lookup$/ }).first().click();
