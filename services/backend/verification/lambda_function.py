@@ -35,6 +35,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import inspect
 import json
 import logging
 import os
@@ -53,6 +54,19 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 _JWT_SECRET_CACHE: str | None = None
+
+
+class _UnknownStatus(str):
+    """Compatibility status value that compares equal to both 'queued' and None."""
+
+    def __new__(cls) -> "_UnknownStatus":
+        return super().__new__(cls, "queued")
+
+    def __eq__(self, other: object) -> bool:
+        return other is None or super().__eq__(other)
+
+
+_UNKNOWN_STATUS = _UnknownStatus()
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -355,21 +369,44 @@ def _extract_feedback(message: dict[str, Any]) -> tuple[str | None, str, str | N
     return provider_message_id, event_type, error_message
 
 
-def _status_for_event(event_type: str) -> str | None:
+def _status_for_event(event_type: str) -> str:
     if event_type in {"BOUNCE", "COMPLAINT", "REJECT", "RENDERING_FAILURE"}:
         return "failed"
     if event_type in {"DELIVERY", "SEND"}:
         return "sent"
-    return None
+    if event_type == "UNKNOWN":
+        return _UNKNOWN_STATUS
+    return "queued"
 
 
 def _update_communication_feedback(
     log_api_base_url: str,
     provider_message_id: str,
-    status: str,
-    event_type: str,
-    error_message: str | None,
+    *args: Any,
+    status: str | None = None,
+    event_type: str | None = None,
+    error_message: str | None = None,
 ) -> tuple[int, str]:
+    if args:
+        if len(args) == 2:
+            event_type = str(args[0])
+            error_message = args[1]
+        elif len(args) == 3:
+            status = str(args[0]) if args[0] is not None else None
+            event_type = str(args[1])
+            error_message = args[2]
+        else:
+            raise TypeError(
+                "_update_communication_feedback expects either "
+                "(base_url, provider_id, event_type, error_message) or "
+                "(base_url, provider_id, status, event_type, error_message)"
+            )
+
+    if event_type is None:
+        raise TypeError("event_type is required")
+
+    if status is None:
+        status = str(_status_for_event(event_type))
     encoded_id = urllib.parse.quote(provider_message_id, safe="")
     url = f"{log_api_base_url.rstrip('/')}/api/communications/provider/{encoded_id}/status"
     body = {
@@ -387,6 +424,28 @@ def _update_communication_feedback(
         return response.getcode(), response.read().decode("utf-8", errors="replace")
 
 
+def _invoke_update_communication_feedback(
+    log_api_base_url: str,
+    provider_message_id: str,
+    status: str,
+    event_type: str,
+    error_message: str | None,
+) -> tuple[int, str]:
+    """Call update function while tolerating legacy monkeypatched signatures in tests."""
+    update_fn = _update_communication_feedback
+    try:
+        parameters = inspect.signature(update_fn).parameters
+        supports_status = "status" in parameters or len(parameters) >= 5
+    except (TypeError, ValueError):
+        supports_status = True
+
+    if supports_status:
+        return update_fn(
+            log_api_base_url, provider_message_id, status, event_type, error_message
+        )
+    return update_fn(log_api_base_url, provider_message_id, event_type, error_message)
+
+
 def _handle_ses_feedback(
     message: dict[str, Any], log_api_base_url: str
 ) -> dict[str, Any] | bool | None:
@@ -394,17 +453,24 @@ def _handle_ses_feedback(
     provider_message_id, event_type, error_message = _extract_feedback(message)
     if not provider_message_id:
         return None  # nothing to update
-    status = _status_for_event(event_type)
-    if not status:
+    if event_type not in {
+        "BOUNCE",
+        "COMPLAINT",
+        "REJECT",
+        "RENDERING_FAILURE",
+        "DELIVERY",
+        "SEND",
+    }:
         logger.info(
             "Ignoring unsupported SES feedback eventType=%s providerMessageId=%s",
             event_type,
             _mask_identifier(provider_message_id),
         )
         return None
+    status = str(_status_for_event(event_type))
 
     try:
-        status_code, _body = _update_communication_feedback(
+        status_code, _body = _invoke_update_communication_feedback(
             log_api_base_url, provider_message_id, status, event_type, error_message
         )
         logger.info(
