@@ -181,6 +181,11 @@
     caret-color: var(--text);
   }
 
+  input[type='password'].form-input,
+  input[type='password'].form-input:focus {
+    -webkit-text-fill-color: var(--text) !important;
+  }
+
   .form-input:-webkit-autofill,
   .form-input:-webkit-autofill:hover,
   .form-input:-webkit-autofill:focus {

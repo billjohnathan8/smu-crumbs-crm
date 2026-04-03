@@ -7,7 +7,11 @@ import type { CreateUserRequest, UserRole } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 import { useTheme } from '@/features/theme/useTheme'
-
+import {
+  getPasswordRules,
+  getPasswordStrength,
+  getPasswordStrengthPercent,
+} from '@/features/auth/passwordPolicy'
 const userNav: NavItem[] = [
   { label: 'Home', to: '/user', end: true },
   { label: 'My Clients', to: '/user/clients' },
@@ -32,48 +36,6 @@ const roleLabel = (role: UserRole) => {
   if (role === 'admin') return 'Admin'
   if (role === 'super_admin') return 'Root Admin'
   return 'Agent'
-}
-
-const PASSWORD_MIN_LENGTH = 8
-const PASSWORD_MAX_LENGTH = 128
-const SPECIAL_CHARACTER_REGEX = /[^A-Za-z0-9]/
-
-type PasswordRule = {
-  label: string
-  passed: boolean
-}
-
-function getPasswordRules(password: string): PasswordRule[] {
-  return [
-    {
-      label: `Between ${PASSWORD_MIN_LENGTH} and ${PASSWORD_MAX_LENGTH} characters`,
-      passed: password.length >= PASSWORD_MIN_LENGTH && password.length <= PASSWORD_MAX_LENGTH,
-    },
-    {
-      label: 'At least one lowercase letter',
-      passed: /[a-z]/.test(password),
-    },
-    {
-      label: 'At least one number',
-      passed: /[0-9]/.test(password),
-    },
-    {
-      label: 'At least one special character',
-      passed: SPECIAL_CHARACTER_REGEX.test(password),
-    },
-  ]
-}
-
-function getPasswordStrength(password: string): 'weak' | 'medium' | 'strong' {
-  const rules = getPasswordRules(password)
-  const passedCount = rules.filter(rule => rule.passed).length
-  const hasUppercase = /[A-Z]/.test(password)
-  const longEnough = password.length >= 12
-  const score = passedCount + (hasUppercase ? 1 : 0) + (longEnough ? 1 : 0)
-
-  if (score <= 2) return 'weak'
-  if (score <= 4) return 'medium'
-  return 'strong'
 }
 
 export function CreateNewUserPage() {
@@ -210,6 +172,7 @@ export function CreateNewUserPage() {
   const hasTemporaryPassword = temporaryPassword.trim().length > 0
   const passwordRules = hasTemporaryPassword ? getPasswordRules(temporaryPassword) : []
   const passwordStrength = hasTemporaryPassword ? getPasswordStrength(temporaryPassword) : null
+  const strengthPercent = passwordStrength ? getPasswordStrengthPercent(passwordStrength) : 0
   const strengthLabelClass =
     passwordStrength === 'strong'
       ? 'text-success'
@@ -342,43 +305,35 @@ export function CreateNewUserPage() {
                 disabled={isSubmitting}
                 placeholder="Leave blank to auto-generate"
               />
-              <p className="text-xs text-text-subtle mt-2">
-                Must include lowercase, number, special character, and be 8-128 characters.
-                Uppercase is recommended.
-              </p>
               {hasTemporaryPassword && (
                 <>
-                  <div className="mt-3">
-                    <div className="grid grid-cols-3 gap-2">
-                      <div
-                        className={`h-1 rounded ${
-                          passwordStrength === 'weak' ? 'bg-danger' : 'bg-border'
-                        }`}
-                      />
-                      <div
-                        className={`h-1 rounded ${
-                          passwordStrength === 'medium' ? 'bg-yellow-500' : 'bg-border'
-                        }`}
-                      />
-                      <div
-                        className={`h-1 rounded ${
-                          passwordStrength === 'strong' ? 'bg-success' : 'bg-border'
-                        }`}
-                      />
-                    </div>
-                    <p className={`text-xs mt-1 font-medium capitalize ${strengthLabelClass}`}>
+                  <div className="mt-3 flex items-center gap-3">
+                    <p className={`text-xs font-medium capitalize min-w-12 ${strengthLabelClass}`}>
                       {passwordStrength}
                     </p>
+                    <div className="h-2 flex-1 rounded-full bg-border overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-200 ${
+                          passwordStrength === 'strong'
+                            ? 'bg-success'
+                            : passwordStrength === 'medium'
+                              ? 'bg-yellow-500'
+                              : 'bg-danger'
+                        }`}
+                        style={{ width: `${strengthPercent}%` }}
+                      />
+                    </div>
                   </div>
-                  <ul className="mt-2 space-y-1">
+                  <ul className="mt-3 space-y-1 list-disc pl-5">
                     {passwordRules.map(rule => (
                       <li
                         key={rule.label}
                         className={`text-xs ${rule.passed ? 'text-success' : 'text-text-subtle'}`}
                       >
-                        {rule.passed ? 'Pass' : 'Need'}: {rule.label}
+                        {rule.label}
                       </li>
                     ))}
+                    <li className="text-xs text-text-subtle">Avoid reusing passwords across sites.</li>
                   </ul>
                 </>
               )}

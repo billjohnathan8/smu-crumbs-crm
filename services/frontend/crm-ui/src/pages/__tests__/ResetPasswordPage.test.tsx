@@ -68,6 +68,20 @@ describe('ResetPasswordPage', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
+  it('requires uppercase and lowercase letters in reset password', async () => {
+    const user = userEvent.setup()
+    renderComponent()
+
+    await user.type(screen.getByTestId('new-password-input'), 'validpass123!')
+    await user.type(screen.getByTestId('confirm-password-input'), 'validpass123!')
+    await user.click(screen.getByTestId('reset-password-submit-button'))
+
+    await waitFor(() => {
+      expect(screen.getByText(/Password does not meet requirements/i)).toBeInTheDocument()
+    })
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
   it('submits reset-password with token and shows success', async () => {
     const user = userEvent.setup()
     fetchSpy.mockResolvedValueOnce(new Response(null, { status: 200 }))
