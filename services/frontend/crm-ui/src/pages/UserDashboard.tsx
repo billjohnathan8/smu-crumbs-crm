@@ -155,7 +155,7 @@ export function UserDashboard() {
                           </td>
                           <td className="px-6 py-4 text-sm text-text">{log.attributeName}</td>
                           <td className="px-6 py-4 text-sm text-text-muted font-mono text-xs">
-                            {log.clientId.substring(0, 8)}...
+                            {log.clientId}
                           </td>
                           <td className="px-6 py-4 text-sm text-text-subtle max-w-xs truncate">
                             {log.beforeValue || '-'}

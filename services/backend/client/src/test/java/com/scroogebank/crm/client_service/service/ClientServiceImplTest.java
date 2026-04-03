@@ -443,8 +443,8 @@ class ClientServiceImplTest {
 		verify(clientAuditLogger).logAuditEvent(
 			eq("UPDATE"),
 			eq("assignedUserId"),
-			eq("usr_1"),
-			eq("usr_2"),
+			eq("[REDACTED]"),
+			eq("[REDACTED]"),
 			eq("usr_admin"),
 			eq("clt_12"),
 			eq("req-1"),

@@ -533,7 +533,7 @@ describe('AdminDashboard', () => {
     // Navigation happens through BrowserRouter - just verify no errors thrown
   })
 
-  it('should truncate IDs in table', async () => {
+  it('should show full IDs in table', async () => {
     const mockLogs: LogEntry[] = [
       {
         logId: 'log-1',
@@ -563,8 +563,8 @@ describe('AdminDashboard', () => {
     renderAdminDashboard()
 
     await waitFor(() => {
-      const truncatedTexts = screen.getAllByText(/\.\.\./i)
-      expect(truncatedTexts.length).toBeGreaterThan(0)
+      expect(screen.getByText('user-verylongid123456789')).toBeInTheDocument()
+      expect(screen.getByText('client-verylongid987654321')).toBeInTheDocument()
     })
   })
 })

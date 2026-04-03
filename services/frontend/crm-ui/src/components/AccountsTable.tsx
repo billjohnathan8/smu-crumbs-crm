@@ -67,7 +67,7 @@ export function AccountsTable({
           {accounts.map(acct => (
             <tr key={acct.accountId} className="hover:bg-background-light">
               <td className="px-6 py-3 text-sm text-text font-mono">
-                {acct.accountId.slice(0, 8)}…
+                {acct.accountId}
               </td>
               <td className="px-6 py-3 text-sm text-text">{acct.clientId}</td>
               <td className="px-6 py-3 text-sm text-text">{acct.accountType}</td>

@@ -794,10 +794,10 @@ export function ViewTransactionsPage() {
                           {formatDateTime(transaction.date)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-text-muted font-mono text-xs">
-                          {transaction.id.substring(0, 8)}...
+                          {transaction.id}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-text-muted font-mono text-xs">
-                          {transaction.clientId.substring(0, 8)}...
+                          {transaction.clientId}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span

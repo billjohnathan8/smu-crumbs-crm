@@ -131,6 +131,7 @@ export interface ClientUpdateRequest {
   state?: string
   country?: string
   postalCode?: string
+  assignedUserId?: string
 }
 
 export interface UploadVerificationDocsRequest {

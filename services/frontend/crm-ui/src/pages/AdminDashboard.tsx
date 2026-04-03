@@ -517,10 +517,10 @@ export function AdminDashboard() {
                           </td>
                           <td className="px-6 py-4 text-sm text-text">{log.attributeName}</td>
                           <td className="px-6 py-4 text-sm text-text-muted font-mono text-xs">
-                            {log.userId.substring(0, 8)}...
+                            {log.userId}
                           </td>
                           <td className="px-6 py-4 text-sm text-text-muted font-mono text-xs">
-                            {log.clientId.substring(0, 8)}...
+                            {log.clientId}
                           </td>
                         </tr>
                       ))}

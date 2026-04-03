@@ -249,7 +249,7 @@ describe('UserDashboard', () => {
     })
   })
 
-  it('should truncate client ID in table', async () => {
+  it('should show full client ID in table', async () => {
     const mockClientsResponse: PaginatedResponse<Client> = {
       data: [],
       pagination: { total: 0, limit: 1, offset: 0 },
@@ -279,7 +279,7 @@ describe('UserDashboard', () => {
     renderUserDashboard()
 
     await waitFor(() => {
-      expect(screen.getByText(/client-v\.\.\./i)).toBeInTheDocument()
+      expect(screen.getByText('client-verylongid123456789')).toBeInTheDocument()
     })
   })
 })

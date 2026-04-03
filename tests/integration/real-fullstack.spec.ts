@@ -181,7 +181,7 @@ test.describe("Real Fullstack Integration", () => {
     const { clientId } = await waitForClientByEmail(request, normalizedBaseURL, authToken as string, clientEmail);
     await waitForCreateAuditLog(request, normalizedBaseURL, authToken as string, clientId);
 
-    const alertId = `aml-${uniqueSuffix()}`;
+    const alertId = `aml_${uniqueSuffix()}`;
     const amlCreateResponse = await request.post(`${normalizedBaseURL}/api/aml/alerts`, {
       headers: { Authorization: `Bearer ${adminToken}` },
       data: {

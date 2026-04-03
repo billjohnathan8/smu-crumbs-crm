@@ -5,15 +5,23 @@ import { BrowserRouter } from 'react-router-dom'
 import { EditClientPage } from '../EditClientPage'
 import { ThemeProvider } from '@/features/theme/ThemeContext'
 import * as clientsApi from '@/api/clients'
+import * as usersApi from '@/api/users'
 import { ApiError } from '@/api/client'
 import type { Client } from '@/api/types'
 
 vi.mock('@/api/clients')
+vi.mock('@/api/users')
 
 const mockLogout = vi.fn()
+const mockAuthUser: {
+  id: string
+  firstName: string
+  lastName: string
+  role: 'user' | 'admin' | 'super_admin'
+} = { id: '1', firstName: 'John', lastName: 'Doe', role: 'user' }
 vi.mock('@/features/auth/AuthContext', () => ({
   useAuth: () => ({
-    user: { id: '1', firstName: 'John', lastName: 'Doe', role: 'user' },
+    user: mockAuthUser,
     logout: mockLogout,
   }),
 }))
@@ -42,6 +50,7 @@ const mockClient: Client = {
   country: 'Singapore',
   postalCode: '123456',
   identityVerificationStatus: 'verified',
+  assignedUserId: 'agent-1',
   createdAt: '2024-01-01T00:00:00Z',
 }
 
@@ -56,6 +65,10 @@ describe('UserEditClient', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockAuthUser.id = '1'
+    mockAuthUser.firstName = 'John'
+    mockAuthUser.lastName = 'Doe'
+    mockAuthUser.role = 'user'
     vi.spyOn(clientsApi, 'getClientById').mockResolvedValue(mockClient)
   })
 
@@ -395,6 +408,57 @@ describe('UserEditClient', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('First name is required')).not.toBeInTheDocument()
+    })
+  })
+
+  it('should allow admin to reassign assigned agent on update', async () => {
+    mockAuthUser.id = 'usr_admin'
+    mockAuthUser.role = 'admin'
+
+    vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
+      data: [
+        {
+          id: 'agent-1',
+          firstName: 'Current',
+          lastName: 'Agent',
+          email: 'current.agent@example.com',
+          role: 'user',
+          status: 'active',
+        },
+        {
+          id: 'agent-2',
+          firstName: 'Next',
+          lastName: 'Agent',
+          email: 'next.agent@example.com',
+          role: 'user',
+          status: 'active',
+        },
+      ],
+      pagination: { limit: 200, offset: 0, total: 2 },
+    })
+    vi.spyOn(clientsApi, 'updateClient').mockResolvedValue({
+      ...mockClient,
+      assignedUserId: 'agent-2',
+    })
+
+    renderComponent()
+    const user = userEvent.setup()
+
+    const assignedAgentSelect = () =>
+      document.querySelector('select[name="assignedUserId"]') as HTMLSelectElement | null
+
+    await waitFor(() => {
+      expect(assignedAgentSelect()).not.toBeNull()
+    })
+
+    await user.selectOptions(assignedAgentSelect() as HTMLSelectElement, 'agent-2')
+    await user.click(screen.getByRole('button', { name: /Save Changes/i }))
+
+    await waitFor(() => {
+      expect(clientsApi.updateClient).toHaveBeenCalledWith(
+        'client-123',
+        expect.objectContaining({ assignedUserId: 'agent-2' })
+      )
     })
   })
 })

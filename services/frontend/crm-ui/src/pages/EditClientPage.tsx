@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { useTheme } from '@/features/theme/useTheme'
 import { getClientById, updateClient } from '@/api/clients'
-import type { ClientUpdateRequest, Gender } from '@/api/types'
+import { listUsers } from '@/api/users'
+import type { ClientUpdateRequest, Gender, User } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 import {
@@ -60,6 +61,7 @@ export function EditClientPage() {
   const [loadError, setLoadError] = useState('')
   const [errors, setErrors] = useState<Partial<Record<keyof ClientUpdateRequest, string>>>({})
   const [generalError, setGeneralError] = useState('')
+  const [assignableAgents, setAssignableAgents] = useState<User[]>([])
 
   useEffect(() => {
     if (!clientId) return
@@ -80,6 +82,7 @@ export function EditClientPage() {
           state: client.state,
           country: client.country,
           postalCode: client.postalCode,
+          assignedUserId: client.assignedUserId,
         })
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
@@ -94,6 +97,26 @@ export function EditClientPage() {
 
     load()
   }, [clientId, logout])
+
+  useEffect(() => {
+    const loadAgents = async () => {
+      if (!isManagementUser) {
+        return
+      }
+      try {
+        const response = await listUsers({ role: 'user', limit: 200, offset: 0 })
+        setAssignableAgents(response.data.filter(agent => agent.status === 'active'))
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          logout()
+          return
+        }
+        setGeneralError('Unable to load assignable agents')
+      }
+    }
+
+    loadAgents()
+  }, [isManagementUser, logout])
 
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof ClientUpdateRequest, string>> = {}
@@ -139,6 +162,9 @@ export function EditClientPage() {
       const countryRule = getPostalCodeRule(country)
       newErrors.postalCode = `Postal code must match ${countryRule.country} format (${countryRule.hint})`
     }
+    if (isManagementUser && !formData.assignedUserId?.trim()) {
+      newErrors.assignedUserId = 'Please select an agent to assign this client to'
+    }
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -151,7 +177,11 @@ export function EditClientPage() {
 
     setIsSubmitting(true)
     try {
-      await updateClient(clientId, formData)
+      const payload: ClientUpdateRequest = {
+        ...formData,
+        assignedUserId: isManagementUser ? formData.assignedUserId?.trim() || undefined : undefined,
+      }
+      await updateClient(clientId, payload)
       navigate(detailPath, {
         state: { successMessage: 'Client updated successfully' },
       })
@@ -254,6 +284,30 @@ export function EditClientPage() {
 
           <form onSubmit={handleSubmit} noValidate className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {isManagementUser && (
+                <div>
+                  <label className="block text-sm font-normal text-text mb-2">
+                    Assigned Agent <span className="text-danger">*</span>
+                  </label>
+                  <select
+                    name="assignedUserId"
+                    value={formData.assignedUserId ?? ''}
+                    onChange={e => updateField('assignedUserId', e.target.value)}
+                    className={inputCls('assignedUserId')}
+                    disabled={isSubmitting}
+                  >
+                    <option value="">-- Select an agent --</option>
+                    {assignableAgents.map(agent => (
+                      <option key={agent.id} value={agent.id}>
+                        {agent.firstName} {agent.lastName} ({agent.email})
+                      </option>
+                    ))}
+                  </select>
+                  {errors.assignedUserId && (
+                    <p className="text-danger text-xs mt-1">{errors.assignedUserId}</p>
+                  )}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-normal text-text mb-2">
                   First Name <span className="text-danger">*</span>
