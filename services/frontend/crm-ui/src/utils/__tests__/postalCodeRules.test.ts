@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  COUNTRY_OPTIONS,
-  getPostalCodeRule,
-  isPostalCodeValidForCountry,
-} from '../postalCodeRules'
+import { COUNTRY_OPTIONS, getPostalCodeRule, isPostalCodeValidForCountry } from '../postalCodeRules'
 
 describe('postalCodeRules', () => {
   it('exposes supported country options including fallback', () => {
