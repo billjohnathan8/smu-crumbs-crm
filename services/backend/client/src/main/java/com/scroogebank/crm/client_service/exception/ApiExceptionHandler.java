@@ -118,18 +118,21 @@ public class ApiExceptionHandler {
 		HttpServletRequest request,
 		DataIntegrityViolationException ex
 	) {
-		String details = extractDetails(ex).toLowerCase();
-		String message = "Conflict";
-		if (details.contains("uk_clients_email") || details.contains("email_address")) {
-			message = "Email address already exists.";
-		} else if (details.contains("uk_clients_phone") || details.contains("phone_number")) {
-			message = "Phone number already exists.";
+		String message = conflictMessageFrom(ex);
+		if (message == null) {
+			message = "Conflict";
 		}
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(error(request, "conflict", message));
 	}
 
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleInternal(HttpServletRequest request, Exception ex) {
+		String message = conflictMessageFrom(ex);
+		if (message != null) {
+			Object requestId = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
+			log.warn("Conflict exception routed to internal handler (requestId={}): {}", requestId == null ? "unknown" : requestId.toString(), message);
+			return ResponseEntity.status(HttpStatus.CONFLICT).body(error(request, "conflict", message));
+		}
 		Object requestId = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
 		log.error("Unhandled exception (requestId={})", requestId == null ? "unknown" : requestId.toString(), ex);
 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error(request, "internal_error", "Internal error"));
@@ -151,5 +154,16 @@ public class ApiExceptionHandler {
 			cur = cur.getCause();
 		}
 		return sb.toString();
+	}
+
+	private static String conflictMessageFrom(Throwable throwable) {
+		String details = extractDetails(throwable).toLowerCase();
+		if (details.contains("uk_clients_email") || details.contains("email_address")) {
+			return "Email address already exists.";
+		}
+		if (details.contains("uk_clients_phone") || details.contains("phone_number")) {
+			return "Phone number already exists.";
+		}
+		return null;
 	}
 }

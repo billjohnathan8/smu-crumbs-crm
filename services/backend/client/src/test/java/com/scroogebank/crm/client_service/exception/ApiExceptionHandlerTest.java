@@ -190,4 +190,37 @@ class ApiExceptionHandlerTest {
 		assertThat(response.getBody().error()).isEqualTo("conflict");
 		assertThat(response.getBody().message()).isEqualTo("Phone number already exists.");
 	}
+
+	@Test
+	void handleInternal_whenDuplicateEmailSignaturePresent_returnsConflictInsteadOfInternalError() {
+		ApiExceptionHandler handler = new ApiExceptionHandler(false);
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setAttribute("requestId", "req-fallback");
+
+		Exception ex = new RuntimeException(
+			"wrapped failure",
+			new DataIntegrityViolationException("ERROR: duplicate key value violates unique constraint \"uk_clients_email\"")
+		);
+
+		var response = handler.handleInternal(request, ex);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+		assertThat(response.getBody()).isNotNull();
+		assertThat(response.getBody().error()).isEqualTo("conflict");
+		assertThat(response.getBody().message()).isEqualTo("Email address already exists.");
+		assertThat(response.getBody().requestId()).isEqualTo("req-fallback");
+	}
+
+	@Test
+	void handleInternal_whenNoConflictSignature_returnsInternalError() {
+		ApiExceptionHandler handler = new ApiExceptionHandler(false);
+		MockHttpServletRequest request = new MockHttpServletRequest();
+
+		var response = handler.handleInternal(request, new RuntimeException("boom"));
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+		assertThat(response.getBody()).isNotNull();
+		assertThat(response.getBody().error()).isEqualTo("internal_error");
+		assertThat(response.getBody().message()).isEqualTo("Internal error");
+	}
 }
