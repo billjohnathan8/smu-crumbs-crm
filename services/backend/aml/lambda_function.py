@@ -729,7 +729,9 @@ class CRMWriteClient:
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=DEFAULT_HTTP_TIMEOUT_SECONDS) as resp:
+            with urllib.request.urlopen(
+                req, timeout=DEFAULT_HTTP_TIMEOUT_SECONDS
+            ) as resp:
                 raw_body = resp.read()
                 if isinstance(raw_body, (bytes, bytearray)):
                     raw = raw_body.decode("utf-8", errors="replace").strip()
