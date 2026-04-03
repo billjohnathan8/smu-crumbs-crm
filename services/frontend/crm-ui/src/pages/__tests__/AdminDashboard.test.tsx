@@ -184,6 +184,73 @@ describe('AdminDashboard', () => {
     })
   })
 
+  it('should paginate activity logs with Previous and Next controls', async () => {
+    const pageOneLogs: LogEntry[] = [
+      {
+        logId: 'log-page-1',
+        userId: 'user-page-one',
+        clientId: 'client-page-one',
+        action: 'CREATE',
+        attributeName: 'page-one-attribute',
+        beforeValue: null,
+        afterValue: 'value-one',
+        dateTime: '2024-01-15T10:30:00Z',
+      },
+    ]
+    const pageTwoLogs: LogEntry[] = [
+      {
+        logId: 'log-page-2',
+        userId: 'user-page-two',
+        clientId: 'client-page-two',
+        action: 'UPDATE',
+        attributeName: 'page-two-attribute',
+        beforeValue: 'value-one',
+        afterValue: 'value-two',
+        dateTime: '2024-01-15T11:30:00Z',
+      },
+    ]
+
+    vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
+      data: [],
+      pagination: { total: 0, limit: 1, offset: 0 },
+    })
+    vi.spyOn(clientsApi, 'listClients').mockResolvedValue({
+      data: [],
+      pagination: { total: 0, limit: 1, offset: 0 },
+    })
+    const listLogsSpy = vi
+      .spyOn(logsApi, 'listLogs')
+      .mockResolvedValueOnce({
+        data: pageOneLogs,
+        pagination: { total: 11, limit: 10, offset: 0 },
+      })
+      .mockResolvedValueOnce({
+        data: pageTwoLogs,
+        pagination: { total: 11, limit: 10, offset: 10 },
+      })
+
+    const user = userEvent.setup()
+    renderAdminDashboard()
+
+    await waitFor(() => {
+      expect(screen.getByText('page-one-attribute')).toBeInTheDocument()
+      expect(screen.getByText(/Page 1 of 2/i)).toBeInTheDocument()
+    })
+
+    const previousButton = screen.getByRole('button', { name: 'Previous' })
+    const nextButton = screen.getByRole('button', { name: 'Next' })
+    expect(previousButton).toBeDisabled()
+    await user.click(nextButton)
+
+    await waitFor(() => {
+      expect(screen.getByText('page-two-attribute')).toBeInTheDocument()
+      expect(screen.getByText(/Page 2 of 2/i)).toBeInTheDocument()
+    })
+
+    expect(listLogsSpy).toHaveBeenNthCalledWith(1, { limit: 10, offset: 0 })
+    expect(listLogsSpy).toHaveBeenNthCalledWith(2, { limit: 10, offset: 10 })
+  })
+
   it('should show empty state when no logs', async () => {
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
       data: [],

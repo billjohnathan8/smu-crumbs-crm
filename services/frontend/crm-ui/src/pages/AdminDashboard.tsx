@@ -15,6 +15,8 @@ interface Stats {
   recentActivities: number
 }
 
+const LOGS_PER_PAGE = 10
+
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
   { label: 'All Clients', to: '/admin/clients', end: true },
@@ -36,8 +38,11 @@ export function AdminDashboard() {
     recentActivities: 0,
   })
   const [recentLogs, setRecentLogs] = useState<LogEntry[]>([])
+  const [logsTotal, setLogsTotal] = useState(0)
+  const [currentLogsPage, setCurrentLogsPage] = useState(0)
   const [pendingClients, setPendingClients] = useState<Client[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isLogsLoading, setIsLogsLoading] = useState(true)
   const [error, setError] = useState<string>('')
 
   useEffect(() => {
@@ -51,14 +56,12 @@ export function AdminDashboard() {
           adminsResult,
           rootAdminsResult,
           clientsResult,
-          logsResult,
           allClientsResult,
         ] = await Promise.allSettled([
           listUsers({ limit: 1, role: 'user' }),
           listUsers({ limit: 1, role: 'admin' }),
           listUsers({ limit: 1, role: 'super_admin' }),
           listClients({ limit: 1 }),
-          listLogs({ limit: 10 }),
           listClients({ limit: 100 }),
         ])
         let nextError = ''
@@ -74,19 +77,6 @@ export function AdminDashboard() {
               ? reason.message || 'Failed to load dashboard data'
               : 'Failed to load dashboard data'
         }
-        if (logsResult.status === 'rejected') {
-          const reason = logsResult.reason
-          if (reason instanceof ApiError && reason.status === 401) {
-            logout()
-            return
-          }
-          if (!nextError) {
-            nextError =
-              reason instanceof ApiError
-                ? reason.message || 'Failed to load recent activity logs'
-                : 'Failed to load recent activity logs'
-          }
-        }
         if (nextError) {
           setError(nextError)
         }
@@ -96,19 +86,16 @@ export function AdminDashboard() {
         const rootAdminsResponse =
           rootAdminsResult.status === 'fulfilled' ? rootAdminsResult.value : null
         const clientsResponse = clientsResult.status === 'fulfilled' ? clientsResult.value : null
-        const logsResponse = logsResult.status === 'fulfilled' ? logsResult.value : null
         const allClientsResponse =
           allClientsResult.status === 'fulfilled' ? allClientsResult.value : null
 
-        setStats({
+        setStats(prev => ({
           totalAgents: agentsResponse?.pagination?.total || 0,
           totalAdmins:
             (adminsResponse?.pagination?.total || 0) + (rootAdminsResponse?.pagination?.total || 0),
           totalClients: clientsResponse?.pagination?.total || 0,
-          recentActivities: logsResponse?.pagination?.total || 0,
-        })
-
-        setRecentLogs(logsResponse?.data || [])
+          recentActivities: prev.recentActivities,
+        }))
 
         // Filter for clients with pending verification
         const pending = (allClientsResponse?.data || []).filter(
@@ -133,6 +120,44 @@ export function AdminDashboard() {
     fetchDashboardData()
   }, [logout])
 
+  useEffect(() => {
+    const fetchRecentLogs = async () => {
+      setIsLogsLoading(true)
+
+      try {
+        const response = await listLogs({
+          limit: LOGS_PER_PAGE,
+          offset: currentLogsPage * LOGS_PER_PAGE,
+        })
+        const total = response.pagination?.total || 0
+        setRecentLogs(response.data || [])
+        setLogsTotal(total)
+        setStats(prev => ({ ...prev, recentActivities: total }))
+      } catch (err) {
+        if (err instanceof ApiError) {
+          if (err.status === 401) {
+            logout()
+            return
+          }
+          setError(err.message || 'Failed to load recent activity logs')
+        } else {
+          setError('Failed to load recent activity logs')
+        }
+      } finally {
+        setIsLogsLoading(false)
+      }
+    }
+
+    fetchRecentLogs()
+  }, [currentLogsPage, logout])
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(logsTotal / LOGS_PER_PAGE))
+    if (currentLogsPage > totalPages - 1) {
+      setCurrentLogsPage(totalPages - 1)
+    }
+  }, [currentLogsPage, logsTotal])
+
   const formatDateTime = (dateString: string) => {
     return new Date(dateString).toLocaleString('en-SG', {
       year: 'numeric',
@@ -142,6 +167,9 @@ export function AdminDashboard() {
       minute: '2-digit',
     })
   }
+
+  const totalLogPages = Math.ceil(logsTotal / LOGS_PER_PAGE)
+  const canPaginateLogs = totalLogPages > 1
 
   return (
     <SidebarLayout items={adminNav}>
@@ -244,7 +272,11 @@ export function AdminDashboard() {
                 <h2 className="text-xl font-normal text-text">Recent Activity Logs</h2>
               </div>
               <div className="overflow-x-auto">
-                {recentLogs.length === 0 ? (
+                {isLogsLoading && recentLogs.length === 0 ? (
+                  <div className="flex items-center justify-center h-40" role="status">
+                    <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+                  </div>
+                ) : recentLogs.length === 0 ? (
                   <div className="p-6 text-center text-text-subtle">No activity logs found</div>
                 ) : (
                   <table className="w-full">
@@ -301,6 +333,42 @@ export function AdminDashboard() {
                   </table>
                 )}
               </div>
+              {canPaginateLogs && (
+                <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+                  <p className="text-sm text-text-muted">
+                    Showing {currentLogsPage * LOGS_PER_PAGE + 1} to{' '}
+                    {Math.min((currentLogsPage + 1) * LOGS_PER_PAGE, logsTotal)} of {logsTotal}{' '}
+                    activities
+                  </p>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setCurrentLogsPage(page => page - 1)}
+                      disabled={currentLogsPage === 0 || isLogsLoading}
+                      className={`px-3 py-1 rounded ${
+                        currentLogsPage === 0 || isLogsLoading
+                          ? 'bg-background-light text-text-muted cursor-not-allowed'
+                          : 'bg-primary hover:bg-primary-hover text-white'
+                      }`}
+                    >
+                      Previous
+                    </button>
+                    <span className="px-3 py-1 text-text">
+                      Page {currentLogsPage + 1} of {totalLogPages}
+                    </span>
+                    <button
+                      onClick={() => setCurrentLogsPage(page => page + 1)}
+                      disabled={currentLogsPage >= totalLogPages - 1 || isLogsLoading}
+                      className={`px-3 py-1 rounded ${
+                        currentLogsPage >= totalLogPages - 1 || isLogsLoading
+                          ? 'bg-background-light text-text-muted cursor-not-allowed'
+                          : 'bg-primary hover:bg-primary-hover text-white'
+                      }`}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}
