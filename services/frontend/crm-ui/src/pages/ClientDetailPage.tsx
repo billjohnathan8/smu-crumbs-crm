@@ -1,7 +1,13 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
-import { getClientById, reviewVerification, deleteClient, listClientAccounts } from '@/api/clients'
+import {
+  getClientById,
+  reviewVerification,
+  resendVerificationLink,
+  deleteClient,
+  listClientAccounts,
+} from '@/api/clients'
 import { listClientTransactions } from '@/api/transactions'
 import { listClientCommunications, sendCommunication } from '@/api/communications'
 import { getUserById } from '@/api/users'
@@ -99,6 +105,8 @@ export function ClientDetailPage() {
 
   const [isReviewing, setIsReviewing] = useState(false)
   const [reviewError, setReviewError] = useState('')
+  const [isResendingVerification, setIsResendingVerification] = useState(false)
+  const [resendVerificationError, setResendVerificationError] = useState('')
 
   const loadClientData = async () => {
     if (!clientId) return
@@ -205,6 +213,34 @@ export function ClientDetailPage() {
       }
     } finally {
       setIsDeleting(false)
+    }
+  }
+
+  const handleResendVerification = async () => {
+    if (!clientId || !canEditClient) return
+
+    setIsResendingVerification(true)
+    setResendVerificationError('')
+    setVerifySuccess('')
+
+    try {
+      const result = await resendVerificationLink(clientId)
+      setVerifySuccess(
+        `Verification link re-sent successfully (status: ${result.identityVerificationStatus})`
+      )
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 401) logout()
+        else if (err.status === 403)
+          setResendVerificationError('You are not allowed to resend verification links.')
+        else if (err.status === 409)
+          setResendVerificationError('Verification link cannot be re-sent for verified clients.')
+        else setResendVerificationError(err.message || 'Failed to resend verification link')
+      } else {
+        setResendVerificationError('An unexpected error occurred')
+      }
+    } finally {
+      setIsResendingVerification(false)
     }
   }
 
@@ -323,6 +359,11 @@ export function ClientDetailPage() {
             <p className="text-sm text-success">{verifySuccess}</p>
           </div>
         )}
+        {resendVerificationError && (
+          <div className="rounded-lg border border-danger bg-danger/10 p-4">
+            <p className="text-sm text-danger">{resendVerificationError}</p>
+          </div>
+        )}
 
         <ClientDetail
           client={client}
@@ -348,6 +389,26 @@ export function ClientDetailPage() {
             onApprove={() => handleReviewVerification('approve')}
             onReject={() => handleReviewVerification('reject')}
           />
+        )}
+
+        {canEditClient && client.identityVerificationStatus !== 'verified' && (
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-text">Verification Link</h3>
+                <p className="text-sm text-text-muted">
+                  Send the client a fresh verification link to upload documents again.
+                </p>
+              </div>
+              <button
+                onClick={handleResendVerification}
+                disabled={isResendingVerification}
+                className="rounded bg-primary px-4 py-2 text-sm text-white hover:bg-primary-hover disabled:opacity-50"
+              >
+                {isResendingVerification ? 'Sending...' : 'Re-send Verification Link'}
+              </button>
+            </div>
+          </div>
         )}
 
         <RecentTransactionsTable

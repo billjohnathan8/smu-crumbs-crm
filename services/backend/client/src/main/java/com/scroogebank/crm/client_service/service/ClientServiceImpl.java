@@ -387,6 +387,42 @@ public class ClientServiceImpl implements ClientService {
 		return new VerifyClientResponse(clientId(saved.getId()), saved.getIdentityVerificationStatus());
 	}
 
+	@Override
+	public VerifyClientResponse resendVerificationLink(
+		AuthenticatedUser user,
+		String clientId,
+		String authorizationHeader,
+		String requestId
+	) {
+		ClientEntity entity = loadOwnedClient(user, clientId);
+		if (entity.getIdentityVerificationStatus() == IdentityVerificationStatus.verified) {
+			throw new IllegalStateException("Verification link resend is not allowed for verified clients");
+		}
+
+		String apiClientId = clientId(entity.getId());
+		String token =
+			verificationTokenService.generateVerificationToken(apiClientId, verificationLinkTokenTtlSeconds);
+		snsEmailPublisherService.publishVerificationEmail(
+			apiClientId,
+			entity.getEmailAddress(),
+			token,
+			entity.getFirstName(),
+			requestId,
+			verificationLinkTokenTtlSeconds
+		);
+		publishAuditSafe(
+			"UPDATE",
+			"verificationLinkResent",
+			null,
+			"true",
+			user.userId(),
+			apiClientId,
+			requestId,
+			authorizationHeader
+		);
+		return new VerifyClientResponse(apiClientId, entity.getIdentityVerificationStatus());
+	}
+
 	/**
 	 * Client upload documents for verification
 	 *

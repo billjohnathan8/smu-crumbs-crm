@@ -249,6 +249,22 @@ paths:
         '403': {description: Forbidden (caller is not admin)., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '409': {description: Conflict (verification is not pending)., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  /api/clients/{clientId}/verify/resend:
+    post:
+      tags: [clients]
+      summary: Resend verification link
+      description: Sends a fresh verification email link for a non-verified client. Allowed for authenticated agent/admin roles with access to the client.
+      security: [{BearerAuth: []}]
+      x-required-roles: [user, admin]
+      parameters:
+      - {name: clientId, in: path, required: true, schema: {$ref: '#/components/schemas/ClientId'}}
+      responses:
+        '200': {description: Verification link re-sent., content: {application/json: {schema: {$ref: '#/components/schemas/VerifyClientResponse'}}}}
+        '400': {description: Validation error., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '403': {description: Forbidden., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '409': {description: Conflict (client already verified)., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
   /api/clients/{clientId}/verify/documents/{documentKind}:
     get:
       tags: [clients]

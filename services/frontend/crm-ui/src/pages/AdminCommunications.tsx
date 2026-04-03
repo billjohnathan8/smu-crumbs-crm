@@ -4,14 +4,9 @@ import { useAuth } from '@/features/auth/AuthContext'
 import {
   listQueuedCommunications,
   getCommunicationById,
-  updateCommunicationStatus,
   updateCommunicationStatusByProviderMessageId,
 } from '@/api/communications'
-import type {
-  Communication,
-  CommunicationStatus,
-  UpdateCommunicationStatusRequest,
-} from '@/api/types'
+import type { Communication, CommunicationStatus, UpdateCommunicationStatusRequest } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 import { CommunicationsPanel } from '@/components/CommunicationsPanel'
@@ -45,9 +40,6 @@ export function AdminCommunications() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const [statusUpdates, setStatusUpdates] = useState<Record<string, CommunicationStatus>>({})
-  const [isUpdating, setIsUpdating] = useState<Record<string, boolean>>({})
-
   const [providerLookupId, setProviderLookupId] = useState('')
   const [providerLookupResult, setProviderLookupResult] = useState<Communication | null>(null)
   const [providerLookupError, setProviderLookupError] = useState('')
@@ -65,12 +57,6 @@ export function AdminCommunications() {
     try {
       const response = await listQueuedCommunications({ limit: 200 })
       setCommunications(response.data)
-      setStatusUpdates(
-        response.data.reduce<Record<string, CommunicationStatus>>((acc, comm) => {
-          acc[comm.communicationId] = comm.status
-          return acc
-        }, {})
-      )
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
@@ -100,35 +86,6 @@ export function AdminCommunications() {
     fetchQueued()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canAccessCommunications])
-
-  const handleStatusUpdate = async (communicationId: string) => {
-    const status = statusUpdates[communicationId]
-    if (!status) return
-
-    setIsUpdating(prev => ({ ...prev, [communicationId]: true }))
-    setError('')
-
-    try {
-      const updated = await updateCommunicationStatus(communicationId, { status })
-      setCommunications(prev =>
-        prev.map(comm =>
-          comm.communicationId === communicationId
-            ? { ...comm, status: updated.status, updatedAt: updated.updatedAt }
-            : comm
-        )
-      )
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        logout()
-      } else if (err instanceof ApiError && err.status === 403) {
-        setError('You are not authorized to update communications.')
-      } else {
-        setError(err instanceof ApiError ? err.message : 'Failed to update status')
-      }
-    } finally {
-      setIsUpdating(prev => ({ ...prev, [communicationId]: false }))
-    }
-  }
 
   const handleCommLookup = async () => {
     if (!commLookupId.trim()) return
@@ -351,10 +308,6 @@ export function AdminCommunications() {
           onRefresh={fetchQueued}
           isRefreshing={isLoading}
           editableStatuses
-          statusUpdates={statusUpdates}
-          setStatusUpdates={setStatusUpdates}
-          isUpdating={isUpdating}
-          onUpdateStatus={handleStatusUpdate}
         />
       </main>
     </SidebarLayout>

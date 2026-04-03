@@ -185,7 +185,7 @@ public class VerificationEmailDispatchService {
 		AppProperties.Dispatch dispatch = appProperties.getVerificationEmail().getDispatch();
 		String token = jwtService.mintForTests(
 			dispatch.getServiceUserId(),
-			"admin",
+			"service",
 			clock.instant().plusSeconds(dispatch.getServiceTokenTtlSeconds())
 		);
 		return "Bearer " + token;

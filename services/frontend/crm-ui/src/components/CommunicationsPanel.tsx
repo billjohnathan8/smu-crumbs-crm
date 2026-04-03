@@ -59,6 +59,8 @@ export function CommunicationsPanel({
   onUpdateStatus,
 }: CommunicationsPanelProps) {
   const canCompose = setShowComposeForm && composeData && setComposeData && onSubmit
+  const canEditStatuses =
+    editableStatuses && Boolean(statusUpdates) && Boolean(setStatusUpdates) && Boolean(onUpdateStatus)
 
   const toggleCompose = () => {
     if (!setShowComposeForm) return
@@ -199,9 +201,11 @@ export function CommunicationsPanel({
                 <th className="px-6 py-3 text-left text-xs font-normal uppercase tracking-wider text-text-muted">
                   Created
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-normal uppercase tracking-wider text-text-muted">
-                  Actions
-                </th>
+                {canEditStatuses && (
+                  <th className="px-6 py-3 text-left text-xs font-normal uppercase tracking-wider text-text-muted">
+                    Actions
+                  </th>
+                )}
               </tr>
             </thead>
 
@@ -214,33 +218,49 @@ export function CommunicationsPanel({
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-text">{comm.toEmail}</td>
                   <td className="max-w-xs truncate px-6 py-4 text-sm text-text">{comm.subject}</td>
                   <td className="whitespace-nowrap px-6 py-4">
-                    <select
-                      value={statusUpdates?.[comm.communicationId] ?? comm.status}
-                      onChange={e =>
-                        setStatusUpdates?.(prev => ({
-                          ...prev,
-                          [comm.communicationId]: e.target.value as CommunicationStatus,
-                        }))
-                      }
-                      className="rounded  bg-background-light px-2 py-1 text-sm text-text"
-                    >
-                      <option value="queued">queued</option>
-                      <option value="sent">sent</option>
-                      <option value="failed">failed</option>
-                    </select>
+                    {canEditStatuses ? (
+                      <select
+                        value={statusUpdates?.[comm.communicationId] ?? comm.status}
+                        onChange={e =>
+                          setStatusUpdates?.(prev => ({
+                            ...prev,
+                            [comm.communicationId]: e.target.value as CommunicationStatus,
+                          }))
+                        }
+                        className="rounded  bg-background-light px-2 py-1 text-sm text-text"
+                      >
+                        <option value="queued">queued</option>
+                        <option value="sent">sent</option>
+                        <option value="failed">failed</option>
+                      </select>
+                    ) : (
+                      <span
+                        className={`rounded px-2 py-1 text-xs font-normal ${
+                          comm.status === 'sent'
+                            ? 'bg-success/20 text-success'
+                            : comm.status === 'queued'
+                              ? 'bg-warning/20 text-warning'
+                              : 'bg-danger/20 text-danger'
+                        }`}
+                      >
+                        {comm.status}
+                      </span>
+                    )}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-text">
                     {formatDate(comm.createdAt)}
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4">
-                    <button
-                      onClick={() => onUpdateStatus?.(comm.communicationId)}
-                      disabled={isUpdating?.[comm.communicationId]}
-                      className="rounded bg-primary px-2 py-1 text-xs text-white hover:bg-primary-hover disabled:opacity-50"
-                    >
-                      {isUpdating?.[comm.communicationId] ? 'Saving...' : 'Update'}
-                    </button>
-                  </td>
+                  {canEditStatuses && (
+                    <td className="whitespace-nowrap px-6 py-4">
+                      <button
+                        onClick={() => onUpdateStatus?.(comm.communicationId)}
+                        disabled={isUpdating?.[comm.communicationId]}
+                        className="rounded bg-primary px-2 py-1 text-xs text-white hover:bg-primary-hover disabled:opacity-50"
+                      >
+                        {isUpdating?.[comm.communicationId] ? 'Saving...' : 'Update'}
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

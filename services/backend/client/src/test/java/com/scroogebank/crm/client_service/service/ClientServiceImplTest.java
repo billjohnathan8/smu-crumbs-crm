@@ -714,6 +714,44 @@ class ClientServiceImplTest {
 		);
 	}
 
+	@Test
+	void resendVerificationLink_nonVerified_publishesEmailAndReturnsCurrentStatus() {
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
+		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
+		entity.setIdentityVerificationStatus(IdentityVerificationStatus.rejected);
+		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
+		when(verificationTokenService.generateVerificationToken("clt_7", DEFAULT_VERIFICATION_LINK_TTL_SECONDS))
+			.thenReturn("signed-token-abc");
+
+		var response = clientService.resendVerificationLink(user, "clt_7", "Bearer x", "req-1");
+
+		assertThat(response.clientId()).isEqualTo("clt_7");
+		assertThat(response.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.rejected);
+		verify(snsEmailPublisherService).publishVerificationEmail(
+			eq("clt_7"),
+			eq(entity.getEmailAddress()),
+			eq("signed-token-abc"),
+			eq(entity.getFirstName()),
+			eq("req-1"),
+			eq(DEFAULT_VERIFICATION_LINK_TTL_SECONDS)
+		);
+	}
+
+	@Test
+	void resendVerificationLink_verified_throwsConflictAndSkipsPublish() {
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
+		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
+		entity.setIdentityVerificationStatus(IdentityVerificationStatus.verified);
+		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
+
+		assertThatThrownBy(() -> clientService.resendVerificationLink(user, "clt_7", "Bearer x", "req-1"))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessageContaining("not allowed");
+
+		verify(verificationTokenService, never()).generateVerificationToken(any(), anyLong());
+		verify(snsEmailPublisherService, never()).publishVerificationEmail(any(), any(), any(), any(), any(), anyLong());
+	}
+
 	// Upload Verification Documents
 	@Test
 	void uploadVerificationDocs_tokenValid_uploadsBothDocumentsToS3() {

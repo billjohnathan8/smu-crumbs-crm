@@ -128,6 +128,13 @@ export async function reviewVerification(
 }
 
 /**
+ * Re-send verification link email for a non-verified client.
+ */
+export async function resendVerificationLink(clientId: string): Promise<VerifyClientResponse> {
+  return apiPost<VerifyClientResponse>(`${CLIENTS_BASE}/${clientId}/verify/resend`)
+}
+
+/**
  * Fetch an uploaded KYC document for authenticated verification review.
  */
 export async function getVerificationDocument(

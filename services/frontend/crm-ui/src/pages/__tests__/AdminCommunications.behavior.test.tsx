@@ -139,74 +139,13 @@ describe('AdminCommunications behavior', () => {
     })
   })
 
-  it('updates communication status successfully', async () => {
-    const user = userEvent.setup()
-    vi.mocked(communicationsApi.updateCommunicationStatus).mockResolvedValue({
-      ...baseCommunication,
-      status: 'sent',
-      updatedAt: '2026-03-21T11:00:00Z',
-    })
-
+  it('shows queued table as read-only status (no manual update controls)', async () => {
     renderPage()
 
     await screen.findByText('Queued subject')
 
-    await user.selectOptions(screen.getByDisplayValue('queued'), 'sent')
-    await user.click(screen.getByRole('button', { name: 'Update' }))
-
-    await waitFor(() => {
-      expect(communicationsApi.updateCommunicationStatus).toHaveBeenCalledWith('com_1', {
-        status: 'sent',
-      })
-    })
-  })
-
-  it('logs out when status update returns 401', async () => {
-    const user = userEvent.setup()
-    vi.mocked(communicationsApi.updateCommunicationStatus).mockRejectedValue(
-      new ApiError(401, 'unauthorized', 'Unauthorized')
-    )
-
-    renderPage()
-
-    await screen.findByText('Queued subject')
-    await user.click(screen.getByRole('button', { name: 'Update' }))
-
-    await waitFor(() => {
-      expect(mockLogout).toHaveBeenCalled()
-    })
-  })
-
-  it('shows authorization error when status update returns 403', async () => {
-    const user = userEvent.setup()
-    vi.mocked(communicationsApi.updateCommunicationStatus).mockRejectedValue(
-      new ApiError(403, 'forbidden', 'Forbidden')
-    )
-
-    renderPage()
-
-    await screen.findByText('Queued subject')
-    await user.click(screen.getByRole('button', { name: 'Update' }))
-
-    await waitFor(() => {
-      expect(
-        screen.getByText('You are not authorized to update communications.')
-      ).toBeInTheDocument()
-    })
-  })
-
-  it('shows generic message when status update fails unexpectedly', async () => {
-    const user = userEvent.setup()
-    vi.mocked(communicationsApi.updateCommunicationStatus).mockRejectedValue(new Error('boom'))
-
-    renderPage()
-
-    await screen.findByText('Queued subject')
-    await user.click(screen.getByRole('button', { name: 'Update' }))
-
-    await waitFor(() => {
-      expect(screen.getByText('Failed to update status')).toBeInTheDocument()
-    })
+    expect(screen.queryByRole('button', { name: 'Update' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
   })
 
   it('looks up by communication id and renders detailed fields', async () => {

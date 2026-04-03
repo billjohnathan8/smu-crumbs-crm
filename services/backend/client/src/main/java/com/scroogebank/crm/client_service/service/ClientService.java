@@ -101,6 +101,22 @@ public interface ClientService {
 	);
 
 	/**
+	 * Re-sends a verification email link for a non-verified client.
+	 *
+	 * @param user authenticated user
+	 * @param clientId public client identifier
+	 * @param authorizationHeader bearer token for downstream audit logging
+	 * @param requestId request correlation id
+	 * @return verification response with current status
+	 */
+	VerifyClientResponse resendVerificationLink(
+		AuthenticatedUser user,
+		String clientId,
+		String authorizationHeader,
+		String requestId
+	);
+
+	/**
 	 * Reassigns all clients from one agent to another (admin only).
 	 *
 	 * @param user authenticated user

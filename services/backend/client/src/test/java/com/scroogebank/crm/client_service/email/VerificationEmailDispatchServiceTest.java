@@ -43,7 +43,7 @@ class VerificationEmailDispatchServiceTest {
 		appProperties.getVerificationEmail().getDispatch().setBaseBackoffSeconds(30);
 		jwtService = mock(JwtService.class);
 		clock = Clock.fixed(Instant.parse("2026-03-12T05:00:00Z"), ZoneOffset.UTC);
-		when(jwtService.mintForTests(any(), eq("admin"), any())).thenReturn("svc-token");
+		when(jwtService.mintForTests(any(), eq("service"), any())).thenReturn("svc-token");
 		dispatchService = new VerificationEmailDispatchService(
 			communicationClient,
 			verificationEmailSender,

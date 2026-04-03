@@ -237,6 +237,24 @@ public class ClientController {
 	}
 
 	/**
+	 * Re-sends verification link email to the client for a non-verified profile.
+	 *
+	 * @param request HTTP request used for auth and correlation id extraction
+	 * @param clientId public client identifier
+	 * @return current verification status
+	 */
+	@PostMapping("/{id}/verify/resend")
+	@Operation(summary = "Resend client verification link")
+	public VerifyClientResponse resendVerificationLink(
+		HttpServletRequest request,
+		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable("id") String clientId
+	) {
+		AuthenticatedUser user = requestAuth.requireUser(request);
+		String authorizationHeader = request.getHeader("Authorization");
+		return clientService.resendVerificationLink(user, clientId, authorizationHeader, requestId(request));
+	}
+
+	/**
 	 * Fetches an uploaded KYC document for client verification review.
 	 *
 	 * @param request HTTP request used for auth

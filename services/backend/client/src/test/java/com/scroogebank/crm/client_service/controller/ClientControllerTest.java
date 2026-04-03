@@ -452,4 +452,15 @@ class ClientControllerTest {
             .andExpect(jsonPath("$.mimeType").value("image/jpeg"))
             .andExpect(jsonPath("$.documentBase64").value("dGVzdA=="));
     }
+
+    @Test
+    void resendVerificationLink_returnsCurrentStatus() throws Exception {
+        when(clientService.resendVerificationLink(any(), eq("clt_1"), eq(AUTH_HEADER), any()))
+            .thenReturn(new VerifyClientResponse("clt_1", IdentityVerificationStatus.rejected));
+
+        mockMvc.perform(post("/api/clients/clt_1/verify/resend").header("Authorization", AUTH_HEADER))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.clientId").value("clt_1"))
+            .andExpect(jsonPath("$.identityVerificationStatus").value("rejected"));
+    }
 }

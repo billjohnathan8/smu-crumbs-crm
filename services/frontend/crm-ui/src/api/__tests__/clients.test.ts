@@ -7,6 +7,7 @@ import {
   deleteClient,
   uploadVerificationDocs,
   reviewVerification,
+  resendVerificationLink,
   createAccount,
   getAccountOpeningOptions,
   updateAccount,
@@ -328,6 +329,22 @@ describe('clients API', () => {
       const result = await reviewVerification('client-123', reviewRequest)
 
       expect(result.identityVerificationStatus).toBe('rejected')
+    })
+  })
+
+  describe('resendVerificationLink', () => {
+    it('should resend verification link and return current status', async () => {
+      const mockResponse: VerifyClientResponse = {
+        clientId: 'client-123',
+        identityVerificationStatus: 'rejected',
+      }
+
+      vi.spyOn(client, 'apiPost').mockResolvedValue(mockResponse)
+
+      const result = await resendVerificationLink('client-123')
+
+      expect(client.apiPost).toHaveBeenCalledWith('/api/clients/client-123/verify/resend')
+      expect(result).toEqual(mockResponse)
     })
   })
 

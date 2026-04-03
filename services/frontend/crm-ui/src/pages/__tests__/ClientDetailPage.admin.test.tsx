@@ -121,6 +121,28 @@ describe('ClientDetailPage (admin role)', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Approve/i })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /Reject/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Re-send Verification Link/i })).toBeInTheDocument()
+    })
+  })
+
+  it('re-sends verification link for non-verified client', async () => {
+    vi.spyOn(clientsApi, 'resendVerificationLink').mockResolvedValue({
+      clientId: 'client-123',
+      identityVerificationStatus: 'unverified',
+    })
+
+    renderComponent()
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Re-send Verification Link/i })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /Re-send Verification Link/i }))
+
+    await waitFor(() => {
+      expect(clientsApi.resendVerificationLink).toHaveBeenCalledWith('client-123')
+      expect(screen.getByText(/Verification link re-sent successfully/i)).toBeInTheDocument()
     })
   })
 
