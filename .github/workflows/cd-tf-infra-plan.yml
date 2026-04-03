@@ -4,6 +4,11 @@ name: CD - Terraform Infra Plan
 on:
   workflow_dispatch:
     inputs:
+      force_delete_stale_resources:
+        description: Force-delete stale Secrets Manager/log resources before reconciliation (use only when stuck in pending deletion)
+        required: false
+        default: false
+        type: boolean
       reconcile_existing_resources:
         description: Run one-time state reconciliation imports (normally false for already-managed infra)
         required: false
@@ -146,6 +151,12 @@ jobs:
         working-directory: ${{ env.TF_DIR }}
         shell: bash
         run: terraform init -input=false -reconfigure -backend-config="env/${DEPLOY_ENV}.backend.hcl"
+
+      - name: Force delete stale resources (optional)
+        if: ${{ inputs.force_delete_stale_resources }}
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: bash scripts/force-delete-stale-resources.sh "${DEPLOY_ENV}"
 
       - name: Reconcile pre-existing AWS resources into Terraform state
         if: ${{ inputs.reconcile_existing_resources }}
