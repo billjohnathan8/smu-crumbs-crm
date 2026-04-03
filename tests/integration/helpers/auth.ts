@@ -3,7 +3,7 @@ import { Page } from "@playwright/test";
 const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.com").trim();
 const ADMIN_PASSWORD = (process.env.E2E_ADMIN_PASSWORD ?? "Scrooge@Bank2026!").trim();
 const AGENT_EMAIL = (process.env.E2E_USER_EMAIL ?? "agent1@crm.com").trim();
-const AGENT_PASSWORD = (process.env.E2E_USER_PASSWORD ?? "UserPass123!").trim();
+const AGENT_PASSWORD = (process.env.E2E_USER_PASSWORD ?? "V7!mQ2#pL9@xR4$k").trim();
 
 /**
  * Login as admin user and wait for dashboard

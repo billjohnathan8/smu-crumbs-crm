@@ -539,7 +539,7 @@ USER_BASE_URL="http://127.0.0.1:18081" \
 ROOT_ADMIN_EMAIL="${E2E_ADMIN_EMAIL:-admin@crm.com}" \
 ROOT_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}" \
 SEED_USER_EMAIL="agent1@crm.com" \
-SEED_AGENT_PASSWORD="${E2E_USER_PASSWORD:-UserPass123!}" \
+SEED_AGENT_PASSWORD="${E2E_USER_PASSWORD:-V7!mQ2#pL9@xR4\$k}" \
 bash "${ROOT_DIR}/scripts/db/run-shared-postgres.sh" seed
 echo "[OK] Seeded"
 

@@ -46,6 +46,10 @@ import com.scroogebank.crm.user_service.util.IdCodec;
 public class InMemoryUserStore implements UserStore {
 	private static final String USER_ID_PREFIX = "usr_";
 	private static final long ROOT_ADMIN_DB_ID = 1L;
+	private static final String DEFAULT_SEED_AGENT_FIRST_NAME = "Agent";
+	private static final String DEFAULT_SEED_AGENT_LAST_NAME = "One";
+	private static final String DEFAULT_SEED_AGENT_EMAIL = "agent1@crm.com";
+	private static final String DEFAULT_SEED_AGENT_PASSWORD = "V7!mQ2#pL9@xR4$k";
 	private static final Duration REFRESH_TTL = Duration.ofDays(7);
 	private static final Duration RESET_TTL = Duration.ofHours(1);
 	private static final HexFormat HEX_FORMAT = HexFormat.of();
@@ -53,7 +57,7 @@ public class InMemoryUserStore implements UserStore {
 	private final Clock clock;
 	private final PasswordHasher passwordHasher;
 	private final boolean testResetIntrospectionEnabled;
-	private final AtomicLong idSequence = new AtomicLong(2L);
+	private final AtomicLong idSequence = new AtomicLong(3L);
 	private final Map<Long, UserRecord> users = new ConcurrentHashMap<>();
 	private final Map<String, Long> emailIndex = new ConcurrentHashMap<>();
 	private final Map<String, RefreshTokenRecord> refreshTokens = new ConcurrentHashMap<>();
@@ -66,6 +70,10 @@ public class InMemoryUserStore implements UserStore {
 		PasswordHasher passwordHasher,
 		@Value("${app.root-admin.email}") String rootEmail,
 		@Value("${app.root-admin.password}") String rootPassword,
+		@Value("${app.seed-agent.first-name:Agent}") String seedAgentFirstName,
+		@Value("${app.seed-agent.last-name:One}") String seedAgentLastName,
+		@Value("${app.seed-agent.email:agent1@crm.com}") String seedAgentEmail,
+		@Value("${app.seed-agent.password:V7!mQ2#pL9@xR4$k}") String seedAgentPassword,
 		Environment environment
 	) {
 		this(
@@ -73,6 +81,10 @@ public class InMemoryUserStore implements UserStore {
 			passwordHasher,
 			rootEmail,
 			rootPassword,
+			seedAgentFirstName,
+			seedAgentLastName,
+			seedAgentEmail,
+			seedAgentPassword,
 			environment.acceptsProfiles(Profiles.of("local", "test"))
 		);
 	}
@@ -83,7 +95,17 @@ public class InMemoryUserStore implements UserStore {
 		String rootEmail,
 		String rootPassword
 	) {
-		this(clock, passwordHasher, rootEmail, rootPassword, false);
+		this(
+			clock,
+			passwordHasher,
+			rootEmail,
+			rootPassword,
+			DEFAULT_SEED_AGENT_FIRST_NAME,
+			DEFAULT_SEED_AGENT_LAST_NAME,
+			DEFAULT_SEED_AGENT_EMAIL,
+			DEFAULT_SEED_AGENT_PASSWORD,
+			false
+		);
 	}
 
 	InMemoryUserStore(
@@ -93,10 +115,35 @@ public class InMemoryUserStore implements UserStore {
 		String rootPassword,
 		boolean testResetIntrospectionEnabled
 	) {
+		this(
+			clock,
+			passwordHasher,
+			rootEmail,
+			rootPassword,
+			DEFAULT_SEED_AGENT_FIRST_NAME,
+			DEFAULT_SEED_AGENT_LAST_NAME,
+			DEFAULT_SEED_AGENT_EMAIL,
+			DEFAULT_SEED_AGENT_PASSWORD,
+			testResetIntrospectionEnabled
+		);
+	}
+
+	InMemoryUserStore(
+		Clock clock,
+		PasswordHasher passwordHasher,
+		String rootEmail,
+		String rootPassword,
+		String seedAgentFirstName,
+		String seedAgentLastName,
+		String seedAgentEmail,
+		String seedAgentPassword,
+		boolean testResetIntrospectionEnabled
+	) {
 		this.clock = clock;
 		this.passwordHasher = passwordHasher;
 		this.testResetIntrospectionEnabled = testResetIntrospectionEnabled;
 		seedRootAdmin(rootEmail, rootPassword);
+		seedDefaultAgent(seedAgentFirstName, seedAgentLastName, seedAgentEmail, seedAgentPassword);
 	}
 
 	/**
@@ -437,6 +484,31 @@ public class InMemoryUserStore implements UserStore {
 		);
 		users.put(ROOT_ADMIN_DB_ID, root);
 		emailIndex.put(normalizedEmail, ROOT_ADMIN_DB_ID);
+	}
+
+	private void seedDefaultAgent(String firstName, String lastName, String email, String password) {
+		if (email == null || email.isBlank()) {
+			return;
+		}
+		String normalizedEmail = normalizeEmail(email);
+		if (emailIndex.containsKey(normalizedEmail)) {
+			return;
+		}
+		long id = 2L;
+		Instant now = clock.instant();
+		UserRecord seedAgent = new UserRecord(
+			id,
+			firstName,
+			lastName,
+			normalizedEmail,
+			UserRole.user,
+			UserStatus.active,
+			passwordHasher.hash(password),
+			now,
+			now
+		);
+		users.put(id, seedAgent);
+		emailIndex.put(normalizedEmail, id);
 	}
 
 	private UserRecord loadByDbId(long dbId) {

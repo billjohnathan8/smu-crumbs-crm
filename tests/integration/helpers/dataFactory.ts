@@ -4,7 +4,7 @@ import { uniqueEmail } from "./testData";
 
 const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.com").trim();
 const ADMIN_PASSWORD = (process.env.E2E_ADMIN_PASSWORD ?? "Scrooge@Bank2026!").trim();
-const USER_PASSWORD = (process.env.E2E_USER_PASSWORD ?? "UserPass123!").trim();
+const USER_PASSWORD = (process.env.E2E_USER_PASSWORD ?? "V7!mQ2#pL9@xR4$k").trim();
 
 type UserRole = "admin" | "user";
 

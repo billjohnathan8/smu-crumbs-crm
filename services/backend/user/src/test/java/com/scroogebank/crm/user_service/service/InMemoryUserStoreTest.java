@@ -49,7 +49,7 @@ class InMemoryUserStoreTest {
 			"temp12345"
 		));
 
-		assertEquals("usr_2", created.id());
+		assertEquals("usr_3", created.id());
 		assertEquals("alice@example.com", created.email());
 		assertEquals(UserRole.user, created.role());
 		assertEquals(UserStatus.active, created.status());
@@ -122,8 +122,8 @@ class InMemoryUserStoreTest {
 		assertEquals(1, page.size());
 		assertEquals(UserRole.user, page.get(0).role());
 
-		assertEquals(2, store.countUsers("user"));
-		assertEquals(4, store.countUsers(null));
+		assertEquals(3, store.countUsers("user"));
+		assertEquals(5, store.countUsers(null));
 	}
 
 	@Test
@@ -202,12 +202,12 @@ class InMemoryUserStoreTest {
 	@Test
 	void deleteUser_excludesUserFromListAndCount() {
 		UserDto created = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "pw"));
-		assertEquals(2, store.countUsers(null));
+		assertEquals(3, store.countUsers(null));
 
 		store.deleteUser(created.id());
 
-		assertEquals(1, store.countUsers(null));
-		assertEquals(0, store.listUsers(50, 0, "user").size());
+		assertEquals(2, store.countUsers(null));
+		assertEquals(1, store.listUsers(50, 0, "user").size());
 	}
 
 	@Test
@@ -231,7 +231,7 @@ class InMemoryUserStoreTest {
 		store.createUser(new CreateUserRequest("B", "B", "b@example.com", UserRole.admin, false, "pw"));
 
 		List<UserDto> all = store.listUsers(50, 0, "  ");
-		assertEquals(3, all.size());
+		assertEquals(4, all.size());
 	}
 
 	@Test

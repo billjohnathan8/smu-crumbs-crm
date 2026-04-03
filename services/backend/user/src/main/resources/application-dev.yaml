@@ -4,5 +4,10 @@ app:
   root-admin:
     email: ${ROOT_ADMIN_EMAIL:admin@crm.com}
     password: ${ROOT_ADMIN_PASSWORD:Scrooge@Bank2026!}
+  seed-agent:
+    first-name: ${SEED_AGENT_FIRST_NAME:Agent}
+    last-name: ${SEED_AGENT_LAST_NAME:One}
+    email: ${SEED_AGENT_EMAIL:agent1@crm.com}
+    password: ${SEED_AGENT_PASSWORD:V7!mQ2#pL9@xR4$k}
   user-store:
     type: ${APP_USER_STORE_TYPE:postgres}

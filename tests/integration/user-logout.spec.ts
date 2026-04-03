@@ -11,7 +11,7 @@ import { test, expect } from "@playwright/test";
 import { setAuthState } from "../helpers/auth";
 
 const USER_EMAIL = (process.env.E2E_USER_EMAIL ?? "agent1@crm.com").trim();
-const USER_PASSWORD = (process.env.E2E_USER_PASSWORD ?? "UserPass123!").trim();
+const USER_PASSWORD = (process.env.E2E_USER_PASSWORD ?? "V7!mQ2#pL9@xR4$k").trim();
 
 test.describe("User Logout Flow (Integration)", () => {
   test.beforeEach(async ({ page, context }) => {
