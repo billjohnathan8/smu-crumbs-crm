@@ -168,7 +168,7 @@ test.describe("Real Fullstack Integration", () => {
     await page.fill('input[name="address"]', "123 Main Street");
     await page.fill('input[name="city"]', "Springfield");
     await page.fill('input[name="state"]', "Illinois");
-    await page.fill('input[name="country"]', "United States");
+    await page.selectOption('select[name="country"]', { label: "United States" });
     await page.fill('input[name="postalCode"]', "62704");
     await page.getByRole("button", { name: "Create Client" }).click();
 

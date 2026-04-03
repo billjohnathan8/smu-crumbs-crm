@@ -75,7 +75,7 @@ test.describe("User Flow (Integration)", () => {
     await page.fill('input[name="address"]', "123 Main St");
     await page.fill('input[name="city"]', "Singapore");
     await page.fill('input[name="state"]', "Singapore");
-    await page.fill('input[name="country"]', "Singapore");
+    await page.selectOption('select[name="country"]', { label: "Singapore" });
     await page.fill('input[name="postalCode"]', "123456");
 
     await page.click('button[type="submit"]');
@@ -173,4 +173,3 @@ test.describe("User Flow (Integration)", () => {
     }
   });
 });
-

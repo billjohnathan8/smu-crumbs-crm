@@ -182,6 +182,20 @@ class ClientControllerTest {
     }
 
     @Test
+    void createClient_invalidPostalCodeForCountry_returnsBadRequest() throws Exception {
+        when(clientService.createClient(any(), any(), any(), any()))
+            .thenThrow(new IllegalArgumentException("Postal code must match Singapore format"));
+
+        mockMvc.perform(post("/api/clients")
+                .header("Authorization", AUTH_HEADER)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(createRequestJson().replace("\"United States\"", "\"Singapore\"")))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error").value("validation_error"))
+            .andExpect(jsonPath("$.message").value("Postal code must match Singapore format"));
+    }
+
+    @Test
     void createClient_snsPublishFailure_returnsServiceUnavailable() throws Exception {
         when(clientService.createClient(any(), any(), any(), any()))
             .thenThrow(new SnsPublishException("sns down"));

@@ -355,6 +355,31 @@ class ClientServiceImplTest {
 		verify(clientRepository, never()).save(any());
 	}
 
+	@Test
+	void createClient_invalidPostalCodeForCountry_throwsValidationError() {
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
+		ClientPayload payload = samplePayload();
+		ClientCreateRequest request = new ClientCreateRequest(
+			payload.firstName(),
+			payload.lastName(),
+			payload.dateOfBirth(),
+			payload.gender(),
+			payload.emailAddress(),
+			payload.phoneNumber(),
+			payload.address(),
+			payload.city(),
+			payload.state(),
+			"Singapore",
+			"62704"
+		);
+
+		assertThatThrownBy(() -> clientService.createClient(user, request, "Bearer x", "req-1"))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessageContaining("Postal code must match Singapore format");
+
+		verify(clientRepository, never()).save(any());
+	}
+
 	/** Verifies that updateClient() loads the entity, checks email/phone for other ids, applies payload, saves, and returns DTO. */
 	@Test
 	void updateClient_whenFoundAndNoConflict_returnsUpdatedDto() {
@@ -443,6 +468,25 @@ class ClientServiceImplTest {
 		assertThatThrownBy(() -> clientService.updateClient(user, "clt_12", request, "Bearer x", "req-1"))
 			.isInstanceOf(DuplicateClientException.class)
 			.hasMessageContaining("Phone");
+
+		verify(clientRepository, never()).save(any());
+	}
+
+	@Test
+	void updateClient_withOnlyPostalCodeChange_validatesAgainstExistingCountry() {
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
+		ClientPayload payload = samplePayload();
+		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
+		existing.setCountry("Singapore");
+		existing.setPostalCode("123456");
+		ClientUpdateRequest request = new ClientUpdateRequest(
+			null, null, null, null, null, null, null, null, null, null, "ABCDE"
+		);
+		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
+
+		assertThatThrownBy(() -> clientService.updateClient(user, "clt_12", request, "Bearer x", "req-1"))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessageContaining("Postal code must match Singapore format");
 
 		verify(clientRepository, never()).save(any());
 	}

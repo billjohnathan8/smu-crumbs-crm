@@ -6,6 +6,11 @@ import { getClientById, updateClient } from '@/api/clients'
 import type { ClientUpdateRequest, Gender } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
+import {
+  COUNTRY_OPTIONS,
+  getPostalCodeRule,
+  isPostalCodeValidForCountry,
+} from '@/utils/postalCodeRules'
 
 const userNav: NavItem[] = [
   { label: 'Home', to: '/user', end: true },
@@ -125,8 +130,15 @@ export function EditClientPage() {
     if (!formData.address?.trim()) newErrors.address = 'Address is required'
     if (!formData.city?.trim()) newErrors.city = 'City is required'
     if (!formData.state?.trim()) newErrors.state = 'State is required'
-    if (!formData.country?.trim()) newErrors.country = 'Country is required'
-    if (!formData.postalCode?.trim()) newErrors.postalCode = 'Postal code is required'
+    const country = formData.country?.trim() ?? ''
+    const postalCode = formData.postalCode?.trim() ?? ''
+    if (!country) newErrors.country = 'Country is required'
+    if (!postalCode) {
+      newErrors.postalCode = 'Postal code is required'
+    } else if (!isPostalCodeValidForCountry(country, postalCode)) {
+      const countryRule = getPostalCodeRule(country)
+      newErrors.postalCode = `Postal code must match ${countryRule.country} format (${countryRule.hint})`
+    }
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -196,6 +208,10 @@ export function EditClientPage() {
     `w-full px-4 py-2 rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent ${
       errors[field] ? 'ring-2 ring-danger' : ''
     }` + (theme === 'dark' ? ' bg-[var(--gray)]' : ' bg-[var(--off-white)]')
+  const countryOptions =
+    formData.country && !COUNTRY_OPTIONS.includes(formData.country)
+      ? [formData.country, ...COUNTRY_OPTIONS]
+      : COUNTRY_OPTIONS
 
   return (
     <SidebarLayout items={sidebarNav}>
@@ -383,14 +399,20 @@ export function EditClientPage() {
                 <label className="block text-sm font-normal text-text mb-2">
                   Country <span className="text-danger">*</span>
                 </label>
-                <input
-                  type="text"
+                <select
                   name="country"
                   value={formData.country || ''}
                   onChange={e => updateField('country', e.target.value)}
                   className={inputCls('country')}
                   disabled={isSubmitting}
-                />
+                >
+                  <option value="">-- Select country --</option>
+                  {countryOptions.map(country => (
+                    <option key={country} value={country}>
+                      {country}
+                    </option>
+                  ))}
+                </select>
                 {errors.country && <p className="text-danger text-xs mt-1">{errors.country}</p>}
               </div>
               <div>

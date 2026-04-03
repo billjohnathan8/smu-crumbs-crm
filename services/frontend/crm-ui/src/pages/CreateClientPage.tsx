@@ -8,6 +8,11 @@ import { listUsers } from '@/api/users'
 import type { ClientCreateRequest, Gender, User } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
+import {
+  COUNTRY_OPTIONS,
+  getPostalCodeRule,
+  isPostalCodeValidForCountry,
+} from '@/utils/postalCodeRules'
 
 const userNav: NavItem[] = [
   { label: 'Home', to: '/user', end: true },
@@ -162,8 +167,9 @@ export function CreateClientPage() {
     }
     if (!postalCode) {
       newErrors.postalCode = 'Postal code is required'
-    } else if (postalCode.length < 4 || postalCode.length > 10) {
-      newErrors.postalCode = 'Postal code must be 4-10 characters'
+    } else if (!isPostalCodeValidForCountry(country, postalCode)) {
+      const countryRule = getPostalCodeRule(country)
+      newErrors.postalCode = `Postal code must match ${countryRule.country} format (${countryRule.hint})`
     }
 
     if (canViewAllClients && !formData.assignedUserId?.trim()) {
@@ -448,14 +454,20 @@ export function CreateClientPage() {
                 <label className="block text-sm font-normal text-text mb-2">
                   Country <span className="text-danger">*</span>
                 </label>
-                <input
-                  type="text"
+                <select
                   name="country"
                   value={formData.country}
                   onChange={e => updateField('country', e.target.value)}
                   className={inputCls('country')}
                   disabled={isSubmitting}
-                />
+                >
+                  <option value="">-- Select country --</option>
+                  {COUNTRY_OPTIONS.map(country => (
+                    <option key={country} value={country}>
+                      {country}
+                    </option>
+                  ))}
+                </select>
                 {errors.country && <p className="text-danger text-xs mt-1">{errors.country}</p>}
               </div>
 

@@ -36,6 +36,7 @@ import com.scroogebank.crm.client_service.repository.ClientRepository;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 import com.scroogebank.crm.client_service.security.UnauthorizedException;
 import com.scroogebank.crm.client_service.util.IdCodec;
+import com.scroogebank.crm.client_service.validation.PostalCodeRules;
 
 /**
  * Default client service implementation with ownership checks and audit logging.
@@ -148,6 +149,7 @@ public class ClientServiceImpl implements ClientService {
 		String authorizationHeader,
 		String requestId
 	) {
+		validatePostalCode(request.country(), request.postalCode());
 		checkCreateConflicts(request.emailAddress(), request.phoneNumber());
 
 		// create and save to db		
@@ -218,6 +220,9 @@ public class ClientServiceImpl implements ClientService {
 		String requestId
 	) {
 		ClientEntity entity = loadOwnedClient(user, clientId);
+		String effectiveCountry = request.country() != null ? request.country() : entity.getCountry();
+		String effectivePostalCode = request.postalCode() != null ? request.postalCode() : entity.getPostalCode();
+		validatePostalCode(effectiveCountry, effectivePostalCode);
 		Long id = entity.getId();
 		checkUpdateConflicts(id, request.emailAddress(), request.phoneNumber());
 
@@ -533,6 +538,13 @@ public class ClientServiceImpl implements ClientService {
 		}
 		if (phoneNumber != null && clientRepository.existsByPhoneNumberAndIdNot(phoneNumber, id)) {
 			throw new DuplicateClientException("Phone number already exists.");
+		}
+	}
+
+	private void validatePostalCode(String country, String postalCode) {
+		String validationError = PostalCodeRules.validate(country, postalCode);
+		if (validationError != null) {
+			throw new IllegalArgumentException(validationError);
 		}
 	}
 

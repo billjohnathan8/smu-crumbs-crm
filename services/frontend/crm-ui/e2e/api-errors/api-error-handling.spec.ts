@@ -314,7 +314,7 @@ test.describe('API Error Handling (Flow 10)', () => {
       await page.fill('input[name="address"]', '123 Test St')
       await page.fill('input[name="city"]', 'Singapore')
       await page.fill('input[name="state"]', 'Singapore')
-      await page.fill('input[name="country"]', 'Singapore')
+      await page.selectOption('select[name="country"]', { label: 'Singapore' })
       await page.fill('input[name="postalCode"]', '123456')
 
       await page.click('button[type="submit"]')

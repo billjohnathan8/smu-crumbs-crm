@@ -166,7 +166,7 @@ test.describe("Client Profile Management (Feature 2)", () => {
     await page.fill('input[name="address"]', "789 UI Street");
     await page.fill('input[name="city"]', "Singapore");
     await page.fill('input[name="state"]', "Singapore");
-    await page.fill('input[name="country"]', "Singapore");
+    await page.selectOption('select[name="country"]', { label: "Singapore" });
     await page.fill('input[name="postalCode"]', "654321");
 
     await page.click('button[type="submit"]');
@@ -330,4 +330,3 @@ test.describe("Client Profile Management (Feature 2)", () => {
     expect(hasUpdateLog, "UPDATE audit log should exist after client update").toBeTruthy();
   });
 });
-
