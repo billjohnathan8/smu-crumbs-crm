@@ -8,6 +8,7 @@ bypassed by monkeypatched mocks in integration tests.
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import sys
@@ -164,6 +165,41 @@ class TestMintServiceJwt:
         assert token is not None
         parts = token.split(".")
         assert len(parts) == 3  # header.payload.signature
+
+    @staticmethod
+    def _decode_payload(token: str) -> dict[str, object]:
+        payload_segment = token.split(".")[1]
+        padded = payload_segment + ("=" * (-len(payload_segment) % 4))
+        return json.loads(base64.urlsafe_b64decode(padded).decode("utf-8"))
+
+    def test_defaults_to_admin_role_and_system_subject(self, monkeypatch):
+        monkeypatch.setenv("CRM_API_JWT_HMAC_SECRET", "test-secret-key")
+        monkeypatch.delenv("CRM_API_JWT_ROLE", raising=False)
+        monkeypatch.delenv("CRM_API_JWT_SUBJECT", raising=False)
+        token = _mint_service_jwt()
+        assert token is not None
+        payload = self._decode_payload(token)
+        assert payload["role"] == "admin"
+        assert payload["sub"] == "SYSTEM_AML"
+
+    def test_supports_explicit_role_and_subject_overrides(self, monkeypatch):
+        monkeypatch.setenv("CRM_API_JWT_HMAC_SECRET", "test-secret-key")
+        monkeypatch.setenv("CRM_API_JWT_ROLE", "service")
+        monkeypatch.setenv("CRM_API_JWT_SUBJECT", "SYSTEM_CUSTOM_AML")
+        token = _mint_service_jwt()
+        assert token is not None
+        payload = self._decode_payload(token)
+        assert payload["role"] == "service"
+        assert payload["sub"] == "SYSTEM_CUSTOM_AML"
+
+    def test_invalid_role_falls_back_to_admin(self, monkeypatch, caplog):
+        monkeypatch.setenv("CRM_API_JWT_HMAC_SECRET", "test-secret-key")
+        monkeypatch.setenv("CRM_API_JWT_ROLE", "viewer")
+        token = _mint_service_jwt()
+        assert token is not None
+        payload = self._decode_payload(token)
+        assert payload["role"] == "admin"
+        assert "Unsupported CRM_API_JWT_ROLE" in caplog.text
 
 
 # ---------------------------------------------------------------------------

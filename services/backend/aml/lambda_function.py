@@ -29,6 +29,8 @@ Environment variables (production):
     CRM_API_AUTHORIZATION_HEADER - Optional full Authorization header for outbound calls
     CRM_API_BEARER_TOKEN - Optional bearer token fallback for outbound calls
     CRM_API_JWT_HMAC_SECRET_ARN - Optional Secrets Manager ARN used to mint service JWTs
+    CRM_API_JWT_ROLE    - Optional role claim for minted service JWTs
+    CRM_API_JWT_SUBJECT - Optional subject claim for minted service JWTs
     JWT_HMAC_SECRET_ARN - Fallback secret ARN for service JWT minting
     CRM_CLIENT_ACCOUNTS_PATH_TEMPLATE - Optional path template for
         client accounts lookup
@@ -81,8 +83,9 @@ DEFAULT_CLIENT_ACCOUNTS_PATH_TEMPLATE = "/api/clients/{client_id}/accounts"
 DEFAULT_CLIENT_TRANSACTIONS_PATH_TEMPLATE = "/api/clients/{client_id}/transactions"
 DEFAULT_AML_ALERTS_PATH = "/api/aml/alerts"
 DEFAULT_LOGS_PATH = "/api/logs"
-SERVICE_JWT_SUBJECT = "SYSTEM_AML"
-SERVICE_JWT_ROLE = "service"
+SERVICE_JWT_DEFAULT_SUBJECT = "SYSTEM_AML"
+SERVICE_JWT_DEFAULT_ROLE = "admin"
+SERVICE_JWT_ALLOWED_ROLES = frozenset({"admin", "service"})
 SERVICE_JWT_TTL_SECONDS = 300
 
 _JWT_HMAC_SECRET_CACHE: str | None = None
@@ -132,6 +135,27 @@ def _load_service_jwt_secret() -> str | None:
     return _JWT_HMAC_SECRET_CACHE
 
 
+def _resolve_service_jwt_subject() -> str:
+    """Resolve JWT subject claim with environment override support."""
+    configured_subject = os.environ.get("CRM_API_JWT_SUBJECT", "").strip()
+    return configured_subject or SERVICE_JWT_DEFAULT_SUBJECT
+
+
+def _resolve_service_jwt_role() -> str:
+    """Resolve JWT role claim with safe defaulting."""
+    configured_role = os.environ.get("CRM_API_JWT_ROLE", "").strip().lower()
+    if not configured_role:
+        return SERVICE_JWT_DEFAULT_ROLE
+    if configured_role in SERVICE_JWT_ALLOWED_ROLES:
+        return configured_role
+    logger.warning(
+        "Unsupported CRM_API_JWT_ROLE '%s'; falling back to '%s'",
+        configured_role,
+        SERVICE_JWT_DEFAULT_ROLE,
+    )
+    return SERVICE_JWT_DEFAULT_ROLE
+
+
 def _mint_service_jwt() -> str | None:
     """Mint an internal HS256 JWT for log API authorization."""
     secret = _load_service_jwt_secret()
@@ -141,8 +165,8 @@ def _mint_service_jwt() -> str | None:
     now_epoch = int(datetime.now(timezone.utc).timestamp())
     header = {"alg": "HS256", "typ": "JWT"}
     payload = {
-        "sub": SERVICE_JWT_SUBJECT,
-        "role": SERVICE_JWT_ROLE,
+        "sub": _resolve_service_jwt_subject(),
+        "role": _resolve_service_jwt_role(),
         "iat": now_epoch,
         "exp": now_epoch + SERVICE_JWT_TTL_SECONDS,
     }

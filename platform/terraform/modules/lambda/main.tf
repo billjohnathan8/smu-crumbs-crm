@@ -86,6 +86,7 @@ resource "aws_lambda_function" "aml" {
       CRM_API_BASE_URL            = var.crm_api_base_url
       CRM_LOG_API_URL_PARAM       = "/${var.project_name}/${var.environment}/service/log/url"
       CRM_API_JWT_HMAC_SECRET_ARN = var.jwt_hmac_secret_arn
+      CRM_API_JWT_ROLE            = lower(trimspace(var.aml_crm_api_jwt_role))
       JWT_HMAC_SECRET_ARN         = var.jwt_hmac_secret_arn
       ENTITY_ID                   = var.aml_entity_id
     }

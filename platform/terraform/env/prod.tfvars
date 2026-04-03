@@ -67,6 +67,7 @@ ses_domain                        = "itsag2t3.com" # Domain identity + DKIM reco
 enable_aml_lambda     = true # enabled: SFTP host/user can be auto-derived from sftp_server outputs; key secret ARN must be injected at runtime
 enable_audit_pipeline = true # implemented but disabled by default in production profile
 enable_aml_pipeline   = true # implemented but disabled by default in production profile
+aml_crm_api_jwt_role  = "admin" # AML Lambda must read cross-client accounts/transactions via internal service auth.
 
 # --- Observability & Security ---
 enable_waf                      = false

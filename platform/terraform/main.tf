@@ -208,6 +208,7 @@ module "lambda" {
   aml_sftp_remote_path                           = var.aml_sftp_remote_path
   aml_entity_id                                  = var.aml_entity_id
   crm_api_base_url                               = local.crm_api_base_url
+  aml_crm_api_jwt_role                           = var.aml_crm_api_jwt_role
   enable_sftp_transaction_collector              = var.enable_sftp_transaction_collector
   sftp_transaction_collector_zip_path            = var.sftp_transaction_collector_zip_path
   sftp_transaction_collector_memory_size         = var.sftp_transaction_collector_memory_size

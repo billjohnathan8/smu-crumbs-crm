@@ -190,6 +190,20 @@ variable "crm_api_base_url" {
   type        = string
 }
 
+variable "aml_crm_api_jwt_role" {
+  description = "Role claim minted by AML Lambda for CRM API service-to-service calls."
+  type        = string
+  default     = "admin"
+
+  validation {
+    condition = contains(
+      ["admin", "service"],
+      lower(trimspace(var.aml_crm_api_jwt_role))
+    )
+    error_message = "aml_crm_api_jwt_role must be either 'admin' or 'service'."
+  }
+}
+
 variable "enable_sftp_transaction_collector" {
   description = "Create the sftp-transaction-collector Lambda and schedule."
   type        = bool
