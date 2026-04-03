@@ -43,6 +43,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class PersistentUserStore implements UserStore {
 	private static final String USER_ID_PREFIX = "usr_";
 	private static final long ROOT_ADMIN_DB_ID = 1L;
+	private static final String DEFAULT_SEED_AGENT_FIRST_NAME = "Agent";
+	private static final String DEFAULT_SEED_AGENT_LAST_NAME = "One";
+	private static final String DEFAULT_SEED_AGENT_EMAIL = "agent1@crm.com";
+	private static final String DEFAULT_SEED_AGENT_PASSWORD = "V7!mQ2#pL9@xR4$k";
 	private static final Duration REFRESH_TTL = Duration.ofDays(7);
 	private static final Duration RESET_TTL = Duration.ofHours(1);
 	private static final HexFormat HEX_FORMAT = HexFormat.of();
@@ -54,6 +58,10 @@ public class PersistentUserStore implements UserStore {
 	private final boolean testResetIntrospectionEnabled;
 	private final String rootEmail;
 	private final String rootPassword;
+	private final String seedAgentFirstName;
+	private final String seedAgentLastName;
+	private final String seedAgentEmail;
+	private final String seedAgentPassword;
 	private final Map<String, PasswordResetTokenRecord> passwordResetTokens = new ConcurrentHashMap<>();
 	private final Map<String, String> latestResetTokenByEmail = new ConcurrentHashMap<>();
 
@@ -65,6 +73,10 @@ public class PersistentUserStore implements UserStore {
 		RefreshTokenRepository refreshTokenRepository,
 		@Value("${app.root-admin.email}") String rootEmail,
 		@Value("${app.root-admin.password}") String rootPassword,
+		@Value("${app.seed-agent.first-name:Agent}") String seedAgentFirstName,
+		@Value("${app.seed-agent.last-name:One}") String seedAgentLastName,
+		@Value("${app.seed-agent.email:agent1@crm.com}") String seedAgentEmail,
+		@Value("${app.seed-agent.password:V7!mQ2#pL9@xR4$k}") String seedAgentPassword,
 		Environment environment
 	) {
 		this(
@@ -74,6 +86,10 @@ public class PersistentUserStore implements UserStore {
 			refreshTokenRepository,
 			rootEmail,
 			rootPassword,
+			seedAgentFirstName,
+			seedAgentLastName,
+			seedAgentEmail,
+			seedAgentPassword,
 			environment.acceptsProfiles(Profiles.of("local", "test"))
 		);
 	}
@@ -86,7 +102,19 @@ public class PersistentUserStore implements UserStore {
 		String rootEmail,
 		String rootPassword
 	) {
-		this(clock, passwordHasher, userRepository, refreshTokenRepository, rootEmail, rootPassword, false);
+		this(
+			clock,
+			passwordHasher,
+			userRepository,
+			refreshTokenRepository,
+			rootEmail,
+			rootPassword,
+			DEFAULT_SEED_AGENT_FIRST_NAME,
+			DEFAULT_SEED_AGENT_LAST_NAME,
+			DEFAULT_SEED_AGENT_EMAIL,
+			DEFAULT_SEED_AGENT_PASSWORD,
+			false
+		);
 	}
 
 	PersistentUserStore(
@@ -96,6 +124,10 @@ public class PersistentUserStore implements UserStore {
 		RefreshTokenRepository refreshTokenRepository,
 		String rootEmail,
 		String rootPassword,
+		String seedAgentFirstName,
+		String seedAgentLastName,
+		String seedAgentEmail,
+		String seedAgentPassword,
 		boolean testResetIntrospectionEnabled
 	) {
 		this.clock = clock;
@@ -105,6 +137,10 @@ public class PersistentUserStore implements UserStore {
 		this.testResetIntrospectionEnabled = testResetIntrospectionEnabled;
 		this.rootEmail = rootEmail;
 		this.rootPassword = rootPassword;
+		this.seedAgentFirstName = seedAgentFirstName;
+		this.seedAgentLastName = seedAgentLastName;
+		this.seedAgentEmail = seedAgentEmail;
+		this.seedAgentPassword = seedAgentPassword;
 	}
 
 	@Transactional
@@ -380,20 +416,39 @@ public class PersistentUserStore implements UserStore {
 	private record PasswordResetTokenRecord(String email, Instant expiresAt) {}
 
 	private void seedRootAdminIfMissing() {
-		if (userRepository.findById(ROOT_ADMIN_DB_ID).isPresent()) {
+		Instant now = clock.instant();
+
+		if (userRepository.findById(ROOT_ADMIN_DB_ID).isEmpty()) {
+			UserEntity root = new UserEntity();
+			root.setFirstName("Root");
+			root.setLastName("Admin");
+			root.setEmail(normalizeEmail(rootEmail));
+			root.setRole(UserRole.admin);
+			root.setStatus(UserStatus.active);
+			root.setPasswordHash(passwordHasher.hash(rootPassword));
+			root.setCreatedAt(now);
+			root.setUpdatedAt(now);
+			userRepository.save(root);
+		}
+
+		if (seedAgentEmail == null || seedAgentEmail.isBlank()) {
+			return;
+		}
+		String normalizedSeedAgentEmail = normalizeEmail(seedAgentEmail);
+		if (userRepository.findByEmail(normalizedSeedAgentEmail).isPresent()) {
 			return;
 		}
 
-		UserEntity root = new UserEntity();
-		root.setFirstName("Root");
-		root.setLastName("Admin");
-		root.setEmail(normalizeEmail(rootEmail));
-		root.setRole(UserRole.admin);
-		root.setStatus(UserStatus.active);
-		root.setPasswordHash(passwordHasher.hash(rootPassword));
-		root.setCreatedAt(clock.instant());
-		root.setUpdatedAt(clock.instant());
-		userRepository.save(root);
+		UserEntity seedAgent = new UserEntity();
+		seedAgent.setFirstName(seedAgentFirstName);
+		seedAgent.setLastName(seedAgentLastName);
+		seedAgent.setEmail(normalizedSeedAgentEmail);
+		seedAgent.setRole(UserRole.user);
+		seedAgent.setStatus(UserStatus.active);
+		seedAgent.setPasswordHash(passwordHasher.hash(seedAgentPassword));
+		seedAgent.setCreatedAt(now);
+		seedAgent.setUpdatedAt(now);
+		userRepository.save(seedAgent);
 	}
 
 	private static boolean isRootAdminDbId(long dbId) {

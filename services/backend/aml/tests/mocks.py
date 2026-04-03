@@ -154,7 +154,7 @@ class MockCRMWriteClient:
         self.written_alerts: list[dict[str, Any]] = []
         self.written_logs: list[dict[str, Any]] = []
 
-    def write_alert(self, alert: AMLAlert) -> None:
+    def write_alert(self, alert: AMLAlert) -> str:
         payload: dict[str, Any] = {
             "alertId": alert.alert_id,
             "clientId": alert.client_id,
@@ -168,6 +168,7 @@ class MockCRMWriteClient:
         logger.debug(
             "MockCRMWriteClient captured alert: %s", json.dumps(payload, default=str)
         )
+        return alert.alert_id
 
     def write_log(self, log: LogEntry) -> None:
         payload: dict[str, Any] = {

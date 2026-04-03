@@ -251,7 +251,7 @@ describe('AdminDashboard', () => {
     expect(listLogsSpy).toHaveBeenNthCalledWith(2, { limit: 10, offset: 10 })
   })
 
-  it('should render logs filter button beside Recent Activity Logs and apply filters', async () => {
+  it('should render inline logs filters and apply them immediately', async () => {
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
       data: [],
       pagination: { total: 0, limit: 1, offset: 0 },
@@ -276,17 +276,15 @@ describe('AdminDashboard', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Recent Activity Logs')).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Filter' })).toBeInTheDocument()
+      expect(screen.getByText('Filters')).toBeInTheDocument()
     })
 
-    await user.click(screen.getByRole('button', { name: 'Filter' }))
-    await user.selectOptions(screen.getByRole('combobox'), 'UPDATE')
+    await user.selectOptions(screen.getByLabelText('Activity Type'), 'UPDATE')
     await user.type(screen.getByPlaceholderText('usr_...'), 'usr_1')
     await user.type(screen.getByPlaceholderText('clt_...'), 'clt_1')
-    await user.click(screen.getByRole('button', { name: 'Apply' }))
 
     await waitFor(() => {
-      expect(listLogsSpy).toHaveBeenNthCalledWith(2, {
+      expect(listLogsSpy).toHaveBeenLastCalledWith({
         limit: 10,
         offset: 0,
         action: 'UPDATE',

@@ -402,6 +402,18 @@ variable "verification_sns_topic_arn" {
   default     = ""
 }
 
+variable "alarm_notifications_topic_arn" {
+  description = "SNS topic ARN for CloudWatch alarm notifications forwarded by verification Lambda."
+  type        = string
+  default     = ""
+}
+
+variable "alarm_forward_to_emails" {
+  description = "Recipient email addresses for alarm notifications forwarded via SES by verification Lambda."
+  type        = list(string)
+  default     = []
+}
+
 variable "ses_sender_email" {
   description = "SES verified sender email for verification notifications."
   type        = string

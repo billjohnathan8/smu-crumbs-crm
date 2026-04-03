@@ -243,6 +243,63 @@ import_secret_if_available "module.security.aws_secretsmanager_secret.root_admin
 import_secret_if_available "module.security.aws_secretsmanager_secret.db_username" "/${PROJECT_NAME}/${ENVIRONMENT}/db/username"
 import_secret_if_available "module.security.aws_secretsmanager_secret.db_password" "/${PROJECT_NAME}/${ENVIRONMENT}/db/password"
 
+reconcile_lambda_permission_if_existing() {
+  local address="$1"
+  local function_name="$2"
+  local statement_id="$3"
+  local label="$4"
+
+  if state_has "${address}"; then
+    echo "Already tracked in state: ${label} (${address})"
+    return 0
+  fi
+
+  local import_id="${function_name}/${statement_id}"
+
+  echo "Reconciling existing ${label} into Terraform state: ${address}"
+  set +e
+  local import_output
+  import_output="$(terraform import "${tf_args[@]}" "${address}" "${import_id}" 2>&1)"
+  local import_rc=$?
+  set -e
+
+  if [[ ${import_rc} -eq 0 ]]; then
+    return 0
+  fi
+
+  if grep -Fq "Resource already managed by Terraform" <<< "${import_output}" \
+    || grep -Fq "already managing a remote object for ${address}" <<< "${import_output}"; then
+    echo "Already tracked in state during import attempt: ${label} (${address})"
+    return 0
+  fi
+
+  if grep -Fq "Cannot import non-existent remote object" <<< "${import_output}" \
+    || grep -Fq "not found" <<< "${import_output}"; then
+    echo "No existing ${label} found in AWS yet; skipping import."
+    return 0
+  fi
+
+  echo "${import_output}"
+  return "${import_rc}"
+}
+
+enable_verification_pipeline="$(tr '[:upper:]' '[:lower:]' <<< "$(get_tfvar_value "enable_verification_pipeline")")"
+if [[ "${enable_verification_pipeline}" == "true" ]]; then
+  verification_lambda_name="${name_prefix}-verification"
+
+  reconcile_lambda_permission_if_existing \
+    "module.lambda.aws_lambda_permission.allow_sns_invoke_verification[0]" \
+    "${verification_lambda_name}" \
+    "AllowExecutionFromSns" \
+    "Verification Lambda permission from verification SNS topic"
+
+  reconcile_lambda_permission_if_existing \
+    "module.lambda.aws_lambda_permission.allow_sns_alarm_invoke_verification[0]" \
+    "${verification_lambda_name}" \
+    "AllowExecutionFromSnsAlarmTopic" \
+    "Verification Lambda permission from alarm SNS topic"
+fi
+
 if [[ "${pending_secret_recovery}" == "1" ]]; then
   echo "One or more required secrets are scheduled for deletion. Run platform/terraform/scripts/force-delete-stale-resources.sh ${ENVIRONMENT} before rerunning the Terraform plan workflow."
   exit 1

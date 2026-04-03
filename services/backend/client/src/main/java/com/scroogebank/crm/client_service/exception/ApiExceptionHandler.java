@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -112,8 +113,26 @@ public class ApiExceptionHandler {
 			.body(error(request, "service_unavailable", "Verification email dispatch unavailable. Client was not created."));
 	}
 
+	@ExceptionHandler(DataIntegrityViolationException.class)
+	public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(
+		HttpServletRequest request,
+		DataIntegrityViolationException ex
+	) {
+		String message = conflictMessageFrom(ex);
+		if (message == null) {
+			message = "Conflict";
+		}
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(error(request, "conflict", message));
+	}
+
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleInternal(HttpServletRequest request, Exception ex) {
+		String message = conflictMessageFrom(ex);
+		if (message != null) {
+			Object requestId = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
+			log.warn("Conflict exception routed to internal handler (requestId={}): {}", requestId == null ? "unknown" : requestId.toString(), message);
+			return ResponseEntity.status(HttpStatus.CONFLICT).body(error(request, "conflict", message));
+		}
 		Object requestId = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
 		log.error("Unhandled exception (requestId={})", requestId == null ? "unknown" : requestId.toString(), ex);
 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error(request, "internal_error", "Internal error"));
@@ -122,5 +141,29 @@ public class ApiExceptionHandler {
 	private static ErrorResponse error(HttpServletRequest request, String error, String message) {
 		Object requestId = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
 		return new ErrorResponse(error, message, requestId == null ? null : requestId.toString());
+	}
+
+	private static String extractDetails(Throwable throwable) {
+		StringBuilder sb = new StringBuilder();
+		Throwable cur = throwable;
+		while (cur != null) {
+			if (cur.getMessage() != null) {
+				if (!sb.isEmpty()) sb.append(' ');
+				sb.append(cur.getMessage());
+			}
+			cur = cur.getCause();
+		}
+		return sb.toString();
+	}
+
+	private static String conflictMessageFrom(Throwable throwable) {
+		String details = extractDetails(throwable).toLowerCase();
+		if (details.contains("uk_clients_email") || details.contains("email_address")) {
+			return "Email address already exists.";
+		}
+		if (details.contains("uk_clients_phone") || details.contains("phone_number")) {
+			return "Phone number already exists.";
+		}
+		return null;
 	}
 }

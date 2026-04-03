@@ -284,7 +284,11 @@ class LogRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     """
+                    WITH next_id AS (
+                        SELECT nextval(pg_get_serial_sequence('aml_alerts', 'id')) AS id
+                    )
                     INSERT INTO aml_alerts (
+                        id,
                         alert_id,
                         client_id,
                         transaction_id,
@@ -293,15 +297,16 @@ class LogRepository:
                         detected_at,
                         review_status
                     )
-                    VALUES (
-                        %(alertId)s,
+                    SELECT
+                        next_id.id,
+                        'aml_' || next_id.id::text,
                         %(clientId)s,
                         %(transactionId)s,
                         %(alertType)s,
                         %(description)s,
                         %(detectedAt)s,
                         %(reviewStatus)s
-                    )
+                    FROM next_id
                     RETURNING *
                     """,
                     payload,

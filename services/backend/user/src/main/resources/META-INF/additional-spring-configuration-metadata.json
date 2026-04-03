@@ -14,6 +14,11 @@
       "name": "app.root-admin",
       "type": "com.scroogebank.crm.user_service.config.AppProperties$RootAdmin",
       "sourceType": "com.scroogebank.crm.user_service.config.AppProperties"
+    },
+    {
+      "name": "app.seed-agent",
+      "type": "com.scroogebank.crm.user_service.config.AppProperties$SeedAgent",
+      "sourceType": "com.scroogebank.crm.user_service.config.AppProperties"
     }
   ],
   "properties": [
@@ -64,6 +69,30 @@
       "type": "java.lang.String",
       "sourceType": "com.scroogebank.crm.user_service.config.AppProperties$RootAdmin",
       "description": "Password for the root admin user"
+    },
+    {
+      "name": "app.seed-agent.first-name",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.user_service.config.AppProperties$SeedAgent",
+      "description": "First name for the default seeded agent"
+    },
+    {
+      "name": "app.seed-agent.last-name",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.user_service.config.AppProperties$SeedAgent",
+      "description": "Last name for the default seeded agent"
+    },
+    {
+      "name": "app.seed-agent.email",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.user_service.config.AppProperties$SeedAgent",
+      "description": "Email for the default seeded agent"
+    },
+    {
+      "name": "app.seed-agent.password",
+      "type": "java.lang.String",
+      "sourceType": "com.scroogebank.crm.user_service.config.AppProperties$SeedAgent",
+      "description": "Password for the default seeded agent"
     }
   ]
 }

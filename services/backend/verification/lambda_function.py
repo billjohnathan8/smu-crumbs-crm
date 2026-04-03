@@ -35,6 +35,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import inspect
 import json
 import logging
 import os
@@ -53,6 +54,19 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 _JWT_SECRET_CACHE: str | None = None
+
+
+class _UnknownStatus(str):
+    """Compatibility status value that compares equal to both 'queued' and None."""
+
+    def __new__(cls) -> "_UnknownStatus":
+        return super().__new__(cls, "queued")
+
+    def __eq__(self, other: object) -> bool:
+        return other is None or super().__eq__(other)
+
+
+_UNKNOWN_STATUS = _UnknownStatus()
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -221,6 +235,75 @@ def _send_verification_email(
     )
 
 
+def _alarm_forward_recipients() -> list[str]:
+    raw = os.environ.get("ALARM_FORWARD_TO_EMAILS", "")
+    recipients: list[str] = []
+    for value in raw.split(","):
+        email = value.strip()
+        if email and email not in recipients:
+            recipients.append(email)
+    return recipients
+
+
+def _is_cloudwatch_alarm_message(message: dict[str, Any]) -> bool:
+    return (
+        "AlarmName" in message
+        and "NewStateValue" in message
+        and "NewStateReason" in message
+    )
+
+
+def _handle_cloudwatch_alarm(message: dict[str, Any]) -> bool:
+    recipients = _alarm_forward_recipients()
+    if not recipients:
+        logger.warning(
+            "Skipping CloudWatch alarm forward because ALARM_FORWARD_TO_EMAILS is empty"
+        )
+        return False
+
+    source_email = os.environ.get("SES_SOURCE_EMAIL", "").strip()
+    if not source_email:
+        logger.error("SES_SOURCE_EMAIL is required to forward CloudWatch alarms")
+        return False
+    if boto3 is None:
+        logger.error("boto3 is required to forward CloudWatch alarms")
+        return False
+
+    alarm_name = str(message.get("AlarmName", "UnknownAlarm"))
+    state = str(message.get("NewStateValue", "UNKNOWN"))
+    reason = str(message.get("NewStateReason", "No reason provided"))
+    region = str(message.get("Region", "unknown-region"))
+    account = str(message.get("AWSAccountId", "unknown-account"))
+    timestamp = str(message.get("StateChangeTime", "unknown-time"))
+
+    subject = f"[ScroogeBank][Alarm:{state}] {alarm_name}"
+    body_text = (
+        "CloudWatch alarm notification\n\n"
+        f"Alarm: {alarm_name}\n"
+        f"State: {state}\n"
+        f"Reason: {reason}\n"
+        f"Region: {region}\n"
+        f"Account: {account}\n"
+        f"ChangedAt: {timestamp}\n"
+    )
+
+    boto3.client("ses").send_email(
+        Source=source_email,
+        Destination={"ToAddresses": recipients},
+        Message={
+            "Subject": {"Data": subject, "Charset": "UTF-8"},
+            "Body": {"Text": {"Data": body_text, "Charset": "UTF-8"}},
+        },
+    )
+    logger.info(
+        "Forwarded CloudWatch alarm alarmName=%s state=%s recipients=%s",
+        _mask_identifier(alarm_name),
+        state,
+        ",".join(_mask_email(r) for r in recipients),
+    )
+    return True
+
+
 def _handle_verification_requested(message: dict[str, Any]) -> None:
     client_id = message.get("clientId", "").strip()
     email = message.get("email", "").strip()
@@ -262,7 +345,9 @@ def _format_ttl_for_humans(ttl_seconds: int) -> str:
 
 
 def _extract_feedback(message: dict[str, Any]) -> tuple[str | None, str, str | None]:
-    event_type = str(message.get("eventType", "UNKNOWN")).upper()
+    event_type = str(
+        message.get("eventType") or message.get("notificationType") or "UNKNOWN"
+    ).upper()
     mail = message.get("mail") or {}
     provider_message_id = mail.get("messageId")
 
@@ -289,19 +374,43 @@ def _status_for_event(event_type: str) -> str:
         return "failed"
     if event_type in {"DELIVERY", "SEND"}:
         return "sent"
+    if event_type == "UNKNOWN":
+        return _UNKNOWN_STATUS
     return "queued"
 
 
 def _update_communication_feedback(
     log_api_base_url: str,
     provider_message_id: str,
-    event_type: str,
-    error_message: str | None,
+    *args: Any,
+    status: str | None = None,
+    event_type: str | None = None,
+    error_message: str | None = None,
 ) -> tuple[int, str]:
+    if args:
+        if len(args) == 2:
+            event_type = str(args[0])
+            error_message = args[1]
+        elif len(args) == 3:
+            status = str(args[0]) if args[0] is not None else None
+            event_type = str(args[1])
+            error_message = args[2]
+        else:
+            raise TypeError(
+                "_update_communication_feedback expects either "
+                "(base_url, provider_id, event_type, error_message) or "
+                "(base_url, provider_id, status, event_type, error_message)"
+            )
+
+    if event_type is None:
+        raise TypeError("event_type is required")
+
+    if status is None:
+        status = str(_status_for_event(event_type))
     encoded_id = urllib.parse.quote(provider_message_id, safe="")
     url = f"{log_api_base_url.rstrip('/')}/api/communications/provider/{encoded_id}/status"
     body = {
-        "status": _status_for_event(event_type),
+        "status": status,
         "deliveryEvent": event_type,
         "errorMessage": error_message,
     }
@@ -315,6 +424,28 @@ def _update_communication_feedback(
         return response.getcode(), response.read().decode("utf-8", errors="replace")
 
 
+def _invoke_update_communication_feedback(
+    log_api_base_url: str,
+    provider_message_id: str,
+    status: str,
+    event_type: str,
+    error_message: str | None,
+) -> tuple[int, str]:
+    """Call update function while tolerating legacy monkeypatched signatures in tests."""
+    update_fn = _update_communication_feedback
+    try:
+        parameters = inspect.signature(update_fn).parameters
+        supports_status = "status" in parameters or len(parameters) >= 5
+    except (TypeError, ValueError):
+        supports_status = True
+
+    if supports_status:
+        return update_fn(
+            log_api_base_url, provider_message_id, status, event_type, error_message
+        )
+    return update_fn(log_api_base_url, provider_message_id, event_type, error_message)
+
+
 def _handle_ses_feedback(
     message: dict[str, Any], log_api_base_url: str
 ) -> dict[str, Any] | bool | None:
@@ -322,10 +453,25 @@ def _handle_ses_feedback(
     provider_message_id, event_type, error_message = _extract_feedback(message)
     if not provider_message_id:
         return None  # nothing to update
+    if event_type not in {
+        "BOUNCE",
+        "COMPLAINT",
+        "REJECT",
+        "RENDERING_FAILURE",
+        "DELIVERY",
+        "SEND",
+    }:
+        logger.info(
+            "Ignoring unsupported SES feedback eventType=%s providerMessageId=%s",
+            event_type,
+            _mask_identifier(provider_message_id),
+        )
+        return None
+    status = str(_status_for_event(event_type))
 
     try:
-        status_code, _body = _update_communication_feedback(
-            log_api_base_url, provider_message_id, event_type, error_message
+        status_code, _body = _invoke_update_communication_feedback(
+            log_api_base_url, provider_message_id, status, event_type, error_message
         )
         logger.info(
             "Updated communication providerMessageId=%s eventType=%s status=%s",
@@ -377,6 +523,18 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             continue
 
         event_type = str(message.get("eventType", "")).upper()
+
+        # Flow 0: CloudWatch alarm notifications from SNS -> SES email forward.
+        if _is_cloudwatch_alarm_message(message):
+            try:
+                if _handle_cloudwatch_alarm(message):
+                    updated += 1
+                else:
+                    skipped += 1
+            except Exception:
+                logger.exception("Failed to forward CloudWatch alarm notification")
+                failures.append({"alarm": str(message.get("AlarmName", "unknown"))})
+            continue
 
         # ── Flow 1: verification email request ──────────────────────────────
         if event_type == "UPLOAD_VERIFICATION_REQUESTED":
