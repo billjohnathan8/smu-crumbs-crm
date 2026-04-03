@@ -465,6 +465,10 @@ export function ViewTransactionsPage() {
   }
 
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE)
+  const canPaginateTransactions = totalPages > 1
+  const transactionsRangeStart = total === 0 ? 0 : currentPage * ITEMS_PER_PAGE + 1
+  const transactionsRangeEnd =
+    total === 0 ? 0 : Math.min((currentPage + 1) * ITEMS_PER_PAGE, total)
 
   return (
     <SidebarLayout items={sidebarNav}>
@@ -838,43 +842,41 @@ export function ViewTransactionsPage() {
                   </tbody>
                 </table>
               </div>
-
-              {totalPages > 1 && (
-                <div className="px-6 py-4 border-t border-border flex items-center justify-between">
-                  <p className="text-sm text-text-muted">
-                    Showing {currentPage * ITEMS_PER_PAGE + 1} to{' '}
-                    {currentPage * ITEMS_PER_PAGE + transactions.length} of {total} transactions
-                  </p>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => setCurrentPage(currentPage - 1)}
-                      disabled={currentPage === 0}
-                      className={`px-3 py-1 rounded ${
-                        currentPage === 0
-                          ? 'bg-background-light text-text-muted cursor-not-allowed'
-                          : 'bg-primary hover:bg-primary-hover text-white'
-                      }`}
-                    >
-                      Previous
-                    </button>
-                    <span className="px-3 py-1 text-text">
-                      Page {currentPage + 1} of {totalPages}
-                    </span>
-                    <button
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                      disabled={currentPage >= totalPages - 1}
-                      className={`px-3 py-1 rounded ${
-                        currentPage >= totalPages - 1
-                          ? 'bg-background-light text-text-muted cursor-not-allowed'
-                          : 'bg-primary hover:bg-primary-hover text-white'
-                      }`}
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              )}
             </>
+          )}
+          {canPaginateTransactions && (
+            <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+              <p className="text-sm text-text-muted">
+                Showing {transactionsRangeStart} to {transactionsRangeEnd} of {total} transactions
+              </p>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setCurrentPage(page => page - 1)}
+                  disabled={currentPage === 0 || isLoading}
+                  className={`px-3 py-1 rounded ${
+                    currentPage === 0 || isLoading
+                      ? 'bg-background-light text-text-muted cursor-not-allowed'
+                      : 'bg-primary hover:bg-primary-hover text-white'
+                  }`}
+                >
+                  Previous
+                </button>
+                <span className="px-3 py-1 text-text">
+                  Page {currentPage + 1} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(page => page + 1)}
+                  disabled={currentPage >= totalPages - 1 || isLoading}
+                  className={`px-3 py-1 rounded ${
+                    currentPage >= totalPages - 1 || isLoading
+                      ? 'bg-background-light text-text-muted cursor-not-allowed'
+                      : 'bg-primary hover:bg-primary-hover text-white'
+                  }`}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           )}
         </div>
 
