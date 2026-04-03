@@ -68,8 +68,8 @@ export function VerificationReviewPanel({
     }
   }, [clientId, primaryDocumentRef, addressDocumentRef])
 
-  const primaryDataUrl = useMemo(() => toDataUrl(documents.primary), [documents.primary])
-  const addressDataUrl = useMemo(() => toDataUrl(documents.address), [documents.address])
+  const { dataUrl: primaryDataUrl, objectUrl: primaryBlobUrl } = useDocumentUrls(documents.primary)
+  const { dataUrl: addressDataUrl, objectUrl: addressBlobUrl } = useDocumentUrls(documents.address)
 
   return (
     <div className="bg-card border border-warning rounded-lg p-6">
@@ -93,6 +93,7 @@ export function VerificationReviewPanel({
             docType={primaryDocumentType}
             docRef={primaryDocumentRef}
             dataUrl={primaryDataUrl}
+            blobUrl={primaryBlobUrl}
             mimeType={documents.primary?.mimeType}
           />
           <DocumentCard
@@ -100,6 +101,7 @@ export function VerificationReviewPanel({
             docType={addressDocumentType}
             docRef={addressDocumentRef}
             dataUrl={addressDataUrl}
+            blobUrl={addressBlobUrl}
             mimeType={documents.address?.mimeType}
           />
         </div>
@@ -138,17 +140,52 @@ function toDataUrl(document: VerificationDocument | null): string {
   return `data:${document.mimeType};base64,${document.documentBase64}`
 }
 
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return bytes.buffer as ArrayBuffer
+}
+
+function useDocumentUrls(document: VerificationDocument | null) {
+  const dataUrl = useMemo(() => toDataUrl(document), [document])
+  const [objectUrl, setObjectUrl] = useState('')
+
+  useEffect(() => {
+    if (!document?.documentBase64 || !document.mimeType) {
+      setObjectUrl('')
+      return
+    }
+
+    const blob = new Blob([base64ToArrayBuffer(document.documentBase64)], {
+      type: document.mimeType,
+    })
+    const url = URL.createObjectURL(blob)
+    setObjectUrl(url)
+
+    return () => {
+      URL.revokeObjectURL(url)
+    }
+  }, [document])
+
+  return { dataUrl, objectUrl }
+}
+
 function DocumentCard({
   title,
   docType,
   docRef,
   dataUrl,
+  blobUrl,
   mimeType,
 }: {
   title: string
   docType?: string | null
   docRef?: string | null
   dataUrl: string
+  blobUrl: string
   mimeType?: string
 }) {
   const isImage = Boolean(mimeType?.startsWith('image/'))
@@ -166,11 +203,11 @@ function DocumentCard({
           className="max-h-48 w-full rounded border border-border object-contain"
         />
       ) : null}
-      {isPdf && dataUrl ? (
+      {isPdf && blobUrl ? (
         <a
-          href={dataUrl}
+          href={blobUrl}
           target="_blank"
-          rel="noreferrer"
+          rel="noopener"
           className="inline-block rounded bg-background px-3 py-1.5 text-xs text-text hover:bg-background-light"
         >
           Open PDF
