@@ -4,6 +4,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   not_found: 'The requested resource was not found.',
   validation_failed: 'Please check your input and try again.',
   validation_error: 'Please check your input and try again.',
+  password_policy_violation:
+    'Password does not meet policy requirements. Include lowercase, number, special character, and 8-128 chars.',
   conflict: 'This record has already been modified. Please refresh and try again.',
   service_unavailable: 'Service is temporarily unavailable. Please try again shortly.',
   request_timeout: 'Request timed out. Please try again.',

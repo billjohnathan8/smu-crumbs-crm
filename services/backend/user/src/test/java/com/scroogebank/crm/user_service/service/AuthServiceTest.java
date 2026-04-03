@@ -30,16 +30,19 @@ import org.junit.jupiter.api.Test;
 class AuthServiceTest {
 	private InMemoryUserStore store;
 	private JwtService jwtService;
+	private PasswordResetEmailService passwordResetEmailService;
 	private AuthService authService;
 
 	@BeforeEach
 	void setUp() {
 		store = mock(InMemoryUserStore.class);
 		jwtService = mock(JwtService.class);
+		passwordResetEmailService = mock(PasswordResetEmailService.class);
 		authService = new AuthService(
 			store,
 			jwtService,
-			Clock.fixed(Instant.parse("2026-02-05T00:00:00Z"), ZoneOffset.UTC)
+			Clock.fixed(Instant.parse("2026-02-05T00:00:00Z"), ZoneOffset.UTC),
+			passwordResetEmailService
 		);
 	}
 
@@ -142,8 +145,20 @@ class AuthServiceTest {
 
 	@Test
 	void forgotPassword_alwaysDelegatesToStore() {
+		when(store.createPasswordResetToken("ava@example.com")).thenReturn("token-1");
 		authService.forgotPassword(new ResetPasswordRequest("ava@example.com"));
 		verify(store).createPasswordResetToken("ava@example.com");
+		verify(passwordResetEmailService).sendResetPasswordEmail("ava@example.com", "token-1");
+	}
+
+	@Test
+	void forgotPassword_unknownEmailDoesNotSendEmail() {
+		when(store.createPasswordResetToken("unknown@example.com")).thenReturn(null);
+
+		authService.forgotPassword(new ResetPasswordRequest("unknown@example.com"));
+
+		verify(store).createPasswordResetToken("unknown@example.com");
+		verify(passwordResetEmailService, never()).sendResetPasswordEmail(any(), any());
 	}
 
 	@Test

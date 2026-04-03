@@ -1,39 +1,92 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import type { ResetPasswordRequest } from '@/api/types'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import type { ForgotPasswordRequest, ResetPasswordRequest } from '@/api/types'
+import { useTheme } from '@/features/theme/useTheme'
+
+const PASSWORD_MIN_LENGTH = 8
+const PASSWORD_MAX_LENGTH = 128
+const SPECIAL_CHARACTER_REGEX = /[^A-Za-z0-9]/
+
+type PasswordRule = {
+  label: string
+  passed: boolean
+}
+
+function getPasswordRules(password: string): PasswordRule[] {
+  return [
+    {
+      label: `Between ${PASSWORD_MIN_LENGTH} and ${PASSWORD_MAX_LENGTH} characters`,
+      passed: password.length >= PASSWORD_MIN_LENGTH && password.length <= PASSWORD_MAX_LENGTH,
+    },
+    { label: 'At least one lowercase letter', passed: /[a-z]/.test(password) },
+    { label: 'At least one number', passed: /[0-9]/.test(password) },
+    { label: 'At least one special character', passed: SPECIAL_CHARACTER_REGEX.test(password) },
+  ]
+}
+
+function getPasswordStrength(password: string): 'weak' | 'medium' | 'strong' {
+  const rules = getPasswordRules(password)
+  const passedCount = rules.filter(rule => rule.passed).length
+  const hasUppercase = /[A-Z]/.test(password)
+  const longEnough = password.length >= 12
+  const score = passedCount + (hasUppercase ? 1 : 0) + (longEnough ? 1 : 0)
+
+  if (score <= 2) return 'weak'
+  if (score <= 4) return 'medium'
+  return 'strong'
+}
+
+type ResetErrors = Partial<Record<'token' | keyof Omit<ResetPasswordRequest, 'token'>, string>>
 
 export function ResetPasswordPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const { theme } = useTheme()
   const [searchParams] = useSearchParams()
-
   const token = useMemo(() => searchParams.get('token') ?? '', [searchParams])
+  const hasToken = token.trim().length > 0
+  const prefetchedEmail =
+    typeof location.state === 'object' &&
+    location.state &&
+    'email' in location.state &&
+    typeof location.state.email === 'string'
+      ? location.state.email
+      : ''
 
   const [formData, setFormData] = useState<Omit<ResetPasswordRequest, 'token'>>({
     newPassword: '',
     confirmPassword: '',
   })
-  const [errors, setErrors] = useState<
-    Partial<Record<'token' | keyof Omit<ResetPasswordRequest, 'token'>, string>>
-  >({})
+  const [requestLinkEmail, setRequestLinkEmail] = useState(prefetchedEmail)
+  const [errors, setErrors] = useState<ResetErrors>({})
   const [generalError, setGeneralError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
+  const [linkRequested, setLinkRequested] = useState(false)
 
   const inputCls = (field: keyof Omit<ResetPasswordRequest, 'token'>) =>
-    `form-input ${errors[field] ? 'form-input-error' : ''} bg-[var(--off-white)]`
+    `form-input ${errors[field] ? 'form-input-error' : ''}` +
+    (theme === 'dark' ? ' bg-[var(--gray)]' : ' bg-[var(--off-white)]')
 
-  const validateForm = (): boolean => {
-    const newErrors: Partial<Record<'token' | keyof Omit<ResetPasswordRequest, 'token'>, string>> =
-      {}
+  const emailInputCls =
+    `form-input ${errors.token ? 'form-input-error' : ''}` +
+    (theme === 'dark' ? ' bg-[var(--gray)]' : ' bg-[var(--off-white)]')
 
+  const validateResetForm = (): boolean => {
+    const newErrors: ResetErrors = {}
     if (!token.trim()) {
       newErrors.token = 'Reset link is invalid or missing token'
     }
 
     if (!formData.newPassword) {
       newErrors.newPassword = 'New password is required'
-    } else if (formData.newPassword.length < 8) {
-      newErrors.newPassword = 'Password must be at least 8 characters long'
+    } else {
+      const invalidRules = getPasswordRules(formData.newPassword).filter(rule => !rule.passed)
+      if (invalidRules.length > 0) {
+        newErrors.newPassword = `Password does not meet requirements: ${invalidRules
+          .map(rule => rule.label.toLowerCase())
+          .join(', ')}`
+      }
     }
 
     if (!formData.confirmPassword) {
@@ -46,13 +99,12 @@ export function ResetPasswordPage() {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleResetSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setGeneralError('')
     setIsSuccess(false)
 
-    if (!validateForm()) return
-
+    if (!validateResetForm()) return
     setIsLoading(true)
 
     try {
@@ -65,11 +117,9 @@ export function ResetPasswordPage() {
           confirmPassword: formData.confirmPassword,
         }),
       })
-
       if (!response.ok) {
-        throw new Error('Failed to reset password.')
+        throw new Error('Failed to reset password. Please try again.')
       }
-
       setIsSuccess(true)
     } catch (err) {
       if (err instanceof Error) {
@@ -82,16 +132,63 @@ export function ResetPasswordPage() {
     }
   }
 
+  const handleRequestLinkSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    setGeneralError('')
+    setErrors({})
+
+    const normalizedEmail = requestLinkEmail.trim()
+    if (!normalizedEmail) {
+      setErrors({ token: 'Email is required to request a reset link' })
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setErrors({ token: 'Invalid email format' })
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const payload: ForgotPasswordRequest = { email: normalizedEmail }
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!response.ok) {
+        throw new Error('Failed to send reset link. Please try again.')
+      }
+      setLinkRequested(true)
+    } catch (err) {
+      setGeneralError(
+        err instanceof Error ? err.message : 'Failed to send reset link. Please try again.'
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const newPassword = formData.newPassword
+  const hasNewPassword = newPassword.trim().length > 0
+  const passwordRules = hasNewPassword ? getPasswordRules(newPassword) : []
+  const passwordStrength = hasNewPassword ? getPasswordStrength(newPassword) : null
+  const strengthLabelClass =
+    passwordStrength === 'strong'
+      ? 'text-success'
+      : passwordStrength === 'medium'
+        ? 'text-yellow-500'
+        : 'text-danger'
+
   if (isSuccess) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="w-full max-w-md">
-          <div className="bg-card  rounded-lg p-8">
+          <div className="bg-card rounded-lg p-8">
             <h1 className="text-3xl font-bold text-text mb-2 text-center">
               Password Reset Successful
             </h1>
             <p className="text-text-muted text-center mb-6">
-              Your password has been successfully reset. You can now log in with your new password.
+              Your password has been reset. You can now log in with your new password.
             </p>
             <button
               type="button"
@@ -106,12 +203,36 @@ export function ResetPasswordPage() {
     )
   }
 
+  if (!hasToken && linkRequested) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="bg-card rounded-lg p-8">
+            <h1 className="text-3xl font-bold text-text mb-2 text-center">Check Your Email</h1>
+            <p className="text-text-muted text-center mb-6">
+              If an account with that email exists, a reset link has been sent.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate('/login')}
+              className="w-full py-3 px-4 rounded-lg font-normal transition-colors bg-primary hover:bg-primary-hover text-white"
+            >
+              Back to Login
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="bg-card  rounded-lg p-8">
+        <div className="bg-card rounded-lg p-8">
           <h1 className="text-3xl font-medium text-text mb-2 text-center">Reset Password</h1>
-          <p className="text-text-muted text-center mb-8">Enter your new password below</p>
+          <p className="text-text-muted text-center mb-8">
+            {hasToken ? 'Enter your new password below' : 'Request a reset link to continue'}
+          </p>
 
           {generalError && (
             <div className="bg-danger/10 border border-danger rounded-lg p-4 mb-6">
@@ -125,74 +246,138 @@ export function ResetPasswordPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-            <div>
-              <label htmlFor="newPassword" className="block text-sm font-normal text-text mb-2">
-                New Password
-              </label>
-              <input
-                id="newPassword"
-                type="password"
-                data-testid="new-password-input"
-                value={formData.newPassword}
-                onChange={e => {
-                  setFormData({ ...formData, newPassword: e.target.value })
-                  if (errors.newPassword) {
-                    setErrors({ ...errors, newPassword: '' })
-                  }
-                }}
-                className={inputCls('newPassword')}
+          {hasToken ? (
+            <form onSubmit={handleResetSubmit} className="space-y-6" noValidate>
+              <div>
+                <label htmlFor="newPassword" className="block text-sm font-normal text-text mb-2">
+                  New Password
+                </label>
+                <input
+                  id="newPassword"
+                  type="password"
+                  data-testid="new-password-input"
+                  value={formData.newPassword}
+                  onChange={e => {
+                    setFormData(prev => ({ ...prev, newPassword: e.target.value }))
+                    if (errors.newPassword) {
+                      setErrors(prev => ({ ...prev, newPassword: '' }))
+                    }
+                  }}
+                  className={inputCls('newPassword')}
+                  disabled={isLoading}
+                  autoComplete="new-password"
+                  placeholder="Enter new password"
+                />
+                <p className="text-xs text-text-subtle mt-2">
+                  Must include lowercase, number, special character, and be 8-128 characters.
+                  Uppercase is recommended.
+                </p>
+                {hasNewPassword && (
+                  <>
+                    <div className="mt-3">
+                      <div className="grid grid-cols-3 gap-2">
+                        <div
+                          className={`h-1 rounded ${passwordStrength === 'weak' ? 'bg-danger' : 'bg-border'}`}
+                        />
+                        <div
+                          className={`h-1 rounded ${passwordStrength === 'medium' ? 'bg-yellow-500' : 'bg-border'}`}
+                        />
+                        <div
+                          className={`h-1 rounded ${passwordStrength === 'strong' ? 'bg-success' : 'bg-border'}`}
+                        />
+                      </div>
+                      <p className={`text-xs mt-1 font-medium capitalize ${strengthLabelClass}`}>
+                        {passwordStrength}
+                      </p>
+                    </div>
+                    <ul className="mt-2 space-y-1">
+                      {passwordRules.map(rule => (
+                        <li
+                          key={rule.label}
+                          className={`text-xs ${rule.passed ? 'text-success' : 'text-text-subtle'}`}
+                        >
+                          {rule.passed ? 'Pass' : 'Need'}: {rule.label}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+                {errors.newPassword && (
+                  <p className="text-danger text-sm mt-1">{errors.newPassword}</p>
+                )}
+              </div>
+
+              <div>
+                <label
+                  htmlFor="confirmPassword"
+                  className="block text-sm font-normal text-text mb-2"
+                >
+                  Confirm Password
+                </label>
+                <input
+                  id="confirmPassword"
+                  type="password"
+                  data-testid="confirm-password-input"
+                  value={formData.confirmPassword}
+                  onChange={e => {
+                    setFormData(prev => ({ ...prev, confirmPassword: e.target.value }))
+                    if (errors.confirmPassword) {
+                      setErrors(prev => ({ ...prev, confirmPassword: '' }))
+                    }
+                  }}
+                  className={inputCls('confirmPassword')}
+                  disabled={isLoading}
+                  autoComplete="new-password"
+                  placeholder="Confirm new password"
+                />
+                {errors.confirmPassword && (
+                  <p className="text-danger text-sm mt-1">{errors.confirmPassword}</p>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                data-testid="reset-password-submit-button"
                 disabled={isLoading}
-                autoComplete="new-password"
-                placeholder="Enter new password"
-              />
-              {errors.newPassword && (
-                <p className="text-danger text-sm mt-1">{errors.newPassword}</p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-normal text-text mb-2">
-                Confirm Password
-              </label>
-              <input
-                id="confirmPassword"
-                type="password"
-                data-testid="confirm-password-input"
-                value={formData.confirmPassword}
-                onChange={e => {
-                  setFormData({ ...formData, confirmPassword: e.target.value })
-                  if (errors.confirmPassword) {
-                    setErrors({ ...errors, confirmPassword: '' })
-                  }
-                }}
-                className={inputCls('confirmPassword')}
+                className="w-full py-3 px-4 rounded-lg font-normal transition-all hover:brightness-[0.8] duration-200 gradient-dark-red text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? 'Resetting...' : 'Reset Password'}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleRequestLinkSubmit} className="space-y-6" noValidate>
+              <div>
+                <label htmlFor="resetEmail" className="block text-sm font-normal text-text mb-2">
+                  Email
+                </label>
+                <input
+                  id="resetEmail"
+                  type="email"
+                  data-testid="reset-email-input"
+                  value={requestLinkEmail}
+                  onChange={e => setRequestLinkEmail(e.target.value)}
+                  className={emailInputCls}
+                  disabled={isLoading}
+                  autoComplete="email"
+                  placeholder="Enter your email address"
+                />
+              </div>
+              <button
+                type="submit"
+                data-testid="request-reset-link-submit-button"
                 disabled={isLoading}
-                autoComplete="new-password"
-                placeholder="Confirm new password"
-              />
-              {errors.confirmPassword && (
-                <p className="text-danger text-sm mt-1">{errors.confirmPassword}</p>
-              )}
-            </div>
+                className="w-full py-3 px-4 rounded-lg font-normal transition-all hover:brightness-[0.8] duration-200 gradient-dark-red text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? 'Sending...' : 'Send Reset Link'}
+              </button>
+            </form>
+          )}
 
-            <button
-              type="submit"
-              data-testid="reset-password-submit-button"
-              disabled={isLoading || !token}
-              className={`w-full py-3 px-4 rounded-lg font-normal transition-all hover:brightness-[0.8] duration-200 ${
-                isLoading || !token ? 'gradient-dark-red' : 'gradient-dark-red'
-              } text-white`}
-            >
-              {isLoading ? 'Resetting...' : 'Reset Password'}
-            </button>
-          </form>
-
-          <p className="text-sm text-center">
+          <p className="text-sm text-center mt-6">
             <button
               type="button"
               onClick={() => navigate('/login')}
-              className="text-primary underline-hover mt-4 mb-4"
+              className="text-primary underline-hover font-medium"
             >
               Back to Login
             </button>

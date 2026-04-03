@@ -56,6 +56,9 @@ app:
     password: ${ROOT_ADMIN_PASSWORD:}
   user-store:
     type: ${APP_USER_STORE_TYPE:postgres}
+  password-reset:
+    sender-email: ${RESET_PASSWORD_SENDER_EMAIL:${SES_SENDER_EMAIL:}}
+    frontend-base-url: ${RESET_PASSWORD_FRONTEND_BASE_URL:}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
 
@@ -66,3 +69,6 @@ aws:
     client-id: ${AWS_COGNITO_CLIENT_ID:}
     region: ${AWS_REGION:ap-southeast-1}
     endpoint-url: ${AWS_COGNITO_ENDPOINT_URL:}
+  ses:
+    region: ${AWS_REGION:ap-southeast-1}
+    endpoint-url: ${AWS_SES_ENDPOINT_URL:}

@@ -264,6 +264,12 @@ variable "ses_sender_email" {
   default     = ""
 }
 
+variable "reset_password_frontend_base_url" {
+  description = "Public frontend base URL used in user-service password reset links."
+  type        = string
+  default     = ""
+}
+
 variable "verification_sns_topic_arn" {
   description = "SNS topic ARN used by client service to publish verification email requests."
   type        = string

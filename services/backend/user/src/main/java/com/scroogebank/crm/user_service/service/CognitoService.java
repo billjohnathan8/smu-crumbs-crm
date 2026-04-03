@@ -2,6 +2,7 @@ package com.scroogebank.crm.user_service.service;
 
 import com.scroogebank.crm.user_service.exception.DuplicateUserException;
 import com.scroogebank.crm.user_service.exception.ExternalProvisioningException;
+import com.scroogebank.crm.user_service.exception.PasswordPolicyViolationException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
@@ -61,7 +62,14 @@ public class CognitoService {
         } catch (UsernameExistsException e) {
             throw new DuplicateUserException("Email already exists.");
         } catch (InvalidPasswordException | InvalidParameterException e) {
-            throw new IllegalArgumentException("Invalid user details for identity provisioning.");
+            String reason = null;
+            if (e.awsErrorDetails() != null) {
+                reason = e.awsErrorDetails().errorMessage();
+            }
+            if (reason == null || reason.isBlank()) {
+                reason = "Temporary password does not meet policy requirements.";
+            }
+            throw new PasswordPolicyViolationException(reason);
         } catch (ResourceNotFoundException e) {
             throw new ExternalProvisioningException("Identity provisioning is not fully configured.", e);
         } catch (CognitoIdentityProviderException e) {

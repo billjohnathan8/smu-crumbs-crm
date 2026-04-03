@@ -122,6 +122,14 @@ locals {
         {
           name  = "AWS_REGION"
           value = var.aws_region
+        },
+        {
+          name  = "RESET_PASSWORD_SENDER_EMAIL"
+          value = var.ses_sender_email
+        },
+        {
+          name  = "RESET_PASSWORD_FRONTEND_BASE_URL"
+          value = var.reset_password_frontend_base_url
         }
       ]
       secrets = [

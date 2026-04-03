@@ -175,6 +175,25 @@ describe('apiRequest', () => {
     }
   })
 
+  it('should preserve backend message for password policy violations', async () => {
+    ;(globalThis.fetch as any).mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        error: 'password_policy_violation',
+        message: 'Password must include at least one special character.',
+        requestId: 'req-789',
+      }),
+    })
+
+    await expect(apiRequest('/test')).rejects.toMatchObject({
+      status: 400,
+      error: 'password_policy_violation',
+      message: 'Password must include at least one special character.',
+      requestId: 'req-789',
+    })
+  })
+
   it('should throw ApiError on 401 Unauthorized', async () => {
     ;(globalThis.fetch as any).mockResolvedValueOnce({
       ok: false,

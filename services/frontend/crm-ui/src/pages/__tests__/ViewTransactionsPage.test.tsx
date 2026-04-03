@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { ViewTransactionsPage } from '../ViewTransactionsPage'
@@ -442,6 +442,363 @@ describe('ViewTransactionsPage', () => {
     await waitFor(() => {
       expect(getBatchSpy).toHaveBeenCalledWith('imp_from_txn')
       expect(screen.getByText('imp_from_txn')).toBeInTheDocument()
+    })
+  })
+
+  it('renders super admin specific navigation item', async () => {
+    mockRole = 'super_admin'
+
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: [],
+      pagination: { limit: 20, offset: 0, total: 0 },
+    })
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByText('Admin Management')).toBeInTheDocument()
+    })
+  })
+
+  it('passes status, type and date filters into listTransactions request', async () => {
+    const user = userEvent.setup()
+    const listSpy = vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: [],
+      pagination: { limit: 20, offset: 0, total: 0 },
+    })
+
+    const { container } = renderComponent()
+
+    const [statusSelect, typeSelect] = screen.getAllByRole('combobox')
+    const dateInputs = container.querySelectorAll('input[type="date"]')
+
+    await user.selectOptions(statusSelect, 'Pending')
+    await user.selectOptions(typeSelect, 'W')
+    fireEvent.change(dateInputs[0], { target: { value: '2026-03-01' } })
+    fireEvent.change(dateInputs[1], { target: { value: '2026-03-31' } })
+
+    await waitFor(() => {
+      expect(listSpy).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          status: 'Pending',
+          transaction: 'W',
+          fromDate: '2026-03-01',
+          toDate: '2026-03-31',
+        })
+      )
+    })
+  })
+
+  it('shows completed import notice when import batch completes immediately', async () => {
+    mockRole = 'admin'
+    const user = userEvent.setup()
+
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: mockTransactions,
+      pagination: { limit: 20, offset: 0, total: 2 },
+    })
+    vi.spyOn(transactionsApi, 'startTransactionImport').mockResolvedValue({
+      ...mockImportBatch,
+      status: 'completed',
+      totalRecords: 12,
+      importedRecords: 12,
+      finishedAt: '2026-03-20T10:00:07Z',
+    })
+    vi.spyOn(transactionsApi, 'getTransactionImportBatch').mockResolvedValue({
+      ...mockImportBatch,
+      status: 'completed',
+      totalRecords: 12,
+      importedRecords: 12,
+      finishedAt: '2026-03-20T10:00:07Z',
+    })
+
+    renderComponent()
+
+    await waitFor(() => expect(screen.getByTestId('transaction-import-panel')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Start Import' }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/completed \(12\/12 imported\)/i)).toBeInTheDocument()
+    })
+  })
+
+  it('shows failed import notice from batch error message', async () => {
+    mockRole = 'admin'
+    const user = userEvent.setup()
+
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: mockTransactions,
+      pagination: { limit: 20, offset: 0, total: 2 },
+    })
+    vi.spyOn(transactionsApi, 'startTransactionImport').mockResolvedValue({
+      ...mockImportBatch,
+      status: 'failed',
+      errorMessage: 'CSV schema mismatch',
+    })
+    vi.spyOn(transactionsApi, 'getTransactionImportBatch').mockResolvedValue({
+      ...mockImportBatch,
+      status: 'failed',
+      errorMessage: 'CSV schema mismatch',
+    })
+
+    renderComponent()
+
+    await waitFor(() => expect(screen.getByTestId('transaction-import-panel')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Start Import' }))
+
+    await waitFor(() => {
+      expect(screen.getAllByText('CSV schema mismatch').length).toBeGreaterThan(0)
+    })
+  })
+
+  it('logs out when transaction import start request returns 401', async () => {
+    mockRole = 'admin'
+    const user = userEvent.setup()
+
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: mockTransactions,
+      pagination: { limit: 20, offset: 0, total: 2 },
+    })
+    vi.spyOn(transactionsApi, 'startTransactionImport').mockRejectedValue(
+      new ApiError(401, 'unauthorized', 'Unauthorized')
+    )
+    vi.spyOn(transactionsApi, 'getTransactionImportBatch').mockResolvedValue(mockImportBatch)
+
+    renderComponent()
+
+    await waitFor(() => expect(screen.getByTestId('transaction-import-panel')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Start Import' }))
+
+    await waitFor(() => {
+      expect(mockLogout).toHaveBeenCalled()
+    })
+  })
+
+  it('shows fallback import error for non-ApiError failures', async () => {
+    mockRole = 'admin'
+    const user = userEvent.setup()
+
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: mockTransactions,
+      pagination: { limit: 20, offset: 0, total: 2 },
+    })
+    vi.spyOn(transactionsApi, 'startTransactionImport').mockRejectedValue(new Error('network down'))
+    vi.spyOn(transactionsApi, 'getTransactionImportBatch').mockResolvedValue(mockImportBatch)
+
+    renderComponent()
+
+    await waitFor(() => expect(screen.getByTestId('transaction-import-panel')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Start Import' }))
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('An unexpected error occurred while starting the import')
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('shows import history refresh warning when a tracked batch cannot be refreshed', async () => {
+    mockRole = 'admin'
+    localStorage.setItem(importHistoryStorageKey, JSON.stringify(['imp_saved']))
+
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: [],
+      pagination: { limit: 20, offset: 0, total: 0 },
+    })
+    vi.spyOn(transactionsApi, 'getTransactionImportBatch').mockRejectedValue(
+      new ApiError(500, 'server_error', 'refresh failed')
+    )
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Some import batches could not be refreshed. Please try again.')
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('logs out when tracked import batch refresh returns unauthorized', async () => {
+    mockRole = 'admin'
+    localStorage.setItem(importHistoryStorageKey, JSON.stringify(['imp_saved']))
+
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: [],
+      pagination: { limit: 20, offset: 0, total: 0 },
+    })
+    vi.spyOn(transactionsApi, 'getTransactionImportBatch').mockRejectedValue(
+      new ApiError(401, 'unauthorized', 'Unauthorized')
+    )
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(mockLogout).toHaveBeenCalled()
+    })
+  })
+
+  it('ignores malformed import history in localStorage', async () => {
+    mockRole = 'admin'
+    localStorage.setItem(importHistoryStorageKey, '{"badJson":')
+
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: [],
+      pagination: { limit: 20, offset: 0, total: 0 },
+    })
+    const getBatchSpy = vi
+      .spyOn(transactionsApi, 'getTransactionImportBatch')
+      .mockResolvedValue(mockImportBatch)
+
+    renderComponent()
+
+    await waitFor(
+      () => {
+        expect(screen.getByTestId('transaction-import-panel')).toBeInTheDocument()
+        expect(getBatchSpy).not.toHaveBeenCalled()
+      },
+      { timeout: 500 }
+    )
+  })
+
+  it('ignores non-array import history payload in localStorage', async () => {
+    mockRole = 'admin'
+    localStorage.setItem(importHistoryStorageKey, JSON.stringify({ id: 'imp_saved' }))
+
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: [],
+      pagination: { limit: 20, offset: 0, total: 0 },
+    })
+    const getBatchSpy = vi
+      .spyOn(transactionsApi, 'getTransactionImportBatch')
+      .mockResolvedValue(mockImportBatch)
+
+    renderComponent()
+
+    await waitFor(
+      () => {
+        expect(screen.getByTestId('transaction-import-panel')).toBeInTheDocument()
+        expect(getBatchSpy).not.toHaveBeenCalled()
+      },
+      { timeout: 500 }
+    )
+  })
+
+  it('handles unknown refresh failures for tracked import batches', async () => {
+    mockRole = 'admin'
+    localStorage.setItem(importHistoryStorageKey, JSON.stringify(['imp_saved']))
+
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: [],
+      pagination: { limit: 20, offset: 0, total: 0 },
+    })
+    vi.spyOn(transactionsApi, 'getTransactionImportBatch').mockRejectedValue(
+      new Error('connection dropped')
+    )
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Some import batches could not be refreshed. Please try again.')
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('removes tracked batch row when refresh returns 404', async () => {
+    mockRole = 'admin'
+    localStorage.setItem(importHistoryStorageKey, JSON.stringify(['imp_saved']))
+
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: [],
+      pagination: { limit: 20, offset: 0, total: 0 },
+    })
+    vi.spyOn(transactionsApi, 'getTransactionImportBatch').mockRejectedValue(
+      new ApiError(404, 'not_found', 'Not found')
+    )
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.queryByText('imp_saved')).not.toBeInTheDocument()
+    })
+  })
+
+  it('shows fallback failed notice when failed batch has no error message', async () => {
+    mockRole = 'admin'
+    const user = userEvent.setup()
+
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: mockTransactions,
+      pagination: { limit: 20, offset: 0, total: 2 },
+    })
+    vi.spyOn(transactionsApi, 'startTransactionImport').mockResolvedValue({
+      ...mockImportBatch,
+      status: 'failed',
+      errorMessage: '',
+    })
+    vi.spyOn(transactionsApi, 'getTransactionImportBatch').mockResolvedValue(mockImportBatch)
+
+    renderComponent()
+
+    await waitFor(() => expect(screen.getByTestId('transaction-import-panel')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Start Import' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Import batch imp_1 failed.')).toBeInTheDocument()
+    })
+  })
+
+  it('uses generic API import error when message is empty', async () => {
+    mockRole = 'admin'
+    const user = userEvent.setup()
+
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: mockTransactions,
+      pagination: { limit: 20, offset: 0, total: 2 },
+    })
+    vi.spyOn(transactionsApi, 'startTransactionImport').mockRejectedValue(
+      new ApiError(500, 'server_error', '')
+    )
+    vi.spyOn(transactionsApi, 'getTransactionImportBatch').mockResolvedValue(mockImportBatch)
+
+    renderComponent()
+
+    await waitFor(() => expect(screen.getByTestId('transaction-import-panel')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Start Import' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to start transaction import')).toBeInTheDocument()
+    })
+  })
+
+  it('renders fallback display values for missing transaction and batch timestamps', async () => {
+    mockRole = 'admin'
+
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: [
+        {
+          ...mockTransactions[0],
+          id: 'txn-no-date',
+          date: undefined as unknown as string,
+          importBatchId: 'imp_no_timestamps',
+        },
+      ],
+      pagination: { limit: 20, offset: 0, total: 1 },
+    })
+    vi.spyOn(transactionsApi, 'getTransactionImportBatch').mockResolvedValue({
+      ...mockImportBatch,
+      importBatchId: 'imp_no_timestamps',
+      status: 'running',
+      startedAt: null,
+      finishedAt: null,
+      errorMessage: null,
+    })
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getAllByText('-').length).toBeGreaterThan(0)
+      expect(screen.getByText('imp_no_timestamps')).toBeInTheDocument()
     })
   })
 })

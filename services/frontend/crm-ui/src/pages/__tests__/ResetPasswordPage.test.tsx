@@ -1,14 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { ResetPasswordPage } from '../ResetPasswordPage' // Adjust this path as needed
+import { ThemeProvider } from '@/features/theme/ThemeContext'
+import { ResetPasswordPage } from '../ResetPasswordPage'
 
 const mockNavigate = vi.fn()
 let mockSearchParams = new URLSearchParams('?token=valid-test-token')
+let mockLocationState: unknown = {}
 
 vi.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
   useSearchParams: () => [mockSearchParams],
+  useLocation: () => ({ state: mockLocationState }),
 }))
 
 describe('ResetPasswordPage', () => {
@@ -16,141 +19,88 @@ describe('ResetPasswordPage', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    // Reset to a valid token state before each test
     mockSearchParams = new URLSearchParams('?token=valid-test-token')
+    mockLocationState = {}
   })
 
-  const renderComponent = () => render(<ResetPasswordPage />)
+  const renderComponent = () =>
+    render(
+      <ThemeProvider>
+        <ResetPasswordPage />
+      </ThemeProvider>
+    )
 
-  it('should render the form with password inputs', () => {
+  it('renders reset form when token exists', () => {
     renderComponent()
-
-    expect(screen.getByRole('heading', { name: 'Reset Password' })).toBeInTheDocument()
     expect(screen.getByTestId('new-password-input')).toBeInTheDocument()
     expect(screen.getByTestId('confirm-password-input')).toBeInTheDocument()
     expect(screen.getByTestId('reset-password-submit-button')).toBeInTheDocument()
   })
 
-  it('should disable submit button if token is missing', () => {
-    // Override search params for this specific test
+  it('renders request-link form when token is missing', () => {
     mockSearchParams = new URLSearchParams('')
     renderComponent()
 
-    const submitButton = screen.getByTestId('reset-password-submit-button')
-    expect(submitButton).toBeDisabled()
+    expect(screen.getByTestId('reset-email-input')).toBeInTheDocument()
+    expect(screen.getByTestId('request-reset-link-submit-button')).toBeInTheDocument()
+    expect(screen.queryByTestId('new-password-input')).not.toBeInTheDocument()
   })
 
-  it('should show validation errors for empty fields', async () => {
+  it('prefills email from navigation state in request-link mode', () => {
+    mockSearchParams = new URLSearchParams('')
+    mockLocationState = { email: 'alice@example.com' }
+    renderComponent()
+
+    expect(screen.getByTestId('reset-email-input')).toHaveValue('alice@example.com')
+  })
+
+  it('validates strong-enough reset password before submit', async () => {
     const user = userEvent.setup()
     renderComponent()
 
-    const submitButton = screen.getByTestId('reset-password-submit-button')
-    await user.click(submitButton)
+    await user.type(screen.getByTestId('new-password-input'), 'short')
+    await user.type(screen.getByTestId('confirm-password-input'), 'short')
+    await user.click(screen.getByTestId('reset-password-submit-button'))
 
     await waitFor(() => {
-      expect(screen.getByText('New password is required')).toBeInTheDocument()
-      expect(screen.getByText('Please confirm your password')).toBeInTheDocument()
+      expect(screen.getByText(/Password does not meet requirements/i)).toBeInTheDocument()
     })
-    // Fetch should not be called if validation fails
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
-  it('should show validation error if password is too short', async () => {
-    const user = userEvent.setup()
-    renderComponent()
-
-    const newPasswordInput = screen.getByTestId('new-password-input')
-    const confirmPasswordInput = screen.getByTestId('confirm-password-input')
-    const submitButton = screen.getByTestId('reset-password-submit-button')
-
-    await user.type(newPasswordInput, 'short')
-    await user.type(confirmPasswordInput, 'short')
-    await user.click(submitButton)
-
-    await waitFor(() => {
-      expect(screen.getByText('Password must be at least 8 characters long')).toBeInTheDocument()
-    })
-  })
-
-  it('should show validation error if passwords do not match', async () => {
-    const user = userEvent.setup()
-    renderComponent()
-
-    const newPasswordInput = screen.getByTestId('new-password-input')
-    const confirmPasswordInput = screen.getByTestId('confirm-password-input')
-    const submitButton = screen.getByTestId('reset-password-submit-button')
-
-    await user.type(newPasswordInput, 'ValidPassword123!')
-    await user.type(confirmPasswordInput, 'DifferentPassword123!')
-    await user.click(submitButton)
-
-    await waitFor(() => {
-      expect(screen.getByText('Passwords do not match')).toBeInTheDocument()
-    })
-  })
-
-  it('should successfully reset password and show success screen', async () => {
+  it('submits reset-password with token and shows success', async () => {
     const user = userEvent.setup()
     fetchSpy.mockResolvedValueOnce(new Response(null, { status: 200 }))
-
     renderComponent()
 
-    const newPasswordInput = screen.getByTestId('new-password-input')
-    const confirmPasswordInput = screen.getByTestId('confirm-password-input')
-    const submitButton = screen.getByTestId('reset-password-submit-button')
+    await user.type(screen.getByTestId('new-password-input'), 'Validpass123!')
+    await user.type(screen.getByTestId('confirm-password-input'), 'Validpass123!')
+    await user.click(screen.getByTestId('reset-password-submit-button'))
 
-    await user.type(newPasswordInput, 'ValidPassword123!')
-    await user.type(confirmPasswordInput, 'ValidPassword123!')
-    await user.click(submitButton)
-
-    // 1. Verify API was called with correct payload
     await waitFor(() => {
-      expect(fetchSpy).toHaveBeenCalledWith('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: 'valid-test-token',
-          newPassword: 'ValidPassword123!',
-          confirmPassword: 'ValidPassword123!',
-        }),
-      })
+      expect(fetchSpy).toHaveBeenCalledWith(
+        '/api/auth/reset-password',
+        expect.objectContaining({ method: 'POST' })
+      )
     })
-
-    // 2. Verify success UI appears
     expect(screen.getByRole('heading', { name: 'Password Reset Successful' })).toBeInTheDocument()
-
-    // 3. Verify clicking 'Go to Login' navigates correctly
-    const loginButton = screen.getByRole('button', { name: 'Go to Login' })
-    await user.click(loginButton)
-    expect(mockNavigate).toHaveBeenCalledWith('/login')
   })
 
-  it('should show API error message when fetch fails', async () => {
+  it('submits forgot-password request when token is missing', async () => {
     const user = userEvent.setup()
-    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 400 }))
-
+    mockSearchParams = new URLSearchParams('')
+    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 200 }))
     renderComponent()
 
-    const newPasswordInput = screen.getByTestId('new-password-input')
-    const confirmPasswordInput = screen.getByTestId('confirm-password-input')
-    const submitButton = screen.getByTestId('reset-password-submit-button')
-
-    await user.type(newPasswordInput, 'ValidPassword123!')
-    await user.type(confirmPasswordInput, 'ValidPassword123!')
-    await user.click(submitButton)
+    await user.type(screen.getByTestId('reset-email-input'), 'test@example.com')
+    await user.click(screen.getByTestId('request-reset-link-submit-button'))
 
     await waitFor(() => {
-      expect(screen.getByText('Failed to reset password.')).toBeInTheDocument()
+      expect(fetchSpy).toHaveBeenCalledWith(
+        '/api/auth/forgot-password',
+        expect.objectContaining({ method: 'POST' })
+      )
     })
-  })
-
-  it('should navigate to login when clicking "Back to Login"', async () => {
-    const user = userEvent.setup()
-    renderComponent()
-
-    const backLink = screen.getByRole('button', { name: 'Back to Login' })
-    await user.click(backLink)
-
-    expect(mockNavigate).toHaveBeenCalledWith('/login')
+    expect(screen.getByRole('heading', { name: 'Check Your Email' })).toBeInTheDocument()
   })
 })

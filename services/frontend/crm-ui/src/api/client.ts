@@ -110,7 +110,8 @@ export async function apiRequest<T>(endpoint: string, options: RequestOptions = 
       }
 
       const friendlyMessage =
-        errorData.error === 'conflict' && errorData.message
+        (errorData.error === 'conflict' || errorData.error === 'password_policy_violation') &&
+        errorData.message
           ? errorData.message
           : getUserFriendlyErrorMessage(errorData.error)
 

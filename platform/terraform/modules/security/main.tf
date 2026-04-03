@@ -630,6 +630,28 @@ resource "aws_iam_role_policy" "ecs_task_client_ses_send" {
   policy = data.aws_iam_policy_document.ecs_client_ses_send[0].json
 }
 
+data "aws_iam_policy_document" "ecs_user_ses_send" {
+  count = trimspace(local.ses_identity_arn) != "" && !local.use_lab_role ? 1 : 0
+
+  statement {
+    sid    = "SendPasswordResetEmailViaSes"
+    effect = "Allow"
+    actions = [
+      "ses:SendEmail",
+      "ses:SendRawEmail",
+    ]
+    resources = [local.ses_identity_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "ecs_task_user_ses_send" {
+  count = trimspace(local.ses_identity_arn) != "" && !local.use_lab_role ? 1 : 0
+
+  name   = "${var.name_prefix}-ecs-task-user-ses-send"
+  role   = aws_iam_role.ecs_task["user"].id
+  policy = data.aws_iam_policy_document.ecs_user_ses_send[0].json
+}
+
 data "aws_iam_policy_document" "ecs_client_publish_verification_sns" {
   count = var.enable_verification_pipeline && !local.use_lab_role ? 1 : 0
 

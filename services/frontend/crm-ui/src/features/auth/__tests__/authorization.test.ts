@@ -13,8 +13,8 @@ describe('isRootAdminUser', () => {
   })
 
   it('returns false for non-root email', () => {
-    expect(isRootAdminUser({ id: 'custom-root-id', email: 'alice@example.com', role: 'admin' })).toBe(
-      false
-    )
+    expect(
+      isRootAdminUser({ id: 'custom-root-id', email: 'alice@example.com', role: 'admin' })
+    ).toBe(false)
   })
 })

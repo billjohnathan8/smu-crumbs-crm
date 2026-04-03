@@ -74,6 +74,11 @@ class ApiExceptionHandlerTest {
 		mockMvc.perform(get("/bad-request"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.error").value("validation_error"));
+
+		mockMvc.perform(get("/password-policy"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error").value("password_policy_violation"))
+			.andExpect(jsonPath("$.message").value("Password must include a symbol"));
 	}
 
 	@Test
@@ -192,6 +197,11 @@ class ApiExceptionHandlerTest {
 		@GetMapping("/bad-request")
 		public ResponseEntity<Void> badRequest() {
 			throw new IllegalArgumentException("bad");
+		}
+
+		@GetMapping("/password-policy")
+		public ResponseEntity<Void> passwordPolicy() {
+			throw new PasswordPolicyViolationException("Password must include a symbol");
 		}
 
 		@GetMapping("/boom")

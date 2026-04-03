@@ -87,6 +87,18 @@ public class ApiExceptionHandler {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error(request, "forbidden", message));
 	}
 
+	@ExceptionHandler(PasswordPolicyViolationException.class)
+	public ResponseEntity<ErrorResponse> handlePasswordPolicyViolation(
+		HttpServletRequest request,
+		PasswordPolicyViolationException ex
+	) {
+		String message = ex.getMessage();
+		if (message == null || message.isBlank()) {
+			message = "Temporary password does not meet policy requirements.";
+		}
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(request, "password_policy_violation", message));
+	}
+
 	@ExceptionHandler(IllegalArgumentException.class)
 	public ResponseEntity<ErrorResponse> handleBadRequest(HttpServletRequest request, IllegalArgumentException _ex) {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(request, "validation_error", "Invalid request"));

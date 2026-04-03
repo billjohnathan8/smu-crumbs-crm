@@ -23,11 +23,18 @@ public class AuthService {
 	private final UserStore store;
 	private final JwtService jwtService;
 	private final Clock clock;
+	private final PasswordResetEmailService passwordResetEmailService;
 
-	public AuthService(UserStore store, JwtService jwtService, Clock clock) {
+	public AuthService(
+		UserStore store,
+		JwtService jwtService,
+		Clock clock,
+		PasswordResetEmailService passwordResetEmailService
+	) {
 		this.store = store;
 		this.jwtService = jwtService;
 		this.clock = clock;
+		this.passwordResetEmailService = passwordResetEmailService;
 	}
 
 	/**
@@ -64,7 +71,10 @@ public class AuthService {
 	 * @param request forgot password request containing the email
 	 */
 	public void forgotPassword(ResetPasswordRequest request) {
-		store.createPasswordResetToken(request.email());
+		String token = store.createPasswordResetToken(request.email());
+		if (token != null) {
+			passwordResetEmailService.sendResetPasswordEmail(request.email(), token);
+		}
 	}
 
 	/**

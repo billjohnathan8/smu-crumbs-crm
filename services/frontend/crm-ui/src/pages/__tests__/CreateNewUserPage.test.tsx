@@ -343,4 +343,29 @@ describe('CreateNewUserPage', () => {
       ).toBeInTheDocument()
     })
   })
+
+  it('should validate temporary password requirements before submit', async () => {
+    const user = userEvent.setup()
+    const createUserSpy = vi.spyOn(usersApi, 'createUser').mockResolvedValue({
+      id: 'new-user-123',
+      firstName: 'John',
+      lastName: 'Doe',
+      email: 'john@example.com',
+      role: 'user',
+      status: 'active',
+    })
+
+    await renderCreateNewUserPage()
+
+    await user.type(screen.getByLabelText(/First Name/i), 'John')
+    await user.type(screen.getByLabelText(/Last Name/i), 'Doe')
+    await user.type(screen.getByLabelText(/^Email/i), 'john@example.com')
+    await user.type(screen.getByLabelText(/Temporary Password/i), 'weakpass')
+    await user.click(screen.getByRole('button', { name: /Create User/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/Password does not meet requirements/i)).toBeInTheDocument()
+    })
+    expect(createUserSpy).not.toHaveBeenCalled()
+  })
 })
