@@ -456,7 +456,8 @@ class TestSFTPClient:
         mock_paramiko.DSSKey = None
 
         parsed = SFTPClient._parse_private_key(
-            mock_paramiko, "-----BEGIN OPENSSH PRIVATE KEY-----\nX\n-----END OPENSSH PRIVATE KEY-----"
+            mock_paramiko,
+            "-----BEGIN OPENSSH PRIVATE KEY-----\nX\n-----END OPENSSH PRIVATE KEY-----",
         )
         assert parsed == "parsed-ed25519-key"
         assert mock_rsa.from_private_key.call_count == 1

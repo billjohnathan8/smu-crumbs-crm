@@ -447,7 +447,10 @@ class SFTPClient:
                     break
             if key_material is None:
                 for candidate_value in decoded.values():
-                    if isinstance(candidate_value, str) and "PRIVATE KEY" in candidate_value:
+                    if (
+                        isinstance(candidate_value, str)
+                        and "PRIVATE KEY" in candidate_value
+                    ):
                         key_material = candidate_value
                         break
         if not key_material:
@@ -473,13 +476,17 @@ class SFTPClient:
         return key_material
 
     @staticmethod
-    def _read_latest_csv_from_directory(sftp_session: Any, directory: str) -> str | None:
+    def _read_latest_csv_from_directory(
+        sftp_session: Any, directory: str
+    ) -> str | None:
         """Return the newest CSV file content from the given remote directory."""
         try:
             entries = sftp_session.listdir_attr(directory)
         except Exception:
             return None
-        csv_entries = [entry for entry in entries if entry.filename.lower().endswith(".csv")]
+        csv_entries = [
+            entry for entry in entries if entry.filename.lower().endswith(".csv")
+        ]
         if not csv_entries:
             return None
         latest = max(csv_entries, key=lambda entry: getattr(entry, "st_mtime", 0))
