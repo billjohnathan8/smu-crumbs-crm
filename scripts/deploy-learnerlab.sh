@@ -456,7 +456,7 @@ if [[ "$SKIP_FRONTEND" == "false" ]]; then
     pushd "$FRONTEND_DIR" > /dev/null
     run_checked "npm install" npm install
     run_checked "npm run build" npm run build
-    run_checked "S3 sync frontend to s3://$BUCKET/" aws s3 sync dist/ "s3://$BUCKET/" --delete
+    run_checked "S3 sync frontend to s3://$BUCKET/live/" aws s3 sync dist/ "s3://$BUCKET/live/" --delete
     popd > /dev/null
 else
     echo "Skipping frontend (--skip-frontend flag)."

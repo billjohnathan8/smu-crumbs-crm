@@ -502,8 +502,8 @@ if (-not $SkipFrontend) {
     try {
         Invoke-Checked "npm install" { npm install }
         Invoke-Checked "npm run build" { npm run build }
-        Invoke-Checked "S3 sync frontend to s3://$BUCKET/" {
-            aws s3 sync dist/ "s3://$BUCKET/" --delete
+        Invoke-Checked "S3 sync frontend to s3://$BUCKET/live/" {
+            aws s3 sync dist/ "s3://$BUCKET/live/" --delete
         }
 
         if (-not [string]::IsNullOrWhiteSpace($CLOUDFRONT_DISTRIBUTION_ID)) {
