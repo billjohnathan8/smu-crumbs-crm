@@ -251,7 +251,9 @@ export function ResetPasswordPage() {
                 {hasNewPassword && (
                   <>
                     <div className="mt-3 flex items-center gap-3">
-                      <p className={`text-xs font-medium capitalize min-w-12 ${strengthLabelClass}`}>
+                      <p
+                        className={`text-xs font-medium capitalize min-w-12 ${strengthLabelClass}`}
+                      >
                         {passwordStrength}
                       </p>
                       <div className="h-2 flex-1 rounded-full bg-border overflow-hidden">
@@ -276,7 +278,9 @@ export function ResetPasswordPage() {
                           {rule.label}
                         </li>
                       ))}
-                      <li className="text-xs text-text-subtle">Avoid reusing passwords across sites.</li>
+                      <li className="text-xs text-text-subtle">
+                        Avoid reusing passwords across sites.
+                      </li>
                     </ul>
                   </>
                 )}

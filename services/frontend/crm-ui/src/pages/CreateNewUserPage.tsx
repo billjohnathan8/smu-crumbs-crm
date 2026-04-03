@@ -333,7 +333,9 @@ export function CreateNewUserPage() {
                         {rule.label}
                       </li>
                     ))}
-                    <li className="text-xs text-text-subtle">Avoid reusing passwords across sites.</li>
+                    <li className="text-xs text-text-subtle">
+                      Avoid reusing passwords across sites.
+                    </li>
                   </ul>
                 </>
               )}
