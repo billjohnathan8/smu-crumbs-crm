@@ -188,6 +188,10 @@ locals {
           value = var.verification_email_provider
         },
         {
+          name  = "VERIFICATION_EMAIL_DISPATCH_ENABLED"
+          value = tostring(var.verification_email_dispatch_enabled)
+        },
+        {
           name  = "SES_SENDER_EMAIL"
           value = var.ses_sender_email
         },

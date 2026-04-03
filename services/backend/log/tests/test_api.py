@@ -878,6 +878,15 @@ def test_communications_endpoints_enforce_role_scope_and_updates() -> None:
             headers={"Authorization": f"Bearer {admin_token}"},
         ),
     )
+    service_token = mint_token("svc_worker", "service", secret)
+    queued_service_ok, queued_service_ok_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "GET",
+            "/api/communications/queued",
+            headers={"Authorization": f"Bearer {service_token}"},
+        ),
+    )
     by_id, by_id_body = _invoke(
         router,
         _http_api_v2_event(
@@ -887,7 +896,6 @@ def test_communications_endpoints_enforce_role_scope_and_updates() -> None:
             body={"status": "sent", "providerMessageId": "ses-message-1"},
         ),
     )
-    service_token = mint_token("svc_worker", "service", secret)
     by_id_service, by_id_service_body = _invoke(
         router,
         _http_api_v2_event(
@@ -936,6 +944,9 @@ def test_communications_endpoints_enforce_role_scope_and_updates() -> None:
     assert queued_ok["statusCode"] == 200
     assert queued_ok_body is not None
     assert len(queued_ok_body["data"]) == 1
+    assert queued_service_ok["statusCode"] == 200
+    assert queued_service_ok_body is not None
+    assert len(queued_service_ok_body["data"]) == 1
     assert by_id["statusCode"] == 403
     assert by_id_body is not None
     assert by_id_body["error"] == "forbidden"
@@ -979,7 +990,9 @@ def test_queued_communications_supports_admin_filters() -> None:
         )
     )
     service.communications[first_id - 1]["status"] = "failed"
-    service.communications[first_id - 1]["created_at"] = datetime(2026, 4, 1, tzinfo=timezone.utc)
+    service.communications[first_id - 1]["created_at"] = datetime(
+        2026, 4, 1, tzinfo=timezone.utc
+    )
     service.communications[second_id - 1]["created_at"] = datetime(
         2026, 4, 3, tzinfo=timezone.utc
     )

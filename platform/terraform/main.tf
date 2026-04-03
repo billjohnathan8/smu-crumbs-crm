@@ -309,6 +309,7 @@ module "ecs" {
   db_jdbc_url                                     = module.rds.db_jdbc_url
   log_api_base_url                                = var.enable_log_lambda ? module.apigateway[0].log_api_base_url : ""
   verification_email_provider                     = var.enable_verification_pipeline ? "ses" : "mock"
+  verification_email_dispatch_enabled             = var.verification_email_dispatch_enabled
   ses_sender_email                                = var.ses_sender_email
   reset_password_frontend_base_url                = local.verification_frontend_base_url
   verification_sns_topic_arn                      = module.sns.verification_topic_arn

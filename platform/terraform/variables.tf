@@ -919,6 +919,12 @@ variable "enable_verification_pipeline" {
   default     = false
 }
 
+variable "verification_email_dispatch_enabled" {
+  description = "Enable legacy queued communication dispatch worker on client ECS service."
+  type        = bool
+  default     = false
+}
+
 variable "audit_consumer_zip_path" {
   description = "Path to audit consumer Lambda zip artifact."
   type        = string

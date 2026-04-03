@@ -258,6 +258,12 @@ variable "verification_email_provider" {
   default     = "mock"
 }
 
+variable "verification_email_dispatch_enabled" {
+  description = "Enable legacy queued communication dispatch worker in client service."
+  type        = bool
+  default     = false
+}
+
 variable "ses_sender_email" {
   description = "SES sender email passed to client service for verification notifications."
   type        = string

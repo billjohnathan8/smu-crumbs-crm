@@ -875,7 +875,7 @@ class LambdaRouter:
 
     def _list_queued_communications(self, request: NormalizedRequest) -> RoutedResponse:
         user = self._require_user(request)
-        require_roles(user, {"admin"})
+        require_roles(user, {"admin", "service"})
 
         query = self._parse_query(_ListQueuedCommunicationsQuery, request)
         limit = min(max(query.limit, 1), 200)
@@ -981,7 +981,9 @@ class LambdaRouter:
         user = self._require_user(request)
         require_roles(user, {"admin", "service"})
 
-        row = self._service.get_communication_by_provider_message_id(provider_message_id)
+        row = self._service.get_communication_by_provider_message_id(
+            provider_message_id
+        )
         if row is None:
             raise _HttpError(404, "Not found")
         return RoutedResponse(200, self._to_communication(row))
