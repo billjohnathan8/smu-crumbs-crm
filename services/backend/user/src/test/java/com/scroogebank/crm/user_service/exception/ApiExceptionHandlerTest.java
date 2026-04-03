@@ -77,6 +77,16 @@ class ApiExceptionHandlerTest {
 	}
 
 	@Test
+	void externalProvisioningMapsToServiceUnavailable() throws Exception {
+		MockMvc mockMvc = buildMockMvc(false);
+
+		mockMvc.perform(get("/external-provisioning"))
+			.andExpect(status().isServiceUnavailable())
+			.andExpect(jsonPath("$.error").value("service_unavailable"))
+			.andExpect(jsonPath("$.message").value("idp unavailable"));
+	}
+
+	@Test
 	void internalExceptionMapsTo500() throws Exception {
 		MockMvc mockMvc = buildMockMvc(false);
 
@@ -187,6 +197,11 @@ class ApiExceptionHandlerTest {
 		@GetMapping("/boom")
 		public ResponseEntity<Void> boom() {
 			throw new RuntimeException("boom");
+		}
+
+		@GetMapping("/external-provisioning")
+		public ResponseEntity<Void> externalProvisioning() {
+			throw new ExternalProvisioningException("idp unavailable", new RuntimeException("root"));
 		}
 	}
 

@@ -1,5 +1,7 @@
 package com.scroogebank.crm.user_service.service;
 
+import com.scroogebank.crm.user_service.exception.DuplicateUserException;
+import com.scroogebank.crm.user_service.exception.ExternalProvisioningException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
@@ -9,11 +11,14 @@ import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminCreate
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AttributeType;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.CognitoIdentityProviderException;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.DeliveryMediumType;
-import software.amazon.awssdk.services.cognitoidentityprovider.model.UsernameExistsException;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminDeleteUserRequest;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminDisableUserRequest;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminResetUserPasswordRequest;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.InvalidParameterException;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.InvalidPasswordException;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.UserNotFoundException;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.UsernameExistsException;
 
 @Service
 @ConditionalOnProperty(name = "aws.cognito.user-pool-id")
@@ -54,10 +59,14 @@ public class CognitoService {
             // log.info("Added Cognito user {} to group {}", email, groupName);
 
         } catch (UsernameExistsException e) {
-            throw new RuntimeException("User already exists in Cognito: " + email, e);
+            throw new DuplicateUserException("Email already exists.");
+        } catch (InvalidPasswordException | InvalidParameterException e) {
+            throw new IllegalArgumentException("Invalid user details for identity provisioning.");
+        } catch (ResourceNotFoundException e) {
+            throw new ExternalProvisioningException("Identity provisioning is not fully configured.", e);
         } catch (CognitoIdentityProviderException e) {
             // log.error("Failed to create Cognito user: {}", e.awsErrorDetails().errorMessage());
-            throw new RuntimeException("Failed to create user in Cognito", e);
+            throw new ExternalProvisioningException("Identity provisioning failed.", e);
         }
     }
 
