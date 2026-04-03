@@ -296,6 +296,7 @@ resource "aws_lambda_function" "verification" {
       VERIFICATION_JWT_HMAC_SECRET_ARN = var.verification_jwt_hmac_secret_arn
       VERIFICATION_JWT_SUB             = "SYSTEM_VERIFICATION_FEEDBACK"
       VERIFICATION_JWT_ROLE            = "service"
+      ALARM_FORWARD_TO_EMAILS          = join(",", var.alarm_forward_to_emails)
     }
   }
 
@@ -320,6 +321,26 @@ resource "aws_sns_topic_subscription" "verification_feedback" {
   endpoint  = aws_lambda_function.verification[0].arn
 
   depends_on = [aws_lambda_permission.allow_sns_invoke_verification]
+}
+
+resource "aws_lambda_permission" "allow_sns_alarm_invoke_verification" {
+  count = var.enable_verification_lambda && trimspace(var.alarm_notifications_topic_arn) != "" ? 1 : 0
+
+  statement_id  = "AllowExecutionFromSnsAlarmTopic"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.verification[0].function_name
+  principal     = "sns.amazonaws.com"
+  source_arn    = var.alarm_notifications_topic_arn
+}
+
+resource "aws_sns_topic_subscription" "alarm_notifications_forwarder" {
+  count = var.enable_verification_lambda && trimspace(var.alarm_notifications_topic_arn) != "" ? 1 : 0
+
+  topic_arn = var.alarm_notifications_topic_arn
+  protocol  = "lambda"
+  endpoint  = aws_lambda_function.verification[0].arn
+
+  depends_on = [aws_lambda_permission.allow_sns_alarm_invoke_verification]
 }
 
 # Stable aliases for safe Lambda traffic shifting via CodeDeploy

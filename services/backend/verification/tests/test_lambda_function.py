@@ -445,3 +445,63 @@ def test_lambda_handler_skips_records_without_provider_message_id(monkeypatch):
     assert body["skipped"] == 1
     assert body["failedUpdates"] == []
     assert called["count"] == 0
+
+
+def test_lambda_handler_forwards_cloudwatch_alarm(monkeypatch):
+    monkeypatch.setenv("SES_SOURCE_EMAIL", "verification@itsag2t3.com")
+    monkeypatch.setenv(
+        "ALARM_FORWARD_TO_EMAILS",
+        "bill.johnathan8@gmail.com,denise.lie.2023@scis.smu.edu.sg",
+    )
+    sent = {}
+
+    class FakeSesClient:
+        def send_email(self, **kwargs):
+            sent.update(kwargs)
+
+    class FakeBoto3:
+        @staticmethod
+        def client(name):
+            assert name == "ses"
+            return FakeSesClient()
+
+    monkeypatch.setattr(lambda_function, "boto3", FakeBoto3)
+
+    alarm_message = {
+        "AlarmName": "scroogebank-crm-prod-user-cpu-high",
+        "NewStateValue": "ALARM",
+        "NewStateReason": "Threshold Crossed",
+        "Region": "ap-southeast-1",
+        "AWSAccountId": "699089610166",
+        "StateChangeTime": "2026-04-03T15:30:00.000+0000",
+    }
+    event = {"Records": [{"Sns": {"Message": json.dumps(alarm_message)}}]}
+
+    response = lambda_function.lambda_handler(event, None)
+    body = json.loads(response["body"])
+
+    assert response["statusCode"] == 200
+    assert body["updated"] == 1
+    assert body["skipped"] == 0
+    assert sent["Source"] == "verification@itsag2t3.com"
+    assert sent["Destination"]["ToAddresses"] == [
+        "bill.johnathan8@gmail.com",
+        "denise.lie.2023@scis.smu.edu.sg",
+    ]
+
+
+def test_lambda_handler_skips_cloudwatch_alarm_when_no_forward_recipients(monkeypatch):
+    monkeypatch.delenv("ALARM_FORWARD_TO_EMAILS", raising=False)
+    alarm_message = {
+        "AlarmName": "scroogebank-crm-prod-user-cpu-high",
+        "NewStateValue": "ALARM",
+        "NewStateReason": "Threshold Crossed",
+    }
+    event = {"Records": [{"Sns": {"Message": json.dumps(alarm_message)}}]}
+
+    response = lambda_function.lambda_handler(event, None)
+    body = json.loads(response["body"])
+
+    assert response["statusCode"] == 200
+    assert body["updated"] == 0
+    assert body["skipped"] == 1

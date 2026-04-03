@@ -234,12 +234,17 @@ module "lambda" {
   aml_dynamodb_table_name = module.dynamodb.aml_reports_table_name
 
   # Verification Lambda
-  enable_verification_lambda       = var.enable_verification_pipeline
-  verification_zip_path            = var.verification_zip_path
-  verification_role_arn            = module.security.verification_lambda_role_arn
-  verification_bucket_arn          = module.s3.verification_bucket_arn
-  verification_bucket_id           = module.s3.verification_bucket_id
-  verification_sns_topic_arn       = module.sns.verification_topic_arn
+  enable_verification_lambda    = var.enable_verification_pipeline
+  verification_zip_path         = var.verification_zip_path
+  verification_role_arn         = module.security.verification_lambda_role_arn
+  verification_bucket_arn       = module.s3.verification_bucket_arn
+  verification_bucket_id        = module.s3.verification_bucket_id
+  verification_sns_topic_arn    = module.sns.verification_topic_arn
+  alarm_notifications_topic_arn = trimspace(var.alarm_notification_topic_arn) != "" ? trimspace(var.alarm_notification_topic_arn) : module.sns.alarm_topic_arn
+  alarm_forward_to_emails = compact(distinct(concat(
+    [trimspace(var.alarm_notification_email)],
+    [for email in var.alarm_notification_additional_emails : trimspace(email)]
+  )))
   ses_sender_email                 = var.ses_sender_email
   verification_frontend_base_url   = local.verification_frontend_base_url
   log_api_base_url                 = var.enable_log_lambda ? module.apigateway[0].log_api_base_url : ""

@@ -221,6 +221,75 @@ def _send_verification_email(
     )
 
 
+def _alarm_forward_recipients() -> list[str]:
+    raw = os.environ.get("ALARM_FORWARD_TO_EMAILS", "")
+    recipients: list[str] = []
+    for value in raw.split(","):
+        email = value.strip()
+        if email and email not in recipients:
+            recipients.append(email)
+    return recipients
+
+
+def _is_cloudwatch_alarm_message(message: dict[str, Any]) -> bool:
+    return (
+        "AlarmName" in message
+        and "NewStateValue" in message
+        and "NewStateReason" in message
+    )
+
+
+def _handle_cloudwatch_alarm(message: dict[str, Any]) -> bool:
+    recipients = _alarm_forward_recipients()
+    if not recipients:
+        logger.warning(
+            "Skipping CloudWatch alarm forward because ALARM_FORWARD_TO_EMAILS is empty"
+        )
+        return False
+
+    source_email = os.environ.get("SES_SOURCE_EMAIL", "").strip()
+    if not source_email:
+        logger.error("SES_SOURCE_EMAIL is required to forward CloudWatch alarms")
+        return False
+    if boto3 is None:
+        logger.error("boto3 is required to forward CloudWatch alarms")
+        return False
+
+    alarm_name = str(message.get("AlarmName", "UnknownAlarm"))
+    state = str(message.get("NewStateValue", "UNKNOWN"))
+    reason = str(message.get("NewStateReason", "No reason provided"))
+    region = str(message.get("Region", "unknown-region"))
+    account = str(message.get("AWSAccountId", "unknown-account"))
+    timestamp = str(message.get("StateChangeTime", "unknown-time"))
+
+    subject = f"[ScroogeBank][Alarm:{state}] {alarm_name}"
+    body_text = (
+        "CloudWatch alarm notification\n\n"
+        f"Alarm: {alarm_name}\n"
+        f"State: {state}\n"
+        f"Reason: {reason}\n"
+        f"Region: {region}\n"
+        f"Account: {account}\n"
+        f"ChangedAt: {timestamp}\n"
+    )
+
+    boto3.client("ses").send_email(
+        Source=source_email,
+        Destination={"ToAddresses": recipients},
+        Message={
+            "Subject": {"Data": subject, "Charset": "UTF-8"},
+            "Body": {"Text": {"Data": body_text, "Charset": "UTF-8"}},
+        },
+    )
+    logger.info(
+        "Forwarded CloudWatch alarm alarmName=%s state=%s recipients=%s",
+        _mask_identifier(alarm_name),
+        state,
+        ",".join(_mask_email(r) for r in recipients),
+    )
+    return True
+
+
 def _handle_verification_requested(message: dict[str, Any]) -> None:
     client_id = message.get("clientId", "").strip()
     email = message.get("email", "").strip()
@@ -377,6 +446,18 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             continue
 
         event_type = str(message.get("eventType", "")).upper()
+
+        # Flow 0: CloudWatch alarm notifications from SNS -> SES email forward.
+        if _is_cloudwatch_alarm_message(message):
+            try:
+                if _handle_cloudwatch_alarm(message):
+                    updated += 1
+                else:
+                    skipped += 1
+            except Exception:
+                logger.exception("Failed to forward CloudWatch alarm notification")
+                failures.append({"alarm": str(message.get("AlarmName", "unknown"))})
+            continue
 
         # ── Flow 1: verification email request ──────────────────────────────
         if event_type == "UPLOAD_VERIFICATION_REQUESTED":
