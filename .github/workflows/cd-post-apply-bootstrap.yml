@@ -1,0 +1,262 @@
+name: CD - Post Apply Bootstrap
+# Seed baseline users/clients and transaction fixtures after infra+deploy is stable.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_bootstrap:
+        description: Type bootstrap-prod to confirm prod seeding
+        required: true
+        type: string
+      reviewed_commit_sha:
+        description: Optional full 40-char commit SHA to checkout before bootstrapping
+        required: false
+        type: string
+      api_base_url:
+        description: Optional API base URL override (default from terraform output app_url)
+        required: false
+        type: string
+      wait_timeout_seconds:
+        description: Health wait timeout in seconds
+        required: false
+        default: "900"
+        type: string
+      seed_users_count:
+        description: Number of baseline agent users to ensure
+        required: false
+        default: "3"
+        type: string
+      seed_clients_count:
+        description: Number of baseline clients to ensure
+        required: false
+        default: "6"
+        type: string
+      transaction_row_count:
+        description: Number of transaction rows to generate
+        required: false
+        default: "120"
+        type: string
+      run_transaction_seed:
+        description: Upload fixture to S3 and trigger import API
+        required: false
+        default: true
+        type: boolean
+      run_sftp_upload:
+        description: Upload fixture via SFTP endpoint
+        required: false
+        default: true
+        type: boolean
+  workflow_call:
+    inputs:
+      reviewed_commit_sha:
+        required: false
+        type: string
+      api_base_url:
+        required: false
+        type: string
+      wait_timeout_seconds:
+        required: false
+        type: string
+        default: "900"
+      seed_users_count:
+        required: false
+        type: string
+        default: "3"
+      seed_clients_count:
+        required: false
+        type: string
+        default: "6"
+      transaction_row_count:
+        required: false
+        type: string
+        default: "120"
+      run_transaction_seed:
+        required: false
+        type: boolean
+        default: true
+      run_sftp_upload:
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      TF_ROOT_ADMIN_PASSWORD:
+        required: true
+      SFTP_PRIVATE_KEY:
+        required: false
+      BOOTSTRAP_SEED_USER_PASSWORD:
+        required: false
+      TF_JWT_HMAC_SECRET:
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-post-apply-bootstrap-prod
+  cancel-in-progress: false
+
+jobs:
+  bootstrap-prod:
+    name: Post-apply bootstrap (prod)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      TF_IN_AUTOMATION: "1"
+      TF_INPUT: "0"
+      TF_DIR: platform/terraform
+      DEPLOY_ENV: prod
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_LOCK_DYNAMODB: ${{ vars.TF_LOCK_DYNAMODB }}
+      APP_DOMAIN_NAME: ${{ vars.TF_APP_DOMAIN_NAME }}
+
+    steps:
+      - name: Validate required inputs and GitHub configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            [[ "${{ inputs.confirm_bootstrap }}" == "bootstrap-prod" ]] || {
+              echo "confirm_bootstrap must be exactly bootstrap-prod"
+              exit 1
+            }
+          fi
+
+          if [[ -n "${{ inputs.reviewed_commit_sha }}" ]]; then
+            [[ "${{ inputs.reviewed_commit_sha }}" =~ ^[0-9a-fA-F]{40}$ ]] || {
+              echo "reviewed_commit_sha must be a full 40-character commit SHA"
+              exit 1
+            }
+          fi
+
+          test -n "${AWS_REGION}" || { echo "Missing required GitHub variable: AWS_REGION"; exit 1; }
+          test -n "${TF_STATE_BUCKET}" || { echo "Missing required GitHub variable: TF_STATE_BUCKET"; exit 1; }
+          test -n "${TF_LOCK_DYNAMODB}" || { echo "Missing required GitHub variable: TF_LOCK_DYNAMODB"; exit 1; }
+          test -n "${{ secrets.AWS_ACCESS_KEY_ID }}" || { echo "Missing required secret: AWS_ACCESS_KEY_ID"; exit 1; }
+          test -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" || { echo "Missing required secret: AWS_SECRET_ACCESS_KEY"; exit 1; }
+          test -n "${{ secrets.TF_ROOT_ADMIN_PASSWORD }}" || { echo "Missing required secret: TF_ROOT_ADMIN_PASSWORD"; exit 1; }
+          if [[ "${{ inputs.seed_users_count }}" != "0" ]]; then
+            test -n "${{ secrets.BOOTSTRAP_SEED_USER_PASSWORD }}" || {
+              echo "Missing required secret: BOOTSTRAP_SEED_USER_PASSWORD (required when seed_users_count != 0)"
+              exit 1
+            }
+          fi
+          if [[ "${{ inputs.run_sftp_upload }}" == "true" ]]; then
+            test -n "${{ secrets.SFTP_PRIVATE_KEY }}" || {
+              echo "Missing required secret: SFTP_PRIVATE_KEY (required when run_sftp_upload=true)"
+              exit 1
+            }
+          fi
+
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.reviewed_commit_sha != '' && inputs.reviewed_commit_sha || github.sha }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Create runtime Terraform override file
+        working-directory: ${{ env.TF_DIR }}
+        env:
+          ROOT_ADMIN_PASSWORD: ${{ secrets.TF_ROOT_ADMIN_PASSWORD }}
+          JWT_HMAC_SECRET: ${{ secrets.TF_JWT_HMAC_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "::add-mask::${ROOT_ADMIN_PASSWORD}"
+          if [[ -n "${JWT_HMAC_SECRET:-}" ]]; then
+            echo "::add-mask::${JWT_HMAC_SECRET}"
+          fi
+
+          {
+            echo "root_admin_password = $(jq -Rn --arg v "$ROOT_ADMIN_PASSWORD" '$v')"
+            if [[ -n "${JWT_HMAC_SECRET:-}" ]]; then
+              echo "jwt_hmac_secret = $(jq -Rn --arg v "$JWT_HMAC_SECRET" '$v')"
+            fi
+            if [[ -n "${APP_DOMAIN_NAME}" ]]; then
+              echo "app_domain_name = $(jq -Rn --arg v "$APP_DOMAIN_NAME" '$v')"
+            fi
+          } > runtime.auto.tfvars
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.10"
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: terraform init -input=false -reconfigure -backend-config="env/${DEPLOY_ENV}.backend.hcl"
+
+      - name: Resolve bootstrap endpoints and resource names
+        id: tf_outputs
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TF_OUTPUT_JSON="$(terraform output -json)"
+          APP_URL="$(jq -r '.app_url.value // empty' <<<"${TF_OUTPUT_JSON}")"
+          SFTP_ENDPOINT="$(jq -r '.sftp_endpoint.value // empty' <<<"${TF_OUTPUT_JSON}")"
+          SFTP_USERNAME="$(jq -r '.sftp_username.value // empty' <<<"${TF_OUTPUT_JSON}")"
+          TX_BUCKET="$(jq -r '.transaction_sftp_bucket_name.value // empty' <<<"${TF_OUTPUT_JSON}")"
+
+          [[ -n "${APP_URL}" ]] || { echo "Failed to resolve terraform output: app_url"; exit 1; }
+          [[ -n "${TX_BUCKET}" ]] || { echo "Failed to resolve terraform output: transaction_sftp_bucket_name"; exit 1; }
+
+          {
+            echo "app_url=${APP_URL}"
+            echo "sftp_endpoint=${SFTP_ENDPOINT}"
+            echo "sftp_username=${SFTP_USERNAME}"
+            echo "transaction_bucket=${TX_BUCKET}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Materialize SFTP private key
+        if: ${{ inputs.run_sftp_upload }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "${{ secrets.SFTP_PRIVATE_KEY }}" > "${RUNNER_TEMP}/sftp-bootstrap-key"
+          chmod 600 "${RUNNER_TEMP}/sftp-bootstrap-key"
+
+      - name: Run post-apply bootstrap script
+        shell: bash
+        env:
+          API_BASE_URL: ${{ inputs.api_base_url != '' && inputs.api_base_url || steps.tf_outputs.outputs.app_url }}
+          ROOT_ADMIN_EMAIL: admin@crm.com
+          ROOT_ADMIN_PASSWORD: ${{ secrets.TF_ROOT_ADMIN_PASSWORD }}
+          WAIT_TIMEOUT_SECONDS: ${{ inputs.wait_timeout_seconds }}
+          SEED_USERS_COUNT: ${{ inputs.seed_users_count }}
+          SEED_CLIENTS_COUNT: ${{ inputs.seed_clients_count }}
+          RUN_TRANSACTION_SEED: ${{ inputs.run_transaction_seed }}
+          RUN_SFTP_UPLOAD: ${{ inputs.run_sftp_upload }}
+          TRANSACTION_ROW_COUNT: ${{ inputs.transaction_row_count }}
+          TRANSACTION_S3_BUCKET: ${{ steps.tf_outputs.outputs.transaction_bucket }}
+          TRANSACTION_S3_KEY: manual/bootstrap/github-run-${{ github.run_id }}.csv
+          SFTP_ENDPOINT: ${{ steps.tf_outputs.outputs.sftp_endpoint }}
+          SFTP_USERNAME: ${{ steps.tf_outputs.outputs.sftp_username }}
+          SFTP_PRIVATE_KEY_PATH: ${{ runner.temp }}/sftp-bootstrap-key
+          SEED_USER_TEMP_PASSWORD: ${{ secrets.BOOTSTRAP_SEED_USER_PASSWORD }}
+        run: |
+          set -euo pipefail
+          bash scripts/ci/bootstrap-post-apply.sh
+
+      - name: Cleanup temporary secrets
+        if: ${{ always() }}
+        shell: bash
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          rm -f runtime.auto.tfvars "${RUNNER_TEMP}/sftp-bootstrap-key"
