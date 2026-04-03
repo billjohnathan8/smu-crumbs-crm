@@ -243,6 +243,52 @@ import_secret_if_available "module.security.aws_secretsmanager_secret.root_admin
 import_secret_if_available "module.security.aws_secretsmanager_secret.db_username" "/${PROJECT_NAME}/${ENVIRONMENT}/db/username"
 import_secret_if_available "module.security.aws_secretsmanager_secret.db_password" "/${PROJECT_NAME}/${ENVIRONMENT}/db/password"
 
+reconcile_lambda_permission_if_existing() {
+  local address="$1"
+  local function_name="$2"
+  local statement_id="$3"
+  local label="$4"
+
+  if state_has "${address}"; then
+    echo "Already tracked in state: ${label} (${address})"
+    return 0
+  fi
+
+  local policy
+  policy="$(aws lambda get-policy \
+    --function-name "${function_name}" \
+    --region "${AWS_REGION}" \
+    --query 'Policy' \
+    --output text 2>/dev/null || true)"
+
+  if [[ -z "${policy}" || "${policy}" == "None" ]]; then
+    return 0
+  fi
+
+  if ! grep -Fq "${statement_id}" <<< "${policy}"; then
+    return 0
+  fi
+
+  import_if_missing "${address}" "${function_name}/${statement_id}" "${label}"
+}
+
+enable_verification_pipeline="$(tr '[:upper:]' '[:lower:]' <<< "$(get_tfvar_value "enable_verification_pipeline")")"
+if [[ "${enable_verification_pipeline}" == "true" ]]; then
+  verification_lambda_name="${name_prefix}-verification"
+
+  reconcile_lambda_permission_if_existing \
+    "module.lambda.aws_lambda_permission.allow_sns_invoke_verification[0]" \
+    "${verification_lambda_name}" \
+    "AllowExecutionFromSns" \
+    "Verification Lambda permission from verification SNS topic"
+
+  reconcile_lambda_permission_if_existing \
+    "module.lambda.aws_lambda_permission.allow_sns_alarm_invoke_verification[0]" \
+    "${verification_lambda_name}" \
+    "AllowExecutionFromSnsAlarmTopic" \
+    "Verification Lambda permission from alarm SNS topic"
+fi
+
 if [[ "${pending_secret_recovery}" == "1" ]]; then
   echo "One or more required secrets are scheduled for deletion. Run platform/terraform/scripts/force-delete-stale-resources.sh ${ENVIRONMENT} before rerunning the Terraform plan workflow."
   exit 1
