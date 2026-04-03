@@ -300,6 +300,19 @@ describe('ClientAccountsPage', () => {
     })
   })
 
+  it('should render accounts page when opening options endpoint is unavailable', async () => {
+    mockRole = 'admin'
+    vi.spyOn(clientsApi, 'getAccountOpeningOptions').mockRejectedValue(
+      new ApiError(404, 'not_found', 'Not found')
+    )
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByText('+ New Account')).toBeInTheDocument()
+    })
+  })
+
   it('should not show branch-required error when default branch is prefilled', async () => {
     renderComponent()
     const user = userEvent.setup()

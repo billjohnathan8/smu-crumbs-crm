@@ -45,6 +45,24 @@ const adminNav: NavItem[] = [
   { label: 'Settings', to: '/admin/settings' },
 ]
 
+const FALLBACK_ACCOUNT_OPENING_OPTIONS: AccountOpeningOptions = {
+  clientId: '',
+  defaultBranchId: 'SG-001',
+  canOverrideBranch: false,
+  authorizedBranches: ['SG-001'],
+  allowedCurrencies: ['SGD', 'USD'],
+  branchAllowedCurrencies: {
+    'SG-001': ['SGD', 'USD'],
+    'SG-002': ['SGD'],
+    'SG-003': ['SGD', 'USD'],
+  },
+  accountTypeAllowedCurrencies: {
+    Savings: ['SGD'],
+    Checking: ['SGD', 'USD'],
+    Business: ['SGD', 'USD'],
+  },
+}
+
 export function ClientAccountsPage() {
   const { clientId } = useParams<{ clientId: string }>()
   const { user, logout } = useAuth()
@@ -84,6 +102,13 @@ export function ClientAccountsPage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
 
+  const buildFallbackOpeningOptions = (resolvedClientId: string): AccountOpeningOptions => ({
+    ...FALLBACK_ACCOUNT_OPENING_OPTIONS,
+    clientId: resolvedClientId,
+    canOverrideBranch: isManagementUser,
+    authorizedBranches: isManagementUser ? ['SG-001', 'SG-002', 'SG-003'] : ['SG-001'],
+  })
+
   const loadData = async () => {
     if (!clientId) return
 
@@ -95,7 +120,16 @@ export function ClientAccountsPage() {
         getClientById(clientId),
         listClientAccounts(clientId),
       ])
-      const optionsData = await getAccountOpeningOptions(clientId)
+      let optionsData: AccountOpeningOptions
+      try {
+        optionsData = await getAccountOpeningOptions(clientId)
+      } catch (optionsError) {
+        if (optionsError instanceof ApiError && optionsError.status === 401) {
+          logout()
+          return
+        }
+        optionsData = buildFallbackOpeningOptions(clientId)
+      }
 
       setClient(clientData)
       setAccounts(accountsData)
