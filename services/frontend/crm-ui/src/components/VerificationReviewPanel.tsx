@@ -151,24 +151,24 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
 
 function useDocumentUrls(document: VerificationDocument | null) {
   const dataUrl = useMemo(() => toDataUrl(document), [document])
-  const [objectUrl, setObjectUrl] = useState('')
-
-  useEffect(() => {
+  const objectUrl = useMemo(() => {
     if (!document?.documentBase64 || !document.mimeType) {
-      setObjectUrl('')
-      return
+      return ''
     }
 
     const blob = new Blob([base64ToArrayBuffer(document.documentBase64)], {
       type: document.mimeType,
     })
-    const url = URL.createObjectURL(blob)
-    setObjectUrl(url)
+    return URL.createObjectURL(blob)
+  }, [document])
+
+  useEffect(() => {
+    if (!objectUrl) return
 
     return () => {
-      URL.revokeObjectURL(url)
+      URL.revokeObjectURL(objectUrl)
     }
-  }, [document])
+  }, [objectUrl])
 
   return { dataUrl, objectUrl }
 }
