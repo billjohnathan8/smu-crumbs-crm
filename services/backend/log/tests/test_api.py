@@ -211,8 +211,32 @@ class FakeLogService:
         total = len(rows)
         return rows[offset : offset + limit], total
 
-    def list_queued_communications(self, limit: int):
-        rows = [r for r in self.communications if r["status"] == "queued"]
+    def list_queued_communications(
+        self,
+        limit: int,
+        status: str | None = "queued",
+        created_from=None,
+        created_to=None,
+        recipient: str | None = None,
+        subject: str | None = None,
+        client_id: str | None = None,
+        user_id: str | None = None,
+    ):
+        rows = list(self.communications)
+        if status is not None:
+            rows = [r for r in rows if r["status"] == status]
+        if created_from is not None:
+            rows = [r for r in rows if r["created_at"] >= created_from]
+        if created_to is not None:
+            rows = [r for r in rows if r["created_at"] <= created_to]
+        if recipient:
+            rows = [r for r in rows if recipient.lower() in r["to_email"].lower()]
+        if subject:
+            rows = [r for r in rows if subject.lower() in r["subject"].lower()]
+        if client_id:
+            rows = [r for r in rows if client_id.lower() in r["client_id"].lower()]
+        if user_id:
+            rows = [r for r in rows if user_id.lower() in r["user_id"].lower()]
         return rows[:limit]
 
     def update_communication_status(self, communication_id: int, patch) -> dict | None:
@@ -927,6 +951,62 @@ def test_communications_endpoints_enforce_role_scope_and_updates() -> None:
     assert by_provider_service["statusCode"] == 200
     assert by_provider_service_body is not None
     assert by_provider_service_body["status"] == "failed"
+
+
+def test_queued_communications_supports_admin_filters() -> None:
+    secret = "test-secret"
+    service = FakeLogService()
+    router = _make_router(service, secret=secret)
+
+    first_id = service.create_communication(
+        CreateCommunicationRequest(
+            clientId="clt_alpha",
+            userId="usr_1",
+            toEmail="first@example.com",
+            subject="Account verification",
+            body="Body",
+            channel="email",
+        )
+    )
+    second_id = service.create_communication(
+        CreateCommunicationRequest(
+            clientId="clt_beta",
+            userId="usr_2",
+            toEmail="second@example.com",
+            subject="Monthly statement",
+            body="Body",
+            channel="email",
+        )
+    )
+    service.communications[first_id - 1]["status"] = "failed"
+    service.communications[first_id - 1]["created_at"] = datetime(2026, 4, 1, tzinfo=timezone.utc)
+    service.communications[second_id - 1]["created_at"] = datetime(
+        2026, 4, 3, tzinfo=timezone.utc
+    )
+
+    admin_token = mint_token("usr_admin", "admin", secret)
+    filtered, filtered_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "GET",
+            "/api/communications/queued",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            query={
+                "status": "failed",
+                "createdFrom": "2026-04-01T00:00:00Z",
+                "createdTo": "2026-04-02T23:59:59Z",
+                "recipient": "first@",
+                "subject": "verification",
+                "client": "alpha",
+                "sender": "usr_1",
+            },
+        ),
+    )
+
+    assert filtered["statusCode"] == 200
+    assert filtered_body is not None
+    assert len(filtered_body["data"]) == 1
+    assert filtered_body["data"][0]["clientId"] == "clt_alpha"
 
 
 def test_create_communication_missing_row_returns_500() -> None:

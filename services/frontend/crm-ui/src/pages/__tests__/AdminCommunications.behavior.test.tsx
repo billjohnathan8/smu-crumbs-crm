@@ -379,4 +379,31 @@ describe('AdminCommunications behavior', () => {
     await user.click(screen.getAllByRole('button', { name: 'Lookup' })[0])
     expect(screen.getByRole('button', { name: 'Looking up...' })).toBeInTheDocument()
   })
+
+  it('applies table filters from dropdown and calls queued communications with params', async () => {
+    const user = userEvent.setup()
+    vi.mocked(communicationsApi.listQueuedCommunications).mockResolvedValue(queuedResponse)
+
+    renderPage()
+
+    await screen.findByText('Queued subject')
+
+    await user.click(screen.getByRole('button', { name: 'Filter' }))
+    await user.selectOptions(screen.getByRole('combobox'), 'failed')
+    await user.type(screen.getByPlaceholderText('email@domain.com'), 'example.com')
+    await user.click(screen.getByRole('button', { name: 'Apply' }))
+
+    await waitFor(() => {
+      expect(communicationsApi.listQueuedCommunications).toHaveBeenLastCalledWith({
+        limit: 200,
+        status: 'failed',
+        createdFrom: undefined,
+        createdTo: undefined,
+        recipient: 'example.com',
+        subject: undefined,
+        client: undefined,
+        sender: undefined,
+      })
+    })
+  })
 })

@@ -69,6 +69,13 @@ export async function getCommunicationByProviderMessageId(
 
 export interface ListQueuedCommunicationsParams {
   limit?: number
+  status?: 'queued' | 'sent' | 'failed'
+  createdFrom?: string
+  createdTo?: string
+  recipient?: string
+  subject?: string
+  client?: string
+  sender?: string
 }
 
 /**
@@ -80,6 +87,13 @@ export async function listQueuedCommunications(
 ): Promise<PaginatedResponse<Communication>> {
   const query = new URLSearchParams()
   if (params?.limit !== undefined) query.append('limit', params.limit.toString())
+  if (params?.status) query.append('status', params.status)
+  if (params?.createdFrom) query.append('createdFrom', params.createdFrom)
+  if (params?.createdTo) query.append('createdTo', params.createdTo)
+  if (params?.recipient) query.append('recipient', params.recipient)
+  if (params?.subject) query.append('subject', params.subject)
+  if (params?.client) query.append('client', params.client)
+  if (params?.sender) query.append('sender', params.sender)
 
   const endpoint = query.toString() ? `${BASE}/queued?${query.toString()}` : `${BASE}/queued`
   return options

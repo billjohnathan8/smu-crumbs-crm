@@ -355,9 +355,44 @@ def test_list_queued_communications_filters_due_records(
 
     assert rows == [{"id": 2, "status": "queued"}]
     sql, params = cursor.executed[0]
-    assert "status = 'queued'" in sql
+    assert "status = %(status)s" in sql
     assert "next_attempt_at <= NOW()" in sql
-    assert params == (25,)
+    assert params["limit"] == 25
+    assert params["status"] == "queued"
+
+
+def test_list_queued_communications_applies_admin_filters(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cursor = FakeCursor(fetchall_values=[{"id": 3, "status": "failed"}])
+
+    def fake_connect(*_args, **_kwargs):
+        return FakeConnection(cursor)
+
+    _patch_connect(monkeypatch, fake_connect)
+    repo = LogRepository(Settings())
+
+    rows = repo.list_queued_communications(
+        limit=50,
+        status="failed",
+        created_from=datetime(2026, 4, 1, tzinfo=timezone.utc),
+        created_to=datetime(2026, 4, 2, tzinfo=timezone.utc),
+        recipient="example.com",
+        subject="verify",
+        client_id="clt_",
+        user_id="usr_",
+    )
+
+    assert rows == [{"id": 3, "status": "failed"}]
+    sql, params = cursor.executed[0]
+    assert "created_at >= %(createdFrom)s" in sql
+    assert "created_at <= %(createdTo)s" in sql
+    assert "to_email ILIKE %(recipient)s" in sql
+    assert "subject ILIKE %(subject)s" in sql
+    assert "client_id ILIKE %(clientId)s" in sql
+    assert "user_id ILIKE %(userId)s" in sql
+    assert "next_attempt_at <= NOW()" not in sql
+    assert params["status"] == "failed"
 
 
 def test_list_queued_communications_returns_empty_when_table_missing(

@@ -450,20 +450,58 @@ class LogRepository:
                 rows = list(cur.fetchall())
         return rows, total
 
-    def list_queued_communications(self, limit: int) -> list[dict]:
-        """List queued communications that are eligible for immediate dispatch."""
+    def list_queued_communications(
+        self,
+        limit: int,
+        status: str | None = "queued",
+        created_from=None,
+        created_to=None,
+        recipient: str | None = None,
+        subject: str | None = None,
+        client_id: str | None = None,
+        user_id: str | None = None,
+    ) -> list[dict]:
+        """List communications with optional filters and queued-dispatch semantics."""
+        where: list[str] = []
+        params: dict[str, object] = {"limit": limit}
+
+        if status:
+            where.append("status = %(status)s")
+            params["status"] = status
+            if status == "queued":
+                where.append("(next_attempt_at IS NULL OR next_attempt_at <= NOW())")
+        if created_from is not None:
+            where.append("created_at >= %(createdFrom)s")
+            params["createdFrom"] = created_from
+        if created_to is not None:
+            where.append("created_at <= %(createdTo)s")
+            params["createdTo"] = created_to
+        if recipient:
+            where.append("to_email ILIKE %(recipient)s")
+            params["recipient"] = f"%{recipient}%"
+        if subject:
+            where.append("subject ILIKE %(subject)s")
+            params["subject"] = f"%{subject}%"
+        if client_id:
+            where.append("client_id ILIKE %(clientId)s")
+            params["clientId"] = f"%{client_id}%"
+        if user_id:
+            where.append("user_id ILIKE %(userId)s")
+            params["userId"] = f"%{user_id}%"
+
+        where_sql = f"WHERE {' AND '.join(where)}" if where else ""
+
         with psycopg.connect(self._settings.dsn, row_factory=dict_row) as conn:
             with conn.cursor() as cur:
                 try:
                     cur.execute(
-                        """
-                        SELECT * FROM communications
-                        WHERE status = 'queued'
-                          AND (next_attempt_at IS NULL OR next_attempt_at <= NOW())
-                        ORDER BY COALESCE(next_attempt_at, created_at) ASC, id ASC
-                        LIMIT %s
-                        """,
-                        (limit,),
+                        (
+                            "SELECT * FROM communications "
+                            f"{where_sql} "
+                            "ORDER BY COALESCE(next_attempt_at, created_at) ASC, id ASC "
+                            "LIMIT %(limit)s"
+                        ),
+                        params,
                     )
                     rows = list(cur.fetchall())
                 except (psycopg.errors.UndefinedTable, psycopg.errors.UndefinedColumn):

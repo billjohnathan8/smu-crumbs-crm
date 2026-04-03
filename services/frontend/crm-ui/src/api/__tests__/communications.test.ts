@@ -134,6 +134,30 @@ describe('communications API', () => {
 
       expect(client.apiGet).toHaveBeenCalledWith('/api/communications/queued?limit=100')
     })
+
+    it('should list queued communications with filter params', async () => {
+      const mockResponse: PaginatedResponse<Communication> = {
+        data: [],
+        pagination: { limit: 50, offset: 0, total: 0 },
+      }
+
+      vi.spyOn(client, 'apiGet').mockResolvedValue(mockResponse)
+
+      await listQueuedCommunications({
+        limit: 50,
+        status: 'failed',
+        createdFrom: '2026-04-01T00:00:00.000Z',
+        createdTo: '2026-04-02T00:00:00.000Z',
+        recipient: 'example.com',
+        subject: 'verification',
+        client: 'clt_1',
+        sender: 'usr_1',
+      })
+
+      expect(client.apiGet).toHaveBeenCalledWith(
+        '/api/communications/queued?limit=50&status=failed&createdFrom=2026-04-01T00%3A00%3A00.000Z&createdTo=2026-04-02T00%3A00%3A00.000Z&recipient=example.com&subject=verification&client=clt_1&sender=usr_1'
+      )
+    })
   })
 
   describe('updateCommunicationStatus', () => {

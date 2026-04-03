@@ -1,4 +1,4 @@
-import type { Dispatch, FormEvent, SetStateAction } from 'react'
+import type { Dispatch, FormEvent, ReactNode, SetStateAction } from 'react'
 import type { Communication, CommunicationStatus } from '@/api/types'
 import type { SendCommunicationRequest } from '@/api/communications'
 
@@ -14,6 +14,7 @@ type CommunicationsPanelProps = {
   refreshLabel?: string
   onRefresh?: () => void
   isRefreshing?: boolean
+  headerActions?: ReactNode
 
   showComposeForm?: boolean
   setShowComposeForm?: Dispatch<SetStateAction<boolean>>
@@ -41,6 +42,7 @@ export function CommunicationsPanel({
   refreshLabel = 'Refresh',
   onRefresh,
   isRefreshing = false,
+  headerActions,
 
   showComposeForm = false,
   setShowComposeForm,
@@ -82,6 +84,7 @@ export function CommunicationsPanel({
         )}
 
         <div className="flex items-center gap-2">
+          {headerActions}
           {onRefresh && (
             <button
               onClick={onRefresh}

@@ -5,6 +5,7 @@ import {
   listQueuedCommunications,
   getCommunicationById,
   listClientCommunications,
+  type ListQueuedCommunicationsParams,
 } from '@/api/communications'
 import type { Communication, CommunicationStatus } from '@/api/types'
 import { ApiError } from '@/api/client'
@@ -29,6 +30,27 @@ const statusColors: Record<CommunicationStatus, string> = {
   failed: 'bg-danger/20 text-danger',
 }
 const COMMUNICATION_LOOKUP_TIMEOUT_MS = 15000
+type FilterStatus = CommunicationStatus | 'all'
+
+type CommunicationFilters = {
+  status: FilterStatus
+  createdFrom: string
+  createdTo: string
+  recipient: string
+  subject: string
+  client: string
+  sender: string
+}
+
+const DEFAULT_FILTERS: CommunicationFilters = {
+  status: 'queued',
+  createdFrom: '',
+  createdTo: '',
+  recipient: '',
+  subject: '',
+  client: '',
+  sender: '',
+}
 
 export function AdminCommunications() {
   const { user, logout } = useAuth()
@@ -51,13 +73,34 @@ export function AdminCommunications() {
   const [commLookupResult, setCommLookupResult] = useState<Communication | null>(null)
   const [commLookupError, setCommLookupError] = useState('')
   const [isCommLookingUp, setIsCommLookingUp] = useState(false)
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false)
+  const [filterError, setFilterError] = useState('')
+  const [activeFilters, setActiveFilters] = useState<CommunicationFilters>(DEFAULT_FILTERS)
+  const [filterDraft, setFilterDraft] = useState<CommunicationFilters>(DEFAULT_FILTERS)
 
-  const fetchQueued = async () => {
+  const toIsoDateTime = (value: string): string | undefined => {
+    if (!value) return undefined
+    const parsed = new Date(value)
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString()
+  }
+
+  const buildQueuedParams = (filters: CommunicationFilters): ListQueuedCommunicationsParams => ({
+    limit: 200,
+    status: filters.status === 'all' ? undefined : filters.status,
+    createdFrom: toIsoDateTime(filters.createdFrom),
+    createdTo: toIsoDateTime(filters.createdTo),
+    recipient: filters.recipient.trim() || undefined,
+    subject: filters.subject.trim() || undefined,
+    client: filters.client.trim() || undefined,
+    sender: filters.sender.trim() || undefined,
+  })
+
+  const fetchQueued = async (filters: CommunicationFilters = activeFilters) => {
     setIsLoading(true)
     setError('')
 
     try {
-      const response = await listQueuedCommunications({ limit: 200 })
+      const response = await listQueuedCommunications(buildQueuedParams(filters))
       setCommunications(response.data)
     } catch (err) {
       if (err instanceof ApiError) {
@@ -78,6 +121,39 @@ export function AdminCommunications() {
       setIsLoading(false)
     }
   }
+
+  const handleApplyFilters = async () => {
+    if (filterDraft.createdFrom && filterDraft.createdTo) {
+      const from = new Date(filterDraft.createdFrom)
+      const to = new Date(filterDraft.createdTo)
+      if (from.getTime() > to.getTime()) {
+        setFilterError('Start datetime must be before end datetime.')
+        return
+      }
+    }
+    setFilterError('')
+    setActiveFilters(filterDraft)
+    setShowFilterDropdown(false)
+    await fetchQueued(filterDraft)
+  }
+
+  const handleClearFilters = async () => {
+    setFilterError('')
+    setFilterDraft(DEFAULT_FILTERS)
+    setActiveFilters(DEFAULT_FILTERS)
+    setShowFilterDropdown(false)
+    await fetchQueued(DEFAULT_FILTERS)
+  }
+
+  const activeFilterCount = [
+    activeFilters.status !== DEFAULT_FILTERS.status,
+    Boolean(activeFilters.createdFrom),
+    Boolean(activeFilters.createdTo),
+    Boolean(activeFilters.recipient.trim()),
+    Boolean(activeFilters.subject.trim()),
+    Boolean(activeFilters.client.trim()),
+    Boolean(activeFilters.sender.trim()),
+  ].filter(Boolean).length
 
   useEffect(() => {
     if (!canAccessCommunications) {
@@ -330,6 +406,139 @@ export function AdminCommunications() {
           emptyMessage="No queued communications found"
           onRefresh={fetchQueued}
           isRefreshing={isLoading}
+          headerActions={
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setShowFilterDropdown(prev => !prev)
+                  setFilterError('')
+                }}
+                className="rounded bg-background-lighter border-[1.5px] border-border px-4 py-2 text-sm font-medium text-text transition-all duration-200 hover:brightness-[0.9]"
+              >
+                {activeFilterCount > 0 ? `Filter (${activeFilterCount})` : 'Filter'}
+              </button>
+              {showFilterDropdown && (
+                <div className="absolute right-0 z-20 mt-2 w-80 rounded-lg border border-border bg-card p-4 shadow-xl">
+                  <div className="space-y-3">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-text-muted">
+                        Delivery State
+                      </label>
+                      <select
+                        value={filterDraft.status}
+                        onChange={e =>
+                          setFilterDraft(prev => ({ ...prev, status: e.target.value as FilterStatus }))
+                        }
+                        className="w-full rounded bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="all">All states</option>
+                        <option value="queued">Queued</option>
+                        <option value="sent">Sent</option>
+                        <option value="failed">Failed</option>
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-text-muted">
+                          Created From
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={filterDraft.createdFrom}
+                          onChange={e =>
+                            setFilterDraft(prev => ({ ...prev, createdFrom: e.target.value }))
+                          }
+                          className="w-full rounded bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-text-muted">
+                          Created To
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={filterDraft.createdTo}
+                          onChange={e => setFilterDraft(prev => ({ ...prev, createdTo: e.target.value }))}
+                          className="w-full rounded bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-text-muted">
+                        Recipient Contains
+                      </label>
+                      <input
+                        type="text"
+                        value={filterDraft.recipient}
+                        onChange={e => setFilterDraft(prev => ({ ...prev, recipient: e.target.value }))}
+                        placeholder="email@domain.com"
+                        className="w-full rounded bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-text-muted">
+                        Subject Contains
+                      </label>
+                      <input
+                        type="text"
+                        value={filterDraft.subject}
+                        onChange={e => setFilterDraft(prev => ({ ...prev, subject: e.target.value }))}
+                        placeholder="payment reminder"
+                        className="w-full rounded bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-text-muted">
+                          Client Reference
+                        </label>
+                        <input
+                          type="text"
+                          value={filterDraft.client}
+                          onChange={e => setFilterDraft(prev => ({ ...prev, client: e.target.value }))}
+                          placeholder="clt_..."
+                          className="w-full rounded bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-text-muted">
+                          Sender User
+                        </label>
+                        <input
+                          type="text"
+                          value={filterDraft.sender}
+                          onChange={e => setFilterDraft(prev => ({ ...prev, sender: e.target.value }))}
+                          placeholder="usr_..."
+                          className="w-full rounded bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {filterError && <p className="mt-3 text-xs text-danger">{filterError}</p>}
+
+                  <div className="mt-4 flex items-center justify-end gap-2">
+                    <button
+                      onClick={handleClearFilters}
+                      className="rounded bg-background-light px-3 py-2 text-sm text-text hover:brightness-[0.95]"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      onClick={handleApplyFilters}
+                      className="rounded bg-primary px-3 py-2 text-sm font-medium text-white hover:brightness-[0.9]"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          }
           editableStatuses
         />
       </main>

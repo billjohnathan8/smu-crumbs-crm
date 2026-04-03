@@ -50,6 +50,7 @@ class FakeRepository:
         return ([{"id": 3}], 1)
 
     def list_queued_communications(self, **kwargs):
+        self.list_queued_kwargs = kwargs
         return [{"id": 8, "status": "queued"}]
 
     def update_communication_status(self, communication_id: int, payload: dict):
@@ -139,6 +140,7 @@ def test_update_and_list_delegates_to_repository() -> None:
     assert comm_total == 1
     assert communications[0]["id"] == 3
     assert queued[0]["status"] == "queued"
+    assert repo.list_queued_kwargs["status"] == "queued"
 
 
 def test_update_communication_status_delegates() -> None:

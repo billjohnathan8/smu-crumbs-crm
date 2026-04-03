@@ -130,9 +130,28 @@ class LogService:
             limit=limit, offset=offset, client_id=client_id, user_id=user_id
         )
 
-    def list_queued_communications(self, limit: int) -> list[dict]:
-        """List queued communications due for dispatch."""
-        return self._repository.list_queued_communications(limit=limit)
+    def list_queued_communications(
+        self,
+        limit: int,
+        status: str | None = "queued",
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        recipient: str | None = None,
+        subject: str | None = None,
+        client_id: str | None = None,
+        user_id: str | None = None,
+    ) -> list[dict]:
+        """List communications with optional admin filters."""
+        return self._repository.list_queued_communications(
+            limit=limit,
+            status=status,
+            created_from=created_from,
+            created_to=created_to,
+            recipient=recipient,
+            subject=subject,
+            client_id=client_id,
+            user_id=user_id,
+        )
 
     def update_communication_status(
         self, communication_id: int, patch: UpdateCommunicationStatusRequest

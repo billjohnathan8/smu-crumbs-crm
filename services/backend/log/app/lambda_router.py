@@ -21,6 +21,7 @@ from .config import Settings
 from .schemas import (
     AmlAlert,
     Communication,
+    CommunicationStatus,
     CreateAmlAlertRequest,
     CreateCommunicationRequest,
     CreateLogRequest,
@@ -94,6 +95,13 @@ class _ListQueuedCommunicationsQuery(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     limit: int = 50
+    status: CommunicationStatus | None = CommunicationStatus.queued
+    createdFrom: datetime | None = None
+    createdTo: datetime | None = None
+    recipient: str | None = None
+    subject: str | None = None
+    client: str | None = None
+    sender: str | None = None
 
 
 class _ListCommunicationsQuery(BaseModel):
@@ -872,7 +880,16 @@ class LambdaRouter:
         query = self._parse_query(_ListQueuedCommunicationsQuery, request)
         limit = min(max(query.limit, 1), 200)
 
-        rows = self._service.list_queued_communications(limit=limit)
+        rows = self._service.list_queued_communications(
+            limit=limit,
+            status=query.status.value if query.status else None,
+            created_from=query.createdFrom,
+            created_to=query.createdTo,
+            recipient=query.recipient,
+            subject=query.subject,
+            client_id=query.client,
+            user_id=query.sender,
+        )
         payload = {
             "data": [self._to_communication(row) for row in rows],
             "pagination": Pagination(limit=limit, offset=0, total=len(rows)).model_dump(
