@@ -132,7 +132,9 @@ def test_update_and_list_delegates_to_repository() -> None:
     )
     communications, comm_total = service.list_communications(5, 0, "clt_1", "usr_1")
     queued = service.list_queued_communications(20)
-    all_communications, all_total = service.list_all_communications(10, 5, status="sent")
+    all_communications, all_total = service.list_all_communications(
+        10, 5, status="sent"
+    )
 
     assert total == 1
     assert listed[0]["id"] == 1
@@ -268,12 +270,12 @@ def test_create_aml_alert_delegates() -> None:
     from app.schemas import CreateAmlAlertRequest
 
     repo = FakeRepository()
-    repo.insert_aml_alert = lambda payload: {"alertId": "a1", **payload}
+    repo.insert_aml_alert = lambda payload: {"alertId": "aml_1", **payload}
     service = LogService(repo)
 
     result = service.create_aml_alert(
         CreateAmlAlertRequest(
-            alertId="a1",
+            alertId="aml_1",
             clientId="clt_1",
             alertType="STATISTICAL_OUTLIER",
             description="test",
@@ -282,7 +284,7 @@ def test_create_aml_alert_delegates() -> None:
         )
     )
 
-    assert result["alertId"] == "a1"
+    assert result["alertId"] == "aml_1"
 
 
 def test_get_aml_alert_delegates() -> None:
@@ -290,14 +292,14 @@ def test_get_aml_alert_delegates() -> None:
     repo.get_aml_alert_by_alert_id = lambda alert_id: {"alertId": alert_id}
     service = LogService(repo)
 
-    result = service.get_aml_alert("a1")
+    result = service.get_aml_alert("aml_1")
 
-    assert result == {"alertId": "a1"}
+    assert result == {"alertId": "aml_1"}
 
 
 def test_list_aml_alerts_delegates() -> None:
     repo = FakeRepository()
-    repo.list_aml_alerts = lambda **kwargs: ([{"alertId": "a1"}], 1)
+    repo.list_aml_alerts = lambda **kwargs: ([{"alertId": "aml_1"}], 1)
     service = LogService(repo)
 
     data, total = service.list_aml_alerts(10, 0, None, None, None, None)
@@ -310,7 +312,7 @@ def test_update_aml_alert_review_delegates() -> None:
     repo.update_aml_alert_review = lambda aid, rs: {"alertId": aid, "reviewStatus": rs}
     service = LogService(repo)
 
-    result = service.update_aml_alert_review("a1", "Confirmed")
+    result = service.update_aml_alert_review("aml_1", "Confirmed")
 
     assert result["reviewStatus"] == "Confirmed"
 

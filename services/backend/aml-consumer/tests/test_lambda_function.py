@@ -11,7 +11,7 @@ import lambda_function
 
 def _base_payload(**overrides):
     payload = {
-        "alertId": "aml-001",
+        "alertId": "aml_001",
         "detectedAt": "2026-02-03T10:20:30Z",
         "clientId": "client-789",
         "alertType": "LargeCashDeposit",
@@ -103,7 +103,7 @@ def test_valid_single_record_processing(monkeypatch):
 
     assert response == {"batchItemFailures": []}
     assert resource.requested_table_names == ["aml-alerts"]
-    assert table.items[0]["pk"] == "AML#aml-001"
+    assert table.items[0]["pk"] == "AML#aml_001"
     assert table.items[0]["sk"] == "2026-02-03T10:20:30Z"
     assert table.condition_expressions == [lambda_function.CONDITIONAL_WRITE_EXPRESSION]
 
@@ -114,15 +114,15 @@ def test_valid_multi_record_processing(monkeypatch):
     _install_fake_boto3(monkeypatch, table)
     event = {
         "Records": [
-            _record("msg-1", _base_payload(alertId="aml-001")),
-            _record("msg-2", _base_payload(alertId="aml-002")),
+            _record("msg-1", _base_payload(alertId="aml_001")),
+            _record("msg-2", _base_payload(alertId="aml_002")),
         ]
     }
 
     response = lambda_function.lambda_handler(event, None)
 
     assert response == {"batchItemFailures": []}
-    assert [item["pk"] for item in table.items] == ["AML#aml-001", "AML#aml-002"]
+    assert [item["pk"] for item in table.items] == ["AML#aml_001", "AML#aml_002"]
 
 
 def test_malformed_json_is_non_retryable(monkeypatch):
@@ -229,10 +229,10 @@ def test_partial_batch_failure_response_shape(monkeypatch):
     _install_fake_boto3(monkeypatch, table)
     event = {
         "Records": [
-            _record("msg-ok", _base_payload(alertId="aml-ok")),
-            _record("msg-retry", _base_payload(alertId="aml-retry")),
+            _record("msg-ok", _base_payload(alertId="aml_1001")),
+            _record("msg-retry", _base_payload(alertId="aml_1002")),
             _record("msg-invalid", "{bad-json"),
-            _record(None, _base_payload(alertId="aml-no-id")),
+            _record(None, _base_payload(alertId="aml_1003")),
         ]
     }
 
@@ -260,9 +260,9 @@ def test_ttl_and_mapping_correctness():
     )
 
     expected_ttl = int((now_utc + timedelta(days=30)).timestamp())
-    assert item["pk"] == "AML#aml-001"
+    assert item["pk"] == "AML#aml_001"
     assert item["sk"] == "2026-03-01T10:30:00Z"
-    assert item["alert_id"] == "aml-001"
+    assert item["alert_id"] == "aml_001"
     assert item["review_status"] == "Pending"
     assert item["ttl"] == expected_ttl
     assert item["risk_score"] == 42
@@ -321,7 +321,7 @@ def test_blank_and_naive_timestamps(monkeypatch):
             _record("msg-blank-ts", _base_payload(detectedAt="   ")),
             _record(
                 "msg-naive-ts",
-                _base_payload(alertId="aml-naive", detectedAt="2026-03-01T10:30:00"),
+                _base_payload(alertId="aml_1004", detectedAt="2026-03-01T10:30:00"),
             ),
         ]
     }
@@ -390,8 +390,8 @@ def test_missing_table_name_returns_retryable_failures(monkeypatch):
     event = {
         "Records": [
             _record("msg-1", _base_payload()),
-            _record(None, _base_payload(alertId="aml-no-id")),
-            _record("msg-2", _base_payload(alertId="aml-002")),
+            _record(None, _base_payload(alertId="aml_1003")),
+            _record("msg-2", _base_payload(alertId="aml_002")),
         ]
     }
 

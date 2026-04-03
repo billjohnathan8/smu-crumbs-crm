@@ -87,6 +87,9 @@ SERVICE_JWT_DEFAULT_SUBJECT = "SYSTEM_AML"
 SERVICE_JWT_DEFAULT_ROLE = "admin"
 SERVICE_JWT_ALLOWED_ROLES = frozenset({"admin", "service"})
 SERVICE_JWT_TTL_SECONDS = 300
+AML_ALERT_ID_PREFIX = "aml_"
+_LAST_ALERT_ID_MILLIS = 0
+_ALERT_ID_SEQUENCE = 0
 
 _JWT_HMAC_SECRET_CACHE: str | None = None
 _LOG_WRITE_BASE_URL_CACHE: str | None = None
@@ -96,6 +99,21 @@ AML-MOCK-002,clt_999999,D,3400.00,2026-01-03,Completed
 AML-MOCK-003,clt_999999,D,3300.00,2026-01-05,Completed
 AML-MOCK-004,clt_999999,D,3200.00,2026-01-06,Completed
 """
+
+
+def generate_aml_alert_id() -> str:
+    """Generate canonical AML alert IDs used across environments."""
+    global _LAST_ALERT_ID_MILLIS
+    global _ALERT_ID_SEQUENCE
+
+    now_millis = int(datetime.now(timezone.utc).timestamp() * 1000)
+    if now_millis == _LAST_ALERT_ID_MILLIS:
+        _ALERT_ID_SEQUENCE += 1
+    else:
+        _LAST_ALERT_ID_MILLIS = now_millis
+        _ALERT_ID_SEQUENCE = 0
+
+    return f"{AML_ALERT_ID_PREFIX}{now_millis}{_ALERT_ID_SEQUENCE:03d}"
 
 
 def _b64url_encode(data: bytes) -> str:
@@ -805,7 +823,9 @@ def parse_transactions_csv(csv_content: str) -> list[Transaction]:
                 raise ValueError("date is required")
             if not status:
                 raise ValueError("status is required")
-            transaction_id = _pick_first_value(row, "transaction_id", "transactionid", "id")
+            transaction_id = _pick_first_value(
+                row, "transaction_id", "transactionid", "id"
+            )
             if not transaction_id:
                 transaction_id = _synthesise_legacy_transaction_id(
                     row_number=row_number,
@@ -905,7 +925,7 @@ def detect_statistical_outliers(
         for txn in txns:
             if abs(txn.amount - mean) > SIGMA_THRESHOLD * std:
                 alert = AMLAlert(
-                    alert_id=str(uuid.uuid4()),
+                    alert_id=generate_aml_alert_id(),
                     client_id=client_id,
                     transaction_id=txn.transaction_id,
                     alert_type=AlertType.STATISTICAL_OUTLIER,
@@ -989,7 +1009,7 @@ def detect_structuring(transactions: list[Transaction]) -> list[AMLAlert]:
                 if new_ids:
                     flagged_ids.update(new_ids)
                     alert = AMLAlert(
-                        alert_id=str(uuid.uuid4()),
+                        alert_id=generate_aml_alert_id(),
                         client_id=client_id,
                         transaction_id=",".join(involved_ids),
                         alert_type=AlertType.STRUCTURING,
@@ -1054,7 +1074,7 @@ def detect_velocity_anomalies(
         # --- Pass-through detection ---
         if inflow > 0 and (outflow / inflow) > PASSTHROUGH_RATIO:
             alert = AMLAlert(
-                alert_id=str(uuid.uuid4()),
+                alert_id=generate_aml_alert_id(),
                 client_id=client_id,
                 transaction_id=None,
                 alert_type=AlertType.PASSTHROUGH,
@@ -1078,7 +1098,7 @@ def detect_velocity_anomalies(
                 and total_volume > account.initial_deposit
             ):
                 alert = AMLAlert(
-                    alert_id=str(uuid.uuid4()),
+                    alert_id=generate_aml_alert_id(),
                     client_id=client_id,
                     transaction_id=None,
                     alert_type=AlertType.INCEPTION_SPIKE,

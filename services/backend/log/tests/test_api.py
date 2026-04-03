@@ -1078,7 +1078,9 @@ def test_list_all_communications_supports_admin_pagination_and_filters() -> None
         )
     )
     service.communications[first_id - 1]["status"] = "sent"
-    service.communications[first_id - 1]["created_at"] = datetime(2026, 4, 1, tzinfo=timezone.utc)
+    service.communications[first_id - 1]["created_at"] = datetime(
+        2026, 4, 1, tzinfo=timezone.utc
+    )
     service.communications[second_id - 1]["created_at"] = datetime(
         2026, 4, 2, tzinfo=timezone.utc
     )

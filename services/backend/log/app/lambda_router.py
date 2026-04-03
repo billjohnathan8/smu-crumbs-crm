@@ -934,9 +934,9 @@ class LambdaRouter:
         )
         payload = {
             "data": [self._to_communication(row) for row in rows],
-            "pagination": Pagination(limit=limit, offset=offset, total=total).model_dump(
-                mode="json"
-            ),
+            "pagination": Pagination(
+                limit=limit, offset=offset, total=total
+            ).model_dump(mode="json"),
         }
         return RoutedResponse(200, payload)
 

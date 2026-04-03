@@ -141,7 +141,7 @@ class AmlReviewStatus(str, Enum):
 class CreateAmlAlertRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    alertId: str = Field(min_length=1, max_length=64)
+    alertId: str = Field(min_length=1, max_length=64, pattern=r"^aml_[0-9]+$")
     clientId: str = Field(min_length=1, max_length=64)
     transactionId: str | None = Field(default=None, max_length=255)
     alertType: AmlAlertType

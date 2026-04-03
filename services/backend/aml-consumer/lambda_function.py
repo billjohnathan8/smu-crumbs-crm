@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -16,6 +17,7 @@ DEFAULT_IDEMPOTENCY_TTL_DAYS = 90
 DEFAULT_LOG_LEVEL = "INFO"
 CONDITIONAL_WRITE_EXPRESSION = "attribute_not_exists(pk) AND attribute_not_exists(sk)"
 ALLOWED_REVIEW_STATUSES = {"Pending", "Confirmed", "FalsePositive"}
+ALERT_ID_PATTERN = re.compile(r"^aml_[0-9]+$")
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +71,15 @@ def _validate_optional_string(payload: dict[str, Any], field_name: str) -> str |
     if not isinstance(value, str) or not value.strip():
         raise NonRetryableMessageError(f"Invalid optional field '{field_name}'")
     return value.strip()
+
+
+def _validate_alert_id(payload: dict[str, Any]) -> str:
+    alert_id = _validate_required_string(payload, "alertId")
+    if not ALERT_ID_PATTERN.fullmatch(alert_id):
+        raise NonRetryableMessageError(
+            "Invalid value for 'alertId'; expected format: aml_<digits>"
+        )
+    return alert_id
 
 
 def _normalize_iso8601(value: str) -> str:
@@ -127,7 +138,7 @@ def parse_and_validate_event(body: str) -> AmlAlert:
         )
 
     return AmlAlert(
-        alert_id=_validate_required_string(payload, "alertId"),
+        alert_id=_validate_alert_id(payload),
         detected_at_iso=_normalize_iso8601(
             _validate_required_string(payload, "detectedAt")
         ),

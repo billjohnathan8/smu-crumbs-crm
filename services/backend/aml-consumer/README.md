@@ -26,7 +26,7 @@ Required fields:
 
 ```json
 {
-  "alertId": "aml-001",
+  "alertId": "aml_001",
   "detectedAt": "2026-02-03T10:20:30Z",
   "clientId": "client-789",
   "alertType": "LargeCashDeposit",

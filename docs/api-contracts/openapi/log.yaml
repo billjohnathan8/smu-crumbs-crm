@@ -432,7 +432,9 @@ paths:
         - name: alertId
           in: path
           required: true
-          schema: { type: string }
+          schema:
+            type: string
+            pattern: "^aml_[0-9]+$"
       responses:
         "200":
           description: AML alert found.
@@ -465,7 +467,9 @@ paths:
         - name: alertId
           in: path
           required: true
-          schema: { type: string }
+          schema:
+            type: string
+            pattern: "^aml_[0-9]+$"
       requestBody:
         required: true
         content:
@@ -1079,7 +1083,8 @@ components:
       properties:
         alertId:
           type: string
-          example: aml_01HZY9T3W4D7Y4W7ZB2X7MZ8QK
+          pattern: "^aml_[0-9]+$"
+          example: aml_123456
         clientId: { $ref: "#/components/schemas/ClientId" }
         transactionId:
           type: string
@@ -1117,6 +1122,7 @@ components:
           type: string
           minLength: 1
           maxLength: 64
+          pattern: "^aml_[0-9]+$"
         clientId: { $ref: "#/components/schemas/ClientId" }
         transactionId:
           type: string

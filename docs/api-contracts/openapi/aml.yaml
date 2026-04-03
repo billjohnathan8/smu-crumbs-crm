@@ -188,7 +188,11 @@ components:
       type: object
       additionalProperties: false
       properties:
-        alertId: { type: string, minLength: 1, maxLength: 64 }
+        alertId:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: "^aml_[0-9]+$"
         clientId: { type: string, minLength: 1, maxLength: 64 }
         transactionId: { type: string, nullable: true, maxLength: 255 }
         alertType: { $ref: "#/components/schemas/AmlAlertType" }
@@ -200,7 +204,9 @@ components:
     AmlAlert:
       type: object
       properties:
-        alertId: { type: string }
+        alertId:
+          type: string
+          pattern: "^aml_[0-9]+$"
         clientId: { type: string }
         transactionId: { type: string, nullable: true }
         alertType: { $ref: "#/components/schemas/AmlAlertType" }
