@@ -331,7 +331,9 @@ def _format_ttl_for_humans(ttl_seconds: int) -> str:
 
 
 def _extract_feedback(message: dict[str, Any]) -> tuple[str | None, str, str | None]:
-    event_type = str(message.get("eventType", "UNKNOWN")).upper()
+    event_type = str(
+        message.get("eventType") or message.get("notificationType") or "UNKNOWN"
+    ).upper()
     mail = message.get("mail") or {}
     provider_message_id = mail.get("messageId")
 
@@ -353,24 +355,25 @@ def _extract_feedback(message: dict[str, Any]) -> tuple[str | None, str, str | N
     return provider_message_id, event_type, error_message
 
 
-def _status_for_event(event_type: str) -> str:
+def _status_for_event(event_type: str) -> str | None:
     if event_type in {"BOUNCE", "COMPLAINT", "REJECT", "RENDERING_FAILURE"}:
         return "failed"
     if event_type in {"DELIVERY", "SEND"}:
         return "sent"
-    return "queued"
+    return None
 
 
 def _update_communication_feedback(
     log_api_base_url: str,
     provider_message_id: str,
+    status: str,
     event_type: str,
     error_message: str | None,
 ) -> tuple[int, str]:
     encoded_id = urllib.parse.quote(provider_message_id, safe="")
     url = f"{log_api_base_url.rstrip('/')}/api/communications/provider/{encoded_id}/status"
     body = {
-        "status": _status_for_event(event_type),
+        "status": status,
         "deliveryEvent": event_type,
         "errorMessage": error_message,
     }
@@ -391,10 +394,18 @@ def _handle_ses_feedback(
     provider_message_id, event_type, error_message = _extract_feedback(message)
     if not provider_message_id:
         return None  # nothing to update
+    status = _status_for_event(event_type)
+    if not status:
+        logger.info(
+            "Ignoring unsupported SES feedback eventType=%s providerMessageId=%s",
+            event_type,
+            _mask_identifier(provider_message_id),
+        )
+        return None
 
     try:
         status_code, _body = _update_communication_feedback(
-            log_api_base_url, provider_message_id, event_type, error_message
+            log_api_base_url, provider_message_id, status, event_type, error_message
         )
         logger.info(
             "Updated communication providerMessageId=%s eventType=%s status=%s",

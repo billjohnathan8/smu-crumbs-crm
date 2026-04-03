@@ -148,7 +148,7 @@ def test_extract_feedback_parses_bounce():
         ("DELIVERY", "sent"),
         ("SEND", "sent"),
         ("RENDERING_FAILURE", "failed"),
-        ("UNKNOWN", "queued"),
+        ("UNKNOWN", None),
     ],
 )
 def test_status_for_event(event_type, expected):
@@ -219,6 +219,7 @@ def test_update_communication_feedback_builds_expected_http_request(monkeypatch)
     status_code, body = lambda_function._update_communication_feedback(
         log_api_base_url="https://log-api.local/",
         provider_message_id="ses/id+1",
+        status="failed",
         event_type="COMPLAINT",
         error_message="SES complaint: abuse",
     )
@@ -241,8 +242,8 @@ def test_lambda_handler_updates_for_valid_sns_records(monkeypatch):
     monkeypatch.setenv("LOG_API_BASE_URL", "https://example.com")
     calls = []
 
-    def fake_update(base_url, provider_message_id, event_type, error_message):
-        calls.append((base_url, provider_message_id, event_type, error_message))
+    def fake_update(base_url, provider_message_id, status, event_type, error_message):
+        calls.append((base_url, provider_message_id, status, event_type, error_message))
         return 200, '{"ok":true}'
 
     monkeypatch.setattr(
@@ -272,15 +273,16 @@ def test_lambda_handler_updates_for_valid_sns_records(monkeypatch):
     assert body["updated"] == 1
     assert body["skipped"] == 0
     assert calls[0][1] == "ses-42"
-    assert calls[0][2] == "DELIVERY"
+    assert calls[0][2] == "sent"
+    assert calls[0][3] == "DELIVERY"
 
 
 def test_lambda_handler_verification_feedback_delivery_and_bounce(monkeypatch):
     monkeypatch.setenv("LOG_API_BASE_URL", "https://example.com")
     calls = []
 
-    def fake_update(base_url, provider_message_id, event_type, error_message):
-        calls.append((base_url, provider_message_id, event_type, error_message))
+    def fake_update(base_url, provider_message_id, status, event_type, error_message):
+        calls.append((base_url, provider_message_id, status, event_type, error_message))
         return 200, '{"ok":true}'
 
     monkeypatch.setattr(
@@ -325,10 +327,11 @@ def test_lambda_handler_verification_feedback_delivery_and_bounce(monkeypatch):
     assert body["skipped"] == 0
     assert body["failedUpdates"] == []
     assert calls == [
-        ("https://example.com", "ses-delivery-1", "DELIVERY", None),
+        ("https://example.com", "ses-delivery-1", "sent", "DELIVERY", None),
         (
             "https://example.com",
             "ses-bounce-1",
+            "failed",
             "BOUNCE",
             "SES bounce: Permanent/General",
         ),
@@ -338,7 +341,7 @@ def test_lambda_handler_verification_feedback_delivery_and_bounce(monkeypatch):
 def test_lambda_handler_skips_invalid_and_reports_partial_failures(monkeypatch):
     monkeypatch.setenv("LOG_API_BASE_URL", "https://example.com")
 
-    def fake_update(base_url, provider_message_id, event_type, error_message):
+    def fake_update(base_url, provider_message_id, status, event_type, error_message):
         raise RuntimeError("network down")
 
     monkeypatch.setattr(
@@ -378,7 +381,7 @@ def test_lambda_handler_skips_invalid_and_reports_partial_failures(monkeypatch):
 def test_lambda_handler_reports_http_error_details(monkeypatch):
     monkeypatch.setenv("LOG_API_BASE_URL", "https://example.com")
 
-    def fake_update(base_url, provider_message_id, event_type, error_message):
+    def fake_update(base_url, provider_message_id, status, event_type, error_message):
         raise urllib.error.HTTPError(
             url="https://example.com/api/communications/provider/ses-99/status",
             code=409,
@@ -422,7 +425,7 @@ def test_lambda_handler_skips_records_without_provider_message_id(monkeypatch):
     monkeypatch.setenv("LOG_API_BASE_URL", "https://example.com")
     called = {"count": 0}
 
-    def fake_update(base_url, provider_message_id, event_type, error_message):
+    def fake_update(base_url, provider_message_id, status, event_type, error_message):
         called["count"] += 1
         return 200, '{"ok":true}'
 
@@ -434,6 +437,53 @@ def test_lambda_handler_skips_records_without_provider_message_id(monkeypatch):
     event = {
         "Records": [
             {"Sns": {"Message": json.dumps({"eventType": "Delivery", "mail": {}})}},
+        ]
+    }
+
+    response = lambda_function.lambda_handler(event, None)
+    body = json.loads(response["body"])
+
+    assert response["statusCode"] == 200
+    assert body["updated"] == 0
+    assert body["skipped"] == 1
+    assert body["failedUpdates"] == []
+    assert called["count"] == 0
+
+
+def test_extract_feedback_uses_notification_type_when_event_type_missing():
+    provider_message_id, event_type, error_message = lambda_function._extract_feedback(
+        {
+            "notificationType": "Delivery",
+            "mail": {"messageId": "ses-101"},
+        }
+    )
+    assert provider_message_id == "ses-101"
+    assert event_type == "DELIVERY"
+    assert error_message is None
+
+
+def test_lambda_handler_skips_unknown_feedback_event_types(monkeypatch):
+    monkeypatch.setenv("LOG_API_BASE_URL", "https://example.com")
+    called = {"count": 0}
+
+    def fake_update(base_url, provider_message_id, status, event_type, error_message):
+        called["count"] += 1
+        return 200, '{"ok":true}'
+
+    monkeypatch.setattr(
+        lambda_function,
+        "_update_communication_feedback",
+        fake_update,
+    )
+    event = {
+        "Records": [
+            {
+                "Sns": {
+                    "Message": json.dumps(
+                        {"eventType": "Open", "mail": {"messageId": "ses-open-1"}}
+                    )
+                }
+            }
         ]
     }
 
