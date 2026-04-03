@@ -39,6 +39,7 @@ resource "aws_lambda_function" "log" {
       JWT_HMAC_SECRET_ARN        = var.jwt_hmac_secret_arn
       DB_CONNECT_TIMEOUT_SECONDS = tostring(var.log_db_connect_timeout_seconds)
       RUN_MIGRATIONS_ON_START    = var.log_run_migrations_on_start ? "true" : "false"
+      CLIENT_SERVICE_URL         = var.crm_api_base_url
       AUTH_MODE                  = var.auth_mode
       COGNITO_ISSUER             = var.cognito_issuer_url
       COGNITO_JWKS_URL           = var.cognito_jwks_url
