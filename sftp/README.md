@@ -8,14 +8,17 @@ This folder contains CSV fixtures for the transaction ingestion flow and a gener
 
 ## Schema Used
 
-The generator intentionally outputs only the active ingestion contract columns:
+The generator supports two output schemas:
 
-`clientId,transaction,amount,date,status`
+- Legacy transaction import schema (default):
+  `clientId,transaction,amount,date,status`
+- AML schema:
+  `transaction_id,client_id,transaction_type,amount,date,status`
 
 Value contract:
 
-- `clientId`: non-empty string
-- `transaction`: `D` or `W`
+- `clientId` / `client_id`: non-empty string
+- `transaction` / `transaction_type`: `D` or `W`
 - `amount`: decimal string with 2 d.p., non-negative
 - `date`: `YYYY-MM-DD`
 - `status`: `Completed` | `Pending` | `Failed`
@@ -42,7 +45,8 @@ python services/backend/transaction/mock-sftp/mock_transactions.py \
   --seed 301 \
   --start-transaction-id 1000 \
   --start-date 2026-01-01 \
-  --end-date 2026-03-31
+  --end-date 2026-03-31 \
+  --schema legacy
 ```
 
 Optional:
@@ -50,7 +54,20 @@ Optional:
 - `--client-id-mode pool|sequential`
 - `--client-ids clt_1,clt_2,...`
 - `--client-id-count 20`
+- `--schema legacy|aml`
 - `--include-edge-cases` (appends a few invalid rows for negative testing)
+
+AML-targeted file generation example:
+
+```bash
+python services/backend/transaction/mock-sftp/mock_transactions.py \
+  --output services/backend/transaction/mock-sftp/mocked_transactions-aml.csv \
+  --row-count 120 \
+  --seed 301 \
+  --start-date 2026-01-01 \
+  --end-date 2026-03-31 \
+  --schema aml
+```
 
 ## Where to Use the File
 

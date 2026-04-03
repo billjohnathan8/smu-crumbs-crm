@@ -710,6 +710,40 @@ def _parse_date_value(value: Any) -> date | None:
         return None
 
 
+def _normalize_csv_row(row: dict[str, Any]) -> dict[str, str]:
+    """Return case/whitespace-normalized CSV row keys and stripped string values."""
+    normalized: dict[str, str] = {}
+    for key, value in row.items():
+        normalized_key = str(key or "").strip().lower()
+        normalized_value = str(value or "").strip()
+        if normalized_key:
+            normalized[normalized_key] = normalized_value
+    return normalized
+
+
+def _pick_first_value(row: dict[str, str], *keys: str) -> str:
+    """Return first non-empty row value among the provided candidate keys."""
+    for key in keys:
+        value = row.get(key, "")
+        if value:
+            return value
+    return ""
+
+
+def _synthesise_legacy_transaction_id(
+    row_number: int,
+    client_id: str,
+    transaction_type: str,
+    amount: str,
+    tx_date: str,
+    status: str,
+) -> str:
+    """Generate deterministic transaction IDs when legacy CSV rows omit them."""
+    seed = f"{row_number}|{client_id}|{transaction_type}|{amount}|{tx_date}|{status}"
+    digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()[:16].upper()
+    return f"LEGACY-{digest}"
+
+
 def parse_transactions_csv(csv_content: str) -> list[Transaction]:
     """Parse a CSV string into a list of Transaction dataclass instances.
 
@@ -717,24 +751,58 @@ def parse_transactions_csv(csv_content: str) -> list[Transaction]:
     WARNING log rather than raising an exception; this prevents a single
     malformed row from aborting the entire monthly batch.
 
-    Expected CSV columns (order-independent via DictReader):
+    Supported CSV schemas (order-independent via DictReader):
+      Canonical schema:
         transaction_id, client_id, transaction_type, amount, date, status
+      Legacy ingestion schema:
+        clientId, transaction, amount, date, status
+      (legacy rows are assigned deterministic synthetic transaction IDs)
     """
+    if not csv_content or not csv_content.strip():
+        return []
+
     transactions: list[Transaction] = []
     reader = csv.DictReader(io.StringIO(csv_content.strip()))
-    for row in reader:
+    for row_number, raw_row in enumerate(reader, start=2):
+        row = _normalize_csv_row(raw_row)
         try:
+            client_id = _pick_first_value(row, "client_id", "clientid")
+            transaction_type = _pick_first_value(row, "transaction_type", "transaction")
+            amount = _pick_first_value(row, "amount")
+            tx_date = _pick_first_value(row, "date")
+            status = _pick_first_value(row, "status")
+            if not client_id:
+                raise ValueError("client_id is required")
+            if not transaction_type:
+                raise ValueError("transaction_type is required")
+            if not amount:
+                raise ValueError("amount is required")
+            if not tx_date:
+                raise ValueError("date is required")
+            if not status:
+                raise ValueError("status is required")
+            transaction_id = _pick_first_value(row, "transaction_id", "transactionid", "id")
+            if not transaction_id:
+                transaction_id = _synthesise_legacy_transaction_id(
+                    row_number=row_number,
+                    client_id=client_id,
+                    transaction_type=transaction_type,
+                    amount=amount,
+                    tx_date=tx_date,
+                    status=status,
+                )
+
             txn = Transaction(
-                transaction_id=row["transaction_id"].strip(),
-                client_id=row["client_id"].strip(),
-                transaction_type=TransactionType(row["transaction_type"].strip()),
-                amount=float(row["amount"]),
-                date=date.fromisoformat(row["date"].strip()),
-                status=TransactionStatus(row["status"].strip()),
+                transaction_id=transaction_id,
+                client_id=client_id,
+                transaction_type=TransactionType(transaction_type),
+                amount=float(amount),
+                date=date.fromisoformat(tx_date),
+                status=TransactionStatus(status),
             )
             transactions.append(txn)
-        except (KeyError, ValueError) as exc:
-            logger.warning("Skipping malformed transaction row %s: %s", row, exc)
+        except ValueError as exc:
+            logger.warning("Skipping malformed transaction row %s: %s", raw_row, exc)
     return transactions
 
 

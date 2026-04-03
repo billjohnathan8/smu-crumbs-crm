@@ -97,6 +97,30 @@ class TestParseTransactionsCsv:
         txns = parse_transactions_csv(csv_content)
         assert len(txns) == 20  # All 20 mock rows should parse cleanly
 
+    def test_parses_legacy_transaction_schema(self):
+        legacy_csv = (
+            "clientId,transaction,amount,date,status\n"
+            "clt_2,D,2332.80,2026-01-01,Completed\n"
+            "clt_3,W,743.19,2026-01-01,Completed\n"
+        )
+        txns = parse_transactions_csv(legacy_csv)
+        assert len(txns) == 2
+        assert txns[0].client_id == "clt_2"
+        assert txns[0].transaction_type == TransactionType.DEPOSIT
+        assert txns[1].transaction_type == TransactionType.WITHDRAWAL
+        assert txns[0].transaction_id.startswith("LEGACY-")
+
+    def test_legacy_transaction_ids_are_deterministic(self):
+        legacy_csv = (
+            "clientId,transaction,amount,date,status\n"
+            "clt_9,D,120.50,2026-01-14,Completed\n"
+        )
+        first = parse_transactions_csv(legacy_csv)
+        second = parse_transactions_csv(legacy_csv)
+        assert len(first) == 1
+        assert len(second) == 1
+        assert first[0].transaction_id == second[0].transaction_id
+
 
 # ---------------------------------------------------------------------------
 # create_log_entry_for_alert

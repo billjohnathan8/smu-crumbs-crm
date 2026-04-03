@@ -85,6 +85,21 @@ curl -X POST http://localhost:8083/api/transactions/import \
 3. Lambda calls `POST /api/transactions/import` with `{"sourcePath":"s3://<bucket>/<key>"}`
 4. **Transaction Service** reads CSV from S3 (or filesystem if local)
 
+## CSV Schema Compatibility
+
+Two CSV schemas are currently supported by downstream consumers:
+
+- Transaction import schema (legacy):
+  `clientId,transaction,amount,date,status`
+- AML schema:
+  `transaction_id,client_id,transaction_type,amount,date,status`
+
+Notes:
+
+- The transaction import API contract remains the legacy schema.
+- The AML pipeline now accepts both schemas; legacy rows get deterministic synthetic transaction IDs.
+- The `sftp/mock_transactions.py` generator supports selecting output schema via `--schema legacy|aml`.
+
 ## Compatibility Notes
 
 - Variable/property names retain `sftp` for backward compatibility:
