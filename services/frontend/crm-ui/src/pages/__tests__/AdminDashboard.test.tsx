@@ -251,6 +251,51 @@ describe('AdminDashboard', () => {
     expect(listLogsSpy).toHaveBeenNthCalledWith(2, { limit: 10, offset: 10 })
   })
 
+  it('should render logs filter button beside Recent Activity Logs and apply filters', async () => {
+    vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
+      data: [],
+      pagination: { total: 0, limit: 1, offset: 0 },
+    })
+    vi.spyOn(clientsApi, 'listClients').mockResolvedValue({
+      data: [],
+      pagination: { total: 0, limit: 1, offset: 0 },
+    })
+    const listLogsSpy = vi
+      .spyOn(logsApi, 'listLogs')
+      .mockResolvedValueOnce({
+        data: [],
+        pagination: { total: 0, limit: 10, offset: 0 },
+      })
+      .mockResolvedValueOnce({
+        data: [],
+        pagination: { total: 0, limit: 10, offset: 0 },
+      })
+
+    const user = userEvent.setup()
+    renderAdminDashboard()
+
+    await waitFor(() => {
+      expect(screen.getByText('Recent Activity Logs')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Filter' })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Filter' }))
+    await user.selectOptions(screen.getByRole('combobox'), 'UPDATE')
+    await user.type(screen.getByPlaceholderText('usr_...'), 'usr_1')
+    await user.type(screen.getByPlaceholderText('clt_...'), 'clt_1')
+    await user.click(screen.getByRole('button', { name: 'Apply' }))
+
+    await waitFor(() => {
+      expect(listLogsSpy).toHaveBeenNthCalledWith(2, {
+        limit: 10,
+        offset: 0,
+        action: 'UPDATE',
+        userId: 'usr_1',
+        clientId: 'clt_1',
+      })
+    })
+  })
+
   it('should show empty state when no logs', async () => {
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
       data: [],

@@ -4,7 +4,7 @@ import { useAuth } from '@/features/auth/AuthContext'
 import { listLogs } from '@/api/logs'
 import { listUsers } from '@/api/users'
 import { listClients } from '@/api/clients'
-import type { LogEntry, Client } from '@/api/types'
+import type { LogAction, LogEntry, Client } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 
@@ -16,6 +16,23 @@ interface Stats {
 }
 
 const LOGS_PER_PAGE = 10
+type DashboardLogActionFilter = LogAction | 'all'
+
+type DashboardLogFilters = {
+  action: DashboardLogActionFilter
+  from: string
+  to: string
+  userId: string
+  clientId: string
+}
+
+const DEFAULT_LOG_FILTERS: DashboardLogFilters = {
+  action: 'all',
+  from: '',
+  to: '',
+  userId: '',
+  clientId: '',
+}
 
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
@@ -44,6 +61,10 @@ export function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [isLogsLoading, setIsLogsLoading] = useState(true)
   const [error, setError] = useState<string>('')
+  const [showLogsFilterDropdown, setShowLogsFilterDropdown] = useState(false)
+  const [logsFilterError, setLogsFilterError] = useState('')
+  const [activeLogsFilters, setActiveLogsFilters] = useState<DashboardLogFilters>(DEFAULT_LOG_FILTERS)
+  const [logsFilterDraft, setLogsFilterDraft] = useState<DashboardLogFilters>(DEFAULT_LOG_FILTERS)
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -121,14 +142,44 @@ export function AdminDashboard() {
   }, [logout])
 
   useEffect(() => {
+    const toIsoDateTime = (value: string): string | undefined => {
+      if (!value) return undefined
+      const parsed = new Date(value)
+      return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString()
+    }
+
+    const buildListLogsParams = () => {
+      const params: {
+        limit: number
+        offset: number
+        action?: LogAction
+        from?: string
+        to?: string
+        userId?: string
+        clientId?: string
+      } = {
+        limit: LOGS_PER_PAGE,
+        offset: currentLogsPage * LOGS_PER_PAGE,
+      }
+
+      if (activeLogsFilters.action !== 'all') {
+        params.action = activeLogsFilters.action
+      }
+      const fromIso = toIsoDateTime(activeLogsFilters.from)
+      const toIso = toIsoDateTime(activeLogsFilters.to)
+      if (fromIso) params.from = fromIso
+      if (toIso) params.to = toIso
+      if (activeLogsFilters.userId.trim()) params.userId = activeLogsFilters.userId.trim()
+      if (activeLogsFilters.clientId.trim()) params.clientId = activeLogsFilters.clientId.trim()
+
+      return params
+    }
+
     const fetchRecentLogs = async () => {
       setIsLogsLoading(true)
 
       try {
-        const response = await listLogs({
-          limit: LOGS_PER_PAGE,
-          offset: currentLogsPage * LOGS_PER_PAGE,
-        })
+        const response = await listLogs(buildListLogsParams())
         const total = response.pagination?.total || 0
         setRecentLogs(response.data || [])
         setLogsTotal(total)
@@ -149,7 +200,7 @@ export function AdminDashboard() {
     }
 
     fetchRecentLogs()
-  }, [currentLogsPage, logout])
+  }, [currentLogsPage, logout, activeLogsFilters])
 
   useEffect(() => {
     const totalPages = Math.max(1, Math.ceil(logsTotal / LOGS_PER_PAGE))
@@ -170,6 +221,36 @@ export function AdminDashboard() {
 
   const totalLogPages = Math.ceil(logsTotal / LOGS_PER_PAGE)
   const canPaginateLogs = totalLogPages > 1
+  const activeLogsFilterCount = [
+    activeLogsFilters.action !== DEFAULT_LOG_FILTERS.action,
+    Boolean(activeLogsFilters.from),
+    Boolean(activeLogsFilters.to),
+    Boolean(activeLogsFilters.userId.trim()),
+    Boolean(activeLogsFilters.clientId.trim()),
+  ].filter(Boolean).length
+
+  const handleApplyLogsFilters = () => {
+    if (logsFilterDraft.from && logsFilterDraft.to) {
+      const from = new Date(logsFilterDraft.from)
+      const to = new Date(logsFilterDraft.to)
+      if (from.getTime() > to.getTime()) {
+        setLogsFilterError('Start datetime must be before end datetime.')
+        return
+      }
+    }
+    setLogsFilterError('')
+    setCurrentLogsPage(0)
+    setActiveLogsFilters(logsFilterDraft)
+    setShowLogsFilterDropdown(false)
+  }
+
+  const handleClearLogsFilters = () => {
+    setLogsFilterError('')
+    setCurrentLogsPage(0)
+    setLogsFilterDraft(DEFAULT_LOG_FILTERS)
+    setActiveLogsFilters(DEFAULT_LOG_FILTERS)
+    setShowLogsFilterDropdown(false)
+  }
 
   return (
     <SidebarLayout items={adminNav}>
@@ -268,8 +349,124 @@ export function AdminDashboard() {
             )}
 
             <div className="bg-card  rounded-lg">
-              <div className="px-6 py-4 border-b border-border">
+              <div className="px-6 py-4 border-b border-border flex items-center justify-between">
                 <h2 className="text-xl font-normal text-text">Recent Activity Logs</h2>
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setShowLogsFilterDropdown(prev => !prev)
+                      setLogsFilterError('')
+                    }}
+                    className="rounded bg-background-lighter border-[1.5px] border-border px-4 py-2 text-sm font-medium text-text transition-all duration-200 hover:brightness-[0.9]"
+                  >
+                    {activeLogsFilterCount > 0 ? `Filter (${activeLogsFilterCount})` : 'Filter'}
+                  </button>
+                  {showLogsFilterDropdown && (
+                    <div className="absolute right-0 z-20 mt-2 w-80 rounded-lg border border-border bg-card p-4 shadow-xl">
+                      <div className="space-y-3">
+                        <div>
+                          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-text-muted">
+                            Activity Type
+                          </label>
+                          <select
+                            value={logsFilterDraft.action}
+                            onChange={e =>
+                              setLogsFilterDraft(prev => ({
+                                ...prev,
+                                action: e.target.value as DashboardLogActionFilter,
+                              }))
+                            }
+                            className="w-full rounded bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                          >
+                            <option value="all">All activities</option>
+                            <option value="CREATE">Create</option>
+                            <option value="READ">Read</option>
+                            <option value="UPDATE">Update</option>
+                            <option value="DELETE">Delete</option>
+                            <option value="COMMUNICATION">Communication</option>
+                          </select>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div>
+                            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-text-muted">
+                              Date/Time From
+                            </label>
+                            <input
+                              type="datetime-local"
+                              value={logsFilterDraft.from}
+                              onChange={e =>
+                                setLogsFilterDraft(prev => ({ ...prev, from: e.target.value }))
+                              }
+                              className="w-full rounded bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-text-muted">
+                              Date/Time To
+                            </label>
+                            <input
+                              type="datetime-local"
+                              value={logsFilterDraft.to}
+                              onChange={e =>
+                                setLogsFilterDraft(prev => ({ ...prev, to: e.target.value }))
+                              }
+                              className="w-full rounded bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div>
+                            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-text-muted">
+                              Actor User
+                            </label>
+                            <input
+                              type="text"
+                              value={logsFilterDraft.userId}
+                              onChange={e =>
+                                setLogsFilterDraft(prev => ({ ...prev, userId: e.target.value }))
+                              }
+                              placeholder="usr_..."
+                              className="w-full rounded bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-text-muted">
+                              Client Reference
+                            </label>
+                            <input
+                              type="text"
+                              value={logsFilterDraft.clientId}
+                              onChange={e =>
+                                setLogsFilterDraft(prev => ({ ...prev, clientId: e.target.value }))
+                              }
+                              placeholder="clt_..."
+                              className="w-full rounded bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {logsFilterError && <p className="mt-3 text-xs text-danger">{logsFilterError}</p>}
+
+                      <div className="mt-4 flex items-center justify-end gap-2">
+                        <button
+                          onClick={handleClearLogsFilters}
+                          className="rounded bg-background-light px-3 py-2 text-sm text-text hover:brightness-[0.95]"
+                        >
+                          Clear
+                        </button>
+                        <button
+                          onClick={handleApplyLogsFilters}
+                          className="rounded bg-primary px-3 py-2 text-sm font-medium text-white hover:brightness-[0.9]"
+                        >
+                          Apply
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="overflow-x-auto">
                 {isLogsLoading && recentLogs.length === 0 ? (
