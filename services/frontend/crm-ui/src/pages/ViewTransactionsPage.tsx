@@ -83,6 +83,7 @@ export function ViewTransactionsPage() {
   const isAdmin = user?.role === 'admin'
   const isSuperAdmin = user?.role === 'super_admin'
   const isManagementUser = isAdmin || isSuperAdmin
+  const canEditTransactions = false
 
   const sidebarNav: NavItem[] = isManagementUser
     ? [
@@ -776,7 +777,7 @@ export function ViewTransactionsPage() {
                       <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                         Status
                       </th>
-                      {isManagementUser && (
+                      {canEditTransactions && (
                         <th className="px-6 py-3 text-right text-xs font-normal text-text-muted uppercase tracking-wider">
                           Actions
                         </th>
@@ -822,7 +823,7 @@ export function ViewTransactionsPage() {
                             {transaction.status}
                           </span>
                         </td>
-                        {isManagementUser && (
+                        {canEditTransactions && (
                           <td className="px-6 py-4 whitespace-nowrap text-right">
                             <button
                               onClick={() => openEditModal(transaction)}
@@ -877,7 +878,7 @@ export function ViewTransactionsPage() {
           )}
         </div>
 
-        {isManagementUser && editTransaction && (
+        {canEditTransactions && editTransaction && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
             <div className="w-full max-w-xl rounded-lg bg-card border border-border shadow-lg">
               <div className="px-5 py-4 border-b border-border">
