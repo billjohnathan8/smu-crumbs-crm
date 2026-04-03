@@ -556,7 +556,8 @@ class LogRepository:
                         (
                             "SELECT * FROM communications "
                             f"{where_sql} "
-                            "ORDER BY COALESCE(next_attempt_at, created_at) ASC, id ASC "
+                            "ORDER BY COALESCE(next_attempt_at, created_at) "
+                            "ASC, id ASC "
                             "LIMIT %(limit)s"
                         ),
                         params,

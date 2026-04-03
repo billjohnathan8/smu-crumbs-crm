@@ -38,7 +38,7 @@ class ClientScopeAuthorizer:
         page_size: int = 200,
         max_pages: int = 20,
     ) -> set[str]:
-        """Return all client ids visible to the token via paginated client-service calls."""
+        """Return client ids visible to the token via paginated client-service calls."""
         if not authorization:
             raise UnauthorizedError("missing_bearer")
 
