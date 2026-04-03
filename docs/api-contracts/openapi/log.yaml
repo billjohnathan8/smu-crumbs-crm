@@ -942,7 +942,7 @@ components:
         idempotencyKey:
           type: string
           maxLength: 160
-      required: [clientId, userId, toEmail, subject, body]
+      required: [clientId, toEmail, subject, body]
       additionalProperties: false
 
     UpdateCommunicationStatusRequest:

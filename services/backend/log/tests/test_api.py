@@ -933,6 +933,34 @@ def test_create_communication_invalid_email_returns_400() -> None:
     assert body["message"] == "Invalid request"
 
 
+def test_create_communication_without_user_id_uses_authenticated_user() -> None:
+    secret = "test-secret"
+    service = FakeLogService()
+    router = _make_router(service, secret=secret)
+    token = mint_token("usr_1", "user", secret)
+
+    response, body = _invoke(
+        router,
+        _http_api_v2_event(
+            "POST",
+            "/api/communications",
+            headers={"Authorization": f"Bearer {token}"},
+            body={
+                "clientId": "clt_1",
+                "toEmail": "to@example.com",
+                "subject": "Hello",
+                "body": "Body",
+            },
+        ),
+    )
+
+    assert response["statusCode"] == 202
+    assert body is not None
+    assert body["userId"] == "usr_1"
+    assert len(service.communications) == 1
+    assert service.communications[0]["user_id"] == "usr_1"
+
+
 def test_get_communication_invalid_id_and_not_found() -> None:
     secret = "test-secret"
     router = _make_router(FakeLogService(), secret=secret)

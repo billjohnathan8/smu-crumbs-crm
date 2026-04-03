@@ -75,7 +75,7 @@ class CreateCommunicationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     clientId: str = Field(min_length=1, max_length=64)
-    userId: str = Field(min_length=1, max_length=64)
+    userId: str | None = Field(default=None, min_length=1, max_length=64)
     toEmail: str = Field(
         min_length=3,
         max_length=320,

@@ -844,10 +844,13 @@ class LambdaRouter:
         require_roles(user, {"admin", "user"})
 
         body = self._parse_body(CreateCommunicationRequest, request)
-        if user.role == "user" and body.userId != user.user_id:
+        effective_user_id = body.userId or user.user_id
+        if user.role == "user" and effective_user_id != user.user_id:
             raise ForbiddenError()
 
-        communication_id = self._service.create_communication(body)
+        communication_id = self._service.create_communication(
+            body.model_copy(update={"userId": effective_user_id})
+        )
         row = self._service.get_communication(communication_id)
         if row is None:
             raise _HttpError(500, "Internal error")
