@@ -168,21 +168,37 @@
     @apply w-full px-4 py-2 rounded-lg text-text placeholder-text-subtle
          focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
 
-    background-color: var(--background-light);
+    background-color: var(--background-light) !important;
+    color: var(--text);
+    caret-color: var(--text);
+  }
+
+  .form-input:focus,
+  input[type='password'].form-input,
+  input[type='password'].form-input:focus {
+    background-color: var(--background-light) !important;
+    color: var(--text);
+    caret-color: var(--text);
   }
 
   .form-input:-webkit-autofill,
   .form-input:-webkit-autofill:hover,
   .form-input:-webkit-autofill:focus {
-    -webkit-box-shadow: 0 0 0 30px var(--background-light) inset !important;
+    -webkit-box-shadow: 0 0 0 1000px var(--background-light) inset !important;
+    box-shadow: 0 0 0 1000px var(--background-light) inset !important;
     -webkit-text-fill-color: var(--text) !important;
+    caret-color: var(--text);
+    transition: background-color 9999s ease-out 0s;
   }
 
   .dark .form-input:-webkit-autofill,
   .dark .form-input:-webkit-autofill:hover,
   .dark .form-input:-webkit-autofill:focus {
-    -webkit-box-shadow: 0 0 0 30px var(--background-light) inset !important;
+    -webkit-box-shadow: 0 0 0 1000px var(--background-light) inset !important;
+    box-shadow: 0 0 0 1000px var(--background-light) inset !important;
     -webkit-text-fill-color: var(--text) !important;
+    caret-color: var(--text);
+    transition: background-color 9999s ease-out 0s;
   }
 
   #dateOfBirth::-webkit-calendar-picker-indicator {
