@@ -104,9 +104,7 @@ describe('AdminCommunications', () => {
   })
 
   it('should show loading state', () => {
-    vi.mocked(communicationsApi.listCommunications).mockImplementation(
-      () => new Promise(() => {})
-    )
+    vi.mocked(communicationsApi.listCommunications).mockImplementation(() => new Promise(() => {}))
 
     renderPage()
 

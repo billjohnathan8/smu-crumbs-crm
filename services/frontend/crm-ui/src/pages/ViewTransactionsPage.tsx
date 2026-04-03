@@ -467,8 +467,7 @@ export function ViewTransactionsPage() {
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE)
   const canPaginateTransactions = totalPages > 1
   const transactionsRangeStart = total === 0 ? 0 : currentPage * ITEMS_PER_PAGE + 1
-  const transactionsRangeEnd =
-    total === 0 ? 0 : Math.min((currentPage + 1) * ITEMS_PER_PAGE, total)
+  const transactionsRangeEnd = total === 0 ? 0 : Math.min((currentPage + 1) * ITEMS_PER_PAGE, total)
 
   return (
     <SidebarLayout items={sidebarNav}>

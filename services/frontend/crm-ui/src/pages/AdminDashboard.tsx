@@ -63,7 +63,8 @@ export function AdminDashboard() {
   const [error, setError] = useState<string>('')
   const [showLogsFilterDropdown, setShowLogsFilterDropdown] = useState(false)
   const [logsFilterError, setLogsFilterError] = useState('')
-  const [activeLogsFilters, setActiveLogsFilters] = useState<DashboardLogFilters>(DEFAULT_LOG_FILTERS)
+  const [activeLogsFilters, setActiveLogsFilters] =
+    useState<DashboardLogFilters>(DEFAULT_LOG_FILTERS)
   const [logsFilterDraft, setLogsFilterDraft] = useState<DashboardLogFilters>(DEFAULT_LOG_FILTERS)
 
   useEffect(() => {
@@ -72,19 +73,14 @@ export function AdminDashboard() {
       setError('')
 
       try {
-        const [
-          agentsResult,
-          adminsResult,
-          rootAdminsResult,
-          clientsResult,
-          allClientsResult,
-        ] = await Promise.allSettled([
-          listUsers({ limit: 1, role: 'user' }),
-          listUsers({ limit: 1, role: 'admin' }),
-          listUsers({ limit: 1, role: 'super_admin' }),
-          listClients({ limit: 1 }),
-          listClients({ limit: 100 }),
-        ])
+        const [agentsResult, adminsResult, rootAdminsResult, clientsResult, allClientsResult] =
+          await Promise.allSettled([
+            listUsers({ limit: 1, role: 'user' }),
+            listUsers({ limit: 1, role: 'admin' }),
+            listUsers({ limit: 1, role: 'super_admin' }),
+            listClients({ limit: 1 }),
+            listClients({ limit: 100 }),
+          ])
         let nextError = ''
 
         if (agentsResult.status === 'rejected') {
@@ -448,7 +444,9 @@ export function AdminDashboard() {
                         </div>
                       </div>
 
-                      {logsFilterError && <p className="mt-3 text-xs text-danger">{logsFilterError}</p>}
+                      {logsFilterError && (
+                        <p className="mt-3 text-xs text-danger">{logsFilterError}</p>
+                      )}
 
                       <div className="mt-4 flex items-center justify-end gap-2">
                         <button

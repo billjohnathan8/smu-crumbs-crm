@@ -364,7 +364,9 @@ describe('AdminCommunications behavior', () => {
 
   it('shows loading labels during communication-id lookup and supports header actions', async () => {
     const user = userEvent.setup()
-    vi.mocked(communicationsApi.getCommunicationById).mockImplementation(() => new Promise(() => {}))
+    vi.mocked(communicationsApi.getCommunicationById).mockImplementation(
+      () => new Promise(() => {})
+    )
 
     renderPage()
 

@@ -62,7 +62,10 @@ export function CommunicationsPanel({
 }: CommunicationsPanelProps) {
   const canCompose = setShowComposeForm && composeData && setComposeData && onSubmit
   const canEditStatuses =
-    editableStatuses && Boolean(statusUpdates) && Boolean(setStatusUpdates) && Boolean(onUpdateStatus)
+    editableStatuses &&
+    Boolean(statusUpdates) &&
+    Boolean(setStatusUpdates) &&
+    Boolean(onUpdateStatus)
 
   const toggleCompose = () => {
     if (!setShowComposeForm) return

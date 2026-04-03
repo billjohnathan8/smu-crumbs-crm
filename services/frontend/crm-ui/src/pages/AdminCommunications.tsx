@@ -457,7 +457,10 @@ export function AdminCommunications() {
                       <select
                         value={filterDraft.status}
                         onChange={e =>
-                          setFilterDraft(prev => ({ ...prev, status: e.target.value as FilterStatus }))
+                          setFilterDraft(prev => ({
+                            ...prev,
+                            status: e.target.value as FilterStatus,
+                          }))
                         }
                         className="w-full rounded bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
                       >
@@ -489,7 +492,9 @@ export function AdminCommunications() {
                         <input
                           type="datetime-local"
                           value={filterDraft.createdTo}
-                          onChange={e => setFilterDraft(prev => ({ ...prev, createdTo: e.target.value }))}
+                          onChange={e =>
+                            setFilterDraft(prev => ({ ...prev, createdTo: e.target.value }))
+                          }
                           className="w-full rounded bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
                         />
                       </div>
@@ -502,7 +507,9 @@ export function AdminCommunications() {
                       <input
                         type="text"
                         value={filterDraft.recipient}
-                        onChange={e => setFilterDraft(prev => ({ ...prev, recipient: e.target.value }))}
+                        onChange={e =>
+                          setFilterDraft(prev => ({ ...prev, recipient: e.target.value }))
+                        }
                         placeholder="email@domain.com"
                         className="w-full rounded bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
                       />
@@ -515,7 +522,9 @@ export function AdminCommunications() {
                       <input
                         type="text"
                         value={filterDraft.subject}
-                        onChange={e => setFilterDraft(prev => ({ ...prev, subject: e.target.value }))}
+                        onChange={e =>
+                          setFilterDraft(prev => ({ ...prev, subject: e.target.value }))
+                        }
                         placeholder="payment reminder"
                         className="w-full rounded bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
                       />
@@ -529,7 +538,9 @@ export function AdminCommunications() {
                         <input
                           type="text"
                           value={filterDraft.client}
-                          onChange={e => setFilterDraft(prev => ({ ...prev, client: e.target.value }))}
+                          onChange={e =>
+                            setFilterDraft(prev => ({ ...prev, client: e.target.value }))
+                          }
                           placeholder="clt_..."
                           className="w-full rounded bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
                         />
@@ -541,7 +552,9 @@ export function AdminCommunications() {
                         <input
                           type="text"
                           value={filterDraft.sender}
-                          onChange={e => setFilterDraft(prev => ({ ...prev, sender: e.target.value }))}
+                          onChange={e =>
+                            setFilterDraft(prev => ({ ...prev, sender: e.target.value }))
+                          }
                           placeholder="usr_..."
                           className="w-full rounded bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
                         />
