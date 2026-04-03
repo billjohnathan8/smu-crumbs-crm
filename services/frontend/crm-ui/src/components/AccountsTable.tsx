@@ -66,9 +66,7 @@ export function AccountsTable({
         <tbody className="divide-y divide-border">
           {accounts.map(acct => (
             <tr key={acct.accountId} className="hover:bg-background-light">
-              <td className="px-6 py-3 text-sm text-text font-mono">
-                {acct.accountId}
-              </td>
+              <td className="px-6 py-3 text-sm text-text font-mono">{acct.accountId}</td>
               <td className="px-6 py-3 text-sm text-text">{acct.clientId}</td>
               <td className="px-6 py-3 text-sm text-text">{acct.accountType}</td>
               <td className="px-6 py-3">
