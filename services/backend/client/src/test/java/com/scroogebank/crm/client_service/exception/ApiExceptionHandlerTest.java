@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mock.http.MockHttpInputMessage;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.validation.BeanPropertyBindingResult;
@@ -152,5 +153,41 @@ class ApiExceptionHandlerTest {
 		assertThat(response.getBody().error()).isEqualTo("validation_error");
 		assertThat(response.getBody().message()).isEqualTo("Invalid request body");
 		assertThat(response.getBody().requestId()).isEqualTo("req-parse");
+	}
+
+	@Test
+	void handleDataIntegrityViolation_duplicateEmail_returnsConflictWithEmailMessage() {
+		ApiExceptionHandler handler = new ApiExceptionHandler(false);
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setAttribute("requestId", "req-dup-email");
+
+		DataIntegrityViolationException ex = new DataIntegrityViolationException(
+			"could not execute statement [ERROR: duplicate key value violates unique constraint \"uk_clients_email\"]"
+		);
+
+		var response = handler.handleDataIntegrityViolation(request, ex);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+		assertThat(response.getBody()).isNotNull();
+		assertThat(response.getBody().error()).isEqualTo("conflict");
+		assertThat(response.getBody().message()).isEqualTo("Email address already exists.");
+		assertThat(response.getBody().requestId()).isEqualTo("req-dup-email");
+	}
+
+	@Test
+	void handleDataIntegrityViolation_duplicatePhone_returnsConflictWithPhoneMessage() {
+		ApiExceptionHandler handler = new ApiExceptionHandler(false);
+		MockHttpServletRequest request = new MockHttpServletRequest();
+
+		DataIntegrityViolationException ex = new DataIntegrityViolationException(
+			"ERROR: duplicate key value violates unique constraint \"uk_clients_phone\""
+		);
+
+		var response = handler.handleDataIntegrityViolation(request, ex);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+		assertThat(response.getBody()).isNotNull();
+		assertThat(response.getBody().error()).isEqualTo("conflict");
+		assertThat(response.getBody().message()).isEqualTo("Phone number already exists.");
 	}
 }
