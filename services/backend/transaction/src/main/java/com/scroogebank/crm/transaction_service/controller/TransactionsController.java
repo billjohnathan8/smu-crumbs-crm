@@ -1,6 +1,7 @@
 package com.scroogebank.crm.transaction_service.controller;
 
 import com.scroogebank.crm.transaction_service.api.Pagination;
+import com.scroogebank.crm.transaction_service.config.AppProperties;
 import com.scroogebank.crm.transaction_service.dto.CreateTransactionRequest;
 import com.scroogebank.crm.transaction_service.dto.ImportBatchDto;
 import com.scroogebank.crm.transaction_service.dto.ImportTransactionsRequest;
@@ -65,17 +66,20 @@ public class TransactionsController {
 	private final RequestAuth requestAuth;
 	private final ClientAccessValidator clientAccessValidator;
 	private final TransactionAuditLogger transactionAuditLogger;
+	private final AppProperties appProperties;
 
 	public TransactionsController(
 		TransactionsService transactionsService,
 		RequestAuth requestAuth,
 		ClientAccessValidator clientAccessValidator,
-		TransactionAuditLogger transactionAuditLogger
+		TransactionAuditLogger transactionAuditLogger,
+		AppProperties appProperties
 	) {
 		this.transactionsService = transactionsService;
 		this.requestAuth = requestAuth;
 		this.clientAccessValidator = clientAccessValidator;
 		this.transactionAuditLogger = transactionAuditLogger;
+		this.appProperties = appProperties;
 	}
 
 	/**
@@ -192,12 +196,15 @@ public class TransactionsController {
 	public TransactionDto updateTransaction(
 		HttpServletRequest request,
 		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String transactionId,
-		@Valid @RequestBody UpdateTransactionRequest body
+		@Valid @RequestBody UpdateTransactionRequest _body
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		requireAnyRole(user, "admin");
+		if (!appProperties.isTransactionUpdatesEnabled()) {
+			throw new ForbiddenException("Transaction editing is disabled.");
+		}
 		TransactionDto before = transactionsService.get(transactionId);
-		TransactionDto after = transactionsService.update(transactionId, body);
+		TransactionDto after = transactionsService.update(transactionId, _body);
 
 		StringJoiner attributes = new StringJoiner("|");
 		StringJoiner beforeValues = new StringJoiner("|");

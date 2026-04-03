@@ -12,6 +12,7 @@ public class AppProperties {
 	private MockSftp mockSftp = new MockSftp();
 	private Sftp sftp = new Sftp();
 	private ImportS3 importS3 = new ImportS3();
+	private boolean transactionUpdatesEnabled;
 
 	public String getClientServiceUrl() {
 		return clientServiceUrl;
@@ -51,6 +52,14 @@ public class AppProperties {
 
 	public void setImportS3(ImportS3 importS3) {
 		this.importS3 = importS3;
+	}
+
+	public boolean isTransactionUpdatesEnabled() {
+		return transactionUpdatesEnabled;
+	}
+
+	public void setTransactionUpdatesEnabled(boolean transactionUpdatesEnabled) {
+		this.transactionUpdatesEnabled = transactionUpdatesEnabled;
 	}
 
 	public static class Jwt {
