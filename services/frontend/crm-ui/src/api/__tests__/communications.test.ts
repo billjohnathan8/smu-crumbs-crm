@@ -84,6 +84,22 @@ describe('communications API', () => {
         '/api/clients/client-123/communications?limit=20&offset=10'
       )
     })
+
+    it('should pass request options when listing client communications', async () => {
+      const mockResponse: PaginatedResponse<Communication> = {
+        data: [],
+        pagination: { limit: 10, offset: 0, total: 0 },
+      }
+      const options = { headers: { 'X-Test': '1' } }
+      vi.spyOn(client, 'apiGet').mockResolvedValue(mockResponse)
+
+      await listClientCommunications('client-123', { limit: 10 }, options)
+
+      expect(client.apiGet).toHaveBeenCalledWith(
+        '/api/clients/client-123/communications?limit=10',
+        options
+      )
+    })
   })
 
   describe('getCommunicationById', () => {
@@ -95,6 +111,15 @@ describe('communications API', () => {
       expect(client.apiGet).toHaveBeenCalledWith('/api/communications/comm-1')
       expect(result).toEqual(mockComm)
     })
+
+    it('should pass request options when getting communication by ID', async () => {
+      const options = { signal: new AbortController().signal }
+      vi.spyOn(client, 'apiGet').mockResolvedValue(mockComm)
+
+      await getCommunicationById('comm-1', options)
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/communications/comm-1', options)
+    })
   })
 
   describe('getCommunicationByProviderMessageId', () => {
@@ -105,6 +130,18 @@ describe('communications API', () => {
 
       expect(client.apiGet).toHaveBeenCalledWith('/api/communications/provider/ses-msg-123')
       expect(result).toEqual(mockComm)
+    })
+
+    it('should pass request options when getting communication by provider message ID', async () => {
+      const options = { headers: { 'X-Correlation-Id': 'corr-1' } }
+      vi.spyOn(client, 'apiGet').mockResolvedValue(mockComm)
+
+      await getCommunicationByProviderMessageId('ses-msg-123', options)
+
+      expect(client.apiGet).toHaveBeenCalledWith(
+        '/api/communications/provider/ses-msg-123',
+        options
+      )
     })
   })
 
@@ -162,6 +199,18 @@ describe('communications API', () => {
   })
 
   describe('listCommunications', () => {
+    it('should list communications without params', async () => {
+      const mockResponse: PaginatedResponse<Communication> = {
+        data: [],
+        pagination: { limit: 50, offset: 0, total: 0 },
+      }
+      vi.spyOn(client, 'apiGet').mockResolvedValue(mockResponse)
+
+      await listCommunications()
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/communications')
+    })
+
     it('should list communications with pagination and filters', async () => {
       const mockResponse: PaginatedResponse<Communication> = {
         data: [mockComm],
@@ -181,6 +230,19 @@ describe('communications API', () => {
         '/api/communications?limit=10&offset=20&status=sent&recipient=example.com'
       )
       expect(result).toEqual(mockResponse)
+    })
+
+    it('should pass request options when listing communications', async () => {
+      const mockResponse: PaginatedResponse<Communication> = {
+        data: [],
+        pagination: { limit: 1, offset: 0, total: 0 },
+      }
+      const options = { headers: { 'X-Request-Id': 'req-1' } }
+      vi.spyOn(client, 'apiGet').mockResolvedValue(mockResponse)
+
+      await listCommunications({ status: 'queued' }, options)
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/communications?status=queued', options)
     })
   })
 
