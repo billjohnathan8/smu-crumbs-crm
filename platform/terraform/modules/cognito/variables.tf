@@ -64,3 +64,9 @@ variable "mfa_configuration" {
     error_message = "The mfa_configuration value must be one of OFF, ON, or OPTIONAL."
   }
 }
+
+variable "password_require_uppercase" {
+  description = "Whether Cognito passwords must include uppercase characters."
+  type        = bool
+  default     = true
+}
