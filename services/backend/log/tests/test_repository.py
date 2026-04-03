@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import datetime, timezone
 
+import psycopg
 import pytest
 
 from app.config import Settings
@@ -357,6 +358,27 @@ def test_list_queued_communications_filters_due_records(
     assert "status = 'queued'" in sql
     assert "next_attempt_at <= NOW()" in sql
     assert params == (25,)
+
+
+def test_list_queued_communications_returns_empty_when_table_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class UndefinedTableCursor(FakeCursor):
+        def execute(self, sql: str, params=None) -> None:
+            self.executed.append((sql, params))
+            raise psycopg.errors.UndefinedTable("relation \"communications\" does not exist")
+
+    cursor = UndefinedTableCursor()
+
+    def fake_connect(*_args, **_kwargs):
+        return FakeConnection(cursor)
+
+    _patch_connect(monkeypatch, fake_connect)
+    repo = LogRepository(Settings())
+
+    rows = repo.list_queued_communications(limit=25)
+
+    assert rows == []
 
 
 def test_update_communication_status_updates_fields(

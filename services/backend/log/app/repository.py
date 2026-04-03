@@ -454,17 +454,22 @@ class LogRepository:
         """List queued communications that are eligible for immediate dispatch."""
         with psycopg.connect(self._settings.dsn, row_factory=dict_row) as conn:
             with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT * FROM communications
-                    WHERE status = 'queued'
-                      AND (next_attempt_at IS NULL OR next_attempt_at <= NOW())
-                    ORDER BY COALESCE(next_attempt_at, created_at) ASC, id ASC
-                    LIMIT %s
-                    """,
-                    (limit,),
-                )
-                rows = list(cur.fetchall())
+                try:
+                    cur.execute(
+                        """
+                        SELECT * FROM communications
+                        WHERE status = 'queued'
+                          AND (next_attempt_at IS NULL OR next_attempt_at <= NOW())
+                        ORDER BY COALESCE(next_attempt_at, created_at) ASC, id ASC
+                        LIMIT %s
+                        """,
+                        (limit,),
+                    )
+                    rows = list(cur.fetchall())
+                except (psycopg.errors.UndefinedTable, psycopg.errors.UndefinedColumn):
+                    # Keep queued-communications reads available during partial rollouts
+                    # where communication tables/columns are not yet materialized.
+                    return []
         return rows
 
     def update_communication_status(
