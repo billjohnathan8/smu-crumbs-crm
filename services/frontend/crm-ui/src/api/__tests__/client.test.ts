@@ -9,6 +9,7 @@ import {
   apiGet,
   apiPost,
   apiPut,
+  apiPatch,
   apiDelete,
   __resetApiGetCacheForTests,
 } from '../client'
@@ -191,6 +192,25 @@ describe('apiRequest', () => {
       error: 'password_policy_violation',
       message: 'Password must include at least one special character.',
       requestId: 'req-789',
+    })
+  })
+
+  it('should preserve backend message for conflict errors', async () => {
+    ;(globalThis.fetch as any).mockResolvedValueOnce({
+      ok: false,
+      status: 409,
+      json: async () => ({
+        error: 'conflict',
+        message: 'Duplicate email address',
+        requestId: 'req-conflict',
+      }),
+    })
+
+    await expect(apiRequest('/test')).rejects.toMatchObject({
+      status: 409,
+      error: 'conflict',
+      message: 'Duplicate email address',
+      requestId: 'req-conflict',
     })
   })
 
@@ -480,5 +500,68 @@ describe('HTTP method helpers', () => {
 
     expect(afterMutation).toEqual({ data: 'fresh' })
     expect(globalThis.fetch).toHaveBeenCalledTimes(3)
+  })
+
+  it('should dedupe in-flight GET requests with the same cache key', async () => {
+    let resolveFetch: ((value: unknown) => void) | undefined
+    ;(globalThis.fetch as any).mockImplementationOnce(() => {
+      return new Promise(resolve => {
+        resolveFetch = resolve
+      })
+    })
+
+    const firstPromise = apiGet('/test/in-flight')
+    const secondPromise = apiGet('/test/in-flight')
+
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1)
+
+    resolveFetch?.({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: 'once' }),
+    })
+
+    await expect(firstPromise).resolves.toEqual({ data: 'once' })
+    await expect(secondPromise).resolves.toEqual({ data: 'once' })
+  })
+
+  it('should bypass GET cache when cacheTtlMs is zero', async () => {
+    ;(globalThis.fetch as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: 'first' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: 'second' }),
+      })
+
+    const first = await apiGet('/test/no-cache', { cacheTtlMs: 0 })
+    const second = await apiGet('/test/no-cache', { cacheTtlMs: 0 })
+
+    expect(first).toEqual({ data: 'first' })
+    expect(second).toEqual({ data: 'second' })
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('should make PATCH request with data', async () => {
+    const patchData = { name: 'Patched' }
+    ;(globalThis.fetch as any).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: '1', ...patchData }),
+    })
+
+    await apiPatch('/test/1', patchData)
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/test/1',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify(patchData),
+      })
+    )
   })
 })
