@@ -254,22 +254,33 @@ reconcile_lambda_permission_if_existing() {
     return 0
   fi
 
-  local policy
-  policy="$(aws lambda get-policy \
-    --function-name "${function_name}" \
-    --region "${AWS_REGION}" \
-    --query 'Policy' \
-    --output text 2>/dev/null || true)"
+  local import_id="${function_name}/${statement_id}"
 
-  if [[ -z "${policy}" || "${policy}" == "None" ]]; then
+  echo "Reconciling existing ${label} into Terraform state: ${address}"
+  set +e
+  local import_output
+  import_output="$(terraform import "${tf_args[@]}" "${address}" "${import_id}" 2>&1)"
+  local import_rc=$?
+  set -e
+
+  if [[ ${import_rc} -eq 0 ]]; then
     return 0
   fi
 
-  if ! grep -Fq "${statement_id}" <<< "${policy}"; then
+  if grep -Fq "Resource already managed by Terraform" <<< "${import_output}" \
+    || grep -Fq "already managing a remote object for ${address}" <<< "${import_output}"; then
+    echo "Already tracked in state during import attempt: ${label} (${address})"
     return 0
   fi
 
-  import_if_missing "${address}" "${function_name}/${statement_id}" "${label}"
+  if grep -Fq "Cannot import non-existent remote object" <<< "${import_output}" \
+    || grep -Fq "not found" <<< "${import_output}"; then
+    echo "No existing ${label} found in AWS yet; skipping import."
+    return 0
+  fi
+
+  echo "${import_output}"
+  return "${import_rc}"
 }
 
 enable_verification_pipeline="$(tr '[:upper:]' '[:lower:]' <<< "$(get_tfvar_value "enable_verification_pipeline")")"
