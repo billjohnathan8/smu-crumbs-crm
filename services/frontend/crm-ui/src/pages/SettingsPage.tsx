@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
+import { isRootAdminUser } from '@/features/auth/authorization'
 import { useTheme } from '@/features/theme/useTheme'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 
@@ -33,6 +34,14 @@ export function SettingsPage() {
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
   const navItems = isAdmin ? adminNav : userNav
+
+  const roleLabel = (() => {
+    if (!user) return '-'
+    if (isRootAdminUser(user)) return 'Root Admin'
+    if (user.role === 'super_admin') return 'Super Admin'
+    if (user.role === 'admin') return 'Admin'
+    return 'Agent'
+  })()
 
   const handleResetPassword = () => {
     setIsResettingPassword(true)
@@ -104,7 +113,7 @@ export function SettingsPage() {
               </div>
               <div>
                 <label className="text-sm font-normal text-text-subtle">Role</label>
-                <p className="text-text capitalize">{user?.role?.replace('_', ' ')}</p>
+                <p className="text-text">{roleLabel}</p>
               </div>
             </div>
           </div>
