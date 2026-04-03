@@ -6,10 +6,12 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -167,6 +169,88 @@ class UserAccountServiceTest {
 
 		assertEquals(UserRole.admin, result.role());
 		verify(store, times(1)).createUser(any());
+	}
+
+	@Test
+	void createUser_cognitoMode_withoutTemporaryPassword_generatesOneSharedPassword() {
+		CognitoService cognitoService = mock(CognitoService.class);
+		service = new UserAccountService(store, auditLogger, cognitoService, "cognito");
+		AuthenticatedUser requester = new AuthenticatedUser("usr_1", "admin");
+		CreateUserRequest request = new CreateUserRequest(
+			"Jane",
+			"Smith",
+			"jane@example.com",
+			UserRole.admin,
+			true,
+			null
+		);
+		Instant now = Instant.parse("2026-04-03T00:00:00Z");
+		when(store.createUser(any())).thenReturn(new UserDto(
+			"usr_9",
+			"Jane",
+			"Smith",
+			"jane@example.com",
+			UserRole.admin,
+			UserStatus.active,
+			now,
+			now
+		));
+
+		service.createUser(request, requester, AUTH_HEADER, CORRELATION_ID);
+
+		ArgumentCaptor<CreateUserRequest> storeRequestCaptor = ArgumentCaptor.forClass(CreateUserRequest.class);
+		verify(store).createUser(storeRequestCaptor.capture());
+		CreateUserRequest storeRequest = storeRequestCaptor.getValue();
+		assertNotNull(storeRequest.temporaryPassword());
+		assertTrue(!storeRequest.temporaryPassword().isBlank());
+		assertEquals(16, storeRequest.temporaryPassword().length());
+		assertTrue(storeRequest.temporaryPassword().chars().anyMatch(Character::isUpperCase));
+		assertTrue(storeRequest.temporaryPassword().chars().anyMatch(Character::isLowerCase));
+		assertTrue(storeRequest.temporaryPassword().chars().anyMatch(Character::isDigit));
+		assertTrue(storeRequest.temporaryPassword().chars().anyMatch(ch -> "!@#$%&*?".indexOf(ch) >= 0));
+
+		verify(cognitoService).createUser(
+			eq("jane@example.com"),
+			eq("Jane Smith"),
+			eq("ADMIN"),
+			eq(storeRequest.temporaryPassword())
+		);
+	}
+
+	@Test
+	void createUser_cognitoMode_withTemporaryPassword_usesProvidedPassword() {
+		CognitoService cognitoService = mock(CognitoService.class);
+		service = new UserAccountService(store, auditLogger, cognitoService, "cognito");
+		AuthenticatedUser requester = new AuthenticatedUser("usr_1", "admin");
+		CreateUserRequest request = new CreateUserRequest(
+			"Jane",
+			"Smith",
+			"jane@example.com",
+			UserRole.admin,
+			true,
+			"Tmp!1234Abcd"
+		);
+		Instant now = Instant.parse("2026-04-03T00:00:00Z");
+		when(store.createUser(any())).thenReturn(new UserDto(
+			"usr_9",
+			"Jane",
+			"Smith",
+			"jane@example.com",
+			UserRole.admin,
+			UserStatus.active,
+			now,
+			now
+		));
+
+		service.createUser(request, requester, AUTH_HEADER, CORRELATION_ID);
+
+		verify(store).createUser(eq(request));
+		verify(cognitoService).createUser(
+			eq("jane@example.com"),
+			eq("Jane Smith"),
+			eq("ADMIN"),
+			eq("Tmp!1234Abcd")
+		);
 	}
 
 	//  READ USER TESTS  //

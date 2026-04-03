@@ -12,6 +12,7 @@ import com.scroogebank.crm.user_service.exception.AccessDeniedException;
 import com.scroogebank.crm.user_service.exception.UserNotFoundException;
 import com.scroogebank.crm.user_service.logging.UserAuditLogger;
 import com.scroogebank.crm.user_service.security.AuthenticatedUser;
+import java.security.SecureRandom;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +26,13 @@ import org.springframework.stereotype.Service;
 public class UserAccountService {
 	private static final Logger LOGGER = LoggerFactory.getLogger(UserAccountService.class);
 	private static final String ROOT_ADMIN_USER_ID = "usr_1";
+	private static final int GENERATED_TEMP_PASSWORD_LENGTH = 16;
+	private static final String PASSWORD_UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+	private static final String PASSWORD_LOWER = "abcdefghijklmnopqrstuvwxyz";
+	private static final String PASSWORD_DIGIT = "0123456789";
+	private static final String PASSWORD_SYMBOL = "!@#$%&*?";
+	private static final String PASSWORD_ALL = PASSWORD_UPPER + PASSWORD_LOWER + PASSWORD_DIGIT + PASSWORD_SYMBOL;
+	private static final SecureRandom PASSWORD_RANDOM = new SecureRandom();
 
 	private final PersistentUserStore store;
 	private final UserAuditLogger userAuditLogger;
@@ -63,16 +71,19 @@ public class UserAccountService {
 			created = store.createUser(request);
 		}
 		else {
+			CreateUserRequest normalizedRequest = request.temporaryPassword() == null || request.temporaryPassword().isBlank()
+				? withTemporaryPassword(request, generateProvisioningPassword())
+				: request;
 			String cognitoGroup = request.role() == UserRole.admin ? "ADMIN" : "USER";
 			String fullName = request.firstName() + " " + request.lastName();
-			cognito.createUser(request.email(), fullName, cognitoGroup, request.temporaryPassword());
+			cognito.createUser(normalizedRequest.email(), fullName, cognitoGroup, normalizedRequest.temporaryPassword());
 			try {
-				created = store.createUser(request);
+				created = store.createUser(normalizedRequest);
 			}
 			catch (RuntimeException ex) {
 				// Compensate to avoid leaving a Cognito-only user when DB write fails.
 				try {
-					cognito.deleteUser(request.email());
+					cognito.deleteUser(normalizedRequest.email());
 				}
 				catch (RuntimeException cleanupEx) {
 					ex.addSuppressed(cleanupEx);
@@ -394,6 +405,43 @@ public class UserAccountService {
 			attrs.append(name);
 			befores.append(oldVal);
 			afters.append(newVal);
+		}
+	}
+
+	private static CreateUserRequest withTemporaryPassword(CreateUserRequest request, String temporaryPassword) {
+		return new CreateUserRequest(
+			request.firstName(),
+			request.lastName(),
+			request.email(),
+			request.role(),
+			request.sendInviteEmail(),
+			temporaryPassword
+		);
+	}
+
+	private static String generateProvisioningPassword() {
+		char[] chars = new char[GENERATED_TEMP_PASSWORD_LENGTH];
+		chars[0] = randomChar(PASSWORD_UPPER);
+		chars[1] = randomChar(PASSWORD_LOWER);
+		chars[2] = randomChar(PASSWORD_DIGIT);
+		chars[3] = randomChar(PASSWORD_SYMBOL);
+		for (int i = 4; i < chars.length; i++) {
+			chars[i] = randomChar(PASSWORD_ALL);
+		}
+		shuffle(chars);
+		return new String(chars);
+	}
+
+	private static char randomChar(String source) {
+		return source.charAt(PASSWORD_RANDOM.nextInt(source.length()));
+	}
+
+	private static void shuffle(char[] chars) {
+		for (int i = chars.length - 1; i > 0; i--) {
+			int j = PASSWORD_RANDOM.nextInt(i + 1);
+			char tmp = chars[i];
+			chars[i] = chars[j];
+			chars[j] = tmp;
 		}
 	}
 }

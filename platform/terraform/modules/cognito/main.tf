@@ -52,6 +52,10 @@ resource "aws_cognito_user_pool" "this" {
 
   admin_create_user_config {
     allow_admin_create_user_only = var.allow_admin_create_user_only
+    invite_message_template {
+      email_subject = "Your temporary CRM login password"
+      email_message = "Your username is {username}\nYour temporary password is '{####}'\nCopy the password inside quotes exactly."
+    }
   }
 
   mfa_configuration = var.mfa_configuration
