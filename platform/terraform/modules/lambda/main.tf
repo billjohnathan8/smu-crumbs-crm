@@ -70,6 +70,11 @@ resource "aws_lambda_function" "aml" {
   timeout          = var.aml_lambda_timeout_seconds
   publish          = true
 
+  vpc_config {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [var.lambda_security_group_id]
+  }
+
   environment {
     variables = {
       SFTP_HOST                   = var.aml_sftp_host

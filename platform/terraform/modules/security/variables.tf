@@ -80,6 +80,18 @@ variable "aml_sftp_key_secret_arn" {
   type        = string
 }
 
+variable "enable_ec2_sftp_server" {
+  description = "Whether EC2 SFTP server mode is enabled (to wire Lambda SG egress rule)."
+  type        = bool
+  default     = false
+}
+
+variable "sftp_server_security_group_id" {
+  description = "Security group ID of EC2 SFTP server (for Lambda SG egress)."
+  type        = string
+  default     = ""
+}
+
 variable "create_backend_iam_policy" {
   description = "Whether to create backend access IAM policy."
   type        = bool

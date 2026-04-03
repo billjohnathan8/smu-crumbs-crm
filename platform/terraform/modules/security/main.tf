@@ -202,6 +202,18 @@ resource "aws_security_group_rule" "lambda_egress_to_db" {
   description              = "PostgreSQL from Lambda to DB"
 }
 
+resource "aws_security_group_rule" "lambda_egress_to_sftp_server" {
+  count = var.enable_ec2_sftp_server && trimspace(var.sftp_server_security_group_id) != "" ? 1 : 0
+
+  type                     = "egress"
+  from_port                = 22
+  to_port                  = 22
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.lambda.id
+  source_security_group_id = var.sftp_server_security_group_id
+  description              = "SFTP from Lambda to EC2 SFTP server"
+}
+
 data "aws_iam_policy_document" "ecs_task_execution_assume" {
   statement {
     effect = "Allow"
@@ -336,6 +348,12 @@ resource "aws_iam_role_policy_attachment" "aml_lambda_basic" {
   count      = local.use_lab_role ? 0 : 1
   role       = aws_iam_role.aml_lambda[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy_attachment" "aml_lambda_vpc" {
+  count      = local.use_lab_role ? 0 : 1
+  role       = aws_iam_role.aml_lambda[0].name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
 data "aws_iam_policy_document" "aml_lambda_secrets" {

@@ -64,6 +64,18 @@ resource "aws_security_group" "sftp_ec2" {
   }
 }
 
+resource "aws_security_group_rule" "sftp_ec2_ingress_from_security_groups" {
+  for_each = local.ec2_enabled ? toset(var.sftp_ingress_source_security_group_ids) : toset([])
+
+  type                     = "ingress"
+  from_port                = 22
+  to_port                  = 22
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.sftp_ec2[0].id
+  source_security_group_id = each.value
+  description              = "SFTP from trusted in-VPC security group"
+}
+
 data "aws_iam_policy_document" "sftp_ec2_assume" {
   count = local.ec2_enabled ? 1 : 0
 

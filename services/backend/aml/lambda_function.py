@@ -50,6 +50,7 @@ import io
 import json
 import logging
 import os
+import errno
 import statistics
 import base64
 import hashlib
@@ -370,7 +371,7 @@ class SFTPClient:
     def download_transactions_csv(self, remote_path: str) -> str:
         import paramiko  # noqa: PLC0415
 
-        pkey = paramiko.RSAKey.from_private_key(io.StringIO(self._fetch_key()))
+        pkey = self._parse_private_key(paramiko, self._fetch_key())
         with paramiko.SSHClient() as ssh:
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(
@@ -380,15 +381,111 @@ class SFTPClient:
                 pkey=pkey,
             )
             with ssh.open_sftp() as sftp_session:
-                with sftp_session.file(remote_path, "r") as fh:
-                    return fh.read().decode("utf-8")
+                try:
+                    with sftp_session.file(remote_path, "r") as fh:
+                        return fh.read().decode("utf-8")
+                except OSError as exc:
+                    if getattr(exc, "errno", None) != errno.ENOENT:
+                        raise
+                    fallback_csv = self._read_latest_csv_from_directory(
+                        sftp_session, "/upload"
+                    )
+                    if fallback_csv is not None:
+                        logger.warning(
+                            "Configured SFTP_REMOTE_PATH '%s' not found; "
+                            "falling back to newest CSV in /upload",
+                            remote_path,
+                        )
+                        return fallback_csv
+                    raise
+
+    @staticmethod
+    def _parse_private_key(paramiko: Any, private_key_material: str) -> Any:
+        key_classes = [
+            getattr(paramiko, "RSAKey", None),
+            getattr(paramiko, "Ed25519Key", None),
+            getattr(paramiko, "ECDSAKey", None),
+            getattr(paramiko, "DSSKey", None),
+        ]
+        errors: list[str] = []
+        for key_cls in key_classes:
+            if key_cls is None:
+                continue
+            try:
+                return key_cls.from_private_key(io.StringIO(private_key_material))
+            except Exception as exc:
+                errors.append(f"{key_cls.__name__}: {exc}")
+        joined_errors = "; ".join(errors) if errors else "no key classes available"
+        raise ValueError(f"Unsupported SSH private key format ({joined_errors})")
+
+    @staticmethod
+    def _normalize_private_key_secret(secret_value: str) -> str:
+        value = secret_value.strip()
+        if not value:
+            return ""
+
+        key_material: str | None = None
+        try:
+            decoded = json.loads(value)
+        except json.JSONDecodeError:
+            decoded = value
+
+        if isinstance(decoded, str):
+            key_material = decoded
+        elif isinstance(decoded, dict):
+            candidate_keys = (
+                "private_key",
+                "privateKey",
+                "key",
+                "ssh_private_key",
+                "sftp_private_key",
+            )
+            for key_name in candidate_keys:
+                candidate_value = decoded.get(key_name)
+                if isinstance(candidate_value, str) and candidate_value.strip():
+                    key_material = candidate_value
+                    break
+            if key_material is None:
+                for candidate_value in decoded.values():
+                    if isinstance(candidate_value, str) and "PRIVATE KEY" in candidate_value:
+                        key_material = candidate_value
+                        break
+        if not key_material:
+            return ""
+
+        key_material = key_material.strip()
+        if "\\n" in key_material and "\n" not in key_material:
+            key_material = key_material.replace("\\n", "\n")
+        return key_material
 
     def _fetch_key(self) -> str:
         """Retrieve the SSH private key string from AWS Secrets Manager."""
         import boto3  # noqa: PLC0415
 
         sm = boto3.client("secretsmanager")
-        return sm.get_secret_value(SecretId=self._key_secret_arn)["SecretString"]
+        secret_response = sm.get_secret_value(SecretId=self._key_secret_arn)
+        secret_string = secret_response.get("SecretString", "")
+        if not isinstance(secret_string, str) or not secret_string.strip():
+            raise ValueError("SFTP key secret is missing SecretString content")
+        key_material = self._normalize_private_key_secret(secret_string)
+        if not key_material:
+            raise ValueError("SFTP key secret does not contain a usable private key")
+        return key_material
+
+    @staticmethod
+    def _read_latest_csv_from_directory(sftp_session: Any, directory: str) -> str | None:
+        """Return the newest CSV file content from the given remote directory."""
+        try:
+            entries = sftp_session.listdir_attr(directory)
+        except Exception:
+            return None
+        csv_entries = [entry for entry in entries if entry.filename.lower().endswith(".csv")]
+        if not csv_entries:
+            return None
+        latest = max(csv_entries, key=lambda entry: getattr(entry, "st_mtime", 0))
+        remote_file_path = f"{directory.rstrip('/')}/{latest.filename}"
+        with sftp_session.file(remote_file_path, "r") as fh:
+            return fh.read().decode("utf-8")
 
 
 class MockSFTPClient:

@@ -72,6 +72,16 @@ resource "aws_network_acl" "private" {
     to_port    = 443
   }
 
+  # Allow outbound SSH to in-VPC SFTP endpoint from AML Lambda.
+  egress {
+    rule_no    = 250
+    protocol   = "tcp"
+    action     = "allow"
+    cidr_block = var.vpc_cidr
+    from_port  = 22
+    to_port    = 22
+  }
+
   # Allow DNS resolution against the VPC resolver (base CIDR + 2) for
   # private workloads that call Cloud Map, Cognito, and other AWS endpoints.
   egress {

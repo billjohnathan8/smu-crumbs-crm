@@ -58,6 +58,12 @@ variable "sftp_ingress_cidr_blocks" {
   default     = []
 }
 
+variable "sftp_ingress_source_security_group_ids" {
+  description = "Security groups allowed to connect to SFTP on port 22 (for in-VPC callers like Lambda)."
+  type        = list(string)
+  default     = []
+}
+
 variable "sftp_server_ami_id" {
   description = "Optional AMI override for EC2 SFTP instance."
   type        = string

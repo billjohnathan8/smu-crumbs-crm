@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from types import SimpleNamespace
 from datetime import date, datetime, timezone
 from unittest.mock import MagicMock, patch
 
@@ -415,6 +416,96 @@ class TestSFTPClient:
         with patch.dict("sys.modules", {"boto3": mock_boto3}):
             key = client._fetch_key()
         assert "MOCK_SFTP_KEY_MATERIAL" in key
+
+    def test_fetch_key_normalizes_json_encoded_private_key(self, monkeypatch):
+        monkeypatch.setenv("SFTP_HOST", "sftp.example.com")
+        monkeypatch.setenv("SFTP_USER", "testuser")
+        monkeypatch.setenv("SFTP_KEY_SECRET", "arn:aws:secret:key")
+        client = SFTPClient()
+        mock_boto3 = MagicMock()
+        mock_boto3.client.return_value.get_secret_value.return_value = {
+            "SecretString": json.dumps(
+                {
+                    "private_key": (
+                        "-----BEGIN OPENSSH PRIVATE KEY-----\\n"
+                        "AAAATESTKEYMATERIAL\\n"
+                        "-----END OPENSSH PRIVATE KEY-----"
+                    )
+                }
+            )
+        }
+        with patch.dict("sys.modules", {"boto3": mock_boto3}):
+            key = client._fetch_key()
+        assert "BEGIN OPENSSH PRIVATE KEY" in key
+        assert "\\n" not in key
+        assert "AAAATESTKEYMATERIAL" in key
+
+    def test_parse_private_key_falls_back_to_ed25519(self):
+        mock_rsa = MagicMock()
+        mock_rsa.__name__ = "RSAKey"
+        mock_rsa.from_private_key.side_effect = ValueError("rsa parse failed")
+
+        mock_ed25519 = MagicMock()
+        mock_ed25519.__name__ = "Ed25519Key"
+        mock_ed25519.from_private_key.return_value = "parsed-ed25519-key"
+
+        mock_paramiko = MagicMock()
+        mock_paramiko.RSAKey = mock_rsa
+        mock_paramiko.Ed25519Key = mock_ed25519
+        mock_paramiko.ECDSAKey = None
+        mock_paramiko.DSSKey = None
+
+        parsed = SFTPClient._parse_private_key(
+            mock_paramiko, "-----BEGIN OPENSSH PRIVATE KEY-----\nX\n-----END OPENSSH PRIVATE KEY-----"
+        )
+        assert parsed == "parsed-ed25519-key"
+        assert mock_rsa.from_private_key.call_count == 1
+        assert mock_ed25519.from_private_key.call_count == 1
+
+    def test_read_latest_csv_from_directory_returns_newest_csv(self):
+        class _FakeFile:
+            def __init__(self, content):
+                self._content = content
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self):
+                return self._content
+
+        class _FakeSFTP:
+            def __init__(self):
+                self._files = {
+                    "/upload/old.csv": b"old-data",
+                    "/upload/new.csv": b"new-data",
+                }
+
+            def listdir_attr(self, directory):
+                assert directory == "/upload"
+                return [
+                    SimpleNamespace(filename="old.csv", st_mtime=100),
+                    SimpleNamespace(filename="new.csv", st_mtime=200),
+                    SimpleNamespace(filename="notes.txt", st_mtime=300),
+                ]
+
+            def file(self, path, mode):
+                assert mode == "r"
+                return _FakeFile(self._files[path])
+
+        result = SFTPClient._read_latest_csv_from_directory(_FakeSFTP(), "/upload")
+        assert result == "new-data"
+
+    def test_read_latest_csv_from_directory_returns_none_when_no_csv(self):
+        class _FakeSFTP:
+            def listdir_attr(self, directory):
+                assert directory == "/upload"
+                return [SimpleNamespace(filename="notes.txt", st_mtime=300)]
+
+        result = SFTPClient._read_latest_csv_from_directory(_FakeSFTP(), "/upload")
+        assert result is None
 
 
 class TestAccountRepository:

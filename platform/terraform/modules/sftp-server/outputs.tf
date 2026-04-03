@@ -14,11 +14,21 @@ output "sftp_endpoint" {
   ) : ""
 }
 
+output "sftp_private_endpoint" {
+  description = "Private IP endpoint for in-VPC SFTP consumers."
+  value       = var.enable_ec2_sftp_server ? aws_instance.sftp_ec2[0].private_ip : ""
+}
+
 output "sftp_username" {
   description = "SFTP username for transaction file uploads."
   value = var.enable_ec2_sftp_server ? (
     var.sftp_username
   ) : ""
+}
+
+output "sftp_security_group_id" {
+  description = "Security group ID attached to EC2 SFTP server."
+  value       = var.enable_ec2_sftp_server ? aws_security_group.sftp_ec2[0].id : ""
 }
 
 output "sftp_home_directory_target" {

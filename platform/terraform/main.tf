@@ -46,6 +46,8 @@ module "security" {
   jwt_hmac_secret                    = var.jwt_hmac_secret
   root_admin_password                = var.root_admin_password
   aml_sftp_key_secret_arn            = var.aml_sftp_key_secret_arn
+  enable_ec2_sftp_server             = var.enable_ec2_sftp_server
+  sftp_server_security_group_id      = module.sftp_server.sftp_security_group_id
   create_backend_iam_policy          = var.create_backend_iam_policy
   backend_state_bucket_name          = var.backend_state_bucket_name
   backend_lock_table_name            = var.backend_lock_table_name
@@ -372,16 +374,19 @@ module "s3" {
 module "sftp_server" {
   source = "./modules/sftp-server"
 
-  enable_ec2_sftp_server    = var.enable_ec2_sftp_server
-  name_prefix               = local.name_prefix
-  environment               = var.environment
-  aws_region                = var.aws_region
-  vpc_id                    = module.network.vpc_id
-  public_subnet_ids         = module.network.public_subnet_ids
-  sftp_server_subnet_id     = var.sftp_server_subnet_id
-  sftp_instance_type        = var.sftp_instance_type
-  sftp_root_volume_size_gb  = var.sftp_root_volume_size_gb
-  sftp_ingress_cidr_blocks  = var.sftp_ingress_cidr_blocks
+  enable_ec2_sftp_server   = var.enable_ec2_sftp_server
+  name_prefix              = local.name_prefix
+  environment              = var.environment
+  aws_region               = var.aws_region
+  vpc_id                   = module.network.vpc_id
+  public_subnet_ids        = module.network.public_subnet_ids
+  sftp_server_subnet_id    = var.sftp_server_subnet_id
+  sftp_instance_type       = var.sftp_instance_type
+  sftp_root_volume_size_gb = var.sftp_root_volume_size_gb
+  sftp_ingress_cidr_blocks = var.sftp_ingress_cidr_blocks
+  sftp_ingress_source_security_group_ids = [
+    module.security.lambda_security_group_id
+  ]
   sftp_server_ami_id        = var.sftp_server_ami_id
   sftp_allocate_eip         = var.sftp_allocate_eip
   transaction_bucket_id     = module.s3.transaction_sftp_bucket_id
