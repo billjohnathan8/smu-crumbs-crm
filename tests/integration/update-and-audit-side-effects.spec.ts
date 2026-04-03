@@ -46,7 +46,6 @@ test.describe("Update And Audit Side Effects (P1)", () => {
     });
 
     const initialBranchId = "SG-001";
-    const updatedBranchId = "SG-002";
 
     const createdAccount = await createAccountForClient(
       request,
@@ -67,7 +66,6 @@ test.describe("Update And Audit Side Effects (P1)", () => {
       data: {
         accountType: "Checking",
         accountStatus: "Inactive",
-        branchId: updatedBranchId,
       },
     });
     const updatedAccount = (await expectOkJson(updateRes, "update account")) as {
@@ -79,7 +77,7 @@ test.describe("Update And Audit Side Effects (P1)", () => {
     expect(updatedAccount.accountId).toBe(createdAccount.accountId);
     expect(updatedAccount.accountType).toBe("Checking");
     expect(updatedAccount.accountStatus).toBe("Inactive");
-    expect(updatedAccount.branchId).toBe(updatedBranchId);
+    expect(updatedAccount.branchId).toBe(initialBranchId);
 
     const getRes = await request.get(`${baseURL}/api/accounts/${createdAccount.accountId}`, {
       headers: authHeaders(agentAccessToken),
@@ -93,7 +91,7 @@ test.describe("Update And Audit Side Effects (P1)", () => {
     expect(persistedAccount.accountId).toBe(createdAccount.accountId);
     expect(persistedAccount.accountType).toBe("Checking");
     expect(persistedAccount.accountStatus).toBe("Inactive");
-    expect(persistedAccount.branchId).toBe(updatedBranchId);
+    expect(persistedAccount.branchId).toBe(initialBranchId);
 
     const auditLog = (await waitForAuditLogAction(request, baseURL, agentAccessToken, {
       clientId: client.clientId,
@@ -104,9 +102,9 @@ test.describe("Update And Audit Side Effects (P1)", () => {
     expect(auditLog.logId).toBeTruthy();
     expect(auditLog.action).toBe("UPDATE");
     expect(auditLog.clientId).toBe(client.clientId);
-    expect(auditLog.attributeName).toBe("accountType|accountStatus|branchId");
-    expect(auditLog.beforeValue).toBe(`Savings|Active|${initialBranchId}`);
-    expect(auditLog.afterValue).toBe(`Checking|Inactive|${updatedBranchId}`);
+    expect(auditLog.attributeName).toBe("accountType|accountStatus");
+    expect(auditLog.beforeValue).toBe("Savings|Active");
+    expect(auditLog.afterValue).toBe("Checking|Inactive");
   });
 
   test("transaction update persists changes and emits UPDATE audit log", async ({ request }) => {

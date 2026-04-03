@@ -94,7 +94,7 @@ test.describe("Account Management (Feature 2)", () => {
         openingDate: new Date().toISOString().split("T")[0],
         initialDeposit: 500.0,
         currency: "SGD",
-        branchId: "SG-002",
+        branchId: "SG-001",
       },
     });
     await expectOkJson(createRes, "create account for listing");
@@ -125,7 +125,7 @@ test.describe("Account Management (Feature 2)", () => {
         openingDate: new Date().toISOString().split("T")[0],
         initialDeposit: 5000.0,
         currency: "SGD",
-        branchId: "SG-003",
+        branchId: "SG-001",
       },
     });
     const created = (await expectOkJson(createRes, "create account for get")) as { accountId: string };
@@ -186,7 +186,7 @@ test.describe("Account Management (Feature 2)", () => {
         openingDate: new Date().toISOString().split("T")[0],
         initialDeposit: 100.0,
         currency: "SGD",
-        branchId: "SG-002",
+        branchId: "SG-001",
       },
     });
     await expectOkJson(createRes, "create account for audit log check");

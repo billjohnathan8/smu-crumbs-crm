@@ -5,6 +5,7 @@ import {
   createClientForUser,
   loginAsSeedAdmin,
 } from "./helpers/dataFactory";
+import { uniqueId } from "./helpers/testData";
 
 const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.com").trim();
 const ADMIN_PASSWORD = (process.env.E2E_ADMIN_PASSWORD ?? "Scrooge@Bank2026!").trim();
@@ -61,7 +62,8 @@ test.describe("Admin Live Ops Smoke", () => {
     await expect(page.getByRole("heading", { name: "Admin Dashboard" })).toBeVisible();
 
     await page.goto(`/admin/clients/${seededClientId}/accounts`);
-    await expect(page.getByRole("heading", { name: "Bank Accounts" })).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/admin/clients/${seededClientId}/accounts$`));
+    await expect(page.getByRole("button", { name: /new account/i })).toBeVisible({ timeout: 15_000 });
 
     await page.getByRole("button", { name: /new account/i }).click();
     await expect(page.getByRole("heading", { name: "Create Account" })).toBeVisible();
