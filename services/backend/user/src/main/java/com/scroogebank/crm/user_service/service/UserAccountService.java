@@ -76,7 +76,14 @@ public class UserAccountService {
 				: request;
 			String cognitoGroup = request.role() == UserRole.admin ? "ADMIN" : "USER";
 			String fullName = request.firstName() + " " + request.lastName();
-			cognito.createUser(normalizedRequest.email(), fullName, cognitoGroup, normalizedRequest.temporaryPassword());
+			boolean sendInviteEmail = normalizedRequest.sendInviteEmail() == null || normalizedRequest.sendInviteEmail();
+			cognito.createUser(
+				normalizedRequest.email(),
+				fullName,
+				cognitoGroup,
+				normalizedRequest.temporaryPassword(),
+				sendInviteEmail
+			);
 			try {
 				created = store.createUser(normalizedRequest);
 			}

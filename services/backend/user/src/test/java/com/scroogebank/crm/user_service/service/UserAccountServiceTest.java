@@ -213,7 +213,8 @@ class UserAccountServiceTest {
 			eq("jane@example.com"),
 			eq("Jane Smith"),
 			eq("ADMIN"),
-			eq(storeRequest.temporaryPassword())
+			eq(storeRequest.temporaryPassword()),
+			eq(true)
 		);
 	}
 
@@ -249,7 +250,44 @@ class UserAccountServiceTest {
 			eq("jane@example.com"),
 			eq("Jane Smith"),
 			eq("ADMIN"),
-			eq("Tmp!1234Abcd")
+			eq("Tmp!1234Abcd"),
+			eq(true)
+		);
+	}
+
+	@Test
+	void createUser_cognitoMode_sendInviteDisabled_passesFalseToCognito() {
+		CognitoService cognitoService = mock(CognitoService.class);
+		service = new UserAccountService(store, auditLogger, cognitoService, "cognito");
+		AuthenticatedUser requester = new AuthenticatedUser("usr_1", "admin");
+		CreateUserRequest request = new CreateUserRequest(
+			"Jane",
+			"Smith",
+			"jane@example.com",
+			UserRole.user,
+			false,
+			"Tmp!1234Abcd"
+		);
+		Instant now = Instant.parse("2026-04-03T00:00:00Z");
+		when(store.createUser(any())).thenReturn(new UserDto(
+			"usr_9",
+			"Jane",
+			"Smith",
+			"jane@example.com",
+			UserRole.user,
+			UserStatus.active,
+			now,
+			now
+		));
+
+		service.createUser(request, requester, AUTH_HEADER, CORRELATION_ID);
+
+		verify(cognitoService).createUser(
+			eq("jane@example.com"),
+			eq("Jane Smith"),
+			eq("USER"),
+			eq("Tmp!1234Abcd"),
+			eq(false)
 		);
 	}
 

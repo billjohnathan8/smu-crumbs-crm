@@ -17,6 +17,7 @@ import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminDisabl
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminResetUserPasswordRequest;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.InvalidParameterException;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.InvalidPasswordException;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.MessageActionType;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.UserNotFoundException;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.UsernameExistsException;
@@ -37,7 +38,13 @@ public class CognitoService {
         this.cognitoClient = cognitoClient;
     }
 
-    public void createUser(String email, String name, String groupName, String temporaryPassword) {
+    public void createUser(
+        String email,
+        String name,
+        String groupName,
+        String temporaryPassword,
+        boolean sendInviteEmail
+    ) {
         try {
             AdminCreateUserRequest.Builder builder = AdminCreateUserRequest.builder()
                     .userPoolId(userPoolId)
@@ -46,8 +53,13 @@ public class CognitoService {
                             AttributeType.builder().name("email").value(email).build(),
                             AttributeType.builder().name("name").value(name).build(),
                             AttributeType.builder().name("email_verified").value("false").build()
-                    )
-                    .desiredDeliveryMediums(DeliveryMediumType.EMAIL);
+                    );
+
+            if (sendInviteEmail) {
+                builder.desiredDeliveryMediums(DeliveryMediumType.EMAIL);
+            } else {
+                builder.messageAction(MessageActionType.SUPPRESS);
+            }
 
             if (temporaryPassword != null && !temporaryPassword.isBlank()) {
                 builder.temporaryPassword(temporaryPassword);

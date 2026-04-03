@@ -308,6 +308,36 @@ describe('CreateNewUserPage', () => {
     expect(checkbox).toBeChecked()
   })
 
+  it('should submit sendInviteEmail as false when invitation is unchecked', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(usersApi, 'createUser').mockResolvedValue({
+      id: 'new-user-456',
+      firstName: 'June',
+      lastName: 'Lim',
+      email: 'june@example.com',
+      role: 'user',
+      status: 'active',
+    })
+
+    await renderCreateNewUserPage()
+
+    await user.type(screen.getByLabelText(/First Name/i), 'June')
+    await user.type(screen.getByLabelText(/Last Name/i), 'Lim')
+    await user.type(screen.getByLabelText(/^Email/i), 'june@example.com')
+    await user.click(screen.getByLabelText(/Send invitation/i))
+    await user.click(screen.getByRole('button', { name: /Create User/i }))
+
+    await waitFor(() => {
+      expect(usersApi.createUser).toHaveBeenCalledWith({
+        firstName: 'June',
+        lastName: 'Lim',
+        email: 'june@example.com',
+        role: 'user',
+        sendInviteEmail: false,
+      })
+    })
+  })
+
   it('should handle forbidden error', async () => {
     const user = userEvent.setup()
     vi.spyOn(usersApi, 'createUser').mockRejectedValue(new ApiError(403, 'Forbidden', 'Forbidden'))
