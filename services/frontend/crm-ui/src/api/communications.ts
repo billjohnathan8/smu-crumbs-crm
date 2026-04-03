@@ -78,6 +78,10 @@ export interface ListQueuedCommunicationsParams {
   sender?: string
 }
 
+export interface ListCommunicationsParams extends ListQueuedCommunicationsParams {
+  offset?: number
+}
+
 /**
  * List queued/pending communications (admin only).
  */
@@ -96,6 +100,30 @@ export async function listQueuedCommunications(
   if (params?.sender) query.append('sender', params.sender)
 
   const endpoint = query.toString() ? `${BASE}/queued?${query.toString()}` : `${BASE}/queued`
+  return options
+    ? apiGet<PaginatedResponse<Communication>>(endpoint, options)
+    : apiGet<PaginatedResponse<Communication>>(endpoint)
+}
+
+/**
+ * List communications (admin only) with pagination and optional filters.
+ */
+export async function listCommunications(
+  params?: ListCommunicationsParams,
+  options?: RequestOptions
+): Promise<PaginatedResponse<Communication>> {
+  const query = new URLSearchParams()
+  if (params?.limit !== undefined) query.append('limit', params.limit.toString())
+  if (params?.offset !== undefined) query.append('offset', params.offset.toString())
+  if (params?.status) query.append('status', params.status)
+  if (params?.createdFrom) query.append('createdFrom', params.createdFrom)
+  if (params?.createdTo) query.append('createdTo', params.createdTo)
+  if (params?.recipient) query.append('recipient', params.recipient)
+  if (params?.subject) query.append('subject', params.subject)
+  if (params?.client) query.append('client', params.client)
+  if (params?.sender) query.append('sender', params.sender)
+
+  const endpoint = query.toString() ? `${BASE}?${query.toString()}` : BASE
   return options
     ? apiGet<PaginatedResponse<Communication>>(endpoint, options)
     : apiGet<PaginatedResponse<Communication>>(endpoint)

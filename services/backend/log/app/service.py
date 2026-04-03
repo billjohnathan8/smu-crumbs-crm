@@ -130,6 +130,31 @@ class LogService:
             limit=limit, offset=offset, client_id=client_id, user_id=user_id
         )
 
+    def list_all_communications(
+        self,
+        limit: int,
+        offset: int,
+        status: str | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        recipient: str | None = None,
+        subject: str | None = None,
+        client_id: str | None = None,
+        user_id: str | None = None,
+    ) -> tuple[list[dict], int]:
+        """List communications across all clients with pagination and filters."""
+        return self._repository.list_all_communications(
+            limit=limit,
+            offset=offset,
+            status=status,
+            created_from=created_from,
+            created_to=created_to,
+            recipient=recipient,
+            subject=subject,
+            client_id=client_id,
+            user_id=user_id,
+        )
+
     def list_queued_communications(
         self,
         limit: int,

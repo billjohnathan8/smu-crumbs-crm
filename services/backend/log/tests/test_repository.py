@@ -340,6 +340,38 @@ def test_list_communications_applies_agent_filter(
     assert "AND user_id = %s" in cursor.executed[0][0]
 
 
+def test_list_all_communications_applies_filters_and_pagination(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cursor = FakeCursor(fetchone_values=[{"total": 3}], fetchall_values=[{"id": 9}])
+
+    def fake_connect(*_args, **_kwargs):
+        return FakeConnection(cursor)
+
+    _patch_connect(monkeypatch, fake_connect)
+    repo = LogRepository(Settings())
+
+    rows, total = repo.list_all_communications(
+        limit=10,
+        offset=20,
+        status="sent",
+        created_from=datetime(2026, 4, 1, tzinfo=timezone.utc),
+        created_to=datetime(2026, 4, 3, tzinfo=timezone.utc),
+        recipient="example.com",
+        subject="verify",
+        client_id="clt_",
+        user_id="usr_",
+    )
+
+    assert total == 3
+    assert rows == [{"id": 9}]
+    count_sql = cursor.executed[0][0]
+    list_sql = cursor.executed[1][0]
+    assert "status = %(status)s" in count_sql
+    assert "created_at >= %(createdFrom)s" in list_sql
+    assert "LIMIT %(limit)s OFFSET %(offset)s" in list_sql
+
+
 def test_list_queued_communications_filters_due_records(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -4,6 +4,7 @@ import {
   listClientCommunications,
   getCommunicationById,
   getCommunicationByProviderMessageId,
+  listCommunications,
   listQueuedCommunications,
   updateCommunicationStatus,
   updateCommunicationStatusByProviderMessageId,
@@ -157,6 +158,29 @@ describe('communications API', () => {
       expect(client.apiGet).toHaveBeenCalledWith(
         '/api/communications/queued?limit=50&status=failed&createdFrom=2026-04-01T00%3A00%3A00.000Z&createdTo=2026-04-02T00%3A00%3A00.000Z&recipient=example.com&subject=verification&client=clt_1&sender=usr_1'
       )
+    })
+  })
+
+  describe('listCommunications', () => {
+    it('should list communications with pagination and filters', async () => {
+      const mockResponse: PaginatedResponse<Communication> = {
+        data: [mockComm],
+        pagination: { limit: 10, offset: 20, total: 101 },
+      }
+
+      vi.spyOn(client, 'apiGet').mockResolvedValue(mockResponse)
+
+      const result = await listCommunications({
+        limit: 10,
+        offset: 20,
+        status: 'sent',
+        recipient: 'example.com',
+      })
+
+      expect(client.apiGet).toHaveBeenCalledWith(
+        '/api/communications?limit=10&offset=20&status=sent&recipient=example.com'
+      )
+      expect(result).toEqual(mockResponse)
     })
   })
 

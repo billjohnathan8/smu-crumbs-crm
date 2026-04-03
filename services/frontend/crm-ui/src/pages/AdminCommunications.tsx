@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import {
-  listQueuedCommunications,
+  listCommunications,
   getCommunicationById,
   listClientCommunications,
-  type ListQueuedCommunicationsParams,
+  type ListCommunicationsParams,
 } from '@/api/communications'
 import type { Communication, CommunicationStatus } from '@/api/types'
 import { ApiError } from '@/api/client'
@@ -30,6 +30,7 @@ const statusColors: Record<CommunicationStatus, string> = {
   failed: 'bg-danger/20 text-danger',
 }
 const COMMUNICATION_LOOKUP_TIMEOUT_MS = 15000
+const COMMUNICATIONS_PER_PAGE = 10
 type FilterStatus = CommunicationStatus | 'all'
 
 type CommunicationFilters = {
@@ -43,7 +44,7 @@ type CommunicationFilters = {
 }
 
 const DEFAULT_FILTERS: CommunicationFilters = {
-  status: 'queued',
+  status: 'all',
   createdFrom: '',
   createdTo: '',
   recipient: '',
@@ -62,7 +63,11 @@ export function AdminCommunications() {
 
   const [communications, setCommunications] = useState<Communication[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isTableLoading, setIsTableLoading] = useState(false)
+  const [hasLoadedList, setHasLoadedList] = useState(false)
   const [error, setError] = useState('')
+  const [totalCommunications, setTotalCommunications] = useState(0)
+  const [currentPage, setCurrentPage] = useState(0)
 
   const [clientNameLookup, setClientNameLookup] = useState('')
   const [clientLookupResult, setClientLookupResult] = useState<Communication | null>(null)
@@ -84,8 +89,12 @@ export function AdminCommunications() {
     return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString()
   }
 
-  const buildQueuedParams = (filters: CommunicationFilters): ListQueuedCommunicationsParams => ({
-    limit: 200,
+  const buildListParams = (
+    filters: CommunicationFilters,
+    page: number
+  ): ListCommunicationsParams => ({
+    limit: COMMUNICATIONS_PER_PAGE,
+    offset: page * COMMUNICATIONS_PER_PAGE,
     status: filters.status === 'all' ? undefined : filters.status,
     createdFrom: toIsoDateTime(filters.createdFrom),
     createdTo: toIsoDateTime(filters.createdTo),
@@ -95,13 +104,22 @@ export function AdminCommunications() {
     sender: filters.sender.trim() || undefined,
   })
 
-  const fetchQueued = async (filters: CommunicationFilters = activeFilters) => {
-    setIsLoading(true)
+  const fetchCommunications = async (
+    filters: CommunicationFilters = activeFilters,
+    page: number = currentPage,
+    useTableLoading = true
+  ) => {
+    if (useTableLoading) {
+      setIsTableLoading(true)
+    } else {
+      setIsLoading(true)
+    }
     setError('')
 
     try {
-      const response = await listQueuedCommunications(buildQueuedParams(filters))
+      const response = await listCommunications(buildListParams(filters, page))
       setCommunications(response.data)
+      setTotalCommunications(response.pagination?.total || 0)
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
@@ -118,7 +136,12 @@ export function AdminCommunications() {
         setError(err instanceof ApiError ? err.message : 'Failed to load communications')
       }
     } finally {
-      setIsLoading(false)
+      if (useTableLoading) {
+        setIsTableLoading(false)
+      } else {
+        setIsLoading(false)
+        setHasLoadedList(true)
+      }
     }
   }
 
@@ -132,17 +155,17 @@ export function AdminCommunications() {
       }
     }
     setFilterError('')
+    setCurrentPage(0)
     setActiveFilters(filterDraft)
     setShowFilterDropdown(false)
-    await fetchQueued(filterDraft)
   }
 
-  const handleClearFilters = async () => {
+  const handleClearFilters = () => {
     setFilterError('')
     setFilterDraft(DEFAULT_FILTERS)
+    setCurrentPage(0)
     setActiveFilters(DEFAULT_FILTERS)
     setShowFilterDropdown(false)
-    await fetchQueued(DEFAULT_FILTERS)
   }
 
   const activeFilterCount = [
@@ -161,9 +184,16 @@ export function AdminCommunications() {
       return
     }
 
-    fetchQueued()
+    fetchCommunications(activeFilters, currentPage, hasLoadedList)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canAccessCommunications])
+  }, [canAccessCommunications, currentPage, activeFilters])
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(totalCommunications / COMMUNICATIONS_PER_PAGE))
+    if (currentPage > totalPages - 1) {
+      setCurrentPage(totalPages - 1)
+    }
+  }, [currentPage, totalCommunications])
 
   const handleCommLookup = async () => {
     if (!commLookupId.trim()) return
@@ -401,11 +431,11 @@ export function AdminCommunications() {
         <CommunicationsPanel
           communications={communications}
           formatDate={formatDateTime}
-          title="Queued Communications"
+          title="All Communications"
           titleAsHeading={false}
-          emptyMessage="No queued communications found"
-          onRefresh={fetchQueued}
-          isRefreshing={isLoading}
+          emptyMessage="No communications found"
+          onRefresh={() => fetchCommunications(activeFilters, currentPage, true)}
+          isRefreshing={isTableLoading}
           headerActions={
             <div className="relative">
               <button
@@ -541,6 +571,46 @@ export function AdminCommunications() {
           }
           editableStatuses
         />
+        {Math.ceil(totalCommunications / COMMUNICATIONS_PER_PAGE) > 1 && (
+          <div className="rounded-lg bg-card px-6 py-4 border border-border flex items-center justify-between">
+            <p className="text-sm text-text-muted">
+              Showing {currentPage * COMMUNICATIONS_PER_PAGE + 1} to{' '}
+              {Math.min((currentPage + 1) * COMMUNICATIONS_PER_PAGE, totalCommunications)} of{' '}
+              {totalCommunications} communications
+            </p>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setCurrentPage(page => page - 1)}
+                disabled={currentPage === 0 || isTableLoading}
+                className={`px-3 py-1 rounded ${
+                  currentPage === 0 || isTableLoading
+                    ? 'bg-background-light text-text-muted cursor-not-allowed'
+                    : 'bg-primary hover:bg-primary-hover text-white'
+                }`}
+              >
+                Previous
+              </button>
+              <span className="px-3 py-1 text-text">
+                Page {currentPage + 1} of {Math.ceil(totalCommunications / COMMUNICATIONS_PER_PAGE)}
+              </span>
+              <button
+                onClick={() => setCurrentPage(page => page + 1)}
+                disabled={
+                  currentPage >= Math.ceil(totalCommunications / COMMUNICATIONS_PER_PAGE) - 1 ||
+                  isTableLoading
+                }
+                className={`px-3 py-1 rounded ${
+                  currentPage >= Math.ceil(totalCommunications / COMMUNICATIONS_PER_PAGE) - 1 ||
+                  isTableLoading
+                    ? 'bg-background-light text-text-muted cursor-not-allowed'
+                    : 'bg-primary hover:bg-primary-hover text-white'
+                }`}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </main>
     </SidebarLayout>
   )

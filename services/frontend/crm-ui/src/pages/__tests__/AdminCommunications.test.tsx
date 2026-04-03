@@ -62,7 +62,7 @@ describe('AdminCommunications', () => {
       pagination: { limit: 200, offset: 0, total: 0 },
     }
 
-    vi.mocked(communicationsApi.listQueuedCommunications).mockResolvedValue(mockResponse)
+    vi.mocked(communicationsApi.listCommunications).mockResolvedValue(mockResponse)
 
     renderPage()
 
@@ -71,28 +71,28 @@ describe('AdminCommunications', () => {
     })
   })
 
-  it('should show empty state when no queued communications', async () => {
+  it('should show empty state when no communications', async () => {
     const mockResponse: PaginatedResponse<Communication> = {
       data: [],
-      pagination: { limit: 200, offset: 0, total: 0 },
+      pagination: { limit: 10, offset: 0, total: 0 },
     }
 
-    vi.mocked(communicationsApi.listQueuedCommunications).mockResolvedValue(mockResponse)
+    vi.mocked(communicationsApi.listCommunications).mockResolvedValue(mockResponse)
 
     renderPage()
 
     await waitFor(() => {
-      expect(screen.getByText(/No queued communications found/i)).toBeInTheDocument()
+      expect(screen.getByText(/No communications found/i)).toBeInTheDocument()
     })
   })
 
-  it('should display queued communications in table', async () => {
+  it('should display communications in table', async () => {
     const mockResponse: PaginatedResponse<Communication> = {
       data: [mockComm],
-      pagination: { limit: 200, offset: 0, total: 1 },
+      pagination: { limit: 10, offset: 0, total: 1 },
     }
 
-    vi.mocked(communicationsApi.listQueuedCommunications).mockResolvedValue(mockResponse)
+    vi.mocked(communicationsApi.listCommunications).mockResolvedValue(mockResponse)
 
     renderPage()
 
@@ -104,7 +104,7 @@ describe('AdminCommunications', () => {
   })
 
   it('should show loading state', () => {
-    vi.mocked(communicationsApi.listQueuedCommunications).mockImplementation(
+    vi.mocked(communicationsApi.listCommunications).mockImplementation(
       () => new Promise(() => {})
     )
 
@@ -115,7 +115,7 @@ describe('AdminCommunications', () => {
 
   it('should show error when API call fails', async () => {
     const error = new ApiError(500, 'server_error', 'Failed to load communications')
-    vi.mocked(communicationsApi.listQueuedCommunications).mockRejectedValue(error)
+    vi.mocked(communicationsApi.listCommunications).mockRejectedValue(error)
 
     renderPage()
 
@@ -130,7 +130,7 @@ describe('AdminCommunications', () => {
       pagination: { limit: 200, offset: 0, total: 0 },
     }
 
-    vi.mocked(communicationsApi.listQueuedCommunications).mockResolvedValue(mockResponse)
+    vi.mocked(communicationsApi.listCommunications).mockResolvedValue(mockResponse)
 
     renderPage()
 
@@ -146,7 +146,7 @@ describe('AdminCommunications', () => {
       pagination: { limit: 200, offset: 0, total: 0 },
     }
 
-    vi.mocked(communicationsApi.listQueuedCommunications).mockResolvedValue(mockResponse)
+    vi.mocked(communicationsApi.listCommunications).mockResolvedValue(mockResponse)
 
     renderPage()
 
@@ -162,7 +162,7 @@ describe('AdminCommunications', () => {
       pagination: { limit: 200, offset: 0, total: 0 },
     }
 
-    vi.mocked(communicationsApi.listQueuedCommunications).mockResolvedValue(mockResponse)
+    vi.mocked(communicationsApi.listCommunications).mockResolvedValue(mockResponse)
 
     renderPage()
 

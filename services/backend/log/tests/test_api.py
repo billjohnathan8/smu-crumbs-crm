@@ -211,6 +211,36 @@ class FakeLogService:
         total = len(rows)
         return rows[offset : offset + limit], total
 
+    def list_all_communications(
+        self,
+        limit: int,
+        offset: int,
+        status: str | None = None,
+        created_from=None,
+        created_to=None,
+        recipient: str | None = None,
+        subject: str | None = None,
+        client_id: str | None = None,
+        user_id: str | None = None,
+    ):
+        rows = list(self.communications)
+        if status:
+            rows = [r for r in rows if r["status"] == status]
+        if created_from is not None:
+            rows = [r for r in rows if r["created_at"] >= created_from]
+        if created_to is not None:
+            rows = [r for r in rows if r["created_at"] <= created_to]
+        if recipient:
+            rows = [r for r in rows if recipient.lower() in r["to_email"].lower()]
+        if subject:
+            rows = [r for r in rows if subject.lower() in r["subject"].lower()]
+        if client_id:
+            rows = [r for r in rows if client_id.lower() in r["client_id"].lower()]
+        if user_id:
+            rows = [r for r in rows if user_id.lower() in r["user_id"].lower()]
+        total = len(rows)
+        return rows[offset : offset + limit], total
+
     def list_queued_communications(
         self,
         limit: int,
@@ -1020,6 +1050,77 @@ def test_queued_communications_supports_admin_filters() -> None:
     assert filtered_body is not None
     assert len(filtered_body["data"]) == 1
     assert filtered_body["data"][0]["clientId"] == "clt_alpha"
+
+
+def test_list_all_communications_supports_admin_pagination_and_filters() -> None:
+    secret = "test-secret"
+    service = FakeLogService()
+    router = _make_router(service, secret=secret)
+
+    first_id = service.create_communication(
+        CreateCommunicationRequest(
+            clientId="clt_alpha",
+            userId="usr_1",
+            toEmail="alpha@example.com",
+            subject="Verification Alpha",
+            body="Body",
+            channel="email",
+        )
+    )
+    second_id = service.create_communication(
+        CreateCommunicationRequest(
+            clientId="clt_beta",
+            userId="usr_2",
+            toEmail="beta@example.com",
+            subject="Verification Beta",
+            body="Body",
+            channel="email",
+        )
+    )
+    service.communications[first_id - 1]["status"] = "sent"
+    service.communications[first_id - 1]["created_at"] = datetime(2026, 4, 1, tzinfo=timezone.utc)
+    service.communications[second_id - 1]["created_at"] = datetime(
+        2026, 4, 2, tzinfo=timezone.utc
+    )
+
+    admin_token = mint_token("usr_admin", "admin", secret)
+    list_ok, list_ok_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "GET",
+            "/api/communications",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            query={
+                "limit": "1",
+                "offset": "0",
+                "status": "sent",
+                "recipient": "alpha@",
+                "subject": "verification",
+                "client": "alpha",
+                "sender": "usr_1",
+                "createdFrom": "2026-04-01T00:00:00Z",
+                "createdTo": "2026-04-01T23:59:59Z",
+            },
+        ),
+    )
+    user_token = mint_token("usr_1", "user", secret)
+    list_forbidden, list_forbidden_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "GET",
+            "/api/communications",
+            headers={"Authorization": f"Bearer {user_token}"},
+        ),
+    )
+
+    assert list_ok["statusCode"] == 200
+    assert list_ok_body is not None
+    assert list_ok_body["pagination"]["total"] == 1
+    assert len(list_ok_body["data"]) == 1
+    assert list_ok_body["data"][0]["clientId"] == "clt_alpha"
+    assert list_forbidden["statusCode"] == 403
+    assert list_forbidden_body is not None
+    assert list_forbidden_body["error"] == "forbidden"
 
 
 def test_create_communication_missing_row_returns_500() -> None:

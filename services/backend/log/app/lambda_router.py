@@ -104,6 +104,20 @@ class _ListQueuedCommunicationsQuery(BaseModel):
     sender: str | None = None
 
 
+class _ListAllCommunicationsQuery(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    limit: int = 50
+    offset: int = 0
+    status: CommunicationStatus | None = None
+    createdFrom: datetime | None = None
+    createdTo: datetime | None = None
+    recipient: str | None = None
+    subject: str | None = None
+    client: str | None = None
+    sender: str | None = None
+
+
 class _ListCommunicationsQuery(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -473,6 +487,8 @@ class LambdaRouter:
 
         if method == "POST" and path == "/api/communications":
             return self._create_communication(request)
+        if method == "GET" and path == "/api/communications":
+            return self._list_communications(request)
         if method == "GET" and path == "/api/communications/queued":
             return self._list_queued_communications(request)
 
@@ -893,6 +909,32 @@ class LambdaRouter:
         payload = {
             "data": [self._to_communication(row) for row in rows],
             "pagination": Pagination(limit=limit, offset=0, total=len(rows)).model_dump(
+                mode="json"
+            ),
+        }
+        return RoutedResponse(200, payload)
+
+    def _list_communications(self, request: NormalizedRequest) -> RoutedResponse:
+        user = self._require_user(request)
+        require_roles(user, {"admin"})
+
+        query = self._parse_query(_ListAllCommunicationsQuery, request)
+        limit, offset = self._clamp_limit_offset(query.limit, query.offset)
+
+        rows, total = self._service.list_all_communications(
+            limit=limit,
+            offset=offset,
+            status=query.status.value if query.status else None,
+            created_from=query.createdFrom,
+            created_to=query.createdTo,
+            recipient=query.recipient,
+            subject=query.subject,
+            client_id=query.client,
+            user_id=query.sender,
+        )
+        payload = {
+            "data": [self._to_communication(row) for row in rows],
+            "pagination": Pagination(limit=limit, offset=offset, total=total).model_dump(
                 mode="json"
             ),
         }

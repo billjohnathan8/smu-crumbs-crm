@@ -99,6 +99,22 @@ describe('ViewTransactionsPage', () => {
     })
   })
 
+  it('shows pagination at the bottom when total spans multiple pages', async () => {
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: [],
+      pagination: { limit: 20, offset: 0, total: 25 },
+    })
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByText('No transactions found')).toBeInTheDocument()
+      expect(screen.getByText('Showing 1 to 20 of 25 transactions')).toBeInTheDocument()
+      expect(screen.getByText('Page 1 of 2')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Next' })).toBeInTheDocument()
+    })
+  })
+
   it('logs out on unauthorized transaction listing response', async () => {
     vi.spyOn(transactionsApi, 'listTransactions').mockRejectedValue(
       new ApiError(401, 'unauthorized', 'Unauthorized')

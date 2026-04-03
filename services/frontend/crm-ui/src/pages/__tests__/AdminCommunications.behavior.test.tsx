@@ -84,7 +84,7 @@ describe('AdminCommunications behavior', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockUseAuth.mockReturnValue({ user: adminUser, logout: mockLogout })
-    vi.mocked(communicationsApi.listQueuedCommunications).mockResolvedValue(queuedResponse)
+    vi.mocked(communicationsApi.listCommunications).mockResolvedValue(queuedResponse)
     vi.mocked(clientsApi.listClients).mockResolvedValue({
       data: [],
       pagination: { limit: 5, offset: 0, total: 0 },
@@ -100,7 +100,7 @@ describe('AdminCommunications behavior', () => {
     renderPage()
 
     await waitFor(() => {
-      expect(communicationsApi.listQueuedCommunications).not.toHaveBeenCalled()
+      expect(communicationsApi.listCommunications).not.toHaveBeenCalled()
     })
   })
 
@@ -110,12 +110,12 @@ describe('AdminCommunications behavior', () => {
     renderPage()
 
     await waitFor(() => {
-      expect(communicationsApi.listQueuedCommunications).not.toHaveBeenCalled()
+      expect(communicationsApi.listCommunications).not.toHaveBeenCalled()
     })
   })
 
   it('shows fallback service-unavailable message for 5xx without API message', async () => {
-    vi.mocked(communicationsApi.listQueuedCommunications).mockRejectedValue(
+    vi.mocked(communicationsApi.listCommunications).mockRejectedValue(
       new ApiError(500, 'server_error', '')
     )
 
@@ -129,7 +129,7 @@ describe('AdminCommunications behavior', () => {
   })
 
   it('shows generic load error for non-api failures', async () => {
-    vi.mocked(communicationsApi.listQueuedCommunications).mockRejectedValue(new Error('network'))
+    vi.mocked(communicationsApi.listCommunications).mockRejectedValue(new Error('network'))
 
     renderPage()
 
@@ -139,7 +139,7 @@ describe('AdminCommunications behavior', () => {
   })
 
   it('shows generic load error for non-5xx ApiError with empty message', async () => {
-    vi.mocked(communicationsApi.listQueuedCommunications).mockRejectedValue(
+    vi.mocked(communicationsApi.listCommunications).mockRejectedValue(
       new ApiError(400, 'bad_request', '')
     )
 
@@ -151,7 +151,7 @@ describe('AdminCommunications behavior', () => {
   })
 
   it('logs out when initial list returns 401', async () => {
-    vi.mocked(communicationsApi.listQueuedCommunications).mockRejectedValue(
+    vi.mocked(communicationsApi.listCommunications).mockRejectedValue(
       new ApiError(401, 'unauthorized', 'Unauthorized')
     )
 
@@ -380,9 +380,9 @@ describe('AdminCommunications behavior', () => {
     expect(screen.getByRole('button', { name: 'Looking up...' })).toBeInTheDocument()
   })
 
-  it('applies table filters from dropdown and calls queued communications with params', async () => {
+  it('applies table filters from dropdown and calls communications list with params', async () => {
     const user = userEvent.setup()
-    vi.mocked(communicationsApi.listQueuedCommunications).mockResolvedValue(queuedResponse)
+    vi.mocked(communicationsApi.listCommunications).mockResolvedValue(queuedResponse)
 
     renderPage()
 
@@ -394,8 +394,9 @@ describe('AdminCommunications behavior', () => {
     await user.click(screen.getByRole('button', { name: 'Apply' }))
 
     await waitFor(() => {
-      expect(communicationsApi.listQueuedCommunications).toHaveBeenLastCalledWith({
-        limit: 200,
+      expect(communicationsApi.listCommunications).toHaveBeenLastCalledWith({
+        limit: 10,
+        offset: 0,
         status: 'failed',
         createdFrom: undefined,
         createdTo: undefined,
@@ -405,5 +406,39 @@ describe('AdminCommunications behavior', () => {
         sender: undefined,
       })
     })
+  })
+
+  it('supports paginating communications list', async () => {
+    const user = userEvent.setup()
+    vi.mocked(communicationsApi.listCommunications)
+      .mockResolvedValueOnce({
+        data: [baseCommunication],
+        pagination: { limit: 10, offset: 0, total: 25 },
+      })
+      .mockResolvedValueOnce({
+        data: [{ ...baseCommunication, communicationId: 'com_2', subject: 'Second page row' }],
+        pagination: { limit: 10, offset: 10, total: 25 },
+      })
+
+    renderPage()
+
+    await screen.findByText('Page 1 of 3')
+    await user.click(screen.getByRole('button', { name: 'Next' }))
+
+    await waitFor(() => {
+      expect(communicationsApi.listCommunications).toHaveBeenLastCalledWith({
+        limit: 10,
+        offset: 10,
+        status: undefined,
+        createdFrom: undefined,
+        createdTo: undefined,
+        recipient: undefined,
+        subject: undefined,
+        client: undefined,
+        sender: undefined,
+      })
+    })
+    expect(screen.getByText('Page 2 of 3')).toBeInTheDocument()
+    expect(screen.getByText('Second page row')).toBeInTheDocument()
   })
 })

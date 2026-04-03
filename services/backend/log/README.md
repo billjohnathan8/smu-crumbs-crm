@@ -42,6 +42,7 @@ It runs as a direct API Gateway proxy Lambda (`lambda_function.lambda_handler`) 
 | `GET` | `/api/aml/alerts/{alertId}` | Get AML alert |
 | `PUT` | `/api/aml/alerts/{alertId}/review` | Review (approve/dismiss) AML alert |
 | `POST` | `/api/communications` | Create communication record |
+| `GET` | `/api/communications` | List communications (paginated, filterable) |
 | `GET` | `/api/communications/queued` | List queued communications |
 | `GET` | `/api/communications/{communicationId}` | Get communication |
 | `PATCH` | `/api/communications/{communicationId}/status` | Update communication status |

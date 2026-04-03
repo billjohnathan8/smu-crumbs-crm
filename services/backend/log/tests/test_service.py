@@ -49,6 +49,10 @@ class FakeRepository:
     def list_communications(self, **kwargs):
         return ([{"id": 3}], 1)
 
+    def list_all_communications(self, **kwargs):
+        self.list_all_communications_kwargs = kwargs
+        return ([{"id": 4}], 2)
+
     def list_queued_communications(self, **kwargs):
         self.list_queued_kwargs = kwargs
         return [{"id": 8, "status": "queued"}]
@@ -128,6 +132,7 @@ def test_update_and_list_delegates_to_repository() -> None:
     )
     communications, comm_total = service.list_communications(5, 0, "clt_1", "usr_1")
     queued = service.list_queued_communications(20)
+    all_communications, all_total = service.list_all_communications(10, 5, status="sent")
 
     assert total == 1
     assert listed[0]["id"] == 1
@@ -141,6 +146,10 @@ def test_update_and_list_delegates_to_repository() -> None:
     assert communications[0]["id"] == 3
     assert queued[0]["status"] == "queued"
     assert repo.list_queued_kwargs["status"] == "queued"
+    assert all_total == 2
+    assert all_communications[0]["id"] == 4
+    assert repo.list_all_communications_kwargs["offset"] == 5
+    assert repo.list_all_communications_kwargs["status"] == "sent"
 
 
 def test_update_communication_status_delegates() -> None:
