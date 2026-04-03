@@ -114,7 +114,7 @@ Use `services/backend/user/.env.example` as the baseline local/dev template.
 | `SERVER_PORT` | `8080` | HTTP server port |
 | `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/crm` | Database URL |
 | `SPRING_DATASOURCE_USERNAME` | `crm_app` | Database username |
-| `SPRING_DATASOURCE_PASSWORD` | `devpassword` | Database password |
+| `SPRING_DATASOURCE_PASSWORD` | _(set in env / `.env.local`)_ | Database password |
 | `APP_USER_STORE_TYPE` | `postgres` | User store backend (`postgres` for local/integration runtime) |
 | `LOG_SERVICE_URL` | `http://localhost:4566/restapis/<api-id>/local/_user_request_` | Lambda-backed log API URL for audit events |
 | `SPRING_PROFILES_ACTIVE` | _(unset)_ | Use `local` for local/integration test helper routes; do not enable in prod/lab profiles |

@@ -5,18 +5,21 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 ACTION="${1:-}"
 
+if [[ -n "${ACTION}" && "${ACTION}" != "-h" && "${ACTION}" != "--help" && "${ACTION}" != "help" ]]; then
+  : "${LOCAL_DB_PASSWORD:?Missing LOCAL_DB_PASSWORD (repo root .env.local — see .env.example)}"
+fi
+
 LOCAL_DB_HOST="${LOCAL_DB_HOST:-localhost}"
 LOCAL_DB_PORT="${LOCAL_DB_PORT:-5432}"
 LOCAL_DB_NAME="${LOCAL_DB_NAME:-crm}"
 LOCAL_DB_USER="${LOCAL_DB_USER:-crm_app}"
-LOCAL_DB_PASSWORD="${LOCAL_DB_PASSWORD:-devpassword}"
 DB_DOCKER_NETWORK="${DB_DOCKER_NETWORK:-}"
 
 USER_BASE_URL="${USER_BASE_URL:-http://127.0.0.1:18081}"
 ROOT_ADMIN_EMAIL="${ROOT_ADMIN_EMAIL:-admin@crm.com}"
-ROOT_ADMIN_PASSWORD="${ROOT_ADMIN_PASSWORD:-Scrooge@Bank2026!}"
+ROOT_ADMIN_PASSWORD="${ROOT_ADMIN_PASSWORD:-}"
 SEED_USER_EMAIL="${SEED_USER_EMAIL:-agent1@crm.com}"
-SEED_AGENT_PASSWORD="${SEED_AGENT_PASSWORD:-UserPass123!}"
+SEED_AGENT_PASSWORD="${SEED_AGENT_PASSWORD:-}"
 
 FLYWAY_IMAGE="${FLYWAY_IMAGE:-flyway/flyway:10}"
 POSTGRES_IMAGE="${POSTGRES_IMAGE:-postgres:16-alpine}"
@@ -212,6 +215,11 @@ migrate_all() {
 }
 
 seed_data() {
+  if [[ -z "${ROOT_ADMIN_PASSWORD:-}" || -z "${SEED_AGENT_PASSWORD:-}" ]]; then
+    echo "[FAIL] ROOT_ADMIN_PASSWORD and SEED_AGENT_PASSWORD must be set (e.g. export E2E_ADMIN_PASSWORD and E2E_USER_PASSWORD; see repo root .env.example)." >&2
+    exit 1
+  fi
+
   local login_response
   local admin_access_token
   local create_status

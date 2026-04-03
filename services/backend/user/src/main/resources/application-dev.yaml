@@ -1,8 +1,8 @@
 app:
   jwt:
-    hmac-secret: ${JWT_HMAC_SECRET:dev-only-insecure-secret}
+    hmac-secret: ${JWT_HMAC_SECRET:}
   root-admin:
     email: ${ROOT_ADMIN_EMAIL:admin@crm.com}
-    password: ${ROOT_ADMIN_PASSWORD:Scrooge@Bank2026!}
+    password: ${ROOT_ADMIN_PASSWORD:}
   user-store:
     type: ${APP_USER_STORE_TYPE:postgres}

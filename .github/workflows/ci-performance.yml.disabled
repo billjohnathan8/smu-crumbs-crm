@@ -120,6 +120,13 @@ jobs:
           chmod +x scripts/performance/run-100-threads.sh
           chmod +x platform/localstack/init/01-setup.sh
 
+      - name: Generate ephemeral local secrets for stack-up
+        run: |
+          echo "LOCAL_DB_PASSWORD=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
+          echo "JWT_HMAC_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "E2E_ADMIN_PASSWORD=$(openssl rand -hex 16)Aa1!Xx" >> "$GITHUB_ENV"
+          echo "E2E_USER_PASSWORD=$(openssl rand -hex 16)Bb2!Yy" >> "$GITHUB_ENV"
+
       - name: Start local dev stack
         timeout-minutes: 15
         env:
@@ -128,7 +135,6 @@ jobs:
           AWS_DEFAULT_REGION: ap-southeast-1
           LOCAL_DB_NAME: crm
           LOCAL_DB_USER: crm_app
-          LOCAL_DB_PASSWORD: devpassword
         run: |
           echo "[INFO] Starting local dev stack..."
           bash scripts/dev/stack-up.sh

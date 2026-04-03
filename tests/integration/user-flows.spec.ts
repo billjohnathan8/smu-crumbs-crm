@@ -13,9 +13,10 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { requireE2eEnv } from "./helpers/e2eEnv.js";
 
 const USER_EMAIL = (process.env.E2E_USER_EMAIL ?? "agent1@crm.com").trim();
-const USER_PASSWORD = (process.env.E2E_USER_PASSWORD ?? "UserPass123!").trim();
+const USER_PASSWORD = requireE2eEnv("E2E_USER_PASSWORD");
 
 test.describe("User Flow (Integration)", () => {
   test.beforeEach(async ({ page, context }) => {

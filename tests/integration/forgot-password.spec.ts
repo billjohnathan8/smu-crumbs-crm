@@ -13,9 +13,10 @@
  */
 
 import { test, expect, request as playwrightRequest } from '@playwright/test'
+import { requireE2eEnv } from './helpers/e2eEnv.js'
 
 const ROOT_ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? 'admin@crm.com'
-const ROOT_ADMIN_OLD_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'Scrooge@Bank2026!'
+const ROOT_ADMIN_OLD_PASSWORD = requireE2eEnv('E2E_ADMIN_PASSWORD')
 const ROOT_ADMIN_NEW_PASSWORD = process.env.E2E_ADMIN_NEW_PASSWORD ?? 'AdminReset123!'
 
 async function login(page: import('@playwright/test').Page, email: string, password: string) {

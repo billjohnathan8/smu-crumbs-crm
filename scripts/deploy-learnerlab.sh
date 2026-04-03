@@ -289,8 +289,12 @@ run_checked "Validating AWS credentials..." aws sts get-caller-identity
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 ok "Authenticated. Account ID: $ACCOUNT_ID"
 
-# Set Terraform secret
-export TF_VAR_root_admin_password="Scrooge@Bank2026!"
+# Root admin password for Terraform (not committed; prompt if unset)
+if [[ -z "${TF_VAR_root_admin_password:-}" ]]; then
+  read -rsp "TF_VAR_root_admin_password (root admin password for Terraform): " TF_VAR_root_admin_password
+  echo
+fi
+export TF_VAR_root_admin_password
 
 # Compute ECR values
 REGISTRY="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com"
@@ -572,7 +576,7 @@ echo "  Logs directory:  $RUN_DIR"
 echo ""
 echo "  Login credentials:"
 echo "    Email:    admin@crm.com"
-echo "    Password: Scrooge@Bank2026!"
+echo "    Password: (the TF_VAR_root_admin_password you configured for this deploy)"
 echo ""
 
 if [[ "$ALL_HEALTHY" == "false" ]]; then

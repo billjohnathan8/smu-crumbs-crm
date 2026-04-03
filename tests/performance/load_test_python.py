@@ -11,6 +11,7 @@ Usage:
 """
 import concurrent.futures
 import json
+import os
 import time
 import statistics
 import random
@@ -98,9 +99,14 @@ class AgentCRUDWorkflow:
 
     def _login(self) -> TestResult:
         """Login as admin (has permission to create clients)"""
+        password = os.environ.get("E2E_ADMIN_PASSWORD", "").strip()
+        if not password:
+            raise RuntimeError(
+                "Set E2E_ADMIN_PASSWORD in the environment (see repository .env.example)."
+            )
         payload = {
             "email": "admin@crm.com",
-            "password": "Scrooge@Bank2026!"
+            "password": password,
         }
         status, elapsed, error, resp = self._make_request("POST", "/api/auth/login", payload)
         success = 200 <= status < 300

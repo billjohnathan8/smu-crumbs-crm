@@ -1,6 +1,6 @@
 spring:
   datasource:
-    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:devpassword}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:}}
 
 app:
   verification-email:
@@ -8,4 +8,4 @@ app:
     dispatch:
       enabled: ${VERIFICATION_EMAIL_DISPATCH_ENABLED:false}
   jwt:
-    hmac-secret: ${JWT_HMAC_SECRET:dev-only-insecure-secret}
+    hmac-secret: ${JWT_HMAC_SECRET:}

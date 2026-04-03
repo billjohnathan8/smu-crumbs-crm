@@ -50,8 +50,8 @@ The app calls relative `/api/*` paths.
 
 ## Test Credentials
 
-Integration defaults:
-- Admin: `admin@crm.com` / `Scrooge@Bank2026!`
-- User: `agent1@crm.com` / `UserPass123!`
+Integration defaults (set `E2E_ADMIN_PASSWORD` and `E2E_USER_PASSWORD` if you need fixed values; otherwise see `scripts/dev/stack-up.sh`):
+- Admin: `admin@crm.com`
+- User: `agent1@crm.com`
 
 Frontend latency tests (E2E with mocked backend) may use different fixture credentials (`admin@example.com`, `user@example.com`).

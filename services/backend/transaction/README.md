@@ -90,7 +90,7 @@ Sample local env:
 ```bash
 export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/crm
 export SPRING_DATASOURCE_USERNAME=crm_app
-export SPRING_DATASOURCE_PASSWORD=devpassword
+export SPRING_DATASOURCE_PASSWORD="$LOCAL_DB_PASSWORD"
 export APP_TRANSACTIONS_STORE_TYPE=postgres
 export MOCK_SFTP_ROOT=./mock-sftp
 export TRANSACTION_SFTP_REMOTE_DIR=.

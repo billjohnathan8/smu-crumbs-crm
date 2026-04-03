@@ -7,14 +7,28 @@
 # Usage (from repo root):
 #   bash scripts/dev/stack-up.sh
 #
+# Loads repo-root .env.local via scripts/dev/load-repo-env.sh and passes it to
+# docker compose as --env-file so Compose file interpolation sees the same values.
+#
 # Teardown:
 #   bash scripts/dev/stack-down.sh
 
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck disable=SC1091
+source "${ROOT_DIR}/scripts/dev/load-repo-env.sh"
+load_repo_env "${ROOT_DIR}"
+: "${LOCAL_DB_PASSWORD:?Missing LOCAL_DB_PASSWORD (repo root .env.local — see .env.example)}"
+: "${JWT_HMAC_SECRET:?Missing JWT_HMAC_SECRET (repo root .env.local — see .env.example)}"
 COMPOSE_FILE="${ROOT_DIR}/scripts/ci/fullstack-integration.compose.yml"
 COMPOSE_PROJECT="crm-fullstack-it-local"
+# Compose interpolates ${VAR} from .env (default) — not .env.local. Pass through so warnings
+# disappear and secrets match stack-up's sourced env (reliable on Windows/Git Bash).
+COMPOSE_ENV_ARGS=()
+if [[ -f "${ROOT_DIR}/.env.local" ]]; then
+  COMPOSE_ENV_ARGS=(--env-file "${ROOT_DIR}/.env.local")
+fi
 LOG_DIR="${ROOT_DIR}/build-logs/dev-stack"
 LOCALSTACK_ENDPOINT="http://127.0.0.1:14566"
 LOG_LAMBDA_NAME="scroogebank-crm-dev-log-service"
@@ -35,7 +49,6 @@ export LOCAL_DB_HOST=postgres
 export LOCAL_DB_PORT=5432
 export LOCAL_DB_NAME="${LOCAL_DB_NAME:-crm}"
 export LOCAL_DB_USER="${LOCAL_DB_USER:-crm_app}"
-export LOCAL_DB_PASSWORD="${LOCAL_DB_PASSWORD:-devpassword}"
 export SES_SENDER_EMAIL="${SES_SENDER_EMAIL:-verification@crm.local}"
 export VERIFICATION_DOCUMENTS_BUCKET="${VERIFICATION_DOCUMENTS_BUCKET:-scroogebank-crm-dev-verification}"
 export VERIFICATION_SNS_TOPIC_ARN="${VERIFICATION_SNS_TOPIC_ARN:-arn:aws:sns:ap-southeast-1:000000000000:${VERIFICATION_SNS_TOPIC_NAME}}"
@@ -168,7 +181,7 @@ deploy_log_lambda() {
   local zip_arg
   zip_arg="$(make_zip_arg "${LOG_DIR}/log-lambda.zip")"
 
-  local env_vars="Variables={DB_HOST=${LOCAL_DB_HOST},DB_PORT=${LOCAL_DB_PORT},DB_NAME=${LOCAL_DB_NAME},DB_USER=${LOCAL_DB_USER},DB_PASSWORD=${LOCAL_DB_PASSWORD},JWT_HMAC_SECRET=dev-only-insecure-secret,AWS_DEFAULT_REGION=ap-southeast-1,AWS_ENDPOINT_URL=http://localstack:4566,CLIENT_SERVICE_URL=http://client-service:8080}"
+  local env_vars="Variables={DB_HOST=${LOCAL_DB_HOST},DB_PORT=${LOCAL_DB_PORT},DB_NAME=${LOCAL_DB_NAME},DB_USER=${LOCAL_DB_USER},DB_PASSWORD=${LOCAL_DB_PASSWORD},JWT_HMAC_SECRET=${JWT_HMAC_SECRET},AWS_DEFAULT_REGION=ap-southeast-1,AWS_ENDPOINT_URL=http://localstack:4566,CLIENT_SERVICE_URL=http://client-service:8080}"
 
   if aws_local lambda get-function --function-name "${LOG_LAMBDA_NAME}" >/dev/null 2>&1; then
     aws_local lambda update-function-code \
@@ -336,7 +349,7 @@ deploy_verification_lambda() {
   # Lambdas with LAMBDA_EXECUTOR=local run inside LocalStack — use localhost, not service hostname
   local lambda_internal_log_url
   lambda_internal_log_url="$(echo "${log_service_url}" | sed 's#localstack:4566#localhost:4566#g')"
-  local env_vars="Variables={SES_SOURCE_EMAIL=${SES_SENDER_EMAIL},FRONTEND_BASE_URL=http://127.0.0.1:18088,LOG_API_BASE_URL=${lambda_internal_log_url},VERIFICATION_JWT_HMAC_SECRET=dev-only-insecure-secret,VERIFICATION_JWT_SUB=SYSTEM_VERIFICATION_FEEDBACK,VERIFICATION_JWT_ROLE=admin,VERIFICATION_JWT_TTL_SECONDS=300}"
+  local env_vars="Variables={SES_SOURCE_EMAIL=${SES_SENDER_EMAIL},FRONTEND_BASE_URL=http://127.0.0.1:18088,LOG_API_BASE_URL=${lambda_internal_log_url},VERIFICATION_JWT_HMAC_SECRET=${JWT_HMAC_SECRET},VERIFICATION_JWT_SUB=SYSTEM_VERIFICATION_FEEDBACK,VERIFICATION_JWT_ROLE=admin,VERIFICATION_JWT_TTL_SECONDS=300}"
 
   if aws_local lambda get-function --function-name "${VERIFICATION_LAMBDA_NAME}" >/dev/null 2>&1; then
     aws_local lambda update-function-code \
@@ -380,7 +393,7 @@ deploy_verification_lambda() {
 deploy_sftp_transaction_collector() {
   local zip_arg
   zip_arg="$(make_zip_arg "${LOG_DIR}/sftp-transaction-collector.zip")"
-  local env_vars="Variables={TRANSACTION_SFTP_BUCKET=scroogebank-crm-dev-transaction-sftp,TRANSACTION_SFTP_PREFIX=incoming/,TRANSACTION_IMPORT_URL=http://transaction-service:8080/api/transactions/import,TRANSACTION_IMPORT_JWT_HMAC_SECRET=dev-only-insecure-secret,TRANSACTION_IMPORT_JWT_SUB=SYSTEM_TRANSACTION_INGESTION,TRANSACTION_IMPORT_JWT_ROLE=admin,TRANSACTION_IMPORT_JWT_TTL_SECONDS=300}"
+  local env_vars="Variables={TRANSACTION_SFTP_BUCKET=scroogebank-crm-dev-transaction-sftp,TRANSACTION_SFTP_PREFIX=incoming/,TRANSACTION_IMPORT_URL=http://transaction-service:8080/api/transactions/import,TRANSACTION_IMPORT_JWT_HMAC_SECRET=${JWT_HMAC_SECRET},TRANSACTION_IMPORT_JWT_SUB=SYSTEM_TRANSACTION_INGESTION,TRANSACTION_IMPORT_JWT_ROLE=admin,TRANSACTION_IMPORT_JWT_TTL_SECONDS=300}"
 
   if aws_local lambda get-function --function-name "${SFTP_TRANSACTION_COLLECTOR_NAME}" >/dev/null 2>&1; then
     aws_local lambda update-function-code \
@@ -433,7 +446,7 @@ echo "[OK] All JARs built"
 echo ""
 echo "=== Phase 2: Starting infra + packaging Lambdas + building Docker images ==="
 CLIENT_LOG_SERVICE_URL=placeholder LOG_API_UPSTREAM=placeholder VERIFICATION_SNS_TOPIC_ARN=placeholder VERIFICATION_DOCUMENTS_BUCKET=placeholder \
-  docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT}" up -d postgres localstack &
+  docker compose "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT}" up -d postgres localstack &
 INFRA_PID=$!
 package_log_lambda > /dev/null &
 PKGLOG_PID=$!
@@ -446,7 +459,7 @@ PKGTXN_PID=$!
 # CLIENT_LOG_SERVICE_URL / LOG_API_UPSTREAM / VERIFICATION_* env vars are
 # runtime-only (not Docker build ARGs), so placeholder values are safe here.
 CLIENT_LOG_SERVICE_URL=placeholder LOG_API_UPSTREAM=placeholder VERIFICATION_SNS_TOPIC_ARN=placeholder VERIFICATION_DOCUMENTS_BUCKET=placeholder \
-  docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT}" build \
+  docker compose "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT}" build \
     user-service client-service transaction-service frontend integration-gateway \
   > "${LOG_DIR}/docker-build.log" 2>&1 &
 DOCKER_BUILD_PID=$!
@@ -503,6 +516,8 @@ echo "[OK] Transaction ingestion Lambda deployed"
 
 echo ""
 echo "=== Phase 5: Starting application services ==="
+: "${E2E_ADMIN_PASSWORD:?Missing E2E_ADMIN_PASSWORD (copy .env.example to repo root .env.local and set E2E_ADMIN_PASSWORD / E2E_USER_PASSWORD)}"
+: "${E2E_USER_PASSWORD:?Missing E2E_USER_PASSWORD}"
 echo "  Waiting for Docker images (background build)..."
 if ! wait $DOCKER_BUILD_PID; then
   echo "[FAIL] Docker image build failed — see ${LOG_DIR}/docker-build.log" >&2
@@ -514,7 +529,7 @@ CLIENT_LOG_SERVICE_URL="${LOG_SERVICE_URL}" \
 LOG_API_UPSTREAM="${LOG_SERVICE_URL}" \
 VERIFICATION_SNS_TOPIC_ARN="${VERIFICATION_SNS_TOPIC_ARN}" \
 VERIFICATION_DOCUMENTS_BUCKET="${VERIFICATION_DOCUMENTS_BUCKET}" \
-docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT}" up -d \
+docker compose "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT}" up -d \
   user-service client-service transaction-service frontend integration-gateway
 
 # ---------------------------------------------------------------------------
@@ -537,9 +552,9 @@ echo ""
 echo "=== Phase 7: Seeding baseline principals ==="
 USER_BASE_URL="http://127.0.0.1:18081" \
 ROOT_ADMIN_EMAIL="${E2E_ADMIN_EMAIL:-admin@crm.com}" \
-ROOT_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}" \
+ROOT_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD}" \
 SEED_USER_EMAIL="agent1@crm.com" \
-SEED_AGENT_PASSWORD="${E2E_USER_PASSWORD:-UserPass123!}" \
+SEED_AGENT_PASSWORD="${E2E_USER_PASSWORD}" \
 bash "${ROOT_DIR}/scripts/db/run-shared-postgres.sh" seed
 echo "[OK] Seeded"
 
@@ -558,6 +573,6 @@ echo "  frontend (static)   http://127.0.0.1:18085"
 echo ""
 echo "Root Admin Credentials:"
 echo "    username:         admin@crm.com"
-echo "    default_password: Scrooge@Bank2026!"
+echo "    password:         (from E2E_ADMIN_PASSWORD in your environment / .env.local)"
 echo ""
 echo "Teardown: bash scripts/dev/stack-down.sh"

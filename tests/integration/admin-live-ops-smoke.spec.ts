@@ -6,9 +6,10 @@ import {
   loginAsSeedAdmin,
 } from "./helpers/dataFactory";
 import { uniqueId } from "./helpers/testData";
+import { requireE2eEnv } from "./helpers/e2eEnv.js";
 
 const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.com").trim();
-const ADMIN_PASSWORD = (process.env.E2E_ADMIN_PASSWORD ?? "Scrooge@Bank2026!").trim();
+const ADMIN_PASSWORD = requireE2eEnv("E2E_ADMIN_PASSWORD");
 
 interface AccountListResponse {
   data: Array<{

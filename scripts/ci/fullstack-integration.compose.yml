@@ -14,7 +14,7 @@ services:
     environment:
       POSTGRES_DB: ${LOCAL_DB_NAME:-crm}
       POSTGRES_USER: ${LOCAL_DB_USER:-crm_app}
-      POSTGRES_PASSWORD: ${LOCAL_DB_PASSWORD:-devpassword}
+      POSTGRES_PASSWORD: ${LOCAL_DB_PASSWORD}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${LOCAL_DB_USER:-crm_app} -d ${LOCAL_DB_NAME:-crm}"]
       interval: 5s
@@ -31,6 +31,9 @@ services:
       - AWS_DEFAULT_REGION=ap-southeast-1
       # local executor: simpler, no Docker-in-Docker needed in CI
       - LAMBDA_EXECUTOR=local
+      - LOCAL_DB_PASSWORD=${LOCAL_DB_PASSWORD}
+      - JWT_HMAC_SECRET=${JWT_HMAC_SECRET}
+      - E2E_ADMIN_PASSWORD=${E2E_ADMIN_PASSWORD}
     volumes:
       - "../../platform/localstack/init:/etc/localstack/init/ready.d"
       - "/var/run/docker.sock:/var/run/docker.sock"
@@ -48,13 +51,13 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${LOCAL_DB_NAME:-crm}
       SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-crm_app}
-      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASSWORD:-devpassword}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASSWORD}
       SPRING_PROFILES_ACTIVE: local
       APP_USER_STORE_TYPE: postgres
       AUTH_MODE: local
-      JWT_HMAC_SECRET: dev-only-insecure-secret
+      JWT_HMAC_SECRET: ${JWT_HMAC_SECRET}
       ROOT_ADMIN_EMAIL: ${E2E_ADMIN_EMAIL:-admin@crm.com}
-      ROOT_ADMIN_PASSWORD: ${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}
+      ROOT_ADMIN_PASSWORD: ${E2E_ADMIN_PASSWORD}
       AWS_REGION: ap-southeast-1
       AWS_COGNITO_ENDPOINT_URL: http://localstack:4566
       AWS_ACCESS_KEY_ID: test
@@ -74,13 +77,13 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${LOCAL_DB_NAME:-crm}
       SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-crm_app}
-      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASSWORD:-devpassword}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASSWORD}
       SPRING_PROFILES_ACTIVE: local
       LOCALSTACK_ENDPOINT: http://localstack:4566
       # Lambda-backed log API endpoint (provisioned by run-fullstack-integration-e2e.sh)
       CLIENT_LOG_SERVICE_URL: ${CLIENT_LOG_SERVICE_URL}
       AUTH_MODE: local
-      JWT_HMAC_SECRET: dev-only-insecure-secret
+      JWT_HMAC_SECRET: ${JWT_HMAC_SECRET}
       VERIFICATION_SNS_TOPIC_ARN: ${VERIFICATION_SNS_TOPIC_ARN}
       VERIFICATION_DOCUMENTS_BUCKET: ${VERIFICATION_DOCUMENTS_BUCKET}
       VERIFICATION_EMAIL_PROVIDER: ${VERIFICATION_EMAIL_PROVIDER:-mock}
@@ -104,12 +107,12 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${LOCAL_DB_NAME:-crm}
       SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-crm_app}
-      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASSWORD:-devpassword}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASSWORD}
       APP_TRANSACTIONS_STORE_TYPE: postgres
       CLIENT_SERVICE_URL: http://client-service:8080
       TRANSACTION_LOG_SERVICE_URL: ${LOG_SERVICE_URL}
       AUTH_MODE: local
-      JWT_HMAC_SECRET: dev-only-insecure-secret
+      JWT_HMAC_SECRET: ${JWT_HMAC_SECRET}
       TRANSACTION_UPDATES_ENABLED: "true"
       TRANSACTION_SFTP_POLL_ENABLED: "true"
       TRANSACTION_SFTP_POLL_FIXED_DELAY_MS: "5000"

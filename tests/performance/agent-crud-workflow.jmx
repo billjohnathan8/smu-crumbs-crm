@@ -15,7 +15,7 @@
           </elementProp>
           <elementProp name="ADMIN_PASSWORD" elementType="Argument">
             <stringProp name="Argument.name">ADMIN_PASSWORD</stringProp>
-            <stringProp name="Argument.value">Scrooge@Bank2026!</stringProp>
+            <stringProp name="Argument.value">${__ENV(E2E_ADMIN_PASSWORD)}</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="ASSIGNED_USER_ID" elementType="Argument">

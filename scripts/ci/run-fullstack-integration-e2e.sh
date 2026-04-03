@@ -2,6 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck disable=SC1091
+source "${ROOT_DIR}/scripts/dev/load-repo-env.sh"
+load_repo_env "${ROOT_DIR}"
 COMPOSE_FILE="${ROOT_DIR}/scripts/ci/fullstack-integration.compose.yml"
 LOG_ROOT="${ROOT_DIR}/build-logs/fullstack-integration"
 FRONTEND_DIR="${ROOT_DIR}/services/frontend/crm-ui"
@@ -56,7 +59,6 @@ export LOCAL_DB_PORT="${LOCAL_DB_PORT:-5432}"
 export LOCAL_DB_HOST_PORT="${LOCAL_DB_HOST_PORT:-15432}"
 export LOCAL_DB_NAME="${LOCAL_DB_NAME:-crm}"
 export LOCAL_DB_USER="${LOCAL_DB_USER:-crm_app}"
-export LOCAL_DB_PASSWORD="${LOCAL_DB_PASSWORD:-devpassword}"
 LOCALSTACK_ENDPOINT="http://127.0.0.1:14566"
 LOG_LAMBDA_FUNCTION_NAME="scroogebank-crm-dev-log-service"
 LOG_HTTP_API_NAME="scroogebank-crm-dev-log-http-api-it"
@@ -81,6 +83,11 @@ export VERIFICATION_EMAIL_PROVIDER="${VERIFICATION_EMAIL_PROVIDER:-mock}"
 export SES_SENDER_EMAIL="${SES_SENDER_EMAIL:-verification@crm.local}"
 export VERIFICATION_DOCUMENTS_BUCKET="${VERIFICATION_DOCUMENTS_BUCKET:-scroogebank-crm-dev-verification}"
 export VERIFICATION_SNS_TOPIC_ARN="${VERIFICATION_SNS_TOPIC_ARN:-arn:aws:sns:ap-southeast-1:000000000000:${VERIFICATION_SNS_TOPIC_NAME}}"
+
+: "${E2E_ADMIN_PASSWORD:?Missing E2E_ADMIN_PASSWORD (set repo root .env.local — see .env.example, or rely on CI-generated env)}"
+: "${E2E_USER_PASSWORD:?Missing E2E_USER_PASSWORD}"
+: "${LOCAL_DB_PASSWORD:?Missing LOCAL_DB_PASSWORD (set repo root .env.local — see .env.example, or CI-generated env)}"
+: "${JWT_HMAC_SECRET:?Missing JWT_HMAC_SECRET}"
 
 # Set safe defaults so compose parsing works for `down` before dynamic provisioning.
 export LOG_SERVICE_URL="${LOG_SERVICE_URL:-http://localstack:4566}"
@@ -573,8 +580,8 @@ run_gradle_db_test() {
     VERIFICATION_EMAIL_PROVIDER=mock
     AWS_REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-ap-southeast-1}}"
     VERIFICATION_EMAIL_AWS_REGION="${VERIFICATION_EMAIL_AWS_REGION:-${AWS_REGION:-${AWS_DEFAULT_REGION:-ap-southeast-1}}}"
-    JWT_HMAC_SECRET=dev-only-insecure-secret
-    APP_JWT_HMAC_SECRET=dev-only-insecure-secret
+    JWT_HMAC_SECRET="${JWT_HMAC_SECRET}"
+    APP_JWT_HMAC_SECRET="${JWT_HMAC_SECRET}"
     APP_MOCK_SFTP_ROOT=build/mock-sftp
     APP_CLIENT_SERVICE_URL=http://localhost:8080
     DB_HOST=127.0.0.1
@@ -1056,7 +1063,7 @@ deploy_log_lambda() {
   if [[ "${AWS_IS_WINDOWS}" == "true" ]]; then
     zip_arg="fileb://$(to_windows_path "${zip_path}")"
   fi
-  local env_vars="Variables={DB_HOST=${LOCAL_DB_HOST},DB_PORT=${LOCAL_DB_PORT},DB_NAME=${LOCAL_DB_NAME},DB_USER=${LOCAL_DB_USER},DB_PASSWORD=${LOCAL_DB_PASSWORD},JWT_HMAC_SECRET=dev-only-insecure-secret,AWS_DEFAULT_REGION=ap-southeast-1,AWS_ENDPOINT_URL=http://localstack:4566,CLIENT_SERVICE_URL=http://client-service:8080}"
+  local env_vars="Variables={DB_HOST=${LOCAL_DB_HOST},DB_PORT=${LOCAL_DB_PORT},DB_NAME=${LOCAL_DB_NAME},DB_USER=${LOCAL_DB_USER},DB_PASSWORD=${LOCAL_DB_PASSWORD},JWT_HMAC_SECRET=${JWT_HMAC_SECRET},AWS_DEFAULT_REGION=ap-southeast-1,AWS_ENDPOINT_URL=http://localstack:4566,CLIENT_SERVICE_URL=http://client-service:8080}"
 
   if aws_local lambda get-function --function-name "${LOG_LAMBDA_FUNCTION_NAME}" >/dev/null 2>&1; then
     aws_local lambda update-function-code \
@@ -1155,7 +1162,7 @@ deploy_verification_feedback_lambda() {
   fi
 
   lambda_internal_log_url="$(echo "${LOG_SERVICE_URL}" | sed 's#localstack:4566#localhost:4566#g')"
-  local env_vars="Variables={SES_SOURCE_EMAIL=${SES_SENDER_EMAIL},FRONTEND_BASE_URL=${PLAYWRIGHT_BASE_URL},LOG_API_BASE_URL=${lambda_internal_log_url},VERIFICATION_JWT_HMAC_SECRET=dev-only-insecure-secret,VERIFICATION_JWT_SUB=SYSTEM_VERIFICATION_FEEDBACK,VERIFICATION_JWT_ROLE=admin,VERIFICATION_JWT_TTL_SECONDS=300}"
+  local env_vars="Variables={SES_SOURCE_EMAIL=${SES_SENDER_EMAIL},FRONTEND_BASE_URL=${PLAYWRIGHT_BASE_URL},LOG_API_BASE_URL=${lambda_internal_log_url},VERIFICATION_JWT_HMAC_SECRET=${JWT_HMAC_SECRET},VERIFICATION_JWT_SUB=SYSTEM_VERIFICATION_FEEDBACK,VERIFICATION_JWT_ROLE=admin,VERIFICATION_JWT_TTL_SECONDS=300}"
 
   if aws_local lambda get-function --function-name "${VERIFICATION_LAMBDA_FUNCTION_NAME}" >/dev/null 2>&1; then
     aws_local lambda update-function-code \
@@ -1228,7 +1235,7 @@ deploy_verification_feedback_lambda() {
 deploy_sftp_transaction_collector() {
   local zip_path="${LOG_DIR}/sftp-transaction-collector.zip"
   local zip_arg="fileb://${zip_path}"
-  local env_vars="Variables={TRANSACTION_SFTP_BUCKET=scroogebank-crm-dev-transaction-sftp,TRANSACTION_SFTP_PREFIX=incoming/,TRANSACTION_IMPORT_URL=http://transaction-service:8080/api/transactions/import,TRANSACTION_IMPORT_JWT_HMAC_SECRET=dev-only-insecure-secret,TRANSACTION_IMPORT_JWT_SUB=SYSTEM_TRANSACTION_INGESTION,TRANSACTION_IMPORT_JWT_ROLE=admin,TRANSACTION_IMPORT_JWT_TTL_SECONDS=300}"
+  local env_vars="Variables={TRANSACTION_SFTP_BUCKET=scroogebank-crm-dev-transaction-sftp,TRANSACTION_SFTP_PREFIX=incoming/,TRANSACTION_IMPORT_URL=http://transaction-service:8080/api/transactions/import,TRANSACTION_IMPORT_JWT_HMAC_SECRET=${JWT_HMAC_SECRET},TRANSACTION_IMPORT_JWT_SUB=SYSTEM_TRANSACTION_INGESTION,TRANSACTION_IMPORT_JWT_ROLE=admin,TRANSACTION_IMPORT_JWT_TTL_SECONDS=300}"
 
   if [[ "${AWS_IS_WINDOWS}" == "true" ]]; then
     zip_arg="fileb://$(to_windows_path "${zip_path}")"
@@ -1772,11 +1779,10 @@ mint_jwt() {
   local subject="$1"
   local role="$2"
 
-  ${PYTHON_CMD} - "${subject}" "${role}" <<'PY'
+  ${PYTHON_CMD} - "${subject}" "${role}" "${JWT_HMAC_SECRET}" <<'PY'
 import base64, hashlib, hmac, json, sys, time
 
-subject, role = sys.argv[1], sys.argv[2]
-secret = "dev-only-insecure-secret"
+subject, role, secret = sys.argv[1], sys.argv[2], sys.argv[3]
 header  = {"alg": "HS256", "typ": "JWT"}
 payload = {"sub": subject, "role": role,
            "iat": int(time.time()), "exp": int(time.time()) + 3600}
@@ -1797,11 +1803,10 @@ PY
 mint_verification_token() {
   local client_id="$1"
 
-  ${PYTHON_CMD} - "${client_id}" <<'PY'
+  ${PYTHON_CMD} - "${client_id}" "${JWT_HMAC_SECRET}" <<'PY'
 import base64, hashlib, hmac, json, sys, time, uuid
 
-client_id = sys.argv[1]
-secret = "dev-only-insecure-secret"
+client_id, secret = sys.argv[1], sys.argv[2]
 header = {"alg": "HS256", "typ": "JWT"}
 payload = {"clientId": client_id, "exp": int(time.time()) + 7200, "jti": str(uuid.uuid4())}
 
@@ -1958,9 +1963,9 @@ end_phase
 start_phase "Phase 3b: Seed baseline principals"
 USER_BASE_URL="http://127.0.0.1:18081" \
 ROOT_ADMIN_EMAIL="${E2E_ADMIN_EMAIL:-admin@crm.com}" \
-ROOT_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}" \
+ROOT_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD}" \
 SEED_USER_EMAIL="agent1@crm.com" \
-SEED_AGENT_PASSWORD="${E2E_USER_PASSWORD:-UserPass123!}" \
+SEED_AGENT_PASSWORD="${E2E_USER_PASSWORD}" \
 bash "${DB_ORCHESTRATOR_SCRIPT}" seed \
   >> "${LOG_DIR}/docker-compose.log" 2>&1
 end_phase
@@ -1980,9 +1985,9 @@ end_phase
 start_phase "Phase 3d: Re-seed baseline principals"
 USER_BASE_URL="http://127.0.0.1:18081" \
 ROOT_ADMIN_EMAIL="${E2E_ADMIN_EMAIL:-admin@crm.com}" \
-ROOT_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}" \
+ROOT_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD}" \
 SEED_USER_EMAIL="agent1@crm.com" \
-SEED_AGENT_PASSWORD="${E2E_USER_PASSWORD:-UserPass123!}" \
+SEED_AGENT_PASSWORD="${E2E_USER_PASSWORD}" \
 bash "${DB_ORCHESTRATOR_SCRIPT}" seed \
   >> "${LOG_DIR}/docker-compose.log" 2>&1
 end_phase
@@ -2654,8 +2659,8 @@ if [[ "${FULLSTACK_MODE}" == "full" || "${FULLSTACK_MODE}" == "pr" ]]; then
     PLAYWRIGHT_EXTERNAL_BASE_URL=true \
     PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
     E2E_ADMIN_EMAIL="${E2E_ADMIN_EMAIL:-admin@crm.com}" \
-    E2E_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}" \
-    E2E_USER_PASSWORD="${E2E_USER_PASSWORD:-UserPass123!}" \
+    E2E_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD}" \
+    E2E_USER_PASSWORD="${E2E_USER_PASSWORD}" \
     E2E_TRANSACTION_IMPORT_SOURCE_PATH="${E2E_TRANSACTION_IMPORT_SOURCE_PATH_VALUE}" \
     "${playwright_cmd[@]}"
   elif command -v cmd.exe >/dev/null 2>&1; then
@@ -2663,9 +2668,9 @@ if [[ "${FULLSTACK_MODE}" == "full" || "${FULLSTACK_MODE}" == "pr" ]]; then
     cmd.exe /c "cd /d ${win_integration_dir} && npm.cmd ci"
     cmd.exe /c "cd /d ${win_integration_dir} && npx.cmd playwright install chromium"
     if [[ ${#PLAYWRIGHT_SPEC_ARGS[@]} -gt 0 ]]; then
-      cmd.exe /c "cd /d ${win_integration_dir} && set PLAYWRIGHT_EXTERNAL_BASE_URL=true&& set PLAYWRIGHT_BASE_URL=${PLAYWRIGHT_BASE_URL}&& set E2E_ADMIN_EMAIL=${E2E_ADMIN_EMAIL:-admin@crm.com}&& set E2E_ADMIN_PASSWORD=${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}&& set E2E_USER_PASSWORD=${E2E_USER_PASSWORD:-UserPass123!}&& set E2E_TRANSACTION_IMPORT_SOURCE_PATH=${E2E_TRANSACTION_IMPORT_SOURCE_PATH_VALUE}&& npx.cmd playwright test ${PLAYWRIGHT_SPEC_ARGS[*]}"
+      cmd.exe /c "cd /d ${win_integration_dir} && set PLAYWRIGHT_EXTERNAL_BASE_URL=true&& set PLAYWRIGHT_BASE_URL=${PLAYWRIGHT_BASE_URL}&& set E2E_ADMIN_EMAIL=${E2E_ADMIN_EMAIL:-admin@crm.com}&& set E2E_ADMIN_PASSWORD=${E2E_ADMIN_PASSWORD}&& set E2E_USER_PASSWORD=${E2E_USER_PASSWORD}&& set E2E_TRANSACTION_IMPORT_SOURCE_PATH=${E2E_TRANSACTION_IMPORT_SOURCE_PATH_VALUE}&& npx.cmd playwright test ${PLAYWRIGHT_SPEC_ARGS[*]}"
     else
-      cmd.exe /c "cd /d ${win_integration_dir} && set PLAYWRIGHT_EXTERNAL_BASE_URL=true&& set PLAYWRIGHT_BASE_URL=${PLAYWRIGHT_BASE_URL}&& set E2E_ADMIN_EMAIL=${E2E_ADMIN_EMAIL:-admin@crm.com}&& set E2E_ADMIN_PASSWORD=${E2E_ADMIN_PASSWORD:-Scrooge@Bank2026!}&& set E2E_USER_PASSWORD=${E2E_USER_PASSWORD:-UserPass123!}&& set E2E_TRANSACTION_IMPORT_SOURCE_PATH=${E2E_TRANSACTION_IMPORT_SOURCE_PATH_VALUE}&& npm.cmd test"
+      cmd.exe /c "cd /d ${win_integration_dir} && set PLAYWRIGHT_EXTERNAL_BASE_URL=true&& set PLAYWRIGHT_BASE_URL=${PLAYWRIGHT_BASE_URL}&& set E2E_ADMIN_EMAIL=${E2E_ADMIN_EMAIL:-admin@crm.com}&& set E2E_ADMIN_PASSWORD=${E2E_ADMIN_PASSWORD}&& set E2E_USER_PASSWORD=${E2E_USER_PASSWORD}&& set E2E_TRANSACTION_IMPORT_SOURCE_PATH=${E2E_TRANSACTION_IMPORT_SOURCE_PATH_VALUE}&& npm.cmd test"
     fi
   else
     echo "[FAIL] Node.js toolchain unavailable (need node/npm/npx, or cmd.exe + npm.cmd in WSL)." >&2

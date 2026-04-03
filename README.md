@@ -33,6 +33,26 @@ On Linux/macOS/WSL, use `python3` if `python` is not available.
 
 Note: `setup_dev_env.py` can install portable CLI tools (including `inframap` and `trivy`) into `.devtools/bin`. Docker Desktop is still required for container-based workflows and Docker fallback paths.
 
+## Local environment (`.env.local`)
+
+Copy `/.env.example` to `/.env.local` at the repository root (gitignored). Set **all** variables listed there (no defaults are committed):
+
+| Variable | Purpose |
+|----------|---------|
+| `LOCAL_DB_PASSWORD` | Postgres (`crm_app`) password for Docker and Spring services |
+| `JWT_HMAC_SECRET` | Shared HS256 secret for Java services and local Lambdas |
+| `E2E_ADMIN_PASSWORD` | Root admin login + user-service seed |
+| `E2E_USER_PASSWORD` | Seeded agent user (e.g. `agent1@crm.com`) |
+
+`scripts/dev/stack-up.sh` and `scripts/ci/run-fullstack-integration-e2e.sh` source `.env.local` automatically. Integration Playwright tests and `services/frontend/crm-ui` e2e helpers read the same file via `tests/integration/helpers/repoEnv.ts` (and the crm-ui equivalent).
+
+```bash
+cp .env.example .env.local
+# Edit .env.local — all keys must be non-empty before running the stack
+```
+
+See [docs/onboarding/new-dev-setup.md](docs/onboarding/new-dev-setup.md) for the full walkthrough.
+
 # Local Dev Stack
 
 Spin up the full local stack (LocalStack, Postgres, all three Java backend services, frontend, nginx gateway, and all Lambda functions) and leave it running — no tests:
@@ -58,12 +78,7 @@ Services after startup:
 | Frontend container | http://127.0.0.1:18085 |
 | LocalStack | http://127.0.0.1:14566 |
 
-Root Admin Credentials (seeded by stack-up):
-
-```
-username:         admin@crm.com
-default_password: Scrooge@Bank2026!
-```
+Root admin email (seeded by stack-up): `admin@crm.com`. Set `E2E_ADMIN_PASSWORD` for a known password; if unset, local scripts apply dev-only defaults (see `scripts/dev/stack-up.sh`). Do not commit credential reports or real passwords.
 
 # Infrastructure Visualization
 Use these commands from repo root to visualize Terraform infrastructure:
@@ -118,25 +133,19 @@ Transaction CSV files can be ingested via three supported methods:
 - Port: `5432`
 - Database: `crm`
 - User: `crm_app`
-- Password: `devpassword`
+- Password: use `LOCAL_DB_PASSWORD` / `DB_PASSWORD` (see [docs/database_configuration.md](docs/database_configuration.md) for local defaults)
 - Runtime override vars (optional): `LOCAL_DB_NAME`, `LOCAL_DB_USER`, `LOCAL_DB_PASSWORD`
 - Full environment matrix and variable contract: [docs/database_configuration.md](docs/database_configuration.md)
 
 # Testing Credentials
-Local development/testing only. Do not use these values for production deployments.
+Local development/testing only. Do not use committed defaults for production.
 
 ## Frontend
-Root admin Email: admin@crm.com
-Password: Scrooge@Bank2026!
-
-User Account Email: agent1@crm.com
-Password: UserPass123!
+- Root admin: `admin@crm.com` — set `E2E_ADMIN_PASSWORD` (or rely on dev defaults from `scripts/dev/stack-up.sh` when unset).
+- Sample user: `agent1@crm.com` — set `E2E_USER_PASSWORD` the same way.
 
 ## Database (Project-wide)
-Created shared DB + user in Postgres:
-DB: crm
-User: crm_app
-Password: devpassword
+Shared Postgres (`crm` / `crm_app`): configure via `LOCAL_DB_PASSWORD` and related vars; see [docs/database_configuration.md](docs/database_configuration.md).
 
 ## Configuration Reference
 - Central config contract: [docs/database_configuration.md](docs/database_configuration.md)

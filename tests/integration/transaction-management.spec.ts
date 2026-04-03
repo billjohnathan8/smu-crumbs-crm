@@ -21,10 +21,11 @@ import {
   type Page,
 } from "@playwright/test";
 import { waitForImportBatchTerminalState } from "./helpers/polling";
+import { requireE2eEnv } from "./helpers/e2eEnv.js";
 
 const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.com").trim();
-const ADMIN_PASSWORD = (process.env.E2E_ADMIN_PASSWORD ?? "Scrooge@Bank2026!").trim();
-const USER_PASSWORD = (process.env.E2E_USER_PASSWORD ?? "UserPass123!").trim();
+const ADMIN_PASSWORD = requireE2eEnv("E2E_ADMIN_PASSWORD");
+const USER_PASSWORD = requireE2eEnv("E2E_USER_PASSWORD");
 
 type ImportBatchStatus = "queued" | "running" | "completed" | "failed";
 

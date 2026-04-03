@@ -17,8 +17,6 @@ permissions:
 
 env:
   E2E_ADMIN_EMAIL: admin@crm.local
-  E2E_ADMIN_PASSWORD: admin123
-  E2E_USER_PASSWORD: UserPass123!
   PLAYWRIGHT_BASE_URL: http://127.0.0.1:18088
   VERIFICATION_EMAIL_PROVIDER: ses
   SES_SENDER_EMAIL: verification@crm.local
@@ -71,6 +69,14 @@ jobs:
             --start-transaction-id 9000 \
             --start-date 2026-01-01 \
             --end-date 2026-01-31
+
+      - name: Set ephemeral E2E passwords for this run
+        timeout-minutes: 1
+        run: |
+          echo "E2E_ADMIN_PASSWORD=$(openssl rand -hex 16)Aa1!Xx" >> "$GITHUB_ENV"
+          echo "E2E_USER_PASSWORD=$(openssl rand -hex 16)Bb2!Yy" >> "$GITHUB_ENV"
+          echo "LOCAL_DB_PASSWORD=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
+          echo "JWT_HMAC_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
 
       - name: Run containerized fullstack integration tests
         timeout-minutes: 35

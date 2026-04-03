@@ -101,7 +101,7 @@ Use `services/backend/client/.env.example` as the baseline local/dev template.
 | `SERVER_PORT` | `8080` | HTTP server port |
 | `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/crm` | Database URL |
 | `SPRING_DATASOURCE_USERNAME` | `crm_app` | Database username |
-| `SPRING_DATASOURCE_PASSWORD` | `devpassword` | Database password |
+| `SPRING_DATASOURCE_PASSWORD` | _(set in env / `.env.local`)_ | Database password |
 | `CLIENT_LOG_SERVICE_URL` | `http://localhost:4566/restapis/<api-id>/local/_user_request_` | Canonical Lambda-backed log API URL for audit and communication APIs |
 | `LOG_SERVICE_URL` | same as above | Backward-compatible fallback for `CLIENT_LOG_SERVICE_URL` |
 | `VERIFICATION_SNS_TOPIC_ARN` | *(empty)* | SNS topic ARN used by `POST /api/clients` to publish verification-email requests |

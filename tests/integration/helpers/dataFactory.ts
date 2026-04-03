@@ -1,10 +1,11 @@
 import { type APIRequestContext } from "@playwright/test";
 import { authHeaders, expectOkJson, loginViaApi, type TokenResponse } from "./apiClient";
+import { requireE2eEnv } from "./e2eEnv.js";
 import { uniqueEmail } from "./testData";
 
 const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.com").trim();
-const ADMIN_PASSWORD = (process.env.E2E_ADMIN_PASSWORD ?? "Scrooge@Bank2026!").trim();
-const USER_PASSWORD = (process.env.E2E_USER_PASSWORD ?? "UserPass123!").trim();
+const ADMIN_PASSWORD = requireE2eEnv("E2E_ADMIN_PASSWORD");
+const USER_PASSWORD = requireE2eEnv("E2E_USER_PASSWORD");
 
 type UserRole = "admin" | "user";
 

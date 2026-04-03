@@ -9,7 +9,8 @@
 # What is NOT replicated locally (see docs/infrastructure/localstack-setup.md):
 #   VPC, NAT Gateway, ALB, CloudFront, WAF, ACM, Route53, CloudTrail, ECS Fargate
 #
-# Usage:
+# Usage (from repo root; load .env.local first — see .env.example):
+#   set -a && source .env.local && set +a
 #   docker compose -f docker-compose.localstack.yml up -d
 #   docker compose -f docker-compose.localstack.yml down -v   # full teardown
 
@@ -23,6 +24,9 @@ services:
       - SERVICES=sqs,dynamodb,s3,lambda,sns,ses,secretsmanager
       - DEFAULT_REGION=ap-southeast-1
       - AWS_DEFAULT_REGION=ap-southeast-1
+      - LOCAL_DB_PASSWORD=${LOCAL_DB_PASSWORD}
+      - JWT_HMAC_SECRET=${JWT_HMAC_SECRET}
+      - E2E_ADMIN_PASSWORD=${E2E_ADMIN_PASSWORD}
       # LAMBDA_EXECUTOR=local runs Lambda invocations as subprocesses inside
       # the LocalStack container. No Docker socket required, and avoids the
       # 4+ minute Docker executor init delay on Windows/Docker Desktop that
@@ -48,7 +52,7 @@ services:
     environment:
       POSTGRES_DB: ${LOCAL_DB_NAME:-crm}
       POSTGRES_USER: ${LOCAL_DB_USER:-crm_app}
-      POSTGRES_PASSWORD: ${LOCAL_DB_PASSWORD:-devpassword}
+      POSTGRES_PASSWORD: ${LOCAL_DB_PASSWORD}
     volumes:
       - crm-pgdata:/var/lib/postgresql/data
     healthcheck:

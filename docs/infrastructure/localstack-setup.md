@@ -12,7 +12,10 @@ LocalStack emulates AWS services used by the stack (SQS, DynamoDB, S3, Lambda, S
 
 ## 1. Start LocalStack + Postgres
 
+Export secrets from repo root `.env.local` (see [../onboarding/new-dev-setup.md](../onboarding/new-dev-setup.md) and root `.env.example`). **Required** for this compose file: `LOCAL_DB_PASSWORD`, `JWT_HMAC_SECRET`, and `E2E_ADMIN_PASSWORD` (LocalStack init seeds Secrets Manager and must match Postgres).
+
 ```bash
+set -a && source .env.local && set +a   # Bash; on PowerShell, set each variable or use a dotenv loader
 docker compose -f docker-compose.localstack.yml up -d
 ```
 
@@ -21,13 +24,13 @@ Local Postgres contract for stateful services (`user`, `client`, `transaction`, 
 - Port: `5432`
 - Database: `crm`
 - User: `crm_app`
-- Password: `devpassword`
+- Password: value of `LOCAL_DB_PASSWORD` (not committed)
 - Canonical environment matrix and variable contract: [../database_configuration.md](../database_configuration.md)
 
 Optional overrides when launching compose:
 
 ```bash
-LOCAL_DB_NAME=crm LOCAL_DB_USER=crm_app LOCAL_DB_PASSWORD=devpassword docker compose -f docker-compose.localstack.yml up -d
+LOCAL_DB_NAME=crm LOCAL_DB_USER=crm_app LOCAL_DB_PASSWORD="$LOCAL_DB_PASSWORD" docker compose -f docker-compose.localstack.yml up -d
 ```
 
 Health check:
@@ -99,12 +102,7 @@ Tear down:
 bash scripts/dev/stack-down.sh
 ```
 
-Root Admin Credentials (seeded by stack-up):
-
-```
-username:         admin@crm.com
-default_password: Scrooge@Bank2026!
-```
+Root admin email (seeded by stack-up): `admin@crm.com`. Set `E2E_ADMIN_PASSWORD` / `E2E_USER_PASSWORD` as needed; if unset, dev defaults are applied by `scripts/dev/stack-up.sh`.
 
 ## 5. Run Fullstack Integration E2E (CI / Test Pipeline)
 

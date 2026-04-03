@@ -55,7 +55,7 @@ public class JwtService {
 	public JwtService(
 		ObjectMapper objectMapper,
 		Clock clock,
-		@Value("${app.jwt.hmac-secret:dev-only-insecure-secret}") String hmacSecret,
+		@Value("${app.jwt.hmac-secret:}") String hmacSecret,
 		@Value("${app.jwt.auth-mode:hybrid}") String authMode,
 		@Value("${app.jwt.allow-hybrid:true}") boolean allowHybridAuth,
 		@Value("${app.jwt.cognito.issuer:}") String cognitoIssuer,

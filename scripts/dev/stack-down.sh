@@ -15,13 +15,17 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE_FILE="${ROOT_DIR}/scripts/ci/fullstack-integration.compose.yml"
 COMPOSE_PROJECT="crm-fullstack-it-local"
+COMPOSE_ENV_ARGS=()
+if [[ -f "${ROOT_DIR}/.env.local" ]]; then
+  COMPOSE_ENV_ARGS=(--env-file "${ROOT_DIR}/.env.local")
+fi
 LOG_DIR="${ROOT_DIR}/build-logs/dev-stack"
 AGGRESSIVE_PRUNE="${AGGRESSIVE_PRUNE:-0}"
 
 mkdir -p "${LOG_DIR}"
 
 echo "Tearing down stack..."
-docker compose -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT}" down -v --remove-orphans
+docker compose "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT}" down -v --remove-orphans
 
 remove_localstack_lambda_containers() {
   local max_attempts=6

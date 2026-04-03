@@ -300,8 +300,10 @@ Invoke-Checked "Resolving AWS account ID" {
 $ACCOUNT_ID = $script:ACCOUNT_ID
 Write-OK "Authenticated. Account ID: $ACCOUNT_ID"
 
-# Set Terraform secret
-$env:TF_VAR_root_admin_password = "Scrooge@Bank2026!"
+# Root admin password for Terraform (not committed; prompt if unset)
+if ([string]::IsNullOrWhiteSpace($env:TF_VAR_root_admin_password)) {
+    $env:TF_VAR_root_admin_password = Read-Host "TF_VAR_root_admin_password (root admin password for Terraform)"
+}
 
 # Compute ECR values
 $REGISTRY = "$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com"
@@ -687,7 +689,7 @@ Write-Host "  Logs directory:  $($script:RunDir)" -ForegroundColor White
 Write-Host ""
 Write-Host "  Login credentials:" -ForegroundColor White
 Write-Host "    Email:    admin@crm.com" -ForegroundColor White
-Write-Host "    Password: Scrooge@Bank2026!" -ForegroundColor White
+Write-Host "    Password: (the TF_VAR_root_admin_password you configured for this deploy)" -ForegroundColor White
 Write-Host ""
 
 if (-not $allHealthy) {

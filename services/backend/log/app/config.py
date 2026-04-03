@@ -81,9 +81,7 @@ def _env_or_secret(env_var: str, secret_arn_var: str, default: str | None) -> st
 
     if default is not None:
         return default
-    raise RuntimeError(
-        f"{env_var} or {secret_arn_var} must be set for non-dev environments"
-    )
+    raise RuntimeError(f"{env_var} or {secret_arn_var} must be set")
 
 
 @dataclass(frozen=True)
@@ -108,14 +106,14 @@ class Settings:
         default_factory=lambda: _env_or_secret(
             "DB_PASSWORD",
             "DB_PASSWORD_SECRET_ARN",
-            "devpassword" if _is_dev_environment() else None,
+            None,
         )
     )
     jwt_hmac_secret: str = field(
         default_factory=lambda: _env_or_secret(
             "JWT_HMAC_SECRET",
             "JWT_HMAC_SECRET_ARN",
-            "dev-only-insecure-secret" if _is_dev_environment() else None,
+            None,
         )
     )
     # Authentication mode: local (HS256 only), cognito (RS256 only), hybrid (both)

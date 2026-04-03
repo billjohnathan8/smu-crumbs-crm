@@ -37,6 +37,9 @@ on:
 permissions:
   contents: read
 
+# Ephemeral Postgres password/JWT below are CI-only (not production). GitHub Actions
+# service containers cannot consume step-generated secrets; values stay in workflow YAML.
+
 env:
   GRADLE_USER_HOME: ${{ github.workspace }}/.gradle-user-home
 

@@ -12,15 +12,15 @@ Use these variables consistently across stateful services (`user`, `client`, `tr
 | `LOCAL_DB_PORT` | Local/CI scripts | `5432` | Used by orchestration scripts. |
 | `LOCAL_DB_NAME` | Postgres container provisioning | `crm` (`crm_ci` in DB-backed component CI) | Drives `POSTGRES_DB`. |
 | `LOCAL_DB_USER` | Postgres container provisioning | `crm_app` | Drives `POSTGRES_USER`. |
-| `LOCAL_DB_PASSWORD` | Postgres container provisioning | `devpassword` | Drives `POSTGRES_PASSWORD`. |
+| `LOCAL_DB_PASSWORD` | Postgres container provisioning | _(required)_ | Set in repo root `.env.local` (see `.env.example`) or CI; drives `POSTGRES_PASSWORD`. No committed default. |
 | `DB_HOST` | App runtime (all stateful services) | `localhost` | Base host fallback for service configs. |
 | `DB_PORT` | App runtime | `5432` | Base port fallback for service configs. |
 | `DB_NAME` | App runtime | `crm` (`crm_ci` in DB-backed CI jobs) | Base DB name fallback for service configs. |
 | `DB_USER` | App runtime | `crm_app` | Base username fallback for service configs. |
-| `DB_PASSWORD` | App runtime | `devpassword` | Base password fallback for service configs. |
+| `DB_PASSWORD` | App runtime | _(required for local)_ | Set via `.env.local` / CI; no committed default in `application.yaml`. |
 | `SPRING_DATASOURCE_URL` | Spring services (`user`, `client`, `transaction`) | `jdbc:postgresql://<host>:<port>/<db>` | Optional explicit override; otherwise derived from `DB_*`. |
 | `SPRING_DATASOURCE_USERNAME` | Spring services | `crm_app` | Optional override; otherwise derived from `DB_USER`. |
-| `SPRING_DATASOURCE_PASSWORD` | Spring services | `devpassword` | Optional override; otherwise derived from `DB_PASSWORD`. |
+| `SPRING_DATASOURCE_PASSWORD` | Spring services | _(required for local)_ | Set via compose/env; derived from `DB_PASSWORD` when unset. |
 | `APP_USER_STORE_TYPE` | User service | `postgres` | Must be `postgres` for local integration/CI/prod paths. |
 | `APP_TRANSACTIONS_STORE_TYPE` | Transaction service | `postgres` | Must be `postgres` for local integration/CI/prod paths. |
 | `APP_ENV` | Log service runtime guardrail | `dev`/`test` | `prod` requires explicit secrets (direct env or `*_SECRET_ARN`). |

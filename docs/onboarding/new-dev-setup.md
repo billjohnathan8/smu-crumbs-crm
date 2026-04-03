@@ -49,7 +49,38 @@ python scripts/pipelines/setup_dev_env.py
 
 Use `python3` where required.
 
-## 3. Start local dev stack
+## 3. Local environment variables (required before stack-up)
+
+The full stack **does not** commit database or JWT secrets. Create a repo-root `.env.local` (gitignored) from the template:
+
+**Windows (PowerShell):**
+
+```powershell
+Copy-Item .env.example .env.local
+notepad .env.local
+```
+
+**macOS / Linux / Git Bash:**
+
+```bash
+cp .env.example .env.local
+${EDITOR:-nano} .env.local
+```
+
+Set **all** of these to non-empty values (use strong passwords; you can run `openssl rand -hex 24` for random strings):
+
+| Variable | Purpose |
+|----------|---------|
+| `LOCAL_DB_PASSWORD` | Postgres `crm_app` user password (Docker + Spring) |
+| `JWT_HMAC_SECRET` | Shared HS256 secret for services and local Lambdas |
+| `E2E_ADMIN_PASSWORD` | Root admin login + user-service `ROOT_ADMIN_PASSWORD` |
+| `E2E_USER_PASSWORD` | Seeded agent user (e.g. `agent1@crm.com`) |
+
+`scripts/dev/stack-up.sh` and `scripts/ci/run-fullstack-integration-e2e.sh` source `.env.local` automatically. Integration Playwright tests and `crm-ui` e2e helpers also read repo-root `.env.local`.
+
+If you only bring up **Postgres + LocalStack** (`docker compose -f docker-compose.localstack.yml`), export the same `LOCAL_DB_PASSWORD` / `JWT_HMAC_SECRET` in your shell **before** `docker compose up` so Postgres, LocalStack init, and any apps stay aligned.
+
+## 4. Start local dev stack
 
 To spin up the full local stack (LocalStack, Postgres, all backend services, frontend, gateway, and all Lambda functions) and leave it running:
 
@@ -76,12 +107,7 @@ Services after startup:
 | Frontend container | http://127.0.0.1:18085 |
 | LocalStack | http://127.0.0.1:14566 |
 
-Root Admin Credentials (seeded by stack-up):
-
-```
-username:         admin@crm.com
-default_password: Scrooge@Bank2026!
-```
+Root admin email (seeded by stack-up): `admin@crm.com`. Passwords come from `.env.local` (`E2E_ADMIN_PASSWORD`, `E2E_USER_PASSWORD`) as described in section 3.
 
 **Infra-only alternative** (LocalStack + Postgres only, no app services):
 
@@ -94,7 +120,7 @@ Database settings used across local integration flows:
 - Port: `5432`
 - Database: `crm`
 - User: `crm_app`
-- Password: `devpassword`
+- Password: `LOCAL_DB_PASSWORD` / `DB_PASSWORD` (see [docs/database_configuration.md](../database_configuration.md))
 
 Canonical config reference:
 - [../database_configuration.md](../database_configuration.md)
@@ -104,7 +130,7 @@ Canonical config reference:
   - `services/backend/transaction/.env.example`
   - `services/backend/log/.env.example`
 
-## 4. Run validation
+## 5. Run validation
 
 ```bash
 python scripts/pipelines/test_all.py
@@ -125,7 +151,7 @@ Terraform-only local pipeline (standalone):
 python scripts/pipelines/test_terraform.py
 ```
 
-## 5. Deploy to AWS Learner Lab (optional)
+## 6. Deploy to AWS Learner Lab (optional)
 
 To deploy the full application to AWS Learner Lab:
 

@@ -13,11 +13,12 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { requireE2eEnv } from "./helpers/e2eEnv.js";
 
 const USER_EMAIL = (process.env.E2E_USER_EMAIL ?? "agent1@crm.com").trim();
-const USER_PASSWORD = (process.env.E2E_USER_PASSWORD ?? "UserPass123!").trim();
+const USER_PASSWORD = requireE2eEnv("E2E_USER_PASSWORD");
 const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.com").trim();
-const ADMIN_PASSWORD = (process.env.E2E_ADMIN_PASSWORD ?? "Scrooge@Bank2026!").trim();
+const ADMIN_PASSWORD = requireE2eEnv("E2E_ADMIN_PASSWORD");
 
 test.describe("API Error Handling (Integration)", () => {
   test.beforeEach(async ({ page, context }) => {

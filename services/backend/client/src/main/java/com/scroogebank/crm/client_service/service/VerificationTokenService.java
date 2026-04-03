@@ -29,7 +29,7 @@ public class VerificationTokenService {
 
     public VerificationTokenService(
         Clock clock,
-        @Value("${app.jwt.hmac-secret:dev-only-insecure-secret}") String hmacSecret
+        @Value("${app.jwt.hmac-secret:}") String hmacSecret
     ) {
         this.clock = clock;
         this.secret = hmacSecret.getBytes(StandardCharsets.UTF_8);

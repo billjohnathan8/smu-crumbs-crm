@@ -1,4 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
+import { loadRepoEnvLocal } from './helpers/repoEnv.js';
+
+loadRepoEnvLocal();
 
 /**
  * Integration test configuration for Scroogebank CRM.

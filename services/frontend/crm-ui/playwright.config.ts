@@ -1,4 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
+import { loadRepoEnvLocal } from "./e2e/helpers/repoEnv.js";
+
+loadRepoEnvLocal();
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:4173";
 const useExternalBaseUrl = process.env.PLAYWRIGHT_EXTERNAL_BASE_URL === "true";

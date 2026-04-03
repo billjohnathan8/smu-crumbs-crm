@@ -103,9 +103,14 @@ else
 fi
 
 # --------------------------------------------------------------------------
-# Secrets Manager — seed dev secrets
+# Secrets Manager — seed dev secrets (values from LocalStack container env)
 # --------------------------------------------------------------------------
 echo "==> Seeding Secrets Manager..."
+
+if [[ -z "${LOCAL_DB_PASSWORD:-}" || -z "${JWT_HMAC_SECRET:-}" || -z "${E2E_ADMIN_PASSWORD:-}" ]]; then
+  echo "[FAIL] LOCAL_DB_PASSWORD, JWT_HMAC_SECRET, and E2E_ADMIN_PASSWORD must be set in the environment when starting LocalStack (see repo root .env.local)." >&2
+  exit 1
+fi
 
 awslocal secretsmanager create-secret \
   --name scroogebank-crm-dev/db_username \
@@ -114,17 +119,17 @@ awslocal secretsmanager create-secret \
 
 awslocal secretsmanager create-secret \
   --name scroogebank-crm-dev/db_password \
-  --secret-string "devpassword" \
+  --secret-string "${LOCAL_DB_PASSWORD}" \
   --region "${REGION}"
 
 awslocal secretsmanager create-secret \
   --name scroogebank-crm-dev/jwt_hmac \
-  --secret-string "dev-jwt-secret-do-not-use-in-prod" \
+  --secret-string "${JWT_HMAC_SECRET}" \
   --region "${REGION}"
 
 awslocal secretsmanager create-secret \
   --name scroogebank-crm-dev/root_admin_password \
-  --secret-string "devadminpassword" \
+  --secret-string "${E2E_ADMIN_PASSWORD}" \
   --region "${REGION}"
 
 # --------------------------------------------------------------------------

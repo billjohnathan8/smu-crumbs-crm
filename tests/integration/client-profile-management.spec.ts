@@ -21,11 +21,12 @@ import {
   type APIResponse,
   type Page,
 } from "@playwright/test";
+import { requireE2eEnv, requireJwtVerificationSecret } from "./helpers/e2eEnv.js";
 
 const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.com").trim();
-const ADMIN_PASSWORD = (process.env.E2E_ADMIN_PASSWORD ?? "Scrooge@Bank2026!").trim();
-const USER_PASSWORD = (process.env.E2E_USER_PASSWORD ?? "UserPass123!").trim();
-const VERIFICATION_TOKEN_SECRET = (process.env.E2E_VERIFICATION_HMAC_SECRET ?? "dev-only-insecure-secret").trim();
+const ADMIN_PASSWORD = requireE2eEnv("E2E_ADMIN_PASSWORD");
+const USER_PASSWORD = requireE2eEnv("E2E_USER_PASSWORD");
+const VERIFICATION_TOKEN_SECRET = requireJwtVerificationSecret();
 
 function base64UrlJson(payload: object): string {
   return Buffer.from(JSON.stringify(payload)).toString("base64url");

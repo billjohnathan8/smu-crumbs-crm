@@ -2,8 +2,9 @@ import { createHmac, randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { authHeaders, expectOkJson, normalizeBaseURL } from "./helpers/apiClient";
 import { createAgentAndLogin, createClientForUser, loginAsSeedAdmin } from "./helpers/dataFactory";
+import { requireJwtVerificationSecret } from "./helpers/e2eEnv.js";
 
-const VERIFICATION_TOKEN_SECRET = (process.env.E2E_VERIFICATION_HMAC_SECRET ?? "dev-only-insecure-secret").trim();
+const VERIFICATION_TOKEN_SECRET = requireJwtVerificationSecret();
 
 function base64UrlJson(payload: object): string {
   return Buffer.from(JSON.stringify(payload)).toString("base64url");

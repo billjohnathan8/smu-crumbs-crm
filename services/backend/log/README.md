@@ -114,7 +114,7 @@ For full local integration, use LocalStack via the repo's CI topology (see [Loca
 - Port: `5432`
 - Database: `crm`
 - User: `crm_app`
-- Password: `devpassword`
+- Password: set `DB_PASSWORD` / `LOCAL_DB_PASSWORD` (repo root `.env.local`; see root `.env.example`)
 
 ## Configuration
 
@@ -123,15 +123,15 @@ Use `services/backend/log/.env.example` as the baseline local/dev template.
 
 **Key environment variables:**
 
-| Variable | Default (dev) | Description |
+| Variable | Local / notes | Description |
 |----------|---------------|-------------|
-| `APP_ENV` | `dev` | Runtime environment. Use `dev`, `local`, or `test` for convenience defaults; `prod` requires explicit secrets. |
+| `APP_ENV` | `dev` | Runtime environment. Use `dev`, `local`, or `test`; `prod` requires explicit secrets (no committed password defaults). |
 | `DB_HOST` | `localhost` | PostgreSQL host (`postgres` in compose network) |
 | `DB_PORT` | `5432` | PostgreSQL port |
 | `DB_NAME` | `crm` | Database name |
 | `DB_USER` | `crm_app` | Database user (dev only) — use `DB_USER_SECRET_ARN` in prod |
-| `DB_PASSWORD` | `devpassword` | Database password (dev only) — use `DB_PASSWORD_SECRET_ARN` in prod |
-| `JWT_HMAC_SECRET` | `dev-only-insecure-secret` | HMAC secret for HS256 tokens — use `JWT_HMAC_SECRET_ARN` in prod |
+| `DB_PASSWORD` | _(required in dev)_ | Set via env / `.env.local` — use `DB_PASSWORD_SECRET_ARN` in prod |
+| `JWT_HMAC_SECRET` | _(required in dev)_ | Set via env / `.env.local` — use `JWT_HMAC_SECRET_ARN` in prod |
 | `AUTH_MODE` | `hybrid` (dev) / `cognito` (prod) | Authentication mode: `local`, `cognito`, or `hybrid` |
 | `ALLOW_HYBRID_AUTH` | `true` (dev) | Allows both HS256 and RS256 trust; disabled in prod by default |
 | `COGNITO_JWKS_URL` | _(empty)_ | Cognito JWKS endpoint — required when `AUTH_MODE=cognito` |
