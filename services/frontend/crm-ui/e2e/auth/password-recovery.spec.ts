@@ -61,4 +61,30 @@ test.describe("Password Recovery (Mocked)", () => {
     await page.getByRole("button", { name: "Go to Login" }).click();
     await expect(page).toHaveURL(/\/login$/);
   });
+
+  test("blocks paste into confirm password field", async ({ page, context }) => {
+    await context.clearCookies();
+    let resetPasswordRequestCount = 0;
+
+    await page.route("**/api/auth/reset-password", async route => {
+      resetPasswordRequestCount += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true }),
+      });
+    });
+
+    await gotoWithNetworkRetry(page, "/reset-password?token=mock-reset-token-123");
+    await page.getByTestId("new-password-input").fill("NewPassword123!");
+    await page.getByTestId("confirm-password-input").dispatchEvent("paste");
+
+    await expect(page.getByTestId("confirm-password-input")).toHaveValue("");
+    await expect(
+      page.getByText("Please type your confirm password manually. Pasting is not allowed."),
+    ).toBeVisible();
+
+    await page.getByTestId("reset-password-submit-button").click();
+    expect(resetPasswordRequestCount).toBe(0);
+  });
 });

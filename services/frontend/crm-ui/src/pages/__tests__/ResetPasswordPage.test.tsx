@@ -86,6 +86,21 @@ describe('ResetPasswordPage', () => {
     expect(screen.getByRole('heading', { name: 'Password Reset Successful' })).toBeInTheDocument()
   })
 
+  it('blocks paste into confirm password and requires manual typing', async () => {
+    const user = userEvent.setup()
+    renderComponent()
+
+    await user.type(screen.getByTestId('new-password-input'), 'Validpass123!')
+    await user.click(screen.getByTestId('confirm-password-input'))
+    await user.paste('Validpass123!')
+
+    expect(screen.getByTestId('confirm-password-input')).toHaveValue('')
+    expect(
+      screen.getByText('Please type your confirm password manually. Pasting is not allowed.')
+    ).toBeInTheDocument()
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
   it('submits forgot-password request when token is missing', async () => {
     const user = userEvent.setup()
     mockSearchParams = new URLSearchParams('')

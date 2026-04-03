@@ -487,6 +487,7 @@ if (-not $SkipFrontend) {
     try {
         $ALB    = terraform output -raw alb_dns_name
         $BUCKET = terraform output -raw frontend_bucket_name
+        $CLOUDFRONT_DISTRIBUTION_ID = terraform output -raw cloudfront_distribution_id 2>$null
     }
     finally {
         Pop-Location
@@ -503,6 +504,17 @@ if (-not $SkipFrontend) {
         Invoke-Checked "npm run build" { npm run build }
         Invoke-Checked "S3 sync frontend to s3://$BUCKET/" {
             aws s3 sync dist/ "s3://$BUCKET/" --delete
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($CLOUDFRONT_DISTRIBUTION_ID)) {
+            Invoke-Checked "Create CloudFront invalidation for frontend hotfix" {
+                aws cloudfront create-invalidation `
+                    --distribution-id $CLOUDFRONT_DISTRIBUTION_ID `
+                    --paths "/*"
+            }
+        }
+        else {
+            Write-Host "Skipping CloudFront invalidation (no distribution output available)." -ForegroundColor DarkGray
         }
     }
     finally {

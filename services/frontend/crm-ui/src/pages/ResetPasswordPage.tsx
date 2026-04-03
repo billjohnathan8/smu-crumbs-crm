@@ -179,6 +179,13 @@ export function ResetPasswordPage() {
         ? 'text-yellow-500'
         : 'text-danger'
 
+  const handleConfirmPasswordNonTypingInput = () => {
+    setErrors(prev => ({
+      ...prev,
+      confirmPassword: 'Please type your confirm password manually. Pasting is not allowed.',
+    }))
+  }
+
   if (isSuccess) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -329,6 +336,20 @@ export function ResetPasswordPage() {
                   disabled={isLoading}
                   autoComplete="new-password"
                   placeholder="Confirm new password"
+                  onPaste={e => {
+                    e.preventDefault()
+                    handleConfirmPasswordNonTypingInput()
+                  }}
+                  onDrop={e => {
+                    e.preventDefault()
+                    handleConfirmPasswordNonTypingInput()
+                  }}
+                  onBeforeInput={e => {
+                    if (e.nativeEvent.inputType === 'insertFromPaste') {
+                      e.preventDefault()
+                      handleConfirmPasswordNonTypingInput()
+                    }
+                  }}
                 />
                 {errors.confirmPassword && (
                   <p className="text-danger text-sm mt-1">{errors.confirmPassword}</p>
