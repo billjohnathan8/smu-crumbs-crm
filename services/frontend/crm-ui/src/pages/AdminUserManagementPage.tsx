@@ -64,6 +64,15 @@ export function AdminUserManagementPage() {
   const [transferToUserId, setTransferToUserId] = useState('')
   const [isTransferring, setIsTransferring] = useState(false)
   const [agentClientCounts, setAgentClientCounts] = useState<Record<string, number>>({})
+  const [listFilters, setListFilters] = useState<{
+    search: string
+    role: UserRole | ''
+    status: User['status'] | ''
+  }>({
+    search: '',
+    role: '',
+    status: '',
+  })
 
   const isAdmin = user?.role === 'admin'
   const isRootAdmin = isRootAdminUser(user)
@@ -215,6 +224,22 @@ export function AdminUserManagementPage() {
     setTransferToUserId('')
   }
 
+  const handleListFilterChange = (key: 'search' | 'role' | 'status', value: string) => {
+    setListFilters(prev => ({
+      ...prev,
+      [key]:
+        key === 'role'
+          ? (value as UserRole | '')
+          : key === 'status'
+            ? (value as User['status'] | '')
+            : value,
+    }))
+  }
+
+  const resetListFilters = () => {
+    setListFilters({ search: '', role: '', status: '' })
+  }
+
   const handleTransferConfirm = async () => {
     if (!transferFromUser) return
     if (!transferToUserId) {
@@ -264,9 +289,25 @@ export function AdminUserManagementPage() {
   }
 
   // Group users by role for display
-  const admins = users.filter(u => u.role === 'admin' || u.role === 'super_admin')
-  const regularUsers = users.filter(u => u.role === 'user')
-  const transferTargets = regularUsers.filter(
+  const userMatchesFilters = (candidate: User) => {
+    const normalizedSearch = listFilters.search.trim().toLowerCase()
+    const matchesSearch =
+      normalizedSearch.length === 0 ||
+      candidate.id.toLowerCase().includes(normalizedSearch) ||
+      candidate.firstName.toLowerCase().includes(normalizedSearch) ||
+      candidate.lastName.toLowerCase().includes(normalizedSearch) ||
+      candidate.email.toLowerCase().includes(normalizedSearch)
+    const matchesRole = !listFilters.role || candidate.role === listFilters.role
+    const matchesStatus = !listFilters.status || candidate.status === listFilters.status
+    return matchesSearch && matchesRole && matchesStatus
+  }
+
+  const allRegularUsers = users.filter(u => u.role === 'user')
+  const admins = users
+    .filter(u => u.role === 'admin' || u.role === 'super_admin')
+    .filter(userMatchesFilters)
+  const regularUsers = allRegularUsers.filter(userMatchesFilters)
+  const transferTargets = allRegularUsers.filter(
     u => u.status === 'active' && u.id !== transferFromUser?.id
   )
 
@@ -312,6 +353,55 @@ export function AdminUserManagementPage() {
           </div>
         ) : (
           <div className="space-y-8">
+            <div className="bg-card rounded-lg p-4">
+              <h3 className="text-text font-normal mb-4">Filters</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs text-text-muted mb-1">Search</label>
+                  <input
+                    type="text"
+                    value={listFilters.search}
+                    onChange={e => handleListFilterChange('search', e.target.value)}
+                    placeholder="ID, name, or email"
+                    className="w-full px-3 py-2 bg-background-light rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-text-muted mb-1">Role</label>
+                  <select
+                    value={listFilters.role}
+                    onChange={e => handleListFilterChange('role', e.target.value)}
+                    className="w-full px-3 py-2 bg-background-light rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">All</option>
+                    <option value="super_admin">Root Admin</option>
+                    <option value="admin">Admin</option>
+                    <option value="user">Agent</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-text-muted mb-1">Status</label>
+                  <select
+                    value={listFilters.status}
+                    onChange={e => handleListFilterChange('status', e.target.value)}
+                    className="w-full px-3 py-2 bg-background-light rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">All</option>
+                    <option value="active">Active</option>
+                    <option value="disabled">Disabled</option>
+                  </select>
+                </div>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={resetListFilters}
+                  className="px-4 py-2 rounded bg-background-lighter border-[1.5px] border-border text-text hover:brightness-[0.9] text-sm font-medium transition-all duration-200"
+                >
+                  Reset Filters
+                </button>
+              </div>
+            </div>
+
             {isRootAdmin && admins.length > 0 && (
               <div className="bg-card  rounded-lg p-6">
                 <h2 className="text-xl font-bold text-text mb-4">Admins</h2>

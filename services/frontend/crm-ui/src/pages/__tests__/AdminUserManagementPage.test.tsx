@@ -168,7 +168,7 @@ it('should display users in table', async () => {
   await waitFor(() => {
     expect(screen.getAllByText('User').length).toBeGreaterThanOrEqual(2)
     expect(screen.getByText('user@example.com')).toBeInTheDocument()
-    expect(screen.getByText('Agent')).toBeInTheDocument()
+    expect(screen.getAllByText('Agent').length).toBeGreaterThanOrEqual(1)
   })
 })
 
@@ -183,7 +183,7 @@ it('should display admins in table for super admin', async () => {
   await waitFor(() => {
     expect(screen.getAllByText('Admin').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('admin@example.com')).toBeInTheDocument()
-    expect(screen.getByText('Agent')).toBeInTheDocument()
+    expect(screen.getAllByText('Agent').length).toBeGreaterThanOrEqual(1)
   })
 })
 

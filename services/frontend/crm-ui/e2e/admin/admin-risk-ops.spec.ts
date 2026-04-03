@@ -221,7 +221,7 @@ test("shows queued communications as read-only and supports ID lookup", async ({
 
     await gotoWithNetworkRetry(page, "/admin/communications");
     await expect(page.getByRole("heading", { name: "Communications", exact: true })).toBeVisible();
-    await expect(page.getByText("Queued Communications")).toBeVisible();
+    await expect(page.getByText("Communications")).toBeVisible();
     await expect(page.locator("tbody tr").first().locator("select")).toHaveCount(0);
     await expect(page.locator("tbody tr").first().getByRole("button", { name: "Update" })).toHaveCount(0);
     await expect(page.locator("tbody tr").first().getByText("queued")).toBeVisible();

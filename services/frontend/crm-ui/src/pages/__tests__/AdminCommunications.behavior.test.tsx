@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { AdminCommunications } from '../AdminCommunications'
@@ -168,7 +168,9 @@ describe('AdminCommunications behavior', () => {
     await screen.findByText('Queued subject')
 
     expect(screen.queryByRole('button', { name: 'Update' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    const communicationRow = screen.getByText('Queued subject').closest('tr')
+    expect(communicationRow).not.toBeNull()
+    expect(within(communicationRow as HTMLElement).queryByRole('combobox')).not.toBeInTheDocument()
   })
 
   it('looks up by communication id and renders detailed fields', async () => {
@@ -382,7 +384,7 @@ describe('AdminCommunications behavior', () => {
     expect(screen.getByRole('button', { name: 'Looking up...' })).toBeInTheDocument()
   })
 
-  it('applies table filters from dropdown and calls communications list with params', async () => {
+  it('applies inline table filters and calls communications list with params', async () => {
     const user = userEvent.setup()
     vi.mocked(communicationsApi.listCommunications).mockResolvedValue(queuedResponse)
 
@@ -390,10 +392,8 @@ describe('AdminCommunications behavior', () => {
 
     await screen.findByText('Queued subject')
 
-    await user.click(screen.getByRole('button', { name: 'Filter' }))
-    await user.selectOptions(screen.getByRole('combobox'), 'failed')
+    await user.selectOptions(screen.getByDisplayValue('All'), 'failed')
     await user.type(screen.getByPlaceholderText('email@domain.com'), 'example.com')
-    await user.click(screen.getByRole('button', { name: 'Apply' }))
 
     await waitFor(() => {
       expect(communicationsApi.listCommunications).toHaveBeenLastCalledWith({

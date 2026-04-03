@@ -61,11 +61,8 @@ export function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [isLogsLoading, setIsLogsLoading] = useState(true)
   const [error, setError] = useState<string>('')
-  const [showLogsFilterDropdown, setShowLogsFilterDropdown] = useState(false)
-  const [logsFilterError, setLogsFilterError] = useState('')
   const [activeLogsFilters, setActiveLogsFilters] =
     useState<DashboardLogFilters>(DEFAULT_LOG_FILTERS)
-  const [logsFilterDraft, setLogsFilterDraft] = useState<DashboardLogFilters>(DEFAULT_LOG_FILTERS)
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -217,35 +214,17 @@ export function AdminDashboard() {
 
   const totalLogPages = Math.ceil(logsTotal / LOGS_PER_PAGE)
   const canPaginateLogs = totalLogPages > 1
-  const activeLogsFilterCount = [
-    activeLogsFilters.action !== DEFAULT_LOG_FILTERS.action,
-    Boolean(activeLogsFilters.from),
-    Boolean(activeLogsFilters.to),
-    Boolean(activeLogsFilters.userId.trim()),
-    Boolean(activeLogsFilters.clientId.trim()),
-  ].filter(Boolean).length
-
-  const handleApplyLogsFilters = () => {
-    if (logsFilterDraft.from && logsFilterDraft.to) {
-      const from = new Date(logsFilterDraft.from)
-      const to = new Date(logsFilterDraft.to)
-      if (from.getTime() > to.getTime()) {
-        setLogsFilterError('Start datetime must be before end datetime.')
-        return
-      }
-    }
-    setLogsFilterError('')
+  const handleLogFilterChange = (key: keyof DashboardLogFilters, value: string) => {
+    setActiveLogsFilters(prev => ({
+      ...prev,
+      [key]: key === 'action' ? (value as DashboardLogActionFilter) : value,
+    }))
     setCurrentLogsPage(0)
-    setActiveLogsFilters(logsFilterDraft)
-    setShowLogsFilterDropdown(false)
   }
 
   const handleClearLogsFilters = () => {
-    setLogsFilterError('')
     setCurrentLogsPage(0)
-    setLogsFilterDraft(DEFAULT_LOG_FILTERS)
     setActiveLogsFilters(DEFAULT_LOG_FILTERS)
-    setShowLogsFilterDropdown(false)
   }
 
   return (
@@ -344,127 +323,100 @@ export function AdminDashboard() {
               </div>
             )}
 
-            <div className="bg-card  rounded-lg">
-              <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-                <h2 className="text-xl font-normal text-text">Recent Activity Logs</h2>
-                <div className="relative">
-                  <button
-                    onClick={() => {
-                      setShowLogsFilterDropdown(prev => !prev)
-                      setLogsFilterError('')
-                    }}
-                    className="rounded bg-background-lighter border-[1.5px] border-border px-4 py-2 text-sm font-medium text-text transition-all duration-200 hover:brightness-[0.9]"
+            <div className="bg-card rounded-lg p-4 mt-6">
+              <h3 className="text-text font-normal mb-4">Filters</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div>
+                  <label
+                    htmlFor="logs-filter-action"
+                    className="block text-xs text-text-muted mb-1"
                   >
-                    {activeLogsFilterCount > 0 ? `Filter (${activeLogsFilterCount})` : 'Filter'}
-                  </button>
-                  {showLogsFilterDropdown && (
-                    <div className="absolute right-0 z-20 mt-2 w-80 rounded-lg border border-border bg-card p-4 shadow-xl">
-                      <div className="space-y-3">
-                        <div>
-                          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-text-muted">
-                            Activity Type
-                          </label>
-                          <select
-                            value={logsFilterDraft.action}
-                            onChange={e =>
-                              setLogsFilterDraft(prev => ({
-                                ...prev,
-                                action: e.target.value as DashboardLogActionFilter,
-                              }))
-                            }
-                            className="w-full rounded bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
-                          >
-                            <option value="all">All activities</option>
-                            <option value="CREATE">Create</option>
-                            <option value="READ">Read</option>
-                            <option value="UPDATE">Update</option>
-                            <option value="DELETE">Delete</option>
-                            <option value="COMMUNICATION">Communication</option>
-                          </select>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                          <div>
-                            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-text-muted">
-                              Date/Time From
-                            </label>
-                            <input
-                              type="datetime-local"
-                              value={logsFilterDraft.from}
-                              onChange={e =>
-                                setLogsFilterDraft(prev => ({ ...prev, from: e.target.value }))
-                              }
-                              className="w-full rounded bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
-                            />
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-text-muted">
-                              Date/Time To
-                            </label>
-                            <input
-                              type="datetime-local"
-                              value={logsFilterDraft.to}
-                              onChange={e =>
-                                setLogsFilterDraft(prev => ({ ...prev, to: e.target.value }))
-                              }
-                              className="w-full rounded bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                          <div>
-                            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-text-muted">
-                              Actor User
-                            </label>
-                            <input
-                              type="text"
-                              value={logsFilterDraft.userId}
-                              onChange={e =>
-                                setLogsFilterDraft(prev => ({ ...prev, userId: e.target.value }))
-                              }
-                              placeholder="usr_..."
-                              className="w-full rounded bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
-                            />
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-text-muted">
-                              Client Reference
-                            </label>
-                            <input
-                              type="text"
-                              value={logsFilterDraft.clientId}
-                              onChange={e =>
-                                setLogsFilterDraft(prev => ({ ...prev, clientId: e.target.value }))
-                              }
-                              placeholder="clt_..."
-                              className="w-full rounded bg-background-light px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {logsFilterError && (
-                        <p className="mt-3 text-xs text-danger">{logsFilterError}</p>
-                      )}
-
-                      <div className="mt-4 flex items-center justify-end gap-2">
-                        <button
-                          onClick={handleClearLogsFilters}
-                          className="rounded bg-background-light px-3 py-2 text-sm text-text hover:brightness-[0.95]"
-                        >
-                          Clear
-                        </button>
-                        <button
-                          onClick={handleApplyLogsFilters}
-                          className="rounded bg-primary px-3 py-2 text-sm font-medium text-white hover:brightness-[0.9]"
-                        >
-                          Apply
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                    Activity Type
+                  </label>
+                  <select
+                    id="logs-filter-action"
+                    value={activeLogsFilters.action}
+                    onChange={e => handleLogFilterChange('action', e.target.value)}
+                    className="w-full px-3 py-2 bg-background-light rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="all">All</option>
+                    <option value="CREATE">Create</option>
+                    <option value="READ">Read</option>
+                    <option value="UPDATE">Update</option>
+                    <option value="DELETE">Delete</option>
+                    <option value="COMMUNICATION">Communication</option>
+                  </select>
                 </div>
+                <div>
+                  <label htmlFor="logs-filter-from" className="block text-xs text-text-muted mb-1">
+                    Date/Time From
+                  </label>
+                  <input
+                    id="logs-filter-from"
+                    type="datetime-local"
+                    value={activeLogsFilters.from}
+                    onChange={e => handleLogFilterChange('from', e.target.value)}
+                    className="w-full px-3 py-2 bg-background-light rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="logs-filter-to" className="block text-xs text-text-muted mb-1">
+                    Date/Time To
+                  </label>
+                  <input
+                    id="logs-filter-to"
+                    type="datetime-local"
+                    value={activeLogsFilters.to}
+                    onChange={e => handleLogFilterChange('to', e.target.value)}
+                    className="w-full px-3 py-2 bg-background-light rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="logs-filter-user-id"
+                    className="block text-xs text-text-muted mb-1"
+                  >
+                    Actor User
+                  </label>
+                  <input
+                    id="logs-filter-user-id"
+                    type="text"
+                    value={activeLogsFilters.userId}
+                    onChange={e => handleLogFilterChange('userId', e.target.value)}
+                    placeholder="usr_..."
+                    className="w-full px-3 py-2 bg-background-light rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="logs-filter-client-id"
+                    className="block text-xs text-text-muted mb-1"
+                  >
+                    Client Reference
+                  </label>
+                  <input
+                    id="logs-filter-client-id"
+                    type="text"
+                    value={activeLogsFilters.clientId}
+                    onChange={e => handleLogFilterChange('clientId', e.target.value)}
+                    placeholder="clt_..."
+                    className="w-full px-3 py-2 bg-background-light rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={handleClearLogsFilters}
+                  className="px-4 py-2 rounded bg-background-lighter border-[1.5px] border-border text-text hover:brightness-[0.9] text-sm font-medium transition-all duration-200"
+                >
+                  Reset Filters
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-card rounded-lg mt-6">
+              <div className="px-6 py-4 border-b border-border">
+                <h2 className="text-xl font-normal text-text">Recent Activity Logs</h2>
               </div>
               <div className="overflow-x-auto">
                 {isLogsLoading && recentLogs.length === 0 ? (
