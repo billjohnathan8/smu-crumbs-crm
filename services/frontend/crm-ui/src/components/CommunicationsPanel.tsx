@@ -332,10 +332,7 @@ export function CommunicationsPanel({
                     {formatDate(comm.createdAt)}
                   </td>
                   {canEditStatuses && (
-                    <td
-                      className="whitespace-nowrap px-6 py-4"
-                      onClick={e => e.stopPropagation()}
-                    >
+                    <td className="whitespace-nowrap px-6 py-4" onClick={e => e.stopPropagation()}>
                       <button
                         onClick={() => onUpdateStatus?.(comm.communicationId)}
                         disabled={isUpdating?.[comm.communicationId]}
