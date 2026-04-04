@@ -82,6 +82,7 @@ jmeter -n -t tests/performance/agent-crud-workflow.jmx \
   -Jloops=10 \
   -Jhost=127.0.0.1 \
   -Jport=18088 \
+  -Jprotocol=http \
   -l build-logs/performance/results.csv \
   -e -o build-logs/performance/report
 ```
@@ -104,6 +105,7 @@ Override via `-Jkey=value` command line flags:
 |-----------|---------|-------------|
 | `host` | `127.0.0.1` | Target host (use ALB DNS for AWS tests) |
 | `port` | `18088` | Target port (80 for ALB, 18088 for local nginx) |
+| `protocol` | `http` | Request protocol (`http` for local, `https` for prod) |
 | `threads` | `100` | Number of concurrent threads (simulates concurrent agents) |
 | `rampup` | `60` | Ramp-up period in seconds (gradual load increase) |
 | `loops` | `10` | Number of iterations per thread |

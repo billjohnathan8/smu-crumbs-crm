@@ -80,6 +80,26 @@ Services after startup:
 
 Root admin email (seeded by stack-up): `admin@crm.com`. Set `E2E_ADMIN_PASSWORD` for a known password; if unset, local scripts apply dev-only defaults (see `scripts/dev/stack-up.sh`). Do not commit credential reports or real passwords.
 
+# OWASP ZAP Baseline Scan
+
+For a quick security pass against the local gateway, run the Dockerized ZAP baseline scan from Windows PowerShell:
+
+```powershell
+powershell -File .\scripts\security\run-zap-baseline.ps1 -StartDevStack -OpenReport
+```
+
+That command starts the local dev stack, waits for the gateway at `http://127.0.0.1:18088`, then writes HTML and JSON reports under `build-logs/zap/`.
+
+If you want to scan a staging clone instead of the local stack, pass `-TargetUrl` to the same script and keep it outside production.
+
+To scan an authenticated staging environment, run:
+
+```powershell
+powershell -File .\scripts\security\run-zap-baseline.ps1 -TargetUrl https://staging.example.com -Authenticated -LoginEmail admin@example.com -LoginPassword $env:E2E_ADMIN_PASSWORD -OpenReport
+```
+
+That mode logs in through `/api/auth/login`, adds the bearer token to ZAP requests, and then scans authenticated pages as well.
+
 # Infrastructure Visualization
 Use these commands from repo root to visualize Terraform infrastructure:
 
