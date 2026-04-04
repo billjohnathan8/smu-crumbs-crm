@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import os
 import re
 import uuid
 from dataclasses import dataclass
@@ -66,6 +67,23 @@ _JSON_CONTENT_TYPE = "application/json"
 _REQUEST_ID_HEADER = "X-Request-Id"
 _LOWER_REQUEST_ID_HEADER = "x-request-id"
 _AUTH_HEADER = "authorization"
+_DEFAULT_ROOT_ADMIN_USER_IDS = frozenset({"usr_1", "1"})
+
+
+def _load_root_admin_user_ids() -> frozenset[str]:
+    raw = os.getenv("ROOT_ADMIN_USER_IDS", "")
+    if not raw.strip():
+        return _DEFAULT_ROOT_ADMIN_USER_IDS
+
+    parsed = {
+        candidate.strip()
+        for candidate in raw.split(",")
+        if isinstance(candidate, str) and candidate.strip()
+    }
+    return frozenset(parsed or _DEFAULT_ROOT_ADMIN_USER_IDS)
+
+
+_ROOT_ADMIN_USER_IDS = _load_root_admin_user_ids()
 
 
 class _ListLogsQuery(BaseModel):
@@ -815,7 +833,8 @@ class LambdaRouter:
 
     def _list_aml_alerts(self, request: NormalizedRequest) -> RoutedResponse:
         user = self._require_user(request)
-        require_roles(user, {"admin", "user"})
+        if not self._is_root_admin(user) and user.role != "user":
+            raise ForbiddenError()
 
         query = self._parse_query(_ListAmlAlertsQuery, request)
         limit, offset = self._clamp_limit_offset(query.limit, query.offset)
@@ -893,7 +912,8 @@ class LambdaRouter:
         self, request: NormalizedRequest, alert_id: str
     ) -> RoutedResponse:
         user = self._require_user(request)
-        require_roles(user, {"admin", "user"})
+        if not self._is_root_admin(user) and user.role != "user":
+            raise ForbiddenError()
 
         row = self._service.get_aml_alert(alert_id)
         if row is None:
@@ -910,7 +930,8 @@ class LambdaRouter:
         alert_id: str,
     ) -> RoutedResponse:
         user = self._require_user(request)
-        require_roles(user, {"admin", "user"})
+        if not self._is_root_admin(user) and user.role != "user":
+            raise ForbiddenError()
 
         existing = self._service.get_aml_alert(alert_id)
         if existing is None:
@@ -927,9 +948,10 @@ class LambdaRouter:
         return RoutedResponse(200, self._to_aml_alert(row))
 
     def _trigger_aml_scan(self, request: NormalizedRequest) -> RoutedResponse:
-        """Manually trigger AML scan (admin-only)."""
+        """Manually trigger AML scan (agent or root admin only)."""
         user = self._require_user(request)
-        require_roles(user, {"admin"})
+        if not self._is_root_admin(user) and user.role != "user":
+            raise ForbiddenError()
 
         if boto3 is None:
             LOGGER.error("boto3 import failed")
@@ -973,8 +995,6 @@ class LambdaRouter:
 
     def _get_aml_function_name(self) -> str:
         """Get AML Lambda function name from environment."""
-        import os
-
         name_prefix = os.getenv("NAME_PREFIX", "")
         if name_prefix:
             return f"{name_prefix}-aml"
@@ -983,6 +1003,10 @@ class LambdaRouter:
             return function_name
         LOGGER.warning("AML function name not configured")
         return ""
+
+    @staticmethod
+    def _is_root_admin(user) -> bool:
+        return user.user_id in _ROOT_ADMIN_USER_IDS
 
     def _create_communication(self, request: NormalizedRequest) -> RoutedResponse:
         user = self._require_user(request)

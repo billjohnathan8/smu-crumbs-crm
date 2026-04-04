@@ -295,6 +295,12 @@ variable "root_admin_email" {
   default     = "admin@crm.com"
 }
 
+variable "root_admin_user_ids" {
+  description = "Comma-separated root admin user IDs recognized by backend services for root-only authorization checks."
+  type        = string
+  default     = "usr_1,1"
+}
+
 variable "root_admin_password" {
   description = "Initial root admin password. For prod, provide a strong explicit value via TF_VAR_root_admin_password."
   type        = string

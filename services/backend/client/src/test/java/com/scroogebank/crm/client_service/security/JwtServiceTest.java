@@ -182,7 +182,7 @@ class JwtServiceTest {
 	}
 
 	@Test
-	void verifyAndParse_superAdminRole_isNormalizedToAdmin() throws Exception {
+	void verifyAndParse_superAdminRole_isPreserved() throws Exception {
 		Clock clock = Clock.fixed(Instant.parse("2026-02-05T00:00:00Z"), ZoneOffset.UTC);
 		ObjectMapper mapper = new ObjectMapper();
 		JwtService jwtService = new JwtService(mapper, clock, SECRET);
@@ -195,7 +195,7 @@ class JwtServiceTest {
 		);
 
 		AuthenticatedUser user = jwtService.verifyAndParse(token);
-		assertThat(user.role()).isEqualTo("admin");
+		assertThat(user.role()).isEqualTo("super_admin");
 	}
 
 	@Test
@@ -402,10 +402,10 @@ class JwtServiceTest {
 	}
 
 	@Test
-	void cognitoToken_superAdminMapsToAdmin() throws Exception {
+	void cognitoToken_superAdminIsPreserved() throws Exception {
 		JwtService svc = cognitoService(mockJwksClient(buildJwksJson(KID)));
 		String token = rsaSignedToken(cognitoClaims("cognito:groups", List.of("super_admin")));
-		assertThat(svc.verifyAndParse(token).role()).isEqualTo("admin");
+		assertThat(svc.verifyAndParse(token).role()).isEqualTo("super_admin");
 	}
 
 	@Test

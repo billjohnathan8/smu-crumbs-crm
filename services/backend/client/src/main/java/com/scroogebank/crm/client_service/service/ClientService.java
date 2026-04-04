@@ -9,6 +9,7 @@ import com.scroogebank.crm.client_service.dto.ReassignResponse;
 import com.scroogebank.crm.client_service.dto.ReviewVerificationRequest;
 import com.scroogebank.crm.client_service.dto.UploadVerificationDocsRequest;
 import com.scroogebank.crm.client_service.dto.VerificationDocumentResponse;
+import com.scroogebank.crm.client_service.dto.VerificationSubmissionSummaryResponse;
 import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 
@@ -151,6 +152,23 @@ public interface ClientService {
 	);
 
 	/**
+	 * Lists soft-deleted client records for root admin archive review.
+	 */
+	ClientListResponse listArchivedClients(
+		AuthenticatedUser user,
+		int limit,
+		int offset,
+		String q,
+		com.scroogebank.crm.client_service.dto.IdentityVerificationStatus kycStatus,
+		String assignedUserId
+	);
+
+	/**
+	 * Returns aggregate pending verification submission count.
+	 */
+	VerificationSubmissionSummaryResponse getVerificationSubmissionSummary(AuthenticatedUser user);
+
+	/**
 	 * Fetches a stored KYC document for a client visible to the caller.
 	 *
 	 * @param user authenticated user
@@ -170,5 +188,5 @@ public interface ClientService {
 	 * @param assignedUserId agent identifier
 	 * @return count of active clients
 	 */
-	long countClientsByAgent(String assignedUserId);
+	long countClientsByAgent(AuthenticatedUser user, String assignedUserId);
 }

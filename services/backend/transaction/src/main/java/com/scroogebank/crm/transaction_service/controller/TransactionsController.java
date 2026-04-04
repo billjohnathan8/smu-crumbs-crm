@@ -99,7 +99,7 @@ public class TransactionsController {
 		@RequestParam(required = false) @DateTimeFormat(iso = ISO.DATE) LocalDate toDate
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAnyRole(user, "user", "admin");
+		requireAnyRole(user, "user", "root_admin");
 		if (clientId != null && !clientId.isBlank() && !clientId.matches("^[A-Za-z0-9_-]{1,128}$")) {
 			throw new IllegalArgumentException("invalid clientId");
 		}
@@ -143,7 +143,7 @@ public class TransactionsController {
 		@Valid @RequestBody CreateTransactionRequest body
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAnyRole(user, "admin");
+		requireAnyRole(user, "root_admin");
 		TransactionDto created = transactionsService.create(body);
 		publishAuditSafe(
 			"CREATE",
@@ -165,7 +165,7 @@ public class TransactionsController {
 	@Operation(summary = "Get transaction by id")
 	public TransactionDto getTransaction(HttpServletRequest request, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String transactionId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAnyRole(user, "user", "admin");
+		requireAnyRole(user, "user", "root_admin");
 
 		TransactionDto tx = transactionsService.get(transactionId);
 		String authHeader = request.getHeader("Authorization");
@@ -199,7 +199,7 @@ public class TransactionsController {
 		@Valid @RequestBody UpdateTransactionRequest _body
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAnyRole(user, "admin");
+		requireAnyRole(user, "root_admin");
 		if (!appProperties.isTransactionUpdatesEnabled()) {
 			throw new ForbiddenException("Transaction editing is disabled.");
 		}
@@ -240,7 +240,7 @@ public class TransactionsController {
 	@Operation(summary = "Delete transaction")
 	public void deleteTransaction(HttpServletRequest request, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String transactionId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAnyRole(user, "admin");
+		requireAnyRole(user, "root_admin");
 		TransactionDto existing = transactionsService.get(transactionId);
 		transactionsService.delete(transactionId);
 		publishAuditSafe(
@@ -267,7 +267,7 @@ public class TransactionsController {
 		@RequestParam(defaultValue = "0") int offset
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAnyRole(user, "user", "admin");
+		requireAnyRole(user, "user", "root_admin");
 		String authHeader = request.getHeader("Authorization");
 		clientAccessValidator.requireClientAccessible(user, authHeader, clientId);
 
@@ -296,7 +296,7 @@ public class TransactionsController {
 		@RequestBody(required = false) ImportTransactionsRequest body
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAnyRole(user, "admin");
+		requireAnyRole(user, "root_admin");
 		ImportBatchDto batch = transactionsService.importTransactions(body);
 		String sourcePath = body == null ? null : body.sourcePath();
 		publishAuditSafe(
@@ -324,7 +324,7 @@ public class TransactionsController {
 	@Operation(summary = "Get import batch status")
 	public ImportBatchDto getImportBatch(HttpServletRequest request, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String importBatchId) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		requireAnyRole(user, "admin");
+		requireAnyRole(user, "root_admin");
 		ImportBatchDto batch = transactionsService.getBatch(importBatchId);
 		publishAuditSafe(
 			"READ",
@@ -398,6 +398,9 @@ public class TransactionsController {
 
 	private static void requireAnyRole(AuthenticatedUser user, String... allowed) {
 		for (String role : allowed) {
+			if ("root_admin".equals(role) && user.isRootAdmin()) {
+				return;
+			}
 			if (role.equals(user.role())) {
 				return;
 			}

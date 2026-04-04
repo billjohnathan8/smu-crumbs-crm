@@ -106,6 +106,7 @@ enable_service_discovery      = true
 verification_frontend_base_url = "https://itsag2t3.com"
 
 # --- Auth ---
+root_admin_user_ids                  = "usr_1,1"
 enable_cognito                     = true
 cognito_mfa_configuration          = "ON"
 cognito_password_require_uppercase = false

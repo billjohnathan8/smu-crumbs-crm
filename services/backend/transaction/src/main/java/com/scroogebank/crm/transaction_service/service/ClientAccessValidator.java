@@ -28,7 +28,7 @@ public class ClientAccessValidator {
 		String authorizationHeader,
 		String clientId
 	) {
-		if (user.isAdmin()) {
+		if (user.isRootAdmin()) {
 			return;
 		}
 		if (authorizationHeader == null || authorizationHeader.isBlank()) {
@@ -55,4 +55,3 @@ public class ClientAccessValidator {
 		}
 	}
 }
-

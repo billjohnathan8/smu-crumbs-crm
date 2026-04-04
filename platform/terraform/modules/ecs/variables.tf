@@ -153,6 +153,12 @@ variable "root_admin_email" {
   type        = string
 }
 
+variable "root_admin_user_ids" {
+  description = "Comma-separated root admin user IDs recognized by backend services for root-only authorization checks."
+  type        = string
+  default     = "usr_1,1"
+}
+
 variable "auth_mode" {
   description = "Runtime auth mode exposed to backend services (local, hybrid, cognito)."
   type        = string

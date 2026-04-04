@@ -7,7 +7,14 @@ import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
+  { label: 'User Management', to: '/admin/users', end: true },
+  { label: 'Settings', to: '/admin/settings' },
+]
+
+const rootAdminNav: NavItem[] = [
+  { label: 'Home', to: '/admin', end: true },
   { label: 'All Clients', to: '/admin/clients', end: true },
+  { label: 'Client Archives', to: '/admin/client-archives', end: true },
   { label: 'Create Client', to: '/admin/clients/new' },
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },
@@ -34,8 +41,9 @@ export function SettingsPage() {
 
   const [isResettingPassword, setIsResettingPassword] = useState(false)
 
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
-  const navItems = isAdmin ? adminNav : userNav
+  const isAdmin = user?.role === 'admin'
+  const isRootAdmin = isRootAdminUser(user)
+  const navItems = isRootAdmin ? rootAdminNav : isAdmin ? adminNav : userNav
 
   const roleLabel = (() => {
     if (!user) return '-'

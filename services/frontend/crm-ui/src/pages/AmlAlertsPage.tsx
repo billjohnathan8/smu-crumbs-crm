@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
+import { isRootAdminUser } from '@/features/auth/authorization'
 import { listAmlAlerts, updateAmlAlertReview, triggerAmlScan } from '@/api/aml'
 import type { AmlAlert, AmlAlertType, AmlReviewStatus } from '@/api/types'
 import { ApiError } from '@/api/client'
@@ -8,9 +9,10 @@ import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
 
 const ITEMS_PER_PAGE = 20
 
-const adminNav: NavItem[] = [
+const rootAdminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
   { label: 'All Clients', to: '/admin/clients', end: true },
+  { label: 'Client Archives', to: '/admin/client-archives', end: true },
   { label: 'Create Client', to: '/admin/clients/new' },
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },
@@ -54,11 +56,10 @@ export function AmlAlertsPage() {
     detectedDate: '',
   })
 
-  const navItems = useMemo<NavItem[]>(
-    () => (user?.role === 'user' ? userNav : adminNav),
-    [user?.role]
-  )
+  const isRootAdmin = isRootAdminUser(user)
+  const navItems = useMemo<NavItem[]>(() => (user?.role === 'user' ? userNav : rootAdminNav), [user?.role])
   const homePath = user?.role === 'user' ? '/user' : '/admin'
+  const canTriggerAml = user?.role === 'user' || isRootAdmin
 
   const fetchAlerts = async (page: number) => {
     setIsLoading(true)
@@ -183,7 +184,7 @@ export function AmlAlertsPage() {
           <span className="text-text-subtle text-2xl">/</span>
           <h1 className="text-2xl font-normal text-text">AML Alerts</h1>
         </div>
-        {(user?.role === 'admin' || user?.role === 'super_admin') && (
+        {canTriggerAml && (
           <button
             onClick={handleTriggerAmlScan}
             disabled={isTriggeringAml}

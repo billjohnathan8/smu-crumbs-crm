@@ -306,7 +306,7 @@ public class JwtService {
 			}
 		}
 		if (hasSuperAdmin) {
-			return "admin";
+			return "super_admin";
 		}
 		if (hasAdmin) {
 			return "admin";
@@ -484,11 +484,7 @@ public class JwtService {
 	/**
 	 * Normalizes a raw role claim to the values recognized by this service's UserRole enum.
 	 *
-	 * <p>NOTE — intentional downgrade: this service only supports {@code admin} and {@code user}.
-	 * The {@code super_admin} role (issued by the user-service) is intentionally collapsed to
-	 * {@code admin} here because the transaction service does not distinguish between them.
-	 * If {@code super_admin} is ever added to this service's UserRole enum, this method must
-	 * be updated to return {@code "super_admin"} rather than {@code "admin"} for those cases.
+	 * <p>Accepted values are {@code user}, {@code admin}, {@code super_admin}, and {@code service}.
 	 */
 	private static String normalizeRole(String value) {
 		if (value == null) {
@@ -496,7 +492,8 @@ public class JwtService {
 		}
 		String normalized = value.trim().toLowerCase().replace('-', '_').replace(' ', '_');
 		return switch (normalized) {
-			case "admin", "super_admin", "superadmin" -> "admin";
+			case "super_admin", "superadmin" -> "super_admin";
+			case "admin" -> "admin";
 			case "user", "agent" -> "user";
 			case "service" -> "service";
 			default -> null;

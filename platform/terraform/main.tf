@@ -191,6 +191,7 @@ module "lambda" {
   db_username_secret_arn                         = module.security.db_username_secret_arn
   db_password_secret_arn                         = module.security.db_password_secret_arn
   jwt_hmac_secret_arn                            = module.security.jwt_hmac_secret_arn
+  root_admin_user_ids                            = var.root_admin_user_ids
   auth_mode                                      = lower(trimspace(var.auth_mode))
   cognito_issuer_url                             = var.cognito_issuer_url != "" ? var.cognito_issuer_url : (var.enable_cognito ? module.cognito[0].issuer_url : "")
   cognito_jwks_url                               = var.cognito_jwks_url != "" ? var.cognito_jwks_url : (var.enable_cognito ? module.cognito[0].jwks_url : "")
@@ -302,6 +303,7 @@ module "ecs" {
   ecs_task_execution_role_arn                     = module.security.ecs_task_execution_role_arn
   ecs_task_role_arns                              = module.security.ecs_task_role_arns
   root_admin_email                                = var.root_admin_email
+  root_admin_user_ids                             = var.root_admin_user_ids
   auth_mode                                       = lower(trimspace(var.auth_mode))
   cognito_issuer_url                              = var.cognito_issuer_url != "" ? var.cognito_issuer_url : (var.enable_cognito ? module.cognito[0].issuer_url : "")
   cognito_jwks_url                                = var.cognito_jwks_url != "" ? var.cognito_jwks_url : (var.enable_cognito ? module.cognito[0].jwks_url : "")

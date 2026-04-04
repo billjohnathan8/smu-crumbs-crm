@@ -25,6 +25,7 @@ import com.scroogebank.crm.client_service.dto.ReassignResponse;
 import com.scroogebank.crm.client_service.dto.ReviewVerificationRequest;
 import com.scroogebank.crm.client_service.dto.UploadVerificationDocsRequest;
 import com.scroogebank.crm.client_service.dto.VerificationDocumentResponse;
+import com.scroogebank.crm.client_service.dto.VerificationSubmissionSummaryResponse;
 import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
 import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
@@ -102,11 +103,13 @@ public class ClientServiceImpl implements ClientService {
 		String normalizedAssignedUserId = assignedUserId == null ? null : assignedUserId.trim();
 
 		List<ClientEntity> all;
-		if (user.isAdmin()) {
-			// Admin can filter by any agent or see all clients
+		if (user.isRootAdmin()) {
+			// Root admin can filter by any agent or see all clients.
 			all = clientRepository.searchAllWithFilters(query, kycStatus, normalizedAssignedUserId);
+		} else if (user.isLimitedAdmin()) {
+			throw new AccessDeniedException("Admins cannot access client data");
 		} else {
-			// Regular users only see their own clients
+			// Agents only see their own clients.
 			all = clientRepository.searchByAgentWithFilters(user.userId(), query, kycStatus);
 		}
 
@@ -116,6 +119,44 @@ public class ClientServiceImpl implements ClientService {
 
 		List<ClientDto> data = all.subList(fromIndex, toIndex).stream().map(this::toDto).toList();
 		return new ClientListResponse(data, new Pagination(normalizedLimit, normalizedOffset, total));
+	}
+
+	@Override
+	public ClientListResponse listArchivedClients(
+		AuthenticatedUser user,
+		int limit,
+		int offset,
+		String q,
+		IdentityVerificationStatus kycStatus,
+		String assignedUserId
+	) {
+		requireRootAdmin(user);
+		int normalizedLimit = Math.max(1, Math.min(200, limit));
+		int normalizedOffset = Math.max(0, offset);
+		String query = q == null ? null : q.trim();
+		String normalizedAssignedUserId = assignedUserId == null ? null : assignedUserId.trim();
+
+		List<ClientEntity> archived = clientRepository.searchDeletedWithFilters(
+			query,
+			kycStatus,
+			normalizedAssignedUserId
+		);
+		long total = archived.size();
+		int fromIndex = Math.min(normalizedOffset, archived.size());
+		int toIndex = Math.min(fromIndex + normalizedLimit, archived.size());
+
+		List<ClientDto> data = archived.subList(fromIndex, toIndex).stream().map(this::toDto).toList();
+		return new ClientListResponse(data, new Pagination(normalizedLimit, normalizedOffset, total));
+	}
+
+	@Override
+	public VerificationSubmissionSummaryResponse getVerificationSubmissionSummary(AuthenticatedUser user) {
+		if (!user.isAdmin() && !user.isRootAdmin()) {
+			throw new AccessDeniedException("Admin role required");
+		}
+		long pendingCount =
+			clientRepository.countByDeletedFalseAndIdentityVerificationStatus(IdentityVerificationStatus.pending);
+		return new VerificationSubmissionSummaryResponse(pendingCount);
 	}
 
 	/**
@@ -134,6 +175,7 @@ public class ClientServiceImpl implements ClientService {
 		String authorizationHeader,
 		String requestId
 	) {
+		requireClientDataAccess(user);
 		ClientEntity client = loadOwnedClient(user, clientId);
 		publishAuditSafe(
 			"READ",
@@ -165,6 +207,7 @@ public class ClientServiceImpl implements ClientService {
 		String authorizationHeader,
 		String requestId
 	) {
+		requireClientDataAccess(user);
 		validatePostalCode(request.country(), request.postalCode());
 		checkCreateConflicts(request.emailAddress(), request.phoneNumber());
 
@@ -173,12 +216,12 @@ public class ClientServiceImpl implements ClientService {
 		applyCreate(entity, request);
 		String requestedAgentId = request.assignedUserId() == null ? null : request.assignedUserId().trim();
 		String assignedAgentId;
-		if (user.isAdmin()) {
+		if (user.isRootAdmin()) {
 			if (requestedAgentId == null || requestedAgentId.isBlank()) {
-				throw new IllegalArgumentException("Admin users must specify an agent to assign the client to");
+				throw new IllegalArgumentException("Root admin users must specify an agent to assign the client to");
 			}
 			if (requestedAgentId.equals(user.userId())) {
-				throw new IllegalArgumentException("Admin users cannot assign clients to themselves");
+				throw new IllegalArgumentException("Root admin users cannot assign clients to themselves");
 			}
 			assignedAgentId = requestedAgentId;
 		} else {
@@ -235,6 +278,7 @@ public class ClientServiceImpl implements ClientService {
 		String authorizationHeader,
 		String requestId
 	) {
+		requireClientDataAccess(user);
 		ClientEntity entity = loadOwnedClient(user, clientId);
 		String effectiveCountry = request.country() != null ? request.country() : entity.getCountry();
 		String effectivePostalCode = request.postalCode() != null ? request.postalCode() : entity.getPostalCode();
@@ -327,6 +371,7 @@ public class ClientServiceImpl implements ClientService {
 	@Override
 	@Transactional
 	public void deleteClient(AuthenticatedUser user, String clientId, String authorizationHeader, String requestId) {
+		requireClientDataAccess(user);
 		ClientEntity entity = loadOwnedClient(user, clientId);
 		entity.setDeleted(true);
 		clientRepository.save(entity);
@@ -351,9 +396,7 @@ public class ClientServiceImpl implements ClientService {
 		String authorizationHeader,
 		String requestId
 	) {
-		if (!user.isAdmin()) {
-			throw new AccessDeniedException("Admin role required for client reassignment");
-		}
+		requireRootAdmin(user);
 		String fromUserId = request.fromUserId().trim();
 		String toUserId = request.toUserId().trim();
 		if (fromUserId.equals(toUserId)) {
@@ -392,8 +435,8 @@ public class ClientServiceImpl implements ClientService {
 		String requestId
 	) {
 		boolean isAgentLikeUser = user.isUser() || "agent".equals(user.role());
-		if (!user.isAdmin() && !isAgentLikeUser) {
-			throw new AccessDeniedException("Admin or agent role required for verification review");
+		if (!user.isRootAdmin() && !isAgentLikeUser) {
+			throw new AccessDeniedException("Root admin or agent role required for verification review");
 		}
 
 		ClientEntity entity = loadOwnedClient(user, clientId);
@@ -466,6 +509,7 @@ public class ClientServiceImpl implements ClientService {
 		String authorizationHeader,
 		String requestId
 	) {
+		requireClientDataAccess(user);
 		ClientEntity entity = loadOwnedClient(user, clientId);
 		if (entity.getIdentityVerificationStatus() == IdentityVerificationStatus.verified) {
 			throw new IllegalStateException("Verification link resend is not allowed for verified clients");
@@ -576,6 +620,7 @@ public class ClientServiceImpl implements ClientService {
 		String clientId,
 		String documentKind
 	) {
+		requireClientDataAccess(user);
 		ClientEntity entity = loadOwnedClient(user, clientId);
 		String normalizedKind = documentKind == null ? "" : documentKind.trim().toLowerCase(Locale.ROOT);
 		String documentType;
@@ -619,7 +664,8 @@ public class ClientServiceImpl implements ClientService {
 	 * @param phoneNumber phone to check
 	 */
 	@Override
-	public long countClientsByAgent(String assignedUserId) {
+	public long countClientsByAgent(AuthenticatedUser user, String assignedUserId) {
+		requireRootAdmin(user);
 		return clientRepository.countByAssignedUserIdAndDeletedFalse(assignedUserId);
 	}
 
@@ -719,15 +765,15 @@ public class ClientServiceImpl implements ClientService {
 			entity.setPostalCode(request.postalCode());
 		}
 		if (request.assignedUserId() != null) {
-			if (!user.isAdmin()) {
-				throw new AccessDeniedException("Admin role required for client reassignment");
+			if (!user.isRootAdmin()) {
+				throw new AccessDeniedException("Root admin role required for client reassignment");
 			}
 			String requestedAgentId = request.assignedUserId().trim();
 			if (requestedAgentId.isBlank()) {
 				throw new IllegalArgumentException("assignedUserId must not be blank");
 			}
 			if (requestedAgentId.equals(user.userId())) {
-				throw new IllegalArgumentException("Admin users cannot assign clients to themselves");
+				throw new IllegalArgumentException("Root admin users cannot assign clients to themselves");
 			}
 			entity.setAssignedAgentId(requestedAgentId);
 		}
@@ -782,10 +828,22 @@ public class ClientServiceImpl implements ClientService {
 			throw new ClientNotFoundException(clientId);
 		}
 
-		if (!user.isAdmin() && !user.userId().equals(client.getAssignedAgentId())) {
+		if (!user.isRootAdmin() && !user.userId().equals(client.getAssignedAgentId())) {
 			throw new ClientNotFoundException(clientId);
 		}
 		return client;
+	}
+
+	private static void requireRootAdmin(AuthenticatedUser user) {
+		if (!user.isRootAdmin()) {
+			throw new AccessDeniedException("Root admin role required");
+		}
+	}
+
+	private static void requireClientDataAccess(AuthenticatedUser user) {
+		if (user.isLimitedAdmin()) {
+			throw new AccessDeniedException("Admins cannot access client data");
+		}
 	}
 
 	/**

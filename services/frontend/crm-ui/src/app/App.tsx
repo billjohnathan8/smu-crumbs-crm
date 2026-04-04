@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext'
 import { ThemeProvider } from '@/features/theme/ThemeContext'
+import { isRootAdminUser } from '@/features/auth/authorization'
 import { ProtectedRoute } from './ProtectedRoute'
 
 const LoginPage = lazy(() =>
@@ -26,6 +27,9 @@ const ClientListPage = lazy(() =>
 )
 const ClientDetailPage = lazy(() =>
   import('@/pages/ClientDetailPage').then(module => ({ default: module.ClientDetailPage }))
+)
+const ClientArchivesPage = lazy(() =>
+  import('@/pages/ClientArchivesPage').then(module => ({ default: module.ClientArchivesPage }))
 )
 const UserDashboard = lazy(() =>
   import('@/pages/UserDashboard').then(module => ({ default: module.UserDashboard }))
@@ -83,6 +87,17 @@ function RootRedirect() {
   return <Navigate to="/user" replace />
 }
 
+function AdminHomeRedirect() {
+  const { user } = useAuth()
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+  if (isRootAdminUser(user)) {
+    return <AdminDashboard />
+  }
+  return <Navigate to="/admin/users" replace />
+}
+
 export function App() {
   return (
     <ThemeProvider>
@@ -102,8 +117,20 @@ export function App() {
               <Route path="/reset-password" element={<ResetPasswordPage />} />
 
               <Route element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} />}>
-                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin" element={<AdminHomeRedirect />} />
+                <Route path="/admin/users" element={<AdminUserManagementPage />} />
+                <Route path="/admin/users/new" element={<CreateNewUserPage />} />
+                <Route path="/admin/settings" element={<SettingsPage />} />
+                <Route path="/admin/accounts" element={<Navigate to="/admin/users" replace />} />
+              </Route>
+
+              <Route
+                element={
+                  <ProtectedRoute allowedRoles={['admin', 'super_admin']} requireRootAdmin />
+                }
+              >
                 <Route path="/admin/clients" element={<ClientListPage />} />
+                <Route path="/admin/client-archives" element={<ClientArchivesPage />} />
                 <Route path="/admin/clients/new" element={<CreateClientPage />} />
                 <Route path="/admin/clients/:clientId" element={<ClientDetailPage />} />
                 <Route path="/admin/clients/:clientId/edit" element={<EditClientPage />} />
@@ -112,10 +139,6 @@ export function App() {
                 <Route path="/admin/transactions" element={<ViewTransactionsPage />} />
                 <Route path="/admin/aml-alerts" element={<AmlAlertsPage />} />
                 <Route path="/admin/logs" element={<ActivityLogsPage />} />
-                <Route path="/admin/accounts" element={<Navigate to="/admin/users" replace />} />
-                <Route path="/admin/users" element={<AdminUserManagementPage />} />
-                <Route path="/admin/users/new" element={<CreateNewUserPage />} />
-                <Route path="/admin/settings" element={<SettingsPage />} />
               </Route>
 
               <Route element={<ProtectedRoute allowedRoles={['user']} />}>

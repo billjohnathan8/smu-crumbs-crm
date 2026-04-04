@@ -1279,7 +1279,7 @@ def test_get_communication_invalid_id_and_not_found() -> None:
 def test_aml_alert_create_list_review_flow() -> None:
     secret = "test-secret"
     router = _make_router(FakeLogService(), secret=secret)
-    token = mint_token("usr_admin", "admin", secret)
+    token = mint_token("usr_1", "admin", secret)
 
     created, created_body = _invoke(
         router,
@@ -1430,6 +1430,38 @@ def test_aml_alert_non_admin_access_is_client_scoped() -> None:
     assert review_allowed_body["reviewStatus"] == "Confirmed"
 
 
+def test_aml_alert_list_denies_non_root_admin() -> None:
+    secret = "test-secret"
+    service = FakeLogService()
+    router = _make_router(service, secret=secret)
+    admin_token = mint_token("usr_admin", "admin", secret)
+
+    service.create_aml_alert(
+        CreateAmlAlertRequest(
+            alertId="aml_1",
+            clientId="clt_1",
+            transactionId="txn_1",
+            alertType="STRUCTURING",
+            description="Structuring detected",
+            detectedAt=datetime.now(timezone.utc),
+            reviewStatus="Pending",
+        )
+    )
+
+    response, body = _invoke(
+        router,
+        _http_api_v2_event(
+            "GET",
+            "/api/aml/alerts",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        ),
+    )
+
+    assert response["statusCode"] == 403
+    assert body is not None
+    assert body["error"] == "forbidden"
+
+
 def test_aml_alert_create_requires_admin_and_auth() -> None:
     secret = "test-secret"
     router = _make_router(FakeLogService(), secret=secret)
@@ -1508,24 +1540,24 @@ def test_rest_proxy_event_shapes_are_supported() -> None:
     assert "data" in rest_logs_body
 
 
-def test_aml_trigger_requires_admin() -> None:
-    """POST /api/aml/trigger requires admin role."""
+def test_aml_trigger_requires_agent_or_root_admin() -> None:
+    """POST /api/aml/trigger denies regular admins."""
     secret = "test-secret"
     router = _make_router(FakeLogService(), secret=secret)
-    user_token = mint_token("usr_user", "user", secret)
+    admin_token = mint_token("usr_admin", "admin", secret)
 
-    # User role should be forbidden
-    user_response, user_body = _invoke(
+    # Non-root admin should be forbidden.
+    admin_response, admin_body = _invoke(
         router,
         _http_api_v2_event(
             "POST",
             "/api/aml/trigger",
-            headers={"authorization": f"Bearer {user_token}"},
+            headers={"authorization": f"Bearer {admin_token}"},
         ),
     )
-    assert user_response["statusCode"] == 403
-    assert user_body is not None
-    assert user_body["error"] == "forbidden"
+    assert admin_response["statusCode"] == 403
+    assert admin_body is not None
+    assert admin_body["error"] == "forbidden"
 
     # Unauthorized should return 401
     unauth_response, unauth_body = _invoke(
@@ -1541,7 +1573,7 @@ def test_aml_trigger_invokes_lambda(monkeypatch) -> None:
 
     secret = "test-secret"
     router = _make_router(FakeLogService(), secret=secret)
-    admin_token = mint_token("usr_admin", "admin", secret)
+    user_token = mint_token("usr_user", "user", secret)
 
     # Mock boto3 Lambda client
     mock_lambda_client = mock.MagicMock()
@@ -1564,7 +1596,7 @@ def test_aml_trigger_invokes_lambda(monkeypatch) -> None:
         _http_api_v2_event(
             "POST",
             "/api/aml/trigger",
-            headers={"authorization": f"Bearer {admin_token}"},
+            headers={"authorization": f"Bearer {user_token}"},
         ),
     )
 
@@ -1572,7 +1604,7 @@ def test_aml_trigger_invokes_lambda(monkeypatch) -> None:
     assert body is not None
     assert body["status"] == "triggered"
     assert body["message"] == "AML scan has been queued"
-    assert body["triggeredBy"] == "usr_admin"
+    assert body["triggeredBy"] == "usr_user"
 
     # Verify Lambda client was called
     mock_boto3.client.assert_called_once_with("lambda")
@@ -1588,7 +1620,7 @@ def test_aml_trigger_handles_lambda_invoke_failure(monkeypatch) -> None:
 
     secret = "test-secret"
     router = _make_router(FakeLogService(), secret=secret)
-    admin_token = mint_token("usr_admin", "admin", secret)
+    user_token = mint_token("usr_user", "user", secret)
 
     # Mock boto3 Lambda client with failure
     mock_lambda_client = mock.MagicMock()
@@ -1608,7 +1640,7 @@ def test_aml_trigger_handles_lambda_invoke_failure(monkeypatch) -> None:
         _http_api_v2_event(
             "POST",
             "/api/aml/trigger",
-            headers={"authorization": f"Bearer {admin_token}"},
+            headers={"authorization": f"Bearer {user_token}"},
         ),
     )
 
@@ -1621,7 +1653,7 @@ def test_aml_trigger_handles_missing_function_name(monkeypatch) -> None:
     """POST /api/aml/trigger returns 503 when function name not configured."""
     secret = "test-secret"
     router = _make_router(FakeLogService(), secret=secret)
-    admin_token = mint_token("usr_admin", "admin", secret)
+    user_token = mint_token("usr_user", "user", secret)
 
     # Ensure no NAME_PREFIX or AML_LAMBDA_FUNCTION_NAME
     monkeypatch.delenv("NAME_PREFIX", raising=False)
@@ -1632,7 +1664,7 @@ def test_aml_trigger_handles_missing_function_name(monkeypatch) -> None:
         _http_api_v2_event(
             "POST",
             "/api/aml/trigger",
-            headers={"authorization": f"Bearer {admin_token}"},
+            headers={"authorization": f"Bearer {user_token}"},
         ),
     )
 

@@ -135,7 +135,7 @@ class ClientServiceImplTest {
 
 	@Test
 	void listClients_adminUsesSearchAll_andTrimsQueryAndNormalizesLimitOffset() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		ClientPayload payload = samplePayload();
 		List<ClientEntity> all = List.of(
 			entityFromPayload(1L, "usr_x", payload),
@@ -155,7 +155,7 @@ class ClientServiceImplTest {
 
 	@Test
 	void listClients_withFilters_returnsFilteredResults() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		ClientPayload payload = samplePayload();
 		ClientEntity e1 = entityFromPayload(1L, "usr_2", payload);
 		e1.setIdentityVerificationStatus(IdentityVerificationStatus.verified);
@@ -443,7 +443,7 @@ class ClientServiceImplTest {
 
 	@Test
 	void updateClient_adminCanReassignClientAndAuditAssignedUserIdChange() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		ClientPayload payload = samplePayload();
 		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
 		ClientUpdateRequest request = new ClientUpdateRequest(
@@ -461,7 +461,7 @@ class ClientServiceImplTest {
 			eq("assignedUserId"),
 			eq("[REDACTED]"),
 			eq("[REDACTED]"),
-			eq("usr_admin"),
+			eq("usr_1"),
 			eq("clt_12"),
 			eq("req-1"),
 			eq("Bearer x")
@@ -480,7 +480,7 @@ class ClientServiceImplTest {
 
 		assertThatThrownBy(() -> clientService.updateClient(user, "clt_12", request, "Bearer x", "req-1"))
 			.isInstanceOf(AccessDeniedException.class)
-			.hasMessageContaining("Admin role required for client reassignment");
+			.hasMessageContaining("Root admin role required for client reassignment");
 
 		verify(clientRepository, never()).save(any());
 	}
@@ -722,7 +722,7 @@ class ClientServiceImplTest {
 
 	@Test
 	void reassignClients_adminLogsAuditAsUpdate() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		ClientEntity c1 = entityFromPayload(7L, "usr_from", samplePayload());
 		ClientEntity c2 = entityFromPayload(8L, "usr_from", samplePayload());
 		when(clientRepository.findByAssignedAgentId("usr_from")).thenReturn(List.of(c1, c2));
@@ -741,7 +741,7 @@ class ClientServiceImplTest {
 			eq("assignedUserId"),
 			eq("usr_from"),
 			eq("usr_to"),
-			eq("usr_admin"),
+			eq("usr_1"),
 			eq("clt_7"),
 			eq("req-1"),
 			eq("Bearer x")
@@ -751,7 +751,7 @@ class ClientServiceImplTest {
 			eq("assignedUserId"),
 			eq("usr_from"),
 			eq("usr_to"),
-			eq("usr_admin"),
+			eq("usr_1"),
 			eq("clt_8"),
 			eq("req-1"),
 			eq("Bearer x")
@@ -760,7 +760,7 @@ class ClientServiceImplTest {
 
 	@Test
 	void reviewVerification_nonPending_throwsConflict() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
 		entity.setIdentityVerificationStatus(IdentityVerificationStatus.verified);
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
@@ -778,7 +778,7 @@ class ClientServiceImplTest {
 
 	@Test
 	void reviewVerification_pendingApprove_setsVerifiedAndAudits() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
 		entity.setIdentityVerificationStatus(IdentityVerificationStatus.pending);
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
@@ -798,7 +798,7 @@ class ClientServiceImplTest {
 			eq("identityVerificationStatus"),
 			eq("pending"),
 			eq("verified"),
-			eq("usr_admin"),
+			eq("usr_1"),
 			eq("clt_7"),
 			eq("req-1"),
 			eq("Bearer x")

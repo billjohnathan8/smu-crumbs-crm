@@ -232,6 +232,10 @@ locals {
           value = var.cognito_audience
         },
         {
+          name  = "ROOT_ADMIN_USER_IDS"
+          value = var.root_admin_user_ids
+        },
+        {
           name  = "APP_ACCOUNT_OPENING_ACTIVE_BRANCHES"
           value = "SG-001,SG-002,SG-003"
         },
@@ -354,6 +358,10 @@ locals {
         {
           name  = "COGNITO_AUDIENCE"
           value = var.cognito_audience
+        },
+        {
+          name  = "ROOT_ADMIN_USER_IDS"
+          value = var.root_admin_user_ids
         }
       ]
       secrets = [

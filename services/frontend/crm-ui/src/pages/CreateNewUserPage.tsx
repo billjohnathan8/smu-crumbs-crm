@@ -24,7 +24,14 @@ const userNav: NavItem[] = [
 
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
+  { label: 'User Management', to: '/admin/users', end: true },
+  { label: 'Settings', to: '/admin/settings' },
+]
+
+const rootAdminNav: NavItem[] = [
+  { label: 'Home', to: '/admin', end: true },
   { label: 'All Clients', to: '/admin/clients', end: true },
+  { label: 'Client Archives', to: '/admin/client-archives', end: true },
   { label: 'Create Client', to: '/admin/clients/new' },
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },
@@ -56,9 +63,9 @@ export function CreateNewUserPage() {
   const canManageUsers = isAdmin || isRootAdmin
 
   const basePath = canManageUsers ? '/admin' : '/user'
-  const sidebarNav = canManageUsers ? adminNav : userNav
+  const sidebarNav = canManageUsers ? (isRootAdmin ? rootAdminNav : adminNav) : userNav
   const homePath = basePath
-  const listPath = canManageUsers ? '/admin/adminusermanagement' : '/user'
+  const listPath = canManageUsers ? '/admin/users' : '/user'
   const breadcrumbLabel = canManageUsers ? 'Manage Users' : 'Dashboard'
 
   const allowedRoles: UserRole[] = isRootAdmin ? ['user', 'admin'] : ['user']

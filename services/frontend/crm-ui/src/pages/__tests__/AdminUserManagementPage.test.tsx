@@ -45,6 +45,14 @@ const renderAdminUserManagementPage = (user: User = mockAdminUser, useStrictRout
   vi.mocked(authApi.getCurrentUser).mockResolvedValue(user)
   localStorage.setItem('authToken', 'test-token')
   localStorage.setItem('currentUser', JSON.stringify(user))
+  const summaryMock = vi.mocked(clientsApi.getVerificationSubmissionSummary)
+  if (!summaryMock.getMockImplementation()) {
+    summaryMock.mockResolvedValue({ pendingSubmissionCount: 0 })
+  }
+  const countMock = vi.mocked(clientsApi.countClientsByAgent)
+  if (!countMock.getMockImplementation()) {
+    countMock.mockResolvedValue(0)
+  }
 
   if (useStrictRoutes) {
     return render(
@@ -227,7 +235,7 @@ it('should show transfer guidance as tooltip for disabled agents with clients', 
   })
   vi.spyOn(clientsApi, 'countClientsByAgent').mockResolvedValue(2)
 
-  renderAdminUserManagementPage()
+  renderAdminUserManagementPage(mockSuperAdminUser)
 
   const transferButton = await screen.findByRole('button', { name: 'Transfer (2)' })
   expect(transferButton).toHaveAttribute('title', 'Transfer clients to enable delete')

@@ -3,7 +3,11 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { isRootAdminUser } from '@/features/auth/authorization'
 import { listUsers, deleteUser, disableUser } from '@/api/users'
-import { reassignClients, countClientsByAgent } from '@/api/clients'
+import {
+  reassignClients,
+  countClientsByAgent,
+  getVerificationSubmissionSummary,
+} from '@/api/clients'
 import type { User, UserRole } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
@@ -18,15 +22,22 @@ const userNav: NavItem[] = [
   { label: 'Settings', to: '/user/settings' },
 ]
 
-const adminNav: NavItem[] = [
+const rootAdminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
   { label: 'All Clients', to: '/admin/clients', end: true },
+  { label: 'Client Archives', to: '/admin/client-archives', end: true },
   { label: 'Create Client', to: '/admin/clients/new' },
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
   { label: 'Activity Logs', to: '/admin/logs' },
   { label: 'User Management', to: '/admin/users' },
+  { label: 'Settings', to: '/admin/settings' },
+]
+
+const adminNav: NavItem[] = [
+  { label: 'Home', to: '/admin', end: true },
+  { label: 'User Management', to: '/admin/users', end: true },
   { label: 'Settings', to: '/admin/settings' },
 ]
 
@@ -66,6 +77,7 @@ export function AdminUserManagementPage() {
   const [transferToUserId, setTransferToUserId] = useState('')
   const [isTransferring, setIsTransferring] = useState(false)
   const [agentClientCounts, setAgentClientCounts] = useState<Record<string, number>>({})
+  const [pendingSubmissionCount, setPendingSubmissionCount] = useState<number | null>(null)
   const [listFilters, setListFilters] = useState<{
     search: string
     role: UserRole | ''
@@ -83,7 +95,7 @@ export function AdminUserManagementPage() {
   const canManageUsers = isAdmin || isRootAdmin
 
   const basePath = canManageUsers ? '/admin' : '/user'
-  const sidebarNav = canManageUsers ? adminNav : userNav
+  const sidebarNav = canManageUsers ? (isRootAdmin ? rootAdminNav : adminNav) : userNav
   const homePath = basePath
 
   useEffect(() => {
@@ -116,6 +128,9 @@ export function AdminUserManagementPage() {
   }, [isRootAdmin, logout])
 
   useEffect(() => {
+    if (!isRootAdmin) {
+      return
+    }
     const disabledAgents = users.filter(u => u.role === 'user' && u.status === 'disabled')
     if (disabledAgents.length === 0) return
     const fetchCounts = async () => {
@@ -132,7 +147,16 @@ export function AdminUserManagementPage() {
       setAgentClientCounts(prev => ({ ...prev, ...counts }))
     }
     fetchCounts()
-  }, [users])
+  }, [isRootAdmin, users])
+
+  useEffect(() => {
+    if (!canManageUsers) {
+      return
+    }
+    getVerificationSubmissionSummary()
+      .then(summary => setPendingSubmissionCount(summary.pendingSubmissionCount))
+      .catch(() => setPendingSubmissionCount(null))
+  }, [canManageUsers])
 
   const handleDeleteUser = async (userId: string, userRole: UserRole) => {
     // Check permissions
@@ -243,6 +267,10 @@ export function AdminUserManagementPage() {
   }
 
   const handleTransferConfirm = async () => {
+    if (!isRootAdmin) {
+      setError('Only root admin can transfer clients between agents')
+      return
+    }
     if (!transferFromUser) return
     if (!transferToUserId) {
       setError('Please select a target agent')
@@ -346,6 +374,16 @@ export function AdminUserManagementPage() {
         {successMessage && (
           <div className="bg-success/10 border border-success rounded-lg p-4 mb-6">
             <p className="text-success text-sm">{successMessage}</p>
+          </div>
+        )}
+        {pendingSubmissionCount !== null && (
+          <div className="bg-warning/10 border border-warning rounded-lg p-4 mb-6">
+            <p className="text-warning text-sm">
+              Pending verification submissions: {pendingSubmissionCount}.{' '}
+              {isRootAdmin
+                ? 'Review from root-admin client pages.'
+                : 'Notify root admin for review decisions.'}
+            </p>
           </div>
         )}
 
@@ -506,7 +544,7 @@ export function AdminUserManagementPage() {
                                 </button>
                               ) : (
                                 <>
-                                  {(agentClientCounts[u.id] ?? -1) !== 0 && (
+                                  {isRootAdmin && (agentClientCounts[u.id] ?? -1) !== 0 && (
                                     <button
                                       onClick={() => openTransferModal(u)}
                                       title="Transfer clients to enable delete"
@@ -519,7 +557,7 @@ export function AdminUserManagementPage() {
                                         : ''}
                                     </button>
                                   )}
-                                  {agentClientCounts[u.id] === 0 ? (
+                                  {isRootAdmin && agentClientCounts[u.id] === 0 ? (
                                     <button
                                       onClick={() => handleDeleteUser(u.id, u.role)}
                                       disabled={deletingUserId === u.id}

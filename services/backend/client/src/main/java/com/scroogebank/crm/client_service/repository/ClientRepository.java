@@ -121,6 +121,33 @@ public interface ClientRepository extends JpaRepository<ClientEntity, Long> {
 	);
 
 	/**
+	 * Searches soft-deleted clients with optional filters for KYC status and assigned agent.
+	 *
+	 * @param q search query (nullable)
+	 * @param kycStatus identity verification status filter (nullable)
+	 * @param assignedUserId assigned agent filter (nullable)
+	 * @return matching archived clients ordered by id
+	 */
+	@Query("""
+		SELECT c FROM ClientEntity c
+		WHERE c.deleted = true
+			AND (:q IS NULL OR :q = '' OR
+				LOWER(c.firstName) LIKE LOWER(CONCAT('%', :q, '%')) OR
+				LOWER(c.lastName) LIKE LOWER(CONCAT('%', :q, '%')) OR
+				LOWER(c.emailAddress) LIKE LOWER(CONCAT('%', :q, '%')) OR
+				c.phoneNumber LIKE CONCAT('%', :q, '%')
+			)
+			AND (:kycStatus IS NULL OR c.identityVerificationStatus = :kycStatus)
+			AND (:assignedUserId IS NULL OR :assignedUserId = '' OR c.assignedUserId = :assignedUserId)
+		ORDER BY c.id DESC
+		""")
+	List<ClientEntity> searchDeletedWithFilters(
+		@Param("q") String q,
+		@Param("kycStatus") com.scroogebank.crm.client_service.dto.IdentityVerificationStatus kycStatus,
+		@Param("assignedUserId") String assignedUserId
+	);
+
+	/**
 	 * Searches clients for a specific user with optional filters for KYC status.
 	 *
 	 * @param userId user identifier
@@ -148,4 +175,8 @@ public interface ClientRepository extends JpaRepository<ClientEntity, Long> {
 	);
 
 	long countByAssignedUserIdAndDeletedFalse(String assignedUserId);
+
+	long countByDeletedFalseAndIdentityVerificationStatus(
+		com.scroogebank.crm.client_service.dto.IdentityVerificationStatus status
+	);
 }

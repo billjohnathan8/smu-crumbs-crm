@@ -87,7 +87,7 @@ class TransactionsControllerTest {
 
 	@Test
 	void listTransactions_adminWithoutClientId_delegatesToService() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		when(requestAuth.requireUser(httpRequest)).thenReturn(admin);
 		when(transactionsService.list(anyInt(), anyInt(), isNull(), isNull(), isNull(), isNull(), isNull()))
 			.thenReturn(new InMemoryTransactionsStore.ListResult(List.of(), 0));
@@ -110,7 +110,7 @@ class TransactionsControllerTest {
 
 	@Test
 	void createTransaction_adminAllowed() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		when(requestAuth.requireUser(httpRequest)).thenReturn(admin);
 		CreateTransactionRequest body = mock(CreateTransactionRequest.class);
 		TransactionDto dto = mock(TransactionDto.class);
@@ -126,7 +126,7 @@ class TransactionsControllerTest {
 			"Transaction ID",
 			null,
 			"txn_1",
-			"usr_admin",
+			"usr_1",
 			"clt_1",
 			"req_1",
 			"Bearer token"
@@ -144,7 +144,7 @@ class TransactionsControllerTest {
 
 	@Test
 	void updateTransaction_adminForbiddenWhenDisabled() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		when(requestAuth.requireUser(httpRequest)).thenReturn(admin);
 		assertThrows(ForbiddenException.class, () ->
 			controller.updateTransaction(httpRequest, "txn_1", mock(UpdateTransactionRequest.class))
@@ -153,7 +153,7 @@ class TransactionsControllerTest {
 
 	@Test
 	void updateTransaction_adminAllowedWhenEnabled() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		when(requestAuth.requireUser(httpRequest)).thenReturn(admin);
 		when(appProperties.isTransactionUpdatesEnabled()).thenReturn(true);
 		UpdateTransactionRequest body = mock(UpdateTransactionRequest.class);
@@ -215,7 +215,7 @@ class TransactionsControllerTest {
 
 	@Test
 	void listTransactionsForClient_delegatesToService() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		when(requestAuth.requireUser(httpRequest)).thenReturn(admin);
 		when(httpRequest.getHeader("Authorization")).thenReturn("Bearer token");
 		when(transactionsService.list(anyInt(), anyInt(), eq("clt_1"), isNull(), isNull(), isNull(), isNull()))
@@ -228,7 +228,7 @@ class TransactionsControllerTest {
 
 	@Test
 	void importTransactions_adminAllowed() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		when(requestAuth.requireUser(httpRequest)).thenReturn(admin);
 		ImportBatchDto batch = new ImportBatchDto(
 			"imp_1",
@@ -253,7 +253,7 @@ class TransactionsControllerTest {
 			"importBatchId|sourcePath|status|totalRecords|importedRecords|failedRecords",
 			null,
 			"imp_1|null|completed|10|9|1",
-			"usr_admin",
+			"usr_1",
 			"clt_1",
 			"req_1",
 			"Bearer token"
@@ -262,7 +262,7 @@ class TransactionsControllerTest {
 
 	@Test
 	void importTransactions_adminAllowed_withoutRequestedClient_usesSystemImportClientId() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		when(requestAuth.requireUser(httpRequest)).thenReturn(admin);
 		ImportBatchDto batch = new ImportBatchDto(
 			"imp_2",
@@ -285,7 +285,7 @@ class TransactionsControllerTest {
 			"importBatchId|sourcePath|status|totalRecords|importedRecords|failedRecords",
 			null,
 			"imp_2|null|completed|5|5|0",
-			"usr_admin",
+			"usr_1",
 			"SYSTEM_IMPORT",
 			"req_1",
 			"Bearer token"
@@ -303,7 +303,7 @@ class TransactionsControllerTest {
 
 	@Test
 	void getImportBatch_adminAllowed_logsReadAudit() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		when(requestAuth.requireUser(httpRequest)).thenReturn(admin);
 		ImportBatchDto batch = new ImportBatchDto(
 			"imp_3",
@@ -327,7 +327,7 @@ class TransactionsControllerTest {
 			"Import Batch ID",
 			null,
 			"imp_3",
-			"usr_admin",
+			"usr_1",
 			"clt_9",
 			"req_1",
 			"Bearer token"

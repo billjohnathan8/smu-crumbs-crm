@@ -48,8 +48,8 @@ class ClientAccessValidatorTest {
 	}
 
 	@Test
-	void requireClientAccessible_adminBypassesRemoteCheck() {
-		validator.requireClientAccessible(new AuthenticatedUser("usr_admin", "admin"), null, "clt_1");
+	void requireClientAccessible_rootAdminBypassesRemoteCheck() {
+		validator.requireClientAccessible(new AuthenticatedUser("usr_1", "super_admin"), null, "clt_1");
 
 		verify(restClient, never()).get();
 	}
@@ -129,4 +129,3 @@ class ClientAccessValidatorTest {
 		);
 	}
 }
-

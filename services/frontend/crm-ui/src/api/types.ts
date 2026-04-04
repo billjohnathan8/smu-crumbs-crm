@@ -155,6 +155,10 @@ export interface VerifyClientResponse {
   identityVerificationStatus: IdentityVerificationStatus
 }
 
+export interface VerificationSubmissionSummary {
+  pendingSubmissionCount: number
+}
+
 export type ReviewAction = 'approve' | 'reject'
 
 export interface ReviewVerificationRequest {

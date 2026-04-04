@@ -100,6 +100,12 @@ variable "jwt_hmac_secret_arn" {
   type        = string
 }
 
+variable "root_admin_user_ids" {
+  description = "Comma-separated root admin user IDs recognized by log-service root-only authorization checks."
+  type        = string
+  default     = "usr_1,1"
+}
+
 variable "auth_mode" {
   description = "Runtime auth mode for the log Lambda (local, hybrid, cognito)."
   type        = string

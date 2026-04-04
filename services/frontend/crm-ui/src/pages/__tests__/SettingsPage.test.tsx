@@ -176,11 +176,11 @@ describe('SettingsPage', () => {
     expect(screen.getByRole('button', { name: 'Redirecting...' })).toBeDisabled()
   })
 
-  it('shows admin nav items for admin user', async () => {
+  it('shows limited admin nav items for admin user', async () => {
     renderSettings(mockAdminUser)
     await waitFor(() => {
       expect(screen.getByRole('link', { name: 'User Management' })).toBeInTheDocument()
-      expect(screen.getByRole('link', { name: 'Communications' })).toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: 'Communications' })).not.toBeInTheDocument()
     })
   })
 

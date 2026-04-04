@@ -56,14 +56,34 @@ const mockImportBatch: ImportBatch = {
   errorMessage: null,
 }
 
+const makeClient = (clientId: string) => ({
+  clientId,
+  firstName: 'Jane',
+  lastName: 'Doe',
+  dateOfBirth: '1990-01-01',
+  gender: 'Female' as const,
+  emailAddress: `${clientId}@example.com`,
+  phoneNumber: '+65 1111 1111',
+  address: '1 Main St',
+  city: 'SG',
+  state: 'SG',
+  country: 'Singapore',
+  postalCode: '123456',
+  identityVerificationStatus: 'verified' as const,
+})
+
 describe('ViewTransactionsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
     mockRole = 'user'
     vi.spyOn(clientsApi, 'listClients').mockResolvedValue({
-      data: [],
-      pagination: { limit: 100, offset: 0, total: 0 },
+      data: [makeClient('client-1'), makeClient('client-2')],
+      pagination: { limit: 100, offset: 0, total: 2 },
+    })
+    vi.spyOn(transactionsApi, 'listClientTransactions').mockImplementation(async clientId => {
+      const data = mockTransactions.filter(transaction => transaction.clientId === clientId)
+      return { data, pagination: { limit: 100, offset: 0, total: data.length } }
     })
   })
 
@@ -77,11 +97,6 @@ describe('ViewTransactionsPage', () => {
     )
 
   it('renders transaction list for user role without import controls', async () => {
-    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
-      data: mockTransactions,
-      pagination: { limit: 20, offset: 0, total: 2 },
-    })
-
     renderComponent()
 
     expect(screen.getByRole('heading', { name: 'Transactions', level: 1 })).toBeInTheDocument()
@@ -93,9 +108,9 @@ describe('ViewTransactionsPage', () => {
   })
 
   it('shows empty state when there are no transactions', async () => {
-    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+    vi.spyOn(clientsApi, 'listClients').mockResolvedValue({
       data: [],
-      pagination: { limit: 20, offset: 0, total: 0 },
+      pagination: { limit: 100, offset: 0, total: 0 },
     })
 
     renderComponent()
@@ -106,6 +121,7 @@ describe('ViewTransactionsPage', () => {
   })
 
   it('shows pagination at the bottom when total spans multiple pages', async () => {
+    mockRole = 'admin'
     vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
       data: [],
       pagination: { limit: 20, offset: 0, total: 25 },
@@ -122,6 +138,7 @@ describe('ViewTransactionsPage', () => {
   })
 
   it('logs out on unauthorized transaction listing response', async () => {
+    mockRole = 'admin'
     vi.spyOn(transactionsApi, 'listTransactions').mockRejectedValue(
       new ApiError(401, 'unauthorized', 'Unauthorized')
     )
@@ -134,6 +151,7 @@ describe('ViewTransactionsPage', () => {
   })
 
   it('requests next page when clicking pagination next', async () => {
+    mockRole = 'admin'
     const user = userEvent.setup()
     const listSpy = vi.spyOn(transactionsApi, 'listTransactions')
     listSpy
@@ -314,6 +332,7 @@ describe('ViewTransactionsPage', () => {
   })
 
   it('shows previous page button and navigates to previous page', async () => {
+    mockRole = 'admin'
     const user = userEvent.setup()
     const listSpy = vi.spyOn(transactionsApi, 'listTransactions')
     listSpy
@@ -362,6 +381,7 @@ describe('ViewTransactionsPage', () => {
   })
 
   it('shows generic error for non-ApiError during fetch', async () => {
+    mockRole = 'admin'
     vi.spyOn(transactionsApi, 'listTransactions').mockRejectedValue(new Error('network error'))
 
     renderComponent()
@@ -372,6 +392,7 @@ describe('ViewTransactionsPage', () => {
   })
 
   it('shows non-401 ApiError message during fetch', async () => {
+    mockRole = 'admin'
     vi.spyOn(transactionsApi, 'listTransactions').mockRejectedValue(
       new ApiError(500, 'server_error', 'Server failed')
     )
@@ -422,6 +443,7 @@ describe('ViewTransactionsPage', () => {
   })
 
   it('filters transactions by client ID when clientId filter is set', async () => {
+    mockRole = 'admin'
     const user = userEvent.setup()
     const listSpy = vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
       data: [],
@@ -478,6 +500,7 @@ describe('ViewTransactionsPage', () => {
   })
 
   it('looks up exact transaction id when txn_ search is provided', async () => {
+    mockRole = 'admin'
     const user = userEvent.setup()
     vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
       data: [],
@@ -680,6 +703,7 @@ describe('ViewTransactionsPage', () => {
   })
 
   it('passes status, type and date filters into listTransactions request', async () => {
+    mockRole = 'admin'
     const user = userEvent.setup()
     const listSpy = vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
       data: [],

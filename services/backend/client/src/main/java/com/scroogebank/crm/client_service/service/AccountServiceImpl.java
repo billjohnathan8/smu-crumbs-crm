@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.StringJoiner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -71,6 +72,7 @@ public class AccountServiceImpl implements AccountService {
 		String authorizationHeader,
 		String requestId
 	) {
+		requireClientDataAccess(user);
 		ClientEntity client = loadOwnedClient(user, request.clientId());
 		enforceVerifiedClient(client);
 		String normalizedCurrency = normalizeCurrency(request.currency());
@@ -100,6 +102,7 @@ public class AccountServiceImpl implements AccountService {
 
 	@Override
 	public AccountDto getAccount(AuthenticatedUser user, String accountId) {
+		requireClientDataAccess(user);
 		AccountEntity entity = loadOwnedAccount(user, accountId);
 		return toDto(entity);
 	}
@@ -113,6 +116,7 @@ public class AccountServiceImpl implements AccountService {
 		String authorizationHeader,
 		String requestId
 	) {
+		requireClientDataAccess(user);
 		AccountEntity entity = loadOwnedAccount(user, accountId);
 		String cltId = clientId(entity.getClient().getId());
 
@@ -164,6 +168,7 @@ public class AccountServiceImpl implements AccountService {
 		String authorizationHeader,
 		String requestId
 	) {
+		requireClientDataAccess(user);
 		AccountEntity entity = loadOwnedAccount(user, accountId);
 		String cltId = clientId(entity.getClient().getId());
 		entity.setDeleted(true);
@@ -177,6 +182,7 @@ public class AccountServiceImpl implements AccountService {
 
 	@Override
 	public AccountListResponse listAccounts(AuthenticatedUser user, String clientId, int limit, int offset) {
+		requireClientDataAccess(user);
 		ClientEntity client = loadOwnedClient(user, clientId);
 		List<AccountEntity> all = accountRepository.findByClientId(client.getId());
 
@@ -192,6 +198,7 @@ public class AccountServiceImpl implements AccountService {
 
 	@Override
 	public AccountOpeningOptionsDto getAccountOpeningOptions(AuthenticatedUser user, String clientId) {
+		requireClientDataAccess(user);
 		ClientEntity client = loadOwnedClient(user, clientId);
 		String resolvedDefaultBranch = resolveDefaultBranchForUser(user);
 		List<String> branches = resolveAuthorizedBranches(user);
@@ -363,7 +370,7 @@ public class AccountServiceImpl implements AccountService {
 		long dbClientId = decodeClientId(clientId);
 		ClientEntity client = clientRepository.findById(dbClientId)
 			.orElseThrow(() -> new ClientNotFoundException(clientId));
-		if (!user.isAdmin() && !user.userId().equals(client.getAssignedAgentId())) {
+		if (!user.isRootAdmin() && !user.userId().equals(client.getAssignedAgentId())) {
 			throw new ClientNotFoundException(clientId);
 		}
 		return client;
@@ -379,10 +386,16 @@ public class AccountServiceImpl implements AccountService {
 		}
 
 		ClientEntity client = entity.getClient();
-		if (!user.isAdmin() && !user.userId().equals(client.getAssignedAgentId())) {
+		if (!user.isRootAdmin() && !user.userId().equals(client.getAssignedAgentId())) {
 			throw new AccountNotFoundException(accountId);
 		}
 		return entity;
+	}
+
+	private static void requireClientDataAccess(AuthenticatedUser user) {
+		if (user.isLimitedAdmin()) {
+			throw new AccessDeniedException("Admins cannot access client data");
+		}
 	}
 
 	private long decodeClientId(String clientId) {

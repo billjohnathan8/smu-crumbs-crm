@@ -55,9 +55,9 @@ describe('AmlAlertsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
 
-    // Default mock setup: Logged in as Admin
+    // Default mock setup: Logged in as Root Admin
     vi.mocked(useAuth).mockReturnValue({
-      user: { id: 'admin-1', role: 'admin', firstName: 'Admin', lastName: 'User' },
+      user: { id: 'usr_1', role: 'admin', firstName: 'Root', lastName: 'Admin' },
       logout: mockLogout,
     } as unknown as ReturnType<typeof useAuth>)
 
@@ -108,6 +108,7 @@ describe('AmlAlertsPage', () => {
       clientId: undefined,
       alertType: undefined,
       reviewStatus: undefined,
+      detectedDate: undefined,
     })
   })
 
@@ -165,6 +166,7 @@ describe('AmlAlertsPage', () => {
         clientId: undefined,
         alertType: undefined,
         reviewStatus: undefined,
+        detectedDate: undefined,
       })
     })
   })
@@ -294,10 +296,10 @@ describe('AmlAlertsPage', () => {
     })
   })
 
-  it('should show trigger button only for admin and super_admin roles', async () => {
-    // Test Admin Role
+  it('should show trigger button for root admin and user roles', async () => {
+    // Root admin role
     vi.mocked(useAuth).mockReturnValue({
-      user: { id: 'admin-1', role: 'admin', firstName: 'Admin', lastName: 'User' },
+      user: { id: 'usr_1', role: 'admin', firstName: 'Root', lastName: 'Admin' },
       logout: mockLogout,
     } as unknown as ReturnType<typeof useAuth>)
 
@@ -307,9 +309,9 @@ describe('AmlAlertsPage', () => {
     expect(screen.getByRole('button', { name: /Trigger AML Scan/i })).toBeInTheDocument()
     unmount()
 
-    // Test Super Admin Role
+    // User role
     vi.mocked(useAuth).mockReturnValue({
-      user: { id: 'admin-2', role: 'super_admin', firstName: 'Super', lastName: 'Admin' },
+      user: { id: 'user-1', role: 'user', firstName: 'Regular', lastName: 'User' },
       logout: mockLogout,
     } as unknown as ReturnType<typeof useAuth>)
 
@@ -318,9 +320,9 @@ describe('AmlAlertsPage', () => {
     expect(screen.getByRole('button', { name: /Trigger AML Scan/i })).toBeInTheDocument()
   })
 
-  it('should NOT show trigger button for user role', async () => {
+  it('should NOT show trigger button for non-root admin role', async () => {
     vi.mocked(useAuth).mockReturnValue({
-      user: { id: 'user-1', role: 'user', firstName: 'Regular', lastName: 'User' },
+      user: { id: 'admin-2', role: 'admin', firstName: 'Admin', lastName: 'User' },
       logout: mockLogout,
     } as unknown as ReturnType<typeof useAuth>)
 

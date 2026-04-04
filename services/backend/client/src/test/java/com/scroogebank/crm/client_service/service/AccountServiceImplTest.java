@@ -60,7 +60,7 @@ class AccountServiceImplTest {
 
 	@Test
 	void createAccount_adminCreatesAndPublishesAudit() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		AccountCreateRequest request = new AccountCreateRequest(
 			"clt_1",
 			AccountType.Savings,
@@ -85,7 +85,7 @@ class AccountServiceImplTest {
 			eq("Account ID"),
 			eq(null),
 			eq("acc_10"),
-			eq("usr_admin"),
+			eq("usr_1"),
 			eq("clt_1"),
 			eq("req-1"),
 			eq("Bearer x")
@@ -94,7 +94,7 @@ class AccountServiceImplTest {
 
 	@Test
 	void createAccount_whenAuthorizationHeaderBlank_skipsAuditLogging() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		AccountCreateRequest request = new AccountCreateRequest(
 			"clt_1",
 			AccountType.Savings,
@@ -147,7 +147,7 @@ class AccountServiceImplTest {
 
 	@Test
 	void deleteAccount_whenAuditFails_stillDeletes() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		AccountEntity existing = account(7L, client(2L, "usr_2"));
 		when(accountRepository.findById(7L)).thenReturn(Optional.of(existing));
 		doThrow(new RuntimeException("log down")).when(auditLogger).logAuditEvent(
@@ -170,7 +170,7 @@ class AccountServiceImplTest {
 
 	@Test
 	void updateAccount_changesStatusAndPublishesAuditWithBeforeAfter() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		AccountEntity existing = account(10L, client(1L, "usr_1"));
 		when(accountRepository.findById(10L)).thenReturn(Optional.of(existing));
 		when(accountRepository.save(any(AccountEntity.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -184,7 +184,7 @@ class AccountServiceImplTest {
 			eq("accountStatus"),
 			eq("Active"),
 			eq("Inactive"),
-			eq("usr_admin"),
+			eq("usr_1"),
 			eq("clt_1"),
 			eq("req-u"),
 			eq("Bearer x")
@@ -193,7 +193,7 @@ class AccountServiceImplTest {
 
 	@Test
 	void updateAccount_multipleFieldChanges_pipeDelimitedAudit() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		AccountEntity existing = account(10L, client(1L, "usr_1"));
 		when(accountRepository.findById(10L)).thenReturn(Optional.of(existing));
 		when(accountRepository.save(any(AccountEntity.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -211,7 +211,7 @@ class AccountServiceImplTest {
 			eq("accountType|accountStatus|branchId"),
 			eq("Savings|Active|SG-001"),
 			eq("Business|Pending|SG-002"),
-			eq("usr_admin"),
+			eq("usr_1"),
 			eq("clt_1"),
 			eq("req-u"),
 			eq("Bearer x")
@@ -220,7 +220,7 @@ class AccountServiceImplTest {
 
 	@Test
 	void updateAccount_noFieldsChanged_skipsAuditLogging() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		AccountEntity existing = account(10L, client(1L, "usr_1"));
 		when(accountRepository.findById(10L)).thenReturn(Optional.of(existing));
 		when(accountRepository.save(any(AccountEntity.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -233,7 +233,7 @@ class AccountServiceImplTest {
 
 	@Test
 	void updateAccount_sameValues_skipsAuditLogging() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		AccountEntity existing = account(10L, client(1L, "usr_1"));
 		when(accountRepository.findById(10L)).thenReturn(Optional.of(existing));
 		when(accountRepository.save(any(AccountEntity.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -258,7 +258,7 @@ class AccountServiceImplTest {
 
 	@Test
 	void listAccounts_paginationClipsResults() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		ClientEntity client = client(3L, "usr_3");
 		when(clientRepository.findById(3L)).thenReturn(Optional.of(client));
 		when(accountRepository.findByClientId(3L)).thenReturn(List.of(
@@ -276,7 +276,7 @@ class AccountServiceImplTest {
 
 	@Test
 	void listAccounts_offsetSkipsResults() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		ClientEntity client = client(3L, "usr_3");
 		when(clientRepository.findById(3L)).thenReturn(Optional.of(client));
 		when(accountRepository.findByClientId(3L)).thenReturn(List.of(
@@ -294,7 +294,7 @@ class AccountServiceImplTest {
 
 	@Test
 	void listAccounts_mapsResultsToDtos() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		ClientEntity client = client(3L, "usr_3");
 		when(clientRepository.findById(3L)).thenReturn(Optional.of(client));
 		when(accountRepository.findByClientId(3L)).thenReturn(List.of(
@@ -316,7 +316,7 @@ class AccountServiceImplTest {
 		strictPolicy.getAccountOpening().setRequireVerifiedClient(true);
 		accountService = new AccountServiceImpl(accountRepository, clientRepository, auditLogger, strictPolicy, clock);
 
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		AccountCreateRequest request = new AccountCreateRequest(
 			"clt_1",
 			AccountType.Savings,
@@ -342,7 +342,7 @@ class AccountServiceImplTest {
 		strictPolicy.getAccountOpening().setRequireVerifiedClient(true);
 		accountService = new AccountServiceImpl(accountRepository, clientRepository, auditLogger, strictPolicy, clock);
 
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		AccountCreateRequest request = new AccountCreateRequest(
 			"clt_1",
 			AccountType.Savings,
@@ -364,7 +364,7 @@ class AccountServiceImplTest {
 
 	@Test
 	void createAccount_ignoresClientProvidedOpeningDateAndUsesServerDate() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		AccountCreateRequest request = new AccountCreateRequest(
 			"clt_1",
 			AccountType.Savings,

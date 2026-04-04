@@ -76,7 +76,7 @@ class JwtServiceTest {
 	}
 
 	@Test
-	void verifyAndParse_superAdminRole_isNormalizedToAdmin() {
+	void verifyAndParse_superAdminRole_isPreserved() {
 		String token = signedToken(Map.of(
 			"sub", "usr_1",
 			"role", "super_admin",
@@ -85,7 +85,7 @@ class JwtServiceTest {
 		));
 
 		AuthenticatedUser user = jwtService.verifyAndParse(token);
-		assertEquals("admin", user.role());
+		assertEquals("super_admin", user.role());
 	}
 
 	@Test
@@ -185,8 +185,13 @@ class JwtServiceTest {
 
 	private void assertExceptionThrown(Class<? extends Throwable> expectedType,
 		org.junit.jupiter.api.function.Executable executable) {
-		Throwable thrown = org.junit.jupiter.api.Assertions.assertThrows(expectedType, executable);
-		assertEquals(expectedType, thrown.getClass());
+		try {
+			executable.execute();
+			org.junit.jupiter.api.Assertions.fail("Expected exception of type: " + expectedType.getName());
+		}
+		catch (Throwable thrown) {
+			assertEquals(expectedType, thrown.getClass());
+		}
 	}
 
 	private String signedToken(Map<String, Object> payload) {
@@ -326,10 +331,10 @@ class JwtServiceTest {
 	}
 
 	@Test
-	void cognitoToken_superAdminMapsToAdmin() throws Exception {
+	void cognitoToken_superAdminIsPreserved() throws Exception {
 		JwtService svc = cognitoService(mockJwksClient(buildJwksJson(KID)));
 		String token = rsaSignedToken(cognitoClaims("cognito:groups", List.of("super_admin")));
-		assertEquals("admin", svc.verifyAndParse(token).role());
+		assertEquals("super_admin", svc.verifyAndParse(token).role());
 	}
 
 	@Test

@@ -9,6 +9,7 @@ import com.scroogebank.crm.client_service.dto.ReassignResponse;
 import com.scroogebank.crm.client_service.dto.ReviewVerificationRequest;
 import com.scroogebank.crm.client_service.dto.UploadVerificationDocsRequest;
 import com.scroogebank.crm.client_service.dto.VerificationDocumentResponse;
+import com.scroogebank.crm.client_service.dto.VerificationSubmissionSummaryResponse;
 import com.scroogebank.crm.client_service.dto.VerifyClientResponse;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 import com.scroogebank.crm.client_service.security.RequestAuth;
@@ -76,8 +77,8 @@ public class ClientController {
 		HttpServletRequest httpRequest,
 		@RequestParam String assignedUserId
 	) {
-		requestAuth.requireUser(httpRequest);
-		long count = clientService.countClientsByAgent(assignedUserId);
+		AuthenticatedUser user = requestAuth.requireUser(httpRequest);
+		long count = clientService.countClientsByAgent(user, assignedUserId);
 		return java.util.Map.of("count", count);
 	}
 
@@ -104,6 +105,29 @@ public class ClientController {
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
 		return clientService.listClients(user, limit, offset, q, kycStatus, assignedUserId);
+	}
+
+	@GetMapping("/archives")
+	@Operation(summary = "List soft-deleted clients (root admin)")
+	public ClientListResponse listArchivedClients(
+		HttpServletRequest request,
+		@RequestParam(defaultValue = "50") int limit,
+		@RequestParam(defaultValue = "0") int offset,
+		@RequestParam(required = false) String q,
+		@RequestParam(required = false) com.scroogebank.crm.client_service.dto.IdentityVerificationStatus kycStatus,
+		@RequestParam(required = false) String assignedUserId
+	) {
+		AuthenticatedUser user = requestAuth.requireUser(request);
+		return clientService.listArchivedClients(user, limit, offset, q, kycStatus, assignedUserId);
+	}
+
+	@GetMapping("/verification/submissions/summary")
+	@Operation(summary = "Get pending verification submission summary")
+	public VerificationSubmissionSummaryResponse getVerificationSubmissionSummary(
+		HttpServletRequest request
+	) {
+		AuthenticatedUser user = requestAuth.requireUser(request);
+		return clientService.getVerificationSubmissionSummary(user);
 	}
 
 	/**

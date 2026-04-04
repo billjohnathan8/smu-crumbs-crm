@@ -12,6 +12,7 @@ import type {
   AccountUpdateRequest,
   AccountOpeningOptions,
   PaginatedResponse,
+  VerificationSubmissionSummary,
 } from './types'
 
 const CLIENTS_BASE = '/api/clients'
@@ -57,6 +58,35 @@ export async function listClients(
   return options
     ? apiGet<PaginatedResponse<Client>>(endpoint, options)
     : apiGet<PaginatedResponse<Client>>(endpoint)
+}
+
+/**
+ * List soft-deleted clients (root admin archive view).
+ */
+export async function listClientArchives(
+  params?: ListClientsParams,
+  options?: RequestOptions
+): Promise<PaginatedResponse<Client>> {
+  const query = new URLSearchParams()
+  if (params?.limit !== undefined) query.append('limit', params.limit.toString())
+  if (params?.offset !== undefined) query.append('offset', params.offset.toString())
+  if (params?.q) query.append('q', params.q)
+  if (params?.kycStatus) query.append('kycStatus', params.kycStatus)
+  if (params?.assignedUserId) query.append('assignedUserId', params.assignedUserId)
+
+  const endpoint = query.toString()
+    ? `${CLIENTS_BASE}/archives?${query.toString()}`
+    : `${CLIENTS_BASE}/archives`
+  return options
+    ? apiGet<PaginatedResponse<Client>>(endpoint, options)
+    : apiGet<PaginatedResponse<Client>>(endpoint)
+}
+
+/**
+ * Get aggregate pending verification submission count.
+ */
+export async function getVerificationSubmissionSummary(): Promise<VerificationSubmissionSummary> {
+  return apiGet<VerificationSubmissionSummary>(`${CLIENTS_BASE}/verification/submissions/summary`)
 }
 
 /**
