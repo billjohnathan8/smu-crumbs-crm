@@ -187,7 +187,7 @@ export interface AccountCreateRequest {
   clientId: string
   accountType: AccountType
   accountStatus: AccountStatus
-  openingDate: string
+  openingDate?: string
   initialDeposit: number
   currency: string
   branchId: string

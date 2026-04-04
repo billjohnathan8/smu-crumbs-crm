@@ -925,6 +925,12 @@ variable "verification_email_dispatch_enabled" {
   default     = true
 }
 
+variable "client_account_opening_require_verified_client" {
+  description = "Whether account opening in client-service requires verified clients."
+  type        = bool
+  default     = true
+}
+
 variable "audit_consumer_zip_path" {
   description = "Path to audit consumer Lambda zip artifact."
   type        = string

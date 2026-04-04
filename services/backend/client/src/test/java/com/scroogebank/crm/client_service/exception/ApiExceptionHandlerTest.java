@@ -223,4 +223,22 @@ class ApiExceptionHandlerTest {
 		assertThat(response.getBody().error()).isEqualTo("internal_error");
 		assertThat(response.getBody().message()).isEqualTo("Internal error");
 	}
+
+	@Test
+	void handleAccountOpeningNotAllowed_returnsConflictWithDetailedMessage() {
+		ApiExceptionHandler handler = new ApiExceptionHandler(false);
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setAttribute("requestId", "req-opening-policy");
+
+		var response = handler.handleAccountOpeningNotAllowed(
+			request,
+			new AccountOpeningNotAllowedException("Client is pending, not allowed to create account")
+		);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+		assertThat(response.getBody()).isNotNull();
+		assertThat(response.getBody().error()).isEqualTo("conflict");
+		assertThat(response.getBody().message()).isEqualTo("Client is pending, not allowed to create account");
+		assertThat(response.getBody().requestId()).isEqualTo("req-opening-policy");
+	}
 }

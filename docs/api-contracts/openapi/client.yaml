@@ -615,11 +615,14 @@ components:
         clientId: {$ref: '#/components/schemas/ClientId'}
         accountType: {$ref: '#/components/schemas/AccountType'}
         accountStatus: {$ref: '#/components/schemas/AccountStatus'}
-        openingDate: {type: string, format: date}
+        openingDate:
+          type: string
+          format: date
+          description: Optional legacy field. Server ignores this and stamps openingDate at account-creation time.
         initialDeposit: {type: number, minimum: 0}
         currency: {type: string, example: SGD, pattern: '^[A-Z]{3}$'}
         branchId: {type: string, pattern: '^[A-Za-z0-9-]{2,40}$'}
-      required: [clientId, accountType, accountStatus, openingDate, initialDeposit, currency, branchId]
+      required: [clientId, accountType, accountStatus, initialDeposit, currency, branchId]
       additionalProperties: false
     AccountUpdateRequest:
       type: object

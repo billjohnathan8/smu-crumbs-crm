@@ -50,19 +50,20 @@ rds_performance_insights_enabled = false
 # - log API path
 # - verification dispatch + feedback path
 # - transaction ingestion scheduler path
-enable_log_lambda                   = true
-log_lambda_memory_size              = 1024
-log_db_connect_timeout_seconds      = 5
-log_run_migrations_on_start         = true # Migrations enabled to ensure database tables are created on deployment
-enable_sftp_transaction_collector   = true
-enable_ec2_sftp_server              = true
-sftp_instance_type                  = "t4g.micro"
-sftp_root_volume_size_gb            = 8
-sftp_ingress_cidr_blocks            = ["103.252.200.29/32"] # Temporary allowlist from current public IP; replace with real partner office/public NAT CIDRs before apply.
-enable_verification_pipeline        = true
-verification_email_dispatch_enabled = true # Keep enabled so client-service dispatches communication emails in production.
-ses_sender_email                    = "verification@itsag2t3.com"
-ses_domain                          = "itsag2t3.com" # Domain identity + DKIM records are managed by Terraform when Route53 management is enabled.
+enable_log_lambda                              = true
+log_lambda_memory_size                         = 1024
+log_db_connect_timeout_seconds                 = 5
+log_run_migrations_on_start                    = true # Migrations enabled to ensure database tables are created on deployment
+enable_sftp_transaction_collector              = true
+enable_ec2_sftp_server                         = true
+sftp_instance_type                             = "t4g.micro"
+sftp_root_volume_size_gb                       = 8
+sftp_ingress_cidr_blocks                       = ["103.252.200.29/32"] # Temporary allowlist from current public IP; replace with real partner office/public NAT CIDRs before apply.
+enable_verification_pipeline                   = true
+verification_email_dispatch_enabled            = true # Keep enabled so client-service dispatches communication emails in production.
+client_account_opening_require_verified_client = true
+ses_sender_email                               = "verification@itsag2t3.com"
+ses_domain                                     = "itsag2t3.com" # Domain identity + DKIM records are managed by Terraform when Route53 management is enabled.
 
 # Intentionally disabled until prerequisites are available:
 enable_aml_lambda     = true    # enabled: SFTP host/user can be auto-derived from sftp_server outputs; key secret ARN must be injected at runtime

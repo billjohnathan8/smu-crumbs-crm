@@ -323,6 +323,7 @@ module "ecs" {
   reset_password_frontend_base_url                = local.verification_frontend_base_url
   verification_sns_topic_arn                      = module.sns.verification_topic_arn
   verification_documents_bucket                   = module.s3.verification_bucket_id
+  client_account_opening_require_verified_client  = var.client_account_opening_require_verified_client
   root_admin_password_secret_arn                  = module.security.root_admin_password_secret_arn
   jwt_hmac_secret_arn                             = module.security.jwt_hmac_secret_arn
   jwt_hmac_secret_version_id                      = module.security.jwt_hmac_secret_version_id

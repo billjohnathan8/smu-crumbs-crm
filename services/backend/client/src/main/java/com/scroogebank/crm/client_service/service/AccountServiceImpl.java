@@ -12,6 +12,7 @@ import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
 import com.scroogebank.crm.client_service.entity.AccountEntity;
 import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.exception.AccountNotFoundException;
+import com.scroogebank.crm.client_service.exception.AccountOpeningNotAllowedException;
 import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
 import com.scroogebank.crm.client_service.logging.ClientAuditLogger;
 import com.scroogebank.crm.client_service.logging.PiiMasker;
@@ -19,6 +20,8 @@ import com.scroogebank.crm.client_service.repository.AccountRepository;
 import com.scroogebank.crm.client_service.repository.ClientRepository;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 import com.scroogebank.crm.client_service.util.IdCodec;
+import java.time.Clock;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -44,17 +47,20 @@ public class AccountServiceImpl implements AccountService {
 	private final ClientRepository clientRepository;
 	private final ClientAuditLogger auditLogger;
 	private final AppProperties appProperties;
+	private final Clock clock;
 
 	public AccountServiceImpl(
 		AccountRepository accountRepository,
 		ClientRepository clientRepository,
 		ClientAuditLogger auditLogger,
-		AppProperties appProperties
+		AppProperties appProperties,
+		Clock clock
 	) {
 		this.accountRepository = accountRepository;
 		this.clientRepository = clientRepository;
 		this.auditLogger = auditLogger;
 		this.appProperties = appProperties;
+		this.clock = clock;
 	}
 
 	@Override
@@ -76,7 +82,7 @@ public class AccountServiceImpl implements AccountService {
 		entity.setClient(client);
 		entity.setAccountType(request.accountType());
 		entity.setAccountStatus(request.accountStatus());
-		entity.setOpeningDate(request.openingDate());
+		entity.setOpeningDate(LocalDate.now(clock));
 		entity.setInitialDeposit(request.initialDeposit());
 		entity.setCurrency(normalizedCurrency);
 		entity.setBranchId(normalizedBranchId);
@@ -221,8 +227,12 @@ public class AccountServiceImpl implements AccountService {
 		if (!appProperties.getAccountOpening().isRequireVerifiedClient()) {
 			return;
 		}
-		if (client.getIdentityVerificationStatus() != IdentityVerificationStatus.verified) {
-			throw new IllegalArgumentException("Client must be verified before opening an account");
+		IdentityVerificationStatus status = client.getIdentityVerificationStatus();
+		if (status != IdentityVerificationStatus.verified) {
+			String statusText = status == null ? IdentityVerificationStatus.unverified.name() : status.name();
+			throw new AccountOpeningNotAllowedException(
+				"Client is " + statusText + ", not allowed to create account"
+			);
 		}
 	}
 

@@ -20,7 +20,6 @@ public record AccountCreateRequest(
 	@NotNull
 	AccountStatus accountStatus,
 
-	@NotNull
 	LocalDate openingDate,
 
 	@NotNull

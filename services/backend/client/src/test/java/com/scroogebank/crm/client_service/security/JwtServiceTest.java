@@ -196,6 +196,23 @@ class JwtServiceTest {
 	}
 
 	@Test
+	void verifyAndParse_agentRole_isNormalizedToUser() throws Exception {
+		Clock clock = Clock.fixed(Instant.parse("2026-02-05T00:00:00Z"), ZoneOffset.UTC);
+		ObjectMapper mapper = new ObjectMapper();
+		JwtService jwtService = new JwtService(mapper, clock, SECRET);
+
+		String token = mintToken(
+			mapper,
+			SECRET,
+			Map.of("alg", "HS256", "typ", "JWT"),
+			Map.of("sub", "usr_1", "role", "agent", "exp", clock.instant().plusSeconds(3600).getEpochSecond())
+		);
+
+		AuthenticatedUser user = jwtService.verifyAndParse(token);
+		assertThat(user.role()).isEqualTo("user");
+	}
+
+	@Test
 	void verifyAndParse_missingExpClaim_throws() throws Exception {
 		Clock clock = Clock.fixed(Instant.parse("2026-02-05T00:00:00Z"), ZoneOffset.UTC);
 		ObjectMapper mapper = new ObjectMapper();
@@ -371,6 +388,13 @@ class JwtServiceTest {
 	void cognitoToken_withUserGroup() throws Exception {
 		JwtService svc = cognitoService(mockJwksClient(buildJwksJson(KID)));
 		String token = rsaSignedToken(cognitoClaims("cognito:groups", List.of("user")));
+		assertThat(svc.verifyAndParse(token).role()).isEqualTo("user");
+	}
+
+	@Test
+	void cognitoToken_withAgentGroup_mapsToUser() throws Exception {
+		JwtService svc = cognitoService(mockJwksClient(buildJwksJson(KID)));
+		String token = rsaSignedToken(cognitoClaims("cognito:groups", List.of("agent")));
 		assertThat(svc.verifyAndParse(token).role()).isEqualTo("user");
 	}
 
@@ -597,4 +621,3 @@ class JwtServiceTest {
 			.isInstanceOf(IllegalArgumentException.class);
 	}
 }
-

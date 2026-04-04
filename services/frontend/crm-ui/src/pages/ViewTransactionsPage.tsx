@@ -158,53 +158,6 @@ export function ViewTransactionsPage() {
       const trimmedSearch = filters.search.trim()
       const trimmedClientId = filters.clientId.trim()
       const hasTransactionIdSearch = /^txn_[A-Za-z0-9_-]+$/i.test(trimmedSearch)
-      const hasScopedFilters = Boolean(
-        trimmedClientId || filters.status || filters.transaction || filters.fromDate || filters.toDate
-      )
-
-      const fetchUserFallbackTransactions = async (clientId?: string): Promise<Transaction[]> => {
-        if (clientId) {
-          const response = await listClientTransactions(clientId, {
-            limit: FALLBACK_TRANSACTION_FETCH_LIMIT,
-            offset: 0,
-          })
-          return response.data
-        }
-
-        const clientsResponse = await listClients({
-          limit: FALLBACK_CLIENT_FETCH_LIMIT,
-          offset: 0,
-        })
-        const clientIds = clientsResponse.data
-          .map(client => client.clientId)
-          .filter((id): id is string => Boolean(id))
-        if (clientIds.length === 0) return []
-
-        const fallbackResults = await Promise.allSettled(
-          clientIds.map(id =>
-            listClientTransactions(id, {
-              limit: FALLBACK_TRANSACTION_FETCH_LIMIT,
-              offset: 0,
-            })
-          )
-        )
-
-        const seenIds = new Set<string>()
-        const merged: Transaction[] = []
-        for (const result of fallbackResults) {
-          if (result.status !== 'fulfilled') continue
-          for (const transaction of result.value.data) {
-            if (seenIds.has(transaction.id)) continue
-            seenIds.add(transaction.id)
-            merged.push(transaction)
-          }
-        }
-
-        return merged.sort(
-          (left, right) =>
-            new Date(right.date || 0).getTime() - new Date(left.date || 0).getTime()
-        )
-      }
 
       const transactionMatchesFilters = (transaction: Transaction): boolean => {
         if (trimmedClientId && transaction.clientId !== trimmedClientId) return false
@@ -221,6 +174,82 @@ export function ViewTransactionsPage() {
         return true
       }
 
+      if (!isManagementUser) {
+        const clientsResponse = await listClients({
+          limit: FALLBACK_CLIENT_FETCH_LIMIT,
+          offset: 0,
+        })
+        if (requestId !== latestFetchRequestIdRef.current) return
+
+        const allowedClientIds = new Set(
+          clientsResponse.data
+            .map(client => client.clientId)
+            .filter((id): id is string => Boolean(id))
+        )
+
+        if (trimmedClientId && !allowedClientIds.has(trimmedClientId)) {
+          setTransactions([])
+          setTotal(0)
+          return
+        }
+
+        const targetClientIds = trimmedClientId
+          ? [trimmedClientId]
+          : Array.from(allowedClientIds.values())
+
+        if (targetClientIds.length === 0) {
+          setTransactions([])
+          setTotal(0)
+          return
+        }
+
+        const scopedResults = await Promise.allSettled(
+          targetClientIds.map(clientId =>
+            listClientTransactions(clientId, {
+              limit: FALLBACK_TRANSACTION_FETCH_LIMIT,
+              offset: 0,
+            })
+          )
+        )
+        if (requestId !== latestFetchRequestIdRef.current) return
+
+        const merged: Transaction[] = []
+        const seenIds = new Set<string>()
+        for (const result of scopedResults) {
+          if (result.status !== 'fulfilled') continue
+          for (const transaction of result.value.data) {
+            if (seenIds.has(transaction.id)) continue
+            seenIds.add(transaction.id)
+            merged.push(transaction)
+          }
+        }
+
+        let filtered = merged
+          .filter(transactionMatchesFilters)
+          .sort(
+            (left, right) =>
+              new Date(right.date || 0).getTime() - new Date(left.date || 0).getTime()
+          )
+
+        if (trimmedSearch) {
+          const searchLower = trimmedSearch.toLowerCase()
+          filtered = filtered.filter(transaction => {
+            if (hasTransactionIdSearch) {
+              return transaction.id.toLowerCase() === searchLower
+            }
+            return (
+              transaction.id.toLowerCase().includes(searchLower) ||
+              transaction.clientId.toLowerCase().includes(searchLower)
+            )
+          })
+        }
+
+        const offset = page * ITEMS_PER_PAGE
+        setTransactions(filtered.slice(offset, offset + ITEMS_PER_PAGE))
+        setTotal(filtered.length)
+        return
+      }
+
       if (hasTransactionIdSearch) {
         try {
           const transaction = await getTransactionById(trimmedSearch)
@@ -232,18 +261,6 @@ export function ViewTransactionsPage() {
         } catch (lookupErr) {
           if (requestId !== latestFetchRequestIdRef.current) return
           if (lookupErr instanceof ApiError && lookupErr.status === 404) {
-            if (!isManagementUser) {
-              const fallbackTransactions = await fetchUserFallbackTransactions(trimmedClientId)
-              if (requestId !== latestFetchRequestIdRef.current) return
-
-              const matched = fallbackTransactions.find(
-                transaction => transaction.id.toLowerCase() === trimmedSearch.toLowerCase()
-              )
-              const data = matched && transactionMatchesFilters(matched) ? [matched] : []
-              setTransactions(data)
-              setTotal(data.length)
-              return
-            }
             setTransactions([])
             setTotal(0)
             return
@@ -282,18 +299,6 @@ export function ViewTransactionsPage() {
             transaction.clientId.toLowerCase().includes(searchLower) ||
             transaction.id.toLowerCase().includes(searchLower)
         )
-      }
-
-      const responseTotal = response.pagination?.total ?? response.data.length
-      if (!isManagementUser && !hasScopedFilters && !trimmedSearch && responseTotal === 0) {
-        const fallbackTransactions = await fetchUserFallbackTransactions()
-        if (requestId !== latestFetchRequestIdRef.current) return
-
-        const offset = page * ITEMS_PER_PAGE
-        const pageData = fallbackTransactions.slice(offset, offset + ITEMS_PER_PAGE)
-        setTransactions(pageData)
-        setTotal(fallbackTransactions.length)
-        return
       }
 
       setTransactions(filteredData)

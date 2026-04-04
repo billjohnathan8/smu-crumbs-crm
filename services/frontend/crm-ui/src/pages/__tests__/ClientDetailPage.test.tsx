@@ -428,7 +428,9 @@ describe('ClientDetailPage', () => {
     await user.click(screen.getByRole('button', { name: /Approve/i }))
 
     await waitFor(() => {
-      expect(clientsApi.reviewVerification).toHaveBeenCalledWith('client-123', { action: 'approve' })
+      expect(clientsApi.reviewVerification).toHaveBeenCalledWith('client-123', {
+        action: 'approve',
+      })
     })
   })
 })

@@ -391,8 +391,9 @@ public class ClientServiceImpl implements ClientService {
 		String authorizationHeader,
 		String requestId
 	) {
-		if (!user.isAdmin()) {
-			throw new AccessDeniedException("Admin role required for verification review");
+		boolean isAgentLikeUser = user.isUser() || "agent".equals(user.role());
+		if (!user.isAdmin() && !isAgentLikeUser) {
+			throw new AccessDeniedException("Admin or agent role required for verification review");
 		}
 
 		ClientEntity entity = loadOwnedClient(user, clientId);

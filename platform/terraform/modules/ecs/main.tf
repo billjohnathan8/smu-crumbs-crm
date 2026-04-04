@@ -249,7 +249,7 @@ locals {
         },
         {
           name  = "APP_ACCOUNT_OPENING_REQUIRE_VERIFIED_CLIENT"
-          value = "true"
+          value = tostring(var.client_account_opening_require_verified_client)
         }
       ]
       secrets = [

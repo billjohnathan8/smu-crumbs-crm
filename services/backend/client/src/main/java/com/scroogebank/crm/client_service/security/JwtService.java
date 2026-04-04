@@ -503,7 +503,7 @@ public class JwtService {
 		String normalized = value.trim().toLowerCase().replace('-', '_').replace(' ', '_');
 		return switch (normalized) {
 			case "admin", "super_admin", "superadmin" -> "admin";
-			case "user" -> "user";
+			case "user", "agent" -> "user";
 			case "service" -> "service";
 			default -> null;
 		};

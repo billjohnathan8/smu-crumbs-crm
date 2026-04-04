@@ -100,6 +100,15 @@ public class ApiExceptionHandler {
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(error(request, "conflict", "Conflict"));
 	}
 
+	@ExceptionHandler(AccountOpeningNotAllowedException.class)
+	public ResponseEntity<ErrorResponse> handleAccountOpeningNotAllowed(
+		HttpServletRequest request,
+		AccountOpeningNotAllowedException ex
+	) {
+		String message = (ex.getMessage() != null && !ex.getMessage().isBlank()) ? ex.getMessage() : "Conflict";
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(error(request, "conflict", message));
+	}
+
 	@ExceptionHandler(IllegalArgumentException.class)
 	public ResponseEntity<ErrorResponse> handleBadRequest(HttpServletRequest request, IllegalArgumentException ex) {
 		String message = (ex.getMessage() != null && !ex.getMessage().isBlank()) ? ex.getMessage() : "Invalid request";

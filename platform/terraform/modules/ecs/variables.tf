@@ -288,6 +288,12 @@ variable "verification_documents_bucket" {
   default     = ""
 }
 
+variable "client_account_opening_require_verified_client" {
+  description = "Whether client-service account opening requires identity verification status = verified."
+  type        = bool
+  default     = true
+}
+
 variable "root_admin_password_secret_arn" {
   description = "Secret ARN for ROOT_ADMIN_PASSWORD."
   type        = string
