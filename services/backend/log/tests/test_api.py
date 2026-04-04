@@ -1473,7 +1473,6 @@ def test_aml_trigger_requires_admin() -> None:
     secret = "test-secret"
     router = _make_router(FakeLogService(), secret=secret)
     user_token = mint_token("usr_user", "user", secret)
-    admin_token = mint_token("usr_admin", "admin", secret)
 
     # User role should be forbidden
     user_response, user_body = _invoke(
@@ -1600,4 +1599,3 @@ def test_aml_trigger_handles_missing_function_name(monkeypatch) -> None:
     assert response["statusCode"] == 503
     assert body is not None
     assert body["error"] == "service_unavailable"
-

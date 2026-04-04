@@ -904,9 +904,7 @@ class LambdaRouter:
             )
             status_code = response.get("StatusCode", 0)
             if status_code not in {200, 202}:
-                LOGGER.error(
-                    "AML Lambda invocation failed with status %d", status_code
-                )
+                LOGGER.error("AML Lambda invocation failed with status %d", status_code)
                 raise _HttpError(502, "AML trigger failed")
 
             return RoutedResponse(
