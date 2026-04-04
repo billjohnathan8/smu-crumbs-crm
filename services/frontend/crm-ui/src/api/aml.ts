@@ -70,8 +70,5 @@ export async function triggerAmlScan(): Promise<{
   message: string
   triggeredBy: string
 }> {
-  return apiPost<{ status: string; message: string; triggeredBy: string }>(
-    '/api/aml/trigger',
-    {}
-  )
+  return apiPost<{ status: string; message: string; triggeredBy: string }>('/api/aml/trigger', {})
 }

@@ -333,11 +333,21 @@ describe('AmlAlertsPage', () => {
   it('should trigger AML scan successfully', async () => {
     const user = userEvent.setup()
 
-    vi.mocked(amlApi.triggerAmlScan).mockResolvedValue({
-      status: 'triggered',
-      message: 'AML scan has been queued',
-      triggeredBy: 'admin-1',
-    })
+    // Mock the API with a delay to allow observing the "Triggering..." state
+    vi.mocked(amlApi.triggerAmlScan).mockImplementation(
+      () =>
+        new Promise(resolve =>
+          setTimeout(
+            () =>
+              resolve({
+                status: 'triggered',
+                message: 'AML scan has been queued',
+                triggeredBy: 'admin-1',
+              }),
+            100
+          )
+        )
+    )
 
     renderComponent()
     await waitFor(() => expect(screen.getByText('alert-1')).toBeInTheDocument())
@@ -346,7 +356,9 @@ describe('AmlAlertsPage', () => {
     await user.click(triggerBtn)
 
     // Button should show "Triggering..." while loading
-    expect(screen.getByRole('button', { name: /Triggering.../i })).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Triggering.../i })).toBeInTheDocument()
+    )
 
     await waitFor(() => {
       expect(amlApi.triggerAmlScan).toHaveBeenCalled()

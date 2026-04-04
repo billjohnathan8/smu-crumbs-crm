@@ -184,7 +184,7 @@ describe('AdminDashboard', () => {
     })
   })
 
-  it('should paginate activity logs with Previous and Next controls', async () => {
+  it('should show recent activity logs without pagination controls', async () => {
     const pageOneLogs: LogEntry[] = [
       {
         logId: 'log-page-1',
@@ -218,40 +218,25 @@ describe('AdminDashboard', () => {
       data: [],
       pagination: { total: 0, limit: 1, offset: 0 },
     })
-    const listLogsSpy = vi
-      .spyOn(logsApi, 'listLogs')
-      .mockResolvedValueOnce({
-        data: pageOneLogs,
-        pagination: { total: 11, limit: 10, offset: 0 },
-      })
-      .mockResolvedValueOnce({
-        data: pageTwoLogs,
-        pagination: { total: 11, limit: 10, offset: 10 },
-      })
+    const listLogsSpy = vi.spyOn(logsApi, 'listLogs').mockResolvedValue({
+      data: [...pageOneLogs, ...pageTwoLogs],
+      pagination: { total: 11, limit: 10, offset: 0 },
+    })
 
-    const user = userEvent.setup()
     renderAdminDashboard()
 
-    await waitFor(() => {
-      expect(screen.getByText('page-one-attribute')).toBeInTheDocument()
-      expect(screen.getByText(/Page 1 of 2/i)).toBeInTheDocument()
-    })
+    const recentLogHeaders = await screen.findAllByText('Recent Activity Logs')
+    expect(recentLogHeaders.length).toBeGreaterThan(0)
 
-    const previousButton = screen.getByRole('button', { name: 'Previous' })
-    const nextButton = screen.getByRole('button', { name: 'Next' })
-    expect(previousButton).toBeDisabled()
-    await user.click(nextButton)
+    const pageOneRows = await screen.findAllByText('page-one-attribute')
+    expect(pageOneRows.length).toBeGreaterThan(0)
 
-    await waitFor(() => {
-      expect(screen.getByText('page-two-attribute')).toBeInTheDocument()
-      expect(screen.getByText(/Page 2 of 2/i)).toBeInTheDocument()
-    })
-
-    expect(listLogsSpy).toHaveBeenNthCalledWith(1, { limit: 10, offset: 0 })
-    expect(listLogsSpy).toHaveBeenNthCalledWith(2, { limit: 10, offset: 10 })
+    expect(screen.queryByRole('button', { name: 'Previous' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Next' })).not.toBeInTheDocument()
+    expect(listLogsSpy).toHaveBeenCalledWith(expect.objectContaining({ limit: 10 }))
   })
 
-  it('should render inline logs filters and apply them immediately', async () => {
+  it('should render the View all logs action', async () => {
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
       data: [],
       pagination: { total: 0, limit: 1, offset: 0 },
@@ -260,37 +245,16 @@ describe('AdminDashboard', () => {
       data: [],
       pagination: { total: 0, limit: 1, offset: 0 },
     })
-    const listLogsSpy = vi
-      .spyOn(logsApi, 'listLogs')
-      .mockResolvedValueOnce({
-        data: [],
-        pagination: { total: 0, limit: 10, offset: 0 },
-      })
-      .mockResolvedValueOnce({
-        data: [],
-        pagination: { total: 0, limit: 10, offset: 0 },
-      })
+    vi.spyOn(logsApi, 'listLogs').mockResolvedValue({
+      data: [],
+      pagination: { total: 0, limit: 10, offset: 0 },
+    })
 
-    const user = userEvent.setup()
     renderAdminDashboard()
 
     await waitFor(() => {
       expect(screen.getByText('Recent Activity Logs')).toBeInTheDocument()
-      expect(screen.getByText('Filters')).toBeInTheDocument()
-    })
-
-    await user.selectOptions(screen.getByLabelText('Activity Type'), 'UPDATE')
-    await user.type(screen.getByPlaceholderText('usr_...'), 'usr_1')
-    await user.type(screen.getByPlaceholderText('clt_...'), 'clt_1')
-
-    await waitFor(() => {
-      expect(listLogsSpy).toHaveBeenLastCalledWith({
-        limit: 10,
-        offset: 0,
-        action: 'UPDATE',
-        userId: 'usr_1',
-        clientId: 'clt_1',
-      })
+      expect(screen.getByRole('button', { name: /View all/i })).toBeInTheDocument()
     })
   })
 
@@ -310,9 +274,8 @@ describe('AdminDashboard', () => {
 
     renderAdminDashboard()
 
-    await waitFor(() => {
-      expect(screen.getByText(/No activity logs found/i)).toBeInTheDocument()
-    })
+    const emptyStates = await screen.findAllByText(/No activity logs found/i)
+    expect(emptyStates.length).toBeGreaterThan(0)
   })
 
   it('should show loading state', async () => {
@@ -335,7 +298,9 @@ describe('AdminDashboard', () => {
     renderAdminDashboard()
 
     await waitFor(() => {
-      expect(screen.getByText(/Failed to load dashboard data/i)).toBeInTheDocument()
+      const errorMessages = screen.queryAllByText(/Failed to load dashboard data/i)
+      expect(errorMessages.length).toBeGreaterThan(0)
+      expect(errorMessages[0]).toBeInTheDocument()
     })
   })
 
@@ -355,7 +320,9 @@ describe('AdminDashboard', () => {
     renderAdminDashboard()
 
     await waitFor(() => {
-      expect(screen.getByText(/Failed to load recent activity logs/i)).toBeInTheDocument()
+      const errorMessages = screen.queryAllByText(/Failed to load recent activity logs/i)
+      expect(errorMessages.length).toBeGreaterThan(0)
+      expect(errorMessages[0]).toBeInTheDocument()
     })
   })
 

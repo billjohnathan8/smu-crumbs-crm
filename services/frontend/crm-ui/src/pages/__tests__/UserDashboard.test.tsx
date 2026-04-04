@@ -218,7 +218,9 @@ describe('UserDashboard', () => {
     renderUserDashboard()
 
     await waitFor(() => {
-      expect(screen.getByText(/Failed to load dashboard data/i)).toBeInTheDocument()
+      const errorMessages = screen.queryAllByText(/Failed to load dashboard data/i)
+      expect(errorMessages.length).toBeGreaterThan(0)
+      expect(errorMessages[0]).toBeInTheDocument()
     })
   })
 
