@@ -45,6 +45,7 @@ resource "aws_lambda_function" "log" {
       COGNITO_JWKS_URL           = var.cognito_jwks_url
       COGNITO_AUDIENCE           = var.cognito_audience
       COGNITO_CLIENT_ID          = var.cognito_audience
+      NAME_PREFIX                = var.name_prefix
     }
   }
 
@@ -324,7 +325,7 @@ resource "aws_sns_topic_subscription" "verification_feedback" {
 }
 
 resource "aws_lambda_permission" "allow_sns_alarm_invoke_verification" {
-  count = var.enable_verification_lambda && trimspace(var.alarm_notifications_topic_arn) != "" ? 1 : 0
+  count = var.enable_verification_lambda && var.enable_alarm_notifications_forwarder ? 1 : 0
 
   statement_id  = "AllowExecutionFromSnsAlarmTopic"
   action        = "lambda:InvokeFunction"
@@ -334,7 +335,7 @@ resource "aws_lambda_permission" "allow_sns_alarm_invoke_verification" {
 }
 
 resource "aws_sns_topic_subscription" "alarm_notifications_forwarder" {
-  count = var.enable_verification_lambda && trimspace(var.alarm_notifications_topic_arn) != "" ? 1 : 0
+  count = var.enable_verification_lambda && var.enable_alarm_notifications_forwarder ? 1 : 0
 
   topic_arn = var.alarm_notifications_topic_arn
   protocol  = "lambda"

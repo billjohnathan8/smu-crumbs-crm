@@ -1466,3 +1466,136 @@ def test_rest_proxy_event_shapes_are_supported() -> None:
     assert rest_logs["statusCode"] == 200
     assert rest_logs_body is not None
     assert "data" in rest_logs_body
+
+
+def test_aml_trigger_requires_admin() -> None:
+    """POST /api/aml/trigger requires admin role."""
+    secret = "test-secret"
+    router = _make_router(FakeLogService(), secret=secret)
+    user_token = mint_token("usr_user", "user", secret)
+
+    # User role should be forbidden
+    user_response, user_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "POST",
+            "/api/aml/trigger",
+            headers={"authorization": f"Bearer {user_token}"},
+        ),
+    )
+    assert user_response["statusCode"] == 403
+    assert user_body is not None
+    assert user_body["error"] == "forbidden"
+
+    # Unauthorized should return 401
+    unauth_response, unauth_body = _invoke(
+        router,
+        _http_api_v2_event("POST", "/api/aml/trigger"),
+    )
+    assert unauth_response["statusCode"] == 401
+
+
+def test_aml_trigger_invokes_lambda(monkeypatch) -> None:
+    """POST /api/aml/trigger invokes AML Lambda function."""
+    import unittest.mock as mock
+
+    secret = "test-secret"
+    router = _make_router(FakeLogService(), secret=secret)
+    admin_token = mint_token("usr_admin", "admin", secret)
+
+    # Mock boto3 Lambda client
+    mock_lambda_client = mock.MagicMock()
+    mock_lambda_client.invoke.return_value = {
+        "StatusCode": 202,
+        "Payload": mock.MagicMock(),
+    }
+
+    mock_boto3 = mock.MagicMock()
+    mock_boto3.client.return_value = mock_lambda_client
+
+    # Patch boto3 in the lambda_router module
+    monkeypatch.setattr("app.lambda_router.boto3", mock_boto3, raising=False)
+
+    # Set environment variable for function name
+    monkeypatch.setenv("NAME_PREFIX", "test-crm")
+
+    response, body = _invoke(
+        router,
+        _http_api_v2_event(
+            "POST",
+            "/api/aml/trigger",
+            headers={"authorization": f"Bearer {admin_token}"},
+        ),
+    )
+
+    assert response["statusCode"] == 202
+    assert body is not None
+    assert body["status"] == "triggered"
+    assert body["message"] == "AML scan has been queued"
+    assert body["triggeredBy"] == "usr_admin"
+
+    # Verify Lambda client was called
+    mock_boto3.client.assert_called_once_with("lambda")
+    mock_lambda_client.invoke.assert_called_once()
+    call_args = mock_lambda_client.invoke.call_args
+    assert call_args[1]["FunctionName"] == "test-crm-aml"
+    assert call_args[1]["InvocationType"] == "Event"
+
+
+def test_aml_trigger_handles_lambda_invoke_failure(monkeypatch) -> None:
+    """POST /api/aml/trigger handles Lambda invocation errors."""
+    import unittest.mock as mock
+
+    secret = "test-secret"
+    router = _make_router(FakeLogService(), secret=secret)
+    admin_token = mint_token("usr_admin", "admin", secret)
+
+    # Mock boto3 Lambda client with failure
+    mock_lambda_client = mock.MagicMock()
+    mock_lambda_client.invoke.return_value = {
+        "StatusCode": 500,
+        "Payload": mock.MagicMock(),
+    }
+
+    mock_boto3 = mock.MagicMock()
+    mock_boto3.client.return_value = mock_lambda_client
+
+    monkeypatch.setattr("app.lambda_router.boto3", mock_boto3, raising=False)
+    monkeypatch.setenv("NAME_PREFIX", "test-crm")
+
+    response, body = _invoke(
+        router,
+        _http_api_v2_event(
+            "POST",
+            "/api/aml/trigger",
+            headers={"authorization": f"Bearer {admin_token}"},
+        ),
+    )
+
+    assert response["statusCode"] == 502
+    assert body is not None
+    assert body["error"] == "bad_gateway"
+
+
+def test_aml_trigger_handles_missing_function_name(monkeypatch) -> None:
+    """POST /api/aml/trigger returns 503 when function name not configured."""
+    secret = "test-secret"
+    router = _make_router(FakeLogService(), secret=secret)
+    admin_token = mint_token("usr_admin", "admin", secret)
+
+    # Ensure no NAME_PREFIX or AML_LAMBDA_FUNCTION_NAME
+    monkeypatch.delenv("NAME_PREFIX", raising=False)
+    monkeypatch.delenv("AML_LAMBDA_FUNCTION_NAME", raising=False)
+
+    response, body = _invoke(
+        router,
+        _http_api_v2_event(
+            "POST",
+            "/api/aml/trigger",
+            headers={"authorization": f"Bearer {admin_token}"},
+        ),
+    )
+
+    assert response["statusCode"] == 503
+    assert body is not None
+    assert body["error"] == "service_unavailable"

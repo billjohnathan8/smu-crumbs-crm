@@ -8,9 +8,10 @@
 resource "aws_route53_record" "cloudfront" {
   count = var.manage_route53_record && var.use_custom_domain && var.route53_zone_id != "" ? 1 : 0
 
-  zone_id = var.route53_zone_id
-  name    = var.app_domain_name
-  type    = "A"
+  zone_id         = var.route53_zone_id
+  name            = var.app_domain_name
+  type            = "A"
+  allow_overwrite = true
 
   alias {
     name                   = aws_cloudfront_distribution.frontend.domain_name

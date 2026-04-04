@@ -408,6 +408,12 @@ variable "alarm_notifications_topic_arn" {
   default     = ""
 }
 
+variable "enable_alarm_notifications_forwarder" {
+  description = "Enable verification Lambda subscription/permission for alarm notification forwarding."
+  type        = bool
+  default     = false
+}
+
 variable "alarm_forward_to_emails" {
   description = "Recipient email addresses for alarm notifications forwarded via SES by verification Lambda."
   type        = list(string)

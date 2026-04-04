@@ -59,3 +59,10 @@ export async function updateAmlAlertReview(
 ): Promise<AmlAlert> {
   return apiPut<AmlAlert, UpdateAmlAlertReviewRequest>(`${BASE}/${alertId}/review`, data)
 }
+
+/**
+ * Trigger manual AML scan (admin-only).
+ */
+export async function triggerAmlScan(): Promise<{ status: string; message: string; triggeredBy: string }> {
+  return apiPost<{ status: string; message: string; triggeredBy: string }, {}>('/api/aml/trigger', {})
+}

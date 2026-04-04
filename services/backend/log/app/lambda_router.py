@@ -476,6 +476,8 @@ class LambdaRouter:
             return self._create_aml_alert(request)
         if method == "GET" and path == "/api/aml/alerts":
             return self._list_aml_alerts(request)
+        if method == "POST" and path == "/api/aml/trigger":
+            return self._trigger_aml_scan(request)
 
         aml_review_match = _AML_REVIEW_PATTERN.fullmatch(path)
         if method == "PUT" and aml_review_match:
@@ -871,6 +873,66 @@ class LambdaRouter:
         if row is None:
             raise _HttpError(404, "Not found")
         return RoutedResponse(200, self._to_aml_alert(row))
+
+    def _trigger_aml_scan(self, request: NormalizedRequest) -> RoutedResponse:
+        """Manually trigger AML scan (admin-only)."""
+        user = self._require_user(request)
+        require_roles(user, {"admin"})
+
+        try:
+            import boto3
+        except ImportError as exc:
+            LOGGER.exception("boto3 import failed")
+            raise _HttpError(503, "Lambda invocation unavailable") from exc
+
+        aml_function_name = self._get_aml_function_name()
+        if not aml_function_name:
+            raise _HttpError(503, "AML function not configured")
+
+        payload = {
+            "trigger": "manual",
+            "triggered_by": user.user_id,
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+        }
+
+        try:
+            lambda_client = boto3.client("lambda")
+            response = lambda_client.invoke(
+                FunctionName=aml_function_name,
+                InvocationType="Event",  # Async invocation
+                Payload=json.dumps(payload).encode("utf-8"),
+            )
+            status_code = response.get("StatusCode", 0)
+            if status_code not in {200, 202}:
+                LOGGER.error("AML Lambda invocation failed with status %d", status_code)
+                raise _HttpError(502, "AML trigger failed")
+
+            return RoutedResponse(
+                202,
+                {
+                    "status": "triggered",
+                    "message": "AML scan has been queued",
+                    "triggeredBy": user.user_id,
+                },
+            )
+        except Exception as exc:
+            if isinstance(exc, _HttpError):
+                raise
+            LOGGER.exception("Failed to trigger AML scan")
+            raise _HttpError(500, "Failed to trigger AML scan") from exc
+
+    def _get_aml_function_name(self) -> str:
+        """Get AML Lambda function name from environment."""
+        import os
+
+        name_prefix = os.getenv("NAME_PREFIX", "")
+        if name_prefix:
+            return f"{name_prefix}-aml"
+        function_name = os.getenv("AML_LAMBDA_FUNCTION_NAME", "")
+        if function_name:
+            return function_name
+        LOGGER.warning("AML function name not configured")
+        return ""
 
     def _create_communication(self, request: NormalizedRequest) -> RoutedResponse:
         user = self._require_user(request)
