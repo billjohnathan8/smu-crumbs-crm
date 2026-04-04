@@ -337,6 +337,8 @@ class LogRepository:
         client_ids: list[str] | None,
         alert_type: str | None,
         review_status: str | None,
+        detected_from=None,
+        detected_to=None,
     ) -> tuple[list[dict], int]:
         """List AML alerts with optional filters and return rows plus total."""
         where = []
@@ -353,6 +355,12 @@ class LogRepository:
         if review_status:
             where.append("review_status = %(reviewStatus)s")
             params["reviewStatus"] = review_status
+        if detected_from:
+            where.append("detected_at >= %(detectedFrom)s")
+            params["detectedFrom"] = detected_from
+        if detected_to:
+            where.append("detected_at < %(detectedTo)s")
+            params["detectedTo"] = detected_to
 
         where_sql = (" WHERE " + " AND ".join(where)) if where else ""
         count_sql = "SELECT COUNT(*) AS total FROM aml_alerts" + where_sql

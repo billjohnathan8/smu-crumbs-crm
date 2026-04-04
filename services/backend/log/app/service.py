@@ -95,6 +95,8 @@ class LogService:
         client_ids: list[str] | None,
         alert_type: str | None,
         review_status: str | None,
+        detected_from=None,
+        detected_to=None,
     ):
         """List AML alerts with pagination and optional filters."""
         return self._repository.list_aml_alerts(
@@ -104,6 +106,8 @@ class LogService:
             client_ids=client_ids,
             alert_type=alert_type,
             review_status=review_status,
+            detected_from=detected_from,
+            detected_to=detected_to,
         )
 
     def update_aml_alert_review(self, alert_id: str, review_status: str) -> dict | None:

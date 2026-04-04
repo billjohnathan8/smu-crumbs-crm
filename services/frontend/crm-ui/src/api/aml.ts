@@ -17,6 +17,7 @@ export interface ListAmlAlertsParams {
   clientId?: string
   alertType?: AmlAlertType
   reviewStatus?: AmlReviewStatus
+  detectedDate?: string // ISO 8601 date string (YYYY-MM-DD)
 }
 
 /**
@@ -31,6 +32,7 @@ export async function listAmlAlerts(
   if (params?.clientId) query.append('clientId', params.clientId)
   if (params?.alertType) query.append('alertType', params.alertType)
   if (params?.reviewStatus) query.append('reviewStatus', params.reviewStatus)
+  if (params?.detectedDate) query.append('detectedDate', params.detectedDate)
 
   const endpoint = query.toString() ? `${BASE}?${query.toString()}` : BASE
   return apiGet<PaginatedResponse<AmlAlert>>(endpoint, { timeout: AML_ALERTS_LIST_TIMEOUT_MS })

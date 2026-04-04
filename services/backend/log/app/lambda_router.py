@@ -89,6 +89,7 @@ class _ListAmlAlertsQuery(BaseModel):
     clientId: str | None = None
     alertType: str | None = None
     reviewStatus: str | None = None
+    detectedDate: str | None = None  # ISO 8601 date (YYYY-MM-DD)
 
 
 class _ListQueuedCommunicationsQuery(BaseModel):
@@ -794,6 +795,21 @@ class LambdaRouter:
         client_id_filter = query.clientId
         client_ids_filter: list[str] | None = None
 
+        # Parse detected date filter
+        detected_from = None
+        detected_to = None
+        if query.detectedDate:
+            try:
+                from datetime import timedelta, timezone
+                # Parse date string (YYYY-MM-DD)
+                date_obj = datetime.fromisoformat(query.detectedDate)
+                # Set to start of day (00:00:00)
+                detected_from = date_obj.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=timezone.utc)
+                # Set to end of day (23:59:59.999999)
+                detected_to = detected_from + timedelta(days=1)
+            except (ValueError, TypeError):
+                raise _HttpError(400, "Invalid date format. Use YYYY-MM-DD")
+
         if user.role == "user":
             if client_id_filter:
                 if not self._can_user_access_client(request, client_id_filter):
@@ -827,6 +843,8 @@ class LambdaRouter:
             client_ids=client_ids_filter,
             alert_type=query.alertType,
             review_status=query.reviewStatus,
+            detected_from=detected_from,
+            detected_to=detected_to,
         )
 
         payload = {

@@ -329,6 +329,8 @@ class FakeLogService:
         client_ids: list[str] | None,
         alert_type: str | None,
         review_status: str | None,
+        detected_from=None,
+        detected_to=None,
     ):
         rows = list(self.aml_alerts.values())
         if client_id:
@@ -339,6 +341,10 @@ class FakeLogService:
             rows = [r for r in rows if r["alert_type"] == alert_type]
         if review_status:
             rows = [r for r in rows if r["review_status"] == review_status]
+        if detected_from:
+            rows = [r for r in rows if r["detected_at"] >= detected_from]
+        if detected_to:
+            rows = [r for r in rows if r["detected_at"] < detected_to]
         total = len(rows)
         return rows[offset : offset + limit], total
 

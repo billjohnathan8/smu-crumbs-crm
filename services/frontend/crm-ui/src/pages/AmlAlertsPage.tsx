@@ -46,10 +46,12 @@ export function AmlAlertsPage() {
     clientId: string
     alertType: '' | AmlAlertType
     reviewStatus: '' | AmlReviewStatus
+    detectedDate: string
   }>({
     clientId: '',
     alertType: '',
     reviewStatus: '',
+    detectedDate: '',
   })
 
   const navItems = useMemo<NavItem[]>(
@@ -68,6 +70,7 @@ export function AmlAlertsPage() {
         clientId: filters.clientId || undefined,
         alertType: filters.alertType || undefined,
         reviewStatus: filters.reviewStatus || undefined,
+        detectedDate: filters.detectedDate || undefined,
       })
       setAlerts(response.data)
       setTotal(response.pagination?.total || 0)
@@ -108,7 +111,7 @@ export function AmlAlertsPage() {
   }
 
   const resetFilters = () => {
-    setFilters({ clientId: '', alertType: '', reviewStatus: '' })
+    setFilters({ clientId: '', alertType: '', reviewStatus: '', detectedDate: '' })
     setCurrentPage(0)
   }
 
@@ -206,7 +209,7 @@ export function AmlAlertsPage() {
 
         <div className="bg-card  rounded-lg mb-6 p-4">
           <h3 className="text-text font-normal mb-4">Filters</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label htmlFor="aml-filter-client-id" className="block text-xs text-text-muted mb-1">
                 Client ID
@@ -255,6 +258,18 @@ export function AmlAlertsPage() {
                 <option value="Confirmed">Confirmed</option>
                 <option value="Dismissed">Dismissed</option>
               </select>
+            </div>
+            <div>
+              <label htmlFor="aml-filter-date" className="block text-xs text-text-muted mb-1">
+                Detected Date
+              </label>
+              <input
+                id="aml-filter-date"
+                type="date"
+                value={filters.detectedDate}
+                onChange={e => setFilter('detectedDate', e.target.value)}
+                className="w-full px-3 py-2 bg-background-light  rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
             </div>
           </div>
           <div className="mt-4 flex justify-end">
