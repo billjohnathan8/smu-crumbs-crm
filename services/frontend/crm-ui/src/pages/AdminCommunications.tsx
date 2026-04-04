@@ -310,7 +310,7 @@ export function AdminCommunications() {
         <div>
           <span className="text-text-muted">Status:</span>{' '}
           <span className={`rounded px-2 py-0.5 text-xs font-normal ${statusColors[comm.status]}`}>
-            {comm.status}
+            {comm.status.toUpperCase()}
           </span>
         </div>
 

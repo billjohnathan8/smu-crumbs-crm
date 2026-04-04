@@ -47,8 +47,8 @@ const statusBadgeClass = (status: User['status']) => {
 }
 
 const statusLabel = (status: User['status']) => {
-  if (status === 'disabled') return 'Disabled'
-  return 'Active'
+  if (status === 'disabled') return 'DISABLED'
+  return 'ACTIVE'
 }
 
 export function AdminUserManagementPage() {

@@ -70,7 +70,7 @@ export function ClientTable({
                     'bg-background-light text-text-muted'
                   }`}
                 >
-                  {client.identityVerificationStatus}
+                  {client.identityVerificationStatus.toUpperCase()}
                 </span>
               </td>
               {showAssignedAgent && (

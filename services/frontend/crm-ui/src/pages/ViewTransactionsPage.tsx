@@ -809,7 +809,7 @@ export function ViewTransactionsPage() {
                                 : 'bg-warning/20 text-warning'
                             }`}
                           >
-                            {transaction.transaction === 'D' ? 'Deposit' : 'Withdrawal'}
+                            {transaction.transaction === 'D' ? 'DEPOSIT' : 'WITHDRAWAL'}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-text text-right font-normal">
@@ -825,7 +825,7 @@ export function ViewTransactionsPage() {
                                   : 'bg-danger/20 text-danger'
                             }`}
                           >
-                            {transaction.status}
+                            {transaction.status.toUpperCase()}
                           </span>
                         </td>
                         {canEditTransactions && (
