@@ -34,7 +34,7 @@ export function AccountFormModal({
       data-testid="account-modal"
     >
       <div className="bg-card  rounded-lg p-6 w-full max-w-lg mx-4">
-        <h2 className="text-lg font-bold text-text mb-4">
+        <h2 className="text-lg font-normal text-text mb-4">
           {modalMode === 'create' ? 'Create Account' : 'Edit Account'}
         </h2>
 

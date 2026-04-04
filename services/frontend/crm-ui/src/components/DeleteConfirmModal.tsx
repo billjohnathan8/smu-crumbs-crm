@@ -23,7 +23,7 @@ export function DeleteConfirmModal({
       data-testid={testId}
     >
       <div className="bg-card  rounded-lg p-6 w-full max-w-md mx-4">
-        <h2 className="text-lg font-bold text-text mb-2">{title}</h2>
+        <h2 className="text-lg font-normal text-text mb-2">{title}</h2>
         <p className="text-text-muted text-sm mb-4">{message}</p>
 
         {error && (

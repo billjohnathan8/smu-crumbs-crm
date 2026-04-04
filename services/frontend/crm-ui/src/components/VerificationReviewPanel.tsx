@@ -73,7 +73,7 @@ export function VerificationReviewPanel({
 
   return (
     <div className="bg-card border border-warning rounded-lg p-6">
-      <h2 className="text-lg font-bold text-text mb-2">Pending Verification Review</h2>
+      <h2 className="text-lg font-normal text-text mb-2">Pending Verification Review</h2>
       <p className="text-sm text-text-muted mb-4">
         This client has submitted identity documents for KYC verification. Review and approve or
         reject.

@@ -547,7 +547,7 @@ export function AdminCommunications() {
                 className={`px-3 py-1 rounded ${
                   currentPage === 0 || isTableLoading
                     ? 'bg-background-light text-text-muted cursor-not-allowed'
-                    : 'bg-primary hover:bg-primary-hover text-white'
+                    : 'bg-primary hover:brightness-[0.8] text-white transition-all duration-200'
                 }`}
               >
                 Previous
@@ -565,7 +565,7 @@ export function AdminCommunications() {
                   currentPage >= Math.ceil(totalCommunications / COMMUNICATIONS_PER_PAGE) - 1 ||
                   isTableLoading
                     ? 'bg-background-light text-text-muted cursor-not-allowed'
-                    : 'bg-primary hover:bg-primary-hover text-white'
+                    : 'bg-primary hover:brightness-[0.8] text-white transition-all duration-200'
                 }`}
               >
                 Next

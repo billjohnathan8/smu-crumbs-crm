@@ -504,14 +504,14 @@ export function AdminDashboard() {
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
               <div className="bg-card rounded-lg p-6">
-                <h2 className="text-lg font-normal text-text mb-2">Client verification status</h2>
+                <h2 className="text-lg font-normal text-text mb-2">Client Verification Status</h2>
                 <VerificationStatusChart
                   data={verificationStatusData}
                   isLoading={isClientChartsLoading}
                 />
               </div>
               <div className="bg-card rounded-lg p-6">
-                <h2 className="text-lg font-normal text-text mb-2">New clients over time</h2>
+                <h2 className="text-lg font-normal text-text mb-2">Client Growth</h2>
                 <NewClientsChart data={newClientsTrendData} isLoading={isClientChartsLoading} />
               </div>
             </div>
