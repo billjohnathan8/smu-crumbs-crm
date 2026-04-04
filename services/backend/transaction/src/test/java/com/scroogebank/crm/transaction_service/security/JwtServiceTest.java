@@ -1,7 +1,6 @@
 package com.scroogebank.crm.transaction_service.security;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -12,8 +11,11 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.SignatureException;
 import java.security.interfaces.RSAPublicKey;
 import java.time.Clock;
 import java.time.Instant;
@@ -24,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -34,14 +35,8 @@ class JwtServiceTest {
 	private static final String SECRET = "test-secret";
 	private static final Clock FIXED_CLOCK = Clock.fixed(Instant.parse("2026-02-05T00:00:00Z"), ZoneOffset.UTC);
 
-	private JwtService jwtService;
-	private ObjectMapper objectMapper;
-
-	@BeforeEach
-	void setUp() {
-		objectMapper = new ObjectMapper();
-		jwtService = new JwtService(objectMapper, FIXED_CLOCK, SECRET);
-	}
+	private final ObjectMapper objectMapper = new ObjectMapper();
+	private final JwtService jwtService = new JwtService(objectMapper, FIXED_CLOCK, SECRET);
 
 	@Test
 	void verifyAndParse_validToken_returnsUser() {
@@ -57,7 +52,7 @@ class JwtServiceTest {
 	void verifyAndParse_expiredToken_throws() {
 		String token = jwtService.mintAccessToken("usr_1", "admin", FIXED_CLOCK.instant().minusSeconds(1));
 
-		assertThrows(JwtValidationException.class, () -> jwtService.verifyAndParse(token));
+		assertExceptionThrown(JwtValidationException.class, () -> jwtService.verifyAndParse(token));
 	}
 
 	@Test
@@ -65,7 +60,7 @@ class JwtServiceTest {
 		String token = jwtService.mintAccessToken("usr_1", "admin", FIXED_CLOCK.instant().plusSeconds(3600));
 		String tampered = token.substring(0, token.length() - 2) + "aa";
 
-		assertThrows(JwtValidationException.class, () -> jwtService.verifyAndParse(tampered));
+		assertExceptionThrown(JwtValidationException.class, () -> jwtService.verifyAndParse(tampered));
 	}
 
 	@Test
@@ -77,7 +72,7 @@ class JwtServiceTest {
 			"exp", FIXED_CLOCK.instant().plusSeconds(3600).getEpochSecond()
 		));
 
-		assertThrows(JwtValidationException.class, () -> jwtService.verifyAndParse(token));
+		assertExceptionThrown(JwtValidationException.class, () -> jwtService.verifyAndParse(token));
 	}
 
 	@Test
@@ -108,7 +103,7 @@ class JwtServiceTest {
 
 	@Test
 	void verifyAndParse_invalidFormat_throws() {
-		assertThrows(JwtValidationException.class, () -> jwtService.verifyAndParse("abc.def"));
+		assertExceptionThrown(JwtValidationException.class, () -> jwtService.verifyAndParse("abc.def"));
 	}
 
 	@Test
@@ -121,19 +116,19 @@ class JwtServiceTest {
 			"exp", FIXED_CLOCK.instant().plusSeconds(3600).getEpochSecond()
 		));
 
-		assertThrows(JwtValidationException.class, () -> jwtService.verifyAndParse(header + "." + payload + ".AA"));
+		assertExceptionThrown(JwtValidationException.class, () -> jwtService.verifyAndParse(header + "." + payload + ".AA"));
 	}
 
 	@Test
 	void verifyAndParse_invalidBase64_throws() {
-		assertThrows(JwtValidationException.class, () -> jwtService.verifyAndParse("**.a.a"));
+		assertExceptionThrown(JwtValidationException.class, () -> jwtService.verifyAndParse("**.a.a"));
 	}
 
 	@Test
 	void verifyAndParse_invalidJson_throws() {
 		String header = Base64.getUrlEncoder().withoutPadding().encodeToString("not-json".getBytes(StandardCharsets.UTF_8));
 		String payload = Base64.getUrlEncoder().withoutPadding().encodeToString("{}".getBytes(StandardCharsets.UTF_8));
-		assertThrows(JwtValidationException.class, () -> jwtService.verifyAndParse(header + "." + payload + ".AA"));
+		assertExceptionThrown(JwtValidationException.class, () -> jwtService.verifyAndParse(header + "." + payload + ".AA"));
 	}
 
 	@Test
@@ -143,7 +138,7 @@ class JwtServiceTest {
 			"iat", FIXED_CLOCK.instant().getEpochSecond()
 		));
 
-		assertThrows(JwtValidationException.class, () -> jwtService.verifyAndParse(token));
+		assertExceptionThrown(JwtValidationException.class, () -> jwtService.verifyAndParse(token));
 	}
 
 	@Test
@@ -154,7 +149,7 @@ class JwtServiceTest {
 			"iat", FIXED_CLOCK.instant().getEpochSecond()
 		));
 
-		assertThrows(JwtValidationException.class, () -> jwtService.verifyAndParse(token));
+		assertExceptionThrown(JwtValidationException.class, () -> jwtService.verifyAndParse(token));
 	}
 
 	@Test
@@ -166,12 +161,12 @@ class JwtServiceTest {
 			"exp", Map.of("n", 1)
 		));
 
-		assertThrows(JwtValidationException.class, () -> jwtService.verifyAndParse(token));
+		assertExceptionThrown(JwtValidationException.class, () -> jwtService.verifyAndParse(token));
 	}
 
 	@Test
 	void constructor_hybridModeRejectedWhenDisabled() {
-		assertThrows(
+		assertExceptionThrown(
 			IllegalStateException.class,
 			() -> new JwtService(
 				new ObjectMapper(),
@@ -188,6 +183,12 @@ class JwtServiceTest {
 		);
 	}
 
+	private void assertExceptionThrown(Class<? extends Throwable> expectedType,
+		org.junit.jupiter.api.function.Executable executable) {
+		Throwable thrown = org.junit.jupiter.api.Assertions.assertThrows(expectedType, executable);
+		assertEquals(expectedType, thrown.getClass());
+	}
+
 	private String signedToken(Map<String, Object> payload) {
 		try {
 			String header = b64Json(Map.of("alg", "HS256", "typ", "JWT"));
@@ -198,12 +199,12 @@ class JwtServiceTest {
 			byte[] signature = mac.doFinal(signingInput.getBytes(StandardCharsets.US_ASCII));
 			return signingInput + "." + Base64.getUrlEncoder().withoutPadding().encodeToString(signature);
 		}
-		catch (Exception ex) {
+		catch (RuntimeException | NoSuchAlgorithmException | InvalidKeyException ex) {
 			throw new IllegalStateException(ex);
 		}
 	}
 
-	private String b64Json(Map<String, Object> data) throws Exception {
+	private String b64Json(Map<String, Object> data) {
 		String json = objectMapper.writeValueAsString(data);
 		return Base64.getUrlEncoder().withoutPadding().encodeToString(json.getBytes(StandardCharsets.UTF_8));
 	}
@@ -216,7 +217,7 @@ class JwtServiceTest {
 			KeyPairGenerator gen = KeyPairGenerator.getInstance("RSA");
 			gen.initialize(2048);
 			RSA_KEY_PAIR = gen.generateKeyPair();
-		} catch (Exception e) {
+		} catch (NoSuchAlgorithmException e) {
 			throw new RuntimeException(e);
 		}
 	}
@@ -284,7 +285,7 @@ class JwtServiceTest {
 			sig.initSign(RSA_KEY_PAIR.getPrivate());
 			sig.update(signingInput.getBytes(StandardCharsets.US_ASCII));
 			return signingInput + "." + Base64.getUrlEncoder().withoutPadding().encodeToString(sig.sign());
-		} catch (Exception ex) {
+		} catch (RuntimeException | NoSuchAlgorithmException | InvalidKeyException | SignatureException ex) {
 			throw new IllegalStateException(ex);
 		}
 	}
@@ -365,14 +366,14 @@ class JwtServiceTest {
 		HashMap<String, Object> claims = cognitoClaims("cognito:groups", List.of("admin"));
 		claims.remove("sub");
 		String token = rsaSignedToken(claims);
-		assertThrows(JwtValidationException.class, () -> svc.verifyAndParse(token));
+		assertExceptionThrown(JwtValidationException.class, () -> svc.verifyAndParse(token));
 	}
 
 	@Test
 	void cognitoToken_noRoleAnywhere_throws() throws Exception {
 		JwtService svc = cognitoService(mockJwksClient(buildJwksJson(KID)));
 		String token = rsaSignedToken(cognitoClaims());
-		assertThrows(JwtValidationException.class, () -> svc.verifyAndParse(token));
+		assertExceptionThrown(JwtValidationException.class, () -> svc.verifyAndParse(token));
 	}
 
 	@Test
@@ -380,14 +381,14 @@ class JwtServiceTest {
 		JwtService svc = cognitoService(mockJwksClient(buildJwksJson(KID)));
 		String token = rsaSignedToken(new HashMap<>(Map.of("alg", "RS256", "typ", "JWT")),
 			cognitoClaims("cognito:groups", List.of("admin")));
-		assertThrows(JwtValidationException.class, () -> svc.verifyAndParse(token));
+		assertExceptionThrown(JwtValidationException.class, () -> svc.verifyAndParse(token));
 	}
 
 	@Test
 	void cognitoToken_unknownKid_throws() throws Exception {
 		JwtService svc = cognitoService(mockJwksClient(buildJwksJson("other-kid")));
 		String token = rsaSignedToken(cognitoClaims("cognito:groups", List.of("admin")));
-		assertThrows(JwtValidationException.class, () -> svc.verifyAndParse(token));
+		assertExceptionThrown(JwtValidationException.class, () -> svc.verifyAndParse(token));
 	}
 
 	@Test
@@ -395,7 +396,7 @@ class JwtServiceTest {
 		JwtService svc = cognitoService(mockJwksClient(buildJwksJson(KID)));
 		String token = rsaSignedToken(cognitoClaims("cognito:groups", List.of("admin")));
 		String tampered = token.substring(0, token.lastIndexOf('.') + 1) + "AAAA";
-		assertThrows(JwtValidationException.class, () -> svc.verifyAndParse(tampered));
+		assertExceptionThrown(JwtValidationException.class, () -> svc.verifyAndParse(tampered));
 	}
 
 	@Test
@@ -404,7 +405,7 @@ class JwtServiceTest {
 		HashMap<String, Object> claims = cognitoClaims("cognito:groups", List.of("admin"));
 		claims.put("iss", "https://wrong.example.com");
 		String token = rsaSignedToken(claims);
-		assertThrows(JwtValidationException.class, () -> svc.verifyAndParse(token));
+		assertExceptionThrown(JwtValidationException.class, () -> svc.verifyAndParse(token));
 	}
 
 	@Test
@@ -414,7 +415,7 @@ class JwtServiceTest {
 		claims.put("aud", "wrong-audience");
 		claims.remove("client_id");
 		String token = rsaSignedToken(claims);
-		assertThrows(JwtValidationException.class, () -> svc.verifyAndParse(token));
+		assertExceptionThrown(JwtValidationException.class, () -> svc.verifyAndParse(token));
 	}
 
 	@Test
@@ -443,7 +444,7 @@ class JwtServiceTest {
 		HashMap<String, Object> claims = cognitoClaims("cognito:groups", List.of("admin"));
 		claims.remove("aud");
 		String token = rsaSignedToken(claims);
-		assertThrows(JwtValidationException.class, () -> svc.verifyAndParse(token));
+		assertExceptionThrown(JwtValidationException.class, () -> svc.verifyAndParse(token));
 	}
 
 	@Test
@@ -452,7 +453,7 @@ class JwtServiceTest {
 		HashMap<String, Object> claims = cognitoClaims("cognito:groups", List.of("admin"));
 		claims.put("exp", FIXED_CLOCK.instant().minusSeconds(1).getEpochSecond());
 		String token = rsaSignedToken(claims);
-		assertThrows(JwtValidationException.class, () -> svc.verifyAndParse(token));
+		assertExceptionThrown(JwtValidationException.class, () -> svc.verifyAndParse(token));
 	}
 
 	@Test
@@ -460,20 +461,20 @@ class JwtServiceTest {
 		JwtService svc = new JwtService(objectMapper, FIXED_CLOCK, SECRET, "cognito", true,
 			"", COGNITO_AUDIENCE, COGNITO_JWKS_URL, 300, mockJwksClient(buildJwksJson(KID)));
 		String token = rsaSignedToken(cognitoClaims("cognito:groups", List.of("admin")));
-		assertThrows(JwtValidationException.class, () -> svc.verifyAndParse(token));
+		assertExceptionThrown(JwtValidationException.class, () -> svc.verifyAndParse(token));
 	}
 
 	@Test
 	void rs256_rejectedInLocalMode() {
 		String token = rsaSignedToken(cognitoClaims("cognito:groups", List.of("admin")));
-		assertThrows(JwtValidationException.class, () -> jwtService.verifyAndParse(token));
+		assertExceptionThrown(JwtValidationException.class, () -> jwtService.verifyAndParse(token));
 	}
 
 	@Test
 	void hs256_rejectedInCognitoMode() throws Exception {
 		JwtService svc = cognitoService(mockJwksClient(buildJwksJson(KID)));
 		String token = jwtService.mintAccessToken("usr_1", "admin", FIXED_CLOCK.instant().plusSeconds(3600));
-		assertThrows(JwtValidationException.class, () -> svc.verifyAndParse(token));
+		assertExceptionThrown(JwtValidationException.class, () -> svc.verifyAndParse(token));
 	}
 
 	@Test
@@ -490,28 +491,28 @@ class JwtServiceTest {
 		JwtService svc = new JwtService(objectMapper, FIXED_CLOCK, SECRET, "cognito", true,
 			COGNITO_ISSUER, COGNITO_AUDIENCE, "", 300, mock(HttpClient.class));
 		String token = rsaSignedToken(cognitoClaims("cognito:groups", List.of("admin")));
-		assertThrows(JwtValidationException.class, () -> svc.verifyAndParse(token));
+		assertExceptionThrown(JwtValidationException.class, () -> svc.verifyAndParse(token));
 	}
 
 	@Test
 	void loadJwks_non200_throws() throws Exception {
 		JwtService svc = cognitoService(mockJwksClientError(500));
 		String token = rsaSignedToken(cognitoClaims("cognito:groups", List.of("admin")));
-		assertThrows(JwtValidationException.class, () -> svc.verifyAndParse(token));
+		assertExceptionThrown(JwtValidationException.class, () -> svc.verifyAndParse(token));
 	}
 
 	@Test
 	void loadJwks_emptyKeys_throws() throws Exception {
 		JwtService svc = cognitoService(mockJwksClient("{\"keys\":[]}"));
 		String token = rsaSignedToken(cognitoClaims("cognito:groups", List.of("admin")));
-		assertThrows(JwtValidationException.class, () -> svc.verifyAndParse(token));
+		assertExceptionThrown(JwtValidationException.class, () -> svc.verifyAndParse(token));
 	}
 
 	@Test
 	void loadJwks_invalidFormat_throws() throws Exception {
 		JwtService svc = cognitoService(mockJwksClient("{\"keys\":\"not-an-array\"}"));
 		String token = rsaSignedToken(cognitoClaims("cognito:groups", List.of("admin")));
-		assertThrows(JwtValidationException.class, () -> svc.verifyAndParse(token));
+		assertExceptionThrown(JwtValidationException.class, () -> svc.verifyAndParse(token));
 	}
 
 	@SuppressWarnings("unchecked")
@@ -522,7 +523,7 @@ class JwtServiceTest {
 			.thenThrow(new java.io.IOException("connection refused"));
 		JwtService svc = cognitoService(client);
 		String token = rsaSignedToken(cognitoClaims("cognito:groups", List.of("admin")));
-		assertThrows(JwtValidationException.class, () -> svc.verifyAndParse(token));
+		assertExceptionThrown(JwtValidationException.class, () -> svc.verifyAndParse(token));
 	}
 
 	@SuppressWarnings("unchecked")
@@ -533,12 +534,12 @@ class JwtServiceTest {
 			.thenThrow(new InterruptedException("interrupted"));
 		JwtService svc = cognitoService(client);
 		String token = rsaSignedToken(cognitoClaims("cognito:groups", List.of("admin")));
-		assertThrows(JwtValidationException.class, () -> svc.verifyAndParse(token));
+		assertExceptionThrown(JwtValidationException.class, () -> svc.verifyAndParse(token));
 	}
 
 	@Test
 	void constructor_invalidAuthMode_throws() {
-		assertThrows(IllegalArgumentException.class, () -> new JwtService(
+		assertExceptionThrown(IllegalArgumentException.class, () -> new JwtService(
 			objectMapper, FIXED_CLOCK, SECRET, "oauth2", true,
 			"", "", "", 300, HttpClient.newHttpClient()));
 	}

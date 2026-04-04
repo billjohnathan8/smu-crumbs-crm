@@ -7,7 +7,10 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.SignatureException;
 import java.security.interfaces.RSAPublicKey;
+import java.security.InvalidKeyException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -287,7 +290,7 @@ class JwtServiceTest {
 			KeyPairGenerator gen = KeyPairGenerator.getInstance("RSA");
 			gen.initialize(2048);
 			RSA_KEY_PAIR = gen.generateKeyPair();
-		} catch (Exception e) {
+		} catch (NoSuchAlgorithmException e) {
 			throw new RuntimeException(e);
 		}
 	}
@@ -358,7 +361,7 @@ class JwtServiceTest {
 			sig.initSign(RSA_KEY_PAIR.getPrivate());
 			sig.update(signingInput.getBytes(StandardCharsets.US_ASCII));
 			return signingInput + "." + Base64.getUrlEncoder().withoutPadding().encodeToString(sig.sign());
-		} catch (Exception ex) {
+		} catch (RuntimeException | NoSuchAlgorithmException | InvalidKeyException | SignatureException ex) {
 			throw new IllegalStateException(ex);
 		}
 	}
