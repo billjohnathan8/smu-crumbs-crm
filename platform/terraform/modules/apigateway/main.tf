@@ -18,6 +18,7 @@ locals {
     "POST /api/aml/alerts",
     "GET /api/aml/alerts/{alertId}",
     "PUT /api/aml/alerts/{alertId}/review",
+    "POST /api/aml/trigger",
     "POST /api/communications",
     "GET /api/communications",
     "GET /api/communications/queued",

@@ -338,6 +338,28 @@ resource "aws_iam_role_policy" "log_lambda_secrets" {
   policy = data.aws_iam_policy_document.log_lambda_secrets.json
 }
 
+# Allow log Lambda to invoke AML Lambda for manual trigger
+data "aws_iam_policy_document" "log_lambda_invoke_aml" {
+  statement {
+    sid    = "InvokeAmlLambda"
+    effect = "Allow"
+    actions = [
+      "lambda:InvokeFunction",
+    ]
+    resources = [
+      "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.name_prefix}-aml",
+      "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.name_prefix}-aml:*",
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "log_lambda_invoke_aml" {
+  count  = local.use_lab_role ? 0 : 1
+  name   = "${var.name_prefix}-log-lambda-invoke-aml"
+  role   = aws_iam_role.log_lambda[0].id
+  policy = data.aws_iam_policy_document.log_lambda_invoke_aml.json
+}
+
 resource "aws_iam_role" "aml_lambda" {
   count              = local.use_lab_role ? 0 : 1
   name               = "${var.name_prefix}-aml-lambda"

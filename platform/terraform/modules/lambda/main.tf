@@ -45,6 +45,7 @@ resource "aws_lambda_function" "log" {
       COGNITO_JWKS_URL           = var.cognito_jwks_url
       COGNITO_AUDIENCE           = var.cognito_audience
       COGNITO_CLIENT_ID          = var.cognito_audience
+      NAME_PREFIX                = var.name_prefix
     }
   }
 

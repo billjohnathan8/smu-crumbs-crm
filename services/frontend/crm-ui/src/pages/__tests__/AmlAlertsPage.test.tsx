@@ -18,6 +18,7 @@ vi.mock('@/features/auth/AuthContext', () => ({
 vi.mock('@/api/aml', () => ({
   listAmlAlerts: vi.fn(),
   updateAmlAlertReview: vi.fn(),
+  triggerAmlScan: vi.fn(),
 }))
 
 // 3. Mock SidebarLayout to bypass complex UI wrappers
@@ -290,6 +291,102 @@ describe('AmlAlertsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Failed to update review status')).toBeInTheDocument()
+    })
+  })
+
+  it('should show trigger button only for admin and super_admin roles', async () => {
+    // Test Admin Role
+    vi.mocked(useAuth).mockReturnValue({
+      user: { id: 'admin-1', role: 'admin', firstName: 'Admin', lastName: 'User' },
+      logout: mockLogout,
+    } as unknown as ReturnType<typeof useAuth>)
+
+    const { unmount } = renderComponent()
+    await waitFor(() => expect(screen.getByText('alert-1')).toBeInTheDocument())
+    
+    expect(screen.getByRole('button', { name: /Trigger AML Scan/i })).toBeInTheDocument()
+    unmount()
+
+    // Test Super Admin Role
+    vi.mocked(useAuth).mockReturnValue({
+      user: { id: 'admin-2', role: 'super_admin', firstName: 'Super', lastName: 'Admin' },
+      logout: mockLogout,
+    } as unknown as ReturnType<typeof useAuth>)
+
+    renderComponent()
+    await waitFor(() => expect(screen.getAllByText('alert-1')[0]).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: /Trigger AML Scan/i })).toBeInTheDocument()
+  })
+
+  it('should NOT show trigger button for user role', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: { id: 'user-1', role: 'user', firstName: 'Regular', lastName: 'User' },
+      logout: mockLogout,
+    } as unknown as ReturnType<typeof useAuth>)
+
+    renderComponent()
+    await waitFor(() => expect(screen.getByText('alert-1')).toBeInTheDocument())
+    
+    expect(screen.queryByRole('button', { name: /Trigger AML Scan/i })).not.toBeInTheDocument()
+  })
+
+  it('should trigger AML scan successfully', async () => {
+    const user = userEvent.setup()
+    
+    vi.mocked(amlApi.triggerAmlScan).mockResolvedValue({
+      status: 'triggered',
+      message: 'AML scan has been queued',
+      triggeredBy: 'admin-1',
+    })
+
+    renderComponent()
+    await waitFor(() => expect(screen.getByText('alert-1')).toBeInTheDocument())
+
+    const triggerBtn = screen.getByRole('button', { name: /Trigger AML Scan/i })
+    await user.click(triggerBtn)
+
+    // Button should show "Triggering..." while loading
+    expect(screen.getByRole('button', { name: /Triggering.../i })).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(amlApi.triggerAmlScan).toHaveBeenCalled()
+      expect(screen.getByText('AML scan has been queued')).toBeInTheDocument()
+    })
+  })
+
+  it('should handle trigger AML scan errors', async () => {
+    const user = userEvent.setup()
+    
+    vi.mocked(amlApi.triggerAmlScan).mockRejectedValue(
+      new ApiError(503, 'service_unavailable', 'AML service is unavailable')
+    )
+
+    renderComponent()
+    await waitFor(() => expect(screen.getByText('alert-1')).toBeInTheDocument())
+
+    const triggerBtn = screen.getByRole('button', { name: /Trigger AML Scan/i })
+    await user.click(triggerBtn)
+
+    await waitFor(() => {
+      expect(screen.getByText('AML service is unavailable')).toBeInTheDocument()
+    })
+  })
+
+  it('should log user out on 401 during trigger AML scan', async () => {
+    const user = userEvent.setup()
+    
+    vi.mocked(amlApi.triggerAmlScan).mockRejectedValue(
+      new ApiError(401, 'unauthorized', 'Unauthorized')
+    )
+
+    renderComponent()
+    await waitFor(() => expect(screen.getByText('alert-1')).toBeInTheDocument())
+
+    const triggerBtn = screen.getByRole('button', { name: /Trigger AML Scan/i })
+    await user.click(triggerBtn)
+
+    await waitFor(() => {
+      expect(mockLogout).toHaveBeenCalled()
     })
   })
 })

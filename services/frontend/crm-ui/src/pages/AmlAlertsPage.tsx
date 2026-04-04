@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
-import { listAmlAlerts, updateAmlAlertReview } from '@/api/aml'
+import { listAmlAlerts, updateAmlAlertReview, triggerAmlScan } from '@/api/aml'
 import type { AmlAlert, AmlAlertType, AmlReviewStatus } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
@@ -39,6 +39,8 @@ export function AmlAlertsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [reviewUpdates, setReviewUpdates] = useState<Record<string, AmlReviewStatus>>({})
   const [isUpdating, setIsUpdating] = useState<Record<string, boolean>>({})
+  const [isTriggeringAml, setIsTriggeringAml] = useState(false)
+  const [triggerSuccess, setTriggerSuccess] = useState('')
 
   const [filters, setFilters] = useState<{
     clientId: string
@@ -140,6 +142,32 @@ export function AmlAlertsPage() {
     }
   }
 
+  const handleTriggerAmlScan = async () => {
+    setIsTriggeringAml(true)
+    setError('')
+    setTriggerSuccess('')
+    try {
+      const response = await triggerAmlScan()
+      setTriggerSuccess(response.message || 'AML scan triggered successfully')
+      // Optionally refresh the alerts list after a delay
+      setTimeout(() => {
+        fetchAlerts(currentPage)
+      }, 2000)
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          logout()
+          return
+        }
+        setError(err.message || 'Failed to trigger AML scan')
+      } else {
+        setError('An unexpected error occurred while triggering AML scan')
+      }
+    } finally {
+      setIsTriggeringAml(false)
+    }
+  }
+
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE)
 
   return (
@@ -152,12 +180,27 @@ export function AmlAlertsPage() {
           <span className="text-text-subtle text-2xl">/</span>
           <h1 className="text-2xl font-normal text-text">AML Alerts</h1>
         </div>
+        {(user?.role === 'admin' || user?.role === 'super_admin') && (
+          <button
+            onClick={handleTriggerAmlScan}
+            disabled={isTriggeringAml}
+            className="px-4 py-2 rounded bg-primary hover:bg-primary-hover text-white font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isTriggeringAml ? 'Triggering...' : 'Trigger AML Scan'}
+          </button>
+        )}
       </div>
 
       <main className="mt-6">
         {error && (
           <div className="bg-danger/10 border border-danger rounded-lg p-4 mb-6">
             <p className="text-danger text-sm">{error}</p>
+          </div>
+        )}
+
+        {triggerSuccess && (
+          <div className="bg-success/10 border border-success rounded-lg p-4 mb-6">
+            <p className="text-success text-sm">{triggerSuccess}</p>
           </div>
         )}
 
