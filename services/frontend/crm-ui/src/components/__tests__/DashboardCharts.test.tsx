@@ -29,13 +29,15 @@ vi.mock('recharts', () => ({
   Line: () => <div data-testid="recharts-line" />,
   Pie: ({
     children,
+    data,
     label,
   }: {
     children: React.ReactNode
+    data?: Array<{ name: string; value: number }>
     label?: (value: { name: string; value: number }) => string
   }) => (
     <div>
-      {label ? label({ name: 'Pending', value: 3 }) : null}
+      {label && data ? data.map(item => <span key={item.name}>{label(item)}</span>) : null}
       {children}
     </div>
   ),
@@ -83,8 +85,23 @@ describe('DashboardCharts', () => {
 
     render(<VerificationStatusChart data={data} />)
     expect(screen.getByTestId('recharts-piechart')).toBeInTheDocument()
-    expect(screen.getByText('Pending: 3')).toBeInTheDocument()
+    expect(screen.getByText('Pending: 2')).toBeInTheDocument()
+    expect(screen.getByText('Approved: 1')).toBeInTheDocument()
     expect(screen.getAllByTestId('recharts-cell')).toHaveLength(2)
+  })
+
+  it('omits zero-value verification slices to avoid overlapping labels', () => {
+    const data: VerificationStatusPoint[] = [
+      { name: 'Pending', value: 1, color: '#a855f7' },
+      { name: 'Rejected', value: 0, color: '#ef4444' },
+      { name: 'Verified', value: 0, color: '#22c55e' },
+    ]
+
+    render(<VerificationStatusChart data={data} />)
+    expect(screen.getByText('Pending: 1')).toBeInTheDocument()
+    expect(screen.queryByText('Rejected: 0')).not.toBeInTheDocument()
+    expect(screen.queryByText('Verified: 0')).not.toBeInTheDocument()
+    expect(screen.getAllByTestId('recharts-cell')).toHaveLength(1)
   })
 
   it('renders loading and empty states for NewClientsChart', () => {
