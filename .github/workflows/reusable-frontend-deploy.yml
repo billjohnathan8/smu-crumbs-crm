@@ -137,7 +137,7 @@ jobs:
         run: |
           aws cloudfront create-invalidation \
             --distribution-id "${{ steps.distribution.outputs.cloudfront_distribution_id }}" \
-            --paths ${{ inputs.cloudfront_invalidation_paths }}
+            --paths "${{ inputs.cloudfront_invalidation_paths }}"
 
       - name: Write deploy intent fragment (Frontend)
         id: intent
