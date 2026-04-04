@@ -308,10 +308,20 @@ export function ViewTransactionsPage() {
       if (err instanceof ApiError) {
         if (err.status === 401) {
           logout()
+        } else if (filters.clientId.trim() && [400, 403, 404].includes(err.status)) {
+          // For client-id filter misses/access denials, show an empty result set instead
+          // of leaving stale rows rendered from the previous successful fetch.
+          setTransactions([])
+          setTotal(0)
+          setError('')
         } else {
+          setTransactions([])
+          setTotal(0)
           setError(err.message || 'Failed to load transactions')
         }
       } else {
+        setTransactions([])
+        setTotal(0)
         setError('An unexpected error occurred')
       }
     } finally {

@@ -442,6 +442,41 @@ describe('ViewTransactionsPage', () => {
     })
   })
 
+  it('clears stale rows and suppresses error banner when clientId filter is inaccessible', async () => {
+    mockRole = 'admin'
+    const user = userEvent.setup()
+    const listSpy = vi
+      .spyOn(transactionsApi, 'listTransactions')
+      .mockImplementation(async params => {
+        if (params?.clientId) {
+          throw new ApiError(403, 'forbidden', "You don't have permission to perform this action.")
+        }
+        return {
+          data: mockTransactions,
+          pagination: { limit: 20, offset: 0, total: 2 },
+        }
+      })
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByText('txn-1')).toBeInTheDocument()
+    })
+
+    const clientIdInput = screen.getByPlaceholderText('clt_..')
+    await user.clear(clientIdInput)
+    await user.type(clientIdInput, 'clt_69')
+
+    await waitFor(() => {
+      expect(listSpy).toHaveBeenCalledWith(expect.objectContaining({ clientId: 'clt_69' }))
+      expect(screen.queryByText('txn-1')).not.toBeInTheDocument()
+      expect(screen.getByText('No transactions found')).toBeInTheDocument()
+      expect(
+        screen.queryByText("You don't have permission to perform this action.")
+      ).not.toBeInTheDocument()
+    })
+  })
+
   it('looks up exact transaction id when txn_ search is provided', async () => {
     const user = userEvent.setup()
     vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
