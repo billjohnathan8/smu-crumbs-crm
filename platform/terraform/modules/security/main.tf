@@ -746,6 +746,7 @@ data "aws_iam_policy_document" "ecs_user_cognito_admin" {
       "cognito-idp:AdminAddUserToGroup",
       "cognito-idp:AdminDeleteUser",
       "cognito-idp:AdminDisableUser",
+      "cognito-idp:AdminEnableUser",
       "cognito-idp:AdminResetUserPassword",
     ]
     resources = [var.cognito_user_pool_arn]
