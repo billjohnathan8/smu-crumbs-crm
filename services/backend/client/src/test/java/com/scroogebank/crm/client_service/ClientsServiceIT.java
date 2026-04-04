@@ -23,19 +23,17 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.HttpStatusCodeException;
@@ -61,7 +59,14 @@ import org.springframework.beans.factory.annotation.Autowired;
  */
 @Testcontainers
 @Tag("integration")
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+	webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+	properties = {
+		"app.jwt.hmac-secret=dev-only-insecure-secret",
+		"app.verification.sns-topic-arn=arn:aws:sns:ap-southeast-1:000000000000:verification-it",
+		"app.verification.documents-bucket=verification-it-bucket"
+	}
+)
 class ClientsServiceIT {
 
 	@LocalServerPort
@@ -83,21 +88,12 @@ class ClientsServiceIT {
 	private S3Client s3Client;
 
 	@Container
+	@ServiceConnection
 	@SuppressWarnings("resource")
-	static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine")
+	public static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine")
 		.withDatabaseName("clients")
 		.withUsername("postgres")
 		.withPassword("postgres");
-
-	@DynamicPropertySource
-	static void configureDatasource(DynamicPropertyRegistry registry) {
-		registry.add("spring.datasource.url", postgres::getJdbcUrl);
-		registry.add("spring.datasource.username", postgres::getUsername);
-		registry.add("spring.datasource.password", postgres::getPassword);
-		registry.add("app.jwt.hmac-secret", () -> "dev-only-insecure-secret");
-		registry.add("app.verification.sns-topic-arn", () -> "arn:aws:sns:ap-southeast-1:000000000000:verification-it");
-		registry.add("app.verification.documents-bucket", () -> "verification-it-bucket");
-	}
 
 	private String baseUrl() {
 		return "http://localhost:" + port;
@@ -121,8 +117,8 @@ class ClientsServiceIT {
 	/**
 	 * Resets and configures external AWS client stubs before each integration test.
 	 */
-	@BeforeEach
 	void setUpAwsClientStubs() {
+		assertThat(postgres.isRunning()).isTrue();
 		reset(snsClient, s3Client);
 		when(snsClient.publish(any(PublishRequest.class)))
 			.thenReturn(PublishResponse.builder().messageId("msg-it-1").build());
@@ -271,6 +267,7 @@ class ClientsServiceIT {
 
 	@Test
 	void createClient_publishesVerificationEmailEvent() throws Exception {
+		setUpAwsClientStubs();
 		String agentAuth = jsonHeadersToken(mintToken("usr_it_agent", "user"));
 		JsonNode created = createClient(agentAuth, "Jordan");
 		String clientId = requiredText(created, "clientId");
@@ -292,6 +289,7 @@ class ClientsServiceIT {
 
 	@Test
 	void createClient_whenSnsPublishFails_returnsServiceUnavailable_andRetryCanSucceed() throws Exception {
+		setUpAwsClientStubs();
 		String agentAuth = jsonHeadersToken(mintToken("usr_it_agent", "user"));
 		String email = "verify-it-" + UUID.randomUUID() + "@example.com";
 		String phone = "+1555" + ThreadLocalRandom.current().nextLong(1_000_000L, 10_000_000L);
@@ -325,6 +323,7 @@ class ClientsServiceIT {
 
 	@Test
 	void uploadVerificationDocs_publicTokenFlow_setsPendingStatus() throws Exception {
+		setUpAwsClientStubs();
 		String agentAuth = jsonHeadersToken(mintToken("usr_it_agent", "user"));
 		JsonNode created = createClient(agentAuth, "Upload");
 		String clientId = requiredText(created, "clientId");
@@ -344,6 +343,7 @@ class ClientsServiceIT {
 
 	@Test
 	void uploadVerificationDocs_replayWhilePending_allowsReplacementAndStaysPending() throws Exception {
+		setUpAwsClientStubs();
 		String agentAuth = jsonHeadersToken(mintToken("usr_it_agent", "user"));
 		JsonNode created = createClient(agentAuth, "ReplayPending");
 		String clientId = requiredText(created, "clientId");
@@ -362,6 +362,7 @@ class ClientsServiceIT {
 
 	@Test
 	void reviewVerification_pendingApprove_transitionsToVerified() throws Exception {
+		setUpAwsClientStubs();
 		String agentAuth = jsonHeadersToken(mintToken("usr_it_agent", "user"));
 		String adminAuth = jsonHeadersToken(mintToken("usr_it_admin", "admin"));
 		String clientId = createPendingClient(agentAuth);
@@ -379,6 +380,7 @@ class ClientsServiceIT {
 
 	@Test
 	void reviewVerification_pendingReject_transitionsToRejected() throws Exception {
+		setUpAwsClientStubs();
 		String agentAuth = jsonHeadersToken(mintToken("usr_it_agent", "user"));
 		String adminAuth = jsonHeadersToken(mintToken("usr_it_admin", "admin"));
 		String clientId = createPendingClient(agentAuth);
@@ -396,6 +398,7 @@ class ClientsServiceIT {
 
 	@Test
 	void uploadVerificationDocs_afterApproval_returnsConflictAndDoesNotResetStatus() throws Exception {
+		setUpAwsClientStubs();
 		String agentAuth = jsonHeadersToken(mintToken("usr_it_agent", "user"));
 		String adminAuth = jsonHeadersToken(mintToken("usr_it_admin", "admin"));
 		JsonNode created = createClient(agentAuth, "ReplayAfterReview");
@@ -425,6 +428,7 @@ class ClientsServiceIT {
 
 	@Test
 	void resendVerificationLink_afterReject_allowsFreshUploadAndReturnsToPending() throws Exception {
+		setUpAwsClientStubs();
 		String agentAuth = jsonHeadersToken(mintToken("usr_it_agent", "user"));
 		String adminAuth = jsonHeadersToken(mintToken("usr_it_admin", "admin"));
 		JsonNode created = createClient(agentAuth, "ReplayAfterReject");
@@ -463,6 +467,7 @@ class ClientsServiceIT {
 
 	@Test
 	void uploadVerificationDocs_malformedToken_returnsUnauthorized() throws Exception {
+		setUpAwsClientStubs();
 		String agentAuth = jsonHeadersToken(mintToken("usr_it_agent", "user"));
 		JsonNode created = createClient(agentAuth, "Malformed");
 		String clientId = requiredText(created, "clientId");
@@ -482,6 +487,7 @@ class ClientsServiceIT {
 
 	@Test
 	void uploadVerificationDocs_failedAttemptWithIdempotencyKey_allowsRetryWithSameKey() throws Exception {
+		setUpAwsClientStubs();
 		String agentAuth = jsonHeadersToken(mintToken("usr_it_agent", "user"));
 		JsonNode created = createClient(agentAuth, "RetryIdem");
 		String clientId = requiredText(created, "clientId");
