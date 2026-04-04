@@ -138,9 +138,6 @@ build-logs/migration-validation/
 /build-logs/
 test-results/
 
-# Cognito backfill script output (contains temporary passwords; never commit)
-scripts/aws/backfill-cognito-credentials-*.md
-
 # AWS Inventory
 aws/*
 

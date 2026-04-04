@@ -643,6 +643,32 @@ def _update_communication_feedback(
         return code, body
 
 
+def _update_communication_by_id(
+    log_api_base_url: str,
+    communication_id: str,
+    provider_message_id: str,
+    status: str = "sent",
+) -> tuple[int, str]:
+    """Update communication status by communication ID after sending email."""
+    encoded_id = urllib.parse.quote(communication_id, safe="")
+    base_url = log_api_base_url.rstrip("/")
+    url = f"{base_url}/api/communications/{encoded_id}"
+    body = {
+        "providerMessageId": provider_message_id,
+        "status": status,
+    }
+    payload = json.dumps(body).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    authorization = _resolve_authorization_header()
+    if authorization:
+        headers["Authorization"] = authorization
+    req = urllib.request.Request(url=url, data=payload, headers=headers, method="PATCH")
+    with urllib.request.urlopen(req, timeout=15) as response:
+        code = response.getcode()
+        body_text = response.read().decode("utf-8", errors="replace")
+        return code, body_text
+
+
 def _invoke_update_communication_feedback(
     log_api_base_url: str,
     provider_message_id: str,
