@@ -24,6 +24,7 @@ public interface ClientRepository extends JpaRepository<ClientEntity, Long> {
 	@Query("SELECT COUNT(c) > 0 FROM ClientEntity c WHERE c.phoneNumber = :phone AND c.id <> :id AND c.deleted = false")
 	boolean existsByPhoneNumberAndIdNot(@Param("phone") String phoneNumber, @Param("id") Long id);
 
+	@Override
 	Optional<ClientEntity> findById(Long id);
 
 	/**
