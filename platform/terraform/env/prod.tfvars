@@ -60,7 +60,7 @@ sftp_instance_type                  = "t4g.micro"
 sftp_root_volume_size_gb            = 8
 sftp_ingress_cidr_blocks            = ["103.252.200.29/32"] # Temporary allowlist from current public IP; replace with real partner office/public NAT CIDRs before apply.
 enable_verification_pipeline        = true
-verification_email_dispatch_enabled = false # Disabled - now using SNS → Lambda for all automated emails
+verification_email_dispatch_enabled = true # Keep enabled so client-service dispatches communication emails in production.
 ses_sender_email                    = "verification@itsag2t3.com"
 ses_domain                          = "itsag2t3.com" # Domain identity + DKIM records are managed by Terraform when Route53 management is enabled.
 
