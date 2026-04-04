@@ -1,23 +1,12 @@
-name: "[DEPRECATED] CD - Terraform Infra Plan"
-# DEPRECATED: Use cd-tf-infra-provision.yml instead, which combines plan+apply+deploy+seed
-# in a single idempotent workflow. This workflow is kept for reference only.
+name: CD - Terraform Infra Plan
+# Smart idempotent plan: bootstrap → clean stale → reconcile → plan → upload artifacts.
+# Auto-handles pending-deletion secrets and state reconciliation (no manual toggles).
 #
-# Original purpose: Bootstrap Terraform backend and generate a reviewed production plan.
+# After reviewing the plan output, copy the commit SHA and run
+# "CD - Terraform Infra Provision & Seed" with that SHA to apply+deploy+seed.
 
 on:
-  # workflow_dispatch removed - use cd-tf-infra-provision.yml instead
   workflow_dispatch:
-    inputs:
-      force_delete_stale_resources:
-        description: "[DEPRECATED] Use cd-tf-infra-provision.yml instead"
-        required: false
-        default: false
-        type: boolean
-      reconcile_existing_resources:
-        description: "[DEPRECATED] Use cd-tf-infra-provision.yml instead"
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   actions: read
@@ -63,14 +52,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          test -n "${AWS_REGION}" || { echo "Missing required GitHub Actions variable: AWS_REGION"; exit 1; }
-          test -n "${TF_STATE_BUCKET}" || { echo "Missing required GitHub Actions variable: TF_STATE_BUCKET"; exit 1; }
-          test -n "${TF_LOCK_DYNAMODB}" || { echo "Missing required GitHub Actions variable: TF_LOCK_DYNAMODB"; exit 1; }
-          test -n "${AWS_ACCESS_KEY_ID_SECRET:-}" || { echo "Missing required secret: AWS_ACCESS_KEY_ID"; exit 1; }
-          test -n "${AWS_SECRET_ACCESS_KEY_SECRET:-}" || { echo "Missing required secret: AWS_SECRET_ACCESS_KEY"; exit 1; }
-          test -n "${TF_ROOT_ADMIN_PASSWORD_SECRET:-}" || { echo "Missing required secret: TF_ROOT_ADMIN_PASSWORD"; exit 1; }
-          test -n "${TF_JWT_HMAC_SECRET_SECRET:-}" || { echo "Missing required secret: TF_JWT_HMAC_SECRET"; exit 1; }
+          test -n "${AWS_REGION}" || { echo "::error::Missing GitHub variable: AWS_REGION"; exit 1; }
+          test -n "${TF_STATE_BUCKET}" || { echo "::error::Missing GitHub variable: TF_STATE_BUCKET"; exit 1; }
+          test -n "${TF_LOCK_DYNAMODB}" || { echo "::error::Missing GitHub variable: TF_LOCK_DYNAMODB"; exit 1; }
+          test -n "${AWS_ACCESS_KEY_ID_SECRET:-}" || { echo "::error::Missing secret: AWS_ACCESS_KEY_ID"; exit 1; }
+          test -n "${AWS_SECRET_ACCESS_KEY_SECRET:-}" || { echo "::error::Missing secret: AWS_SECRET_ACCESS_KEY"; exit 1; }
+          test -n "${TF_ROOT_ADMIN_PASSWORD_SECRET:-}" || { echo "::error::Missing secret: TF_ROOT_ADMIN_PASSWORD"; exit 1; }
+          test -n "${TF_JWT_HMAC_SECRET_SECRET:-}" || { echo "::error::Missing secret: TF_JWT_HMAC_SECRET"; exit 1; }
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -84,10 +72,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           COMMIT_SHA="$(git rev-parse HEAD)"
           ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
-
           {
             echo "commit_sha=${COMMIT_SHA}"
             echo "account_id=${ACCOUNT_ID}"
@@ -100,7 +86,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           BACKEND_FILE="env/prod.backend.hcl"
           TFVARS_FILE="env/prod.tfvars"
 
@@ -110,13 +95,13 @@ jobs:
           TFVARS_REGION="$(awk -F= '/^[[:space:]]*aws_region[[:space:]]*=/{gsub(/["[:space:]]/, "", $2); print $2; exit}' "${TFVARS_FILE}")"
           VERIFICATION_ENABLED="$(awk -F= '/^[[:space:]]*enable_verification_pipeline[[:space:]]*=/{value=$2; sub(/#.*/, "", value); gsub(/[[:space:]]/, "", value); print tolower(value); exit}' "${TFVARS_FILE}")"
 
-          [[ "${BACKEND_BUCKET}" == "${TF_STATE_BUCKET}" ]] || { echo "prod.backend.hcl bucket (${BACKEND_BUCKET}) does not match vars.TF_STATE_BUCKET (${TF_STATE_BUCKET})"; exit 1; }
-          [[ "${BACKEND_REGION}" == "${AWS_REGION}" ]] || { echo "prod.backend.hcl region (${BACKEND_REGION}) does not match vars.AWS_REGION (${AWS_REGION})"; exit 1; }
-          [[ "${BACKEND_LOCK_TABLE}" == "${TF_LOCK_DYNAMODB}" ]] || { echo "prod.backend.hcl dynamodb_table (${BACKEND_LOCK_TABLE}) does not match vars.TF_LOCK_DYNAMODB (${TF_LOCK_DYNAMODB})"; exit 1; }
-          [[ -z "${TFVARS_REGION}" || "${TFVARS_REGION}" == "${AWS_REGION}" ]] || { echo "prod.tfvars aws_region (${TFVARS_REGION}) does not match vars.AWS_REGION (${AWS_REGION})"; exit 1; }
+          [[ "${BACKEND_BUCKET}" == "${TF_STATE_BUCKET}" ]] || { echo "::error::prod.backend.hcl bucket (${BACKEND_BUCKET}) != vars.TF_STATE_BUCKET (${TF_STATE_BUCKET})"; exit 1; }
+          [[ "${BACKEND_REGION}" == "${AWS_REGION}" ]] || { echo "::error::prod.backend.hcl region (${BACKEND_REGION}) != vars.AWS_REGION (${AWS_REGION})"; exit 1; }
+          [[ "${BACKEND_LOCK_TABLE}" == "${TF_LOCK_DYNAMODB}" ]] || { echo "::error::prod.backend.hcl lock table (${BACKEND_LOCK_TABLE}) != vars.TF_LOCK_DYNAMODB (${TF_LOCK_DYNAMODB})"; exit 1; }
+          [[ -z "${TFVARS_REGION}" || "${TFVARS_REGION}" == "${AWS_REGION}" ]] || { echo "::error::prod.tfvars region (${TFVARS_REGION}) != vars.AWS_REGION (${AWS_REGION})"; exit 1; }
 
           if [[ "${VERIFICATION_ENABLED}" == "true" && -z "${APP_DOMAIN_NAME}" ]]; then
-            echo "Production verification is enabled in env/prod.tfvars, but vars.APP_DOMAIN_NAME is not set."
+            echo "::error::Verification pipeline enabled but vars.TF_APP_DOMAIN_NAME is not set."
             exit 1
           fi
 
@@ -128,10 +113,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           echo "::add-mask::${ROOT_ADMIN_PASSWORD}"
           echo "::add-mask::${JWT_HMAC_SECRET}"
-
           {
             echo "root_admin_password = $(jq -Rn --arg v "$ROOT_ADMIN_PASSWORD" '$v')"
             echo "jwt_hmac_secret = $(jq -Rn --arg v "$JWT_HMAC_SECRET" '$v')"
@@ -147,27 +130,103 @@ jobs:
 
       - name: Ensure Terraform Lambda zip artifacts exist
         shell: bash
-        run: |
-          set -euo pipefail
-          python3 .github/scripts/build_tf_lambda_zips.py
+        run: python3 .github/scripts/build_tf_lambda_zips.py
 
       - name: Terraform init
         working-directory: ${{ env.TF_DIR }}
         shell: bash
         run: terraform init -input=false -reconfigure -backend-config="env/${DEPLOY_ENV}.backend.hcl"
 
-      - name: Force delete stale resources (optional)
-        if: ${{ inputs.force_delete_stale_resources }}
+      # ── Smart reconciliation (automatic) ─────────────────────────
+      - name: Clean stale Secrets Manager secrets (pending-deletion only)
         working-directory: ${{ env.TF_DIR }}
         shell: bash
-        run: bash scripts/force-delete-stale-resources.sh "${DEPLOY_ENV}"
+        run: |
+          set -euo pipefail
 
-      - name: Reconcile pre-existing AWS resources into Terraform state
-        if: ${{ inputs.reconcile_existing_resources }}
+          PROJECT_NAME="${TF_PROJECT_NAME:-scroogebank-crm}"
+
+          clean_stale_secret() {
+            local secret_name="$1"
+
+            if ! aws secretsmanager describe-secret --secret-id "${secret_name}" --region "${AWS_REGION}" >/dev/null 2>&1; then
+              echo "[stale-clean] Absent (OK): ${secret_name}"
+              return 0
+            fi
+
+            local deleted_date
+            deleted_date="$(aws secretsmanager describe-secret \
+              --secret-id "${secret_name}" \
+              --region "${AWS_REGION}" \
+              --query 'DeletedDate' \
+              --output text 2>/dev/null || true)"
+
+            if [[ -z "${deleted_date}" || "${deleted_date}" == "None" ]]; then
+              echo "[stale-clean] Active (OK): ${secret_name}"
+              return 0
+            fi
+
+            echo "[stale-clean] Pending deletion - restoring then force deleting: ${secret_name}"
+            aws secretsmanager restore-secret --secret-id "${secret_name}" --region "${AWS_REGION}" >/dev/null
+
+            for _ in {1..24}; do
+              local check_date
+              check_date="$(aws secretsmanager describe-secret \
+                --secret-id "${secret_name}" \
+                --region "${AWS_REGION}" \
+                --query 'DeletedDate' \
+                --output text 2>/dev/null || true)"
+              if [[ -z "${check_date}" || "${check_date}" == "None" ]]; then
+                break
+              fi
+              sleep 5
+            done
+
+            aws secretsmanager delete-secret \
+              --secret-id "${secret_name}" \
+              --region "${AWS_REGION}" \
+              --force-delete-without-recovery >/dev/null
+
+            for _ in {1..24}; do
+              if ! aws secretsmanager describe-secret --secret-id "${secret_name}" --region "${AWS_REGION}" >/dev/null 2>&1; then
+                echo "[stale-clean] Force deleted: ${secret_name}"
+                return 0
+              fi
+              sleep 5
+            done
+
+            echo "::warning::Timed out waiting for secret deletion: ${secret_name}"
+          }
+
+          clean_stale_secret "/${PROJECT_NAME}/${DEPLOY_ENV}/jwt/hmac_secret"
+          clean_stale_secret "/${PROJECT_NAME}/${DEPLOY_ENV}/user/root_admin_password"
+          clean_stale_secret "/${PROJECT_NAME}/${DEPLOY_ENV}/db/username"
+          clean_stale_secret "/${PROJECT_NAME}/${DEPLOY_ENV}/db/password"
+
+          # Also clean orphaned VPC flow log group if not in state
+          RESOURCE_COUNT="$(terraform state list 2>/dev/null | wc -l || echo 0)"
+          if [[ "${RESOURCE_COUNT}" -eq 0 ]]; then
+            VPC_FLOW_LOG_GROUP="/aws/vpc/${PROJECT_NAME}-${DEPLOY_ENV}-flow-logs"
+            LOG_GROUP_COUNT="$(aws logs describe-log-groups \
+              --region "${AWS_REGION}" \
+              --log-group-name-prefix "${VPC_FLOW_LOG_GROUP}" \
+              --query "length(logGroups[?logGroupName == '${VPC_FLOW_LOG_GROUP}'])" \
+              --output text 2>/dev/null || echo 0)"
+            if [[ "${LOG_GROUP_COUNT}" != "0" && "${LOG_GROUP_COUNT}" != "None" ]]; then
+              echo "[stale-clean] Deleting orphaned VPC flow log group: ${VPC_FLOW_LOG_GROUP}"
+              aws logs delete-log-group --log-group-name "${VPC_FLOW_LOG_GROUP}" --region "${AWS_REGION}" || true
+            fi
+          fi
+
+      - name: Reconcile existing AWS resources into Terraform state
         working-directory: ${{ env.TF_DIR }}
         shell: bash
-        run: bash scripts/reconcile-existing-resources.sh "${DEPLOY_ENV}"
+        run: |
+          set -euo pipefail
+          echo "Running idempotent state reconciliation..."
+          bash scripts/reconcile-existing-resources.sh "${DEPLOY_ENV}"
 
+      # ── Plan ─────────────────────────────────────────────────────
       - name: Terraform validate
         working-directory: ${{ env.TF_DIR }}
         shell: bash
@@ -178,7 +237,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           terraform plan \
             -input=false \
             -lock-timeout=300s \
@@ -219,18 +277,26 @@ jobs:
           {
             echo "## Terraform Infra Plan Summary"
             echo
-            echo "Commit SHA: ${{ steps.plan_meta.outputs.commit_sha }}"
-            echo "AWS account: ${{ steps.plan_meta.outputs.account_id }}"
-            echo "Region: ${AWS_REGION}"
-            echo "Backend bucket: s3://${TF_STATE_BUCKET}"
-            echo "Backend lock table: arn:aws:dynamodb:${AWS_REGION}:${{ steps.plan_meta.outputs.account_id }}:table/${TF_LOCK_DYNAMODB}"
+            echo "| Key | Value |"
+            echo "|-----|-------|"
+            echo "| Commit SHA | \`${{ steps.plan_meta.outputs.commit_sha }}\` |"
+            echo "| AWS Account | ${{ steps.plan_meta.outputs.account_id }} |"
+            echo "| Region | ${AWS_REGION} |"
             echo
-            echo "Plan result: ${PLAN_RESULT_LINE}"
+            echo "**Plan result:** ${PLAN_RESULT_LINE}"
             echo
-            echo "Binary plan artifact: ${{ steps.plan_meta.outputs.binary_artifact_name }}"
-            echo "Text plan artifact: ${{ steps.plan_meta.outputs.text_artifact_name }}"
+            echo "**Artifacts:**"
+            echo "- Binary plan: \`${{ steps.plan_meta.outputs.binary_artifact_name }}\`"
+            echo "- Text plan: \`${{ steps.plan_meta.outputs.text_artifact_name }}\`"
             echo
-            echo "Use the apply workflow with reviewed_commit_sha=${{ steps.plan_meta.outputs.commit_sha }} after reviewing the exported plan."
+            echo "---"
+            echo
+            echo "### Next step"
+            echo "Review the text plan artifact above, then run **CD - Terraform Infra Provision & Seed** with:"
+            echo
+            echo "\`\`\`"
+            echo "reviewed_commit_sha: ${{ steps.plan_meta.outputs.commit_sha }}"
+            echo "\`\`\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Cleanup Terraform working files
