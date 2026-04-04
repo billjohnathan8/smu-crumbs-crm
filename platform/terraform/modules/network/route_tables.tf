@@ -65,34 +65,34 @@ resource "aws_route_table" "db" {
 
 # Associate public subnets with public route table
 resource "aws_route_table_association" "public" {
-  for_each = aws_subnet.public
+  for_each = local.public_subnet_map
 
-  subnet_id      = each.value.id
+  subnet_id      = aws_subnet.public[each.key].id
   route_table_id = aws_route_table.public.id
 }
 
 # Associate private subnets with private route table
 # When enable_multi_az_nat is false, all private subnets use the single route table
 resource "aws_route_table_association" "private" {
-  for_each = (!var.enable_multi_az_nat && var.enable_nat_gateway) ? aws_subnet.private : {}
+  for_each = (!var.enable_multi_az_nat && var.enable_nat_gateway) ? local.private_subnet_map : {}
 
-  subnet_id      = each.value.id
+  subnet_id      = aws_subnet.private[each.key].id
   route_table_id = aws_route_table.private[0].id
 }
 
 # Associate private subnets with per-AZ route tables
 # When enable_multi_az_nat is true, each private subnet uses its AZ-specific route table
 resource "aws_route_table_association" "private_per_az" {
-  for_each = (var.enable_multi_az_nat && var.enable_nat_gateway) ? aws_subnet.private : {}
+  for_each = (var.enable_multi_az_nat && var.enable_nat_gateway) ? local.private_subnet_map : {}
 
-  subnet_id      = each.value.id
+  subnet_id      = aws_subnet.private[each.key].id
   route_table_id = aws_route_table.private_per_az[tonumber(each.key)].id
 }
 
 # Associate database subnets with database route table
 resource "aws_route_table_association" "db" {
-  for_each = aws_subnet.db
+  for_each = length(local.db_subnet_map) > 0 ? local.db_subnet_map : {}
 
-  subnet_id      = each.value.id
+  subnet_id      = aws_subnet.db[each.key].id
   route_table_id = aws_route_table.db[0].id
 }
