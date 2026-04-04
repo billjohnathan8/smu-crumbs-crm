@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createAmlAlert, getAmlAlertById, listAmlAlerts, updateAmlAlertReview } from '../aml'
+import {
+  createAmlAlert,
+  getAmlAlertById,
+  listAmlAlerts,
+  triggerAmlScan,
+  updateAmlAlertReview,
+} from '../aml'
 import * as client from '../client'
 import type { AmlAlert, CreateAmlAlertRequest, PaginatedResponse } from '../types'
 
@@ -112,5 +118,22 @@ describe('aml API', () => {
       reviewStatus: 'Confirmed',
     })
     expect(result).toEqual(response)
+  })
+
+  it('triggers AML scan', async () => {
+    vi.spyOn(client, 'apiPost').mockResolvedValue({
+      status: 'accepted',
+      message: 'scan started',
+      triggeredBy: 'admin@example.com',
+    })
+
+    const result = await triggerAmlScan()
+
+    expect(client.apiPost).toHaveBeenCalledWith('/api/aml/trigger', {})
+    expect(result).toEqual({
+      status: 'accepted',
+      message: 'scan started',
+      triggeredBy: 'admin@example.com',
+    })
   })
 })
