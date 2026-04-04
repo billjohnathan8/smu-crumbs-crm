@@ -203,24 +203,15 @@ public class ClientServiceImpl implements ClientService {
 		String token = verificationTokenService.generateVerificationToken(apiClientId, verificationLinkTokenTtlSeconds);
 
 		// Publish verification event to SNS (downstream SNS -> Lambda -> SES sends email).
-		// Fail open: create should still succeed when notification infrastructure is degraded.
-		try {
-			snsEmailPublisherService.publishVerificationEmail(
-				apiClientId,
-				saved.getEmailAddress(),
-				token,
-				saved.getFirstName(),
-				requestId,
-				verificationLinkTokenTtlSeconds
-			);
-		} catch (SnsPublishException ex) {
-			LOGGER.error(
-				"Client created but verification email dispatch failed. clientId={} requestId={}",
-				apiClientId,
-				requestId,
-				ex
-			);
-		}
+		// Create is fail-closed: SNS failure must propagate as 503 and rollback the transaction.
+		snsEmailPublisherService.publishVerificationEmail(
+			apiClientId,
+			saved.getEmailAddress(),
+			token,
+			saved.getFirstName(),
+			requestId,
+			verificationLinkTokenTtlSeconds
+		);
 
 		return toDto(saved);
 	}
