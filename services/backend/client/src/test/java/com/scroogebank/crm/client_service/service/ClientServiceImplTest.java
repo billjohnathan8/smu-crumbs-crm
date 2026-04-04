@@ -315,7 +315,7 @@ class ClientServiceImplTest {
 	}
 
 	@Test
-	void createClient_whenSnsPublishFails_stillReturnsCreatedClient() {
+	void createClient_whenSnsPublishFails_throwsAndAbortsCreate() {
 		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
 
@@ -333,9 +333,9 @@ class ClientServiceImplTest {
 			.when(snsEmailPublisherService)
 			.publishVerificationEmail(any(), any(), any(), any(), any(), anyLong());
 
-		var result = clientService.createClient(user, requestFrom(payload), "Bearer x", "req-1");
-
-		assertThat(result.clientId()).isEqualTo("clt_10");
+		assertThatThrownBy(() -> clientService.createClient(user, requestFrom(payload), "Bearer x", "req-1"))
+			.isInstanceOf(SnsPublishException.class)
+			.hasMessageContaining("sns down");
 		verify(clientRepository).save(any());
 	}
 

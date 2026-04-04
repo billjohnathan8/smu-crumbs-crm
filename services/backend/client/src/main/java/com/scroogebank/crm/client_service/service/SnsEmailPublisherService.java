@@ -32,7 +32,7 @@ public class SnsEmailPublisherService {
         SnsClient snsClient,
         ObjectMapper objectMapper,
         LogServiceCommunicationClient communicationClient,
-        @Value("${verification.sns-topic-arn}") String verificationTopicArn
+        @Value("${app.verification.sns-topic-arn}") String verificationTopicArn
     ) {
         this.snsClient           = snsClient;
         this.objectMapper        = objectMapper;
