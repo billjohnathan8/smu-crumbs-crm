@@ -170,7 +170,10 @@ migrate_log_service() {
 
   while IFS= read -r file_path; do
     version="$(basename "${file_path}")"
-    exists="$(db_psql "SELECT 1 FROM schema_migrations WHERE version='${version}' LIMIT 1;")"
+    if ! exists="$(db_psql "SELECT 1 FROM schema_migrations WHERE version='${version}' LIMIT 1;")"; then
+      echo "[FAIL] Could not check schema_migrations for ${version}" >&2
+      exit 1
+    fi
     exists="$(echo "${exists}" | tr -d '[:space:]')"
     if [[ "${exists}" == "1" ]]; then
       continue
@@ -190,7 +193,10 @@ migrate_log_service() {
         -d "${LOCAL_DB_NAME}" \
         -f /tmp/migration.sql
 
-    db_psql "INSERT INTO schema_migrations(version) VALUES ('${version}');"
+    if ! db_psql "INSERT INTO schema_migrations(version) VALUES ('${version}');" >/dev/null; then
+      echo "[FAIL] Could not record applied migration ${version} in schema_migrations" >&2
+      exit 1
+    fi
   done < <(find "${migrations_dir}" -maxdepth 1 -type f -name '*.sql' | sort)
 
   echo "  [log] migrations complete"
