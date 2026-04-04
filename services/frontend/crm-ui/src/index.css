@@ -206,8 +206,10 @@
     transition: background-color 9999s ease-out 0s;
   }
 
+  input[type='date']::-webkit-calendar-picker-indicator,
+  input[type='datetime-local']::-webkit-calendar-picker-indicator,
   #dateOfBirth::-webkit-calendar-picker-indicator {
-    filter: invert(16%) sepia(96%) saturate(7109%) hue-rotate(359deg) brightness(80%) contrast(106%);
+    filter: invert(16%) sepia(96%) saturate(7109%) hue-rotate(359deg) brightness(80%) contrast(106%) !important;
     cursor: pointer;
   }
 
