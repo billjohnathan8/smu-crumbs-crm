@@ -242,7 +242,8 @@ export function ClientAccountsPage() {
 
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return '-'
-    return new Date(dateStr).toLocaleDateString('en-SG', {
+    const normalized = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? `${dateStr}T00:00:00` : dateStr
+    return new Date(normalized).toLocaleDateString('en-SG', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',

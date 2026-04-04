@@ -236,10 +236,27 @@ export async function getAccountOpeningOptions(
   clientId: string,
   options?: RequestOptions
 ): Promise<AccountOpeningOptions> {
-  const endpoint = `/api/account-opening-options?clientId=${encodeURIComponent(clientId)}`
-  return options
-    ? apiGet<AccountOpeningOptions>(endpoint, options)
-    : apiGet<AccountOpeningOptions>(endpoint)
+  const preferredEndpoint = `/api/clients/account-opening-options?clientId=${encodeURIComponent(clientId)}`
+  try {
+    return await (options
+      ? apiGet<AccountOpeningOptions>(preferredEndpoint, options)
+      : apiGet<AccountOpeningOptions>(preferredEndpoint))
+  } catch (err) {
+    const status =
+      typeof err === 'object' &&
+      err !== null &&
+      'status' in err &&
+      typeof (err as { status?: unknown }).status === 'number'
+        ? (err as { status: number }).status
+        : undefined
+    if (status !== 404) {
+      throw err
+    }
+  }
+  const legacyEndpoint = `/api/account-opening-options?clientId=${encodeURIComponent(clientId)}`
+  return await (options
+    ? apiGet<AccountOpeningOptions>(legacyEndpoint, options)
+    : apiGet<AccountOpeningOptions>(legacyEndpoint))
 }
 
 /**

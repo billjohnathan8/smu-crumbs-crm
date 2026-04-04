@@ -151,12 +151,20 @@ public class ClientServiceImpl implements ClientService {
 
 	@Override
 	public VerificationSubmissionSummaryResponse getVerificationSubmissionSummary(AuthenticatedUser user) {
-		if (!user.isAdmin() && !user.isRootAdmin()) {
-			throw new AccessDeniedException("Admin role required");
+		if (user.isLimitedAdmin() || user.isRootAdmin()) {
+			long pendingCount =
+				clientRepository.countByDeletedFalseAndIdentityVerificationStatus(IdentityVerificationStatus.pending);
+			return new VerificationSubmissionSummaryResponse(pendingCount);
 		}
-		long pendingCount =
-			clientRepository.countByDeletedFalseAndIdentityVerificationStatus(IdentityVerificationStatus.pending);
-		return new VerificationSubmissionSummaryResponse(pendingCount);
+		if (user.isUser()) {
+			long pendingCount =
+				clientRepository.countByAssignedUserIdAndDeletedFalseAndIdentityVerificationStatus(
+					user.userId(),
+					IdentityVerificationStatus.pending
+				);
+			return new VerificationSubmissionSummaryResponse(pendingCount);
+		}
+		throw new AccessDeniedException("Authorized role required");
 	}
 
 	/**

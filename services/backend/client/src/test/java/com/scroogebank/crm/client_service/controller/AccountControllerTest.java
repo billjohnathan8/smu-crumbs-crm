@@ -172,6 +172,11 @@ class AccountControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.defaultBranchId").value("SG-001"))
 			.andExpect(jsonPath("$.authorizedBranches[0]").value("SG-001"));
+
+		mockMvc.perform(get("/api/clients/account-opening-options?clientId=clt_1").header("Authorization", AUTH_HEADER))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.defaultBranchId").value("SG-001"))
+			.andExpect(jsonPath("$.authorizedBranches[0]").value("SG-001"));
 	}
 
 	private String createRequestJson(String clientId) {

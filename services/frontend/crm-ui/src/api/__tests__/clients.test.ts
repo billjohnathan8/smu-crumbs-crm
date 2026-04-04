@@ -474,7 +474,35 @@ describe('clients API', () => {
 
       const result = await getAccountOpeningOptions('client-123')
 
-      expect(client.apiGet).toHaveBeenCalledWith('/api/account-opening-options?clientId=client-123')
+      expect(client.apiGet).toHaveBeenCalledWith(
+        '/api/clients/account-opening-options?clientId=client-123'
+      )
+      expect(result.defaultBranchId).toBe('SG-001')
+    })
+
+    it('should fall back to legacy account opening options endpoint on 404', async () => {
+      vi.spyOn(client, 'apiGet')
+        .mockRejectedValueOnce({ status: 404 })
+        .mockResolvedValueOnce({
+          clientId: 'client-123',
+          defaultBranchId: 'SG-001',
+          canOverrideBranch: true,
+          authorizedBranches: ['SG-001', 'SG-002'],
+          allowedCurrencies: ['SGD', 'USD'],
+          branchAllowedCurrencies: { 'SG-001': ['SGD', 'USD'], 'SG-002': ['SGD'] },
+          accountTypeAllowedCurrencies: { Savings: ['SGD'] },
+        })
+
+      const result = await getAccountOpeningOptions('client-123')
+
+      expect(client.apiGet).toHaveBeenNthCalledWith(
+        1,
+        '/api/clients/account-opening-options?clientId=client-123'
+      )
+      expect(client.apiGet).toHaveBeenNthCalledWith(
+        2,
+        '/api/account-opening-options?clientId=client-123'
+      )
       expect(result.defaultBranchId).toBe('SG-001')
     })
   })

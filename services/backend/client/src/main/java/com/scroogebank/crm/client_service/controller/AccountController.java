@@ -120,7 +120,7 @@ public class AccountController {
 		return accountService.listAccounts(user, clientId, limit, offset);
 	}
 
-	@GetMapping("/api/account-opening-options")
+	@GetMapping({"/api/account-opening-options", "/api/clients/account-opening-options"})
 	@Operation(summary = "Get account opening options")
 	public AccountOpeningOptionsDto getAccountOpeningOptions(
 		HttpServletRequest httpRequest,

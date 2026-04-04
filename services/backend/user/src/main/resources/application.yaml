@@ -42,6 +42,7 @@ springdoc:
 app:
   production-mode: ${APP_PRODUCTION_MODE:false}
   log-service-url: ${USER_LOG_SERVICE_URL:${LOG_SERVICE_URL:http://localhost:4566/_aws/execute-api/local/local}}
+  client-service-url: ${USER_CLIENT_SERVICE_URL:${CLIENT_SERVICE_URL:http://localhost:8080}}
   jwt:
     hmac-secret: ${JWT_HMAC_SECRET:}
     auth-mode: ${AUTH_MODE:local}

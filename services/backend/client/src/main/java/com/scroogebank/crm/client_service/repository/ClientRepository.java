@@ -179,4 +179,9 @@ public interface ClientRepository extends JpaRepository<ClientEntity, Long> {
 	long countByDeletedFalseAndIdentityVerificationStatus(
 		com.scroogebank.crm.client_service.dto.IdentityVerificationStatus status
 	);
+
+	long countByAssignedUserIdAndDeletedFalseAndIdentityVerificationStatus(
+		String assignedUserId,
+		com.scroogebank.crm.client_service.dto.IdentityVerificationStatus status
+	);
 }

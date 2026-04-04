@@ -88,6 +88,10 @@ locals {
           value = var.log_api_base_url
         },
         {
+          name  = "USER_CLIENT_SERVICE_URL"
+          value = local.client_service_internal_url
+        },
+        {
           name  = "AUTH_MODE"
           value = var.auth_mode
         },

@@ -42,12 +42,29 @@ public class ApiExceptionHandler {
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(error(request, "conflict", ex.getMessage()));
 	}
 
+	@ExceptionHandler(ArchivePreconditionFailedException.class)
+	public ResponseEntity<ErrorResponse> handleArchivePrecondition(
+		HttpServletRequest request,
+		ArchivePreconditionFailedException ex
+	) {
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(error(request, "conflict", ex.getMessage()));
+	}
+
 	@ExceptionHandler(ExternalProvisioningException.class)
 	public ResponseEntity<ErrorResponse> handleExternalProvisioning(
 		HttpServletRequest request,
 		ExternalProvisioningException ex
 	) {
 		String message = productionMode ? "Identity provisioning is temporarily unavailable." : ex.getMessage();
+		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(error(request, "service_unavailable", message));
+	}
+
+	@ExceptionHandler(DownstreamDependencyException.class)
+	public ResponseEntity<ErrorResponse> handleDownstreamDependency(
+		HttpServletRequest request,
+		DownstreamDependencyException ex
+	) {
+		String message = productionMode ? "Dependency temporarily unavailable." : ex.getMessage();
 		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(error(request, "service_unavailable", message));
 	}
 

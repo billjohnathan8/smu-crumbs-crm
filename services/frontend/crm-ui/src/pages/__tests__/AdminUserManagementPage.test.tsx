@@ -246,8 +246,12 @@ it('should show transfer guidance as tooltip for disabled agents with clients', 
 
 it('should handle delete admin for super admin', async () => {
   const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+  const disabledAdmin: User = {
+    ...mockAdminUser,
+    status: 'disabled',
+  }
   vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
-    data: [mockAdminUser, mockAgentUser],
+    data: [disabledAdmin, mockAgentUser],
     pagination: { total: 2, limit: 10, offset: 0 },
   })
   vi.spyOn(usersApi, 'deleteUser').mockResolvedValue()

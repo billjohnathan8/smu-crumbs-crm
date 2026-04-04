@@ -30,6 +30,7 @@ import com.scroogebank.crm.user_service.dto.UserRole;
 import com.scroogebank.crm.user_service.dto.UserStatus;
 import com.scroogebank.crm.user_service.dto.UsersListResponse;
 import com.scroogebank.crm.user_service.exception.AccessDeniedException;
+import com.scroogebank.crm.user_service.exception.ArchivePreconditionFailedException;
 import com.scroogebank.crm.user_service.exception.UserNotFoundException;
 import com.scroogebank.crm.user_service.logging.UserAuditLogger;
 import com.scroogebank.crm.user_service.security.AuthenticatedUser;
@@ -44,13 +45,16 @@ class UserAccountServiceTest {
 
 	private PersistentUserStore store;
 	private UserAuditLogger auditLogger;
+	private AssignedClientCounter assignedClientCounter;
 	private UserAccountService service;
 
 	@BeforeEach
 	void setUp() {
 		store = mock(PersistentUserStore.class);
 		auditLogger = mock(UserAuditLogger.class);
-		service = new UserAccountService(store, auditLogger, null, "local");
+		assignedClientCounter = mock(AssignedClientCounter.class);
+		when(assignedClientCounter.countAssignedClients(any(), any(), any())).thenReturn(0L);
+		service = new UserAccountService(store, auditLogger, null, "local", assignedClientCounter);
 	}
 
 	@Test
@@ -61,7 +65,7 @@ class UserAccountServiceTest {
 			"Stone",
 			"ava@example.com",
 			UserRole.user,
-			UserStatus.active,
+			UserStatus.disabled,
 			Instant.parse("2026-02-05T00:00:00Z"),
 			Instant.parse("2026-02-05T00:00:00Z")
 		);
@@ -654,7 +658,7 @@ class UserAccountServiceTest {
 			"Tan",
 			"ben@example.com",
 			UserRole.admin,
-			UserStatus.active,
+			UserStatus.disabled,
 			Instant.parse("2026-02-05T00:00:00Z"),
 			Instant.parse("2026-02-05T00:00:00Z")
 		);
@@ -664,7 +668,7 @@ class UserAccountServiceTest {
 			"Lee",
 			"chris@example.com",
 			UserRole.user,
-			UserStatus.active,
+			UserStatus.disabled,
 			Instant.parse("2026-02-05T00:00:00Z"),
 			Instant.parse("2026-02-05T00:00:00Z")
 		);
@@ -680,6 +684,56 @@ class UserAccountServiceTest {
 		verify(store).getUser(eq("usr_4"));
 		verify(store).archiveUser(eq("usr_3"), eq("usr_1"), eq(null));
 		verify(store).archiveUser(eq("usr_4"), eq("usr_1"), eq(null));
+	}
+
+	@Test
+	void deleteUser_rootAdminMustDisableBeforeArchive() {
+		UserDto userDto = new UserDto(
+			"usr_3",
+			"Ava",
+			"Stone",
+			"ava@example.com",
+			UserRole.user,
+			UserStatus.active,
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:00Z")
+		);
+		when(store.getUser(eq("usr_3"))).thenReturn(userDto);
+
+		AuthenticatedUser rootAdmin = new AuthenticatedUser("usr_1", "admin");
+
+		ArchivePreconditionFailedException denied = assertThrows(
+			ArchivePreconditionFailedException.class,
+			() -> service.deleteUser("usr_3", rootAdmin, AUTH_HEADER, CORRELATION_ID, null)
+		);
+		assertEquals("Disable the user before archiving.", denied.getMessage());
+		verify(store, never()).archiveUser(any(), any(), any());
+	}
+
+	@Test
+	void deleteUser_rootAdminMustTransferAssignedClientsBeforeArchive() {
+		UserDto userDto = new UserDto(
+			"usr_3",
+			"Ava",
+			"Stone",
+			"ava@example.com",
+			UserRole.user,
+			UserStatus.disabled,
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:00Z")
+		);
+		when(store.getUser(eq("usr_3"))).thenReturn(userDto);
+		when(assignedClientCounter.countAssignedClients(eq("usr_3"), eq(AUTH_HEADER), eq(CORRELATION_ID)))
+			.thenReturn(2L);
+
+		AuthenticatedUser rootAdmin = new AuthenticatedUser("usr_1", "admin");
+
+		ArchivePreconditionFailedException denied = assertThrows(
+			ArchivePreconditionFailedException.class,
+			() -> service.deleteUser("usr_3", rootAdmin, AUTH_HEADER, CORRELATION_ID, null)
+		);
+		assertEquals("Transfer assigned clients before archiving.", denied.getMessage());
+		verify(store, never()).archiveUser(any(), any(), any());
 	}
 
 	@Test

@@ -9,6 +9,7 @@ import com.scroogebank.crm.user_service.dto.UserRole;
 import com.scroogebank.crm.user_service.dto.UserStatus;
 import com.scroogebank.crm.user_service.dto.UsersListResponse;
 import com.scroogebank.crm.user_service.exception.AccessDeniedException;
+import com.scroogebank.crm.user_service.exception.ArchivePreconditionFailedException;
 import com.scroogebank.crm.user_service.exception.UserNotFoundException;
 import com.scroogebank.crm.user_service.logging.UserAuditLogger;
 import com.scroogebank.crm.user_service.security.AuthenticatedUser;
@@ -16,6 +17,7 @@ import java.security.SecureRandom;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -37,7 +39,23 @@ public class UserAccountService {
 	private final PersistentUserStore store;
 	private final UserAuditLogger userAuditLogger;
 	private final CognitoService cognitoService;
+	private final AssignedClientCounter assignedClientCounter;
 	private final boolean cognitoSyncEnabled;
+
+	@Autowired
+	public UserAccountService(
+		PersistentUserStore store,
+		UserAuditLogger userAuditLogger,
+		@Nullable CognitoService cognitoService,
+		@Value("${app.jwt.auth-mode:local}") String authMode,
+		AssignedClientCounter assignedClientCounter
+	) {
+		this.store = store;
+		this.userAuditLogger = userAuditLogger;
+		this.cognitoService = cognitoService;
+		this.assignedClientCounter = assignedClientCounter;
+		this.cognitoSyncEnabled = !"local".equalsIgnoreCase(authMode == null ? "" : authMode.trim());
+	}
 
 	public UserAccountService(
 		PersistentUserStore store,
@@ -45,10 +63,7 @@ public class UserAccountService {
 		@Nullable CognitoService cognitoService,
 		@Value("${app.jwt.auth-mode:local}") String authMode
 	) {
-		this.store = store;
-		this.userAuditLogger = userAuditLogger;
-		this.cognitoService = cognitoService;
-		this.cognitoSyncEnabled = !"local".equalsIgnoreCase(authMode == null ? "" : authMode.trim());
+		this(store, userAuditLogger, cognitoService, authMode, (_assignedUserId, _auth, _correlationId) -> 0L);
 	}
 
 	/**
@@ -247,6 +262,15 @@ public class UserAccountService {
 		}
 
 		validateHierarchyPermissions(user, target.role(), "archive");
+		if (target.status() != UserStatus.disabled) {
+			throw new ArchivePreconditionFailedException("Disable the user before archiving.");
+		}
+		if (target.role() == UserRole.user) {
+			long assignedClients = assignedClientCounter.countAssignedClients(userId, authorizationHeader, correlationId);
+			if (assignedClients > 0) {
+				throw new ArchivePreconditionFailedException("Transfer assigned clients before archiving.");
+			}
+		}
 		CognitoService cognito = getCognitoServiceOrNull();
 		if (cognito != null) {
 			cognito.disableUser(target.email());

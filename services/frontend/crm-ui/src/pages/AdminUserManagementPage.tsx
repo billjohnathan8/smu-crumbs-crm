@@ -172,8 +172,16 @@ export function AdminUserManagementPage() {
   }
 
   const handleDisableUser = async (target: User) => {
-    if (target.role !== 'user') {
-      setError('Only agents can be disabled from this view')
+    if (target.role === 'super_admin') {
+      setError('Root admin cannot be disabled from this view')
+      return
+    }
+    if (target.role === 'admin' && !isRootAdmin) {
+      setError('Only root admin can disable admins')
+      return
+    }
+    if (target.role === 'user' && !isAdmin && !isRootAdmin) {
+      setError('You do not have permission to disable users')
       return
     }
     if (target.status === 'disabled') {
@@ -190,7 +198,11 @@ export function AdminUserManagementPage() {
     try {
       const updated = await disableUser(target.id)
       setUsers(prev => prev.map(u => (u.id === target.id ? updated : u)))
-      setSuccessMessage('Agent disabled. Transfer assigned clients before archiving.')
+      setSuccessMessage(
+        target.role === 'user'
+          ? 'Agent disabled. Transfer assigned clients before archiving.'
+          : 'Admin disabled. Archive is now available.'
+      )
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
@@ -443,17 +455,33 @@ export function AdminUserManagementPage() {
                           </td>
                           <td className="py-3 px-4">
                             {admin.id !== user.id && (
-                              <button
-                                onClick={() => handleDeleteUser(admin.id, admin.role)}
-                                disabled={deletingUserId === admin.id}
-                                className={`px-3 py-1 rounded text-sm font-normal transition-opacity ${
-                                  deletingUserId === admin.id
-                                    ? 'gradient-dark-red opacity-50 cursor-not-allowed text-white'
-                                    : 'gradient-dark-red hover:opacity-80 text-white'
-                                }`}
-                              >
-                                {deletingUserId === admin.id ? 'Archiving...' : 'Archive'}
-                              </button>
+                              <div className="flex items-center gap-2">
+                                {admin.status === 'active' ? (
+                                  <button
+                                    onClick={() => handleDisableUser(admin)}
+                                    disabled={disablingUserId === admin.id}
+                                    className={`px-3 py-1 rounded text-sm font-normal transition-opacity ${
+                                      disablingUserId === admin.id
+                                        ? 'border border-danger text-danger opacity-50 cursor-not-allowed'
+                                        : 'border border-danger text-danger hover:bg-danger/10'
+                                    }`}
+                                  >
+                                    {disablingUserId === admin.id ? 'Disabling...' : 'Disable'}
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => handleDeleteUser(admin.id, admin.role)}
+                                    disabled={deletingUserId === admin.id}
+                                    className={`px-3 py-1 rounded text-sm font-normal transition-opacity ${
+                                      deletingUserId === admin.id
+                                        ? 'gradient-dark-red opacity-50 cursor-not-allowed text-white'
+                                        : 'gradient-dark-red hover:opacity-80 text-white'
+                                    }`}
+                                  >
+                                    {deletingUserId === admin.id ? 'Archiving...' : 'Archive'}
+                                  </button>
+                                )}
+                              </div>
                             )}
                           </td>
                         </tr>
@@ -513,19 +541,6 @@ export function AdminUserManagementPage() {
                                   >
                                     {disablingUserId === u.id ? 'Disabling...' : 'Disable'}
                                   </button>
-                                {isRootAdmin && (agentClientCounts[u.id] ?? -1) === 0 && (
-                                  <button
-                                    onClick={() => handleDeleteUser(u.id, u.role)}
-                                    disabled={deletingUserId === u.id}
-                                    className={`px-3 py-1 rounded text-sm font-normal transition-opacity ${
-                                      deletingUserId === u.id
-                                        ? 'gradient-dark-red opacity-50 cursor-not-allowed text-white'
-                                        : 'gradient-dark-red hover:opacity-80 text-white'
-                                    }`}
-                                  >
-                                    {deletingUserId === u.id ? 'Archiving...' : 'Archive'}
-                                  </button>
-                                )}
                               </>
                             ) : (
                               <>
