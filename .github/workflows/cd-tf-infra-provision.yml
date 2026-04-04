@@ -1,0 +1,533 @@
+name: CD - Terraform Infra Provision & Seed
+# Unified idempotent workflow: bootstrap → clean stale → reconcile → plan → apply → deploy → seed.
+# Works whether infrastructure is fully up, partially up, or completely down.
+# Replaces the separate plan → apply → post-apply-bootstrap workflow chain.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_provision:
+        description: Type provision-prod to confirm production provisioning
+        required: true
+        type: string
+      git_sha:
+        description: Full 40-char commit SHA (leave blank for latest on current branch)
+        required: false
+        type: string
+
+permissions:
+  actions: write
+  contents: read
+  id-token: write
+
+concurrency:
+  group: cd-tf-infra-prod
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    name: Bootstrap Terraform backend
+    uses: ./.github/workflows/cd-tf-bootstrap.yml
+    secrets: inherit
+
+  provision:
+    name: Terraform provision (prod)
+    needs:
+      - bootstrap
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    outputs:
+      cloudfront_distribution_id: ${{ steps.deploy_values.outputs.cloudfront_distribution_id }}
+      applied: ${{ steps.plan.outputs.has_changes }}
+      app_url: ${{ steps.tf_outputs.outputs.app_url }}
+
+    env:
+      TF_IN_AUTOMATION: "1"
+      TF_INPUT: "0"
+      TF_DIR: platform/terraform
+      DEPLOY_ENV: prod
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_LOCK_DYNAMODB: ${{ vars.TF_LOCK_DYNAMODB }}
+      APP_DOMAIN_NAME: ${{ vars.TF_APP_DOMAIN_NAME }}
+
+    steps:
+      # ── Validate ────────────────────────────────────────────────
+      - name: Validate inputs and GitHub configuration
+        env:
+          AWS_ACCESS_KEY_ID_SECRET: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY_SECRET: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          TF_ROOT_ADMIN_PASSWORD_SECRET: ${{ secrets.TF_ROOT_ADMIN_PASSWORD }}
+          TF_JWT_HMAC_SECRET_SECRET: ${{ secrets.TF_JWT_HMAC_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          [[ "${{ inputs.confirm_provision }}" == "provision-prod" ]] || {
+            echo "::error::confirm_provision must be exactly 'provision-prod'"
+            exit 1
+          }
+
+          if [[ -n "${{ inputs.git_sha }}" ]]; then
+            [[ "${{ inputs.git_sha }}" =~ ^[0-9a-fA-F]{40}$ ]] || {
+              echo "::error::git_sha must be a full 40-character commit SHA"
+              exit 1
+            }
+          fi
+
+          test -n "${AWS_REGION}" || { echo "::error::Missing GitHub variable: AWS_REGION"; exit 1; }
+          test -n "${TF_STATE_BUCKET}" || { echo "::error::Missing GitHub variable: TF_STATE_BUCKET"; exit 1; }
+          test -n "${TF_LOCK_DYNAMODB}" || { echo "::error::Missing GitHub variable: TF_LOCK_DYNAMODB"; exit 1; }
+          test -n "${AWS_ACCESS_KEY_ID_SECRET:-}" || { echo "::error::Missing secret: AWS_ACCESS_KEY_ID"; exit 1; }
+          test -n "${AWS_SECRET_ACCESS_KEY_SECRET:-}" || { echo "::error::Missing secret: AWS_SECRET_ACCESS_KEY"; exit 1; }
+          test -n "${TF_ROOT_ADMIN_PASSWORD_SECRET:-}" || { echo "::error::Missing secret: TF_ROOT_ADMIN_PASSWORD"; exit 1; }
+          test -n "${TF_JWT_HMAC_SECRET_SECRET:-}" || { echo "::error::Missing secret: TF_JWT_HMAC_SECRET"; exit 1; }
+
+      # ── Checkout ────────────────────────────────────────────────
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_sha || github.sha }}
+
+      - name: Verify checked-out commit
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          COMMIT_SHA="$(git rev-parse HEAD)"
+          echo "commit_sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
+
+      # ── AWS ─────────────────────────────────────────────────────
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Capture account metadata
+        id: aws_meta
+        shell: bash
+        run: |
+          ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+          echo "account_id=${ACCOUNT_ID}" >> "$GITHUB_OUTPUT"
+
+      # ── Configuration contract ──────────────────────────────────
+      - name: Validate Terraform prod configuration contract
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BACKEND_FILE="env/prod.backend.hcl"
+          TFVARS_FILE="env/prod.tfvars"
+
+          BACKEND_BUCKET="$(awk -F= '/^[[:space:]]*bucket[[:space:]]*=/{gsub(/["[:space:]]/, "", $2); print $2; exit}' "${BACKEND_FILE}")"
+          BACKEND_REGION="$(awk -F= '/^[[:space:]]*region[[:space:]]*=/{gsub(/["[:space:]]/, "", $2); print $2; exit}' "${BACKEND_FILE}")"
+          BACKEND_LOCK_TABLE="$(awk -F= '/^[[:space:]]*dynamodb_table[[:space:]]*=/{gsub(/["[:space:]]/, "", $2); print $2; exit}' "${BACKEND_FILE}")"
+          TFVARS_REGION="$(awk -F= '/^[[:space:]]*aws_region[[:space:]]*=/{gsub(/["[:space:]]/, "", $2); print $2; exit}' "${TFVARS_FILE}")"
+          VERIFICATION_ENABLED="$(awk -F= '/^[[:space:]]*enable_verification_pipeline[[:space:]]*=/{value=$2; sub(/#.*/, "", value); gsub(/[[:space:]]/, "", value); print tolower(value); exit}' "${TFVARS_FILE}")"
+
+          [[ "${BACKEND_BUCKET}" == "${TF_STATE_BUCKET}" ]] || { echo "::error::prod.backend.hcl bucket (${BACKEND_BUCKET}) != vars.TF_STATE_BUCKET (${TF_STATE_BUCKET})"; exit 1; }
+          [[ "${BACKEND_REGION}" == "${AWS_REGION}" ]] || { echo "::error::prod.backend.hcl region (${BACKEND_REGION}) != vars.AWS_REGION (${AWS_REGION})"; exit 1; }
+          [[ "${BACKEND_LOCK_TABLE}" == "${TF_LOCK_DYNAMODB}" ]] || { echo "::error::prod.backend.hcl lock table (${BACKEND_LOCK_TABLE}) != vars.TF_LOCK_DYNAMODB (${TF_LOCK_DYNAMODB})"; exit 1; }
+          [[ -z "${TFVARS_REGION}" || "${TFVARS_REGION}" == "${AWS_REGION}" ]] || { echo "::error::prod.tfvars region (${TFVARS_REGION}) != vars.AWS_REGION (${AWS_REGION})"; exit 1; }
+
+          if [[ "${VERIFICATION_ENABLED}" == "true" && -z "${APP_DOMAIN_NAME}" ]]; then
+            echo "::error::Verification pipeline enabled but vars.TF_APP_DOMAIN_NAME is not set."
+            exit 1
+          fi
+
+      # ── Terraform setup ─────────────────────────────────────────
+      - name: Create runtime Terraform override file
+        working-directory: ${{ env.TF_DIR }}
+        env:
+          ROOT_ADMIN_PASSWORD: ${{ secrets.TF_ROOT_ADMIN_PASSWORD }}
+          JWT_HMAC_SECRET: ${{ secrets.TF_JWT_HMAC_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "::add-mask::${ROOT_ADMIN_PASSWORD}"
+          echo "::add-mask::${JWT_HMAC_SECRET}"
+          {
+            echo "root_admin_password = $(jq -Rn --arg v "$ROOT_ADMIN_PASSWORD" '$v')"
+            echo "jwt_hmac_secret = $(jq -Rn --arg v "$JWT_HMAC_SECRET" '$v')"
+            if [[ -n "${APP_DOMAIN_NAME}" ]]; then
+              echo "app_domain_name = $(jq -Rn --arg v "$APP_DOMAIN_NAME" '$v')"
+            fi
+          } > runtime.auto.tfvars
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.10"
+
+      - name: Ensure Terraform Lambda zip artifacts exist
+        shell: bash
+        run: python3 .github/scripts/build_tf_lambda_zips.py
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: terraform init -input=false -reconfigure -backend-config="env/${DEPLOY_ENV}.backend.hcl"
+
+      # ── Smart reconciliation (idempotent) ───────────────────────
+      - name: Inspect current Terraform state
+        id: state_check
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESOURCE_COUNT="$(terraform state list 2>/dev/null | wc -l || echo 0)"
+          echo "resource_count=${RESOURCE_COUNT}" >> "$GITHUB_OUTPUT"
+          if [[ "${RESOURCE_COUNT}" -gt 0 ]]; then
+            echo "Terraform state contains ${RESOURCE_COUNT} resources (infra exists or partial)."
+            echo "has_state=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Terraform state is empty (fresh deploy or post-destroy)."
+            echo "has_state=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Clean stale Secrets Manager secrets (pending-deletion only)
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PROJECT_NAME="${TF_PROJECT_NAME:-scroogebank-crm}"
+
+          clean_stale_secret() {
+            local secret_name="$1"
+
+            if ! aws secretsmanager describe-secret --secret-id "${secret_name}" --region "${AWS_REGION}" >/dev/null 2>&1; then
+              echo "[stale-clean] Absent (OK): ${secret_name}"
+              return 0
+            fi
+
+            local deleted_date
+            deleted_date="$(aws secretsmanager describe-secret \
+              --secret-id "${secret_name}" \
+              --region "${AWS_REGION}" \
+              --query 'DeletedDate' \
+              --output text 2>/dev/null || true)"
+
+            if [[ -z "${deleted_date}" || "${deleted_date}" == "None" ]]; then
+              echo "[stale-clean] Active (OK): ${secret_name}"
+              return 0
+            fi
+
+            echo "[stale-clean] Pending deletion - restoring then force deleting: ${secret_name}"
+            aws secretsmanager restore-secret --secret-id "${secret_name}" --region "${AWS_REGION}" >/dev/null
+
+            # Wait for secret to leave pending-deletion state
+            for _ in {1..24}; do
+              local check_date
+              check_date="$(aws secretsmanager describe-secret \
+                --secret-id "${secret_name}" \
+                --region "${AWS_REGION}" \
+                --query 'DeletedDate' \
+                --output text 2>/dev/null || true)"
+              if [[ -z "${check_date}" || "${check_date}" == "None" ]]; then
+                break
+              fi
+              sleep 5
+            done
+
+            aws secretsmanager delete-secret \
+              --secret-id "${secret_name}" \
+              --region "${AWS_REGION}" \
+              --force-delete-without-recovery >/dev/null
+
+            # Wait for secret to be fully deleted
+            for _ in {1..24}; do
+              if ! aws secretsmanager describe-secret --secret-id "${secret_name}" --region "${AWS_REGION}" >/dev/null 2>&1; then
+                echo "[stale-clean] Force deleted: ${secret_name}"
+                return 0
+              fi
+              sleep 5
+            done
+
+            echo "::warning::Timed out waiting for secret deletion: ${secret_name}"
+          }
+
+          clean_stale_secret "/${PROJECT_NAME}/${DEPLOY_ENV}/jwt/hmac_secret"
+          clean_stale_secret "/${PROJECT_NAME}/${DEPLOY_ENV}/user/root_admin_password"
+          clean_stale_secret "/${PROJECT_NAME}/${DEPLOY_ENV}/db/username"
+          clean_stale_secret "/${PROJECT_NAME}/${DEPLOY_ENV}/db/password"
+
+          # Also clean stale VPC flow log group if it exists outside Terraform state
+          VPC_FLOW_LOG_GROUP="/aws/vpc/${PROJECT_NAME}-${DEPLOY_ENV}-flow-logs"
+          if [[ "${{ steps.state_check.outputs.has_state }}" == "false" ]]; then
+            LOG_GROUP_COUNT="$(aws logs describe-log-groups \
+              --region "${AWS_REGION}" \
+              --log-group-name-prefix "${VPC_FLOW_LOG_GROUP}" \
+              --query "length(logGroups[?logGroupName == '${VPC_FLOW_LOG_GROUP}'])" \
+              --output text 2>/dev/null || echo 0)"
+            if [[ "${LOG_GROUP_COUNT}" != "0" && "${LOG_GROUP_COUNT}" != "None" ]]; then
+              echo "[stale-clean] Deleting orphaned VPC flow log group: ${VPC_FLOW_LOG_GROUP}"
+              aws logs delete-log-group --log-group-name "${VPC_FLOW_LOG_GROUP}" --region "${AWS_REGION}" || true
+            fi
+          fi
+
+      - name: Reconcile existing AWS resources into Terraform state
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Running idempotent state reconciliation..."
+          bash scripts/reconcile-existing-resources.sh "${DEPLOY_ENV}"
+
+      # ── Plan & Apply ────────────────────────────────────────────
+      - name: Terraform validate
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: terraform validate -no-color
+
+      - name: Terraform plan
+        id: plan
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          set +e
+          terraform plan \
+            -input=false \
+            -lock-timeout=300s \
+            -var-file="env/${DEPLOY_ENV}.tfvars" \
+            -var-file="runtime.auto.tfvars" \
+            -detailed-exitcode \
+            -out=tfplan
+          PLAN_EXIT=$?
+          set -e
+
+          case "${PLAN_EXIT}" in
+            0)
+              echo "No infrastructure changes detected."
+              echo "has_changes=false" >> "$GITHUB_OUTPUT"
+              ;;
+            2)
+              echo "Infrastructure changes detected - will apply."
+              echo "has_changes=true" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "::error::Terraform plan failed with exit code ${PLAN_EXIT}"
+              exit 1
+              ;;
+          esac
+
+      - name: Export plan text
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: terraform show -no-color tfplan > terraform-plan.txt
+
+      - name: Upload plan artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.commit_sha }}_tf_provision_plan
+          path: |
+            platform/terraform/tfplan
+            platform/terraform/terraform-plan.txt
+          retention-days: 14
+
+      - name: Terraform apply
+        if: steps.plan.outputs.has_changes == 'true'
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Applying Terraform plan..."
+          terraform apply -input=false -auto-approve tfplan
+
+      - name: Terraform apply (refresh-only when no changes)
+        if: steps.plan.outputs.has_changes == 'false'
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          echo "No changes to apply. Refreshing state for outputs..."
+          terraform apply -refresh-only -input=false -auto-approve \
+            -var-file="env/${DEPLOY_ENV}.tfvars" \
+            -var-file="runtime.auto.tfvars" || true
+
+      # ── Extract outputs ─────────────────────────────────────────
+      - name: Export Terraform outputs
+        id: tf_outputs
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform output -json > terraform-output.json
+
+          APP_URL="$(jq -r '.app_url.value // empty' terraform-output.json)"
+          echo "app_url=${APP_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Build deploy contract snapshot
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -n \
+            --arg generated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg environment "${DEPLOY_ENV}" \
+            --arg aws_region "${AWS_REGION}" \
+            --argjson tf "$(cat terraform-output.json)" \
+            '{
+              generated_at: $generated_at,
+              environment: $environment,
+              deploy_contract: {
+                aws_region: $aws_region,
+                ecs_cluster_name: ($tf.ecs_cluster_name.value // null),
+                ecr_repository_urls: ($tf.ecr_repository_urls.value // {}),
+                ecr_repository_names: ($tf.ecr_repository_names.value // {}),
+                lambda_function_names: {
+                  log: ($tf.log_lambda_name.value // null),
+                  aml: ($tf.aml_lambda_name.value // null),
+                  sftp_transaction_collector: ($tf.sftp_transaction_collector_name.value // null),
+                  verification: ($tf.verification_lambda_name.value // null)
+                },
+                frontend_bucket_name: ($tf.frontend_bucket_name.value // null),
+                cloudfront_distribution_id: ($tf.cloudfront_distribution_id.value // null),
+                cloudfront_distribution_domain_name: ($tf.cloudfront_distribution_domain_name.value // null),
+                app_url: ($tf.app_url.value // null),
+                alb_dns_name: ($tf.alb_dns_name.value // null),
+                frontend_website_url: ($tf.frontend_website_url.value // null),
+                rds_endpoint: ($tf.rds_endpoint.value // null),
+                rds_port: ($tf.rds_port.value // null),
+                database_name: ($tf.database_name.value // null),
+                cognito_user_pool_id: ($tf.cognito_user_pool_id.value // null),
+                cognito_app_client_id: ($tf.cognito_app_client_id.value // null)
+              }
+            }' > deploy-contract-snapshot.json
+
+      - name: Expose deploy contract values
+        id: deploy_values
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ECS_CLUSTER_NAME="$(jq -r '.deploy_contract.ecs_cluster_name // "scroogebank-crm-prod-ecs"' deploy-contract-snapshot.json)"
+          CLOUDFRONT_DISTRIBUTION_ID="$(jq -r '.deploy_contract.cloudfront_distribution_id // ""' deploy-contract-snapshot.json)"
+          {
+            echo "ecs_cluster_name=${ECS_CLUSTER_NAME}"
+            echo "cloudfront_distribution_id=${CLOUDFRONT_DISTRIBUTION_ID}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Sync CloudFront distribution repo variable
+        continue-on-error: true
+        if: ${{ steps.deploy_values.outputs.cloudfront_distribution_id != '' }}
+        env:
+          GH_FALLBACK_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          CLOUDFRONT_DISTRIBUTION_ID: ${{ steps.deploy_values.outputs.cloudfront_distribution_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          GH_TOKEN="${GH_FALLBACK_TOKEN}"
+          if [[ -z "${GH_TOKEN}" ]]; then
+            echo "No token available to sync CLOUDFRONT_DISTRIBUTION_ID; skipping."
+            exit 0
+          fi
+
+          API_URL="https://api.github.com/repos/${REPO}/actions/variables/CLOUDFRONT_DISTRIBUTION_ID"
+          CREATE_URL="https://api.github.com/repos/${REPO}/actions/variables"
+          PAYLOAD="$(jq -n --arg name "CLOUDFRONT_DISTRIBUTION_ID" --arg value "${CLOUDFRONT_DISTRIBUTION_ID}" '{name:$name, value:$value}')"
+
+          STATUS_CODE="$(curl -sS -o /tmp/gh-var-resp.json -w "%{http_code}" \
+            -X GET \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "${API_URL}")"
+
+          if [[ "${STATUS_CODE}" == "200" ]]; then
+            curl -sS -o /dev/null -w "" \
+              -X PATCH \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "${API_URL}" \
+              -d "${PAYLOAD}"
+            echo "Updated CLOUDFRONT_DISTRIBUTION_ID=${CLOUDFRONT_DISTRIBUTION_ID}"
+          elif [[ "${STATUS_CODE}" == "404" ]]; then
+            curl -sS -o /dev/null -w "" \
+              -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "${CREATE_URL}" \
+              -d "${PAYLOAD}"
+            echo "Created CLOUDFRONT_DISTRIBUTION_ID=${CLOUDFRONT_DISTRIBUTION_ID}"
+          fi
+
+      - name: Upload output artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.commit_sha }}_tf_output
+          path: |
+            platform/terraform/terraform-output.json
+            platform/terraform/deploy-contract-snapshot.json
+          retention-days: 30
+
+      # ── Summary ─────────────────────────────────────────────────
+      - name: Publish provision summary
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PLAN_RESULT_LINE="$(grep -E '^(Plan: [0-9]+ to add|No changes\.)' terraform-plan.txt | tail -n 1 || echo 'See plan artifact.')"
+
+          {
+            echo "## Terraform Infra Provision Summary"
+            echo
+            echo "| Key | Value |"
+            echo "|-----|-------|"
+            echo "| Commit SHA | \`${{ steps.meta.outputs.commit_sha }}\` |"
+            echo "| AWS Account | ${{ steps.aws_meta.outputs.account_id }} |"
+            echo "| Region | ${AWS_REGION} |"
+            echo "| State resources (before) | ${{ steps.state_check.outputs.resource_count }} |"
+            echo "| Changes applied | ${{ steps.plan.outputs.has_changes }} |"
+            echo
+            echo "**Plan result:** ${PLAN_RESULT_LINE}"
+            echo
+            echo "### Key endpoints"
+            echo "- app_url: $(jq -r '.deploy_contract.app_url // ""' deploy-contract-snapshot.json)"
+            echo "- alb_dns_name: $(jq -r '.deploy_contract.alb_dns_name // ""' deploy-contract-snapshot.json)"
+            echo "- cloudfront_distribution_id: $(jq -r '.deploy_contract.cloudfront_distribution_id // ""' deploy-contract-snapshot.json)"
+            echo
+            echo "Next: force-deploy → seed-data (automatic)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Cleanup Terraform working files
+        if: ${{ always() }}
+        working-directory: ${{ env.TF_DIR }}
+        shell: bash
+        run: rm -f runtime.auto.tfvars tfplan terraform-plan.txt terraform-output.json deploy-contract-snapshot.json
+
+  # ── Deploy all services ──────────────────────────────────────────
+  force-deploy:
+    name: Deploy all services
+    needs:
+      - provision
+    if: ${{ !failure() && !cancelled() }}
+    uses: ./.github/workflows/cd-force-all.yml
+    with:
+      cloudfront_distribution_id: ${{ needs.provision.outputs.cloudfront_distribution_id }}
+    secrets: inherit
+
+  # ── Seed production data ─────────────────────────────────────────
+  seed-data:
+    name: Seed production data
+    needs:
+      - provision
+      - force-deploy
+    if: ${{ !failure() && !cancelled() }}
+    uses: ./.github/workflows/cd-post-apply-bootstrap.yml
+    with:
+      reviewed_commit_sha: ${{ inputs.git_sha || '' }}
+      seed_users_count: "3"
+      seed_clients_count: "6"
+      transaction_row_count: "120"
+      run_transaction_seed: true
+      run_sftp_upload: true
+    secrets: inherit

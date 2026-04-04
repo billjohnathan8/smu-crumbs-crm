@@ -1,11 +1,14 @@
-name: CD - Terraform Infra Apply & Deploy
-# Apply a reviewed production Terraform plan by commit SHA and force deploy.
+name: "[DEPRECATED] CD - Terraform Infra Apply & Deploy"
+# DEPRECATED: Use cd-tf-infra-provision.yml instead, which combines plan+apply+deploy+seed
+# in a single idempotent workflow. This workflow is kept for reference only.
+#
+# Original purpose: Apply a reviewed production Terraform plan by commit SHA and force deploy.
 
 on:
   workflow_dispatch:
     inputs:
       reviewed_commit_sha:
-        description: Full 40-character commit SHA for the reviewed Terraform plan
+        description: "[DEPRECATED] Use cd-tf-infra-provision.yml instead. Full 40-char commit SHA."
         required: true
         type: string
 

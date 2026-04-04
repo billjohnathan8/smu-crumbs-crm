@@ -1,16 +1,20 @@
-name: CD - Terraform Infra Plan
-# Bootstrap Terraform backend and generate a reviewed production plan.
+name: "[DEPRECATED] CD - Terraform Infra Plan"
+# DEPRECATED: Use cd-tf-infra-provision.yml instead, which combines plan+apply+deploy+seed
+# in a single idempotent workflow. This workflow is kept for reference only.
+#
+# Original purpose: Bootstrap Terraform backend and generate a reviewed production plan.
 
 on:
+  # workflow_dispatch removed - use cd-tf-infra-provision.yml instead
   workflow_dispatch:
     inputs:
       force_delete_stale_resources:
-        description: Force-delete stale Secrets Manager/log resources before reconciliation (use only when stuck in pending deletion)
+        description: "[DEPRECATED] Use cd-tf-infra-provision.yml instead"
         required: false
         default: false
         type: boolean
       reconcile_existing_resources:
-        description: Run one-time state reconciliation imports (normally false for already-managed infra)
+        description: "[DEPRECATED] Use cd-tf-infra-provision.yml instead"
         required: false
         default: false
         type: boolean
