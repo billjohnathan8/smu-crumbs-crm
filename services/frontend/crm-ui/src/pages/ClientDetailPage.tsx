@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect, type SubmitEvent } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import {
@@ -256,7 +256,7 @@ export function ClientDetailPage() {
     }
   }
 
-  const handleSendCommunication = async (e: FormEvent) => {
+  const handleSendCommunication = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!clientId || !canSendCommunication) return
 
