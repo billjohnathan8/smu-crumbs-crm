@@ -93,6 +93,22 @@ public interface ClientService {
 	void deleteClient(AuthenticatedUser user, String clientId, String authorizationHeader, String requestId);
 
 	/**
+	 * Reinstates a soft-deleted client (root admin only).
+	 *
+	 * @param user authenticated user
+	 * @param clientId public client identifier
+	 * @param authorizationHeader bearer token for downstream audit logging
+	 * @param requestId request correlation id
+	 * @return reinstated client DTO
+	 */
+	ClientDto reinstateClient(
+		AuthenticatedUser user,
+		String clientId,
+		String authorizationHeader,
+		String requestId
+	);
+
+	/**
 	 * Reviews a pending client verification as an admin.
 	 *
 	 * @param user authenticated user

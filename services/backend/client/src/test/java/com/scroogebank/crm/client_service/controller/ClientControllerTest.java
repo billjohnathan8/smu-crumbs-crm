@@ -368,6 +368,16 @@ class ClientControllerTest {
     }
 
     @Test
+    void reinstateClient_returnsReinstatedClient() throws Exception {
+        when(clientService.reinstateClient(any(), eq("clt_55"), any(), any()))
+            .thenReturn(sampleDto("clt_55"));
+
+        mockMvc.perform(post("/api/clients/clt_55/reinstate").header("Authorization", AUTH_HEADER))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.clientId").value("clt_55"));
+    }
+
+    @Test
     void listClients_invalidLimitType_returnsBadRequest() throws Exception {
         mockMvc.perform(get("/api/clients?limit=abc").header("Authorization", AUTH_HEADER))
             .andExpect(status().isBadRequest())

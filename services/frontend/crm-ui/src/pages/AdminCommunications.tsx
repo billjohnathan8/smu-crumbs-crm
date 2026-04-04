@@ -17,6 +17,7 @@ import { CommunicationsPanel } from '@/components/CommunicationsPanel'
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
   { label: 'All Clients', to: '/admin/clients', end: true },
+  { label: 'Client Archives', to: '/admin/client-archives', end: true },
   { label: 'Create Client', to: '/admin/clients/new' },
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/features/auth/AuthContext'
-import { listClientArchives } from '@/api/clients'
+import { listClientArchives, reinstateClient } from '@/api/clients'
 import type { Client, IdentityVerificationStatus } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
@@ -28,6 +28,8 @@ export function ClientArchivesPage() {
   const [currentPage, setCurrentPage] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [reinstatingClientId, setReinstatingClientId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [kycStatus, setKycStatus] = useState<IdentityVerificationStatus | ''>('')
@@ -81,6 +83,31 @@ export function ClientArchivesPage() {
     setCurrentPage(0)
   }
 
+  const handleReinstate = async (client: Client) => {
+    if (!confirm(`Reinstate client ${client.firstName} ${client.lastName}?`)) return
+
+    setError('')
+    setSuccess('')
+    setReinstatingClientId(client.clientId)
+    try {
+      await reinstateClient(client.clientId)
+      setSuccess(`Client ${client.firstName} ${client.lastName} reinstated successfully.`)
+      await fetchArchives(currentPage, search, kycStatus)
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          logout()
+          return
+        }
+        setError(err.message || 'Failed to reinstate client')
+      } else {
+        setError('An unexpected error occurred')
+      }
+    } finally {
+      setReinstatingClientId(null)
+    }
+  }
+
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE)
 
   return (
@@ -93,6 +120,11 @@ export function ClientArchivesPage() {
         {error && (
           <div className="rounded-lg border border-danger bg-danger/10 p-4">
             <p className="text-sm text-danger">{error}</p>
+          </div>
+        )}
+        {success && (
+          <div className="rounded-lg border border-success bg-success/10 p-4">
+            <p className="text-sm text-success">{success}</p>
           </div>
         )}
 
@@ -185,6 +217,9 @@ export function ClientArchivesPage() {
                       <th className="px-6 py-3 text-left text-xs font-normal uppercase tracking-wider text-text-muted">
                         Status
                       </th>
+                      <th className="px-6 py-3 text-left text-xs font-normal uppercase tracking-wider text-text-muted">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -197,6 +232,19 @@ export function ClientArchivesPage() {
                         <td className="px-6 py-4 text-sm text-text">{client.phoneNumber}</td>
                         <td className="px-6 py-4 text-sm text-text">
                           {client.identityVerificationStatus}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-text">
+                          <button
+                            onClick={() => handleReinstate(client)}
+                            disabled={reinstatingClientId === client.clientId}
+                            className={`rounded px-3 py-1 text-xs font-medium ${
+                              reinstatingClientId === client.clientId
+                                ? 'bg-primary/50 text-white cursor-not-allowed'
+                                : 'bg-primary text-white hover:brightness-[0.9]'
+                            }`}
+                          >
+                            {reinstatingClientId === client.clientId ? 'Reinstating...' : 'Reinstate'}
+                          </button>
                         </td>
                       </tr>
                     ))}

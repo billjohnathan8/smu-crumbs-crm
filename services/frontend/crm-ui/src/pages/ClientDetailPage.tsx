@@ -35,6 +35,7 @@ const userNav: NavItem[] = [
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
   { label: 'All Clients', to: '/admin/clients', end: true },
+  { label: 'Client Archives', to: '/admin/client-archives', end: true },
   { label: 'Create Client', to: '/admin/clients/new' },
   { label: 'Communications', to: '/admin/communications' },
   { label: 'Transactions', to: '/admin/transactions' },
@@ -72,7 +73,7 @@ export function ClientDetailPage() {
   const isSuperAdmin = user?.role === 'super_admin'
   const isManagementUser = isAdmin || isSuperAdmin
   const canViewAllClients = isManagementUser
-  const canReviewVerification = isUser || isManagementUser
+  const canReviewVerification = isUser || isSuperAdmin
   const canDeleteClient = isUser || isManagementUser
   const canEditClient = isUser || isManagementUser
   const canSendCommunication = isUser || isManagementUser

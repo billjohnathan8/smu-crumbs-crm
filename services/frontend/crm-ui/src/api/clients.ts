@@ -120,6 +120,13 @@ export async function deleteClient(clientId: string): Promise<void> {
 }
 
 /**
+ * Reinstate soft-deleted client profile (root admin only).
+ */
+export async function reinstateClient(clientId: string): Promise<Client> {
+  return apiPost<Client>(`${CLIENTS_BASE}/${clientId}/reinstate`)
+}
+
+/**
  * Count clients assigned to a specific agent
  */
 export async function countClientsByAgent(assignedUserId: string): Promise<number> {

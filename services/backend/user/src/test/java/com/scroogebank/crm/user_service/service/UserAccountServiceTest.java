@@ -295,6 +295,7 @@ class UserAccountServiceTest {
 	//  ─── Happy Path ───
 	@ParameterizedTest
 	@CsvSource({
+		"super_admin, super_admin",
 		"super_admin, admin",
 		"super_admin, user",
 		"admin, user"
@@ -322,7 +323,6 @@ class UserAccountServiceTest {
 	//  ─── Permission Denied ───
 	@ParameterizedTest
 	@CsvSource({
-		"super_admin, super_admin",
 		"admin, super_admin",
 		"admin, admin",
 		"user, super_admin",
@@ -376,12 +376,39 @@ class UserAccountServiceTest {
 	}
 
 	@Test
+	void listUsers_seededRootAdminCanListSuperAdminsWithRoleFilter() {
+		UserDto dto = existingUser(UserRole.super_admin);
+		AuthenticatedUser requester = new AuthenticatedUser("usr_1", "admin");
+		when(store.countUsers(eq("super_admin"))).thenReturn(1L);
+		when(store.listUsers(eq(50), eq(0), eq("super_admin"))).thenReturn(List.of(dto));
+
+		UsersListResponse response = service.listUsers(50, 0, "super_admin", requester);
+
+		assertEquals(1, response.data().size());
+		verify(store).countUsers(eq("super_admin"));
+		verify(store).listUsers(eq(50), eq(0), eq("super_admin"));
+	}
+
+	@Test
 	void listUsers_nonRootAdminCannotListAllWithoutRoleFilter() {
 		AuthenticatedUser requester = new AuthenticatedUser("usr_2", "admin");
 
 		AccessDeniedException denied = assertThrows(
 			AccessDeniedException.class,
 			() -> service.listUsers(50, 0, null, requester)
+		);
+		assertNotNull(denied);
+		verify(store, never()).countUsers(any());
+		verify(store, never()).listUsers(anyInt(), anyInt(), any());
+	}
+
+	@Test
+	void listUsers_nonRootAdminCannotListSuperAdmins() {
+		AuthenticatedUser requester = new AuthenticatedUser("usr_2", "admin");
+
+		AccessDeniedException denied = assertThrows(
+			AccessDeniedException.class,
+			() -> service.listUsers(50, 0, "super_admin", requester)
 		);
 		assertNotNull(denied);
 		verify(store, never()).countUsers(any());

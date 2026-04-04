@@ -368,6 +368,12 @@ public class UserAccountService {
 			}
 			throw new AccessDeniedException("Only root admins can list all users. Admins must filter with role=user.");
 		}
+		if (roleFilter == UserRole.super_admin) {
+			if (requester.role() == UserRole.super_admin || isSeededRootAdmin(requester)) {
+				return;
+			}
+			throw new AccessDeniedException("Only root admins can list root admin users.");
+		}
 		validateHierarchyPermissions(requester, roleFilter, "list");
 	}
 

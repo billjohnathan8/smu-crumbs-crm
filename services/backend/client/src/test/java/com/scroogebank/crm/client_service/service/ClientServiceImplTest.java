@@ -595,6 +595,41 @@ class ClientServiceImplTest {
 	}
 
 	@Test
+	void reinstateClient_rootAdminRestoresDeletedClient() {
+		AuthenticatedUser rootAdmin = new AuthenticatedUser("usr_1", "super_admin");
+		ClientEntity entity = entityFromPayload(55L, "usr_1", samplePayload());
+		entity.setDeleted(true);
+		when(clientRepository.findById(55L)).thenReturn(Optional.of(entity));
+		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		var reinstated = clientService.reinstateClient(rootAdmin, "clt_55", "Bearer x", "req-1");
+
+		assertThat(reinstated.clientId()).isEqualTo("clt_55");
+		verify(clientRepository).save(entity);
+		assertThat(entity.isDeleted()).isFalse();
+		verify(clientAuditLogger).logAuditEvent(
+			eq("UPDATE"),
+			eq("status"),
+			eq("deleted"),
+			eq("active"),
+			eq("usr_1"),
+			eq("clt_55"),
+			eq("req-1"),
+			eq("Bearer x")
+		);
+	}
+
+	@Test
+	void reinstateClient_nonRootAdminForbidden() {
+		AuthenticatedUser nonRootAdmin = new AuthenticatedUser("usr_2", "admin");
+
+		assertThatThrownBy(() -> clientService.reinstateClient(nonRootAdmin, "clt_55", "Bearer x", "req-1"))
+			.isInstanceOf(AccessDeniedException.class);
+		verify(clientRepository, never()).findById(anyLong());
+		verify(clientRepository, never()).save(any());
+	}
+
+	@Test
 	void updateClient_singleFieldChange_auditLogContainsFieldNameAndValues() {
 		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();

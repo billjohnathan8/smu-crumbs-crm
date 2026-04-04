@@ -390,6 +390,36 @@ public class ClientServiceImpl implements ClientService {
 
 	@Override
 	@Transactional
+	public ClientDto reinstateClient(
+		AuthenticatedUser user,
+		String clientId,
+		String authorizationHeader,
+		String requestId
+	) {
+		requireRootAdmin(user);
+		long dbId = decodeClientId(clientId);
+		ClientEntity entity = clientRepository.findById(dbId)
+			.orElseThrow(() -> new ClientNotFoundException(clientId));
+		if (!entity.isDeleted()) {
+			throw new ClientNotFoundException(clientId);
+		}
+		entity.setDeleted(false);
+		ClientEntity saved = clientRepository.save(entity);
+		publishAuditSafe(
+			"UPDATE",
+			"status",
+			"deleted",
+			"active",
+			user.userId(),
+			clientId(saved.getId()),
+			requestId,
+			authorizationHeader
+		);
+		return toDto(saved);
+	}
+
+	@Override
+	@Transactional
 	public ReassignResponse reassignClients(
 		AuthenticatedUser user,
 		ReassignRequest request,

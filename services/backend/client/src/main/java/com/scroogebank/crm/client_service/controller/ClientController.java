@@ -202,6 +202,17 @@ public class ClientController {
 		clientService.deleteClient(user, clientId, authorizationHeader, requestId(httpRequest));
 	}
 
+	@PostMapping("/{id}/reinstate")
+	@Operation(summary = "Reinstate soft-deleted client")
+	public ClientDto reinstateClient(
+		HttpServletRequest httpRequest,
+		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable("id") String clientId
+	) {
+		AuthenticatedUser user = requestAuth.requireUser(httpRequest);
+		String authorizationHeader = httpRequest.getHeader("Authorization");
+		return clientService.reinstateClient(user, clientId, authorizationHeader, requestId(httpRequest));
+	}
+
 	/**
 	 * Reassigns all clients from one agent to another (admin only).
 	 *
