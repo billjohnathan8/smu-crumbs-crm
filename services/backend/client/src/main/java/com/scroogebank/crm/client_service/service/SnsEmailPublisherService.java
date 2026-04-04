@@ -1,5 +1,8 @@
 package com.scroogebank.crm.client_service.service;
 
+import com.scroogebank.crm.client_service.communication.CommunicationRecord;
+import com.scroogebank.crm.client_service.communication.CreateCommunicationRequest;
+import com.scroogebank.crm.client_service.communication.LogServiceCommunicationClient;
 import com.scroogebank.crm.client_service.exception.SnsPublishException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,6 +12,7 @@ import software.amazon.awssdk.services.sns.SnsClient;
 import software.amazon.awssdk.services.sns.model.PublishRequest;
 import software.amazon.awssdk.services.sns.model.PublishResponse;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import tools.jackson.databind.ObjectMapper;
@@ -22,14 +26,17 @@ public class SnsEmailPublisherService {
     private final SnsClient snsClient;
     private final ObjectMapper objectMapper;
     private final String verificationTopicArn;
+    private final LogServiceCommunicationClient communicationClient;
 
     public SnsEmailPublisherService(
         SnsClient snsClient,
         ObjectMapper objectMapper,
-        @Value("${app.verification.sns-topic-arn}") String verificationTopicArn
+        LogServiceCommunicationClient communicationClient,
+        @Value("${verification.sns-topic-arn}") String verificationTopicArn
     ) {
         this.snsClient           = snsClient;
         this.objectMapper        = objectMapper;
+        this.communicationClient = communicationClient;
         this.verificationTopicArn = verificationTopicArn;
     }
 
@@ -95,20 +102,22 @@ public class SnsEmailPublisherService {
 
     /**
      * Publishes a CLIENT_INFO_UPDATED event to SNS.
-     * The Lambda subscribed to the topic will send an email notification to the client.
+     * Creates a communication record and sends email notification to the client.
      *
      * @param clientId  public client identifier
      * @param email     recipient email address
      * @param firstName recipient first name
      * @param lastName  recipient last name
      * @param requestId correlation ID for tracing
+     * @param authorizationHeader bearer token for communication API
      */
     public void publishClientInfoUpdated(
         String clientId,
         String email,
         String firstName,
         String lastName,
-        String requestId
+        String requestId,
+        String authorizationHeader
     ) {
         try {
             String topicArn = verificationTopicArn == null ? "" : verificationTopicArn.trim();
@@ -116,14 +125,34 @@ public class SnsEmailPublisherService {
                 throw new SnsPublishException("VERIFICATION_SNS_TOPIC_ARN not configured");
             }
 
-            Map<String, Object> payload = Map.of(
-                "eventType",  "CLIENT_INFO_UPDATED",
-                "clientId",   clientId,
-                "email",      email,
-                "firstName",  firstName != null ? firstName : "",
-                "lastName",   lastName != null ? lastName : "",
-                "requestId",  requestId != null ? requestId : ""
-            );
+            // Create communication record for tracking
+            String communicationId = null;
+            try {
+                CreateCommunicationRequest commRequest = new CreateCommunicationRequest(
+                    clientId,
+                    "SYSTEM",
+                    email,
+                    "[ScroogeBank CRM] Your information has been updated",
+                    "Confirmation that your account information has been updated.",
+                    "email",
+                    "client-info-updated-" + clientId + "-" + System.currentTimeMillis()
+                );
+                CommunicationRecord record = communicationClient.createCommunication(commRequest, authorizationHeader);
+                communicationId = record.id();
+            } catch (Exception ex) {
+                LOGGER.warn("Failed to create communication record for CLIENT_INFO_UPDATED clientId={}", clientId, ex);
+            }
+
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("eventType", "CLIENT_INFO_UPDATED");
+            payload.put("clientId", clientId);
+            payload.put("email", email);
+            payload.put("firstName", firstName != null ? firstName : "");
+            payload.put("lastName", lastName != null ? lastName : "");
+            payload.put("requestId", requestId != null ? requestId : "");
+            if (communicationId != null) {
+                payload.put("communicationId", communicationId);
+            }
 
             String messageJson = objectMapper.writeValueAsString(payload);
 
@@ -136,8 +165,8 @@ public class SnsEmailPublisherService {
             PublishResponse response = snsClient.publish(publishRequest);
 
             LOGGER.info(
-                "Published CLIENT_INFO_UPDATED to SNS clientId={} requestId={} messageId={}",
-                clientId, requestId, response.messageId()
+                "Published CLIENT_INFO_UPDATED to SNS clientId={} communicationId={} requestId={} messageId={}",
+                clientId, communicationId, requestId, response.messageId()
             );
         } catch (SnsPublishException ex) {
             throw ex;
