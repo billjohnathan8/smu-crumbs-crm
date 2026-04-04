@@ -124,7 +124,7 @@ describe('ClientListPage', () => {
         offset: 0,
         q: undefined,
         kycStatus: undefined,
-        assignedUserId: undefined
+        assignedUserId: undefined,
       })
     })
 
@@ -163,7 +163,7 @@ describe('ClientListPage', () => {
         offset: 0,
         q: 'John',
         kycStatus: undefined,
-        assignedUserId: undefined
+        assignedUserId: undefined,
       })
     })
   })
@@ -193,7 +193,7 @@ describe('ClientListPage', () => {
         offset: 0,
         q: undefined,
         kycStatus: undefined,
-        assignedUserId: undefined
+        assignedUserId: undefined,
       })
     })
   })
@@ -225,7 +225,7 @@ describe('ClientListPage', () => {
         offset: 20,
         q: undefined,
         kycStatus: undefined,
-        assignedUserId: undefined
+        assignedUserId: undefined,
       })
       expect(screen.getByText(/Page 2 of 3/i)).toBeInTheDocument()
     })
@@ -243,7 +243,7 @@ describe('ClientListPage', () => {
         offset: 0,
         q: undefined,
         kycStatus: undefined,
-        assignedUserId: undefined
+        assignedUserId: undefined,
       })
     })
   })
@@ -313,7 +313,7 @@ describe('ClientListPage', () => {
         offset: 0,
         q: undefined,
         kycStatus: 'verified',
-        assignedUserId: undefined
+        assignedUserId: undefined,
       })
     })
   })

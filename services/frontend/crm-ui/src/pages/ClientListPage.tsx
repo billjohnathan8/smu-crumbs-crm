@@ -137,10 +137,7 @@ export function ClientListPage() {
     setCurrentPage(0)
   }
 
-  const handleFilterChange = (
-    key: 'kycStatus' | 'assignedUserId',
-    value: string
-  ) => {
+  const handleFilterChange = (key: 'kycStatus' | 'assignedUserId', value: string) => {
     setFilters(prev => ({
       ...prev,
       [key]: key === 'kycStatus' ? (value as IdentityVerificationStatus | '') : value,

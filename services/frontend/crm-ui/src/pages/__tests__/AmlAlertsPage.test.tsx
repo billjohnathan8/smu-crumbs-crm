@@ -303,7 +303,7 @@ describe('AmlAlertsPage', () => {
 
     const { unmount } = renderComponent()
     await waitFor(() => expect(screen.getByText('alert-1')).toBeInTheDocument())
-    
+
     expect(screen.getByRole('button', { name: /Trigger AML Scan/i })).toBeInTheDocument()
     unmount()
 
@@ -326,13 +326,13 @@ describe('AmlAlertsPage', () => {
 
     renderComponent()
     await waitFor(() => expect(screen.getByText('alert-1')).toBeInTheDocument())
-    
+
     expect(screen.queryByRole('button', { name: /Trigger AML Scan/i })).not.toBeInTheDocument()
   })
 
   it('should trigger AML scan successfully', async () => {
     const user = userEvent.setup()
-    
+
     vi.mocked(amlApi.triggerAmlScan).mockResolvedValue({
       status: 'triggered',
       message: 'AML scan has been queued',
@@ -356,7 +356,7 @@ describe('AmlAlertsPage', () => {
 
   it('should handle trigger AML scan errors', async () => {
     const user = userEvent.setup()
-    
+
     vi.mocked(amlApi.triggerAmlScan).mockRejectedValue(
       new ApiError(503, 'service_unavailable', 'AML service is unavailable')
     )
@@ -374,7 +374,7 @@ describe('AmlAlertsPage', () => {
 
   it('should log user out on 401 during trigger AML scan', async () => {
     const user = userEvent.setup()
-    
+
     vi.mocked(amlApi.triggerAmlScan).mockRejectedValue(
       new ApiError(401, 'unauthorized', 'Unauthorized')
     )
