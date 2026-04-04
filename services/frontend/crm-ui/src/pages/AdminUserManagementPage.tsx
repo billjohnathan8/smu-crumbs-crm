@@ -411,12 +411,12 @@ export function AdminUserManagementPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-border">
-                        <th className="text-left py-2 px-4 font-normal text-text">First Name</th>
-                        <th className="text-left py-2 px-4 font-normal text-text">Last Name</th>
-                        <th className="text-left py-2 px-4 font-normal text-text">Email</th>
-                        <th className="text-left py-2 px-4 font-normal text-text">Role</th>
-                        <th className="text-left py-2 px-4 font-normal text-text">Status</th>
-                        <th className="text-left py-2 px-4 font-normal text-text">Actions</th>
+                        <th className="text-left py-2 px-4 font-medium text-text">First Name</th>
+                        <th className="text-left py-2 px-4 font-medium text-text">Last Name</th>
+                        <th className="text-left py-2 px-4 font-medium text-text">Email</th>
+                        <th className="text-left py-2 px-4 font-medium text-text">Role</th>
+                        <th className="text-left py-2 px-4 font-medium text-text">Status</th>
+                        <th className="text-left py-2 px-4 font-medium text-text">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -468,12 +468,12 @@ export function AdminUserManagementPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-border">
-                        <th className="text-left py-2 px-4 font-normal text-text">First Name</th>
-                        <th className="text-left py-2 px-4 font-normal text-text">Last Name</th>
-                        <th className="text-left py-2 px-4 font-normal text-text">Email</th>
-                        <th className="text-left py-2 px-4 font-normal text-text">Role</th>
-                        <th className="text-left py-2 px-4 font-normal text-text">Status</th>
-                        <th className="text-left py-2 px-4 font-normal text-text">Actions</th>
+                        <th className="text-left py-2 px-4 font-medium text-text">First Name</th>
+                        <th className="text-left py-2 px-4 font-medium text-text">Last Name</th>
+                        <th className="text-left py-2 px-4 font-medium text-text">Email</th>
+                        <th className="text-left py-2 px-4 font-medium text-text">Role</th>
+                        <th className="text-left py-2 px-4 font-medium text-text">Status</th>
+                        <th className="text-left py-2 px-4 font-medium text-text">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
