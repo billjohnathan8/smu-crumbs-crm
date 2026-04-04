@@ -69,9 +69,7 @@ def fake_update(monkeypatch):
         side_effect = None
 
     def _fake(base_url, provider_message_id, event_type, error_message):
-        FakeUpdate.calls.append(
-            (base_url, provider_message_id, event_type, error_message)
-        )
+        FakeUpdate.calls.append((base_url, provider_message_id, event_type, error_message))
         if FakeUpdate.side_effect:
             raise FakeUpdate.side_effect
         return 200, '{"ok":true}'
@@ -211,9 +209,7 @@ class TestExtractFeedback:
             "bounce": {"bounceType": "Permanent", "bounceSubType": "General"},
         }
 
-        provider_message_id, event_type, error_message = (
-            lambda_function._extract_feedback(message)
-        )
+        provider_message_id, event_type, error_message = lambda_function._extract_feedback(message)
 
         assert provider_message_id == "ses-1"
         assert event_type == "BOUNCE"
@@ -226,9 +222,7 @@ class TestExtractFeedback:
             "complaint": {"complaintFeedbackType": "abuse"},
         }
 
-        provider_message_id, event_type, error_message = (
-            lambda_function._extract_feedback(message)
-        )
+        provider_message_id, event_type, error_message = lambda_function._extract_feedback(message)
 
         assert provider_message_id == "ses-2"
         assert event_type == "COMPLAINT"
@@ -241,9 +235,7 @@ class TestExtractFeedback:
             "reject": {"reason": "Policy"},
         }
 
-        provider_message_id, event_type, error_message = (
-            lambda_function._extract_feedback(message)
-        )
+        provider_message_id, event_type, error_message = lambda_function._extract_feedback(message)
 
         assert provider_message_id == "ses-3"
         assert event_type == "REJECT"
@@ -258,9 +250,7 @@ class TestExtractFeedback:
 
     def test_missing_mail_block_returns_none_id(self):
         _, _, _ = lambda_function._extract_feedback({"eventType": "Delivery"})
-        provider_message_id, _, _ = lambda_function._extract_feedback(
-            {"eventType": "Delivery"}
-        )
+        provider_message_id, _, _ = lambda_function._extract_feedback({"eventType": "Delivery"})
         assert provider_message_id is None
 
 
@@ -334,9 +324,7 @@ class TestUpdateCommunicationFeedback:
         assert body == '{"ok":true}'
 
     def test_url_encodes_provider_message_id(self, monkeypatch):
-        monkeypatch.setattr(
-            lambda_function, "_resolve_authorization_header", lambda: None
-        )
+        monkeypatch.setattr(lambda_function, "_resolve_authorization_header", lambda: None)
 
         captured = {}
 
@@ -363,9 +351,7 @@ class TestUpdateCommunicationFeedback:
             "https://log-api.local/", "ses/id+1", "DELIVERY", None
         )
 
-        assert captured["url"].endswith(
-            "/api/communications/provider/ses%2Fid%2B1/status"
-        )
+        assert captured["url"].endswith("/api/communications/provider/ses%2Fid%2B1/status")
 
     def test_sends_correct_payload_and_headers(self, monkeypatch):
         monkeypatch.setattr(
@@ -521,13 +507,9 @@ class TestLambdaHandler:
 
         assert response["statusCode"] == 207
         assert body["updated"] == 0
-        assert body["failedUpdates"] == [
-            {"providerMessageId": "ses-99", "statusCode": "409"}
-        ]
+        assert body["failedUpdates"] == [{"providerMessageId": "ses-99", "statusCode": "409"}]
 
-    def test_generic_exception_reported_as_partial_failure(
-        self, monkeypatch, fake_update
-    ):
+    def test_generic_exception_reported_as_partial_failure(self, monkeypatch, fake_update):
         monkeypatch.setenv("LOG_API_BASE_URL", "https://example.com")
         fake_update.side_effect = RuntimeError("network down")
         event = _make_sns_event(_bounce_message("ses-77"))

@@ -16,20 +16,14 @@ class TestBuildVerificationLink:
 
         link = lambda_function._build_verification_link("client-1", "tok-abc")
 
-        assert (
-            link
-            == "https://app.example.com/verify-client#token=tok-abc&clientId=client-1"
-        )
+        assert link == "https://app.example.com/verify-client#token=tok-abc&clientId=client-1"
 
     def test_strips_trailing_slash_from_base(self, monkeypatch):
         monkeypatch.setenv("FRONTEND_BASE_URL", "https://app.example.com/")
 
         link = lambda_function._build_verification_link("client-1", "tok-abc")
 
-        assert (
-            link
-            == "https://app.example.com/verify-client#token=tok-abc&clientId=client-1"
-        )
+        assert link == "https://app.example.com/verify-client#token=tok-abc&clientId=client-1"
 
     def test_returns_path_only_when_no_base_url(self):
         link = lambda_function._build_verification_link("client-1", "tok-abc")
@@ -136,9 +130,7 @@ class TestSendVerificationEmail:
 
         html_body = captured["Message"]["Body"]["Html"]["Data"]
         text_body = captured["Message"]["Body"]["Text"]["Data"]
-        expected_link = (
-            "https://app.example.com/verify-client#token=tok-abc&clientId=client-1"
-        )
+        expected_link = "https://app.example.com/verify-client#token=tok-abc&clientId=client-1"
 
         assert expected_link in html_body
         assert expected_link in text_body
@@ -241,9 +233,7 @@ class TestHandleVerificationRequested:
     def test_calls_send_with_correct_arguments(self, monkeypatch):
         captured = {}
 
-        def fake_send(
-            client_id, email, token, first_name, request_id, token_ttl_seconds
-        ):
+        def fake_send(client_id, email, token, first_name, request_id, token_ttl_seconds):
             captured.update(
                 client_id=client_id,
                 email=email,
