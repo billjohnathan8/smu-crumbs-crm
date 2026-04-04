@@ -143,23 +143,6 @@ export function AccountFormModal({
                   ))}
                 </select>
               </div>
-
-              <div>
-                <label
-                  htmlFor="account-opening-date"
-                  className="block text-sm font-normal text-text mb-1"
-                >
-                  Opening Date
-                </label>
-                <input
-                  id="account-opening-date"
-                  type="date"
-                  value={formData.openingDate}
-                  onChange={e => setFormData({ ...formData, openingDate: e.target.value })}
-                  className="w-full px-4 py-2 bg-background-light  rounded-lg text-text"
-                  disabled={isSubmitting}
-                />
-              </div>
             </>
           )}
 

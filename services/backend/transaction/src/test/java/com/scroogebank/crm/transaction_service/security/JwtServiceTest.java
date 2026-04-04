@@ -94,6 +94,19 @@ class JwtServiceTest {
 	}
 
 	@Test
+	void verifyAndParse_agentRole_isNormalizedToUser() {
+		String token = signedToken(Map.of(
+			"sub", "usr_1",
+			"role", "agent",
+			"iat", FIXED_CLOCK.instant().getEpochSecond(),
+			"exp", FIXED_CLOCK.instant().plusSeconds(3600).getEpochSecond()
+		));
+
+		AuthenticatedUser user = jwtService.verifyAndParse(token);
+		assertEquals("user", user.role());
+	}
+
+	@Test
 	void verifyAndParse_invalidFormat_throws() {
 		assertThrows(JwtValidationException.class, () -> jwtService.verifyAndParse("abc.def"));
 	}
@@ -301,6 +314,13 @@ class JwtServiceTest {
 	void cognitoToken_withUserGroup() throws Exception {
 		JwtService svc = cognitoService(mockJwksClient(buildJwksJson(KID)));
 		String token = rsaSignedToken(cognitoClaims("cognito:groups", List.of("user")));
+		assertEquals("user", svc.verifyAndParse(token).role());
+	}
+
+	@Test
+	void cognitoToken_withAgentGroup_mapsToUser() throws Exception {
+		JwtService svc = cognitoService(mockJwksClient(buildJwksJson(KID)));
+		String token = rsaSignedToken(cognitoClaims("cognito:groups", List.of("agent")));
 		assertEquals("user", svc.verifyAndParse(token).role());
 	}
 

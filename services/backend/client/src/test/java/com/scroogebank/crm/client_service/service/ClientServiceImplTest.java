@@ -677,8 +677,8 @@ class ClientServiceImplTest {
 	}
 
 	@Test
-	void reviewVerification_nonAdmin_throwsAccessDenied() {
-		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
+	void reviewVerification_nonAdminOrAgent_throwsAccessDenied() {
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "auditor");
 
 		assertThatThrownBy(() ->
 			clientService.reviewVerification(
@@ -689,6 +689,35 @@ class ClientServiceImplTest {
 				"req-1"
 			)
 		).isInstanceOf(AccessDeniedException.class);
+	}
+
+	@Test
+	void reviewVerification_userRoleAllowedOnOwnedPendingClient() {
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
+		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
+		entity.setIdentityVerificationStatus(IdentityVerificationStatus.pending);
+		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
+		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		var response = clientService.reviewVerification(
+			user,
+			"clt_7",
+			new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.approve),
+			"Bearer x",
+			"req-1"
+		);
+
+		assertThat(response.identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.verified);
+		verify(clientAuditLogger).logAuditEvent(
+			eq("UPDATE"),
+			eq("identityVerificationStatus"),
+			eq("pending"),
+			eq("verified"),
+			eq("usr_1"),
+			eq("clt_7"),
+			eq("req-1"),
+			eq("Bearer x")
+		);
 	}
 
 	@Test

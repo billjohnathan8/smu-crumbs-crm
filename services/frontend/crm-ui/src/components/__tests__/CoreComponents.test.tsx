@@ -18,7 +18,6 @@ const baseFormData: AccountCreateRequest = {
   clientId: 'clt_1',
   accountType: 'Savings',
   accountStatus: 'Active',
-  openingDate: '2026-03-21',
   initialDeposit: 100,
   currency: 'SGD',
   branchId: 'SG-001',
@@ -54,7 +53,6 @@ describe('core components', () => {
     expect(screen.getByText('Form failed')).toBeInTheDocument()
     expect(screen.getByDisplayValue('100')).toBeInTheDocument()
     expect(screen.getByDisplayValue('SGD')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('2026-03-21')).toBeInTheDocument()
 
     await user.selectOptions(screen.getAllByRole('combobox')[0], 'Checking')
     expect(setFormData).toHaveBeenCalledWith({ ...baseFormData, accountType: 'Checking' })
@@ -88,7 +86,6 @@ describe('core components', () => {
     expect(screen.getByRole('heading', { name: 'Edit Account' })).toBeInTheDocument()
     expect(screen.queryByDisplayValue('100')).not.toBeInTheDocument()
     expect(screen.queryByDisplayValue('SGD')).not.toBeInTheDocument()
-    expect(screen.queryByDisplayValue('2026-03-21')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Saving...' })).toBeDisabled()
   })
 
@@ -150,9 +147,9 @@ describe('core components', () => {
       />
     )
 
-    expect(screen.getByText('Active')).toBeInTheDocument()
-    expect(screen.getByText('Pending')).toBeInTheDocument()
-    expect(screen.getByText('Inactive')).toBeInTheDocument()
+    expect(screen.getByText('ACTIVE')).toBeInTheDocument()
+    expect(screen.getByText('PENDING')).toBeInTheDocument()
+    expect(screen.getByText('INACTIVE')).toBeInTheDocument()
     expect(formatAmount).toHaveBeenCalledTimes(3)
   })
 
@@ -206,11 +203,11 @@ describe('core components', () => {
       />
     )
 
-    expect(screen.getByText('Deposit')).toBeInTheDocument()
-    expect(screen.getAllByText('Withdrawal')).toHaveLength(2)
-    expect(screen.getByText('Completed')).toBeInTheDocument()
-    expect(screen.getByText('Pending')).toBeInTheDocument()
-    expect(screen.getByText('Failed')).toBeInTheDocument()
+    expect(screen.getByText('DEPOSIT')).toBeInTheDocument()
+    expect(screen.getAllByText('WITHDRAWAL')).toHaveLength(2)
+    expect(screen.getByText('COMPLETED')).toBeInTheDocument()
+    expect(screen.getByText('PENDING')).toBeInTheDocument()
+    expect(screen.getByText('FAILED')).toBeInTheDocument()
     expect(formatAmount).toHaveBeenCalledTimes(3)
   })
 

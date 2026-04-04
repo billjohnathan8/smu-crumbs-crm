@@ -21,6 +21,7 @@ import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
 import com.scroogebank.crm.client_service.entity.AccountEntity;
 import com.scroogebank.crm.client_service.entity.ClientEntity;
 import com.scroogebank.crm.client_service.exception.AccountNotFoundException;
+import com.scroogebank.crm.client_service.exception.AccountOpeningNotAllowedException;
 import com.scroogebank.crm.client_service.exception.ClientNotFoundException;
 import com.scroogebank.crm.client_service.logging.ClientAuditLogger;
 import com.scroogebank.crm.client_service.repository.AccountRepository;
@@ -28,7 +29,10 @@ import com.scroogebank.crm.client_service.repository.ClientRepository;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import org.mockito.ArgumentCaptor;
@@ -43,13 +47,15 @@ class AccountServiceImplTest {
 	private ClientRepository clientRepository;
 	private ClientAuditLogger auditLogger;
 	private AccountServiceImpl accountService;
+	private Clock clock;
 
 	@BeforeEach
 	void setUp() {
 		accountRepository = mock(AccountRepository.class);
 		clientRepository = mock(ClientRepository.class);
 		auditLogger = mock(ClientAuditLogger.class);
-		accountService = new AccountServiceImpl(accountRepository, clientRepository, auditLogger, new AppProperties());
+		clock = Clock.fixed(Instant.parse("2026-04-04T10:00:00Z"), ZoneOffset.UTC);
+		accountService = new AccountServiceImpl(accountRepository, clientRepository, auditLogger, new AppProperties(), clock);
 	}
 
 	@Test
@@ -66,6 +72,7 @@ class AccountServiceImplTest {
 		);
 		ClientEntity client = client(1L, "usr_owner");
 		AccountEntity saved = account(10L, client);
+		saved.setOpeningDate(LocalDate.parse("2026-04-04"));
 		when(clientRepository.findById(1L)).thenReturn(Optional.of(client));
 		when(accountRepository.save(any(AccountEntity.class))).thenReturn(saved);
 
@@ -99,6 +106,7 @@ class AccountServiceImplTest {
 		);
 		ClientEntity client = client(1L, "usr_owner");
 		AccountEntity saved = account(10L, client);
+		saved.setOpeningDate(LocalDate.parse("2026-04-04"));
 		when(clientRepository.findById(1L)).thenReturn(Optional.of(client));
 		when(accountRepository.save(any(AccountEntity.class))).thenReturn(saved);
 
@@ -306,7 +314,7 @@ class AccountServiceImplTest {
 	void createAccount_rejectsUnverifiedClient() {
 		AppProperties strictPolicy = new AppProperties();
 		strictPolicy.getAccountOpening().setRequireVerifiedClient(true);
-		accountService = new AccountServiceImpl(accountRepository, clientRepository, auditLogger, strictPolicy);
+		accountService = new AccountServiceImpl(accountRepository, clientRepository, auditLogger, strictPolicy, clock);
 
 		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
 		AccountCreateRequest request = new AccountCreateRequest(
@@ -323,9 +331,62 @@ class AccountServiceImplTest {
 		when(clientRepository.findById(1L)).thenReturn(Optional.of(client));
 
 		assertThatThrownBy(() -> accountService.createAccount(admin, request, "Bearer x", "req-1"))
-			.isInstanceOf(IllegalArgumentException.class)
-			.hasMessageContaining("verified");
+			.isInstanceOf(AccountOpeningNotAllowedException.class)
+			.hasMessage("Client is pending, not allowed to create account");
 		verify(accountRepository, never()).save(any());
+	}
+
+	@Test
+	void createAccount_rejectsRejectedClientWithExplicitStatusMessage() {
+		AppProperties strictPolicy = new AppProperties();
+		strictPolicy.getAccountOpening().setRequireVerifiedClient(true);
+		accountService = new AccountServiceImpl(accountRepository, clientRepository, auditLogger, strictPolicy, clock);
+
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AccountCreateRequest request = new AccountCreateRequest(
+			"clt_1",
+			AccountType.Savings,
+			AccountStatus.Active,
+			LocalDate.parse("2025-01-01"),
+			new BigDecimal("500.00"),
+			"SGD",
+			"SG-001"
+		);
+		ClientEntity client = client(1L, "usr_owner");
+		client.setIdentityVerificationStatus(IdentityVerificationStatus.rejected);
+		when(clientRepository.findById(1L)).thenReturn(Optional.of(client));
+
+		assertThatThrownBy(() -> accountService.createAccount(admin, request, "Bearer x", "req-1"))
+			.isInstanceOf(AccountOpeningNotAllowedException.class)
+			.hasMessage("Client is rejected, not allowed to create account");
+		verify(accountRepository, never()).save(any());
+	}
+
+	@Test
+	void createAccount_ignoresClientProvidedOpeningDateAndUsesServerDate() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		AccountCreateRequest request = new AccountCreateRequest(
+			"clt_1",
+			AccountType.Savings,
+			AccountStatus.Active,
+			LocalDate.parse("1999-01-01"),
+			new BigDecimal("500.00"),
+			"SGD",
+			"SG-001"
+		);
+		ClientEntity client = client(1L, "usr_owner");
+		AccountEntity saved = account(10L, client);
+		saved.setOpeningDate(LocalDate.parse("2026-04-04"));
+		when(clientRepository.findById(1L)).thenReturn(Optional.of(client));
+		when(accountRepository.save(any(AccountEntity.class))).thenReturn(saved);
+
+		AccountDto created = accountService.createAccount(admin, request, "Bearer x", "req-1");
+
+		assertThat(created.openingDate()).isEqualTo(LocalDate.parse("2026-04-04"));
+
+		ArgumentCaptor<AccountEntity> entityCaptor = ArgumentCaptor.forClass(AccountEntity.class);
+		verify(accountRepository).save(entityCaptor.capture());
+		assertThat(entityCaptor.getValue().getOpeningDate()).isEqualTo(LocalDate.parse("2026-04-04"));
 	}
 
 	@Test
