@@ -566,6 +566,7 @@ run_gradle_db_test() {
   local gradle_log="${LOG_DIR}/${service_name}-db-tests.log"
   local gradle_user_home="${service_dir}/.gradle-local"
   local db_jdbc_url="jdbc:postgresql://127.0.0.1:${LOCAL_DB_HOST_PORT}/${db_name}"
+  local host_log_service_url="${LOG_SERVICE_PUBLIC_URL:-${LOG_SERVICE_URL}}"
   local gradle_args=(
     cleanTest
     test
@@ -584,6 +585,10 @@ run_gradle_db_test() {
     APP_JWT_HMAC_SECRET="${JWT_HMAC_SECRET}"
     APP_MOCK_SFTP_ROOT=build/mock-sftp
     APP_CLIENT_SERVICE_URL=http://localhost:8080
+    # DB checks execute on the host, so prefer host-mapped LocalStack URL.
+    LOG_SERVICE_URL="${host_log_service_url}"
+    CLIENT_LOG_SERVICE_URL="${host_log_service_url}"
+    LOG_API_UPSTREAM="${host_log_service_url}"
     DB_HOST=127.0.0.1
     DB_PORT="${LOCAL_DB_HOST_PORT}"
     DB_NAME="${db_name}"
