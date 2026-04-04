@@ -310,9 +310,9 @@ export function CommunicationsPanel({
                         onClick={e => e.stopPropagation()}
                         className="rounded  bg-background-light px-2 py-1 text-sm text-text"
                       >
-                        <option value="queued">queued</option>
-                        <option value="sent">sent</option>
-                        <option value="failed">failed</option>
+                        <option value="queued">QUEUED</option>
+                        <option value="sent">SENT</option>
+                        <option value="failed">FAILED</option>
                       </select>
                     ) : (
                       <span
@@ -324,7 +324,7 @@ export function CommunicationsPanel({
                               : 'bg-danger/20 text-danger'
                         }`}
                       >
-                        {comm.status}
+                        {comm.status.toUpperCase()}
                       </span>
                     )}
                   </td>
@@ -374,7 +374,7 @@ export function CommunicationsPanel({
                         : 'bg-danger/20 text-danger'
                   }`}
                 >
-                  {comm.status}
+                  {comm.status.toUpperCase()}
                 </span>
               </div>
               <p className="text-xs text-text-muted">
