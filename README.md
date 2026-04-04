@@ -44,7 +44,7 @@ Copy `/.env.example` to `/.env.local` at the repository root (gitignored). Set *
 | `E2E_ADMIN_PASSWORD` | Root admin login + user-service seed |
 | `E2E_USER_PASSWORD` | Seeded agent user (e.g. `agent1@crm.com`) |
 
-`scripts/dev/stack-up.sh` and `scripts/ci/run-fullstack-integration-e2e.sh` source `.env.local` automatically. Integration Playwright tests and `services/frontend/crm-ui` e2e helpers read the same file via `tests/integration/helpers/repoEnv.ts` (and the crm-ui equivalent).
+`scripts/dev/stack-up.sh`, `scripts/ci/run-fullstack-integration-e2e.sh`, and `scripts/pipelines/test_all.py` load repo-root `.env.local` automatically for local runs. `test_all.py` treats `.env.local` values as defaults and preserves variables already set in your shell (for example `INFRACOST_API_KEY`). Integration Playwright tests and `services/frontend/crm-ui` e2e helpers read the same file via `tests/integration/helpers/repoEnv.ts` (and the crm-ui equivalent).
 
 ```bash
 cp .env.example .env.local

@@ -69,6 +69,8 @@ Runs the complete CI test pipeline locally.
 python scripts/pipelines/test_all.py
 ```
 
+`test_all.py` auto-loads repo-root `.env.local` for local credentials required by fullstack and performance layers. If you export a variable in your shell (for example `INFRACOST_API_KEY`), that shell value takes precedence over `.env.local`.
+
 **Common Flags:**
 
 ```bash

@@ -88,6 +88,45 @@ def is_windows() -> bool:
     return os.name == "nt"
 
 
+def load_repo_env_defaults() -> int:
+    """Load repo-root .env.local as default values for local pipeline runs.
+
+    Existing OS environment variables are preserved. This allows explicit
+    shell exports (for example INFRACOST_API_KEY) to take precedence while
+    still making local credentials available to all subprocess steps.
+    """
+    env_file = REPO_ROOT / ".env.local"
+    if not env_file.exists():
+        return 0
+
+    loaded = 0
+    for raw_line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+
+        if line.startswith("export "):
+            line = line[len("export ") :].strip()
+
+        if "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if not key:
+            continue
+
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+            value = value[1:-1]
+
+        if key not in os.environ:
+            os.environ[key] = value
+            loaded += 1
+
+    return loaded
+
+
 def display_command(parts: Sequence[str]) -> str:
     if is_windows():
         return subprocess.list2cmdline(list(parts))
@@ -1855,6 +1894,23 @@ def main() -> int:
         return compare_recovery_baseline(pre_dir, post_dir)
 
     started_at = time.monotonic()
+
+    loaded_env_keys = load_repo_env_defaults()
+    if loaded_env_keys > 0:
+        print(
+            "[INFO] Loaded "
+            f"{loaded_env_keys} default value(s) from {REPO_ROOT / '.env.local'} "
+            "(existing environment variables were kept)."
+        )
+    elif (REPO_ROOT / ".env.local").exists():
+        print(
+            f"[INFO] Found {REPO_ROOT / '.env.local'}, but no additional keys were loaded "
+            "because they are already set in the current environment."
+        )
+    else:
+        print(
+            f"[INFO] {REPO_ROOT / '.env.local'} not found; using current shell environment only."
+        )
 
     if args.performance_repeats < 1:
         print("[FAIL] --performance-repeats must be >= 1")

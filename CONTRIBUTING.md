@@ -266,6 +266,8 @@ export function UserList({ onUserSelect }: UserListProps) {
 python scripts/pipelines/test_all.py
 ```
 
+`scripts/pipelines/test_all.py` automatically reads repo-root `.env.local` as default values for local credentials/secrets (DB, JWT, seeded users). Variables already exported in your shell still win (for example `INFRACOST_API_KEY`).
+
 On Linux/macOS/WSL, run `python3 scripts/pipelines/test_all.py` when `python` is unavailable.
 
 **Expected output:**

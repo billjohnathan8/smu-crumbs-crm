@@ -76,7 +76,7 @@ Set **all** of these to non-empty values (use strong passwords; you can run `ope
 | `E2E_ADMIN_PASSWORD` | Root admin login + user-service `ROOT_ADMIN_PASSWORD` |
 | `E2E_USER_PASSWORD` | Seeded agent user (e.g. `agent1@crm.com`) |
 
-`scripts/dev/stack-up.sh` and `scripts/ci/run-fullstack-integration-e2e.sh` source `.env.local` automatically. Integration Playwright tests and `crm-ui` e2e helpers also read repo-root `.env.local`.
+`scripts/dev/stack-up.sh`, `scripts/ci/run-fullstack-integration-e2e.sh`, and `scripts/pipelines/test_all.py` load `.env.local` automatically for local runs. `test_all.py` uses `.env.local` values as defaults and keeps any variables you already exported in your shell. Integration Playwright tests and `crm-ui` e2e helpers also read repo-root `.env.local`.
 
 If you only bring up **Postgres + LocalStack** (`docker compose -f docker-compose.localstack.yml`), export the same `LOCAL_DB_PASSWORD` / `JWT_HMAC_SECRET` in your shell **before** `docker compose up` so Postgres, LocalStack init, and any apps stay aligned.
 
