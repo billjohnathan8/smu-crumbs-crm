@@ -6,11 +6,13 @@ import { AuthProvider } from '@/features/auth/AuthContext'
 import { ThemeProvider } from '@/features/theme/ThemeContext'
 import * as usersApi from '@/api/users'
 import * as authApi from '@/api/auth'
+import * as clientsApi from '@/api/clients'
 import { ApiError } from '@/api/client'
 import type { User } from '@/api/types'
 
 vi.mock('@/api/users')
 vi.mock('@/api/auth')
+vi.mock('@/api/clients')
 
 const mockAdminUser: User = {
   id: 'admin-123',
@@ -211,6 +213,25 @@ it('should handle disable user', async () => {
   })
 
   confirmSpy.mockRestore()
+})
+
+it('should show transfer guidance as tooltip for disabled agents with clients', async () => {
+  const disabledAgent: User = {
+    ...mockAgentUser,
+    status: 'disabled',
+  }
+
+  vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
+    data: [disabledAgent],
+    pagination: { total: 1, limit: 10, offset: 0 },
+  })
+  vi.spyOn(clientsApi, 'countClientsByAgent').mockResolvedValue(2)
+
+  renderAdminUserManagementPage()
+
+  const transferButton = await screen.findByRole('button', { name: 'Transfer (2)' })
+  expect(transferButton).toHaveAttribute('title', 'Transfer clients to enable delete')
+  expect(screen.queryByText('Transfer clients to enable delete')).not.toBeInTheDocument()
 })
 
 it('should handle delete admin for super admin', async () => {
