@@ -5,12 +5,17 @@ import {
   createClient,
   updateClient,
   deleteClient,
+  countClientsByAgent,
+  reassignClients,
   uploadVerificationDocs,
   reviewVerification,
   resendVerificationLink,
+  getVerificationDocument,
   createAccount,
+  getAccountById,
   getAccountOpeningOptions,
   updateAccount,
+  deleteAccount,
   listClientAccounts,
   listClientAccountsPaginated,
 } from '../clients'
@@ -137,6 +142,39 @@ describe('clients API', () => {
 
       expect(client.apiGet).toHaveBeenCalledWith('/api/clients/client-123')
       expect(result).toEqual(mockClient)
+    })
+
+    it('should pass request options when provided', async () => {
+      vi.spyOn(client, 'apiGet').mockResolvedValue({ clientId: 'client-123' } as Client)
+
+      await getClientById('client-123', { timeout: 5000 })
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/clients/client-123', { timeout: 5000 })
+    })
+  })
+
+  describe('countClientsByAgent', () => {
+    it('should return count for assigned agent', async () => {
+      vi.spyOn(client, 'apiGet').mockResolvedValue({ count: 12 })
+
+      const result = await countClientsByAgent('agent+1@example.com')
+
+      expect(client.apiGet).toHaveBeenCalledWith(
+        '/api/clients/count?assignedUserId=agent%2B1%40example.com'
+      )
+      expect(result).toBe(12)
+    })
+  })
+
+  describe('reassignClients', () => {
+    it('should reassign clients and return affected count', async () => {
+      const request = { fromUserId: 'usr_old', toUserId: 'usr_new' }
+      vi.spyOn(client, 'apiPost').mockResolvedValue({ count: 5 })
+
+      const result = await reassignClients(request)
+
+      expect(client.apiPost).toHaveBeenCalledWith('/api/clients/reassign', request)
+      expect(result.count).toBe(5)
     })
   })
 
@@ -359,6 +397,23 @@ describe('clients API', () => {
     })
   })
 
+  describe('getVerificationDocument', () => {
+    it('should fetch verification document by kind', async () => {
+      vi.spyOn(client, 'apiGet').mockResolvedValue({
+        clientId: 'client-123',
+        documentKind: 'primary',
+        mimeType: 'image/jpeg',
+        fileName: 'nric.jpg',
+        contentBase64: 'base64data',
+      })
+
+      const result = await getVerificationDocument('client-123', 'primary')
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/clients/client-123/verify/documents/primary')
+      expect(result.documentKind).toBe('primary')
+    })
+  })
+
   describe('createAccount', () => {
     it('should create account for client', async () => {
       const accountRequest: AccountCreateRequest = {
@@ -436,6 +491,39 @@ describe('clients API', () => {
 
       expect(client.apiPut).toHaveBeenCalledWith('/api/accounts/account-1', updateRequest)
       expect(result).toEqual(mockAccount)
+    })
+  })
+
+  describe('getAccountById', () => {
+    it('should fetch account by id', async () => {
+      const mockAccount = {
+        accountId: 'account-9',
+        clientId: 'client-9',
+        accountType: 'Savings',
+        accountStatus: 'Active',
+        openingDate: '2024-01-01',
+        initialDeposit: 100,
+        currency: 'SGD',
+        branchId: 'SG-001',
+        createdAt: '2024-01-01T00:00:00Z',
+      } as Account
+
+      vi.spyOn(client, 'apiGet').mockResolvedValue(mockAccount)
+
+      const result = await getAccountById('account-9')
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/accounts/account-9')
+      expect(result.accountId).toBe('account-9')
+    })
+  })
+
+  describe('deleteAccount', () => {
+    it('should delete account by id', async () => {
+      vi.spyOn(client, 'apiDelete').mockResolvedValue(undefined)
+
+      await deleteAccount('account-9')
+
+      expect(client.apiDelete).toHaveBeenCalledWith('/api/accounts/account-9')
     })
   })
 

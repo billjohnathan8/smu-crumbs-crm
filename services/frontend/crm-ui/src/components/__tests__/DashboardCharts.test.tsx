@@ -23,9 +23,22 @@ vi.mock('recharts', () => ({
   XAxis: () => <div data-testid="recharts-x-axis" />,
   YAxis: () => <div data-testid="recharts-y-axis" />,
   Tooltip: () => <div data-testid="recharts-tooltip" />,
-  Legend: () => <div data-testid="recharts-legend" />,
+  Legend: ({ formatter }: { formatter?: (value: string) => React.ReactNode }) => (
+    <div data-testid="recharts-legend">{formatter ? formatter('legend-value') : null}</div>
+  ),
   Line: () => <div data-testid="recharts-line" />,
-  Pie: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Pie: ({
+    children,
+    label,
+  }: {
+    children: React.ReactNode
+    label?: (value: { name: string; value: number }) => string
+  }) => (
+    <div>
+      {label ? label({ name: 'Pending', value: 3 }) : null}
+      {children}
+    </div>
+  ),
   Cell: () => <div data-testid="recharts-cell" />,
 }))
 
@@ -70,6 +83,7 @@ describe('DashboardCharts', () => {
 
     render(<VerificationStatusChart data={data} />)
     expect(screen.getByTestId('recharts-piechart')).toBeInTheDocument()
+    expect(screen.getByText('Pending: 3')).toBeInTheDocument()
     expect(screen.getAllByTestId('recharts-cell')).toHaveLength(2)
   })
 
@@ -90,5 +104,6 @@ describe('DashboardCharts', () => {
     render(<NewClientsChart data={data} />)
     expect(screen.getByTestId('recharts-linechart')).toBeInTheDocument()
     expect(screen.getByTestId('recharts-legend')).toBeInTheDocument()
+    expect(screen.getByText('legend-value')).toBeInTheDocument()
   })
 })
