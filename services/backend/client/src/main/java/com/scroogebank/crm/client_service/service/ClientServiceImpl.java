@@ -83,17 +83,32 @@ public class ClientServiceImpl implements ClientService {
 	 * @param limit requested limit (capped by service)
 	 * @param offset requested offset
 	 * @param q optional search query
+	 * @param kycStatus optional KYC status filter
+	 * @param assignedUserId optional assigned agent filter (admin only)
 	 * @return list response with pagination metadata
 	 */
 	@Override
-	public ClientListResponse listClients(AuthenticatedUser user, int limit, int offset, String q) {
+	public ClientListResponse listClients(
+		AuthenticatedUser user,
+		int limit,
+		int offset,
+		String q,
+		IdentityVerificationStatus kycStatus,
+		String assignedUserId
+	) {
 		int normalizedLimit = Math.max(1, Math.min(200, limit));
 		int normalizedOffset = Math.max(0, offset);
 		String query = q == null ? null : q.trim();
+		String normalizedAssignedUserId = assignedUserId == null ? null : assignedUserId.trim();
 
-		List<ClientEntity> all = user.isAdmin()
-			? clientRepository.searchAll(query)
-			: clientRepository.searchByAgent(user.userId(), query);
+		List<ClientEntity> all;
+		if (user.isAdmin()) {
+			// Admin can filter by any agent or see all clients
+			all = clientRepository.searchAllWithFilters(query, kycStatus, normalizedAssignedUserId);
+		} else {
+			// Regular users only see their own clients
+			all = clientRepository.searchByAgentWithFilters(user.userId(), query, kycStatus);
+		}
 
 		long total = all.size();
 		int fromIndex = Math.min(normalizedOffset, all.size());

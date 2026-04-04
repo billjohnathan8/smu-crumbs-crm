@@ -23,9 +23,18 @@ public interface ClientService {
 	 * @param limit page size (capped by service)
 	 * @param offset pagination offset
 	 * @param q optional search query
+	 * @param kycStatus optional KYC status filter
+	 * @param assignedUserId optional assigned agent filter (admin only)
 	 * @return list response with pagination metadata
 	 */
-	ClientListResponse listClients(AuthenticatedUser user, int limit, int offset, String q);
+	ClientListResponse listClients(
+		AuthenticatedUser user,
+		int limit,
+		int offset,
+		String q,
+		com.scroogebank.crm.client_service.dto.IdentityVerificationStatus kycStatus,
+		String assignedUserId
+	);
 
 	/**
 	 * Retrieves a client by id and emits a read audit entry when possible.

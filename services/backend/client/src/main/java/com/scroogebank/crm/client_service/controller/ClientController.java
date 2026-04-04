@@ -88,6 +88,8 @@ public class ClientController {
 	 * @param limit page size (capped by service)
 	 * @param offset pagination offset
 	 * @param q optional search query
+	 * @param kycStatus optional KYC status filter
+	 * @param assignedUserId optional assigned agent filter (admin only)
 	 * @return list response with pagination metadata
 	 */
 	@GetMapping
@@ -96,10 +98,12 @@ public class ClientController {
 		HttpServletRequest request,
 		@RequestParam(defaultValue = "50") int limit,
 		@RequestParam(defaultValue = "0") int offset,
-		@RequestParam(required = false) String q
+		@RequestParam(required = false) String q,
+		@RequestParam(required = false) com.scroogebank.crm.client_service.dto.IdentityVerificationStatus kycStatus,
+		@RequestParam(required = false) String assignedUserId
 	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		return clientService.listClients(user, limit, offset, q);
+		return clientService.listClients(user, limit, offset, q, kycStatus, assignedUserId);
 	}
 
 	/**

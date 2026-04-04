@@ -21,6 +21,8 @@ export interface ListClientsParams {
   limit?: number
   offset?: number
   q?: string
+  kycStatus?: import('./types').IdentityVerificationStatus
+  assignedUserId?: string
 }
 
 export interface ListClientAccountsParams {
@@ -48,6 +50,8 @@ export async function listClients(
   if (params?.limit !== undefined) query.append('limit', params.limit.toString())
   if (params?.offset !== undefined) query.append('offset', params.offset.toString())
   if (params?.q) query.append('q', params.q)
+  if (params?.kycStatus) query.append('kycStatus', params.kycStatus)
+  if (params?.assignedUserId) query.append('assignedUserId', params.assignedUserId)
 
   const endpoint = query.toString() ? `${CLIENTS_BASE}?${query.toString()}` : CLIENTS_BASE
   return options

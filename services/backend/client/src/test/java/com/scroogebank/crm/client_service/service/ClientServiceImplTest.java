@@ -122,15 +122,15 @@ class ClientServiceImplTest {
 		ClientPayload payload = samplePayload();
 		ClientEntity e1 = entityFromPayload(1L, "usr_1", payload);
 		ClientEntity e2 = entityFromPayload(2L, "usr_1", payload);
-		when(clientRepository.searchByAgent(eq("usr_1"), eq(null))).thenReturn(List.of(e1, e2));
+		when(clientRepository.searchByAgentWithFilters(eq("usr_1"), eq(null), eq(null))).thenReturn(List.of(e1, e2));
 
-		List<com.scroogebank.crm.client_service.dto.ClientDto> result = clientService.listClients(user, 50, 0, null).data();
+		List<com.scroogebank.crm.client_service.dto.ClientDto> result = clientService.listClients(user, 50, 0, null, null, null).data();
 
 		assertThat(result).hasSize(2);
 		assertThat(result.get(0).clientId()).isEqualTo("clt_1");
 		assertThat(result.get(0).firstName()).isEqualTo("Jordan");
 		assertThat(result.get(1).clientId()).isEqualTo("clt_2");
-		verify(clientRepository).searchByAgent("usr_1", null);
+		verify(clientRepository).searchByAgentWithFilters("usr_1", null, null);
 	}
 
 	@Test
@@ -142,15 +142,31 @@ class ClientServiceImplTest {
 			entityFromPayload(2L, "usr_y", payload),
 			entityFromPayload(3L, "usr_z", payload)
 		);
-		when(clientRepository.searchAll("Jordan")).thenReturn(all);
+		when(clientRepository.searchAllWithFilters("Jordan", null, null)).thenReturn(all);
 
-		var response = clientService.listClients(admin, 1000, -10, "   Jordan   ");
+		var response = clientService.listClients(admin, 1000, -10, "   Jordan   ", null, null);
 
 		assertThat(response.pagination().limit()).isEqualTo(200);
 		assertThat(response.pagination().offset()).isEqualTo(0);
 		assertThat(response.pagination().total()).isEqualTo(3);
 		assertThat(response.data()).hasSize(3);
-		verify(clientRepository).searchAll("Jordan");
+		verify(clientRepository).searchAllWithFilters("Jordan", null, null);
+	}
+
+	@Test
+	void listClients_withFilters_returnsFilteredResults() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_admin", "admin");
+		ClientPayload payload = samplePayload();
+		ClientEntity e1 = entityFromPayload(1L, "usr_2", payload);
+		e1.setIdentityVerificationStatus(IdentityVerificationStatus.verified);
+		when(clientRepository.searchAllWithFilters("john", IdentityVerificationStatus.verified, "usr_2")).thenReturn(List.of(e1));
+
+		var response = clientService.listClients(admin, 50, 0, "john", IdentityVerificationStatus.verified, "usr_2");
+
+		assertThat(response.data()).hasSize(1);
+		assertThat(response.data().get(0).identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.verified);
+		assertThat(response.data().get(0).assignedUserId()).isEqualTo("usr_2");
+		verify(clientRepository).searchAllWithFilters("john", IdentityVerificationStatus.verified, "usr_2");
 	}
 
 	/** Verifies that getClient(id) returns the client DTO when the repository finds the entity. */

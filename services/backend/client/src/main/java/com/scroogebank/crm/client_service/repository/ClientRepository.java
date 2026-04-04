@@ -92,5 +92,59 @@ public interface ClientRepository extends JpaRepository<ClientEntity, Long> {
 		""")
 	List<ClientEntity> searchByAgent(@Param("userId") String userId, @Param("q") String q);
 
+	/**
+	 * Searches all clients with optional filters for KYC status and assigned agent.
+	 *
+	 * @param q search query (nullable)
+	 * @param kycStatus identity verification status filter (nullable)
+	 * @param assignedUserId assigned agent filter (nullable)
+	 * @return matching clients ordered by id
+	 */
+	@Query("""
+		SELECT c FROM ClientEntity c
+		WHERE c.deleted = false
+			AND (:q IS NULL OR :q = '' OR
+				LOWER(c.firstName) LIKE LOWER(CONCAT('%', :q, '%')) OR
+				LOWER(c.lastName) LIKE LOWER(CONCAT('%', :q, '%')) OR
+				LOWER(c.emailAddress) LIKE LOWER(CONCAT('%', :q, '%')) OR
+				c.phoneNumber LIKE CONCAT('%', :q, '%')
+			)
+			AND (:kycStatus IS NULL OR c.identityVerificationStatus = :kycStatus)
+			AND (:assignedUserId IS NULL OR :assignedUserId = '' OR c.assignedUserId = :assignedUserId)
+		ORDER BY c.id
+		""")
+	List<ClientEntity> searchAllWithFilters(
+		@Param("q") String q,
+		@Param("kycStatus") com.scroogebank.crm.client_service.dto.IdentityVerificationStatus kycStatus,
+		@Param("assignedUserId") String assignedUserId
+	);
+
+	/**
+	 * Searches clients for a specific user with optional filters for KYC status.
+	 *
+	 * @param userId user identifier
+	 * @param q search query (nullable)
+	 * @param kycStatus identity verification status filter (nullable)
+	 * @return matching clients ordered by id
+	 */
+	@Query("""
+		SELECT c FROM ClientEntity c
+		WHERE c.deleted = false
+			AND c.assignedUserId = :userId
+			AND (:q IS NULL OR :q = '' OR
+				LOWER(c.firstName) LIKE LOWER(CONCAT('%', :q, '%')) OR
+				LOWER(c.lastName) LIKE LOWER(CONCAT('%', :q, '%')) OR
+				LOWER(c.emailAddress) LIKE LOWER(CONCAT('%', :q, '%')) OR
+				c.phoneNumber LIKE CONCAT('%', :q, '%')
+			)
+			AND (:kycStatus IS NULL OR c.identityVerificationStatus = :kycStatus)
+		ORDER BY c.id
+		""")
+	List<ClientEntity> searchByAgentWithFilters(
+		@Param("userId") String userId,
+		@Param("q") String q,
+		@Param("kycStatus") com.scroogebank.crm.client_service.dto.IdentityVerificationStatus kycStatus
+	);
+
 	long countByAssignedUserIdAndDeletedFalse(String assignedUserId);
 }

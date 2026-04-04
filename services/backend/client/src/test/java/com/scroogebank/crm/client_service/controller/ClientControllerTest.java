@@ -142,11 +142,24 @@ class ClientControllerTest {
 
     @Test
     void listClients_returnsPaginatedShape() throws Exception {
-        when(clientService.listClients(any(), eq(50), eq(0), eq(null))).thenReturn(
+        when(clientService.listClients(any(), eq(50), eq(0), eq(null), eq(null), eq(null))).thenReturn(
             new ClientListResponse(List.of(sampleDto("clt_1")), new Pagination(50, 0, 1))
         );
 
         mockMvc.perform(get("/api/clients").header("Authorization", AUTH_HEADER))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data[0].clientId").value("clt_1"))
+            .andExpect(jsonPath("$.pagination.total").value(1));
+    }
+
+    @Test
+    void listClients_withFilters_returnsFilteredResults() throws Exception {
+        when(clientService.listClients(any(), eq(50), eq(0), eq("john"), eq(IdentityVerificationStatus.verified), eq("usr_2"))).thenReturn(
+            new ClientListResponse(List.of(sampleDto("clt_1")), new Pagination(50, 0, 1))
+        );
+
+        mockMvc.perform(get("/api/clients?q=john&kycStatus=verified&assignedUserId=usr_2")
+                .header("Authorization", AUTH_HEADER))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data[0].clientId").value("clt_1"))
             .andExpect(jsonPath("$.pagination.total").value(1));

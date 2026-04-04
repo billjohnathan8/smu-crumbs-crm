@@ -119,7 +119,13 @@ describe('ClientListPage', () => {
       expect(screen.getByTestId('mock-client-table')).toBeInTheDocument()
 
       // Verify API was called with default pagination
-      expect(clientsApi.listClients).toHaveBeenCalledWith({ limit: 20, offset: 0, q: undefined })
+      expect(clientsApi.listClients).toHaveBeenCalledWith({
+        limit: 20,
+        offset: 0,
+        q: undefined,
+        kycStatus: undefined,
+        assignedUserId: undefined
+      })
     })
 
     // Total count displays correctly
@@ -143,8 +149,8 @@ describe('ClientListPage', () => {
     const user = userEvent.setup()
     renderComponent()
 
-    const searchInput = screen.getByPlaceholderText(/Search by name/i)
-    const searchBtn = screen.getByRole('button', { name: 'Search' })
+    const searchInput = screen.getByPlaceholderText(/Name, email, or phone/i)
+    const searchBtn = screen.getByRole('button', { name: /Apply Filters/i })
 
     // Type and search
     await user.type(searchInput, 'John')
@@ -152,7 +158,13 @@ describe('ClientListPage', () => {
 
     await waitFor(() => {
       // API should be called again with the query string 'John'
-      expect(clientsApi.listClients).toHaveBeenCalledWith({ limit: 20, offset: 0, q: 'John' })
+      expect(clientsApi.listClients).toHaveBeenCalledWith({
+        limit: 20,
+        offset: 0,
+        q: 'John',
+        kycStatus: undefined,
+        assignedUserId: undefined
+      })
     })
   })
 
@@ -160,23 +172,29 @@ describe('ClientListPage', () => {
     const user = userEvent.setup()
     renderComponent()
 
-    const searchInput = screen.getByPlaceholderText(/Search by name/i)
-    const searchBtn = screen.getByRole('button', { name: 'Search' })
+    const searchInput = screen.getByPlaceholderText(/Name, email, or phone/i)
+    const searchBtn = screen.getByRole('button', { name: /Apply Filters/i })
 
     await user.type(searchInput, 'Jane')
     await user.click(searchBtn)
 
-    // Wait for the clear button to appear
-    const clearBtn = await screen.findByRole('button', { name: 'Clear' })
+    // Wait for the reset button to appear
+    const resetBtn = await screen.findByRole('button', { name: /Reset Filters/i })
 
-    // Click clear
-    await user.click(clearBtn)
+    // Click reset
+    await user.click(resetBtn)
 
     await waitFor(() => {
       // Search input should be empty
       expect(searchInput).toHaveValue('')
       // API called without 'q'
-      expect(clientsApi.listClients).toHaveBeenCalledWith({ limit: 20, offset: 0, q: undefined })
+      expect(clientsApi.listClients).toHaveBeenCalledWith({
+        limit: 20,
+        offset: 0,
+        q: undefined,
+        kycStatus: undefined,
+        assignedUserId: undefined
+      })
     })
   })
 
@@ -202,7 +220,13 @@ describe('ClientListPage', () => {
 
     await waitFor(() => {
       // Offset should be 20 (Page 2)
-      expect(clientsApi.listClients).toHaveBeenCalledWith({ limit: 20, offset: 20, q: undefined })
+      expect(clientsApi.listClients).toHaveBeenCalledWith({
+        limit: 20,
+        offset: 20,
+        q: undefined,
+        kycStatus: undefined,
+        assignedUserId: undefined
+      })
       expect(screen.getByText(/Page 2 of 3/i)).toBeInTheDocument()
     })
 
@@ -214,7 +238,13 @@ describe('ClientListPage', () => {
 
     await waitFor(() => {
       // Offset should be 0 (Page 1)
-      expect(clientsApi.listClients).toHaveBeenCalledWith({ limit: 20, offset: 0, q: undefined })
+      expect(clientsApi.listClients).toHaveBeenCalledWith({
+        limit: 20,
+        offset: 0,
+        q: undefined,
+        kycStatus: undefined,
+        assignedUserId: undefined
+      })
     })
   })
 
@@ -263,5 +293,28 @@ describe('ClientListPage', () => {
     await user.click(logoutBtn)
 
     expect(mockLogout).toHaveBeenCalled()
+  })
+
+  it('should handle KYC status filtering', async () => {
+    const user = userEvent.setup()
+    renderComponent()
+
+    // Find and select KYC status filter
+    const kycStatusSelect = screen.getByLabelText(/KYC Status/i)
+    await user.selectOptions(kycStatusSelect, 'verified')
+
+    // Apply filters
+    const applyBtn = screen.getByRole('button', { name: /Apply Filters/i })
+    await user.click(applyBtn)
+
+    await waitFor(() => {
+      expect(clientsApi.listClients).toHaveBeenCalledWith({
+        limit: 20,
+        offset: 0,
+        q: undefined,
+        kycStatus: 'verified',
+        assignedUserId: undefined
+      })
+    })
   })
 })
