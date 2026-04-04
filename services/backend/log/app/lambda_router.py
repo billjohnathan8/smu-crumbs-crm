@@ -801,10 +801,17 @@ class LambdaRouter:
         if query.detectedDate:
             try:
                 from datetime import timedelta, timezone
+
                 # Parse date string (YYYY-MM-DD)
                 date_obj = datetime.fromisoformat(query.detectedDate)
                 # Set to start of day (00:00:00)
-                detected_from = date_obj.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=timezone.utc)
+                detected_from = date_obj.replace(
+                    hour=0,
+                    minute=0,
+                    second=0,
+                    microsecond=0,
+                    tzinfo=timezone.utc,
+                )
                 # Set to end of day (23:59:59.999999)
                 detected_to = detected_from + timedelta(days=1)
             except (ValueError, TypeError):
