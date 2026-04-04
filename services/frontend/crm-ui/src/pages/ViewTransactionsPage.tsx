@@ -668,7 +668,7 @@ export function ViewTransactionsPage() {
               <label className="block text-xs text-text-muted mb-1">Client ID</label>
               <input
                 type="text"
-                placeholder="Client ID"
+                placeholder="clt_.."
                 value={filters.clientId}
                 onChange={e => handleFilterChange('clientId', e.target.value)}
                 className="w-full px-3 py-2 bg-background-light  rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -676,10 +676,10 @@ export function ViewTransactionsPage() {
             </div>
 
             <div>
-              <label className="block text-xs text-text-muted mb-1">Search</label>
+              <label className="block text-xs text-text-muted mb-1">Transaction ID</label>
               <input
                 type="text"
-                placeholder="Transaction ID"
+                placeholder="txn_.."
                 value={filters.search}
                 onChange={e => handleFilterChange('search', e.target.value)}
                 className="w-full px-3 py-2 bg-background-light  rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"

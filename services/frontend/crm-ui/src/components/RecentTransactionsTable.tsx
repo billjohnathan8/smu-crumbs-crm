@@ -14,14 +14,14 @@ export function RecentTransactionsTable({
   return (
     <div className="bg-card  rounded-lg">
       <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-        <h2 className="text-lg font-bold text-text">Recent Transactions</h2>
+        <h2 className="text-lg font-normal text-text">Recent Transactions</h2>
         <button onClick={onViewAll} className="underline-hover text-primary text-sm">
           View all →
         </button>
       </div>
 
       {transactions.length === 0 ? (
-        <div className="p-6 text-center text-text-muted text-sm">No transactions found</div>
+        <div className="p-6 text-center text-text-subtle text-sm">No transactions found</div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -55,7 +55,7 @@ export function RecentTransactionsTable({
                           : 'bg-warning/20 text-warning'
                       }`}
                     >
-                      {tx.transaction === 'D' ? 'Deposit' : 'Withdrawal'}
+                      {tx.transaction === 'D' ? 'DEPOSIT' : 'WITHDRAWAL'}
                     </span>
                   </td>
                   <td className="px-6 py-3 text-sm text-text text-right font-normal">
@@ -71,7 +71,7 @@ export function RecentTransactionsTable({
                             : 'bg-danger/20 text-danger'
                       }`}
                     >
-                      {tx.status}
+                      {tx.status.toUpperCase()}
                     </span>
                   </td>
                 </tr>

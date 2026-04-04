@@ -21,7 +21,7 @@ export function BankAccountsPreview({
       </div>
 
       {accounts.length === 0 ? (
-        <div className="p-6 text-center text-text-muted text-sm">No bank accounts found</div>
+        <div className="p-6 text-center text-text-subtle text-sm">No bank accounts found</div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -45,7 +45,7 @@ export function BankAccountsPreview({
               {accounts.map(acct => (
                 <tr key={acct.accountId} className="hover:bg-background-light">
                   <td className="px-6 py-3 text-sm text-text font-mono">{acct.accountId}</td>
-                  <td className="px-6 py-3 text-sm text-text">{acct.accountType}</td>
+                  <td className="px-6 py-3 text-sm text-text">{acct.accountType.toUpperCase()}</td>
                   <td className="px-6 py-3">
                     <span
                       className={`px-2 py-1 rounded text-xs font-normal ${
@@ -56,7 +56,7 @@ export function BankAccountsPreview({
                             : 'bg-background-light text-text-muted'
                       }`}
                     >
-                      {acct.accountStatus}
+                      {acct.accountStatus.toUpperCase()}
                     </span>
                   </td>
                   <td className="px-6 py-3 text-sm text-text text-right font-normal">

@@ -359,7 +359,7 @@ export function ClientDetailPage() {
                 'bg-background-light text-text-muted'
               }`}
             >
-              {client.identityVerificationStatus}
+              {client.identityVerificationStatus.toUpperCase()}
             </span>
           </div>
         </div>

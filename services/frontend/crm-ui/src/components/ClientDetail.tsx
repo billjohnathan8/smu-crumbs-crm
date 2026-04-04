@@ -24,7 +24,7 @@ export function ClientDetail({
   return (
     <div className="bg-card  rounded-lg p-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-text">Client Profile</h2>
+        <h2 className="text-lg font-normal text-text">Client Profile</h2>
         <div className="flex items-center space-x-2">
           <button
             onClick={onEdit}
