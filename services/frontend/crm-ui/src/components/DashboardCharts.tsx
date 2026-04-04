@@ -76,7 +76,9 @@ export function ActivityTrendChart({ data, isLoading = false }: ActivityTrendCha
           <Tooltip
             contentStyle={{
               borderRadius: '8px',
-              border: '1px solid var(--color-border)',
+              backgroundColor: 'var(--card)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
               fontSize: '12px',
             }}
           />
@@ -111,7 +113,9 @@ export function VerificationStatusChart({ data, isLoading = false }: Verificatio
           <Tooltip
             contentStyle={{
               borderRadius: '8px',
-              border: '1px solid var(--color-border)',
+              backgroundColor: 'var(--card)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
               fontSize: '12px',
             }}
           />
@@ -164,7 +168,9 @@ export function NewClientsChart({ data, isLoading = false }: NewClientsChartProp
           <Tooltip
             contentStyle={{
               borderRadius: '8px',
-              border: '1px solid var(--color-border)',
+              backgroundColor: 'var(--card)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
               fontSize: '12px',
             }}
           />

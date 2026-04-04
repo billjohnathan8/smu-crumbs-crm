@@ -509,6 +509,7 @@ export function AdminUserManagementPage() {
                                   {(agentClientCounts[u.id] ?? -1) !== 0 && (
                                     <button
                                       onClick={() => openTransferModal(u)}
+                                      title="Transfer clients to enable delete"
                                       className="px-3 py-1 rounded text-sm font-normal bg-accent text-white hover:opacity-80 transition-opacity"
                                     >
                                       Transfer
@@ -530,11 +531,7 @@ export function AdminUserManagementPage() {
                                     >
                                       {deletingUserId === u.id ? 'Deleting...' : 'Delete'}
                                     </button>
-                                  ) : (
-                                    <span className="text-xs text-text-muted">
-                                      Transfer clients to enable delete
-                                    </span>
-                                  )}
+                                  ) : null}
                                 </>
                               )}
                             </div>
