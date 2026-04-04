@@ -47,6 +47,24 @@ interface NewClientsChartProps {
 
 const CHART_MARGIN = { top: 16, right: 24, left: 0, bottom: 8 }
 
+function renderVerificationLabel(props: any) {
+  const { x, y, cx, name, value } = props
+  if (!value || value <= 0) return null
+
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="var(--text)"
+      fontSize={12}
+      textAnchor={x > cx ? 'start' : 'end'}
+      dominantBaseline="central"
+    >
+      {`${name}: ${value}`}
+    </text>
+  )
+}
+
 function EmptyChartState({ message }: { message: string }) {
   return (
     <div className="h-72 flex items-center justify-center text-sm text-text-subtle">{message}</div>
@@ -79,10 +97,10 @@ export function ActivityTrendChart({ data, isLoading = false }: ActivityTrendCha
               backgroundColor: 'var(--card)',
               color: 'var(--text)',
               border: '1px solid var(--border)',
-              fontSize: '10px',
+              fontSize: '12px',
             }}
           />
-          <Legend />
+          <Legend wrapperStyle={{ fontSize: '12px' }} />
           <Line type="monotone" dataKey="create" stroke="#22c55e" strokeWidth={2.5} name="create" />
           <Line type="monotone" dataKey="update" stroke="#f59e0b" strokeWidth={2.5} name="update" />
           <Line type="monotone" dataKey="delete" stroke="#ef4444" strokeWidth={2.5} name="delete" />
@@ -116,10 +134,10 @@ export function VerificationStatusChart({ data, isLoading = false }: Verificatio
               backgroundColor: 'var(--card)',
               color: 'var(--text)',
               border: '1px solid var(--border)',
-              fontSize: '10px',
+              fontSize: '12px',
             }}
           />
-          <Legend verticalAlign="bottom" height={36} />
+          <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize: '12px' }} />
           <Pie
             data={data}
             dataKey="value"
@@ -127,7 +145,7 @@ export function VerificationStatusChart({ data, isLoading = false }: Verificatio
             cx="50%"
             cy="45%"
             outerRadius={95}
-            label={({ name, value }) => (value > 0 ? `${name}: ${value}` : '')}
+            label={renderVerificationLabel}
           >
             {data.map(entry => (
               <Cell key={entry.name} fill={entry.color} />
@@ -171,11 +189,11 @@ export function NewClientsChart({ data, isLoading = false }: NewClientsChartProp
               backgroundColor: 'var(--card)',
               color: 'var(--text)',
               border: '1px solid var(--border)',
-              fontSize: '10px',
+              fontSize: '12px',
             }}
           />
           <Legend
-            wrapperStyle={{ fontSize: '10px' }}
+            wrapperStyle={{ fontSize: '12px' }}
             formatter={value => <span style={{ color: 'var(--text)' }}>{value}</span>}
           />
           <Line
