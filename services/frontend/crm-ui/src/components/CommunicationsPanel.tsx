@@ -22,6 +22,7 @@ type CommunicationsPanelProps = {
   onRefresh?: () => void
   isRefreshing?: boolean
   headerActions?: ReactNode
+  footerContent?: ReactNode
 
   showComposeForm?: boolean
   setShowComposeForm?: Dispatch<SetStateAction<boolean>>
@@ -50,6 +51,7 @@ export function CommunicationsPanel({
   onRefresh,
   isRefreshing = false,
   headerActions,
+  footerContent,
 
   showComposeForm = false,
   setShowComposeForm,
@@ -384,6 +386,8 @@ export function CommunicationsPanel({
           ))}
         </div>
       )}
+
+      {footerContent && <div className="px-6 py-4 border-t border-border">{footerContent}</div>}
     </div>
   )
 }

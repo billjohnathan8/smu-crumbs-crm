@@ -532,47 +532,50 @@ export function AdminCommunications() {
           onRefresh={() => fetchCommunications(activeFilters, currentPage, true)}
           isRefreshing={isTableLoading}
           editableStatuses
+          footerContent={
+            Math.ceil(totalCommunications / COMMUNICATIONS_PER_PAGE) > 1 ? (
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-text-muted">
+                  Showing {currentPage * COMMUNICATIONS_PER_PAGE + 1} to{' '}
+                  {Math.min((currentPage + 1) * COMMUNICATIONS_PER_PAGE, totalCommunications)} of{' '}
+                  {totalCommunications} communications
+                </p>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setCurrentPage(page => page - 1)}
+                    disabled={currentPage === 0 || isTableLoading}
+                    className={`px-3 py-1 rounded ${
+                      currentPage === 0 || isTableLoading
+                        ? 'bg-background-light text-text-muted cursor-not-allowed'
+                        : 'bg-primary hover:brightness-[0.8] text-white transition-all duration-200'
+                    }`}
+                  >
+                    Previous
+                  </button>
+                  <span className="px-3 py-1 text-text">
+                    Page {currentPage + 1} of{' '}
+                    {Math.ceil(totalCommunications / COMMUNICATIONS_PER_PAGE)}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(page => page + 1)}
+                    disabled={
+                      currentPage >= Math.ceil(totalCommunications / COMMUNICATIONS_PER_PAGE) - 1 ||
+                      isTableLoading
+                    }
+                    className={`px-3 py-1 rounded ${
+                      currentPage >= Math.ceil(totalCommunications / COMMUNICATIONS_PER_PAGE) - 1 ||
+                      isTableLoading
+                        ? 'bg-background-light text-text-muted cursor-not-allowed'
+                        : 'bg-primary hover:brightness-[0.8] text-white transition-all duration-200'
+                    }`}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            ) : null
+          }
         />
-        {Math.ceil(totalCommunications / COMMUNICATIONS_PER_PAGE) > 1 && (
-          <div className="rounded-lg bg-card px-6 py-4 border border-border flex items-center justify-between">
-            <p className="text-sm text-text-muted">
-              Showing {currentPage * COMMUNICATIONS_PER_PAGE + 1} to{' '}
-              {Math.min((currentPage + 1) * COMMUNICATIONS_PER_PAGE, totalCommunications)} of{' '}
-              {totalCommunications} communications
-            </p>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setCurrentPage(page => page - 1)}
-                disabled={currentPage === 0 || isTableLoading}
-                className={`px-3 py-1 rounded ${
-                  currentPage === 0 || isTableLoading
-                    ? 'bg-background-light text-text-muted cursor-not-allowed'
-                    : 'bg-primary hover:brightness-[0.8] text-white transition-all duration-200'
-                }`}
-              >
-                Previous
-              </button>
-              <span className="px-3 py-1 text-text">
-                Page {currentPage + 1} of {Math.ceil(totalCommunications / COMMUNICATIONS_PER_PAGE)}
-              </span>
-              <button
-                onClick={() => setCurrentPage(page => page + 1)}
-                disabled={
-                  currentPage >= Math.ceil(totalCommunications / COMMUNICATIONS_PER_PAGE) - 1 ||
-                  isTableLoading
-                }
-                className={`px-3 py-1 rounded ${
-                  currentPage >= Math.ceil(totalCommunications / COMMUNICATIONS_PER_PAGE) - 1 ||
-                  isTableLoading
-                    ? 'bg-background-light text-text-muted cursor-not-allowed'
-                    : 'bg-primary hover:brightness-[0.8] text-white transition-all duration-200'
-                }`}
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
       </main>
     </SidebarLayout>
   )
