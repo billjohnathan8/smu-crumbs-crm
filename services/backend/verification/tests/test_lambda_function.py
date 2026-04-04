@@ -39,7 +39,9 @@ def test_lambda_handler_missing_log_api_base_url_skips_feedback_records():
         "Records": [
             {
                 "Sns": {
-                    "Message": json.dumps({"eventType": "Delivery", "mail": {"messageId": "ses-1"}})
+                    "Message": json.dumps(
+                        {"eventType": "Delivery", "mail": {"messageId": "ses-1"}}
+                    )
                 }
             }
         ]
@@ -128,7 +130,9 @@ def test_extract_feedback_parses_bounce():
         "mail": {"messageId": "ses-1"},
         "bounce": {"bounceType": "Permanent", "bounceSubType": "General"},
     }
-    provider_message_id, event_type, error_message = lambda_function._extract_feedback(message)
+    provider_message_id, event_type, error_message = lambda_function._extract_feedback(
+        message
+    )
 
     assert provider_message_id == "ses-1"
     assert event_type == "BOUNCE"
@@ -173,7 +177,9 @@ def test_status_for_event(event_type, expected):
     ],
 )
 def test_extract_feedback_parses_other_failure_types(message, expected_error):
-    provider_message_id, event_type, error_message = lambda_function._extract_feedback(message)
+    provider_message_id, event_type, error_message = lambda_function._extract_feedback(
+        message
+    )
     assert provider_message_id is not None
     assert event_type in {"COMPLAINT", "REJECT"}
     assert error_message == expected_error
@@ -410,7 +416,9 @@ def test_lambda_handler_reports_http_error_details(monkeypatch):
     assert response["statusCode"] == 207
     assert body["updated"] == 0
     assert body["skipped"] == 0
-    assert body["failedUpdates"] == [{"providerMessageId": "ses-99", "statusCode": "409"}]
+    assert body["failedUpdates"] == [
+        {"providerMessageId": "ses-99", "statusCode": "409"}
+    ]
 
 
 def test_lambda_handler_skips_records_without_provider_message_id(monkeypatch):

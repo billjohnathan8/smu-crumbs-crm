@@ -51,7 +51,9 @@ class TestCloudWatchAlarmHandler:
     def test_forwards_alarm_when_configured_correctly(self, monkeypatch):
         """Should send email when source email and recipients are configured"""
         monkeypatch.setenv("SES_SOURCE_EMAIL", "alerts@example.com")
-        monkeypatch.setenv("ALARM_FORWARD_TO_EMAILS", "ops@example.com,admin@example.com")
+        monkeypatch.setenv(
+            "ALARM_FORWARD_TO_EMAILS", "ops@example.com,admin@example.com"
+        )
 
         sent_emails = []
 
@@ -422,7 +424,9 @@ class TestVerificationRejectedEmail:
         lambda_function._handle_verification_rejected(message)
 
         assert len(sent_emails) == 1
-        assert "requires attention" in sent_emails[0]["Message"]["Subject"]["Data"].lower()
+        assert (
+            "requires attention" in sent_emails[0]["Message"]["Subject"]["Data"].lower()
+        )
 
 
 class TestLambdaHandlerWithNewEventTypes:
@@ -600,7 +604,9 @@ class TestLambdaHandlerWithNewEventTypes:
         assert body["updated"] == 1
         assert len(sent_emails) == 1
 
-    def test_lambda_handler_handles_missing_client_id_or_email(self, monkeypatch, caplog):
+    def test_lambda_handler_handles_missing_client_id_or_email(
+        self, monkeypatch, caplog
+    ):
         """Should handle events with missing clientId or email gracefully"""
         monkeypatch.setenv("SES_SOURCE_EMAIL", "noreply@example.com")
 

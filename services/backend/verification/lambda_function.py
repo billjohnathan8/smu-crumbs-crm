@@ -108,9 +108,9 @@ def _load_service_jwt_secret() -> str | None:
         return None
 
     try:
-        secret_value = boto3.client("secretsmanager").get_secret_value(SecretId=secret_arn)[
-            "SecretString"
-        ]
+        secret_value = boto3.client("secretsmanager").get_secret_value(
+            SecretId=secret_arn
+        )["SecretString"]
         if isinstance(secret_value, str) and secret_value.strip():
             _JWT_SECRET_CACHE = secret_value.strip()
     except Exception:
@@ -255,13 +255,19 @@ def _alarm_forward_recipients() -> list[str]:
 
 
 def _is_cloudwatch_alarm_message(message: dict[str, Any]) -> bool:
-    return "AlarmName" in message and "NewStateValue" in message and "NewStateReason" in message
+    return (
+        "AlarmName" in message
+        and "NewStateValue" in message
+        and "NewStateReason" in message
+    )
 
 
 def _handle_cloudwatch_alarm(message: dict[str, Any]) -> bool:
     recipients = _alarm_forward_recipients()
     if not recipients:
-        logger.warning("Skipping CloudWatch alarm forward because ALARM_FORWARD_TO_EMAILS is empty")
+        logger.warning(
+            "Skipping CloudWatch alarm forward because ALARM_FORWARD_TO_EMAILS is empty"
+        )
         return False
 
     source_email = os.environ.get("SES_SOURCE_EMAIL", "").strip()
@@ -319,7 +325,9 @@ def _handle_verification_requested(message: dict[str, Any]) -> None:
         logger.warning("VERIFICATION_REQUESTED missing clientId or email — skipping")
         return
 
-    _send_verification_email(client_id, email, token, first_name, request_id, token_ttl_seconds)
+    _send_verification_email(
+        client_id, email, token, first_name, request_id, token_ttl_seconds
+    )
 
 
 def _send_client_info_updated_email(
@@ -331,7 +339,9 @@ def _send_client_info_updated_email(
 ) -> None:
     source_email = os.environ.get("SES_SOURCE_EMAIL", "").strip()
     if not source_email:
-        raise ValueError("SES_SOURCE_EMAIL is required to send client info updated emails")
+        raise ValueError(
+            "SES_SOURCE_EMAIL is required to send client info updated emails"
+        )
 
     if boto3 is None:
         raise RuntimeError("boto3 is required to send SES emails")
@@ -396,7 +406,9 @@ def _send_verification_approved_email(
 ) -> None:
     source_email = os.environ.get("SES_SOURCE_EMAIL", "").strip()
     if not source_email:
-        raise ValueError("SES_SOURCE_EMAIL is required to send verification approved emails")
+        raise ValueError(
+            "SES_SOURCE_EMAIL is required to send verification approved emails"
+        )
 
     if boto3 is None:
         raise RuntimeError("boto3 is required to send SES emails")
@@ -449,7 +461,9 @@ def _handle_verification_approved(message: dict[str, Any]) -> None:
         logger.warning("VERIFICATION_APPROVED missing clientId or email — skipping")
         return
 
-    _send_verification_approved_email(client_id, email, first_name, last_name, request_id)
+    _send_verification_approved_email(
+        client_id, email, first_name, last_name, request_id
+    )
 
 
 def _send_verification_rejected_email(
@@ -461,7 +475,9 @@ def _send_verification_rejected_email(
 ) -> None:
     source_email = os.environ.get("SES_SOURCE_EMAIL", "").strip()
     if not source_email:
-        raise ValueError("SES_SOURCE_EMAIL is required to send verification rejected emails")
+        raise ValueError(
+            "SES_SOURCE_EMAIL is required to send verification rejected emails"
+        )
 
     if boto3 is None:
         raise RuntimeError("boto3 is required to send SES emails")
@@ -516,7 +532,9 @@ def _handle_verification_rejected(message: dict[str, Any]) -> None:
         logger.warning("VERIFICATION_REJECTED missing clientId or email — skipping")
         return
 
-    _send_verification_rejected_email(client_id, email, first_name, last_name, request_id)
+    _send_verification_rejected_email(
+        client_id, email, first_name, last_name, request_id
+    )
 
 
 def _parse_positive_int(value: Any, default: int) -> int:
@@ -552,10 +570,14 @@ def _extract_feedback(message: dict[str, Any]) -> tuple[str | None, str, str | N
     error_message = None
     if event_type == "BOUNCE":
         bounce = message.get("bounce") or {}
-        error_message = f"SES bounce: {bounce.get('bounceType')}/{bounce.get('bounceSubType')}"
+        error_message = (
+            f"SES bounce: {bounce.get('bounceType')}/{bounce.get('bounceSubType')}"
+        )
     elif event_type == "COMPLAINT":
         complaint = message.get("complaint") or {}
-        error_message = f"SES complaint: {complaint.get('complaintFeedbackType') or 'unknown'}"
+        error_message = (
+            f"SES complaint: {complaint.get('complaintFeedbackType') or 'unknown'}"
+        )
     elif event_type == "REJECT":
         reject = message.get("reject") or {}
         error_message = f"SES reject: {reject.get('reason') or 'unknown'}"
@@ -638,7 +660,9 @@ def _invoke_update_communication_feedback(
         supports_status = True
 
     if supports_status:
-        return update_fn(log_api_base_url, provider_message_id, status, event_type, error_message)
+        return update_fn(
+            log_api_base_url, provider_message_id, status, event_type, error_message
+        )
     return update_fn(log_api_base_url, provider_message_id, event_type, error_message)
 
 
