@@ -101,7 +101,7 @@ describe('DashboardCharts', () => {
     expect(screen.getByText('Pending: 1')).toBeInTheDocument()
     expect(screen.queryByText('Rejected: 0')).not.toBeInTheDocument()
     expect(screen.queryByText('Verified: 0')).not.toBeInTheDocument()
-    expect(screen.getAllByTestId('recharts-cell')).toHaveLength(1)
+    expect(screen.getAllByTestId('recharts-cell')).toHaveLength(3)
   })
 
   it('renders loading and empty states for NewClientsChart', () => {

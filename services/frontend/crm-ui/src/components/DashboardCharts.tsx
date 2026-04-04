@@ -101,8 +101,8 @@ export function VerificationStatusChart({ data, isLoading = false }: Verificatio
     )
   }
 
-  const chartData = data.filter(item => item.value > 0)
-  if (!chartData.length) {
+  const hasAny = data.some(item => item.value > 0)
+  if (!hasAny) {
     return <EmptyChartState message="No verification data available." />
   }
 
@@ -121,15 +121,15 @@ export function VerificationStatusChart({ data, isLoading = false }: Verificatio
           />
           <Legend verticalAlign="bottom" height={36} />
           <Pie
-            data={chartData}
+            data={data}
             dataKey="value"
             nameKey="name"
             cx="50%"
             cy="45%"
             outerRadius={95}
-            label={({ name, value }) => `${name}: ${value}`}
+            label={({ name, value }) => (value > 0 ? `${name}: ${value}` : '')}
           >
-            {chartData.map(entry => (
+            {data.map(entry => (
               <Cell key={entry.name} fill={entry.color} />
             ))}
           </Pie>
