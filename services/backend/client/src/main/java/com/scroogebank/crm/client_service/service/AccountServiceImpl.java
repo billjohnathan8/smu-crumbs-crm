@@ -22,6 +22,7 @@ import com.scroogebank.crm.client_service.security.AuthenticatedUser;
 import com.scroogebank.crm.client_service.util.IdCodec;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -43,6 +44,7 @@ public class AccountServiceImpl implements AccountService {
 	private static final Logger LOGGER = LoggerFactory.getLogger(AccountServiceImpl.class);
 	private static final String CLIENT_ID_PREFIX = "clt_";
 	private static final String ACCOUNT_ID_PREFIX = "acc_";
+	private static final ZoneId ACCOUNT_OPENING_DATE_ZONE = ZoneId.of("Asia/Singapore");
 
 	private final AccountRepository accountRepository;
 	private final ClientRepository clientRepository;
@@ -84,7 +86,7 @@ public class AccountServiceImpl implements AccountService {
 		entity.setClient(client);
 		entity.setAccountType(request.accountType());
 		entity.setAccountStatus(request.accountStatus());
-		entity.setOpeningDate(LocalDate.now(clock));
+		entity.setOpeningDate(LocalDate.now(clock.withZone(ACCOUNT_OPENING_DATE_ZONE)));
 		entity.setInitialDeposit(request.initialDeposit());
 		entity.setCurrency(normalizedCurrency);
 		entity.setBranchId(normalizedBranchId);

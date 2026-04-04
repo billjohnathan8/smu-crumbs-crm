@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { listLogs } from '@/api/logs'
 import { listClients } from '@/api/clients'
@@ -102,6 +103,7 @@ async function fetchAllClientsPaginated(): Promise<Client[]> {
 
 export function UserDashboard() {
   const { user, logout } = useAuth()
+  const navigate = useNavigate()
   const [clientCount, setClientCount] = useState(0)
   const [recentActivities, setRecentActivities] = useState<LogEntry[]>([])
   const [allClients, setAllClients] = useState<Client[]>([])
@@ -130,6 +132,11 @@ export function UserDashboard() {
       { name: 'Rejected', value: rejected, color: 'var(--red)' },
     ]
   }, [allClients])
+
+  const pendingClients = useMemo(
+    () => allClients.filter(c => c.identityVerificationStatus === 'pending'),
+    [allClients]
+  )
 
   const newClientsTrendData = useMemo<NewClientsPoint[]>(() => {
     if (!activityDateFrom || !activityDateTo || activityDateFrom > activityDateTo) {
@@ -433,6 +440,53 @@ export function UserDashboard() {
             {chartError && (
               <div className="bg-danger/10 border border-danger rounded-lg p-4 mb-6">
                 <p className="text-danger text-sm">{chartError}</p>
+              </div>
+            )}
+
+            {pendingClients.length > 0 && (
+              <div className="bg-card border border-warning rounded-lg mb-8">
+                <div className="px-6 py-4 border-b border-border">
+                  <h2 className="text-xl font-normal text-text">
+                    Pending Verifications ({pendingClients.length})
+                  </h2>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-background-light">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
+                          Client
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
+                          Email
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {pendingClients.map(client => (
+                        <tr key={client.clientId} className="hover:bg-background-light">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-text">
+                            {client.firstName} {client.lastName}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-text-muted">
+                            {client.emailAddress}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <button
+                              onClick={() => navigate(`/user/clients/${client.clientId}`)}
+                              className="underline-hover text-primary font-normal"
+                            >
+                              Review →
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
 

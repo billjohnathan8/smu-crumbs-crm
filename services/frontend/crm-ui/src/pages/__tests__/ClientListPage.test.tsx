@@ -97,7 +97,7 @@ describe('ClientListPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/user/clients/new')
   })
 
-  it('should render correct title and base paths for an Admin', async () => {
+  it('should render restricted title and user-path actions for a non-root admin', async () => {
     // Override auth mock for Admin
     vi.mocked(useAuth).mockReturnValue({
       user: { id: 'admin-123', role: 'admin', firstName: 'Admin', lastName: 'User' },
@@ -106,13 +106,13 @@ describe('ClientListPage', () => {
 
     renderComponent()
 
-    // Admin should see "All Clients"
-    expect(screen.getByRole('heading', { name: 'All Clients', level: 1 })).toBeInTheDocument()
+    // Non-root admin is not treated as management root admin in this page.
+    expect(screen.getByRole('heading', { name: 'My Clients', level: 1 })).toBeInTheDocument()
 
-    // Verify New Client navigation path uses /admin
+    // Non-root admin uses non-management base path
     const newClientBtn = screen.getByRole('button', { name: /\+ New Client/i })
     await userEvent.click(newClientBtn)
-    expect(mockNavigate).toHaveBeenCalledWith('/admin/clients/new')
+    expect(mockNavigate).toHaveBeenCalledWith('/user/clients/new')
   })
 
   it('should fetch and display clients on mount', async () => {

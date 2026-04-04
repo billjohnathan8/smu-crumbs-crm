@@ -4,7 +4,8 @@ import { useAuth } from '@/features/auth/AuthContext'
 import { listLogs } from '@/api/logs'
 import type { LogAction, LogEntry } from '@/api/types'
 import { ApiError } from '@/api/client'
-import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
+import { SidebarLayout } from '@/components/SidebarDrawer'
+import { getSidebarNavForUser } from '@/navigation/sidebarNav'
 
 const LOGS_PER_PAGE = 10
 type LogActionFilter = LogAction | 'all'
@@ -25,35 +26,11 @@ const DEFAULT_FILTERS: LogFilters = {
   clientId: '',
 }
 
-const adminNav: NavItem[] = [
-  { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients', end: true },
-  { label: 'Client Archives', to: '/admin/client-archives', end: true },
-  { label: 'Create Client', to: '/admin/clients/new' },
-  { label: 'Communications', to: '/admin/communications' },
-  { label: 'Transactions', to: '/admin/transactions' },
-  { label: 'AML Alerts', to: '/admin/aml-alerts' },
-  { label: 'Activity Logs', to: '/admin/logs' },
-  { label: 'User Management', to: '/admin/users' },
-  { label: 'Settings', to: '/admin/settings' },
-]
-
-const userNav: NavItem[] = [
-  { label: 'Home', to: '/user', end: true },
-  { label: 'My Clients', to: '/user/clients' },
-  { label: 'Create Client', to: '/user/clients/new' },
-  { label: 'Transactions', to: '/user/transactions' },
-  { label: 'AML Alerts', to: '/user/aml-alerts' },
-  { label: 'Activity Logs', to: '/user/logs' },
-  { label: 'Settings', to: '/user/settings' },
-]
-
 export function ActivityLogsPage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
   const basePath = isAdmin ? '/admin' : '/user'
-  const sidebarNav = isAdmin ? adminNav : userNav
 
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [logsTotal, setLogsTotal] = useState(0)
@@ -157,7 +134,7 @@ export function ActivityLogsPage() {
   }
 
   return (
-    <SidebarLayout items={sidebarNav}>
+    <SidebarLayout items={getSidebarNavForUser(user)}>
       <nav>
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center space-x-4">

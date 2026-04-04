@@ -11,21 +11,9 @@ import {
 import type { Communication, CommunicationStatus } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { listClients } from '@/api/clients'
-import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
+import { SidebarLayout } from '@/components/SidebarDrawer'
 import { CommunicationsPanel } from '@/components/CommunicationsPanel'
-
-const adminNav: NavItem[] = [
-  { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients', end: true },
-  { label: 'Client Archives', to: '/admin/client-archives', end: true },
-  { label: 'Create Client', to: '/admin/clients/new' },
-  { label: 'Communications', to: '/admin/communications' },
-  { label: 'Transactions', to: '/admin/transactions' },
-  { label: 'AML Alerts', to: '/admin/aml-alerts' },
-  { label: 'Activity Logs', to: '/admin/logs' },
-  { label: 'User Management', to: '/admin/users' },
-  { label: 'Settings', to: '/admin/settings' },
-]
+import { getSidebarNavForUser } from '@/navigation/sidebarNav'
 
 const statusColors: Record<CommunicationStatus, string> = {
   queued: 'bg-warning/20 text-warning',
@@ -351,7 +339,7 @@ export function AdminCommunications() {
 
   if (isLoading) {
     return (
-      <SidebarLayout items={adminNav}>
+      <SidebarLayout items={getSidebarNavForUser(user)}>
         <div className="flex h-64 items-center justify-center">
           <div
             data-testid="loading-spinner"
@@ -363,7 +351,7 @@ export function AdminCommunications() {
   }
 
   return (
-    <SidebarLayout items={adminNav}>
+    <SidebarLayout items={getSidebarNavForUser(user)}>
       <nav>
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center space-x-4">

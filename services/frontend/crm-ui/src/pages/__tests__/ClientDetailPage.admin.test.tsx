@@ -1,6 +1,6 @@
 /**
- * Admin-role-specific tests for ClientDetailPage.
- * Kept in a separate file so the auth mock can use admin role.
+ * Root-admin-role-specific tests for ClientDetailPage.
+ * Kept in a separate file so the auth mock can use root admin role.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
@@ -21,7 +21,13 @@ vi.mock('@/api/communications')
 const mockLogout = vi.fn()
 vi.mock('@/features/auth/AuthContext', () => ({
   useAuth: () => ({
-    user: { id: 'admin-1', firstName: 'Admin', lastName: 'User', role: 'admin' },
+    user: {
+      id: 'usr_1',
+      firstName: 'Admin',
+      lastName: 'User',
+      role: 'super_admin',
+      email: 'admin@crm.com',
+    },
     logout: mockLogout,
   }),
 }))
@@ -75,7 +81,7 @@ const mockCommsResponse: PaginatedResponse<Communication> = {
   pagination: { limit: 10, offset: 0, total: 0 },
 }
 
-describe('ClientDetailPage (admin role)', () => {
+describe('ClientDetailPage (root admin role)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.spyOn(clientsApi, 'getClientById').mockResolvedValue(mockClient)
@@ -93,7 +99,7 @@ describe('ClientDetailPage (admin role)', () => {
       </ThemeProvider>
     )
 
-  it('renders admin breadcrumb "All Clients" for admin role', async () => {
+  it('renders root admin breadcrumb "All Clients"', async () => {
     renderComponent()
 
     await waitFor(() => {
@@ -101,7 +107,7 @@ describe('ClientDetailPage (admin role)', () => {
     })
   })
 
-  it('navigates to admin client accounts for admin role', async () => {
+  it('navigates to admin client accounts for root admin role', async () => {
     renderComponent()
     const user = userEvent.setup()
 
@@ -113,7 +119,7 @@ describe('ClientDetailPage (admin role)', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/admin/clients/client-123/accounts')
   })
 
-  it('shows verification review panel for admin when client status is pending', async () => {
+  it('shows verification review panel for root admin when client status is pending', async () => {
     vi.spyOn(clientsApi, 'getClientById').mockResolvedValue(mockClientPending)
 
     renderComponent()

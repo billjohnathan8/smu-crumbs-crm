@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
+import { isRootAdminUser } from '@/features/auth/authorization'
 import {
   getClientById,
   listClientAccounts,
@@ -18,35 +19,13 @@ import type {
   AccountType,
 } from '@/api/types'
 import { ApiError } from '@/api/client'
-import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
+import { SidebarLayout } from '@/components/SidebarDrawer'
 import { AccountsTable } from '@/components/AccountsTable'
 import { AccountFormModal } from '@/components/AccountFormModal'
 import { DeleteConfirmModal } from '@/components/DeleteConfirmModal'
+import { getSidebarNavForUser } from '@/navigation/sidebarNav'
 
 type ModalMode = 'create' | 'edit' | null
-
-const userNav: NavItem[] = [
-  { label: 'Home', to: '/user', end: true },
-  { label: 'My Clients', to: '/user/clients' },
-  { label: 'Create Client', to: '/user/clients/new' },
-  { label: 'Transactions', to: '/user/transactions' },
-  { label: 'AML Alerts', to: '/user/aml-alerts' },
-  { label: 'Activity Logs', to: '/user/logs' },
-  { label: 'Settings', to: '/user/settings' },
-]
-
-const adminNav: NavItem[] = [
-  { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients', end: true },
-  { label: 'Client Archives', to: '/admin/client-archives', end: true },
-  { label: 'Create Client', to: '/admin/clients/new' },
-  { label: 'Communications', to: '/admin/communications' },
-  { label: 'Transactions', to: '/admin/transactions' },
-  { label: 'AML Alerts', to: '/admin/aml-alerts' },
-  { label: 'Activity Logs', to: '/admin/logs' },
-  { label: 'User Management', to: '/admin/users' },
-  { label: 'Settings', to: '/admin/settings' },
-]
 
 const FALLBACK_ACCOUNT_OPENING_OPTIONS: AccountOpeningOptions = {
   clientId: '',
@@ -73,12 +52,10 @@ export function ClientAccountsPage() {
   const navigate = useNavigate()
 
   const isUser = user?.role === 'user'
-  const isAdmin = user?.role === 'admin'
-  const isSuperAdmin = user?.role === 'super_admin'
-  const isManagementUser = isAdmin || isSuperAdmin
+  const isManagementUser = isRootAdminUser(user)
+  const sidebarNav = getSidebarNavForUser(user)
 
   const basePath = isManagementUser ? '/admin' : '/user'
-  const sidebarNav = isManagementUser ? adminNav : userNav
   const listPagePath = `${basePath}/clients`
   const clientDetailsPath = `${basePath}/clients/${clientId}`
 

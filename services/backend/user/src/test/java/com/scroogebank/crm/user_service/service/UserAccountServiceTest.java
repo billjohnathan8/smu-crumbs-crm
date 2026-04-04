@@ -683,7 +683,7 @@ class UserAccountServiceTest {
 	}
 
 	@Test
-	void deleteUser_adminDeleteAgent() {
+	void deleteUser_nonRootAdminCannotArchiveAgent() {
 		UserDto userDto = new UserDto(
 			"usr_3",
 			"Ava",
@@ -696,12 +696,16 @@ class UserAccountServiceTest {
 		);
 		when(store.getUser(eq("usr_3"))).thenReturn(userDto);
 
-		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "admin");
+		AuthenticatedUser admin = new AuthenticatedUser("usr_9", "admin");
 
-		service.deleteUser("usr_3", admin, AUTH_HEADER, CORRELATION_ID, null);
+		AccessDeniedException denied = assertThrows(
+			AccessDeniedException.class,
+			() -> service.deleteUser("usr_3", admin, AUTH_HEADER, CORRELATION_ID, null)
+		);
+		assertNotNull(denied);
 
 		verify(store).getUser(eq("usr_3"));
-		verify(store).archiveUser(eq("usr_3"), eq("usr_1"), eq(null));
+		verify(store, never()).archiveUser(any(), any(), any());
 	}
 
 	@Test
@@ -818,26 +822,14 @@ class UserAccountServiceTest {
 	}
 
 	@Test
-	void listArchivedUsers_adminScopesToOwnArchivedAgents() {
+	void listArchivedUsers_nonRootAdminForbidden() {
 		AuthenticatedUser requester = new AuthenticatedUser("usr_9", "admin");
-		UserDto archivedAgent = new UserDto(
-			"usr_4",
-			"Archived",
-			"Agent",
-			"archived.agent@example.com",
-			UserRole.user,
-			UserStatus.deleted,
-			Instant.parse("2026-02-05T00:00:00Z"),
-			Instant.parse("2026-02-05T00:00:00Z")
+		assertThrows(
+			AccessDeniedException.class,
+			() -> service.listArchivedUsers(50, 0, "user", requester)
 		);
-		when(store.countArchivedUsers("user", "usr_9")).thenReturn(1L);
-		when(store.listArchivedUsers(50, 0, "user", "usr_9")).thenReturn(List.of(archivedAgent));
-
-		UsersListResponse response = service.listArchivedUsers(50, 0, "user", requester);
-
-		assertEquals(1, response.data().size());
-		verify(store).countArchivedUsers("user", "usr_9");
-		verify(store).listArchivedUsers(50, 0, "user", "usr_9");
+		verify(store, never()).countArchivedUsers(any(), any());
+		verify(store, never()).listArchivedUsers(anyInt(), anyInt(), any(), any());
 	}
 
 	@Test

@@ -403,6 +403,7 @@ public class ClientServiceImpl implements ClientService {
 		if (!entity.isDeleted()) {
 			throw new ClientNotFoundException(clientId);
 		}
+		checkReinstateConflicts(entity.getId(), entity.getEmailAddress(), entity.getPhoneNumber());
 		entity.setDeleted(false);
 		ClientEntity saved = clientRepository.save(entity);
 		publishAuditSafe(
@@ -700,11 +701,11 @@ public class ClientServiceImpl implements ClientService {
 	}
 
 	private void checkCreateConflicts(String emailAddress, String phoneNumber) {
-		if (clientRepository.existsByEmailAddressIgnoreCase(emailAddress)) {
-			throw new DuplicateClientException("Email address already exists.");
-		}
 		if (clientRepository.existsByPhoneNumber(phoneNumber)) {
 			throw new DuplicateClientException("Phone number already exists.");
+		}
+		if (clientRepository.existsByEmailAddressIgnoreCase(emailAddress)) {
+			throw new DuplicateClientException("Email address already exists.");
 		}
 	}
 
@@ -719,11 +720,20 @@ public class ClientServiceImpl implements ClientService {
 		if (emailAddress == null && phoneNumber == null) {
 			return;
 		}
+		if (phoneNumber != null && clientRepository.existsByPhoneNumberAndIdNot(phoneNumber, id)) {
+			throw new DuplicateClientException("Phone number already exists.");
+		}
 		if (emailAddress != null && clientRepository.existsByEmailAddressIgnoreCaseAndIdNot(emailAddress, id)) {
 			throw new DuplicateClientException("Email address already exists.");
 		}
-		if (phoneNumber != null && clientRepository.existsByPhoneNumberAndIdNot(phoneNumber, id)) {
+	}
+
+	private void checkReinstateConflicts(Long id, String emailAddress, String phoneNumber) {
+		if (clientRepository.existsByPhoneNumberAndIdNot(phoneNumber, id)) {
 			throw new DuplicateClientException("Phone number already exists.");
+		}
+		if (clientRepository.existsByEmailAddressIgnoreCaseAndIdNot(emailAddress, id)) {
+			throw new DuplicateClientException("Email address already exists.");
 		}
 	}
 

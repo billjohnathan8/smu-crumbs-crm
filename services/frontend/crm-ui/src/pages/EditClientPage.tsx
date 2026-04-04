@@ -1,40 +1,19 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
+import { isRootAdminUser } from '@/features/auth/authorization'
 import { useTheme } from '@/features/theme/useTheme'
 import { getClientById, updateClient } from '@/api/clients'
 import { listUsers } from '@/api/users'
 import type { ClientUpdateRequest, Gender, User } from '@/api/types'
 import { ApiError } from '@/api/client'
-import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
+import { SidebarLayout } from '@/components/SidebarDrawer'
+import { getSidebarNavForUser } from '@/navigation/sidebarNav'
 import {
   COUNTRY_OPTIONS,
   getPostalCodeRule,
   isPostalCodeValidForCountry,
 } from '@/utils/postalCodeRules'
-
-const userNav: NavItem[] = [
-  { label: 'Home', to: '/user', end: true },
-  { label: 'My Clients', to: '/user/clients' },
-  { label: 'Create Client', to: '/user/clients/new' },
-  { label: 'Transactions', to: '/user/transactions' },
-  { label: 'AML Alerts', to: '/user/aml-alerts' },
-  { label: 'Activity Logs', to: '/user/logs' },
-  { label: 'Settings', to: '/user/settings' },
-]
-
-const adminNav: NavItem[] = [
-  { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients', end: true },
-  { label: 'Client Archives', to: '/admin/client-archives', end: true },
-  { label: 'Create Client', to: '/admin/clients/new' },
-  { label: 'Communications', to: '/admin/communications' },
-  { label: 'Transactions', to: '/admin/transactions' },
-  { label: 'AML Alerts', to: '/admin/aml-alerts' },
-  { label: 'Activity Logs', to: '/admin/logs' },
-  { label: 'User Management', to: '/admin/users' },
-  { label: 'Settings', to: '/admin/settings' },
-]
 
 export function EditClientPage() {
   const { clientId } = useParams<{ clientId: string }>()
@@ -42,17 +21,10 @@ export function EditClientPage() {
   const { theme } = useTheme()
   const navigate = useNavigate()
 
-  const isAdmin = user?.role === 'admin'
-  const isSuperAdmin = user?.role === 'super_admin'
-  const isManagementUser = isAdmin || isSuperAdmin
+  const isManagementUser = isRootAdminUser(user)
+  const sidebarNav = getSidebarNavForUser(user)
 
   const basePath = isManagementUser ? '/admin' : '/user'
-  const sidebarNav: NavItem[] = isManagementUser
-    ? [
-        ...adminNav,
-        ...(isSuperAdmin ? [{ label: 'Admin Management', to: '/admin/admins' as const }] : []),
-      ]
-    : userNav
 
   const detailPath = clientId ? `${basePath}/clients/${clientId}` : `${basePath}/clients`
   const listPath = `${basePath}/clients`

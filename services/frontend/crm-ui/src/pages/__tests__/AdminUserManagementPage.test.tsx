@@ -240,11 +240,8 @@ it('should show transfer guidance as tooltip for disabled agents with clients', 
   const transferButton = await screen.findByRole('button', { name: 'Transfer (2)' })
   expect(transferButton).toHaveAttribute(
     'title',
-    'Optional: transfer clients from this archived-eligible agent'
+    'Transfer assigned clients; archive is automatic.'
   )
-  expect(
-    screen.queryByText('Optional: transfer clients from this archived-eligible agent')
-  ).not.toBeInTheDocument()
 })
 
 it('should handle delete admin for super admin', async () => {

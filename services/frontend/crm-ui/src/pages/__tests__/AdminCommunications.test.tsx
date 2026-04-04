@@ -138,7 +138,7 @@ describe('AdminCommunications', () => {
     })
   })
 
-  it('should render sidebar with Communications nav item', async () => {
+  it('should render sidebar with activity logs and without communications nav item for admin', async () => {
     const mockResponse: PaginatedResponse<Communication> = {
       data: [],
       pagination: { limit: 200, offset: 0, total: 0 },
@@ -149,8 +149,9 @@ describe('AdminCommunications', () => {
     renderPage()
 
     await waitFor(() => {
-      const commLink = screen.getByRole('link', { name: 'Communications' })
-      expect(commLink).toHaveAttribute('href', '/admin/communications')
+      const logsLink = screen.getByRole('link', { name: 'Activity Logs' })
+      expect(logsLink).toHaveAttribute('href', '/admin/logs')
+      expect(screen.queryByRole('link', { name: 'Communications' })).not.toBeInTheDocument()
     })
   })
 

@@ -687,7 +687,7 @@ describe('ViewTransactionsPage', () => {
     })
   })
 
-  it('renders super admin specific navigation item', async () => {
+  it('renders super admin specific archived user navigation items', async () => {
     mockRole = 'super_admin'
 
     vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
@@ -698,7 +698,8 @@ describe('ViewTransactionsPage', () => {
     renderComponent()
 
     await waitFor(() => {
-      expect(screen.getByText('Admin Management')).toBeInTheDocument()
+      expect(screen.getByText('Archived Admins')).toBeInTheDocument()
+      expect(screen.getByText('Archived Agents')).toBeInTheDocument()
     })
   })
 

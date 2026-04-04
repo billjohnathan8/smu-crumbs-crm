@@ -7,35 +7,13 @@ import { createClient } from '@/api/clients'
 import { listUsers } from '@/api/users'
 import type { ClientCreateRequest, Gender, User } from '@/api/types'
 import { ApiError } from '@/api/client'
-import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
+import { SidebarLayout } from '@/components/SidebarDrawer'
+import { getSidebarNavForUser } from '@/navigation/sidebarNav'
 import {
   COUNTRY_OPTIONS,
   getPostalCodeRule,
   isPostalCodeValidForCountry,
 } from '@/utils/postalCodeRules'
-
-const userNav: NavItem[] = [
-  { label: 'Home', to: '/user', end: true },
-  { label: 'My Clients', to: '/user/clients' },
-  { label: 'Create Client', to: '/user/clients/new' },
-  { label: 'Transactions', to: '/user/transactions' },
-  { label: 'AML Alerts', to: '/user/aml-alerts' },
-  { label: 'Activity Logs', to: '/user/logs' },
-  { label: 'Settings', to: '/user/settings' },
-]
-
-const adminNav: NavItem[] = [
-  { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients', end: true },
-  { label: 'Client Archives', to: '/admin/client-archives', end: true },
-  { label: 'Create Client', to: '/admin/clients/new' },
-  { label: 'Communications', to: '/admin/communications' },
-  { label: 'Transactions', to: '/admin/transactions' },
-  { label: 'AML Alerts', to: '/admin/aml-alerts' },
-  { label: 'Activity Logs', to: '/admin/logs' },
-  { label: 'User Management', to: '/admin/users' },
-  { label: 'Settings', to: '/admin/settings' },
-]
 
 export function CreateClientPage() {
   const navigate = useNavigate()
@@ -47,7 +25,6 @@ export function CreateClientPage() {
   const canViewAllClients = isAdmin || isRootAdmin
 
   const basePath = canViewAllClients ? '/admin' : '/user'
-  const sidebarNav = canViewAllClients ? adminNav : userNav
   const homePath = basePath
   const listPath = canViewAllClients ? '/admin/clients' : '/user/clients'
   const breadcrumbLabel = canViewAllClients ? 'All Clients' : 'My Clients'
@@ -244,7 +221,7 @@ export function CreateClientPage() {
   )
 
   return (
-    <SidebarLayout items={sidebarNav}>
+    <SidebarLayout items={getSidebarNavForUser(user)}>
       <nav>
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center space-x-4">

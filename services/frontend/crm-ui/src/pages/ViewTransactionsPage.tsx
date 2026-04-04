@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/features/auth/AuthContext'
+import { isRootAdminUser } from '@/features/auth/authorization'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   listTransactions,
@@ -21,30 +22,8 @@ import type {
   UpdateTransactionRequest,
 } from '@/api/types'
 import { ApiError } from '@/api/client'
-import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
-
-const userNav: NavItem[] = [
-  { label: 'Home', to: '/user', end: true },
-  { label: 'My Clients', to: '/user/clients' },
-  { label: 'Create Client', to: '/user/clients/new' },
-  { label: 'Transactions', to: '/user/transactions' },
-  { label: 'AML Alerts', to: '/user/aml-alerts' },
-  { label: 'Activity Logs', to: '/user/logs' },
-  { label: 'Settings', to: '/user/settings' },
-]
-
-const adminNav: NavItem[] = [
-  { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients', end: true },
-  { label: 'Client Archives', to: '/admin/client-archives', end: true },
-  { label: 'Create Client', to: '/admin/clients/new' },
-  { label: 'Communications', to: '/admin/communications' },
-  { label: 'Transactions', to: '/admin/transactions' },
-  { label: 'AML Alerts', to: '/admin/aml-alerts' },
-  { label: 'Activity Logs', to: '/admin/logs' },
-  { label: 'User Management', to: '/admin/users' },
-  { label: 'Settings', to: '/admin/settings' },
-]
+import { SidebarLayout } from '@/components/SidebarDrawer'
+import { getSidebarNavForUser } from '@/navigation/sidebarNav'
 
 const ITEMS_PER_PAGE = 20
 const FALLBACK_CLIENT_FETCH_LIMIT = 100
@@ -88,17 +67,8 @@ export function ViewTransactionsPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
-  const isAdmin = user?.role === 'admin'
-  const isSuperAdmin = user?.role === 'super_admin'
-  const isManagementUser = isAdmin || isSuperAdmin
+  const isManagementUser = isRootAdminUser(user)
   const canEditTransactions = false
-
-  const sidebarNav: NavItem[] = isManagementUser
-    ? [
-        ...adminNav,
-        ...(isSuperAdmin ? [{ label: 'Admin Management', to: '/admin/admins' as const }] : []),
-      ]
-    : userNav
 
   const basePath = isManagementUser ? '/admin' : '/user'
 
@@ -607,7 +577,7 @@ export function ViewTransactionsPage() {
   const transactionsRangeEnd = total === 0 ? 0 : Math.min((currentPage + 1) * ITEMS_PER_PAGE, total)
 
   return (
-    <SidebarLayout items={sidebarNav}>
+    <SidebarLayout items={getSidebarNavForUser(user)}>
       <nav>
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center space-x-4">

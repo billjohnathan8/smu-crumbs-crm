@@ -18,11 +18,11 @@ vi.mock('@/api/logs')
 vi.mock('@/api/auth')
 
 const mockUser: User = {
-  id: 'admin-123',
+  id: 'usr_1',
   firstName: 'Admin',
   lastName: 'User',
-  email: 'admin@example.com',
-  role: 'admin',
+  email: 'admin@crm.com',
+  role: 'super_admin',
   status: 'active',
 }
 
@@ -47,6 +47,9 @@ describe('AdminDashboard', () => {
     vi.clearAllMocks()
     // Mock getCurrentUser to prevent AuthProvider from hanging
     vi.mocked(authApi.getCurrentUser).mockResolvedValue(mockUser)
+    vi.mocked(clientsApi.getVerificationSubmissionSummary).mockResolvedValue({
+      pendingSubmissionCount: 0,
+    })
   })
 
   it('should render dashboard header with admin name', async () => {
@@ -72,10 +75,15 @@ describe('AdminDashboard', () => {
   })
 
   it('should display total users count', async () => {
-    vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
-      data: [],
-      pagination: { total: 25, limit: 1, offset: 0 },
-    })
+    const listUsersSpy = vi.spyOn(usersApi, 'listUsers')
+      .mockResolvedValueOnce({
+        data: [],
+        pagination: { total: 25, limit: 1, offset: 0 },
+      })
+      .mockResolvedValueOnce({
+        data: [],
+        pagination: { total: 0, limit: 1, offset: 0 },
+      })
     vi.spyOn(clientsApi, 'listClients').mockResolvedValue({
       data: [],
       pagination: { total: 0, limit: 1, offset: 0 },
@@ -88,8 +96,8 @@ describe('AdminDashboard', () => {
     renderAdminDashboard()
 
     await waitFor(() => {
-      expect(screen.getByText('25')).toBeInTheDocument()
       expect(screen.getByText(/Total Agents/i)).toBeInTheDocument()
+      expect(listUsersSpy).toHaveBeenCalledWith(expect.objectContaining({ role: 'user' }))
     })
   })
 

@@ -361,7 +361,6 @@ class ClientServiceImplTest {
 		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
 
-		when(clientRepository.existsByEmailAddressIgnoreCase(payload.emailAddress())).thenReturn(false);
 		when(clientRepository.existsByPhoneNumber(payload.phoneNumber())).thenReturn(true);
 
 		assertThatThrownBy(() -> clientService.createClient(user, requestFrom(payload), "Bearer x", "req-1"))

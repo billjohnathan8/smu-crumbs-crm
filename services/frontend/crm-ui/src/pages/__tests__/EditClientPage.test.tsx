@@ -411,8 +411,8 @@ describe('UserEditClient', () => {
     })
   })
 
-  it('should allow admin to reassign assigned agent on update', async () => {
-    mockAuthUser.id = 'usr_admin'
+  it('should allow root admin to reassign assigned agent on update', async () => {
+    mockAuthUser.id = 'usr_1'
     mockAuthUser.role = 'admin'
 
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue({

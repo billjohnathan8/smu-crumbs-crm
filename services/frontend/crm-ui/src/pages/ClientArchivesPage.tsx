@@ -3,25 +3,13 @@ import { useAuth } from '@/features/auth/AuthContext'
 import { listClientArchives, reinstateClient } from '@/api/clients'
 import type { Client, IdentityVerificationStatus } from '@/api/types'
 import { ApiError } from '@/api/client'
-import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
-
-const rootAdminNav: NavItem[] = [
-  { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients', end: true },
-  { label: 'Client Archives', to: '/admin/client-archives', end: true },
-  { label: 'Create Client', to: '/admin/clients/new' },
-  { label: 'Communications', to: '/admin/communications' },
-  { label: 'Transactions', to: '/admin/transactions' },
-  { label: 'AML Alerts', to: '/admin/aml-alerts' },
-  { label: 'Activity Logs', to: '/admin/logs' },
-  { label: 'User Management', to: '/admin/users' },
-  { label: 'Settings', to: '/admin/settings' },
-]
+import { SidebarLayout } from '@/components/SidebarDrawer'
+import { getSidebarNavForUser } from '@/navigation/sidebarNav'
 
 const ITEMS_PER_PAGE = 20
 
 export function ClientArchivesPage() {
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
 
   const [clients, setClients] = useState<Client[]>([])
   const [total, setTotal] = useState(0)
@@ -111,7 +99,7 @@ export function ClientArchivesPage() {
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE)
 
   return (
-    <SidebarLayout items={rootAdminNav}>
+    <SidebarLayout items={getSidebarNavForUser(user)}>
       <div className="flex h-16 items-center justify-between">
         <h1 className="text-2xl font-normal text-text">Client Archives</h1>
       </div>

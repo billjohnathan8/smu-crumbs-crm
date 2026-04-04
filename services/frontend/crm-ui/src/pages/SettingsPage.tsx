@@ -3,36 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { isRootAdminUser } from '@/features/auth/authorization'
 import { useTheme } from '@/features/theme/useTheme'
-import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
-
-const adminNav: NavItem[] = [
-  { label: 'Home', to: '/admin', end: true },
-  { label: 'User Management', to: '/admin/users', end: true },
-  { label: 'Settings', to: '/admin/settings' },
-]
-
-const rootAdminNav: NavItem[] = [
-  { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients', end: true },
-  { label: 'Client Archives', to: '/admin/client-archives', end: true },
-  { label: 'Create Client', to: '/admin/clients/new' },
-  { label: 'Communications', to: '/admin/communications' },
-  { label: 'Transactions', to: '/admin/transactions' },
-  { label: 'AML Alerts', to: '/admin/aml-alerts' },
-  { label: 'Activity Logs', to: '/admin/logs' },
-  { label: 'User Management', to: '/admin/users' },
-  { label: 'Settings', to: '/admin/settings' },
-]
-
-const userNav: NavItem[] = [
-  { label: 'Home', to: '/user', end: true },
-  { label: 'All Clients', to: '/user/clients', end: true },
-  { label: 'Create Client', to: '/user/clients/new' },
-  { label: 'Transactions', to: '/user/transactions' },
-  { label: 'AML Alerts', to: '/user/aml-alerts' },
-  { label: 'Activity Logs', to: '/user/logs' },
-  { label: 'Settings', to: '/user/settings' },
-]
+import { SidebarLayout } from '@/components/SidebarDrawer'
+import { getSidebarNavForUser } from '@/navigation/sidebarNav'
 
 export function SettingsPage() {
   const { user } = useAuth()
@@ -41,9 +13,7 @@ export function SettingsPage() {
 
   const [isResettingPassword, setIsResettingPassword] = useState(false)
 
-  const isAdmin = user?.role === 'admin'
-  const isRootAdmin = isRootAdminUser(user)
-  const navItems = isRootAdmin ? rootAdminNav : isAdmin ? adminNav : userNav
+  const navItems = getSidebarNavForUser(user)
 
   const roleLabel = (() => {
     if (!user) return '-'

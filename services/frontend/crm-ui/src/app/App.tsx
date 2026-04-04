@@ -2,7 +2,6 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext'
 import { ThemeProvider } from '@/features/theme/ThemeContext'
-import { isRootAdminUser } from '@/features/auth/authorization'
 import { ProtectedRoute } from './ProtectedRoute'
 
 const LoginPage = lazy(() =>
@@ -21,9 +20,6 @@ const AdminUserManagementPage = lazy(() =>
 )
 const CreateNewUserPage = lazy(() =>
   import('@/pages/CreateNewUserPage').then(module => ({ default: module.CreateNewUserPage }))
-)
-const AdminUserArchivesPage = lazy(() =>
-  import('@/pages/AdminUserArchivesPage').then(module => ({ default: module.AdminUserArchivesPage }))
 )
 const RootArchivedAdminsPage = lazy(() =>
   import('@/pages/RootArchivedAdminsPage').then(module => ({ default: module.RootArchivedAdminsPage }))
@@ -101,10 +97,7 @@ function AdminHomeRedirect() {
   if (!user) {
     return <Navigate to="/login" replace />
   }
-  if (isRootAdminUser(user)) {
-    return <AdminDashboard />
-  }
-  return <Navigate to="/admin/users" replace />
+  return <AdminDashboard />
 }
 
 export function App() {
@@ -129,7 +122,8 @@ export function App() {
                 <Route path="/admin" element={<AdminHomeRedirect />} />
                 <Route path="/admin/users" element={<AdminUserManagementPage />} />
                 <Route path="/admin/users/new" element={<CreateNewUserPage />} />
-                <Route path="/admin/users/archives" element={<AdminUserArchivesPage />} />
+                <Route path="/admin/users/archives" element={<Navigate to="/admin/users" replace />} />
+                <Route path="/admin/logs" element={<ActivityLogsPage />} />
                 <Route path="/admin/settings" element={<SettingsPage />} />
                 <Route path="/admin/accounts" element={<Navigate to="/admin/users" replace />} />
               </Route>
@@ -148,7 +142,6 @@ export function App() {
                 <Route path="/admin/communications" element={<AdminCommunications />} />
                 <Route path="/admin/transactions" element={<ViewTransactionsPage />} />
                 <Route path="/admin/aml-alerts" element={<AmlAlertsPage />} />
-                <Route path="/admin/logs" element={<ActivityLogsPage />} />
                 <Route path="/admin/users/archives/admins" element={<RootArchivedAdminsPage />} />
                 <Route path="/admin/users/archives/agents" element={<RootArchivedAgentsPage />} />
               </Route>

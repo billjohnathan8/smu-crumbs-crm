@@ -242,6 +242,9 @@ public class UserAccountService {
 		if (isRootAdminUserId(target.id())) {
 			throw new AccessDeniedException("Root admin accounts cannot be archived via the API");
 		}
+		if (!isSeededRootAdmin(user)) {
+			throw new AccessDeniedException("Only root admins can archive users.");
+		}
 
 		validateHierarchyPermissions(user, target.role(), "archive");
 		CognitoService cognito = getCognitoServiceOrNull();
@@ -381,12 +384,7 @@ public class UserAccountService {
 		if (isSeededRootAdmin(requester) || requester.role() == UserRole.super_admin) {
 			return;
 		}
-		if (requester.role() != UserRole.admin) {
-			throw new AccessDeniedException("Only admins or root admins can list archived users");
-		}
-		if (roleFilter == null || roleFilter != UserRole.user) {
-			throw new AccessDeniedException("Admins can only list archived agent users");
-		}
+		throw new AccessDeniedException("Only root admins can list archived users");
 	}
 
 	private void validateHierarchyPermissions(AuthenticatedUser requester, UserRole targetRole, String action) {

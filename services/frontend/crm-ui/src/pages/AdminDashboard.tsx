@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
+import { isRootAdminUser } from '@/features/auth/authorization'
 import { listLogs } from '@/api/logs'
 import { listUsers } from '@/api/users'
-import { listClients } from '@/api/clients'
+import { getVerificationSubmissionSummary, listClients } from '@/api/clients'
 import type { Client, LogEntry } from '@/api/types'
 import { ApiError } from '@/api/client'
-import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
+import { SidebarLayout } from '@/components/SidebarDrawer'
+import { getSidebarNavForUser } from '@/navigation/sidebarNav'
 import {
   ActivityTrendChart,
   NewClientsChart,
@@ -22,19 +24,6 @@ interface Stats {
   totalClients: number
   recentActivities: number
 }
-
-const adminNav: NavItem[] = [
-  { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients', end: true },
-  { label: 'Client Archives', to: '/admin/client-archives', end: true },
-  { label: 'Create Client', to: '/admin/clients/new' },
-  { label: 'Communications', to: '/admin/communications' },
-  { label: 'Transactions', to: '/admin/transactions' },
-  { label: 'AML Alerts', to: '/admin/aml-alerts' },
-  { label: 'Activity Logs', to: '/admin/logs' },
-  { label: 'User Management', to: '/admin/users' },
-  { label: 'Settings', to: '/admin/settings' },
-]
 
 const PAGE_SIZE = 200
 
@@ -115,6 +104,7 @@ async function fetchAllClientsPaginated(): Promise<Client[]> {
 export function AdminDashboard() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const isRootAdmin = isRootAdminUser(user)
   const [stats, setStats] = useState<Stats>({
     totalAgents: 0,
     totalAdmins: 0,
@@ -138,6 +128,7 @@ export function AdminDashboard() {
 
   const [error, setError] = useState<string>('')
   const [chartError, setChartError] = useState('')
+  const [pendingSubmissionCount, setPendingSubmissionCount] = useState<number | null>(null)
 
   const verificationStatusData = useMemo<VerificationStatusPoint[]>(() => {
     const pending = allClients.filter(c => c.identityVerificationStatus === 'pending').length
@@ -178,13 +169,14 @@ export function AdminDashboard() {
       setError('')
 
       try {
-        const [agentsResult, adminsResult, rootAdminsResult, clientsResult] =
-          await Promise.allSettled([
-            listUsers({ limit: 1, role: 'user' }),
-            listUsers({ limit: 1, role: 'admin' }),
-            listUsers({ limit: 1, role: 'super_admin' }),
-            listClients({ limit: 1 }),
-          ])
+        const promises = [
+          listUsers({ limit: 1, role: 'user' }),
+          ...(isRootAdmin ? [listUsers({ limit: 1, role: 'admin' }), listClients({ limit: 1 })] : []),
+        ]
+        const settled = await Promise.allSettled(promises)
+        const agentsResult = settled[0]
+        const adminsResult = isRootAdmin ? settled[1] : undefined
+        const clientsResult = isRootAdmin ? settled[2] : undefined
 
         let nextError = ''
         if (agentsResult.status === 'rejected') {
@@ -204,15 +196,14 @@ export function AdminDashboard() {
         }
 
         const agentsResponse = agentsResult.status === 'fulfilled' ? agentsResult.value : null
-        const adminsResponse = adminsResult.status === 'fulfilled' ? adminsResult.value : null
-        const rootAdminsResponse =
-          rootAdminsResult.status === 'fulfilled' ? rootAdminsResult.value : null
-        const clientsResponse = clientsResult.status === 'fulfilled' ? clientsResult.value : null
+        const adminsResponse =
+          adminsResult && adminsResult.status === 'fulfilled' ? adminsResult.value : null
+        const clientsResponse =
+          clientsResult && clientsResult.status === 'fulfilled' ? clientsResult.value : null
 
         setStats(prev => ({
           totalAgents: agentsResponse?.pagination?.total || 0,
-          totalAdmins:
-            (adminsResponse?.pagination?.total || 0) + (rootAdminsResponse?.pagination?.total || 0),
+          totalAdmins: adminsResponse?.pagination?.total || 0,
           totalClients: clientsResponse?.pagination?.total || 0,
           recentActivities: prev.recentActivities,
         }))
@@ -232,7 +223,7 @@ export function AdminDashboard() {
     }
 
     fetchDashboardData()
-  }, [logout])
+  }, [isRootAdmin, logout])
 
   useEffect(() => {
     const fetchRecentLogs = async () => {
@@ -266,6 +257,11 @@ export function AdminDashboard() {
       setChartError('')
 
       try {
+        if (!isRootAdmin) {
+          setAllClients([])
+          setPendingClients([])
+          return
+        }
         const clients = await fetchAllClientsPaginated()
         setAllClients(clients)
 
@@ -287,7 +283,13 @@ export function AdminDashboard() {
     }
 
     fetchClientChartsData()
-  }, [logout])
+  }, [isRootAdmin, logout])
+
+  useEffect(() => {
+    getVerificationSubmissionSummary()
+      .then(summary => setPendingSubmissionCount(summary.pendingSubmissionCount))
+      .catch(() => setPendingSubmissionCount(null))
+  }, [])
 
   useEffect(() => {
     const fetchActivityTrend = async () => {
@@ -379,7 +381,7 @@ export function AdminDashboard() {
   }
 
   return (
-    <SidebarLayout items={adminNav}>
+    <SidebarLayout items={getSidebarNavForUser(user)}>
       <div>
         <div className="flex justify-between h-16 items-center">
           <div>
@@ -523,7 +525,18 @@ export function AdminDashboard() {
               </div>
             )}
 
-            {pendingClients.length > 0 && (
+            {pendingSubmissionCount !== null && !isRootAdmin && (
+              <div className="mb-8 rounded-lg border border-warning bg-warning/10 px-6 py-4">
+                <h2 className="text-xl font-normal text-warning">
+                  Pending Verifications ({pendingSubmissionCount})
+                </h2>
+                <p className="mt-1 text-sm text-warning">
+                  Admins can see pending counts but cannot review verification documents.
+                </p>
+              </div>
+            )}
+
+            {isRootAdmin && pendingClients.length > 0 && (
               <div className="bg-card border border-warning rounded-lg">
                 <div className="px-6 py-4 border-b border-border">
                   <h2 className="text-xl font-normal text-text">

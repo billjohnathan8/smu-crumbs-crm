@@ -1,6 +1,7 @@
 import { useState, useEffect, type SubmitEvent } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
+import { isRootAdminUser } from '@/features/auth/authorization'
 import {
   getClientById,
   reviewVerification,
@@ -14,36 +15,14 @@ import { getUserById } from '@/api/users'
 import type { Client, Transaction, Account, Communication, ReviewAction } from '@/api/types'
 import type { SendCommunicationRequest } from '@/api/communications'
 import { ApiError } from '@/api/client'
-import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
+import { SidebarLayout } from '@/components/SidebarDrawer'
 import { ClientDetail } from '@/components/ClientDetail'
 import { VerificationReviewPanel } from '@/components/VerificationReviewPanel'
 import { RecentTransactionsTable } from '@/components/RecentTransactionsTable'
 import { BankAccountsPreview } from '@/components/BankAccountsPreview'
 import { CommunicationsPanel } from '@/components/CommunicationsPanel'
 import { DeleteConfirmModal } from '@/components/DeleteConfirmModal'
-
-const userNav: NavItem[] = [
-  { label: 'Home', to: '/user', end: true },
-  { label: 'My Clients', to: '/user/clients' },
-  { label: 'Create Client', to: '/user/clients/new' },
-  { label: 'Transactions', to: '/user/transactions' },
-  { label: 'AML Alerts', to: '/user/aml-alerts' },
-  { label: 'Activity Logs', to: '/user/logs' },
-  { label: 'Settings', to: '/user/settings' },
-]
-
-const adminNav: NavItem[] = [
-  { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients', end: true },
-  { label: 'Client Archives', to: '/admin/client-archives', end: true },
-  { label: 'Create Client', to: '/admin/clients/new' },
-  { label: 'Communications', to: '/admin/communications' },
-  { label: 'Transactions', to: '/admin/transactions' },
-  { label: 'AML Alerts', to: '/admin/aml-alerts' },
-  { label: 'Activity Logs', to: '/admin/logs' },
-  { label: 'User Management', to: '/admin/users' },
-  { label: 'Settings', to: '/admin/settings' },
-]
+import { getSidebarNavForUser } from '@/navigation/sidebarNav'
 
 const statusColors: Record<string, string> = {
   unverified: 'bg-background-light text-text-muted',
@@ -69,21 +48,12 @@ export function ClientDetailPage() {
   const location = useLocation()
 
   const isUser = user?.role === 'user'
-  const isAdmin = user?.role === 'admin'
-  const isSuperAdmin = user?.role === 'super_admin'
-  const isManagementUser = isAdmin || isSuperAdmin
+  const isManagementUser = isRootAdminUser(user)
   const canViewAllClients = isManagementUser
-  const canReviewVerification = isUser || isSuperAdmin
+  const canReviewVerification = isUser || isRootAdminUser(user)
   const canDeleteClient = isUser || isManagementUser
   const canEditClient = isUser || isManagementUser
   const canSendCommunication = isUser || isManagementUser
-
-  const sidebarNav: NavItem[] = isManagementUser
-    ? [
-        ...adminNav,
-        ...(isSuperAdmin ? [{ label: 'Admin Management', to: '/admin/admins' as const }] : []),
-      ]
-    : userNav
 
   const basePath = isManagementUser ? '/admin' : '/user'
   const clientsListPath = `${basePath}/clients`
@@ -312,7 +282,7 @@ export function ClientDetailPage() {
 
   if (isLoading) {
     return (
-      <SidebarLayout items={sidebarNav}>
+      <SidebarLayout items={getSidebarNavForUser(user)}>
         <div className="flex h-64 items-center justify-center">
           <div
             data-testid="loading-spinner"
@@ -325,7 +295,7 @@ export function ClientDetailPage() {
 
   if (error || !client) {
     return (
-      <SidebarLayout items={sidebarNav}>
+      <SidebarLayout items={getSidebarNavForUser(user)}>
         <div className="mt-6 rounded-lg border border-danger bg-danger/10 p-4">
           <p className="text-danger">{error || 'Client not found'}</p>
         </div>
@@ -340,7 +310,7 @@ export function ClientDetailPage() {
   }
 
   return (
-    <SidebarLayout items={sidebarNav}>
+    <SidebarLayout items={getSidebarNavForUser(user)}>
       <nav>
         <div className="flex h-16 items-center justify-between px-4">
           <div className="flex items-center space-x-4">

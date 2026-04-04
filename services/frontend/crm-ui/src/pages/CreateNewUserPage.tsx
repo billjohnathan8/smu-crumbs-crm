@@ -5,42 +5,14 @@ import { isRootAdminUser } from '@/features/auth/authorization'
 import { createUser } from '@/api/users'
 import type { CreateUserRequest, UserRole } from '@/api/types'
 import { ApiError } from '@/api/client'
-import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
+import { SidebarLayout } from '@/components/SidebarDrawer'
+import { getSidebarNavForUser } from '@/navigation/sidebarNav'
 import { useTheme } from '@/features/theme/useTheme'
 import {
   getPasswordRules,
   getPasswordStrength,
   getPasswordStrengthPercent,
 } from '@/features/auth/passwordPolicy'
-const userNav: NavItem[] = [
-  { label: 'Home', to: '/user', end: true },
-  { label: 'My Clients', to: '/user/clients' },
-  { label: 'Create Client', to: '/user/clients/new' },
-  { label: 'Transactions', to: '/user/transactions' },
-  { label: 'AML Alerts', to: '/user/aml-alerts' },
-  { label: 'Activity Logs', to: '/user/logs' },
-  { label: 'Settings', to: '/user/settings' },
-]
-
-const adminNav: NavItem[] = [
-  { label: 'Home', to: '/admin', end: true },
-  { label: 'User Management', to: '/admin/users', end: true },
-  { label: 'Settings', to: '/admin/settings' },
-]
-
-const rootAdminNav: NavItem[] = [
-  { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients', end: true },
-  { label: 'Client Archives', to: '/admin/client-archives', end: true },
-  { label: 'Create Client', to: '/admin/clients/new' },
-  { label: 'Communications', to: '/admin/communications' },
-  { label: 'Transactions', to: '/admin/transactions' },
-  { label: 'AML Alerts', to: '/admin/aml-alerts' },
-  { label: 'Activity Logs', to: '/admin/logs' },
-  { label: 'User Management', to: '/admin/users' },
-  { label: 'Settings', to: '/admin/settings' },
-]
-
 const roleLabel = (role: UserRole) => {
   if (role === 'admin') return 'Admin'
   if (role === 'super_admin') return 'Root Admin'
@@ -63,7 +35,6 @@ export function CreateNewUserPage() {
   const canManageUsers = isAdmin || isRootAdmin
 
   const basePath = canManageUsers ? '/admin' : '/user'
-  const sidebarNav = canManageUsers ? (isRootAdmin ? rootAdminNav : adminNav) : userNav
   const homePath = basePath
   const listPath = canManageUsers ? '/admin/users' : '/user'
   const breadcrumbLabel = canManageUsers ? 'Manage Users' : 'Dashboard'
@@ -192,7 +163,7 @@ export function CreateNewUserPage() {
         : 'text-danger'
 
   return (
-    <SidebarLayout items={sidebarNav}>
+    <SidebarLayout items={getSidebarNavForUser(user)}>
       <nav>
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center space-x-4">

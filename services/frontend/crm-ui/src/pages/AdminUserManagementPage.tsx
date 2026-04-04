@@ -10,39 +10,8 @@ import {
 } from '@/api/clients'
 import type { User, UserRole } from '@/api/types'
 import { ApiError } from '@/api/client'
-import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
-
-const userNav: NavItem[] = [
-  { label: 'Home', to: '/user', end: true },
-  { label: 'My Clients', to: '/user/clients' },
-  { label: 'Create Client', to: '/user/clients/new' },
-  { label: 'Transactions', to: '/user/transactions' },
-  { label: 'AML Alerts', to: '/user/aml-alerts' },
-  { label: 'Activity Logs', to: '/user/logs' },
-  { label: 'Settings', to: '/user/settings' },
-]
-
-const rootAdminNav: NavItem[] = [
-  { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients', end: true },
-  { label: 'Client Archives', to: '/admin/client-archives', end: true },
-  { label: 'Create Client', to: '/admin/clients/new' },
-  { label: 'Communications', to: '/admin/communications' },
-  { label: 'Transactions', to: '/admin/transactions' },
-  { label: 'AML Alerts', to: '/admin/aml-alerts' },
-  { label: 'Activity Logs', to: '/admin/logs' },
-  { label: 'User Management', to: '/admin/users' },
-  { label: 'Archived Admins', to: '/admin/users/archives/admins' },
-  { label: 'Archived Agents', to: '/admin/users/archives/agents' },
-  { label: 'Settings', to: '/admin/settings' },
-]
-
-const adminNav: NavItem[] = [
-  { label: 'Home', to: '/admin', end: true },
-  { label: 'User Management', to: '/admin/users', end: true },
-  { label: 'My Archived Users', to: '/admin/users/archives' },
-  { label: 'Settings', to: '/admin/settings' },
-]
+import { SidebarLayout } from '@/components/SidebarDrawer'
+import { getSidebarNavForUser } from '@/navigation/sidebarNav'
 
 const roleLabel = (role: UserRole) => {
   if (role === 'admin') return 'Admin'
@@ -99,9 +68,7 @@ export function AdminUserManagementPage() {
 
   const canManageUsers = isAdmin || isRootAdmin
 
-  const basePath = canManageUsers ? '/admin' : '/user'
-  const sidebarNav = canManageUsers ? (isRootAdmin ? rootAdminNav : adminNav) : userNav
-  const homePath = basePath
+  const homePath = canManageUsers ? '/admin' : '/user'
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -223,7 +190,7 @@ export function AdminUserManagementPage() {
     try {
       const updated = await disableUser(target.id)
       setUsers(prev => prev.map(u => (u.id === target.id ? updated : u)))
-      setSuccessMessage('Agent disabled. Reassign clients using Transfer.')
+      setSuccessMessage('Agent disabled. Transfer assigned clients before archiving.')
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
@@ -291,11 +258,9 @@ export function AdminUserManagementPage() {
         fromUserId: transferFromUser.id,
         toUserId: transferToUserId,
       })
-      setSuccessMessage(
-        response.count > 0
-          ? `Transferred ${response.count} client(s) successfully`
-          : 'No clients were assigned to this agent'
-      )
+      await deleteUser(transferFromUser.id)
+      setUsers(prev => prev.filter(u => u.id !== transferFromUser.id))
+      setSuccessMessage(`Transferred ${response.count} client(s) and archived the agent.`)
       setAgentClientCounts(prev => ({ ...prev, [transferFromUser.id]: 0 }))
       closeTransferModal()
     } catch (err) {
@@ -347,7 +312,7 @@ export function AdminUserManagementPage() {
   )
 
   return (
-    <SidebarLayout items={sidebarNav}>
+    <SidebarLayout items={getSidebarNavForUser(user)}>
       <nav>
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center space-x-4">
@@ -548,6 +513,7 @@ export function AdminUserManagementPage() {
                                   >
                                     {disablingUserId === u.id ? 'Disabling...' : 'Disable'}
                                   </button>
+                                {isRootAdmin && (agentClientCounts[u.id] ?? -1) === 0 && (
                                   <button
                                     onClick={() => handleDeleteUser(u.id, u.role)}
                                     disabled={deletingUserId === u.id}
@@ -559,13 +525,14 @@ export function AdminUserManagementPage() {
                                   >
                                     {deletingUserId === u.id ? 'Archiving...' : 'Archive'}
                                   </button>
-                                </>
-                              ) : (
-                                <>
-                                  {isRootAdmin && (agentClientCounts[u.id] ?? -1) !== 0 && (
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                  {isRootAdmin && (agentClientCounts[u.id] ?? -1) > 0 && (
                                     <button
                                       onClick={() => openTransferModal(u)}
-                                      title="Optional: transfer clients from this archived-eligible agent"
+                                      title="Transfer assigned clients; archive is automatic."
                                       className="px-3 py-1 rounded text-sm font-normal bg-accent text-white hover:opacity-80 transition-opacity"
                                     >
                                       Transfer
@@ -575,17 +542,19 @@ export function AdminUserManagementPage() {
                                         : ''}
                                     </button>
                                   )}
-                                  <button
-                                    onClick={() => handleDeleteUser(u.id, u.role)}
-                                    disabled={deletingUserId === u.id}
-                                    className={`px-3 py-1 rounded text-sm font-normal transition-opacity ${
-                                      deletingUserId === u.id
-                                        ? 'gradient-dark-red opacity-50 cursor-not-allowed text-white'
-                                        : 'gradient-dark-red hover:opacity-80 text-white'
-                                    }`}
-                                  >
-                                    {deletingUserId === u.id ? 'Archiving...' : 'Archive'}
-                                  </button>
+                                  {isRootAdmin && (agentClientCounts[u.id] ?? -1) === 0 && (
+                                    <button
+                                      onClick={() => handleDeleteUser(u.id, u.role)}
+                                      disabled={deletingUserId === u.id}
+                                      className={`px-3 py-1 rounded text-sm font-normal transition-opacity ${
+                                        deletingUserId === u.id
+                                          ? 'gradient-dark-red opacity-50 cursor-not-allowed text-white'
+                                          : 'gradient-dark-red hover:opacity-80 text-white'
+                                      }`}
+                                    >
+                                      {deletingUserId === u.id ? 'Archiving...' : 'Archive'}
+                                    </button>
+                                  )}
                                 </>
                               )}
                             </div>
