@@ -4,24 +4,62 @@ import { AuthProvider, useAuth } from '@/features/auth/AuthContext'
 import { ThemeProvider } from '@/features/theme/ThemeContext'
 import { ProtectedRoute } from './ProtectedRoute'
 
-const LoginPage = lazy(() => import('@/pages/LoginPage').then(module => ({ default: module.LoginPage })))
-const AdminDashboard = lazy(() => import('@/pages/AdminDashboard').then(module => ({ default: module.AdminDashboard })))
-const AdminCommunications = lazy(() => import('@/pages/AdminCommunications').then(module => ({ default: module.AdminCommunications })))
-const AdminUserManagementPage = lazy(() => import('@/pages/AdminUserManagementPage').then(module => ({ default: module.AdminUserManagementPage })))
-const CreateNewUserPage = lazy(() => import('@/pages/CreateNewUserPage').then(module => ({ default: module.CreateNewUserPage })))
-const ClientListPage = lazy(() => import('@/pages/ClientListPage').then(module => ({ default: module.ClientListPage })))
-const ClientDetailPage = lazy(() => import('@/pages/ClientDetailPage').then(module => ({ default: module.ClientDetailPage })))
-const UserDashboard = lazy(() => import('@/pages/UserDashboard').then(module => ({ default: module.UserDashboard })))
-const CreateClientPage = lazy(() => import('@/pages/CreateClientPage').then(module => ({ default: module.CreateClientPage })))
-const ViewTransactionsPage = lazy(() => import('@/pages/ViewTransactionsPage').then(module => ({ default: module.ViewTransactionsPage })))
-const ClientVerifyPage = lazy(() => import('@/pages/ClientVerifyPage').then(module => ({ default: module.ClientVerifyPage })))
-const AmlAlertsPage = lazy(() => import('@/pages/AmlAlertsPage').then(module => ({ default: module.AmlAlertsPage })))
-const ClientAccountsPage = lazy(() => import('@/pages/ClientAccountsPage').then(module => ({ default: module.ClientAccountsPage })))
-const EditClientPage = lazy(() => import('@/pages/EditClientPage').then(module => ({ default: module.EditClientPage })))
-const SettingsPage = lazy(() => import('@/pages/SettingsPage').then(module => ({ default: module.SettingsPage })))
-const ForgotPasswordPage = lazy(() => import('@/pages/ForgotPasswordPage').then(module => ({ default: module.ForgotPasswordPage })))
-const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage').then(module => ({ default: module.ResetPasswordPage })))
-const ActivityLogsPage = lazy(() => import('@/pages/ActivityLogsPage').then(module => ({ default: module.ActivityLogsPage })))
+const LoginPage = lazy(() =>
+  import('@/pages/LoginPage').then(module => ({ default: module.LoginPage }))
+)
+const AdminDashboard = lazy(() =>
+  import('@/pages/AdminDashboard').then(module => ({ default: module.AdminDashboard }))
+)
+const AdminCommunications = lazy(() =>
+  import('@/pages/AdminCommunications').then(module => ({ default: module.AdminCommunications }))
+)
+const AdminUserManagementPage = lazy(() =>
+  import('@/pages/AdminUserManagementPage').then(module => ({
+    default: module.AdminUserManagementPage,
+  }))
+)
+const CreateNewUserPage = lazy(() =>
+  import('@/pages/CreateNewUserPage').then(module => ({ default: module.CreateNewUserPage }))
+)
+const ClientListPage = lazy(() =>
+  import('@/pages/ClientListPage').then(module => ({ default: module.ClientListPage }))
+)
+const ClientDetailPage = lazy(() =>
+  import('@/pages/ClientDetailPage').then(module => ({ default: module.ClientDetailPage }))
+)
+const UserDashboard = lazy(() =>
+  import('@/pages/UserDashboard').then(module => ({ default: module.UserDashboard }))
+)
+const CreateClientPage = lazy(() =>
+  import('@/pages/CreateClientPage').then(module => ({ default: module.CreateClientPage }))
+)
+const ViewTransactionsPage = lazy(() =>
+  import('@/pages/ViewTransactionsPage').then(module => ({ default: module.ViewTransactionsPage }))
+)
+const ClientVerifyPage = lazy(() =>
+  import('@/pages/ClientVerifyPage').then(module => ({ default: module.ClientVerifyPage }))
+)
+const AmlAlertsPage = lazy(() =>
+  import('@/pages/AmlAlertsPage').then(module => ({ default: module.AmlAlertsPage }))
+)
+const ClientAccountsPage = lazy(() =>
+  import('@/pages/ClientAccountsPage').then(module => ({ default: module.ClientAccountsPage }))
+)
+const EditClientPage = lazy(() =>
+  import('@/pages/EditClientPage').then(module => ({ default: module.EditClientPage }))
+)
+const SettingsPage = lazy(() =>
+  import('@/pages/SettingsPage').then(module => ({ default: module.SettingsPage }))
+)
+const ForgotPasswordPage = lazy(() =>
+  import('@/pages/ForgotPasswordPage').then(module => ({ default: module.ForgotPasswordPage }))
+)
+const ResetPasswordPage = lazy(() =>
+  import('@/pages/ResetPasswordPage').then(module => ({ default: module.ResetPasswordPage }))
+)
+const ActivityLogsPage = lazy(() =>
+  import('@/pages/ActivityLogsPage').then(module => ({ default: module.ActivityLogsPage }))
+)
 
 function RootRedirect() {
   const { user, isAuthenticated, isLoading } = useAuth()
