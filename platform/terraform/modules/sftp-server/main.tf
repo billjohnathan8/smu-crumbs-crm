@@ -65,7 +65,10 @@ resource "aws_security_group" "sftp_ec2" {
 }
 
 resource "aws_security_group_rule" "sftp_ec2_ingress_from_security_groups" {
-  for_each = local.ec2_enabled ? toset(var.sftp_ingress_source_security_group_ids) : toset([])
+  for_each = local.ec2_enabled ? {
+    for index, security_group_id in var.sftp_ingress_source_security_group_ids :
+    tostring(index) => security_group_id
+  } : {}
 
   type                     = "ingress"
   from_port                = 22

@@ -203,7 +203,7 @@ resource "aws_security_group_rule" "lambda_egress_to_db" {
 }
 
 resource "aws_security_group_rule" "lambda_egress_to_sftp_server" {
-  count = var.enable_ec2_sftp_server && trimspace(var.sftp_server_security_group_id) != "" ? 1 : 0
+  count = var.enable_ec2_sftp_server ? 1 : 0
 
   type                     = "egress"
   from_port                = 22
