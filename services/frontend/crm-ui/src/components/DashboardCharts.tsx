@@ -79,7 +79,7 @@ export function ActivityTrendChart({ data, isLoading = false }: ActivityTrendCha
               backgroundColor: 'var(--card)',
               color: 'var(--text)',
               border: '1px solid var(--border)',
-              fontSize: '12px',
+              fontSize: '10px',
             }}
           />
           <Legend />
@@ -116,7 +116,7 @@ export function VerificationStatusChart({ data, isLoading = false }: Verificatio
               backgroundColor: 'var(--card)',
               color: 'var(--text)',
               border: '1px solid var(--border)',
-              fontSize: '12px',
+              fontSize: '10px',
             }}
           />
           <Legend verticalAlign="bottom" height={36} />
@@ -171,11 +171,11 @@ export function NewClientsChart({ data, isLoading = false }: NewClientsChartProp
               backgroundColor: 'var(--card)',
               color: 'var(--text)',
               border: '1px solid var(--border)',
-              fontSize: '12px',
+              fontSize: '10px',
             }}
           />
           <Legend
-            wrapperStyle={{ fontSize: '12px' }}
+            wrapperStyle={{ fontSize: '10px' }}
             formatter={value => <span style={{ color: 'var(--text)' }}>{value}</span>}
           />
           <Line
