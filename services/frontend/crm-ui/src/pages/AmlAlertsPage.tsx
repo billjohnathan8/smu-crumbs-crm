@@ -292,7 +292,7 @@ export function AmlAlertsPage() {
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             </div>
           ) : alerts.length === 0 ? (
-            <div className="p-6 text-center text-text-muted">No AML alerts found</div>
+            <div className="p-6 text-center text-text-subtle">No AML alerts found</div>
           ) : (
             <>
               <div className="overflow-x-auto">

@@ -22,6 +22,7 @@ const RULES: PostalCodeRule[] = [
   { country: 'Australia', regex: /^\d{4}$/, hint: '4 digits (e.g. 3000)' },
   { country: 'Germany', regex: /^\d{5}$/, hint: '5 digits (e.g. 10115)' },
   { country: 'France', regex: /^\d{5}$/, hint: '5 digits (e.g. 75001)' },
+  { country: 'Switzerland', regex: /^\d{4}$/, hint: '4 digits (e.g. 8000)' },
   { country: 'India', regex: /^\d{6}$/, hint: '6 digits (e.g. 110001)' },
   { country: 'Japan', regex: /^\d{3}-?\d{4}$/, hint: '123-4567 or 1234567' },
   FALLBACK_RULE,
