@@ -90,6 +90,39 @@ resource "aws_cloudfront_origin_access_control" "frontend" {
   signing_protocol                  = "sigv4"
 }
 
+resource "aws_cloudfront_function" "spa_rewrite" {
+  name    = "${var.name_prefix}-spa-rewrite"
+  runtime = "cloudfront-js-2.0"
+  comment = "Rewrite SPA deep links to /index.html while excluding API paths."
+  publish = true
+  code    = <<-EOF
+function handler(event) {
+  var request = event.request;
+  var uri = request.uri || "/";
+
+  if (uri === "/" || uri === "") {
+    request.uri = "/index.html";
+    return request;
+  }
+
+  if (uri.startsWith("/api/")) {
+    return request;
+  }
+
+  if (uri.endsWith("/")) {
+    request.uri = uri + "index.html";
+    return request;
+  }
+
+  if (uri.indexOf(".") === -1) {
+    request.uri = "/index.html";
+  }
+
+  return request;
+}
+EOF
+}
+
 resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
   is_ipv6_enabled     = true
@@ -144,6 +177,11 @@ resource "aws_cloudfront_distribution" "frontend" {
     compress                   = true
     cache_policy_id            = local.cf_cache_policy_caching_optimized
     response_headers_policy_id = aws_cloudfront_response_headers_policy.security_headers.id
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.spa_rewrite.arn
+    }
   }
 
   dynamic "ordered_cache_behavior" {
@@ -171,22 +209,6 @@ resource "aws_cloudfront_distribution" "frontend" {
     cache_policy_id            = local.cf_cache_policy_caching_disabled
     origin_request_policy_id   = local.cf_origin_request_policy_all_viewer
     response_headers_policy_id = aws_cloudfront_response_headers_policy.api_security_headers.id
-  }
-
-  # With private S3 + OAC, missing SPA routes resolve as 403 from S3.
-  # Keep 403/404 fallback so deep links like /login and /admin/... load index.html.
-  custom_error_response {
-    error_code            = 403
-    response_code         = 200
-    response_page_path    = "/index.html"
-    error_caching_min_ttl = 0
-  }
-
-  custom_error_response {
-    error_code            = 404
-    response_code         = 200
-    response_page_path    = "/index.html"
-    error_caching_min_ttl = 0
   }
 
   restrictions {
