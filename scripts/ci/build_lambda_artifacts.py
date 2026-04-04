@@ -6,12 +6,14 @@ from __future__ import annotations
 import shutil
 import subprocess
 import sys
+import time
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
+MAX_PIP_INSTALL_ATTEMPTS = 3
 
 ARTIFACT_SPECS = [
     {
@@ -67,11 +69,29 @@ def install_packages(target_dir: Path, packages: list[str]) -> None:
         "install",
         "--disable-pip-version-check",
         "--no-input",
+        "--retries",
+        "5",
+        "--timeout",
+        "60",
+        "--no-cache-dir",
         "--target",
         str(target_dir),
         *packages,
     ]
-    subprocess.run(cmd, check=True)
+    for attempt in range(1, MAX_PIP_INSTALL_ATTEMPTS + 1):
+        try:
+            subprocess.run(cmd, check=True)
+            return
+        except subprocess.CalledProcessError:
+            if attempt == MAX_PIP_INSTALL_ATTEMPTS:
+                raise
+            print(
+                f"[WARN] pip install failed for {target_dir.parent.name} "
+                f"(attempt {attempt}/{MAX_PIP_INSTALL_ATTEMPTS}); retrying..."
+            )
+            shutil.rmtree(target_dir, ignore_errors=True)
+            target_dir.mkdir(parents=True, exist_ok=True)
+            time.sleep(attempt)
 
 
 def zip_tree(source_dir: Path, output_zip: Path) -> None:
