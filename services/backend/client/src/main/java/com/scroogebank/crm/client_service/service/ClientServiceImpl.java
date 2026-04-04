@@ -286,6 +286,25 @@ public class ClientServiceImpl implements ClientService {
 				requestId,
 				authorizationHeader
 			);
+
+			// Send email notification to client about information update
+			// Fail open: update should succeed even when notification infrastructure is degraded
+			try {
+				snsEmailPublisherService.publishClientInfoUpdated(
+					clientId(saved.getId()),
+					saved.getEmailAddress(),
+					saved.getFirstName(),
+					saved.getLastName(),
+					requestId
+				);
+			} catch (SnsPublishException ex) {
+				LOGGER.error(
+					"Client updated but info update email dispatch failed. clientId={} requestId={}",
+					clientId(saved.getId()),
+					requestId,
+					ex
+				);
+			}
 		}
 		return toDto(saved);
 	}
@@ -389,7 +408,8 @@ public class ClientServiceImpl implements ClientService {
 			throw new IllegalStateException("Verification review is only allowed for pending clients");
 		}
 
-		if (request.action() == ReviewVerificationRequest.ReviewAction.approve) {
+		boolean isApproved = request.action() == ReviewVerificationRequest.ReviewAction.approve;
+		if (isApproved) {
 			entity.setIdentityVerificationStatus(IdentityVerificationStatus.verified);
 			entity.setVerificationVerifiedAt(Instant.now());
 		} else {
@@ -409,6 +429,36 @@ public class ClientServiceImpl implements ClientService {
 			requestId,
 			authorizationHeader
 		);
+
+		// Send email notification to client about verification decision
+		// Fail open: review should succeed even when notification infrastructure is degraded
+		try {
+			if (isApproved) {
+				snsEmailPublisherService.publishVerificationApproved(
+					clientId(saved.getId()),
+					saved.getEmailAddress(),
+					saved.getFirstName(),
+					saved.getLastName(),
+					requestId
+				);
+			} else {
+				snsEmailPublisherService.publishVerificationRejected(
+					clientId(saved.getId()),
+					saved.getEmailAddress(),
+					saved.getFirstName(),
+					saved.getLastName(),
+					requestId
+				);
+			}
+		} catch (SnsPublishException ex) {
+			LOGGER.error(
+				"Verification review completed but email dispatch failed. clientId={} action={} requestId={}",
+				clientId(saved.getId()),
+				isApproved ? "approve" : "reject",
+				requestId,
+				ex
+			);
+		}
 
 		return new VerifyClientResponse(clientId(saved.getId()), saved.getIdentityVerificationStatus());
 	}

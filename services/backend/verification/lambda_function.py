@@ -15,19 +15,28 @@ Responsibilities
 
 Environment variables:
     # Email sending (flow 1)
-    SES_SOURCE_EMAIL                        Required for sending. Verified SES sender address.
-    FRONTEND_BASE_URL                       Required for sending. e.g. https://app.example.com
-    VERIFICATION_JWT_HMAC_SECRET            Optional. Secret for service JWT used in feedback API auth.
-    VERIFICATION_JWT_HMAC_SECRET_ARN        Optional. Secrets Manager ARN fallback for service JWT secret.
+    SES_SOURCE_EMAIL           Required for sending.
+                               Verified SES sender address.
+    FRONTEND_BASE_URL          Required for sending.
+                               e.g. https://app.example.com
+    VERIFICATION_JWT_HMAC_SECRET           Optional. Secret for service
+                                           JWT used in feedback API auth.
+    VERIFICATION_JWT_HMAC_SECRET_ARN       Optional. Secrets Manager ARN
+                                           fallback for service JWT secret.
 
     # Log service (flow 2)
-    LOG_API_BASE_URL                        Required for feedback. Base URL for log API.
-    VERIFICATION_LOG_AUTH_HEADER            Optional. Full Authorization header.
+    LOG_API_BASE_URL                        Required for feedback.
+                                            Base URL for log API.
+    VERIFICATION_LOG_AUTH_HEADER            Optional. Full Authorization
+                                            header.
     VERIFICATION_LOG_BEARER_TOKEN           Optional. Bearer token fallback.
     JWT_HMAC_SECRET_ARN                     Optional fallback secret ARN.
-    VERIFICATION_JWT_SUB                    Optional JWT subject (default: SYSTEM_VERIFICATION_FEEDBACK).
-    VERIFICATION_JWT_ROLE                   Optional JWT role (default: service).
-    VERIFICATION_JWT_TTL_SECONDS            Optional token TTL seconds (default: 300).
+    VERIFICATION_JWT_SUB                    Optional JWT subject
+                                            (default: SYSTEM_VERIFICATION_FEEDBACK).
+    VERIFICATION_JWT_ROLE                   Optional JWT role
+                                            (default: service).
+    VERIFICATION_JWT_TTL_SECONDS            Optional token TTL seconds
+                                            (default: 300).
 """
 
 from __future__ import annotations
@@ -209,7 +218,7 @@ def _send_verification_email(
       <p><a href="{link}">Upload Documents</a></p>
       <p>This link expires in {expiry_text}.</p>
     </body></html>
-    """
+    """  # noqa: E501
     body_text = (
         f"Hi {display_name},\n\n"
         f"Please upload your identity verification documents by visiting:\n{link}\n\n"
@@ -321,6 +330,213 @@ def _handle_verification_requested(message: dict[str, Any]) -> None:
     )
 
 
+def _send_client_info_updated_email(
+    client_id: str,
+    email: str,
+    first_name: str,
+    last_name: str,
+    request_id: str,
+) -> None:
+    source_email = os.environ.get("SES_SOURCE_EMAIL", "").strip()
+    if not source_email:
+        raise ValueError(
+            "SES_SOURCE_EMAIL is required to send client info updated emails"
+        )
+
+    if boto3 is None:
+        raise RuntimeError("boto3 is required to send SES emails")
+
+    display_name = first_name or "there"
+
+    subject = "[ScroogeBank CRM] Your information has been updated"
+    body_html = f"""
+    <html><body>
+      <p>Hi {display_name},</p>
+      <p>This is a confirmation that your account information has been updated.</p>
+      <p>If you did not request this change, please contact us immediately.</p>
+      <p>Thank you for banking with ScroogeBank.</p>
+    </body></html>
+    """
+    body_text = (
+        f"Hi {display_name},\n\n"
+        f"This is a confirmation that your account information has been updated.\n\n"
+        f"If you did not request this change, please contact us immediately.\n\n"
+        f"Thank you for banking with ScroogeBank."
+    )
+
+    boto3.client("ses").send_email(
+        Source=source_email,
+        Destination={"ToAddresses": [email]},
+        Message={
+            "Subject": {"Data": subject, "Charset": "UTF-8"},
+            "Body": {
+                "Text": {"Data": body_text, "Charset": "UTF-8"},
+                "Html": {"Data": body_html, "Charset": "UTF-8"},
+            },
+        },
+    )
+    logger.info(
+        "Sent client info updated email clientId=%s requestId=%s to=%s",
+        _mask_identifier(client_id),
+        request_id,
+        _mask_email(email),
+    )
+
+
+def _handle_client_info_updated(message: dict[str, Any]) -> None:
+    client_id = message.get("clientId", "").strip()
+    email = message.get("email", "").strip()
+    first_name = message.get("firstName", "").strip()
+    last_name = message.get("lastName", "").strip()
+    request_id = message.get("requestId", "").strip()
+
+    if not client_id or not email:
+        logger.warning("CLIENT_INFO_UPDATED missing clientId or email — skipping")
+        return
+
+    _send_client_info_updated_email(client_id, email, first_name, last_name, request_id)
+
+
+def _send_verification_approved_email(
+    client_id: str,
+    email: str,
+    first_name: str,
+    last_name: str,
+    request_id: str,
+) -> None:
+    source_email = os.environ.get("SES_SOURCE_EMAIL", "").strip()
+    if not source_email:
+        raise ValueError(
+            "SES_SOURCE_EMAIL is required to send verification approved emails"
+        )
+
+    if boto3 is None:
+        raise RuntimeError("boto3 is required to send SES emails")
+
+    display_name = first_name or "there"
+
+    subject = "[ScroogeBank CRM] Your identity verification has been approved"
+    body_html = f"""
+    <html><body>
+      <p>Hi {display_name},</p>
+      <p>Great news! Your identity verification has been approved.</p>
+      <p>Your account is now fully verified and you can access all features.</p>
+      <p>Thank you for banking with ScroogeBank.</p>
+    </body></html>
+    """
+    body_text = (
+        f"Hi {display_name},\n\n"
+        f"Great news! Your identity verification has been approved.\n\n"
+        f"Your account is now fully verified and you can access all features.\n\n"
+        f"Thank you for banking with ScroogeBank."
+    )
+
+    boto3.client("ses").send_email(
+        Source=source_email,
+        Destination={"ToAddresses": [email]},
+        Message={
+            "Subject": {"Data": subject, "Charset": "UTF-8"},
+            "Body": {
+                "Text": {"Data": body_text, "Charset": "UTF-8"},
+                "Html": {"Data": body_html, "Charset": "UTF-8"},
+            },
+        },
+    )
+    logger.info(
+        "Sent verification approved email clientId=%s requestId=%s to=%s",
+        _mask_identifier(client_id),
+        request_id,
+        _mask_email(email),
+    )
+
+
+def _handle_verification_approved(message: dict[str, Any]) -> None:
+    client_id = message.get("clientId", "").strip()
+    email = message.get("email", "").strip()
+    first_name = message.get("firstName", "").strip()
+    last_name = message.get("lastName", "").strip()
+    request_id = message.get("requestId", "").strip()
+
+    if not client_id or not email:
+        logger.warning("VERIFICATION_APPROVED missing clientId or email — skipping")
+        return
+
+    _send_verification_approved_email(
+        client_id, email, first_name, last_name, request_id
+    )
+
+
+def _send_verification_rejected_email(
+    client_id: str,
+    email: str,
+    first_name: str,
+    last_name: str,
+    request_id: str,
+) -> None:
+    source_email = os.environ.get("SES_SOURCE_EMAIL", "").strip()
+    if not source_email:
+        raise ValueError(
+            "SES_SOURCE_EMAIL is required to send verification rejected emails"
+        )
+
+    if boto3 is None:
+        raise RuntimeError("boto3 is required to send SES emails")
+
+    display_name = first_name or "there"
+
+    subject = "[ScroogeBank CRM] Your identity verification requires attention"
+    body_html = f"""
+    <html><body>
+      <p>Hi {display_name},</p>
+      <p>We were unable to verify your identity with the documents provided.</p>
+      <p>Please contact our support team for assistance or to submit new documents.</p>
+      <p>Thank you for your patience.</p>
+    </body></html>
+    """  # noqa: E501
+    body_text = (
+        f"Hi {display_name},\n\n"
+        f"We were unable to verify your identity with the documents "
+        f"provided.\n\n"
+        f"Please contact our support team for assistance or to submit new "
+        f"documents.\n\n"
+        f"Thank you for your patience."
+    )
+
+    boto3.client("ses").send_email(
+        Source=source_email,
+        Destination={"ToAddresses": [email]},
+        Message={
+            "Subject": {"Data": subject, "Charset": "UTF-8"},
+            "Body": {
+                "Text": {"Data": body_text, "Charset": "UTF-8"},
+                "Html": {"Data": body_html, "Charset": "UTF-8"},
+            },
+        },
+    )
+    logger.info(
+        "Sent verification rejected email clientId=%s requestId=%s to=%s",
+        _mask_identifier(client_id),
+        request_id,
+        _mask_email(email),
+    )
+
+
+def _handle_verification_rejected(message: dict[str, Any]) -> None:
+    client_id = message.get("clientId", "").strip()
+    email = message.get("email", "").strip()
+    first_name = message.get("firstName", "").strip()
+    last_name = message.get("lastName", "").strip()
+    request_id = message.get("requestId", "").strip()
+
+    if not client_id or not email:
+        logger.warning("VERIFICATION_REJECTED missing clientId or email — skipping")
+        return
+
+    _send_verification_rejected_email(
+        client_id, email, first_name, last_name, request_id
+    )
+
+
 def _parse_positive_int(value: Any, default: int) -> int:
     try:
         parsed = int(value)
@@ -399,7 +615,7 @@ def _update_communication_feedback(
             raise TypeError(
                 "_update_communication_feedback expects either "
                 "(base_url, provider_id, event_type, error_message) or "
-                "(base_url, provider_id, status, event_type, error_message)"
+                "(base_url, provider_id, status, event_type, error_message)"  # noqa: E501
             )
 
     if event_type is None:
@@ -408,7 +624,8 @@ def _update_communication_feedback(
     if status is None:
         status = str(_status_for_event(event_type))
     encoded_id = urllib.parse.quote(provider_message_id, safe="")
-    url = f"{log_api_base_url.rstrip('/')}/api/communications/provider/{encoded_id}/status"
+    base_url = log_api_base_url.rstrip("/")
+    url = f"{base_url}/api/communications/provider/{encoded_id}/status"
     body = {
         "status": status,
         "deliveryEvent": event_type,
@@ -421,7 +638,9 @@ def _update_communication_feedback(
         headers["Authorization"] = authorization
     req = urllib.request.Request(url=url, data=payload, headers=headers, method="PATCH")
     with urllib.request.urlopen(req, timeout=15) as response:
-        return response.getcode(), response.read().decode("utf-8", errors="replace")
+        code = response.getcode()
+        body = response.read().decode("utf-8", errors="replace")
+        return code, body
 
 
 def _invoke_update_communication_feedback(
@@ -431,7 +650,8 @@ def _invoke_update_communication_feedback(
     event_type: str,
     error_message: str | None,
 ) -> tuple[int, str]:
-    """Call update function while tolerating legacy monkeypatched signatures in tests."""
+    """Call update function while tolerating legacy monkeypatched signatures
+    in tests."""
     update_fn = _update_communication_feedback
     try:
         parameters = inspect.signature(update_fn).parameters
@@ -544,6 +764,60 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             except Exception:
                 logger.exception(
                     "Failed to send verification email clientId=%s",
+                    _mask_identifier(str(message.get("clientId", ""))),
+                )
+                failures.append(
+                    {
+                        "clientId": message.get("clientId", "unknown"),
+                        "statusCode": "email_send_failed",
+                    }
+                )
+            continue
+
+        # ── Client info updated notification ────────────────────────────────
+        if event_type == "CLIENT_INFO_UPDATED":
+            try:
+                _handle_client_info_updated(message)
+                updated += 1
+            except Exception:
+                logger.exception(
+                    "Failed to send client info updated email clientId=%s",
+                    _mask_identifier(str(message.get("clientId", ""))),
+                )
+                failures.append(
+                    {
+                        "clientId": message.get("clientId", "unknown"),
+                        "statusCode": "email_send_failed",
+                    }
+                )
+            continue
+
+        # ── Verification approved notification ──────────────────────────────
+        if event_type == "VERIFICATION_APPROVED":
+            try:
+                _handle_verification_approved(message)
+                updated += 1
+            except Exception:
+                logger.exception(
+                    "Failed to send verification approved email clientId=%s",
+                    _mask_identifier(str(message.get("clientId", ""))),
+                )
+                failures.append(
+                    {
+                        "clientId": message.get("clientId", "unknown"),
+                        "statusCode": "email_send_failed",
+                    }
+                )
+            continue
+
+        # ── Verification rejected notification ──────────────────────────────
+        if event_type == "VERIFICATION_REJECTED":
+            try:
+                _handle_verification_rejected(message)
+                updated += 1
+            except Exception:
+                logger.exception(
+                    "Failed to send verification rejected email clientId=%s",
                     _mask_identifier(str(message.get("clientId", ""))),
                 )
                 failures.append(

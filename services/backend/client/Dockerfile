@@ -1,12 +1,5 @@
-FROM eclipse-temurin:21-jre-alpine
-
-RUN apk update && apk upgrade --no-cache
-RUN apk add --no-cache expat>=2.7.5
-
+FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
-
-COPY build/libs/*-SNAPSHOT.jar app.jar
-
+COPY build/libs/*.jar app.jar
 EXPOSE 8080
-
 ENTRYPOINT ["java", "-jar", "app.jar"]

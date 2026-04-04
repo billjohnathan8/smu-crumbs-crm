@@ -351,7 +351,7 @@ class TestLambdaHandlerFlow1:
         ]
 
     def test_flow1_does_not_require_log_api_base_url(self, fake_send):
-        """UPLOAD_VERIFICATION_REQUESTED should succeed even without LOG_API_BASE_URL set."""
+        """UPLOAD_VERIFICATION_REQUESTED should succeed even without LOG_API_BASE_URL set."""  # noqa: E501
         response = lambda_function.lambda_handler(self._verification_event(), None)
 
         assert response["statusCode"] == 200

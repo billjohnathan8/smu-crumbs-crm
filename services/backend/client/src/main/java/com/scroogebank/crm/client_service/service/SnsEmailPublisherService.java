@@ -92,4 +92,175 @@ public class SnsEmailPublisherService {
             throw new SnsPublishException("Unexpected SNS verification email publish failure", ex);
         }
     }
+
+    /**
+     * Publishes a CLIENT_INFO_UPDATED event to SNS.
+     * The Lambda subscribed to the topic will send an email notification to the client.
+     *
+     * @param clientId  public client identifier
+     * @param email     recipient email address
+     * @param firstName recipient first name
+     * @param lastName  recipient last name
+     * @param requestId correlation ID for tracing
+     */
+    public void publishClientInfoUpdated(
+        String clientId,
+        String email,
+        String firstName,
+        String lastName,
+        String requestId
+    ) {
+        try {
+            String topicArn = verificationTopicArn == null ? "" : verificationTopicArn.trim();
+            if (topicArn.isEmpty()) {
+                throw new SnsPublishException("VERIFICATION_SNS_TOPIC_ARN not configured");
+            }
+
+            Map<String, Object> payload = Map.of(
+                "eventType",  "CLIENT_INFO_UPDATED",
+                "clientId",   clientId,
+                "email",      email,
+                "firstName",  firstName != null ? firstName : "",
+                "lastName",   lastName != null ? lastName : "",
+                "requestId",  requestId != null ? requestId : ""
+            );
+
+            String messageJson = objectMapper.writeValueAsString(payload);
+
+            PublishRequest publishRequest = PublishRequest.builder()
+                .topicArn(topicArn)
+                .message(messageJson)
+                .subject("CLIENT_INFO_UPDATED")
+                .build();
+
+            PublishResponse response = snsClient.publish(publishRequest);
+
+            LOGGER.info(
+                "Published CLIENT_INFO_UPDATED to SNS clientId={} requestId={} messageId={}",
+                clientId, requestId, response.messageId()
+            );
+        } catch (SnsPublishException ex) {
+            throw ex;
+        } catch (SnsException ex) {
+            throw new SnsPublishException("Failed to publish SNS client info updated notification", ex);
+        } catch (IllegalArgumentException ex) {
+            throw new SnsPublishException("Invalid SNS client info updated publish payload", ex);
+        } catch (RuntimeException ex) {
+            throw new SnsPublishException("Unexpected SNS client info updated publish failure", ex);
+        }
+    }
+
+    /**
+     * Publishes a VERIFICATION_APPROVED event to SNS.
+     * The Lambda subscribed to the topic will send an approval email to the client.
+     *
+     * @param clientId  public client identifier
+     * @param email     recipient email address
+     * @param firstName recipient first name
+     * @param lastName  recipient last name
+     * @param requestId correlation ID for tracing
+     */
+    public void publishVerificationApproved(
+        String clientId,
+        String email,
+        String firstName,
+        String lastName,
+        String requestId
+    ) {
+        try {
+            String topicArn = verificationTopicArn == null ? "" : verificationTopicArn.trim();
+            if (topicArn.isEmpty()) {
+                throw new SnsPublishException("VERIFICATION_SNS_TOPIC_ARN not configured");
+            }
+
+            Map<String, Object> payload = Map.of(
+                "eventType",  "VERIFICATION_APPROVED",
+                "clientId",   clientId,
+                "email",      email,
+                "firstName",  firstName != null ? firstName : "",
+                "lastName",   lastName != null ? lastName : "",
+                "requestId",  requestId != null ? requestId : ""
+            );
+
+            String messageJson = objectMapper.writeValueAsString(payload);
+
+            PublishRequest publishRequest = PublishRequest.builder()
+                .topicArn(topicArn)
+                .message(messageJson)
+                .subject("VERIFICATION_APPROVED")
+                .build();
+
+            PublishResponse response = snsClient.publish(publishRequest);
+
+            LOGGER.info(
+                "Published VERIFICATION_APPROVED to SNS clientId={} requestId={} messageId={}",
+                clientId, requestId, response.messageId()
+            );
+        } catch (SnsPublishException ex) {
+            throw ex;
+        } catch (SnsException ex) {
+            throw new SnsPublishException("Failed to publish SNS verification approved notification", ex);
+        } catch (IllegalArgumentException ex) {
+            throw new SnsPublishException("Invalid SNS verification approved publish payload", ex);
+        } catch (RuntimeException ex) {
+            throw new SnsPublishException("Unexpected SNS verification approved publish failure", ex);
+        }
+    }
+
+    /**
+     * Publishes a VERIFICATION_REJECTED event to SNS.
+     * The Lambda subscribed to the topic will send a rejection email to the client.
+     *
+     * @param clientId  public client identifier
+     * @param email     recipient email address
+     * @param firstName recipient first name
+     * @param lastName  recipient last name
+     * @param requestId correlation ID for tracing
+     */
+    public void publishVerificationRejected(
+        String clientId,
+        String email,
+        String firstName,
+        String lastName,
+        String requestId
+    ) {
+        try {
+            String topicArn = verificationTopicArn == null ? "" : verificationTopicArn.trim();
+            if (topicArn.isEmpty()) {
+                throw new SnsPublishException("VERIFICATION_SNS_TOPIC_ARN not configured");
+            }
+
+            Map<String, Object> payload = Map.of(
+                "eventType",  "VERIFICATION_REJECTED",
+                "clientId",   clientId,
+                "email",      email,
+                "firstName",  firstName != null ? firstName : "",
+                "lastName",   lastName != null ? lastName : "",
+                "requestId",  requestId != null ? requestId : ""
+            );
+
+            String messageJson = objectMapper.writeValueAsString(payload);
+
+            PublishRequest publishRequest = PublishRequest.builder()
+                .topicArn(topicArn)
+                .message(messageJson)
+                .subject("VERIFICATION_REJECTED")
+                .build();
+
+            PublishResponse response = snsClient.publish(publishRequest);
+
+            LOGGER.info(
+                "Published VERIFICATION_REJECTED to SNS clientId={} requestId={} messageId={}",
+                clientId, requestId, response.messageId()
+            );
+        } catch (SnsPublishException ex) {
+            throw ex;
+        } catch (SnsException ex) {
+            throw new SnsPublishException("Failed to publish SNS verification rejected notification", ex);
+        } catch (IllegalArgumentException ex) {
+            throw new SnsPublishException("Invalid SNS verification rejected publish payload", ex);
+        } catch (RuntimeException ex) {
+            throw new SnsPublishException("Unexpected SNS verification rejected publish failure", ex);
+        }
+    }
 }
