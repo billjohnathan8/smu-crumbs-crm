@@ -295,7 +295,8 @@ public class ClientServiceImpl implements ClientService {
 					saved.getEmailAddress(),
 					saved.getFirstName(),
 					saved.getLastName(),
-					requestId
+					requestId,
+					authorizationHeader
 				);
 			} catch (SnsPublishException ex) {
 				LOGGER.error(
@@ -439,7 +440,8 @@ public class ClientServiceImpl implements ClientService {
 					saved.getEmailAddress(),
 					saved.getFirstName(),
 					saved.getLastName(),
-					requestId
+					requestId,
+					authorizationHeader
 				);
 			} else {
 				snsEmailPublisherService.publishVerificationRejected(
@@ -447,7 +449,8 @@ public class ClientServiceImpl implements ClientService {
 					saved.getEmailAddress(),
 					saved.getFirstName(),
 					saved.getLastName(),
-					requestId
+					requestId,
+					authorizationHeader
 				);
 			}
 		} catch (SnsPublishException ex) {

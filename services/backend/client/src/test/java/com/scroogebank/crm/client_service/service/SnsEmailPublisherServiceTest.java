@@ -1,6 +1,7 @@
 package com.scroogebank.crm.client_service.service;
 
 
+import com.scroogebank.crm.client_service.communication.LogServiceCommunicationClient;
 import com.scroogebank.crm.client_service.exception.SnsPublishException;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -35,12 +36,13 @@ class SnsEmailPublisherServiceTest {
     private static final long TOKEN_TTL_SECONDS = 7200L;
 
     private final SnsClient snsClient = mock(SnsClient.class);
+    private final LogServiceCommunicationClient communicationClient = mock(LogServiceCommunicationClient.class);
     private final JsonMapper objectMapper = new JsonMapper();
     private SnsEmailPublisherService publisher;
 
     @BeforeEach
     public void setUp() {
-        publisher = new SnsEmailPublisherService(snsClient, objectMapper, TOPIC_ARN);
+        publisher = new SnsEmailPublisherService(snsClient, objectMapper, communicationClient, TOPIC_ARN);
 
         when(snsClient.publish(any(PublishRequest.class)))
             .thenReturn(PublishResponse.builder().messageId("mock-sns-message-id").build());
@@ -121,7 +123,7 @@ class SnsEmailPublisherServiceTest {
 
     @Test
     void publishVerificationEmail_withoutConfiguredTopicArn_throws() {
-        SnsEmailPublisherService service = new SnsEmailPublisherService(snsClient, objectMapper, "   ");
+        SnsEmailPublisherService service = new SnsEmailPublisherService(snsClient, objectMapper, communicationClient, "   ");
 
         assertThatThrownBy(() ->
             service.publishVerificationEmail(CLIENT_ID, EMAIL, TOKEN, FIRST_NAME, REQUEST_ID, TOKEN_TTL_SECONDS)

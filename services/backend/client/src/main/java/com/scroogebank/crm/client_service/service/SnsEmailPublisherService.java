@@ -138,7 +138,7 @@ public class SnsEmailPublisherService {
                     "client-info-updated-" + clientId + "-" + System.currentTimeMillis()
                 );
                 CommunicationRecord record = communicationClient.createCommunication(commRequest, authorizationHeader);
-                communicationId = record.id();
+                communicationId = record.communicationId();
             } catch (Exception ex) {
                 LOGGER.warn("Failed to create communication record for CLIENT_INFO_UPDATED clientId={}", clientId, ex);
             }
@@ -181,20 +181,22 @@ public class SnsEmailPublisherService {
 
     /**
      * Publishes a VERIFICATION_APPROVED event to SNS.
-     * The Lambda subscribed to the topic will send an approval email to the client.
+     * Creates a communication record and sends approval email to the client.
      *
      * @param clientId  public client identifier
      * @param email     recipient email address
      * @param firstName recipient first name
      * @param lastName  recipient last name
      * @param requestId correlation ID for tracing
+     * @param authorizationHeader bearer token for communication API
      */
     public void publishVerificationApproved(
         String clientId,
         String email,
         String firstName,
         String lastName,
-        String requestId
+        String requestId,
+        String authorizationHeader
     ) {
         try {
             String topicArn = verificationTopicArn == null ? "" : verificationTopicArn.trim();
@@ -202,14 +204,34 @@ public class SnsEmailPublisherService {
                 throw new SnsPublishException("VERIFICATION_SNS_TOPIC_ARN not configured");
             }
 
-            Map<String, Object> payload = Map.of(
-                "eventType",  "VERIFICATION_APPROVED",
-                "clientId",   clientId,
-                "email",      email,
-                "firstName",  firstName != null ? firstName : "",
-                "lastName",   lastName != null ? lastName : "",
-                "requestId",  requestId != null ? requestId : ""
-            );
+            // Create communication record for tracking
+            String communicationId = null;
+            try {
+                CreateCommunicationRequest commRequest = new CreateCommunicationRequest(
+                    clientId,
+                    "SYSTEM",
+                    email,
+                    "[ScroogeBank CRM] Your identity verification has been approved",
+                    "Great news! Your identity verification has been approved.",
+                    "email",
+                    "verification-approved-" + clientId + "-" + System.currentTimeMillis()
+                );
+                CommunicationRecord record = communicationClient.createCommunication(commRequest, authorizationHeader);
+                communicationId = record.communicationId();
+            } catch (Exception ex) {
+                LOGGER.warn("Failed to create communication record for VERIFICATION_APPROVED clientId={}", clientId, ex);
+            }
+
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("eventType", "VERIFICATION_APPROVED");
+            payload.put("clientId", clientId);
+            payload.put("email", email);
+            payload.put("firstName", firstName != null ? firstName : "");
+            payload.put("lastName", lastName != null ? lastName : "");
+            payload.put("requestId", requestId != null ? requestId : "");
+            if (communicationId != null) {
+                payload.put("communicationId", communicationId);
+            }
 
             String messageJson = objectMapper.writeValueAsString(payload);
 
@@ -222,8 +244,8 @@ public class SnsEmailPublisherService {
             PublishResponse response = snsClient.publish(publishRequest);
 
             LOGGER.info(
-                "Published VERIFICATION_APPROVED to SNS clientId={} requestId={} messageId={}",
-                clientId, requestId, response.messageId()
+                "Published VERIFICATION_APPROVED to SNS clientId={} communicationId={} requestId={} messageId={}",
+                clientId, communicationId, requestId, response.messageId()
             );
         } catch (SnsPublishException ex) {
             throw ex;
@@ -238,20 +260,22 @@ public class SnsEmailPublisherService {
 
     /**
      * Publishes a VERIFICATION_REJECTED event to SNS.
-     * The Lambda subscribed to the topic will send a rejection email to the client.
+     * Creates a communication record and sends rejection email to the client.
      *
      * @param clientId  public client identifier
      * @param email     recipient email address
      * @param firstName recipient first name
      * @param lastName  recipient last name
      * @param requestId correlation ID for tracing
+     * @param authorizationHeader bearer token for communication API
      */
     public void publishVerificationRejected(
         String clientId,
         String email,
         String firstName,
         String lastName,
-        String requestId
+        String requestId,
+        String authorizationHeader
     ) {
         try {
             String topicArn = verificationTopicArn == null ? "" : verificationTopicArn.trim();
@@ -259,14 +283,34 @@ public class SnsEmailPublisherService {
                 throw new SnsPublishException("VERIFICATION_SNS_TOPIC_ARN not configured");
             }
 
-            Map<String, Object> payload = Map.of(
-                "eventType",  "VERIFICATION_REJECTED",
-                "clientId",   clientId,
-                "email",      email,
-                "firstName",  firstName != null ? firstName : "",
-                "lastName",   lastName != null ? lastName : "",
-                "requestId",  requestId != null ? requestId : ""
-            );
+            // Create communication record for tracking
+            String communicationId = null;
+            try {
+                CreateCommunicationRequest commRequest = new CreateCommunicationRequest(
+                    clientId,
+                    "SYSTEM",
+                    email,
+                    "[ScroogeBank CRM] Your identity verification requires attention",
+                    "We were unable to verify your identity with the documents provided.",
+                    "email",
+                    "verification-rejected-" + clientId + "-" + System.currentTimeMillis()
+                );
+                CommunicationRecord record = communicationClient.createCommunication(commRequest, authorizationHeader);
+                communicationId = record.communicationId();
+            } catch (Exception ex) {
+                LOGGER.warn("Failed to create communication record for VERIFICATION_REJECTED clientId={}", clientId, ex);
+            }
+
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("eventType", "VERIFICATION_REJECTED");
+            payload.put("clientId", clientId);
+            payload.put("email", email);
+            payload.put("firstName", firstName != null ? firstName : "");
+            payload.put("lastName", lastName != null ? lastName : "");
+            payload.put("requestId", requestId != null ? requestId : "");
+            if (communicationId != null) {
+                payload.put("communicationId", communicationId);
+            }
 
             String messageJson = objectMapper.writeValueAsString(payload);
 
@@ -279,8 +323,8 @@ public class SnsEmailPublisherService {
             PublishResponse response = snsClient.publish(publishRequest);
 
             LOGGER.info(
-                "Published VERIFICATION_REJECTED to SNS clientId={} requestId={} messageId={}",
-                clientId, requestId, response.messageId()
+                "Published VERIFICATION_REJECTED to SNS clientId={} communicationId={} requestId={} messageId={}",
+                clientId, communicationId, requestId, response.messageId()
             );
         } catch (SnsPublishException ex) {
             throw ex;
