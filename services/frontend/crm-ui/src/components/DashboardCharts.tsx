@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
   Legend,
+  type PieLabelRenderProps,
 } from 'recharts'
 
 export interface ActivityTrendPoint {
@@ -55,7 +56,7 @@ function getVerificationGradientByName(name: string): string {
   return 'var(--text-subtle)'
 }
 
-function renderVerificationLabel(props: any) {
+function renderVerificationLabel(props: PieLabelRenderProps) {
   const { x, y, cx, name, value } = props
   if (!value || value <= 0) return null
 
