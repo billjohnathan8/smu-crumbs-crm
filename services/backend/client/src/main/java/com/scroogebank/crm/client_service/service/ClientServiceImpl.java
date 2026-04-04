@@ -286,27 +286,28 @@ public class ClientServiceImpl implements ClientService {
 				requestId,
 				authorizationHeader
 			);
-
-			// Send email notification to client about information update
-			// Fail open: update should succeed even when notification infrastructure is degraded
-			try {
-				snsEmailPublisherService.publishClientInfoUpdated(
-					clientId(saved.getId()),
-					saved.getEmailAddress(),
-					saved.getFirstName(),
-					saved.getLastName(),
-					requestId,
-					authorizationHeader
-				);
-			} catch (SnsPublishException ex) {
-				LOGGER.error(
-					"Client updated but info update email dispatch failed. clientId={} requestId={}",
-					clientId(saved.getId()),
-					requestId,
-					ex
-				);
-			}
 		}
+
+		// Send email notification to client about information update
+		// Fail open: update should succeed even when notification infrastructure is degraded
+		try {
+			snsEmailPublisherService.publishClientInfoUpdated(
+				clientId(saved.getId()),
+				saved.getEmailAddress(),
+				saved.getFirstName(),
+				saved.getLastName(),
+				requestId,
+				authorizationHeader
+			);
+		} catch (SnsPublishException ex) {
+			LOGGER.error(
+				"Client updated but info update email dispatch failed. clientId={} requestId={}",
+				clientId(saved.getId()),
+				requestId,
+				ex
+			);
+		}
+
 		return toDto(saved);
 	}
 
