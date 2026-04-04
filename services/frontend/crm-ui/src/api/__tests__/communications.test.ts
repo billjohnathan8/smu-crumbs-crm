@@ -196,6 +196,22 @@ describe('communications API', () => {
         '/api/communications/queued?limit=50&status=failed&createdFrom=2026-04-01T00%3A00%3A00.000Z&createdTo=2026-04-02T00%3A00%3A00.000Z&recipient=example.com&subject=verification&client=clt_1&sender=usr_1'
       )
     })
+
+    it('should pass request options when listing queued communications', async () => {
+      const mockResponse: PaginatedResponse<Communication> = {
+        data: [],
+        pagination: { limit: 10, offset: 0, total: 0 },
+      }
+      const options = { headers: { 'X-Trace-Id': 'trace-queued' } }
+      vi.spyOn(client, 'apiGet').mockResolvedValue(mockResponse)
+
+      await listQueuedCommunications({ status: 'queued' }, options)
+
+      expect(client.apiGet).toHaveBeenCalledWith(
+        '/api/communications/queued?status=queued',
+        options
+      )
+    })
   })
 
   describe('listCommunications', () => {
@@ -243,6 +259,26 @@ describe('communications API', () => {
       await listCommunications({ status: 'queued' }, options)
 
       expect(client.apiGet).toHaveBeenCalledWith('/api/communications?status=queued', options)
+    })
+
+    it('should list communications with date and text filters', async () => {
+      const mockResponse: PaginatedResponse<Communication> = {
+        data: [],
+        pagination: { limit: 25, offset: 0, total: 0 },
+      }
+      vi.spyOn(client, 'apiGet').mockResolvedValue(mockResponse)
+
+      await listCommunications({
+        createdFrom: '2026-04-01T00:00:00.000Z',
+        createdTo: '2026-04-05T00:00:00.000Z',
+        subject: 'kyc reminder',
+        client: 'client-123',
+        sender: 'agent-1',
+      })
+
+      expect(client.apiGet).toHaveBeenCalledWith(
+        '/api/communications?createdFrom=2026-04-01T00%3A00%3A00.000Z&createdTo=2026-04-05T00%3A00%3A00.000Z&subject=kyc+reminder&client=client-123&sender=agent-1'
+      )
     })
   })
 

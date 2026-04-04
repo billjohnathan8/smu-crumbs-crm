@@ -922,7 +922,7 @@ variable "enable_verification_pipeline" {
 variable "verification_email_dispatch_enabled" {
   description = "Enable legacy queued communication dispatch worker on client ECS service."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "audit_consumer_zip_path" {

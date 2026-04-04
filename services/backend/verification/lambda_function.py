@@ -336,7 +336,8 @@ def _send_client_info_updated_email(
     first_name: str,
     last_name: str,
     request_id: str,
-) -> None:
+) -> str:
+    """Send client info updated email and return SES MessageId."""
     source_email = os.environ.get("SES_SOURCE_EMAIL", "").strip()
     if not source_email:
         raise ValueError(
@@ -364,7 +365,7 @@ def _send_client_info_updated_email(
         f"Thank you for banking with ScroogeBank."
     )
 
-    boto3.client("ses").send_email(
+    response = boto3.client("ses").send_email(
         Source=source_email,
         Destination={"ToAddresses": [email]},
         Message={
@@ -375,12 +376,17 @@ def _send_client_info_updated_email(
             },
         },
     )
+    message_id = (response or {}).get("MessageId")
+    if not message_id:
+        message_id = ""
     logger.info(
-        "Sent client info updated email clientId=%s requestId=%s to=%s",
+        "Sent client info updated email clientId=%s requestId=%s to=%s messageId=%s",
         _mask_identifier(client_id),
         request_id,
         _mask_email(email),
+        message_id,
     )
+    return message_id
 
 
 def _handle_client_info_updated(message: dict[str, Any]) -> None:
@@ -389,12 +395,35 @@ def _handle_client_info_updated(message: dict[str, Any]) -> None:
     first_name = message.get("firstName", "").strip()
     last_name = message.get("lastName", "").strip()
     request_id = message.get("requestId", "").strip()
+    communication_id = message.get("communicationId", "").strip()
 
     if not client_id or not email:
         logger.warning("CLIENT_INFO_UPDATED missing clientId or email — skipping")
         return
 
-    _send_client_info_updated_email(client_id, email, first_name, last_name, request_id)
+    message_id = _send_client_info_updated_email(
+        client_id, email, first_name, last_name, request_id
+    )
+
+    # Update communication status if communicationId provided
+    if communication_id:
+        log_api_base_url = os.environ.get("LOG_API_BASE_URL", "").strip()
+        if log_api_base_url:
+            try:
+                _update_communication_by_id(
+                    log_api_base_url, communication_id, message_id, "sent"
+                )
+                logger.info(
+                    "Updated communication status communicationId=%s providerMessageId=%s",
+                    communication_id,
+                    message_id,
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to update communication status communicationId=%s",
+                    communication_id,
+                    exc_info=True,
+                )
 
 
 def _send_verification_approved_email(
@@ -403,7 +432,8 @@ def _send_verification_approved_email(
     first_name: str,
     last_name: str,
     request_id: str,
-) -> None:
+) -> str:
+    """Send verification approved email and return SES MessageId."""
     source_email = os.environ.get("SES_SOURCE_EMAIL", "").strip()
     if not source_email:
         raise ValueError(
@@ -431,7 +461,7 @@ def _send_verification_approved_email(
         f"Thank you for banking with ScroogeBank."
     )
 
-    boto3.client("ses").send_email(
+    response = boto3.client("ses").send_email(
         Source=source_email,
         Destination={"ToAddresses": [email]},
         Message={
@@ -442,12 +472,17 @@ def _send_verification_approved_email(
             },
         },
     )
+    message_id = (response or {}).get("MessageId")
+    if not message_id:
+        message_id = ""
     logger.info(
-        "Sent verification approved email clientId=%s requestId=%s to=%s",
+        "Sent verification approved email clientId=%s requestId=%s to=%s messageId=%s",
         _mask_identifier(client_id),
         request_id,
         _mask_email(email),
+        message_id,
     )
+    return message_id
 
 
 def _handle_verification_approved(message: dict[str, Any]) -> None:
@@ -456,14 +491,35 @@ def _handle_verification_approved(message: dict[str, Any]) -> None:
     first_name = message.get("firstName", "").strip()
     last_name = message.get("lastName", "").strip()
     request_id = message.get("requestId", "").strip()
+    communication_id = message.get("communicationId", "").strip()
 
     if not client_id or not email:
         logger.warning("VERIFICATION_APPROVED missing clientId or email — skipping")
         return
 
-    _send_verification_approved_email(
+    message_id = _send_verification_approved_email(
         client_id, email, first_name, last_name, request_id
     )
+
+    # Update communication status if communicationId provided
+    if communication_id:
+        log_api_base_url = os.environ.get("LOG_API_BASE_URL", "").strip()
+        if log_api_base_url:
+            try:
+                _update_communication_by_id(
+                    log_api_base_url, communication_id, message_id, "sent"
+                )
+                logger.info(
+                    "Updated communication status communicationId=%s providerMessageId=%s",
+                    communication_id,
+                    message_id,
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to update communication status communicationId=%s",
+                    communication_id,
+                    exc_info=True,
+                )
 
 
 def _send_verification_rejected_email(
@@ -472,7 +528,8 @@ def _send_verification_rejected_email(
     first_name: str,
     last_name: str,
     request_id: str,
-) -> None:
+) -> str:
+    """Send verification rejected email and return SES MessageId."""
     source_email = os.environ.get("SES_SOURCE_EMAIL", "").strip()
     if not source_email:
         raise ValueError(
@@ -502,7 +559,7 @@ def _send_verification_rejected_email(
         f"Thank you for your patience."
     )
 
-    boto3.client("ses").send_email(
+    response = boto3.client("ses").send_email(
         Source=source_email,
         Destination={"ToAddresses": [email]},
         Message={
@@ -513,12 +570,17 @@ def _send_verification_rejected_email(
             },
         },
     )
+    message_id = (response or {}).get("MessageId")
+    if not message_id:
+        message_id = ""
     logger.info(
-        "Sent verification rejected email clientId=%s requestId=%s to=%s",
+        "Sent verification rejected email clientId=%s requestId=%s to=%s messageId=%s",
         _mask_identifier(client_id),
         request_id,
         _mask_email(email),
+        message_id,
     )
+    return message_id
 
 
 def _handle_verification_rejected(message: dict[str, Any]) -> None:
@@ -527,14 +589,35 @@ def _handle_verification_rejected(message: dict[str, Any]) -> None:
     first_name = message.get("firstName", "").strip()
     last_name = message.get("lastName", "").strip()
     request_id = message.get("requestId", "").strip()
+    communication_id = message.get("communicationId", "").strip()
 
     if not client_id or not email:
         logger.warning("VERIFICATION_REJECTED missing clientId or email — skipping")
         return
 
-    _send_verification_rejected_email(
+    message_id = _send_verification_rejected_email(
         client_id, email, first_name, last_name, request_id
     )
+
+    # Update communication status if communicationId provided
+    if communication_id:
+        log_api_base_url = os.environ.get("LOG_API_BASE_URL", "").strip()
+        if log_api_base_url:
+            try:
+                _update_communication_by_id(
+                    log_api_base_url, communication_id, message_id, "sent"
+                )
+                logger.info(
+                    "Updated communication status communicationId=%s providerMessageId=%s",
+                    communication_id,
+                    message_id,
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to update communication status communicationId=%s",
+                    communication_id,
+                    exc_info=True,
+                )
 
 
 def _parse_positive_int(value: Any, default: int) -> int:
@@ -641,6 +724,32 @@ def _update_communication_feedback(
         code = response.getcode()
         body = response.read().decode("utf-8", errors="replace")
         return code, body
+
+
+def _update_communication_by_id(
+    log_api_base_url: str,
+    communication_id: str,
+    provider_message_id: str,
+    status: str = "sent",
+) -> tuple[int, str]:
+    """Update communication status by communication ID after sending email."""
+    encoded_id = urllib.parse.quote(communication_id, safe="")
+    base_url = log_api_base_url.rstrip("/")
+    url = f"{base_url}/api/communications/{encoded_id}/status"
+    body = {
+        "providerMessageId": provider_message_id,
+        "status": status,
+    }
+    payload = json.dumps(body).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    authorization = _resolve_authorization_header()
+    if authorization:
+        headers["Authorization"] = authorization
+    req = urllib.request.Request(url=url, data=payload, headers=headers, method="PATCH")
+    with urllib.request.urlopen(req, timeout=15) as response:
+        code = response.getcode()
+        body_text = response.read().decode("utf-8", errors="replace")
+        return code, body_text
 
 
 def _invoke_update_communication_feedback(

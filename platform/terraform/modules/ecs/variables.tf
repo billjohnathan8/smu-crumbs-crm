@@ -261,7 +261,7 @@ variable "verification_email_provider" {
 variable "verification_email_dispatch_enabled" {
   description = "Enable legacy queued communication dispatch worker in client service."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "ses_sender_email" {

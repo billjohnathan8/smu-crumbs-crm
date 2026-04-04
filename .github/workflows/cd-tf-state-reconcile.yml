@@ -1,18 +1,21 @@
-name: CD - Terraform State Reconcile
-# One-time/manual Terraform state reconciliation for already-existing AWS resources.
+name: "[DEPRECATED] CD - Terraform State Reconcile"
+# DEPRECATED: Reconciliation is now automatic in cd-tf-infra-provision.yml.
+# This workflow is kept for reference only.
+#
+# Original purpose: One-time/manual Terraform state reconciliation for already-existing AWS resources.
 
 on:
   workflow_dispatch:
     inputs:
       environment:
-        description: Target environment
+        description: "[DEPRECATED] Use cd-tf-infra-provision.yml instead"
         required: true
         default: prod
         type: choice
         options:
           - prod
       reconcile_sg_rules:
-        description: Import existing ALB/ECS/Lambda security group rules into Terraform state
+        description: "[DEPRECATED] Use cd-tf-infra-provision.yml instead"
         required: true
         default: true
         type: boolean

@@ -92,6 +92,19 @@ describe('clients API', () => {
       expect(client.apiGet).toHaveBeenCalledWith('/api/clients?limit=10&offset=20&q=search+term')
     })
 
+    it('should list clients with status and assignee filters', async () => {
+      vi.spyOn(client, 'apiGet').mockResolvedValue({
+        data: [],
+        pagination: { total: 0, limit: 10, offset: 0 },
+      })
+
+      await listClients({ kycStatus: 'pending', assignedUserId: 'user-789' })
+
+      expect(client.apiGet).toHaveBeenCalledWith(
+        '/api/clients?kycStatus=pending&assignedUserId=user-789'
+      )
+    })
+
     it('should include zero-valued pagination params', async () => {
       vi.spyOn(client, 'apiGet').mockResolvedValue({
         data: [],

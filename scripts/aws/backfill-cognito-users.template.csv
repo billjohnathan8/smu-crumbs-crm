@@ -1,4 +1,0 @@
-email,first_name,last_name,role,status
-admin1@example.com,Alice,Admin,ADMIN,ACTIVE
-user1@example.com,Bob,User,USER,ACTIVE
-disabled1@example.com,Carol,Disabled,USER,DISABLED
