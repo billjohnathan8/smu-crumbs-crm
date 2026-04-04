@@ -43,6 +43,7 @@ type CommunicationFilters = {
   subject: string
   client: string
   sender: string
+  descriptionContains: string
 }
 
 const DEFAULT_FILTERS: CommunicationFilters = {
@@ -53,6 +54,7 @@ const DEFAULT_FILTERS: CommunicationFilters = {
   subject: '',
   client: '',
   sender: '',
+  descriptionContains: '',
 }
 
 export function AdminCommunications() {
@@ -81,6 +83,14 @@ export function AdminCommunications() {
   const [commLookupError, setCommLookupError] = useState('')
   const [isCommLookingUp, setIsCommLookingUp] = useState(false)
   const [activeFilters, setActiveFilters] = useState<CommunicationFilters>(DEFAULT_FILTERS)
+
+  const filteredCommunications = activeFilters.descriptionContains.trim()
+    ? communications.filter(c =>
+        (c.body ?? '')
+          .toLowerCase()
+          .includes(activeFilters.descriptionContains.trim().toLowerCase())
+      )
+    : communications
 
   const toIsoDateTime = (value: string): string | undefined => {
     if (!value) return undefined
@@ -492,6 +502,16 @@ export function AdminCommunications() {
                 className="w-full px-3 py-2 bg-background-light rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
+            <div>
+              <label className="block text-xs text-text-muted mb-1">Description contains</label>
+              <input
+                type="text"
+                value={activeFilters.descriptionContains}
+                onChange={e => handleFilterChange('descriptionContains', e.target.value)}
+                placeholder="search body text..."
+                className="w-full px-3 py-2 bg-background-light rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
           </div>
           <div className="mt-4 flex justify-end">
             <button
@@ -504,7 +524,7 @@ export function AdminCommunications() {
         </div>
 
         <CommunicationsPanel
-          communications={communications}
+          communications={filteredCommunications}
           formatDate={formatDateTime}
           title="Communications"
           titleAsHeading={false}

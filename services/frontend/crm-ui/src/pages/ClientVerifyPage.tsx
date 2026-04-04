@@ -214,6 +214,28 @@ export function ClientVerifyPage() {
     )
   }
 
+  if (message?.type === 'success') {
+    return (
+      <div className="dark min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="w-full max-w-md bg-card border border-border rounded-xl shadow-sm p-8 text-center">
+          <div className="mb-4 text-success">
+            <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-text mb-2">Documents Submitted</h1>
+          <p className="text-sm text-text-muted mb-4">
+            Your documents have been uploaded successfully and are now pending review.
+            You will be notified once the verification is complete.
+          </p>
+          <p className="text-sm text-text-muted">
+            If additional documents are required, a new verification link will be sent to you.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="dark min-h-screen bg-background flex items-center justify-center p-6">
       <div className="w-full max-w-2xl bg-card border border-border rounded-xl shadow-sm p-8">
