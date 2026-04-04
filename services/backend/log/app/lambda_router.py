@@ -999,6 +999,25 @@ class LambdaRouter:
         row = self._service.get_communication(communication_id)
         if row is None:
             raise _HttpError(500, "Internal error")
+        encoded_communication_id = self._encode_prefixed_id("com_", communication_id)
+        try:
+            self._service.create_log(
+                CreateLogRequest(
+                    action="CREATE",
+                    attributeName="Communication",
+                    beforeValue=None,
+                    afterValue=encoded_communication_id,
+                    userId=effective_user_id,
+                    clientId=body.clientId,
+                    correlationId=request.request_id,
+                )
+            )
+        except Exception:
+            LOGGER.warning(
+                "communication created but audit log write failed | communication_id=%s",
+                encoded_communication_id,
+                exc_info=True,
+            )
         return RoutedResponse(202, self._to_communication(row))
 
     def _list_queued_communications(self, request: NormalizedRequest) -> RoutedResponse:

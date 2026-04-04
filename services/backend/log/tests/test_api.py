@@ -1212,6 +1212,40 @@ def test_create_communication_without_user_id_uses_authenticated_user() -> None:
     assert service.communications[0]["user_id"] == "usr_1"
 
 
+def test_create_communication_creates_audit_log_entry() -> None:
+    secret = "test-secret"
+    service = FakeLogService()
+    router = _make_router(service, secret=secret)
+    token = mint_token("usr_1", "user", secret)
+
+    response, body = _invoke(
+        router,
+        _http_api_v2_event(
+            "POST",
+            "/api/communications",
+            headers={"Authorization": f"Bearer {token}", "X-Request-Id": "req_comm_1"},
+            body={
+                "clientId": "clt_1",
+                "toEmail": "to@example.com",
+                "subject": "Hello",
+                "body": "Body",
+            },
+        ),
+    )
+
+    assert response["statusCode"] == 202
+    assert body is not None
+    assert body["communicationId"] == "com_1"
+    assert len(service.logs) == 1
+    assert service.logs[0]["action"] == "CREATE"
+    assert service.logs[0]["attribute_name"] == "Communication"
+    assert service.logs[0]["before_value"] is None
+    assert service.logs[0]["after_value"] == "com_1"
+    assert service.logs[0]["user_id"] == "usr_1"
+    assert service.logs[0]["client_id"] == "clt_1"
+    assert service.logs[0]["correlation_id"] == "req_comm_1"
+
+
 def test_get_communication_invalid_id_and_not_found() -> None:
     secret = "test-secret"
     router = _make_router(FakeLogService(), secret=secret)
