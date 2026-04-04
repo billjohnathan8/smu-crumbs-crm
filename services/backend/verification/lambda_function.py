@@ -376,7 +376,9 @@ def _send_client_info_updated_email(
             },
         },
     )
-    message_id = response["MessageId"]
+    message_id = (response or {}).get("MessageId")
+    if not message_id:
+        message_id = ""
     logger.info(
         "Sent client info updated email clientId=%s requestId=%s to=%s messageId=%s",
         _mask_identifier(client_id),
@@ -470,7 +472,9 @@ def _send_verification_approved_email(
             },
         },
     )
-    message_id = response["MessageId"]
+    message_id = (response or {}).get("MessageId")
+    if not message_id:
+        message_id = ""
     logger.info(
         "Sent verification approved email clientId=%s requestId=%s to=%s messageId=%s",
         _mask_identifier(client_id),
@@ -566,7 +570,9 @@ def _send_verification_rejected_email(
             },
         },
     )
-    message_id = response["MessageId"]
+    message_id = (response or {}).get("MessageId")
+    if not message_id:
+        message_id = ""
     logger.info(
         "Sent verification rejected email clientId=%s requestId=%s to=%s messageId=%s",
         _mask_identifier(client_id),
@@ -729,7 +735,7 @@ def _update_communication_by_id(
     """Update communication status by communication ID after sending email."""
     encoded_id = urllib.parse.quote(communication_id, safe="")
     base_url = log_api_base_url.rstrip("/")
-    url = f"{base_url}/api/communications/{encoded_id}"
+    url = f"{base_url}/api/communications/{encoded_id}/status"
     body = {
         "providerMessageId": provider_message_id,
         "status": status,
