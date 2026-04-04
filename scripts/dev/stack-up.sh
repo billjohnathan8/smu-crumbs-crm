@@ -518,6 +518,14 @@ echo ""
 echo "=== Phase 5: Starting application services ==="
 : "${E2E_ADMIN_PASSWORD:?Missing E2E_ADMIN_PASSWORD (copy .env.example to repo root .env.local and set E2E_ADMIN_PASSWORD / E2E_USER_PASSWORD)}"
 : "${E2E_USER_PASSWORD:?Missing E2E_USER_PASSWORD}"
+if [[ ${#E2E_ADMIN_PASSWORD} -lt 8 ]]; then
+  echo "[FAIL] E2E_ADMIN_PASSWORD must be at least 8 characters." >&2
+  exit 1
+fi
+if [[ ${#E2E_USER_PASSWORD} -lt 8 ]]; then
+  echo "[FAIL] E2E_USER_PASSWORD must be at least 8 characters." >&2
+  exit 1
+fi
 echo "  Waiting for Docker images (background build)..."
 if ! wait $DOCKER_BUILD_PID; then
   echo "[FAIL] Docker image build failed — see ${LOG_DIR}/docker-build.log" >&2
@@ -526,6 +534,7 @@ fi
 echo "[OK] Docker images built"
 
 CLIENT_LOG_SERVICE_URL="${LOG_SERVICE_URL}" \
+LOG_SERVICE_URL="${LOG_SERVICE_URL}" \
 LOG_API_UPSTREAM="${LOG_SERVICE_URL}" \
 VERIFICATION_SNS_TOPIC_ARN="${VERIFICATION_SNS_TOPIC_ARN}" \
 VERIFICATION_DOCUMENTS_BUCKET="${VERIFICATION_DOCUMENTS_BUCKET}" \
