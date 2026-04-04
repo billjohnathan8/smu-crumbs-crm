@@ -379,6 +379,7 @@ class LambdaRouter:
             request_id = request_headers.get(_LOWER_REQUEST_ID_HEADER) or str(
                 uuid.uuid4()
             )
+            LOGGER.warning("Failed to normalize event: %s", exc)
             return _error_response(
                 request_id,
                 400,
@@ -386,8 +387,15 @@ class LambdaRouter:
                 str(exc),
             )
 
+        LOGGER.info(
+            "Request: %s %s | request_id=%s",
+            request.method,
+            request.path,
+            request.request_id,
+        )
         try:
             routed = self._route(request)
+            LOGGER.info("Response: %s | status=%s", request.path, routed.status_code)
             return _finalize_response(request.request_id, routed)
         except UnauthorizedError:
             return _error_response(
@@ -424,8 +432,13 @@ class LambdaRouter:
                 _error_name_for_status(exc.status_code),
                 exc.detail,
             )
-        except (psycopg.OperationalError, psycopg.InterfaceError):
-            LOGGER.exception("database connectivity failure")
+        except (psycopg.OperationalError, psycopg.InterfaceError) as exc:
+            LOGGER.exception(
+                "Database connectivity failure: %s | request=%s %s",
+                exc,
+                request.method,
+                request.path,
+            )
             return _error_response(
                 request.request_id,
                 503,
@@ -433,7 +446,13 @@ class LambdaRouter:
                 "database unavailable",
             )
         except Exception as exc:  # pragma: no cover - safety net
-            LOGGER.error("Unhandled exception: %s", exc, exc_info=True)
+            LOGGER.exception(
+                "Unhandled exception: %s | request=%s %s | headers=%s",
+                exc,
+                request.method,
+                request.path,
+                request.headers,
+            )
             return _error_response(
                 request.request_id,
                 500,

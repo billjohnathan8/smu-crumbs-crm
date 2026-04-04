@@ -11,6 +11,13 @@ from app.lambda_router import LambdaRouter
 from app.repository import LogRepository
 from app.service import LogService
 
+# Configure logging for CloudWatch - CRITICAL for production visibility
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(levelname)s] %(asctime)s %(name)s - %(message)s",
+    force=True,  # Override any existing handlers
+)
+
 
 @dataclass
 class _Runtime:
