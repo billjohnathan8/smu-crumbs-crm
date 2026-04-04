@@ -1,4 +1,11 @@
-import type { Dispatch, FormEvent, ReactNode, SetStateAction } from 'react'
+import {
+  useEffect,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+  type SubmitEvent,
+} from 'react'
 import type { Communication, CommunicationStatus } from '@/api/types'
 import type { SendCommunicationRequest } from '@/api/communications'
 
@@ -23,7 +30,7 @@ type CommunicationsPanelProps = {
   composeSuccess?: string
   composeError?: string
   isSending?: boolean
-  onSubmit?: (e: FormEvent) => void
+  onSubmit?: (e: SubmitEvent<HTMLFormElement>) => void
   defaultEmail?: string
 
   editableStatuses?: boolean
@@ -67,6 +74,17 @@ export function CommunicationsPanel({
     Boolean(setStatusUpdates) &&
     Boolean(onUpdateStatus)
 
+  const [detailComm, setDetailComm] = useState<Communication | null>(null)
+
+  useEffect(() => {
+    if (!detailComm) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDetailComm(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [detailComm])
+
   const toggleCompose = () => {
     if (!setShowComposeForm) return
 
@@ -79,6 +97,58 @@ export function CommunicationsPanel({
 
   return (
     <div className="rounded-lg  bg-card">
+      {detailComm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="presentation"
+          onClick={() => setDetailComm(null)}
+          data-testid="communication-detail-modal"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="communication-detail-title"
+            className="bg-card max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-border p-6 shadow-lg"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <h2 id="communication-detail-title" className="text-lg font-normal text-text">
+                {detailComm.subject || '(No subject)'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setDetailComm(null)}
+                className="shrink-0 rounded border border-border bg-background-light px-3 py-1 text-sm text-text hover:brightness-[0.9]"
+              >
+                Close
+              </button>
+            </div>
+            <div className="space-y-4 text-sm">
+              <div>
+                <p className="mb-1 text-xs font-normal uppercase tracking-wider text-text-muted">
+                  To
+                </p>
+                <p className="text-text">{detailComm.toEmail}</p>
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-normal uppercase tracking-wider text-text-muted">
+                  Subject
+                </p>
+                <p className="text-text">{detailComm.subject || '(No subject)'}</p>
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-normal uppercase tracking-wider text-text-muted">
+                  Contents
+                </p>
+                <div className="whitespace-pre-wrap break-words rounded-lg bg-background-light p-3 text-text">
+                  {detailComm.body?.trim() ? detailComm.body : '(No content)'}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
         {titleAsHeading ? (
           <h2 className="text-lg font-normal text-text">{title}</h2>
@@ -217,7 +287,11 @@ export function CommunicationsPanel({
 
             <tbody className="divide-y divide-border">
               {communications.map(comm => (
-                <tr key={comm.communicationId} className="hover:bg-background-light">
+                <tr
+                  key={comm.communicationId}
+                  className="cursor-pointer hover:bg-background-light"
+                  onClick={() => setDetailComm(comm)}
+                >
                   <td className="whitespace-nowrap px-6 py-4 font-mono text-sm text-text-muted">
                     {comm.communicationId}
                   </td>
@@ -233,6 +307,7 @@ export function CommunicationsPanel({
                             [comm.communicationId]: e.target.value as CommunicationStatus,
                           }))
                         }
+                        onClick={e => e.stopPropagation()}
                         className="rounded  bg-background-light px-2 py-1 text-sm text-text"
                       >
                         <option value="queued">queued</option>
@@ -257,7 +332,10 @@ export function CommunicationsPanel({
                     {formatDate(comm.createdAt)}
                   </td>
                   {canEditStatuses && (
-                    <td className="whitespace-nowrap px-6 py-4">
+                    <td
+                      className="whitespace-nowrap px-6 py-4"
+                      onClick={e => e.stopPropagation()}
+                    >
                       <button
                         onClick={() => onUpdateStatus?.(comm.communicationId)}
                         disabled={isUpdating?.[comm.communicationId]}
@@ -275,7 +353,19 @@ export function CommunicationsPanel({
       ) : (
         <div className="divide-y divide-border">
           {communications.map(comm => (
-            <div key={comm.communicationId} className="px-6 py-4 hover:bg-background-light">
+            <div
+              key={comm.communicationId}
+              role="button"
+              tabIndex={0}
+              className="cursor-pointer px-6 py-4 hover:bg-background-light"
+              onClick={() => setDetailComm(comm)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setDetailComm(comm)
+                }
+              }}
+            >
               <div className="mb-1 flex items-center justify-between">
                 <p className="text-sm font-normal text-text">{comm.subject}</p>
                 <span
