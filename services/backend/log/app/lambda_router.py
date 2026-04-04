@@ -13,6 +13,12 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 import psycopg
+
+try:
+    import boto3
+except ImportError:
+    boto3 = None  # type: ignore
+
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .auth import ForbiddenError, UnauthorizedError, require_bearer_user, require_roles
@@ -160,6 +166,8 @@ def _error_name_for_status(status_code: int) -> str:
         return "not_found"
     if status_code == 409:
         return "conflict"
+    if status_code == 502:
+        return "bad_gateway"
     if status_code == 503:
         return "service_unavailable"
     if status_code >= 500:
@@ -923,11 +931,9 @@ class LambdaRouter:
         user = self._require_user(request)
         require_roles(user, {"admin"})
 
-        try:
-            import boto3
-        except ImportError as exc:
-            LOGGER.exception("boto3 import failed")
-            raise _HttpError(503, "Lambda invocation unavailable") from exc
+        if boto3 is None:
+            LOGGER.error("boto3 import failed")
+            raise _HttpError(503, "Lambda invocation unavailable")
 
         aml_function_name = self._get_aml_function_name()
         if not aml_function_name:

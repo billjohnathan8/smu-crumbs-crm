@@ -106,14 +106,14 @@ class Settings:
         default_factory=lambda: _env_or_secret(
             "DB_PASSWORD",
             "DB_PASSWORD_SECRET_ARN",
-            None,
+            "crm_password" if _is_dev_environment() else None,
         )
     )
     jwt_hmac_secret: str = field(
         default_factory=lambda: _env_or_secret(
             "JWT_HMAC_SECRET",
             "JWT_HMAC_SECRET_ARN",
-            None,
+            "dev-secret-key-for-testing-only" if _is_dev_environment() else None,
         )
     )
     # Authentication mode: local (HS256 only), cognito (RS256 only), hybrid (both)
