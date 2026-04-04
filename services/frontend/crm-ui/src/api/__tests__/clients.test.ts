@@ -296,7 +296,7 @@ describe('clients API', () => {
       expect(client.apiPost).toHaveBeenCalledWith(
         '/api/clients/client-123/upload-verify',
         verifyRequest,
-        { skipAuth: true, headers: {} }
+        { skipAuth: true, headers: {}, timeout: 60000 }
       )
       expect(result).toEqual(mockResponse)
     })
@@ -324,7 +324,7 @@ describe('clients API', () => {
       expect(client.apiPost).toHaveBeenCalledWith(
         '/api/clients/client-123/upload-verify',
         verifyRequest,
-        { skipAuth: true, headers: { 'Idempotency-Key': 'idem-1' } }
+        { skipAuth: true, headers: { 'Idempotency-Key': 'idem-1' }, timeout: 60000 }
       )
     })
 

@@ -114,6 +114,9 @@ export async function uploadVerificationDocs(
   data: UploadVerificationDocsRequest,
   idempotencyKey?: string
 ): Promise<VerifyClientResponse> {
+  // Public verification uploads can be multi-megabyte payloads and need more than
+  // the default API timeout.
+  const uploadTimeoutMs = 60_000
   const headers: Record<string, string> = {}
   if (idempotencyKey) {
     headers['Idempotency-Key'] = idempotencyKey
@@ -121,7 +124,7 @@ export async function uploadVerificationDocs(
   return apiPost<VerifyClientResponse, UploadVerificationDocsRequest>(
     `${CLIENTS_BASE}/${clientId}/upload-verify`,
     data,
-    { skipAuth: true, headers }
+    { skipAuth: true, headers, timeout: uploadTimeoutMs }
   )
 }
 
