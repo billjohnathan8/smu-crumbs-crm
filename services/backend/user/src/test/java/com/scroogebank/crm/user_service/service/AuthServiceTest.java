@@ -186,7 +186,12 @@ class AuthServiceTest {
 			status,
 			"hash",
 			now,
-			now
+			now,
+			null,
+			null,
+			null,
+			null,
+			null
 		);
 	}
 }

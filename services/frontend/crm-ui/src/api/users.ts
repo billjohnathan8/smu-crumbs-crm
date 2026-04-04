@@ -15,6 +15,8 @@ export interface ListUsersParams {
   role?: UserRole
 }
 
+export interface ListArchivedUsersParams extends ListUsersParams {}
+
 /**
  * List users (admin only)
  */
@@ -31,8 +33,14 @@ export async function listUsers(params?: ListUsersParams): Promise<PaginatedResp
 /**
  * Get user by ID (admin only)
  */
-export async function getUserById(userId: string): Promise<User> {
-  return apiGet<User>(`${BASE}/${userId}`)
+export async function getUserById(
+  userId: string,
+  options?: { includeArchived?: boolean }
+): Promise<User> {
+  const query = new URLSearchParams()
+  if (options?.includeArchived) query.append('includeArchived', 'true')
+  const endpoint = query.toString() ? `${BASE}/${userId}?${query.toString()}` : `${BASE}/${userId}`
+  return apiGet<User>(endpoint)
 }
 
 /**
@@ -52,8 +60,11 @@ export async function updateUser(userId: string, data: UpdateUserRequest): Promi
 /**
  * Delete user (admin only)
  */
-export async function deleteUser(userId: string): Promise<void> {
-  return apiDelete<void>(`${BASE}/${userId}`)
+export async function deleteUser(userId: string, reason?: string): Promise<void> {
+  const query = new URLSearchParams()
+  if (reason && reason.trim()) query.append('reason', reason.trim())
+  const endpoint = query.toString() ? `${BASE}/${userId}?${query.toString()}` : `${BASE}/${userId}`
+  return apiDelete<void>(endpoint)
 }
 
 /**
@@ -61,6 +72,26 @@ export async function deleteUser(userId: string): Promise<void> {
  */
 export async function disableUser(userId: string): Promise<User> {
   return apiPost<User>(`${BASE}/${userId}/disable`)
+}
+
+/**
+ * List archived users.
+ */
+export async function listArchivedUsers(params?: ListArchivedUsersParams): Promise<PaginatedResponse<User>> {
+  const query = new URLSearchParams()
+  if (params?.limit) query.append('limit', params.limit.toString())
+  if (params?.offset) query.append('offset', params.offset.toString())
+  if (params?.role) query.append('role', params.role)
+
+  const endpoint = query.toString() ? `${BASE}/archives?${query.toString()}` : `${BASE}/archives`
+  return apiGet<PaginatedResponse<User>>(endpoint)
+}
+
+/**
+ * Reinstate archived user (root-admin only).
+ */
+export async function reinstateUser(userId: string): Promise<User> {
+  return apiPost<User>(`${BASE}/${userId}/reinstate`)
 }
 
 /**

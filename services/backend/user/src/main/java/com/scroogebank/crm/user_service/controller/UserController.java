@@ -99,6 +99,21 @@ public class UserController {
 		return userAccountService.listUsers(limit, offset, role, requester);
 	}
 
+	@GetMapping("/archives")
+	@Operation(summary = "List archived users")
+	public UsersListResponse listArchivedUsers(
+		HttpServletRequest request,
+		@RequestParam(defaultValue = "50") @Min(1) @Max(200) int limit,
+		@RequestParam(defaultValue = "0") @Min(0) int offset,
+		@RequestParam(required = false) String role
+	) {
+		if (limit < 1 || limit > 200 || offset < 0) {
+			throw new IllegalArgumentException("invalid pagination");
+		}
+		AuthenticatedUser requester = requestAuth.requireUser(request);
+		return userAccountService.listArchivedUsers(limit, offset, role, requester);
+	}
+
 	/**
 	 * Fetches a user by ID (admin-only or super admin-only)
 	 *
@@ -108,9 +123,13 @@ public class UserController {
 	 */
 	@GetMapping("/{userId}")
 	@Operation(summary = "Get user by id")
-	public UserDto getUser(HttpServletRequest request, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String userId) {
+	public UserDto getUser(
+		HttpServletRequest request,
+		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String userId,
+		@RequestParam(defaultValue = "false") boolean includeArchived
+	) {
 		AuthenticatedUser requester = requestAuth.requireUser(request);
-		return userAccountService.getUser(userId, requester);
+		return userAccountService.getUser(userId, requester, includeArchived);
 	}
 
 	/**
@@ -154,9 +173,23 @@ public class UserController {
 	@DeleteMapping("/{userId}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	@Operation(summary = "Delete user")
-	public void deleteUser(HttpServletRequest request, @Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String userId) {
+	public void deleteUser(
+		HttpServletRequest request,
+		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String userId,
+		@RequestParam(required = false) String reason
+	) {
 		AuthenticatedUser user = requestAuth.requireUser(request);
-		userAccountService.deleteUser(userId, user, authHeader(request), requestId(request));
+		userAccountService.deleteUser(userId, user, authHeader(request), requestId(request), reason);
+	}
+
+	@PostMapping("/{userId}/reinstate")
+	@Operation(summary = "Reinstate archived user")
+	public UserDto reinstateUser(
+		HttpServletRequest request,
+		@Pattern(regexp = "^[A-Za-z0-9_-]{1,128}$") @PathVariable String userId
+	) {
+		AuthenticatedUser user = requestAuth.requireUser(request);
+		return userAccountService.reinstateUser(userId, user, authHeader(request), requestId(request));
 	}
 
 	/**

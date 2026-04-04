@@ -238,8 +238,13 @@ it('should show transfer guidance as tooltip for disabled agents with clients', 
   renderAdminUserManagementPage(mockSuperAdminUser)
 
   const transferButton = await screen.findByRole('button', { name: 'Transfer (2)' })
-  expect(transferButton).toHaveAttribute('title', 'Transfer clients to enable delete')
-  expect(screen.queryByText('Transfer clients to enable delete')).not.toBeInTheDocument()
+  expect(transferButton).toHaveAttribute(
+    'title',
+    'Optional: transfer clients from this archived-eligible agent'
+  )
+  expect(
+    screen.queryByText('Optional: transfer clients from this archived-eligible agent')
+  ).not.toBeInTheDocument()
 })
 
 it('should handle delete admin for super admin', async () => {
@@ -253,12 +258,12 @@ it('should handle delete admin for super admin', async () => {
   renderAdminUserManagementPage(mockSuperAdminUser)
 
   await waitFor(() => {
-    const deleteButtons = screen.getAllByText('Delete')
-    expect(deleteButtons).toHaveLength(1) // only admin rows keep delete
+    const archiveButtons = screen.getAllByText('Archive')
+    expect(archiveButtons.length).toBeGreaterThan(0)
   })
 
-  const deleteButtons = screen.getAllByText('Delete')
-  fireEvent.click(deleteButtons[0]) // Delete admin
+  const archiveButtons = screen.getAllByText('Archive')
+  fireEvent.click(archiveButtons[0]) // Archive admin row first
 
   await waitFor(() => {
     expect(usersApi.deleteUser).toHaveBeenCalledWith('admin-123')

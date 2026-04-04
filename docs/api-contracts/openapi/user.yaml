@@ -120,6 +120,69 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/users/archives:
+    get:
+      tags:
+      - users
+      summary: List archived users
+      description: Root admin can list archived admins and agents. Non-root admins are restricted to archived agents they archived.
+      security:
+      - BearerAuth: []
+      x-required-roles:
+      - admin
+      - super_admin
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+      - name: offset
+        in: query
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      - name: role
+        in: query
+        schema:
+          $ref: '#/components/schemas/UserRole'
+      responses:
+        '200':
+          description: List of archived users.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+                required:
+                - data
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       tags:
       - users
@@ -213,6 +276,12 @@ paths:
         required: true
         schema:
           $ref: '#/components/schemas/UserId'
+      - name: includeArchived
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
       responses:
         '200':
           description: User found.
@@ -307,8 +376,8 @@ paths:
     delete:
       tags:
       - users
-      summary: Delete user
-      description: Admin/super-admin only. Deletes a user. Root administrator (`usr_1`) cannot be deleted.
+      summary: Archive user
+      description: Admin/super-admin only. Archives a user (soft delete). Root administrator (`usr_1`) cannot be archived.
       security:
       - BearerAuth: []
       x-required-roles:
@@ -320,9 +389,15 @@ paths:
         required: true
         schema:
           $ref: '#/components/schemas/UserId'
+      - name: reason
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 500
       responses:
         '204':
-          description: User deleted.
+          description: User archived.
         '400':
           description: Validation error (for example invalid userId).
           content:
@@ -343,6 +418,54 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/users/{userId}/reinstate:
+    post:
+      tags:
+      - users
+      summary: Reinstate user
+      description: Root-admin only. Reinstates an archived admin or agent.
+      security:
+      - BearerAuth: []
+      x-required-roles:
+      - admin
+      - super_admin
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/UserId'
+      responses:
+        '200':
+          description: User reinstated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found.
           content:
             application/json:
               schema:
@@ -637,6 +760,7 @@ components:
       enum:
       - active
       - disabled
+      - deleted
       default: active
     User:
       type: object
@@ -667,6 +791,23 @@ components:
         updatedAt:
           type: string
           format: date-time
+        archivedAt:
+          type: string
+          format: date-time
+          nullable: true
+        archivedBy:
+          type: string
+          nullable: true
+        archivalReason:
+          type: string
+          nullable: true
+        reinstatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        reinstatedBy:
+          type: string
+          nullable: true
       required:
       - id
       - firstName

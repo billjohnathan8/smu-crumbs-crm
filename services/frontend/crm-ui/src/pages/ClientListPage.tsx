@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
 import { listClients } from '@/api/clients'
-import { listUsers } from '@/api/users'
+import { listArchivedUsers, listUsers } from '@/api/users'
 import type { Client, IdentityVerificationStatus, User } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
@@ -119,14 +119,15 @@ export function ClientListPage() {
 
   useEffect(() => {
     if (!canViewAllClients) return
-    listUsers({ role: 'user' })
-      .then(res => {
+    Promise.all([listUsers({ role: 'user' }), listArchivedUsers({ role: 'user', limit: 200 })])
+      .then(([activeRes, archivedRes]) => {
+        const allUsers = [...activeRes.data, ...archivedRes.data]
         const map: Record<string, string> = {}
-        for (const u of res.data) {
+        for (const u of allUsers) {
           map[u.id] = `${u.firstName} ${u.lastName}`
         }
         setAgentNameMap(map)
-        setAgents(res.data)
+        setAgents(allUsers)
       })
       .catch(() => {})
   }, [canViewAllClients])

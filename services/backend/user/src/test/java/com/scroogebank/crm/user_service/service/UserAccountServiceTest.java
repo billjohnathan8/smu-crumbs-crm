@@ -78,11 +78,11 @@ class UserAccountServiceTest {
 		assertEquals(dto, service.createUser(create, requester, AUTH_HEADER, CORRELATION_ID));
 		assertEquals(dto, service.getUser("usr_2", requester));
 		assertEquals(dto, service.updateUser("usr_2", update, requester, AUTH_HEADER, CORRELATION_ID));
-		service.deleteUser("usr_2", requester, AUTH_HEADER, CORRELATION_ID);
+		service.deleteUser("usr_2", requester, AUTH_HEADER, CORRELATION_ID, null);
 		assertEquals(dto, service.disableUser("usr_2", requester, AUTH_HEADER, CORRELATION_ID));
 		service.resetPassword("usr_2", reset, requester);
 
-		verify(store).deleteUser(eq("usr_2"));
+		verify(store).archiveUser(eq("usr_2"), eq("usr_1"), eq(null));
 		verify(store).resetPassword(eq("usr_2"));
 	}
 
@@ -410,6 +410,27 @@ class UserAccountServiceTest {
 		assertNotNull(notFound);
 	}
 
+	@Test
+	void getUser_deletedUserCanBeFetchedWhenIncludeArchivedTrue() {
+		AuthenticatedUser requester = new AuthenticatedUser("usr_1", "admin");
+		UserDto deletedUser = new UserDto(
+			"usr_3",
+			"Deleted",
+			"User",
+			"deleted.user@example.com",
+			UserRole.user,
+			UserStatus.deleted,
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:00Z")
+		);
+		when(store.getUser("usr_3")).thenReturn(deletedUser);
+
+		UserDto result = service.getUser("usr_3", requester, true);
+
+		assertEquals("usr_3", result.id());
+		assertEquals(UserStatus.deleted, result.status());
+	}
+
 	//  UPDATE USER TESTS  //
 	//  ─── Happy Path ───
 	@ParameterizedTest
@@ -588,11 +609,14 @@ class UserAccountServiceTest {
 
 		AuthenticatedUser user = new AuthenticatedUser("usr_2", "user");
 
-		AccessDeniedException denied = assertThrows(AccessDeniedException.class, () -> service.deleteUser("usr_3", user, AUTH_HEADER, CORRELATION_ID));
+		AccessDeniedException denied = assertThrows(
+			AccessDeniedException.class,
+			() -> service.deleteUser("usr_3", user, AUTH_HEADER, CORRELATION_ID, null)
+		);
 		assertNotNull(denied);
 
 		verify(store).getUser(eq("usr_3"));
-		verify(store, never()).deleteUser(eq("usr_3"));
+		verify(store, never()).archiveUser(any(), any(), any());
 	}
 
 	@Test
@@ -622,13 +646,13 @@ class UserAccountServiceTest {
 
 		AuthenticatedUser superAdmin = new AuthenticatedUser("usr_1", "super_admin");
 
-		service.deleteUser("usr_3", superAdmin, AUTH_HEADER, CORRELATION_ID);
-		service.deleteUser("usr_4", superAdmin, AUTH_HEADER, CORRELATION_ID);
+		service.deleteUser("usr_3", superAdmin, AUTH_HEADER, CORRELATION_ID, null);
+		service.deleteUser("usr_4", superAdmin, AUTH_HEADER, CORRELATION_ID, null);
 
 		verify(store).getUser(eq("usr_3"));
 		verify(store).getUser(eq("usr_4"));
-		verify(store).deleteUser(eq("usr_3"));
-		verify(store).deleteUser(eq("usr_4"));
+		verify(store).archiveUser(eq("usr_3"), eq("usr_1"), eq(null));
+		verify(store).archiveUser(eq("usr_4"), eq("usr_1"), eq(null));
 	}
 
 	@Test
@@ -647,10 +671,10 @@ class UserAccountServiceTest {
 
 		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "admin");
 
-		service.deleteUser("usr_3", admin, AUTH_HEADER, CORRELATION_ID);
+		service.deleteUser("usr_3", admin, AUTH_HEADER, CORRELATION_ID, null);
 
 		verify(store).getUser(eq("usr_3"));
-		verify(store).deleteUser(eq("usr_3"));
+		verify(store).archiveUser(eq("usr_3"), eq("usr_1"), eq(null));
 	}
 
 	@Test
@@ -669,11 +693,124 @@ class UserAccountServiceTest {
 
 		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "admin");
 
-		AccessDeniedException denied = assertThrows(AccessDeniedException.class, () -> service.deleteUser("usr_4", admin, AUTH_HEADER, CORRELATION_ID));
+		AccessDeniedException denied = assertThrows(
+			AccessDeniedException.class,
+			() -> service.deleteUser("usr_4", admin, AUTH_HEADER, CORRELATION_ID, null)
+		);
 		assertNotNull(denied);
 
 		verify(store).getUser(eq("usr_4"));
-		verify(store, never()).deleteUser(eq("usr_4"));
+		verify(store, never()).archiveUser(any(), any(), any());
+	}
+
+	@Test
+	void deleteUser_rootAdminAccountCannotBeArchived() {
+		AuthenticatedUser requester = new AuthenticatedUser("usr_1", "admin");
+		UserDto rootAdmin = new UserDto(
+			"usr_1",
+			"Root",
+			"Admin",
+			"admin@crm.com",
+			UserRole.admin,
+			UserStatus.active,
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:00Z")
+		);
+		when(store.getUser("usr_1")).thenReturn(rootAdmin);
+
+		assertThrows(
+			AccessDeniedException.class,
+			() -> service.deleteUser("usr_1", requester, AUTH_HEADER, CORRELATION_ID, null)
+		);
+		verify(store, never()).archiveUser(any(), any(), any());
+	}
+
+	@Test
+	void reinstateUser_nonRootAdminForbidden() {
+		AuthenticatedUser requester = new AuthenticatedUser("usr_9", "admin");
+
+		assertThrows(
+			AccessDeniedException.class,
+			() -> service.reinstateUser("usr_3", requester, AUTH_HEADER, CORRELATION_ID)
+		);
+		verify(store, never()).reinstateUser(any(), any());
+	}
+
+	@Test
+	void reinstateUser_rootAdminCanReinstateArchivedUsers() {
+		AuthenticatedUser requester = new AuthenticatedUser("usr_1", "admin");
+		UserDto archivedAdmin = new UserDto(
+			"usr_3",
+			"Archived",
+			"Admin",
+			"archived.admin@example.com",
+			UserRole.admin,
+			UserStatus.deleted,
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:00Z")
+		);
+		UserDto archivedAgent = new UserDto(
+			"usr_4",
+			"Archived",
+			"Agent",
+			"archived.agent@example.com",
+			UserRole.user,
+			UserStatus.deleted,
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:00Z")
+		);
+		UserDto reinstatedAdmin = new UserDto(
+			"usr_3",
+			"Archived",
+			"Admin",
+			"archived.admin@example.com",
+			UserRole.admin,
+			UserStatus.active,
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-06T00:00:00Z")
+		);
+		UserDto reinstatedAgent = new UserDto(
+			"usr_4",
+			"Archived",
+			"Agent",
+			"archived.agent@example.com",
+			UserRole.user,
+			UserStatus.active,
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-06T00:00:00Z")
+		);
+		when(store.getUser("usr_3")).thenReturn(archivedAdmin);
+		when(store.getUser("usr_4")).thenReturn(archivedAgent);
+		when(store.reinstateUser("usr_3", "usr_1")).thenReturn(reinstatedAdmin);
+		when(store.reinstateUser("usr_4", "usr_1")).thenReturn(reinstatedAgent);
+
+		assertEquals(reinstatedAdmin, service.reinstateUser("usr_3", requester, AUTH_HEADER, CORRELATION_ID));
+		assertEquals(reinstatedAgent, service.reinstateUser("usr_4", requester, AUTH_HEADER, CORRELATION_ID));
+		verify(store).reinstateUser("usr_3", "usr_1");
+		verify(store).reinstateUser("usr_4", "usr_1");
+	}
+
+	@Test
+	void listArchivedUsers_adminScopesToOwnArchivedAgents() {
+		AuthenticatedUser requester = new AuthenticatedUser("usr_9", "admin");
+		UserDto archivedAgent = new UserDto(
+			"usr_4",
+			"Archived",
+			"Agent",
+			"archived.agent@example.com",
+			UserRole.user,
+			UserStatus.deleted,
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:00Z")
+		);
+		when(store.countArchivedUsers("user", "usr_9")).thenReturn(1L);
+		when(store.listArchivedUsers(50, 0, "user", "usr_9")).thenReturn(List.of(archivedAgent));
+
+		UsersListResponse response = service.listArchivedUsers(50, 0, "user", requester);
+
+		assertEquals(1, response.data().size());
+		verify(store).countArchivedUsers("user", "usr_9");
+		verify(store).listArchivedUsers(50, 0, "user", "usr_9");
 	}
 
 	@Test

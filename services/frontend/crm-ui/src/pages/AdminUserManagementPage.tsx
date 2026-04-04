@@ -32,12 +32,15 @@ const rootAdminNav: NavItem[] = [
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
   { label: 'Activity Logs', to: '/admin/logs' },
   { label: 'User Management', to: '/admin/users' },
+  { label: 'Archived Admins', to: '/admin/users/archives/admins' },
+  { label: 'Archived Agents', to: '/admin/users/archives/agents' },
   { label: 'Settings', to: '/admin/settings' },
 ]
 
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', end: true },
   { label: 'User Management', to: '/admin/users', end: true },
+  { label: 'My Archived Users', to: '/admin/users/archives' },
   { label: 'Settings', to: '/admin/settings' },
 ]
 
@@ -53,11 +56,13 @@ const roleLabelForUser = (target: User) => {
 }
 
 const statusBadgeClass = (status: User['status']) => {
+  if (status === 'deleted') return 'bg-danger/20 text-danger'
   if (status === 'disabled') return 'bg-warning/20 text-warning'
   return 'bg-success/20 text-success'
 }
 
 const statusLabel = (status: User['status']) => {
+  if (status === 'deleted') return 'ARCHIVED'
   if (status === 'disabled') return 'DISABLED'
   return 'ACTIVE'
 }
@@ -161,16 +166,16 @@ export function AdminUserManagementPage() {
   const handleDeleteUser = async (userId: string, userRole: UserRole) => {
     // Check permissions
     if (userRole === 'admin' && !isRootAdmin) {
-      setError('Only root admin can delete other admins')
+      setError('Only root admin can archive other admins')
       return
     }
 
     if (userRole === 'user' && !isAdmin && !isRootAdmin) {
-      setError('You do not have permission to delete users')
+      setError('You do not have permission to archive users')
       return
     }
 
-    if (!confirm(`Are you sure you want to delete this ${userRole}?`)) {
+    if (!confirm(`Are you sure you want to archive this ${userRole}?`)) {
       return
     }
 
@@ -181,15 +186,15 @@ export function AdminUserManagementPage() {
     try {
       await deleteUser(userId)
       setUsers(prev => prev.filter(u => u.id !== userId))
-      setSuccessMessage('User deleted successfully')
+      setSuccessMessage('User archived successfully')
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
           logout()
         } else if (err.status === 403) {
-          setError('You are not authorized to delete this user')
+          setError('You are not authorized to archive this user')
         } else {
-          setError(err.message || 'Failed to delete user')
+          setError(err.message || 'Failed to archive user')
         }
       } else {
         setError('An unexpected error occurred')
@@ -482,7 +487,7 @@ export function AdminUserManagementPage() {
                                     : 'gradient-dark-red hover:opacity-80 text-white'
                                 }`}
                               >
-                                {deletingUserId === admin.id ? 'Deleting...' : 'Delete'}
+                                {deletingUserId === admin.id ? 'Archiving...' : 'Archive'}
                               </button>
                             )}
                           </td>
@@ -531,23 +536,36 @@ export function AdminUserManagementPage() {
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-2">
                               {u.status === 'active' ? (
-                                <button
-                                  onClick={() => handleDisableUser(u)}
-                                  disabled={disablingUserId === u.id}
-                                  className={`px-3 py-1 rounded text-sm font-normal transition-opacity ${
-                                    disablingUserId === u.id
-                                      ? 'border border-danger text-danger opacity-50 cursor-not-allowed'
-                                      : 'border border-danger text-danger hover:bg-danger/10'
-                                  }`}
-                                >
-                                  {disablingUserId === u.id ? 'Disabling...' : 'Disable'}
-                                </button>
+                                <>
+                                  <button
+                                    onClick={() => handleDisableUser(u)}
+                                    disabled={disablingUserId === u.id}
+                                    className={`px-3 py-1 rounded text-sm font-normal transition-opacity ${
+                                      disablingUserId === u.id
+                                        ? 'border border-danger text-danger opacity-50 cursor-not-allowed'
+                                        : 'border border-danger text-danger hover:bg-danger/10'
+                                    }`}
+                                  >
+                                    {disablingUserId === u.id ? 'Disabling...' : 'Disable'}
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteUser(u.id, u.role)}
+                                    disabled={deletingUserId === u.id}
+                                    className={`px-3 py-1 rounded text-sm font-normal transition-opacity ${
+                                      deletingUserId === u.id
+                                        ? 'gradient-dark-red opacity-50 cursor-not-allowed text-white'
+                                        : 'gradient-dark-red hover:opacity-80 text-white'
+                                    }`}
+                                  >
+                                    {deletingUserId === u.id ? 'Archiving...' : 'Archive'}
+                                  </button>
+                                </>
                               ) : (
                                 <>
                                   {isRootAdmin && (agentClientCounts[u.id] ?? -1) !== 0 && (
                                     <button
                                       onClick={() => openTransferModal(u)}
-                                      title="Transfer clients to enable delete"
+                                      title="Optional: transfer clients from this archived-eligible agent"
                                       className="px-3 py-1 rounded text-sm font-normal bg-accent text-white hover:opacity-80 transition-opacity"
                                     >
                                       Transfer
@@ -557,19 +575,17 @@ export function AdminUserManagementPage() {
                                         : ''}
                                     </button>
                                   )}
-                                  {isRootAdmin && agentClientCounts[u.id] === 0 ? (
-                                    <button
-                                      onClick={() => handleDeleteUser(u.id, u.role)}
-                                      disabled={deletingUserId === u.id}
-                                      className={`px-3 py-1 rounded text-sm font-normal transition-opacity ${
-                                        deletingUserId === u.id
-                                          ? 'gradient-dark-red opacity-50 cursor-not-allowed text-white'
-                                          : 'gradient-dark-red hover:opacity-80 text-white'
-                                      }`}
-                                    >
-                                      {deletingUserId === u.id ? 'Deleting...' : 'Delete'}
-                                    </button>
-                                  ) : null}
+                                  <button
+                                    onClick={() => handleDeleteUser(u.id, u.role)}
+                                    disabled={deletingUserId === u.id}
+                                    className={`px-3 py-1 rounded text-sm font-normal transition-opacity ${
+                                      deletingUserId === u.id
+                                        ? 'gradient-dark-red opacity-50 cursor-not-allowed text-white'
+                                        : 'gradient-dark-red hover:opacity-80 text-white'
+                                    }`}
+                                  >
+                                    {deletingUserId === u.id ? 'Archiving...' : 'Archive'}
+                                  </button>
                                 </>
                               )}
                             </div>

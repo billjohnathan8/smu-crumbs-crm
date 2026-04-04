@@ -142,9 +142,9 @@ export function ClientDetailPage() {
       setCommunications(sanitizeCommunicationsForViewer(commsResponse.data, isManagementUser))
 
       if (clientData.assignedUserId) {
-        getUserById(clientData.assignedUserId)
+        getUserById(clientData.assignedUserId, { includeArchived: true })
           .then(u => setAgentName(`${u.firstName} ${u.lastName}`))
-          .catch(() => setAgentName(''))
+          .catch(() => setAgentName(clientData.assignedUserId || ''))
       }
     } catch (err) {
       if (err instanceof ApiError) {

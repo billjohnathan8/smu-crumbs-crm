@@ -57,6 +57,21 @@ public class UserEntity {
 	@Column(name = "updated_at", nullable = false)
 	private Instant updatedAt;
 
+	@Column(name = "archived_at")
+	private Instant archivedAt;
+
+	@Column(name = "archived_by")
+	private Long archivedBy;
+
+	@Column(name = "archival_reason", length = 500)
+	private String archivalReason;
+
+	@Column(name = "reinstated_at")
+	private Instant reinstatedAt;
+
+	@Column(name = "reinstated_by")
+	private Long reinstatedBy;
+
 	@PrePersist
 	protected void prePersist() {
 		Instant now = Instant.now();
@@ -139,5 +154,45 @@ public class UserEntity {
 
 	public void setUpdatedAt(Instant updatedAt) {
 		this.updatedAt = updatedAt;
+	}
+
+	public Instant getArchivedAt() {
+		return archivedAt;
+	}
+
+	public void setArchivedAt(Instant archivedAt) {
+		this.archivedAt = archivedAt;
+	}
+
+	public Long getArchivedBy() {
+		return archivedBy;
+	}
+
+	public void setArchivedBy(Long archivedBy) {
+		this.archivedBy = archivedBy;
+	}
+
+	public String getArchivalReason() {
+		return archivalReason;
+	}
+
+	public void setArchivalReason(String archivalReason) {
+		this.archivalReason = archivalReason;
+	}
+
+	public Instant getReinstatedAt() {
+		return reinstatedAt;
+	}
+
+	public void setReinstatedAt(Instant reinstatedAt) {
+		this.reinstatedAt = reinstatedAt;
+	}
+
+	public Long getReinstatedBy() {
+		return reinstatedBy;
+	}
+
+	public void setReinstatedBy(Long reinstatedBy) {
+		this.reinstatedBy = reinstatedBy;
 	}
 }

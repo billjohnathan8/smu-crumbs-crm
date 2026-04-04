@@ -13,7 +13,9 @@ public interface UserStore {
 
 	UserDto updateUser(String userId, UpdateUserRequest patch);
 
-	void deleteUser(String userId);
+	void archiveUser(String userId, String archivedByUserId, String archivalReason);
+
+	UserDto reinstateUser(String userId, String reinstatedByUserId);
 
 	UserDto disableUser(String userId);
 
@@ -28,6 +30,10 @@ public interface UserStore {
 	List<UserDto> listUsers(int limit, int offset, String roleFilter);
 
 	long countUsers(String roleFilter);
+
+	List<UserDto> listArchivedUsers(int limit, int offset, String roleFilter, String archivedByUserId);
+
+	long countArchivedUsers(String roleFilter, String archivedByUserId);
 
 	String issueRefreshToken(String userId);
 

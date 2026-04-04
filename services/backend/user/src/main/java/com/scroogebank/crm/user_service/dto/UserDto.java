@@ -22,5 +22,23 @@ public record UserDto(
 	UserRole role,
 	UserStatus status,
 	Instant createdAt,
-	Instant updatedAt
-) {}
+	Instant updatedAt,
+	Instant archivedAt,
+	String archivedBy,
+	String archivalReason,
+	Instant reinstatedAt,
+	String reinstatedBy
+) {
+	public UserDto(
+		String id,
+		String firstName,
+		String lastName,
+		String email,
+		UserRole role,
+		UserStatus status,
+		Instant createdAt,
+		Instant updatedAt
+	) {
+		this(id, firstName, lastName, email, role, status, createdAt, updatedAt, null, null, null, null, null);
+	}
+}

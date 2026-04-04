@@ -25,4 +25,20 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
 	long countByStatusNot(UserStatus status);
 
 	long countByStatusNotAndRole(UserStatus status, UserRole role);
+
+	List<UserEntity> findAllByStatus(UserStatus status, Sort sort);
+
+	List<UserEntity> findAllByStatusAndRole(UserStatus status, UserRole role, Sort sort);
+
+	List<UserEntity> findAllByStatusAndArchivedBy(UserStatus status, Long archivedBy, Sort sort);
+
+	List<UserEntity> findAllByStatusAndRoleAndArchivedBy(UserStatus status, UserRole role, Long archivedBy, Sort sort);
+
+	long countByStatus(UserStatus status);
+
+	long countByStatusAndRole(UserStatus status, UserRole role);
+
+	long countByStatusAndArchivedBy(UserStatus status, Long archivedBy);
+
+	long countByStatusAndRoleAndArchivedBy(UserStatus status, UserRole role, Long archivedBy);
 }

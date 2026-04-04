@@ -151,8 +151,15 @@ public class UserAccountService {
 	 * @return user DTO
 	 */
 	public UserDto getUser(String userId, AuthenticatedUser requester) {
+		return getUser(userId, requester, false);
+	}
+
+	public UserDto getUser(String userId, AuthenticatedUser requester, boolean includeArchived) {
 		UserDto existingUser = store.getUser(userId);
-		if (existingUser == null || isDeleted(existingUser)) {
+		if (existingUser == null) {
+			throw new UserNotFoundException(userId);
+		}
+		if (!includeArchived && isDeleted(existingUser)) {
 			throw new UserNotFoundException(userId);
 		}
 
@@ -221,19 +228,66 @@ public class UserAccountService {
 	 * @param userId API user identifier
 	 * @param user authenticated user performing the delete
 	 */
-	public void deleteUser(String userId, AuthenticatedUser user, String authorizationHeader, String correlationId) {
+	public void deleteUser(
+		String userId,
+		AuthenticatedUser user,
+		String authorizationHeader,
+		String correlationId,
+		String archivalReason
+	) {
 		UserDto target = store.getUser(userId);
 		if (target == null || isDeleted(target)) {
 			throw new UserNotFoundException(userId);
 		}
+		if (isRootAdminUserId(target.id())) {
+			throw new AccessDeniedException("Root admin accounts cannot be archived via the API");
+		}
 
-		validateHierarchyPermissions(user, target.role(), "delete");
+		validateHierarchyPermissions(user, target.role(), "archive");
 		CognitoService cognito = getCognitoServiceOrNull();
 		if (cognito != null) {
-			cognito.deleteUser(target.email());
+			cognito.disableUser(target.email());
 		}
-		store.deleteUser(userId);
-		publishAuditSafe("DELETE", "User ID", userId, null, user.userId(), userId, correlationId, authorizationHeader);
+		store.archiveUser(userId, user.userId(), archivalReason);
+		publishAuditSafe(
+			"DELETE",
+			"status",
+			"active",
+			"deleted",
+			user.userId(),
+			userId,
+			correlationId,
+			authorizationHeader
+		);
+	}
+
+	public UserDto reinstateUser(String userId, AuthenticatedUser requester, String authorizationHeader, String correlationId) {
+		if (!isSeededRootAdmin(requester)) {
+			throw new AccessDeniedException("Only root admins can reinstate archived users");
+		}
+		UserDto target = store.getUser(userId);
+		if (target == null || !isDeleted(target)) {
+			throw new UserNotFoundException(userId);
+		}
+		if (isRootAdminUserId(target.id())) {
+			throw new AccessDeniedException("Root admin accounts cannot be reinstated via the API");
+		}
+		CognitoService cognito = getCognitoServiceOrNull();
+		if (cognito != null) {
+			cognito.enableUser(target.email());
+		}
+		UserDto reinstated = store.reinstateUser(userId, requester.userId());
+		publishAuditSafe(
+			"UPDATE",
+			"status",
+			"deleted",
+			"active",
+			requester.userId(),
+			userId,
+			correlationId,
+			authorizationHeader
+		);
+		return reinstated;
 	}
 
 	/**
@@ -287,6 +341,26 @@ public class UserAccountService {
 		store.resetPassword(userId);
 	}
 
+	public UsersListResponse listArchivedUsers(int limit, int offset, String role, AuthenticatedUser requester) {
+		String normalizedRole = role == null ? null : role.trim();
+		if (normalizedRole != null && normalizedRole.isBlank()) {
+			normalizedRole = null;
+		}
+		UserRole roleFilter = normalizedRole == null ? null : UserRole.fromWireValue(normalizedRole);
+		validateArchivedListPermissions(requester, roleFilter);
+		String archivedByFilter = requester.role() == UserRole.admin && !isSeededRootAdmin(requester)
+			? requester.userId()
+			: null;
+
+		int normalizedLimit = Math.max(1, Math.min(200, limit));
+		int normalizedOffset = Math.max(0, offset);
+		long total = store.countArchivedUsers(normalizedRole, archivedByFilter);
+		return new UsersListResponse(
+			store.listArchivedUsers(normalizedLimit, normalizedOffset, normalizedRole, archivedByFilter),
+			new Pagination(normalizedLimit, normalizedOffset, total)
+		);
+	}
+
 	private void validateListPermissions(AuthenticatedUser requester, UserRole roleFilter) {
 		if (roleFilter == null) {
 			if (requester.role() == UserRole.super_admin || isSeededRootAdmin(requester)) {
@@ -295,6 +369,18 @@ public class UserAccountService {
 			throw new AccessDeniedException("Only root admins can list all users. Admins must filter with role=user.");
 		}
 		validateHierarchyPermissions(requester, roleFilter, "list");
+	}
+
+	private void validateArchivedListPermissions(AuthenticatedUser requester, UserRole roleFilter) {
+		if (isSeededRootAdmin(requester) || requester.role() == UserRole.super_admin) {
+			return;
+		}
+		if (requester.role() != UserRole.admin) {
+			throw new AccessDeniedException("Only admins or root admins can list archived users");
+		}
+		if (roleFilter == null || roleFilter != UserRole.user) {
+			throw new AccessDeniedException("Admins can only list archived agent users");
+		}
 	}
 
 	private void validateHierarchyPermissions(AuthenticatedUser requester, UserRole targetRole, String action) {

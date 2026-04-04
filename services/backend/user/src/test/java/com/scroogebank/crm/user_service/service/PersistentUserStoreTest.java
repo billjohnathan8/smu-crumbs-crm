@@ -4,7 +4,6 @@ import java.time.Clock;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -19,6 +18,8 @@ import com.scroogebank.crm.user_service.dto.CreateUserRequest;
 import com.scroogebank.crm.user_service.dto.UpdateUserRequest;
 import com.scroogebank.crm.user_service.dto.UserDto;
 import com.scroogebank.crm.user_service.dto.UserRole;
+import com.scroogebank.crm.user_service.dto.UserStatus;
+import com.scroogebank.crm.user_service.exception.DuplicateUserException;
 import com.scroogebank.crm.user_service.exception.AccessDeniedException;
 import com.scroogebank.crm.user_service.repository.RefreshTokenRepository;
 import com.scroogebank.crm.user_service.repository.UserRepository;
@@ -111,18 +112,33 @@ class PersistentUserStoreTest {
 	}
 
 	@Test
-	void deleteUser_allowsRecreateWithSameEmail() {
+	void archiveUser_preservesEmailAndBlocksRecreateWithSameEmail() {
 		UserDto first = store.createUser(
 			new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "TempPass!123")
 		);
 
-		store.deleteUser(first.id());
+		store.archiveUser(first.id(), "usr_1", "offboarding");
 
-		UserDto recreated = store.createUser(
+		assertThatThrownBy(() -> store.createUser(
+			new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "TempPass!123")
+		)).isInstanceOf(DuplicateUserException.class);
+
+		UserDto archived = store.listArchivedUsers(10, 0, "user", "usr_1").get(0);
+		assertEquals(UserStatus.deleted, archived.status());
+		assertEquals("usr_1", archived.archivedBy());
+		assertEquals("offboarding", archived.archivalReason());
+	}
+
+	@Test
+	void reinstateUser_returnsArchivedUserToActiveList() {
+		UserDto created = store.createUser(
 			new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "TempPass!123")
 		);
+		store.archiveUser(created.id(), "usr_1", null);
 
-		assertEquals("ava@example.com", recreated.email());
-		assertNotEquals(first.id(), recreated.id());
+		UserDto reinstated = store.reinstateUser(created.id(), "usr_1");
+
+		assertEquals(UserStatus.active, reinstated.status());
+		assertEquals(0, store.countArchivedUsers("user", "usr_1"));
 	}
 }

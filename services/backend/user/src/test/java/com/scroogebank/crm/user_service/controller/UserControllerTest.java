@@ -99,6 +99,26 @@ class UserControllerTest {
             .andExpect(status().isOk());
     }
 
+	@Test
+	void listArchivedUsers_adminOk() throws Exception {
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_9", "admin"));
+		UserDto dto = new UserDto(
+			"usr_2",
+			"Ava",
+			"Stone",
+			"ava@example.com",
+			UserRole.user,
+			UserStatus.deleted,
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:00Z")
+		);
+		when(userAccountService.listArchivedUsers(eq(50), eq(0), eq("user"), any()))
+			.thenReturn(new UsersListResponse(List.of(dto), new Pagination(50, 0, 1)));
+
+		mockMvc.perform(get("/api/users/archives").header("Authorization", "Bearer x").queryParam("role", "user"))
+			.andExpect(status().isOk());
+	}
+
     /** Invalid pagination parameters return 400 with validation error. */
     @Test
     void listUsers_invalidLimitBadRequest() throws Exception {
@@ -146,11 +166,32 @@ class UserControllerTest {
             Instant.parse("2026-02-05T00:00:00Z"),
             Instant.parse("2026-02-05T00:00:00Z")
         );
-        when(userAccountService.getUser(eq("usr_3"), any())).thenReturn(dto);
+        when(userAccountService.getUser(eq("usr_3"), any(), eq(false))).thenReturn(dto);
 
         mockMvc.perform(get("/api/users/usr_3").header("Authorization", "Bearer x"))
             .andExpect(status().isOk());
     }
+
+	@Test
+	void getUser_includeArchivedFlagPassedToService() throws Exception {
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
+		UserDto dto = new UserDto(
+			"usr_3",
+			"Archived",
+			"User",
+			"archived@example.com",
+			UserRole.user,
+			UserStatus.deleted,
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:00Z")
+		);
+		when(userAccountService.getUser(eq("usr_3"), any(), eq(true))).thenReturn(dto);
+
+		mockMvc.perform(get("/api/users/usr_3")
+				.header("Authorization", "Bearer x")
+				.queryParam("includeArchived", "true"))
+			.andExpect(status().isOk());
+	}
 
     /** Admin can create a user; controller returns 201 Created and passes body + creator role to service. */
     @Test
@@ -279,7 +320,7 @@ class UserControllerTest {
     void deleteUser_rootAdminForbidden() throws Exception {
         when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
         org.mockito.Mockito.doThrow(new AccessDeniedException("root_admin"))
-			.when(userAccountService).deleteUser(eq("usr_1"), any(AuthenticatedUser.class), any(), any());
+			.when(userAccountService).deleteUser(eq("usr_1"), any(AuthenticatedUser.class), any(), any(), any());
 
         mockMvc.perform(delete("/api/users/usr_1").header("Authorization", "Bearer x"))
             .andExpect(status().isForbidden());
@@ -293,8 +334,27 @@ class UserControllerTest {
         mockMvc.perform(delete("/api/users/usr_3").header("Authorization", "Bearer x"))
             .andExpect(status().isNoContent());
 
-		verify(userAccountService).deleteUser(eq("usr_3"), any(AuthenticatedUser.class), any(), any());
+		verify(userAccountService).deleteUser(eq("usr_3"), any(AuthenticatedUser.class), any(), any(), eq(null));
     }
+
+	@Test
+	void reinstateUser_rootAdminOk() throws Exception {
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
+		UserDto dto = new UserDto(
+			"usr_3",
+			"Ben",
+			"Tan",
+			"ben@example.com",
+			UserRole.user,
+			UserStatus.active,
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-06T00:00:00Z")
+		);
+		when(userAccountService.reinstateUser(eq("usr_3"), any(AuthenticatedUser.class), any(), any())).thenReturn(dto);
+
+		mockMvc.perform(post("/api/users/usr_3/reinstate").header("Authorization", "Bearer x"))
+			.andExpect(status().isOk());
+	}
 
     /** Admin can disable a user; controller returns 200 with updated user DTO (status disabled). */
     @Test

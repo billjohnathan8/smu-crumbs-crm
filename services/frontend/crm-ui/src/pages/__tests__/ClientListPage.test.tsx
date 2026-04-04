@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ClientListPage } from '../ClientListPage' // Adjust path if necessary
 import * as clientsApi from '@/api/clients'
+import * as usersApi from '@/api/users'
 import { ApiError } from '@/api/client'
 import { useAuth } from '@/features/auth/AuthContext'
 import type { Client } from '@/api/types'
@@ -22,6 +23,11 @@ vi.mock('@/features/auth/AuthContext', () => ({
 // 3. Mock API
 vi.mock('@/api/clients', () => ({
   listClients: vi.fn(),
+}))
+
+vi.mock('@/api/users', () => ({
+  listUsers: vi.fn().mockResolvedValue({ data: [] }),
+  listArchivedUsers: vi.fn().mockResolvedValue({ data: [] }),
 }))
 
 // 4. Mock the ClientTable to keep the DOM clean and focus on Page logic
@@ -73,6 +79,8 @@ describe('ClientListPage', () => {
       data: mockClientsData as unknown as Client[],
       pagination: { limit: 20, offset: 0, total: 2 },
     })
+    vi.mocked(usersApi.listUsers).mockResolvedValue({ data: [] } as any)
+    vi.mocked(usersApi.listArchivedUsers).mockResolvedValue({ data: [] } as any)
   })
 
   const renderComponent = () => render(<ClientListPage />)

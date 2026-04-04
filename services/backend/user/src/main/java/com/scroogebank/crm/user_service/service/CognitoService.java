@@ -14,6 +14,7 @@ import software.amazon.awssdk.services.cognitoidentityprovider.model.CognitoIden
 import software.amazon.awssdk.services.cognitoidentityprovider.model.DeliveryMediumType;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminDeleteUserRequest;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminDisableUserRequest;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminEnableUserRequest;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminResetUserPasswordRequest;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.InvalidParameterException;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.InvalidPasswordException;
@@ -109,7 +110,7 @@ public class CognitoService {
         }
     }
 
-    // Called on disableUser
+    // Called on archiveUser / disableUser
     public void disableUser(String email) {
         try {
             AdminDisableUserRequest request = AdminDisableUserRequest.builder()
@@ -123,6 +124,21 @@ public class CognitoService {
         } catch (CognitoIdentityProviderException e) {
             // log.error("Failed to disable Cognito user: {}", e.awsErrorDetails().errorMessage());
             throw new RuntimeException("Failed to disable user in Cognito", e);
+        }
+    }
+
+    // Called on reinstateUser
+    public void enableUser(String email) {
+        try {
+            AdminEnableUserRequest request = AdminEnableUserRequest.builder()
+                    .userPoolId(userPoolId)
+                    .username(email)
+                    .build();
+
+            cognitoClient.adminEnableUser(request);
+
+        } catch (CognitoIdentityProviderException e) {
+            throw new RuntimeException("Failed to enable user in Cognito", e);
         }
     }
 

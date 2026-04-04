@@ -22,6 +22,15 @@ const AdminUserManagementPage = lazy(() =>
 const CreateNewUserPage = lazy(() =>
   import('@/pages/CreateNewUserPage').then(module => ({ default: module.CreateNewUserPage }))
 )
+const AdminUserArchivesPage = lazy(() =>
+  import('@/pages/AdminUserArchivesPage').then(module => ({ default: module.AdminUserArchivesPage }))
+)
+const RootArchivedAdminsPage = lazy(() =>
+  import('@/pages/RootArchivedAdminsPage').then(module => ({ default: module.RootArchivedAdminsPage }))
+)
+const RootArchivedAgentsPage = lazy(() =>
+  import('@/pages/RootArchivedAgentsPage').then(module => ({ default: module.RootArchivedAgentsPage }))
+)
 const ClientListPage = lazy(() =>
   import('@/pages/ClientListPage').then(module => ({ default: module.ClientListPage }))
 )
@@ -120,6 +129,7 @@ export function App() {
                 <Route path="/admin" element={<AdminHomeRedirect />} />
                 <Route path="/admin/users" element={<AdminUserManagementPage />} />
                 <Route path="/admin/users/new" element={<CreateNewUserPage />} />
+                <Route path="/admin/users/archives" element={<AdminUserArchivesPage />} />
                 <Route path="/admin/settings" element={<SettingsPage />} />
                 <Route path="/admin/accounts" element={<Navigate to="/admin/users" replace />} />
               </Route>
@@ -139,6 +149,8 @@ export function App() {
                 <Route path="/admin/transactions" element={<ViewTransactionsPage />} />
                 <Route path="/admin/aml-alerts" element={<AmlAlertsPage />} />
                 <Route path="/admin/logs" element={<ActivityLogsPage />} />
+                <Route path="/admin/users/archives/admins" element={<RootArchivedAdminsPage />} />
+                <Route path="/admin/users/archives/agents" element={<RootArchivedAgentsPage />} />
               </Route>
 
               <Route element={<ProtectedRoute allowedRoles={['user']} />}>

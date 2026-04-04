@@ -19,7 +19,7 @@ export interface PaginatedResponse<T> {
 // Auth types (user-service)
 // `user` is the non-admin CRM role (agent in requirement wording).
 export type UserRole = 'admin' | 'user' | 'super_admin'
-export type UserStatus = 'active' | 'disabled'
+export type UserStatus = 'active' | 'disabled' | 'deleted'
 
 export interface User {
   id: string
@@ -30,6 +30,11 @@ export interface User {
   status: UserStatus
   createdAt?: string
   updatedAt?: string
+  archivedAt?: string | null
+  archivedBy?: string | null
+  archivalReason?: string | null
+  reinstatedAt?: string | null
+  reinstatedBy?: string | null
 }
 
 export interface LoginRequest {

@@ -176,7 +176,12 @@ public class InMemoryUserStore implements UserStore {
 			UserStatus.active,
 			passwordHasher.hash(password),
 			now,
-			now
+			now,
+			null,
+			null,
+			null,
+			null,
+			null
 		);
 		users.put(id, record);
 		emailIndex.put(email, id);
@@ -215,7 +220,12 @@ public class InMemoryUserStore implements UserStore {
 			existing.status(),
 			existing.passwordHash(),
 			existing.createdAt(),
-			now
+			now,
+			existing.archivedAt(),
+			existing.archivedBy(),
+			existing.archivalReason(),
+			existing.reinstatedAt(),
+			existing.reinstatedBy()
 		);
 
 		users.put(dbId, updated);
@@ -227,17 +237,19 @@ public class InMemoryUserStore implements UserStore {
 	}
 
 	/**
-	 * Deletes a user and removes any associated refresh tokens.
+	 * Archives a user and removes any associated refresh tokens.
 	 *
 	 * @param userId API user identifier
-	 * @throws AccessDenied when attempting to delete the root admin
+	 * @throws AccessDenied when attempting to archive the root admin
 	 */
 	@Override
-	public void deleteUser(String userId) {
+	public void archiveUser(String userId, String archivedByUserId, String archivalReason) {
 		long dbId = decodeUserId(userId);
 		if (dbId == ROOT_ADMIN_DB_ID) {
 			throw new AccessDeniedException("root_admin");
 		}
+		long archivedByDbId = decodeUserId(archivedByUserId);
+		loadByDbId(archivedByDbId);
 		UserRecord existing = loadByDbId(dbId);
 		Instant now = clock.instant();
 		UserRecord updated = new UserRecord(
@@ -249,11 +261,42 @@ public class InMemoryUserStore implements UserStore {
 			UserStatus.deleted,
 			existing.passwordHash(),
 			existing.createdAt(),
-			now
+			now,
+			now,
+			archivedByDbId,
+			archivalReason == null || archivalReason.isBlank() ? null : archivalReason.trim(),
+			null,
+			null
 		);
 		users.put(dbId, updated);
-		emailIndex.remove(existing.email());
 		refreshTokens.entrySet().removeIf(e -> e.getValue().dbUserId == dbId);
+	}
+
+	@Override
+	public UserDto reinstateUser(String userId, String reinstatedByUserId) {
+		long dbId = decodeUserId(userId);
+		long reinstatedByDbId = decodeUserId(reinstatedByUserId);
+		loadByDbId(reinstatedByDbId);
+		UserRecord existing = loadByDbId(dbId);
+		Instant now = clock.instant();
+		UserRecord updated = new UserRecord(
+			dbId,
+			existing.firstName(),
+			existing.lastName(),
+			existing.email(),
+			existing.role(),
+			UserStatus.active,
+			existing.passwordHash(),
+			existing.createdAt(),
+			now,
+			existing.archivedAt(),
+			existing.archivedBy(),
+			existing.archivalReason(),
+			now,
+			reinstatedByDbId
+		);
+		users.put(dbId, updated);
+		return toDto(updated);
 	}
 
 	/**
@@ -279,7 +322,12 @@ public class InMemoryUserStore implements UserStore {
 			UserStatus.disabled,
 			existing.passwordHash(),
 			existing.createdAt(),
-			now
+			now,
+			existing.archivedAt(),
+			existing.archivedBy(),
+			existing.archivalReason(),
+			existing.reinstatedAt(),
+			existing.reinstatedBy()
 		);
 		users.put(dbId, updated);
 		return toDto(updated);
@@ -308,7 +356,12 @@ public class InMemoryUserStore implements UserStore {
 			existing.status(),
 			passwordHasher.hash(newPassword),
 			existing.createdAt(),
-			now
+			now,
+			existing.archivedAt(),
+			existing.archivedBy(),
+			existing.archivalReason(),
+			existing.reinstatedAt(),
+			existing.reinstatedBy()
 		);
 		users.put(dbId, updated);
 		refreshTokens.entrySet().removeIf(e -> e.getValue().dbUserId == dbId);
@@ -392,6 +445,46 @@ public class InMemoryUserStore implements UserStore {
 		}
 		UserRole role = UserRole.fromWireValue(normalizedRole);
 		return users.values().stream().filter(u -> u.status() != UserStatus.deleted && u.role == role).count();
+	}
+
+	@Override
+	public List<UserDto> listArchivedUsers(int limit, int offset, String roleFilter, String archivedByUserId) {
+		String normalizedRole = roleFilter == null ? null : roleFilter.trim();
+		Long archivedByDbId = archivedByUserId == null ? null : decodeUserId(archivedByUserId);
+		List<UserRecord> records = new ArrayList<>(users.values()
+			.stream()
+			.filter(u -> u.status() == UserStatus.deleted)
+			.filter(u -> archivedByDbId == null || Objects.equals(archivedByDbId, u.archivedBy()))
+			.toList());
+		records.sort(Comparator.comparingLong(u -> u.id));
+		if (normalizedRole != null && !normalizedRole.isBlank()) {
+			UserRole role = UserRole.fromWireValue(normalizedRole);
+			records = records.stream().filter(u -> u.role == role).toList();
+		}
+
+		int normalizedLimit = Math.max(1, Math.min(200, limit));
+		int normalizedOffset = Math.max(0, offset);
+		int fromIndex = Math.min(normalizedOffset, records.size());
+		int toIndex = Math.min(fromIndex + normalizedLimit, records.size());
+		return records.subList(fromIndex, toIndex).stream().map(InMemoryUserStore::toDto).toList();
+	}
+
+	@Override
+	public long countArchivedUsers(String roleFilter, String archivedByUserId) {
+		String normalizedRole = roleFilter == null ? null : roleFilter.trim();
+		Long archivedByDbId = archivedByUserId == null ? null : decodeUserId(archivedByUserId);
+		if (normalizedRole == null || normalizedRole.isBlank()) {
+			return users.values().stream()
+				.filter(u -> u.status() == UserStatus.deleted)
+				.filter(u -> archivedByDbId == null || Objects.equals(archivedByDbId, u.archivedBy()))
+				.count();
+		}
+		UserRole role = UserRole.fromWireValue(normalizedRole);
+		return users.values().stream()
+			.filter(u -> u.status() == UserStatus.deleted)
+			.filter(u -> u.role == role)
+			.filter(u -> archivedByDbId == null || Objects.equals(archivedByDbId, u.archivedBy()))
+			.count();
 	}
 
 	/**
@@ -480,7 +573,12 @@ public class InMemoryUserStore implements UserStore {
 			UserStatus.active,
 			passwordHasher.hash(password),
 			now,
-			now
+			now,
+			null,
+			null,
+			null,
+			null,
+			null
 		);
 		users.put(ROOT_ADMIN_DB_ID, root);
 		emailIndex.put(normalizedEmail, ROOT_ADMIN_DB_ID);
@@ -505,7 +603,12 @@ public class InMemoryUserStore implements UserStore {
 			UserStatus.active,
 			passwordHasher.hash(password),
 			now,
-			now
+			now,
+			null,
+			null,
+			null,
+			null,
+			null
 		);
 		users.put(id, seedAgent);
 		emailIndex.put(normalizedEmail, id);
@@ -544,7 +647,12 @@ public class InMemoryUserStore implements UserStore {
 			record.role(),
 			record.status(),
 			record.createdAt(),
-			record.updatedAt()
+			record.updatedAt(),
+			record.archivedAt(),
+			record.archivedBy() == null ? null : encodeUserId(record.archivedBy()),
+			record.archivalReason(),
+			record.reinstatedAt(),
+			record.reinstatedBy() == null ? null : encodeUserId(record.reinstatedBy())
 		);
 	}
 
@@ -560,7 +668,12 @@ public class InMemoryUserStore implements UserStore {
 		UserStatus status,
 		String passwordHash,
 		Instant createdAt,
-		Instant updatedAt
+		Instant updatedAt,
+		Instant archivedAt,
+		Long archivedBy,
+		String archivalReason,
+		Instant reinstatedAt,
+		Long reinstatedBy
 	) {}
 
 	/**
@@ -626,7 +739,12 @@ public class InMemoryUserStore implements UserStore {
 			existing.status(),
 			passwordHasher.hash(newPassword),
 			existing.createdAt(),
-			now
+			now,
+			existing.archivedAt(),
+			existing.archivedBy(),
+			existing.archivalReason(),
+			existing.reinstatedAt(),
+			existing.reinstatedBy()
 		);
 		users.put(existing.id(), updated);
 		refreshTokens.entrySet().removeIf(e -> e.getValue().dbUserId == existing.id());

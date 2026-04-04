@@ -87,7 +87,10 @@ class InMemoryUserStoreTest {
 
 	@Test
 	void deleteUser_rootAdminIsForbidden() {
-		AccessDeniedException denied = assertThrows(AccessDeniedException.class, () -> store.deleteUser("usr_1"));
+		AccessDeniedException denied = assertThrows(
+			AccessDeniedException.class,
+			() -> store.archiveUser("usr_1", "usr_1", null)
+		);
 		assertNotNull(denied);
 	}
 
@@ -193,7 +196,7 @@ class InMemoryUserStoreTest {
 		String token = store.issueRefreshToken(created.id());
 		assertTrue(store.isRefreshTokenValid(token));
 
-		store.deleteUser(created.id());
+		store.archiveUser(created.id(), "usr_1", null);
 
 		assertFalse(store.isRefreshTokenValid(token));
 		assertNull(store.userIdForRefreshToken(token));
@@ -204,10 +207,36 @@ class InMemoryUserStoreTest {
 		UserDto created = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "pw"));
 		assertEquals(3, store.countUsers(null));
 
-		store.deleteUser(created.id());
+		store.archiveUser(created.id(), "usr_1", null);
 
 		assertEquals(2, store.countUsers(null));
 		assertEquals(1, store.listUsers(50, 0, "user").size());
+	}
+
+	@Test
+	void archiveUser_recordsMetadataAndAppearsInArchiveList() {
+		UserDto created = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "pw"));
+
+		store.archiveUser(created.id(), "usr_1", "offboarding");
+
+		List<UserDto> archived = store.listArchivedUsers(50, 0, "user", "usr_1");
+		assertEquals(1, archived.size());
+		assertEquals(UserStatus.deleted, archived.get(0).status());
+		assertEquals("usr_1", archived.get(0).archivedBy());
+		assertEquals("offboarding", archived.get(0).archivalReason());
+		assertEquals(1, store.countArchivedUsers("user", "usr_1"));
+	}
+
+	@Test
+	void reinstateUser_restoresArchivedUserToActive() {
+		UserDto created = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "pw"));
+		store.archiveUser(created.id(), "usr_1", null);
+
+		UserDto reinstated = store.reinstateUser(created.id(), "usr_1");
+
+		assertEquals(UserStatus.active, reinstated.status());
+		assertEquals(0, store.countArchivedUsers("user", "usr_1"));
+		assertEquals(2, store.listUsers(50, 0, "user").size());
 	}
 
 	@Test

@@ -4,6 +4,8 @@ import {
   getUserById,
   createUser,
   updateUser,
+  listArchivedUsers,
+  reinstateUser,
   disableUser,
   deleteUser,
   resetUserPassword,
@@ -84,6 +86,14 @@ describe('users API', () => {
 
       expect(client.apiGet).toHaveBeenCalledWith('/api/users/user-123')
       expect(result).toEqual(mockUser)
+    })
+
+    it('should include archived users when requested', async () => {
+      vi.spyOn(client, 'apiGet').mockResolvedValue({} as User)
+
+      await getUserById('user-123', { includeArchived: true })
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/users/user-123?includeArchived=true')
     })
   })
 
@@ -192,6 +202,34 @@ describe('users API', () => {
       await deleteUser('user-123')
 
       expect(client.apiDelete).toHaveBeenCalledWith('/api/users/user-123')
+    })
+
+    it('should pass archive reason when provided', async () => {
+      vi.spyOn(client, 'apiDelete').mockResolvedValue(undefined)
+
+      await deleteUser('user-123', 'offboarding')
+
+      expect(client.apiDelete).toHaveBeenCalledWith('/api/users/user-123?reason=offboarding')
+    })
+  })
+
+  describe('listArchivedUsers', () => {
+    it('should list archived users by role', async () => {
+      vi.spyOn(client, 'apiGet').mockResolvedValue({ data: [], pagination: { total: 0, limit: 10, offset: 0 } })
+
+      await listArchivedUsers({ role: 'user', limit: 20, offset: 40 })
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/users/archives?limit=20&offset=40&role=user')
+    })
+  })
+
+  describe('reinstateUser', () => {
+    it('should call reinstate endpoint', async () => {
+      vi.spyOn(client, 'apiPost').mockResolvedValue({} as User)
+
+      await reinstateUser('user-123')
+
+      expect(client.apiPost).toHaveBeenCalledWith('/api/users/user-123/reinstate')
     })
   })
 

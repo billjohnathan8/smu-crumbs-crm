@@ -201,18 +201,39 @@ public class PersistentUserStore implements UserStore {
 
 	@Transactional
 	@Override
-	public void deleteUser(String userId) {
+	public void archiveUser(String userId, String archivedByUserId, String archivalReason) {
 		seedRootAdminIfMissing();
 		long dbId = decodeUserId(userId);
+		long archivedByDbId = decodeUserId(archivedByUserId);
+		loadEntityById(archivedByDbId);
 		if (isRootAdminDbId(dbId)) {
 			throw new AccessDeniedException("root_admin");
 		}
 		UserEntity existing = loadEntityById(dbId);
 		existing.setStatus(UserStatus.deleted);
-		existing.setEmail(deletedEmailTombstone(existing.getId()));
+		existing.setArchivedAt(clock.instant());
+		existing.setArchivedBy(archivedByDbId);
+		existing.setArchivalReason(archivalReason == null || archivalReason.isBlank() ? null : archivalReason.trim());
+		existing.setReinstatedAt(null);
+		existing.setReinstatedBy(null);
 		existing.setUpdatedAt(clock.instant());
 		userRepository.save(existing);
 		refreshTokenRepository.deleteByUser_Id(existing.getId());
+	}
+
+	@Transactional
+	@Override
+	public UserDto reinstateUser(String userId, String reinstatedByUserId) {
+		seedRootAdminIfMissing();
+		long dbId = decodeUserId(userId);
+		long reinstatedByDbId = decodeUserId(reinstatedByUserId);
+		loadEntityById(reinstatedByDbId);
+		UserEntity existing = loadEntityById(dbId);
+		existing.setStatus(UserStatus.active);
+		existing.setReinstatedAt(clock.instant());
+		existing.setReinstatedBy(reinstatedByDbId);
+		existing.setUpdatedAt(clock.instant());
+		return toDto(userRepository.save(existing));
 	}
 
 	@Transactional
@@ -300,6 +321,60 @@ public class PersistentUserStore implements UserStore {
 		}
 		UserRole role = UserRole.fromWireValue(normalizedRole);
 		return userRepository.countByStatusNotAndRole(UserStatus.deleted, role);
+	}
+
+	@Transactional
+	@Override
+	public List<UserDto> listArchivedUsers(int limit, int offset, String roleFilter, String archivedByUserId) {
+		seedRootAdminIfMissing();
+		String normalizedRole = roleFilter == null ? null : roleFilter.trim();
+		UserRole role = null;
+		if (normalizedRole != null && !normalizedRole.isBlank()) {
+			role = UserRole.fromWireValue(normalizedRole);
+		}
+		Long archivedByDbId = archivedByUserId == null ? null : decodeUserId(archivedByUserId);
+		List<UserEntity> rows;
+		if (archivedByDbId == null) {
+			rows = role == null
+				? userRepository.findAllByStatus(UserStatus.deleted, Sort.by(Sort.Direction.ASC, "id"))
+				: userRepository.findAllByStatusAndRole(UserStatus.deleted, role, Sort.by(Sort.Direction.ASC, "id"));
+		}
+		else {
+			rows = role == null
+				? userRepository.findAllByStatusAndArchivedBy(UserStatus.deleted, archivedByDbId, Sort.by(Sort.Direction.ASC, "id"))
+				: userRepository.findAllByStatusAndRoleAndArchivedBy(
+					UserStatus.deleted,
+					role,
+					archivedByDbId,
+					Sort.by(Sort.Direction.ASC, "id")
+				);
+		}
+
+		int normalizedLimit = Math.max(1, Math.min(200, limit));
+		int normalizedOffset = Math.max(0, offset);
+		int fromIndex = Math.min(normalizedOffset, rows.size());
+		int toIndex = Math.min(fromIndex + normalizedLimit, rows.size());
+		return rows.subList(fromIndex, toIndex).stream().map(PersistentUserStore::toDto).toList();
+	}
+
+	@Transactional
+	@Override
+	public long countArchivedUsers(String roleFilter, String archivedByUserId) {
+		seedRootAdminIfMissing();
+		String normalizedRole = roleFilter == null ? null : roleFilter.trim();
+		UserRole role = null;
+		if (normalizedRole != null && !normalizedRole.isBlank()) {
+			role = UserRole.fromWireValue(normalizedRole);
+		}
+		Long archivedByDbId = archivedByUserId == null ? null : decodeUserId(archivedByUserId);
+		if (archivedByDbId == null) {
+			return role == null
+				? userRepository.countByStatus(UserStatus.deleted)
+				: userRepository.countByStatusAndRole(UserStatus.deleted, role);
+		}
+		return role == null
+			? userRepository.countByStatusAndArchivedBy(UserStatus.deleted, archivedByDbId)
+			: userRepository.countByStatusAndRoleAndArchivedBy(UserStatus.deleted, role, archivedByDbId);
 	}
 
 	@Transactional
@@ -482,11 +557,6 @@ public class PersistentUserStore implements UserStore {
 		return email.trim().toLowerCase(Locale.ROOT);
 	}
 
-	private static String deletedEmailTombstone(Long userId) {
-		// Keep deleted-user emails unique so the original address can be reused.
-		return "deleted-user-" + userId + "@deleted.local";
-	}
-
 	private static UserDto toDto(UserEntity entity) {
 		return new UserDto(
 			encodeUserId(entity.getId()),
@@ -496,7 +566,12 @@ public class PersistentUserStore implements UserStore {
 			entity.getRole(),
 			entity.getStatus(),
 			entity.getCreatedAt(),
-			entity.getUpdatedAt()
+			entity.getUpdatedAt(),
+			entity.getArchivedAt(),
+			entity.getArchivedBy() == null ? null : encodeUserId(entity.getArchivedBy()),
+			entity.getArchivalReason(),
+			entity.getReinstatedAt(),
+			entity.getReinstatedBy() == null ? null : encodeUserId(entity.getReinstatedBy())
 		);
 	}
 
@@ -510,7 +585,12 @@ public class PersistentUserStore implements UserStore {
 			entity.getStatus(),
 			entity.getPasswordHash(),
 			entity.getCreatedAt(),
-			entity.getUpdatedAt()
+			entity.getUpdatedAt(),
+			entity.getArchivedAt(),
+			entity.getArchivedBy(),
+			entity.getArchivalReason(),
+			entity.getReinstatedAt(),
+			entity.getReinstatedBy()
 		);
 	}
 }
