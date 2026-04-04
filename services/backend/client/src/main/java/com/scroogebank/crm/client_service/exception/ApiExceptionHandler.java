@@ -167,11 +167,15 @@ public class ApiExceptionHandler {
 
 	private static String conflictMessageFrom(Throwable throwable) {
 		String details = extractDetails(throwable).toLowerCase();
-		if (details.contains("uk_clients_email") || details.contains("email_address")) {
-			return "Email address already exists.";
-		}
-		if (details.contains("uk_clients_phone") || details.contains("phone_number")) {
+		if (details.contains("uk_clients_phone")
+			|| details.contains("uk_clients_phone_active")
+			|| details.contains("key (phone_number)")) {
 			return "Phone number already exists.";
+		}
+		if (details.contains("uk_clients_email")
+			|| details.contains("uk_clients_email_active")
+			|| details.contains("key (email_address)")) {
+			return "Email address already exists.";
 		}
 		return null;
 	}
