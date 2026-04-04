@@ -204,7 +204,7 @@ export function ClientVerifyPage() {
     return (
       <div className="dark min-h-screen bg-background flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-card border border-border rounded-xl shadow-sm p-8 text-center">
-          <h1 className="text-xl font-bold text-text mb-2">Verification Link Invalid</h1>
+          <h1 className="text-xl font-normal text-text mb-2">Verification Link Invalid</h1>
           <p className="text-sm text-text-muted">
             This verification link is invalid or has expired. Please request a new verification
             email.
@@ -233,7 +233,7 @@ export function ClientVerifyPage() {
               />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-text mb-2">Documents Submitted</h1>
+          <h1 className="text-2xl font-normal text-text mb-2">Documents Submitted</h1>
           <p className="text-sm text-text-muted mb-4">
             Your documents have been uploaded successfully and are now pending review. You will be
             notified once the verification is complete.
@@ -251,7 +251,7 @@ export function ClientVerifyPage() {
       <div className="w-full max-w-2xl bg-card border border-border rounded-xl shadow-sm p-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-text">Identity Verification</h1>
+          <h1 className="text-2xl font-normal text-text">Identity Verification</h1>
           <p className="mt-1 text-sm text-text-muted">
             Please provide your identity and address documents to complete verification.
           </p>

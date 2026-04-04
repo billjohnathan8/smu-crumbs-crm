@@ -187,7 +187,7 @@ export function AmlAlertsPage() {
           <button
             onClick={handleTriggerAmlScan}
             disabled={isTriggeringAml}
-            className="px-4 py-2 rounded bg-primary hover:bg-primary-hover text-white font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 rounded bg-primary hover:brightness-[0.9] text-white font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isTriggeringAml ? 'Triggering...' : 'Trigger AML Scan'}
           </button>
@@ -353,7 +353,7 @@ export function AmlAlertsPage() {
                             <button
                               onClick={() => handleUpdateReview(alert.alertId)}
                               disabled={isUpdating[alert.alertId]}
-                              className="px-2 py-1 text-xs rounded bg-primary hover:bg-primary-hover text-white disabled:opacity-50"
+                              className="px-2 py-1 text-xs rounded bg-primary hover:brightness-[0.8] text-white disabled:opacity-50 transition-all duration-200"
                             >
                               {isUpdating[alert.alertId] ? 'Saving...' : 'Save'}
                             </button>
@@ -381,7 +381,7 @@ export function AmlAlertsPage() {
                       className={`px-3 py-1 rounded ${
                         currentPage === 0
                           ? 'bg-background-light text-text-muted cursor-not-allowed'
-                          : 'bg-primary hover:bg-primary-hover text-white'
+                          : 'bg-primary hover:brightness-[0.8] text-white transition-all duration-200'
                       }`}
                     >
                       Previous
@@ -395,7 +395,7 @@ export function AmlAlertsPage() {
                       className={`px-3 py-1 rounded ${
                         currentPage >= totalPages - 1
                           ? 'bg-background-light text-text-muted cursor-not-allowed'
-                          : 'bg-primary hover:bg-primary-hover text-white'
+                          : 'bg-primary hover:brightness-[0.8] text-white transition-all duration-200'
                       }`}
                     >
                       Next

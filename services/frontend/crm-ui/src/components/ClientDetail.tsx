@@ -24,24 +24,24 @@ export function ClientDetail({
   return (
     <div className="bg-card  rounded-lg p-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-text">Client Profile</h2>
+        <h2 className="text-lg font-normal text-text">Client Profile</h2>
         <div className="flex items-center space-x-2">
           <button
             onClick={onEdit}
-            className="px-4 py-2 rounded bg-primary hover:bg-primary-hover text-white text-sm font-normal"
+            className="px-4 py-2 rounded bg-primary hover:brightness-[0.8] text-white text-sm font-normal transition-all duration-200"
           >
             Edit Client
           </button>
           <button
             onClick={onDelete}
-            className="px-4 py-2 rounded gradient-dark-red hover:opacity-80 text-white text-sm font-normal transition-opacity"
+            className="px-4 py-2 rounded gradient-dark-red hover:brightness-[0.8] text-white text-sm font-normal transition-all duration-200"
           >
             Delete Client
           </button>
           {showVerifyButton && (
             <button
               onClick={onToggleVerify}
-              className="px-4 py-2 rounded bg-success hover:bg-success-hover text-white text-sm font-normal"
+              className="px-4 py-2 rounded bg-success hover:brightness-[0.8] text-white text-sm font-normal transition-all duration-200"
             >
               {showVerifyForm ? 'Cancel Verification' : 'Submit for KYC Verification'}
             </button>

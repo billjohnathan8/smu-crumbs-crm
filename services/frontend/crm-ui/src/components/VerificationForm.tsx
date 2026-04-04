@@ -88,7 +88,7 @@ export function VerificationForm({
 
   return (
     <div className="bg-card  rounded-lg p-6">
-      <h2 className="text-lg font-bold text-text mb-4">KYC Verification</h2>
+      <h2 className="text-lg font-normal text-text mb-4">KYC Verification</h2>
 
       {verifyError && (
         <div className="bg-danger/10 border border-danger rounded-lg p-3 mb-4">

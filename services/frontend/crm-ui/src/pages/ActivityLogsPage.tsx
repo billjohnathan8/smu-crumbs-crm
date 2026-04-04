@@ -339,7 +339,7 @@ export function ActivityLogsPage() {
                   className={`px-3 py-1 rounded ${
                     currentPage === 0 || isLoading
                       ? 'bg-background-light text-text-muted cursor-not-allowed'
-                      : 'bg-primary hover:bg-primary-hover text-white'
+                      : 'bg-primary hover:brightness-[0.8] text-white transition-all duration-200'
                   }`}
                 >
                   Previous
@@ -353,7 +353,7 @@ export function ActivityLogsPage() {
                   className={`px-3 py-1 rounded ${
                     currentPage >= totalPages - 1 || isLoading
                       ? 'bg-background-light text-text-muted cursor-not-allowed'
-                      : 'bg-primary hover:bg-primary-hover text-white'
+                      : 'bg-primary hover:brightness-[0.8] text-white transition-all duration-200'
                   }`}
                 >
                   Next
