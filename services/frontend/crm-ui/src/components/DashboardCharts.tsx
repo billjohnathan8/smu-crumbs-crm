@@ -47,6 +47,14 @@ interface NewClientsChartProps {
 
 const CHART_MARGIN = { top: 16, right: 24, left: 0, bottom: 8 }
 
+function getVerificationGradientByName(name: string): string {
+  const normalized = name.trim().toLowerCase()
+  if (normalized === 'verified') return 'url(#verificationGreenGradient)'
+  if (normalized === 'rejected') return 'url(#verificationRedGradient)'
+  if (normalized === 'pending') return 'url(#verificationPurpleGradient)'
+  return 'var(--text-subtle)'
+}
+
 function renderVerificationLabel(props: any) {
   const { x, y, cx, name, value } = props
   if (!value || value <= 0) return null
@@ -128,6 +136,20 @@ export function VerificationStatusChart({ data, isLoading = false }: Verificatio
     <div className="h-72 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
+          <defs>
+            <linearGradient id="verificationGreenGradient" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="var(--green)" />
+              <stop offset="100%" stopColor="var(--light-green)" />
+            </linearGradient>
+            <linearGradient id="verificationRedGradient" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="var(--dark-red)" />
+              <stop offset="100%" stopColor="var(--red)" />
+            </linearGradient>
+            <linearGradient id="verificationPurpleGradient" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="var(--purple)" />
+              <stop offset="100%" stopColor="var(--light-purple)" />
+            </linearGradient>
+          </defs>
           <Tooltip
             contentStyle={{
               borderRadius: '8px',
@@ -145,10 +167,15 @@ export function VerificationStatusChart({ data, isLoading = false }: Verificatio
             cx="50%"
             cy="45%"
             outerRadius={95}
+            stroke="none"
             label={renderVerificationLabel}
           >
             {data.map(entry => (
-              <Cell key={entry.name} fill={entry.color} />
+              <Cell
+                key={entry.name}
+                fill={getVerificationGradientByName(entry.name)}
+                stroke="none"
+              />
             ))}
           </Pie>
         </PieChart>
@@ -203,7 +230,7 @@ export function NewClientsChart({ data, isLoading = false }: NewClientsChartProp
             strokeWidth={2.5}
             dot={{ fill: 'var(--red)', stroke: 'var(--dark-red)', strokeWidth: 1 }}
             activeDot={{ fill: 'var(--red)', stroke: 'var(--dark-red)', strokeWidth: 2, r: 5 }}
-            name="new clients"
+            name="New clients"
           />
         </LineChart>
       </ResponsiveContainer>
