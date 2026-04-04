@@ -1,13 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/features/auth/AuthContext'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   listTransactions,
+  listClientTransactions,
+  getTransactionById,
   updateTransaction,
   startTransactionImport,
   getTransactionImportBatch,
   type ListTransactionsParams,
 } from '@/api/transactions'
+import { listClients } from '@/api/clients'
 import type {
   Transaction,
   TransactionStatus,
@@ -43,6 +46,8 @@ const adminNav: NavItem[] = [
 ]
 
 const ITEMS_PER_PAGE = 20
+const FALLBACK_CLIENT_FETCH_LIMIT = 100
+const FALLBACK_TRANSACTION_FETCH_LIMIT = 100
 const IMPORT_HISTORY_STORAGE_KEY = 'crm-ui:transaction-import-batches'
 const MAX_TRACKED_IMPORT_BATCHES = 20
 
@@ -132,6 +137,7 @@ export function ViewTransactionsPage() {
   const [isUpdating, setIsUpdating] = useState(false)
   const [updateNotice, setUpdateNotice] = useState('')
   const [updateNoticeIsError, setUpdateNoticeIsError] = useState(false)
+  const latestFetchRequestIdRef = useRef(0)
 
   const mergeTrackedImportBatchIds = (batchIds: string[]) => {
     const normalized = Array.from(new Set(batchIds.filter(Boolean)))
@@ -144,22 +150,121 @@ export function ViewTransactionsPage() {
   }
 
   const fetchTransactions = async (page: number) => {
+    const requestId = ++latestFetchRequestIdRef.current
     setIsLoading(true)
     setError('')
 
     try {
+      const trimmedSearch = filters.search.trim()
+      const trimmedClientId = filters.clientId.trim()
+      const hasTransactionIdSearch = /^txn_[A-Za-z0-9_-]+$/i.test(trimmedSearch)
+      const hasScopedFilters = Boolean(
+        trimmedClientId || filters.status || filters.transaction || filters.fromDate || filters.toDate
+      )
+
+      const fetchUserFallbackTransactions = async (clientId?: string): Promise<Transaction[]> => {
+        if (clientId) {
+          const response = await listClientTransactions(clientId, {
+            limit: FALLBACK_TRANSACTION_FETCH_LIMIT,
+            offset: 0,
+          })
+          return response.data
+        }
+
+        const clientsResponse = await listClients({
+          limit: FALLBACK_CLIENT_FETCH_LIMIT,
+          offset: 0,
+        })
+        const clientIds = clientsResponse.data
+          .map(client => client.clientId)
+          .filter((id): id is string => Boolean(id))
+        if (clientIds.length === 0) return []
+
+        const fallbackResults = await Promise.allSettled(
+          clientIds.map(id =>
+            listClientTransactions(id, {
+              limit: FALLBACK_TRANSACTION_FETCH_LIMIT,
+              offset: 0,
+            })
+          )
+        )
+
+        const seenIds = new Set<string>()
+        const merged: Transaction[] = []
+        for (const result of fallbackResults) {
+          if (result.status !== 'fulfilled') continue
+          for (const transaction of result.value.data) {
+            if (seenIds.has(transaction.id)) continue
+            seenIds.add(transaction.id)
+            merged.push(transaction)
+          }
+        }
+
+        return merged.sort(
+          (left, right) =>
+            new Date(right.date || 0).getTime() - new Date(left.date || 0).getTime()
+        )
+      }
+
+      const transactionMatchesFilters = (transaction: Transaction): boolean => {
+        if (trimmedClientId && transaction.clientId !== trimmedClientId) return false
+        if (filters.status && transaction.status !== filters.status) return false
+        if (filters.transaction && transaction.transaction !== filters.transaction) return false
+        if (filters.fromDate && transaction.date) {
+          const txDate = transaction.date.slice(0, 10)
+          if (txDate < filters.fromDate) return false
+        }
+        if (filters.toDate && transaction.date) {
+          const txDate = transaction.date.slice(0, 10)
+          if (txDate > filters.toDate) return false
+        }
+        return true
+      }
+
+      if (hasTransactionIdSearch) {
+        try {
+          const transaction = await getTransactionById(trimmedSearch)
+          if (requestId !== latestFetchRequestIdRef.current) return
+          const data = transactionMatchesFilters(transaction) ? [transaction] : []
+          setTransactions(data)
+          setTotal(data.length)
+          return
+        } catch (lookupErr) {
+          if (requestId !== latestFetchRequestIdRef.current) return
+          if (lookupErr instanceof ApiError && lookupErr.status === 404) {
+            if (!isManagementUser) {
+              const fallbackTransactions = await fetchUserFallbackTransactions(trimmedClientId)
+              if (requestId !== latestFetchRequestIdRef.current) return
+
+              const matched = fallbackTransactions.find(
+                transaction => transaction.id.toLowerCase() === trimmedSearch.toLowerCase()
+              )
+              const data = matched && transactionMatchesFilters(matched) ? [matched] : []
+              setTransactions(data)
+              setTotal(data.length)
+              return
+            }
+            setTransactions([])
+            setTotal(0)
+            return
+          }
+          throw lookupErr
+        }
+      }
+
       const params: ListTransactionsParams = {
         limit: ITEMS_PER_PAGE,
         offset: page * ITEMS_PER_PAGE,
       }
 
-      if (filters.clientId) params.clientId = filters.clientId
+      if (trimmedClientId) params.clientId = trimmedClientId
       if (filters.status) params.status = filters.status
       if (filters.transaction) params.transaction = filters.transaction
       if (filters.fromDate) params.fromDate = filters.fromDate
       if (filters.toDate) params.toDate = filters.toDate
 
       const response = await listTransactions(params)
+      if (requestId !== latestFetchRequestIdRef.current) return
 
       if (isManagementUser) {
         const importIds = response.data
@@ -171,7 +276,7 @@ export function ViewTransactionsPage() {
       let filteredData = response.data
 
       if (filters.search) {
-        const searchLower = filters.search.toLowerCase()
+        const searchLower = trimmedSearch.toLowerCase()
         filteredData = filteredData.filter(
           transaction =>
             transaction.clientId.toLowerCase().includes(searchLower) ||
@@ -179,9 +284,22 @@ export function ViewTransactionsPage() {
         )
       }
 
+      const responseTotal = response.pagination?.total ?? response.data.length
+      if (!isManagementUser && !hasScopedFilters && !trimmedSearch && responseTotal === 0) {
+        const fallbackTransactions = await fetchUserFallbackTransactions()
+        if (requestId !== latestFetchRequestIdRef.current) return
+
+        const offset = page * ITEMS_PER_PAGE
+        const pageData = fallbackTransactions.slice(offset, offset + ITEMS_PER_PAGE)
+        setTransactions(pageData)
+        setTotal(fallbackTransactions.length)
+        return
+      }
+
       setTransactions(filteredData)
-      setTotal(response.pagination?.total || 0)
+      setTotal(response.pagination?.total ?? response.data.length)
     } catch (err) {
+      if (requestId !== latestFetchRequestIdRef.current) return
       if (err instanceof ApiError) {
         if (err.status === 401) {
           logout()
@@ -192,6 +310,7 @@ export function ViewTransactionsPage() {
         setError('An unexpected error occurred')
       }
     } finally {
+      if (requestId !== latestFetchRequestIdRef.current) return
       setIsLoading(false)
     }
   }

@@ -55,6 +55,10 @@ const mockClient: Client = {
   identityVerificationStatus: 'unverified',
   createdAt: '2024-01-01T00:00:00Z',
 }
+const mockClientPending: Client = {
+  ...mockClient,
+  identityVerificationStatus: 'pending',
+}
 
 const mockTxResponse: PaginatedResponse<Transaction> = {
   data: [],
@@ -403,5 +407,28 @@ describe('ClientDetailPage', () => {
 
     expect(screen.queryByText('Provider ID:')).not.toBeInTheDocument()
     expect(screen.queryByText('ses-msg-123')).not.toBeInTheDocument()
+  })
+
+  it('allows user role to approve pending verification documents', async () => {
+    vi.spyOn(clientsApi, 'getClientById')
+      .mockResolvedValueOnce(mockClientPending)
+      .mockResolvedValueOnce({ ...mockClientPending, identityVerificationStatus: 'verified' })
+    vi.spyOn(clientsApi, 'reviewVerification').mockResolvedValue({
+      clientId: 'client-123',
+      identityVerificationStatus: 'verified',
+    })
+
+    renderComponent()
+    const user = userEvent.setup()
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Approve/i })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /Approve/i }))
+
+    await waitFor(() => {
+      expect(clientsApi.reviewVerification).toHaveBeenCalledWith('client-123', { action: 'approve' })
+    })
   })
 })

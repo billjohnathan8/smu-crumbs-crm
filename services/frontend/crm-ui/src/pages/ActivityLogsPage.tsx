@@ -194,7 +194,6 @@ export function ActivityLogsPage() {
                 <option value="READ">Read</option>
                 <option value="UPDATE">Update</option>
                 <option value="DELETE">Delete</option>
-                <option value="COMMUNICATION">Communication</option>
               </select>
             </div>
             <div>

@@ -5,10 +5,12 @@ import { BrowserRouter } from 'react-router-dom'
 import { ViewTransactionsPage } from '../ViewTransactionsPage'
 import { ThemeProvider } from '@/features/theme/ThemeContext'
 import * as transactionsApi from '@/api/transactions'
+import * as clientsApi from '@/api/clients'
 import { ApiError } from '@/api/client'
 import type { Transaction, ImportBatch } from '@/api/types'
 
 vi.mock('@/api/transactions')
+vi.mock('@/api/clients')
 
 let mockRole: 'admin' | 'user' | 'super_admin' = 'user'
 const mockLogout = vi.fn()
@@ -59,6 +61,10 @@ describe('ViewTransactionsPage', () => {
     vi.clearAllMocks()
     localStorage.clear()
     mockRole = 'user'
+    vi.spyOn(clientsApi, 'listClients').mockResolvedValue({
+      data: [],
+      pagination: { limit: 100, offset: 0, total: 0 },
+    })
   })
 
   const renderComponent = () =>
@@ -402,10 +408,10 @@ describe('ViewTransactionsPage', () => {
     renderComponent()
 
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('Transaction ID')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('txn_..')).toBeInTheDocument()
     })
 
-    const searchInput = screen.getByPlaceholderText('Transaction ID')
+    const searchInput = screen.getByPlaceholderText('txn_..')
     await user.type(searchInput, 'test-search')
 
     await user.click(screen.getByRole('button', { name: 'Reset Filters' }))
@@ -425,14 +431,176 @@ describe('ViewTransactionsPage', () => {
     renderComponent()
 
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('Client ID')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('clt_..')).toBeInTheDocument()
     })
 
-    const clientIdInput = screen.getByPlaceholderText('Client ID')
+    const clientIdInput = screen.getByPlaceholderText('clt_..')
     await user.type(clientIdInput, 'clt_abc')
 
     await waitFor(() => {
       expect(listSpy).toHaveBeenCalledWith(expect.objectContaining({ clientId: 'clt_abc' }))
+    })
+  })
+
+  it('looks up exact transaction id when txn_ search is provided', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: [],
+      pagination: { limit: 20, offset: 0, total: 0 },
+    })
+    const getByIdSpy = vi.spyOn(transactionsApi, 'getTransactionById').mockResolvedValue({
+      id: 'txn_1',
+      clientId: 'clt_1',
+      transaction: 'D',
+      amount: 375.57,
+      date: '2026-01-01T00:00:00Z',
+      status: 'Failed',
+    })
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('txn_..')).toBeInTheDocument()
+    })
+
+    await user.clear(screen.getByPlaceholderText('txn_..'))
+    await user.type(screen.getByPlaceholderText('txn_..'), 'txn_1')
+
+    await waitFor(() => {
+      expect(getByIdSpy).toHaveBeenCalledWith('txn_1')
+      expect(screen.getByText('txn_1')).toBeInTheDocument()
+    })
+  })
+
+  it('shows empty state for unknown txn_ search without surfacing an error banner', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: [],
+      pagination: { limit: 20, offset: 0, total: 0 },
+    })
+    vi.spyOn(transactionsApi, 'getTransactionById').mockRejectedValue(
+      new ApiError(404, 'not_found', 'Not found')
+    )
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('txn_..')).toBeInTheDocument()
+    })
+
+    await user.clear(screen.getByPlaceholderText('txn_..'))
+    await user.type(screen.getByPlaceholderText('txn_..'), 'txn_999999')
+
+    await waitFor(() => {
+      expect(screen.getByText('No transactions found')).toBeInTheDocument()
+      expect(screen.queryByText('Not found')).not.toBeInTheDocument()
+    })
+  })
+
+  it('falls back to client-scoped listing for user when global transactions list is empty by default', async () => {
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: [],
+      pagination: { limit: 20, offset: 0, total: 0 },
+    })
+    const listClientsSpy = vi.spyOn(clientsApi, 'listClients').mockResolvedValue({
+      data: [
+        {
+          clientId: 'clt_1',
+          firstName: 'Jane',
+          lastName: 'Doe',
+          dateOfBirth: '1990-01-01',
+          gender: 'Female',
+          emailAddress: 'jane@example.com',
+          phoneNumber: '+65 1111 1111',
+          address: '1 Main St',
+          city: 'SG',
+          state: 'SG',
+          country: 'Singapore',
+          postalCode: '123456',
+          identityVerificationStatus: 'verified',
+        },
+      ],
+      pagination: { limit: 100, offset: 0, total: 1 },
+    })
+    const listClientTransactionsSpy = vi
+      .spyOn(transactionsApi, 'listClientTransactions')
+      .mockResolvedValue({
+        data: [
+          {
+            id: 'txn_1',
+            clientId: 'clt_1',
+            transaction: 'D',
+            amount: 123,
+            date: '2026-01-01T00:00:00Z',
+            status: 'Completed',
+          },
+        ],
+        pagination: { limit: 100, offset: 0, total: 1 },
+      })
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(listClientsSpy).toHaveBeenCalledWith({ limit: 100, offset: 0 })
+      expect(listClientTransactionsSpy).toHaveBeenCalledWith('clt_1', { limit: 100, offset: 0 })
+      expect(screen.getByText('txn_1')).toBeInTheDocument()
+    })
+  })
+
+  it('falls back to client-scoped lookup when getTransactionById returns 404 for user txn_ search', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(transactionsApi, 'listTransactions').mockResolvedValue({
+      data: [],
+      pagination: { limit: 20, offset: 0, total: 0 },
+    })
+    vi.spyOn(transactionsApi, 'getTransactionById').mockRejectedValue(
+      new ApiError(404, 'not_found', 'Not found')
+    )
+    vi.spyOn(clientsApi, 'listClients').mockResolvedValue({
+      data: [
+        {
+          clientId: 'clt_1',
+          firstName: 'Jane',
+          lastName: 'Doe',
+          dateOfBirth: '1990-01-01',
+          gender: 'Female',
+          emailAddress: 'jane@example.com',
+          phoneNumber: '+65 1111 1111',
+          address: '1 Main St',
+          city: 'SG',
+          state: 'SG',
+          country: 'Singapore',
+          postalCode: '123456',
+          identityVerificationStatus: 'verified',
+        },
+      ],
+      pagination: { limit: 100, offset: 0, total: 1 },
+    })
+    vi.spyOn(transactionsApi, 'listClientTransactions').mockResolvedValue({
+      data: [
+        {
+          id: 'txn_1',
+          clientId: 'clt_1',
+          transaction: 'D',
+          amount: 375.57,
+          date: '2026-01-01T00:00:00Z',
+          status: 'Failed',
+        },
+      ],
+      pagination: { limit: 100, offset: 0, total: 1 },
+    })
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('txn_..')).toBeInTheDocument()
+    })
+    await user.clear(screen.getByPlaceholderText('txn_..'))
+    await user.type(screen.getByPlaceholderText('txn_..'), 'txn_1')
+
+    await waitFor(() => {
+      expect(screen.getByText('txn_1')).toBeInTheDocument()
+      expect(screen.queryByText('Not found')).not.toBeInTheDocument()
     })
   })
 

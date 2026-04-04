@@ -72,7 +72,7 @@ export function ClientDetailPage() {
   const isSuperAdmin = user?.role === 'super_admin'
   const isManagementUser = isAdmin || isSuperAdmin
   const canViewAllClients = isManagementUser
-  const canReviewVerification = isManagementUser
+  const canReviewVerification = isUser || isManagementUser
   const canDeleteClient = isUser || isManagementUser
   const canEditClient = isUser || isManagementUser
   const canSendCommunication = isUser || isManagementUser
