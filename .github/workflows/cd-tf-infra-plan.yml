@@ -248,12 +248,14 @@ jobs:
 
       - name: Terraform plan
         working-directory: ${{ env.TF_DIR }}
+        env:
+          TERRAFORM_TARGETS: ${{ inputs.terraform_targets }}
         shell: bash
         run: |
           set -euo pipefail
           TARGET_ARGS=()
-          if [[ -n "${{ inputs.terraform_targets }}" ]]; then
-            IFS=',' read -ra RAW_TARGETS <<< "${{ inputs.terraform_targets }}"
+          if [[ -n "${TERRAFORM_TARGETS}" ]]; then
+            IFS=',' read -ra RAW_TARGETS <<< "${TERRAFORM_TARGETS}"
             for t in "${RAW_TARGETS[@]}"; do
               target_trimmed="$(echo "$t" | xargs)"
               if [[ -n "${target_trimmed}" ]]; then
