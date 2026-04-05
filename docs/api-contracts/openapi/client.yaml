@@ -105,6 +105,60 @@ paths:
         '403':
           description: Forbidden
           content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+  /api/clients/archives:
+    get:
+      tags: [clients]
+      summary: List archived clients
+      description: Root admin can list archived clients for any agent. Agents can list only their own archived clients.
+      security: [{BearerAuth: []}]
+      x-required-roles: [admin, user]
+      parameters:
+      - {name: limit, in: query, description: Requested page size. Values outside 1..200 are clamped by the service., schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+      - {name: offset, in: query, description: Requested start offset. Negative values are clamped to 0 by the service., schema: {type: integer, minimum: 0, default: 0}}
+      - {name: q, in: query, schema: {type: string, description: Optional search query (name/email/phone).}}
+      - {name: kycStatus, in: query, schema: {$ref: '#/components/schemas/IdentityVerificationStatus'}}
+      - {name: assignedUserId, in: query, schema: {type: string, minLength: 1}}
+      responses:
+        '200':
+          description: List of archived clients.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/Client'}
+                  pagination: {$ref: '#/components/schemas/Pagination'}
+                required: [data]
+        '400':
+          description: Validation error (for example malformed query parameter types).
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+        '401':
+          description: Unauthorized
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+        '403':
+          description: Forbidden
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+  /api/clients/verification/submissions/summary:
+    get:
+      tags: [clients]
+      summary: Get pending verification submission summary
+      description: Returns aggregate pending verification submission counts. Admins see the global breakdown; agents see only their own pending count.
+      security: [{BearerAuth: []}]
+      x-required-roles: [admin, user]
+      responses:
+        '200':
+          description: Pending verification submission summary.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/VerificationSubmissionSummaryResponse'}
+        '401':
+          description: Unauthorized
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+        '403':
+          description: Forbidden
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
   /api/clients/count:
     get:
       tags: [clients]
@@ -208,6 +262,22 @@ paths:
         '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  /api/clients/{clientId}/reinstate:
+    post:
+      tags: [clients]
+      summary: Reinstate soft-deleted client
+      description: Root-admin action that restores a previously archived client profile.
+      security: [{BearerAuth: []}]
+      x-required-roles: [admin]
+      parameters:
+      - {name: clientId, in: path, required: true, schema: {$ref: '#/components/schemas/ClientId'}}
+      responses:
+        '200': {description: Client reinstated., content: {application/json: {schema: {$ref: '#/components/schemas/Client'}}}}
+        '400': {description: Validation error., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '404': {description: Not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '409': {description: Conflict (for example email or phone uniqueness collision on restore)., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
   /api/clients/{clientId}/upload-verify:
     post:
       tags: [clients]
@@ -301,6 +371,21 @@ paths:
         '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
         '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
   /api/account-opening-options:
+    get:
+      tags: [accounts]
+      summary: Get account opening options
+      description: Returns server-side branch and currency options for account opening for the authenticated user and client.
+      security: [{BearerAuth: []}]
+      x-required-roles: [user, admin]
+      parameters:
+      - {name: clientId, in: query, required: true, schema: {$ref: '#/components/schemas/ClientId'}}
+      responses:
+        '200': {description: Account opening options., content: {application/json: {schema: {$ref: '#/components/schemas/AccountOpeningOptions'}}}}
+        '400': {description: Validation error., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '404': {description: Client not found., content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: Unauthorized, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '403': {description: Forbidden, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  /api/clients/account-opening-options:
     get:
       tags: [accounts]
       summary: Get account opening options
@@ -595,6 +680,20 @@ components:
           type: string
           description: Base64-encoded document content for preview/download.
       required: [clientId, documentKind, documentRef, mimeType, documentBase64]
+    VerificationSubmissionSummaryResponse:
+      type: object
+      properties:
+        pendingSubmissionCount: {type: integer, minimum: 0}
+        pendingSubmissionsByAgent:
+          type: array
+          items: {$ref: '#/components/schemas/PendingSubmissionBreakdown'}
+      required: [pendingSubmissionCount, pendingSubmissionsByAgent]
+    PendingSubmissionBreakdown:
+      type: object
+      properties:
+        assignedUserId: {type: string, minLength: 1}
+        pendingSubmissionCount: {type: integer, minimum: 0}
+      required: [assignedUserId, pendingSubmissionCount]
     Account:
       type: object
       properties:
