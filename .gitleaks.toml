@@ -35,6 +35,25 @@ regexes = [
 ]
 
 [[allowlists]]
+description = "Client-service test fixture secrets"
+# Suppress deterministic JWT/HMAC and Base64 PII test values that exist only in
+# client-service test sources. These are not deployable credentials and are
+# scoped to exact test paths plus exact extracted secret values.
+regexTarget = "secret"
+paths = [
+  '''services/backend/client/src/test/java/com/scroogebank/crm/client_service/ClientsServiceApplicationTests\.java''',
+  '''services/backend/client/src/test/java/com/scroogebank/crm/client_service/ClientsServiceIT\.java''',
+  '''services/backend/client/src/test/java/com/scroogebank/crm/client_service/crypto/EncryptedStringConverterTest\.java''',
+  '''services/backend/client/src/test/java/com/scroogebank/crm/client_service/crypto/PiiEncryptionStartupValidatorTest\.java''',
+  '''services/backend/client/src/test/java/com/scroogebank/crm/client_service/service/VerificationTokenServiceTest\.java''',
+]
+regexes = [
+  '''^MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY=$''',
+  '''^dev-only-insecure-secret$''',
+  '''^dev-only-insecure-pii-key-do-not-use-in-production$''',
+]
+
+[[allowlists]]
 description = "Historical example JWT key fixture false-positive"
 # Suppress one known, non-production sample key that exists only in git history.
 # Scope is intentionally narrow: exact commit + exact historical file path.
