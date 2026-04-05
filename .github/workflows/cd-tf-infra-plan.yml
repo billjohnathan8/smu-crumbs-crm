@@ -257,11 +257,17 @@ jobs:
           if [[ -n "${TERRAFORM_TARGETS}" ]]; then
             IFS=',' read -ra RAW_TARGETS <<< "${TERRAFORM_TARGETS}"
             for t in "${RAW_TARGETS[@]}"; do
-              target_trimmed="$(printf '%s' "$t" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
-              if [[ -n "${target_trimmed}" ]]; then
-                TARGET_ARGS+=("-target=${target_trimmed}")
+              # Normalize pasted inputs from the Actions UI where wrapped text can
+              # introduce hidden/newline whitespace inside resource addresses.
+              target_compact="$(printf '%s' "$t" | tr -d '[:space:]')"
+              if [[ -n "${target_compact}" ]]; then
+                TARGET_ARGS+=("-target=${target_compact}")
               fi
             done
+          fi
+          if [[ ${#TARGET_ARGS[@]} -gt 0 ]]; then
+            printf 'Using Terraform targets:\n'
+            printf '  %s\n' "${TARGET_ARGS[@]}"
           fi
           terraform plan \
             -input=false \
