@@ -237,6 +237,26 @@ describe('VerificationForm', () => {
     expect(setVerifyData).toHaveBeenCalled()
   })
 
+  it('calls setVerifyData with empty strings when address file input is cleared', async () => {
+    makeFileReader()
+    const setVerifyData = vi.fn()
+
+    render(
+      <VerificationForm
+        verifyData={defaultVerifyData}
+        setVerifyData={setVerifyData}
+        verifyError=""
+        isVerifying={false}
+        onSubmit={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    )
+
+    const fileInputs = document.querySelectorAll('input[type="file"]')
+    fireEvent.change(fileInputs[1], { target: { files: [] } })
+    expect(setVerifyData).toHaveBeenCalled()
+  })
+
   it('calls setVerifyData with file data when primary file is selected', async () => {
     makeFileReader('data:image/jpeg;base64,dGVzdA==')
     const setVerifyData = vi.fn()

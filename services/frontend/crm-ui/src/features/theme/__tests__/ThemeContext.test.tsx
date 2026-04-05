@@ -70,4 +70,24 @@ describe('ThemeContext', () => {
     expect(document.documentElement).toHaveClass('dark')
     expect(localStorage.getItem('scroogebank-theme')).toBe('dark')
   })
+
+  it('toggles from stored dark theme back to light', async () => {
+    const user = userEvent.setup()
+    localStorage.setItem('scroogebank-theme', 'dark')
+
+    render(
+      <ThemeProvider>
+        <ThemeConsumer />
+      </ThemeProvider>
+    )
+
+    expect(screen.getByTestId('current-theme')).toHaveTextContent('dark')
+    expect(document.documentElement).toHaveClass('dark')
+
+    await user.click(screen.getByRole('button', { name: 'Toggle Theme' }))
+
+    expect(screen.getByTestId('current-theme')).toHaveTextContent('light')
+    expect(document.documentElement).not.toHaveClass('dark')
+    expect(localStorage.getItem('scroogebank-theme')).toBe('light')
+  })
 })

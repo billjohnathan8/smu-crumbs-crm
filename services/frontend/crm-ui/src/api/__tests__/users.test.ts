@@ -211,9 +211,28 @@ describe('users API', () => {
 
       expect(client.apiDelete).toHaveBeenCalledWith('/api/users/user-123?reason=offboarding')
     })
+
+    it('should ignore blank archive reason', async () => {
+      vi.spyOn(client, 'apiDelete').mockResolvedValue(undefined)
+
+      await deleteUser('user-123', '   ')
+
+      expect(client.apiDelete).toHaveBeenCalledWith('/api/users/user-123')
+    })
   })
 
   describe('listArchivedUsers', () => {
+    it('should list archived users without filters', async () => {
+      vi.spyOn(client, 'apiGet').mockResolvedValue({
+        data: [],
+        pagination: { total: 0, limit: 10, offset: 0 },
+      })
+
+      await listArchivedUsers()
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/users/archives')
+    })
+
     it('should list archived users by role', async () => {
       vi.spyOn(client, 'apiGet').mockResolvedValue({
         data: [],

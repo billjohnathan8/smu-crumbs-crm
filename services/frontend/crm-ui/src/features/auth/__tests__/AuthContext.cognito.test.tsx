@@ -115,6 +115,58 @@ describe('AuthContext cognito and bypass paths', () => {
     expect(mockBuildCognitoLogoutUrl).toHaveBeenCalled()
   })
 
+  it('does not redirect through cognito logout when mode is not cognito', async () => {
+    mockGetCurrentUser.mockResolvedValue(sampleUser)
+    mockGetAuthToken.mockReturnValue('token')
+    localStorage.setItem('currentUser', JSON.stringify(sampleUser))
+
+    const { AuthProvider, useAuth } = await importAuthContext({
+      isCognitoEnabled: true,
+      authMode: 'local',
+    })
+
+    const { result } = renderHook(() => useAuth(), {
+      wrapper: AuthProvider,
+    })
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false)
+    })
+
+    act(() => {
+      result.current.logout()
+    })
+
+    expect(mockClearAuthToken).toHaveBeenCalled()
+    expect(mockBuildCognitoLogoutUrl).not.toHaveBeenCalled()
+  })
+
+  it('clears auth and throws when loginWithCognitoCode fails', async () => {
+    mockExchangeCodeForTokens.mockRejectedValue(new Error('bad code'))
+
+    const { AuthProvider, useAuth } = await importAuthContext({
+      isCognitoEnabled: true,
+      authMode: 'cognito',
+    })
+
+    const { result } = renderHook(() => useAuth(), {
+      wrapper: AuthProvider,
+    })
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false)
+    })
+
+    await expect(
+      act(async () => {
+        await result.current.loginWithCognitoCode('bad-code')
+      })
+    ).rejects.toThrow('Authentication failed')
+
+    expect(mockClearAuthToken).toHaveBeenCalled()
+    expect(result.current.user).toBeNull()
+  })
+
   it('supports DEV bypass initialization and bypass login credentials', async () => {
     vi.stubEnv('VITE_BYPASS_AUTH', 'true')
     vi.stubEnv('VITE_BYPASS_ROLE', 'super_admin')

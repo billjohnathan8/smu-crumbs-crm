@@ -183,4 +183,78 @@ describe('ProtectedRoute', () => {
 
     expect(screen.getByText('Protected Content')).toBeInTheDocument()
   })
+
+  it('should show root-admin access denied when requireRootAdmin is true for non-root user', async () => {
+    const user = userEvent.setup()
+    const mockUser: User = {
+      id: '2',
+      firstName: 'John',
+      lastName: 'Doe',
+      email: 'john@example.com',
+      role: 'admin',
+      status: 'active',
+    }
+    const backSpy = vi.spyOn(window.history, 'back').mockImplementation(() => {})
+
+    mockUseAuth.mockReturnValue({
+      user: mockUser,
+      isAuthenticated: true,
+      isLoading: false,
+      login: vi.fn(),
+      logout: vi.fn(),
+    })
+
+    window.history.pushState({}, '', '/protected')
+
+    render(
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<div>Login Page</div>} />
+          <Route element={<ProtectedRoute requireRootAdmin={true} />}>
+            <Route path="/protected" element={<div>Protected Content</div>} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    )
+
+    expect(screen.getByText('Access Denied')).toBeInTheDocument()
+    expect(screen.getByText('Root admin access is required for this page.')).toBeInTheDocument()
+    const callsBeforeClick = backSpy.mock.calls.length
+    await user.click(screen.getByRole('button', { name: 'Go Back' }))
+    expect(backSpy.mock.calls.length).toBe(callsBeforeClick + 1)
+  })
+
+  it('should allow access when requireRootAdmin is true for root admin identity', () => {
+    const mockUser: User = {
+      id: 'usr_1',
+      firstName: 'Root',
+      lastName: 'Admin',
+      email: 'admin@crm.com',
+      role: 'admin',
+      status: 'active',
+    }
+
+    mockUseAuth.mockReturnValue({
+      user: mockUser,
+      isAuthenticated: true,
+      isLoading: false,
+      login: vi.fn(),
+      logout: vi.fn(),
+    })
+
+    window.history.pushState({}, '', '/protected')
+
+    render(
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<div>Login Page</div>} />
+          <Route element={<ProtectedRoute requireRootAdmin={true} />}>
+            <Route path="/protected" element={<div>Protected Content</div>} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    )
+
+    expect(screen.getByText('Protected Content')).toBeInTheDocument()
+  })
 })

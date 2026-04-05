@@ -57,6 +57,12 @@ describe('core components', () => {
     await user.selectOptions(screen.getAllByRole('combobox')[0], 'Checking')
     expect(setFormData).toHaveBeenCalledWith({ ...baseFormData, accountType: 'Checking' })
 
+    await user.selectOptions(screen.getAllByRole('combobox')[1], 'Inactive')
+    expect(setFormData).toHaveBeenCalledWith({ ...baseFormData, accountStatus: 'Inactive' })
+
+    await user.selectOptions(screen.getAllByRole('combobox')[2], 'USD')
+    expect(setFormData).toHaveBeenCalledWith({ ...baseFormData, currency: 'USD' })
+
     await user.clear(screen.getByDisplayValue('100'))
     expect(setFormData).toHaveBeenCalledWith({ ...baseFormData, initialDeposit: 0 })
 
@@ -466,14 +472,126 @@ describe('core components', () => {
     expect(screen.getByRole('button', { name: 'Sending...' })).toBeDisabled()
   })
 
+  it('opens communication detail modal and supports keyboard/backdrop interactions', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <CommunicationsPanel
+        communications={[
+          {
+            communicationId: 'com_detail_1',
+            clientId: 'clt_9',
+            userId: 'usr_9',
+            channel: 'email',
+            toEmail: 'detail@example.com',
+            subject: '',
+            body: '   ',
+            status: 'queued',
+            createdAt: '2026-03-20T00:00:00Z',
+            updatedAt: '2026-03-20T00:00:00Z',
+          },
+        ]}
+        formatDate={() => 'formatted-date'}
+      />
+    )
+
+    const listItem = screen.getByRole('button')
+    await user.click(listItem)
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getAllByText('(No subject)')[0]).toBeInTheDocument()
+    expect(screen.getByText('(No content)')).toBeInTheDocument()
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    fireEvent.keyDown(listItem, { key: 'Enter' })
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('communication-detail-modal'))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('falls back to current status value and shows saving state in editable mode', () => {
+    render(
+      <CommunicationsPanel
+        communications={[
+          {
+            communicationId: 'com_updating_1',
+            clientId: 'clt_1',
+            userId: 'usr_1',
+            channel: 'email',
+            toEmail: 'user@example.com',
+            subject: 'Status test',
+            body: 'Message body',
+            status: 'queued',
+            createdAt: '2026-03-20T00:00:00Z',
+            updatedAt: '2026-03-20T00:00:00Z',
+          },
+        ]}
+        formatDate={() => 'formatted-date'}
+        editableStatuses
+        statusUpdates={{}}
+        setStatusUpdates={vi.fn()}
+        isUpdating={{ com_updating_1: true }}
+        onUpdateStatus={vi.fn()}
+      />
+    )
+
+    const statusSelect = screen.getByRole('combobox') as HTMLSelectElement
+    expect(statusSelect.value).toBe('queued')
+    expect(screen.getByRole('button', { name: 'Saving...' })).toBeDisabled()
+  })
+
+  it('opens detail from editable row and stops propagation from inner controls', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <CommunicationsPanel
+        communications={[
+          {
+            communicationId: 'com_click_1',
+            clientId: 'clt_1',
+            userId: 'usr_1',
+            channel: 'email',
+            toEmail: 'click@example.com',
+            subject: 'Clickable subject',
+            body: 'Body',
+            status: 'queued',
+            createdAt: '2026-03-20T00:00:00Z',
+            updatedAt: '2026-03-20T00:00:00Z',
+          },
+        ]}
+        formatDate={() => 'formatted-date'}
+        editableStatuses
+        statusUpdates={{ com_click_1: 'queued' }}
+        setStatusUpdates={vi.fn()}
+        onUpdateStatus={vi.fn()}
+      />
+    )
+
+    await user.click(screen.getByText('Clickable subject'))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('dialog'))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('combobox'))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
   it('toggles SidebarLayout collapsed state', async () => {
     const user = userEvent.setup()
+    Object.defineProperty(window, 'scrollY', { value: 0, writable: true, configurable: true })
     const items: NavItem[] = [
       { label: 'Home', to: '/admin', end: true },
       { label: 'Clients', to: '/admin/clients' },
     ]
 
-    render(
+    const { container } = render(
       <ThemeProvider>
         <AuthProvider>
           <MemoryRouter initialEntries={['/admin']}>
@@ -494,5 +612,23 @@ describe('core components', () => {
 
     await user.click(screen.getByRole('button'))
     expect(screen.getByAltText('ScroogeBank')).toBeInTheDocument()
+
+    const header = container.querySelector('header')
+    expect(header).toBeTruthy()
+
+    Object.defineProperty(window, 'scrollY', { value: 10, writable: true, configurable: true })
+    fireEvent.scroll(window)
+
+    Object.defineProperty(window, 'scrollY', { value: 100, writable: true, configurable: true })
+    fireEvent.scroll(window)
+    await vi.waitFor(() => {
+      expect(header?.className).toContain('-translate-y-full')
+    })
+
+    Object.defineProperty(window, 'scrollY', { value: 40, writable: true, configurable: true })
+    fireEvent.scroll(window)
+    await vi.waitFor(() => {
+      expect(header?.className).toContain('translate-y-0')
+    })
   })
 })

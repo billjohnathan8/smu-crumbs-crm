@@ -1,10 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   listClients,
+  listClientArchives,
+  getVerificationSubmissionSummary,
   getClientById,
   createClient,
   updateClient,
   deleteClient,
+  reinstateClient,
   countClientsByAgent,
   reassignClients,
   uploadVerificationDocs,
@@ -38,6 +41,52 @@ vi.mock('../client')
 describe('clients API', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  describe('listClientArchives', () => {
+    it('should list archived clients without query params', async () => {
+      const mockResponse: PaginatedResponse<Client> = {
+        data: [],
+        pagination: { total: 0, limit: 10, offset: 0 },
+      }
+
+      vi.spyOn(client, 'apiGet').mockResolvedValue(mockResponse)
+
+      const result = await listClientArchives()
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/clients/archives')
+      expect(result).toEqual(mockResponse)
+    })
+
+    it('should list archived clients with all filters and request options', async () => {
+      const mockResponse: PaginatedResponse<Client> = {
+        data: [],
+        pagination: { total: 0, limit: 20, offset: 0 },
+      }
+
+      vi.spyOn(client, 'apiGet').mockResolvedValue(mockResponse)
+
+      await listClientArchives(
+        { limit: 20, offset: 0, q: 'doe', kycStatus: 'pending', assignedUserId: 'user-1' },
+        { timeout: 7000 }
+      )
+
+      expect(client.apiGet).toHaveBeenCalledWith(
+        '/api/clients/archives?limit=20&offset=0&q=doe&kycStatus=pending&assignedUserId=user-1',
+        { timeout: 7000 }
+      )
+    })
+  })
+
+  describe('getVerificationSubmissionSummary', () => {
+    it('should fetch pending verification submission summary', async () => {
+      vi.spyOn(client, 'apiGet').mockResolvedValue({ pendingSubmissionCount: 9 })
+
+      const result = await getVerificationSubmissionSummary()
+
+      expect(client.apiGet).toHaveBeenCalledWith('/api/clients/verification/submissions/summary')
+      expect(result.pendingSubmissionCount).toBe(9)
+    })
   })
 
   describe('listClients', () => {
@@ -270,6 +319,33 @@ describe('clients API', () => {
       await deleteClient('client-123')
 
       expect(client.apiDelete).toHaveBeenCalledWith('/api/clients/client-123')
+    })
+  })
+
+  describe('reinstateClient', () => {
+    it('should reinstate an archived client', async () => {
+      vi.spyOn(client, 'apiPost').mockResolvedValue({
+        clientId: 'client-123',
+        firstName: 'John',
+        lastName: 'Doe',
+        emailAddress: 'john@example.com',
+        phoneNumber: '+6512345678',
+        dateOfBirth: '1990-01-01',
+        gender: 'Male',
+        address: '123 Main St',
+        city: 'Singapore',
+        state: 'Singapore',
+        country: 'Singapore',
+        postalCode: '123456',
+        identityVerificationStatus: 'verified',
+        clientStatus: 'active',
+        assignedUserId: 'user-1',
+      } as Client)
+
+      const result = await reinstateClient('client-123')
+
+      expect(client.apiPost).toHaveBeenCalledWith('/api/clients/client-123/reinstate')
+      expect(result.clientId).toBe('client-123')
     })
   })
 
@@ -508,6 +584,71 @@ describe('clients API', () => {
       )
       expect(result.defaultBranchId).toBe('SG-001')
     })
+
+    it('should pass request options to legacy fallback endpoint after 404', async () => {
+      vi.spyOn(client, 'apiGet')
+        .mockRejectedValueOnce({ status: 404 })
+        .mockResolvedValueOnce({
+          clientId: 'client-123',
+          defaultBranchId: 'SG-001',
+          canOverrideBranch: true,
+          authorizedBranches: ['SG-001', 'SG-002'],
+          allowedCurrencies: ['SGD', 'USD'],
+          branchAllowedCurrencies: { 'SG-001': ['SGD', 'USD'], 'SG-002': ['SGD'] },
+          accountTypeAllowedCurrencies: { Savings: ['SGD'] },
+        })
+
+      const result = await getAccountOpeningOptions('client-123', { timeout: 2500 })
+
+      expect(client.apiGet).toHaveBeenNthCalledWith(
+        1,
+        '/api/clients/account-opening-options?clientId=client-123',
+        { timeout: 2500 }
+      )
+      expect(client.apiGet).toHaveBeenNthCalledWith(
+        2,
+        '/api/account-opening-options?clientId=client-123',
+        { timeout: 2500 }
+      )
+      expect(result.defaultBranchId).toBe('SG-001')
+    })
+
+    it('should pass request options when fetching account opening options', async () => {
+      vi.spyOn(client, 'apiGet').mockResolvedValue({
+        clientId: 'client-123',
+        defaultBranchId: 'SG-001',
+        canOverrideBranch: true,
+        authorizedBranches: ['SG-001'],
+        allowedCurrencies: ['SGD'],
+        branchAllowedCurrencies: { 'SG-001': ['SGD'] },
+        accountTypeAllowedCurrencies: { Savings: ['SGD'] },
+      })
+
+      const result = await getAccountOpeningOptions('client-123', { timeout: 2500 })
+
+      expect(client.apiGet).toHaveBeenCalledWith(
+        '/api/clients/account-opening-options?clientId=client-123',
+        { timeout: 2500 }
+      )
+      expect(result.clientId).toBe('client-123')
+    })
+
+    it('should rethrow non-404 errors from preferred endpoint', async () => {
+      vi.spyOn(client, 'apiGet').mockRejectedValue({ status: 500, message: 'server error' })
+
+      await expect(getAccountOpeningOptions('client-123')).rejects.toEqual({
+        status: 500,
+        message: 'server error',
+      })
+      expect(client.apiGet).toHaveBeenCalledTimes(1)
+    })
+
+    it('should rethrow errors without numeric status', async () => {
+      vi.spyOn(client, 'apiGet').mockRejectedValue('network down')
+
+      await expect(getAccountOpeningOptions('client-123')).rejects.toBe('network down')
+      expect(client.apiGet).toHaveBeenCalledTimes(1)
+    })
   })
 
   describe('updateAccount', () => {
@@ -598,6 +739,27 @@ describe('clients API', () => {
 
       expect(client.apiGet).toHaveBeenCalledWith(
         '/api/clients/client-123/accounts?limit=20&offset=40'
+      )
+      expect(result).toEqual(mockResponse)
+    })
+
+    it('should pass request options for account pagination query', async () => {
+      const mockResponse: PaginatedResponse<Account> = {
+        data: [],
+        pagination: { limit: 5, offset: 10, total: 0 },
+      }
+
+      vi.spyOn(client, 'apiGet').mockResolvedValue(mockResponse)
+
+      const result = await listClientAccountsPaginated(
+        'client-123',
+        { limit: 5, offset: 10 },
+        { timeout: 1200 }
+      )
+
+      expect(client.apiGet).toHaveBeenCalledWith(
+        '/api/clients/client-123/accounts?limit=5&offset=10',
+        { timeout: 1200 }
       )
       expect(result).toEqual(mockResponse)
     })
