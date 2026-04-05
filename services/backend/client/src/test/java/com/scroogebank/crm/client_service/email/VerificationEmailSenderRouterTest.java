@@ -1,7 +1,6 @@
 package com.scroogebank.crm.client_service.email;
 
 import com.scroogebank.crm.client_service.config.AppProperties;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 
@@ -16,17 +15,19 @@ import static org.mockito.Mockito.when;
  * Unit tests for {@link VerificationEmailSenderRouter}.
  */
 class VerificationEmailSenderRouterTest {
-	private AppProperties appProperties;
-	private MockVerificationEmailSender mockSender;
-	private ObjectProvider<SesVerificationEmailSender> sesSenderProvider;
-	private VerificationEmailSenderRouter router;
+	private record Fixture(
+		AppProperties appProperties,
+		MockVerificationEmailSender mockSender,
+		ObjectProvider<SesVerificationEmailSender> sesSenderProvider,
+		VerificationEmailSenderRouter router
+	) {}
 
-	@BeforeEach
-	void setUp() {
-		appProperties = new AppProperties();
-		mockSender = mock(MockVerificationEmailSender.class);
-		sesSenderProvider = mockSesSenderProvider();
-		router = new VerificationEmailSenderRouter(appProperties, mockSender, sesSenderProvider);
+	private static Fixture fixture() {
+		AppProperties appProperties = new AppProperties();
+		MockVerificationEmailSender mockSender = mock(MockVerificationEmailSender.class);
+		ObjectProvider<SesVerificationEmailSender> sesSenderProvider = mockSesSenderProvider();
+		VerificationEmailSenderRouter router = new VerificationEmailSenderRouter(appProperties, mockSender, sesSenderProvider);
+		return new Fixture(appProperties, mockSender, sesSenderProvider, router);
 	}
 
 	@SuppressWarnings("unchecked")
@@ -36,23 +37,25 @@ class VerificationEmailSenderRouterTest {
 
 	@Test
 	void send_providerMock_usesMockSender() {
-		appProperties.getVerificationEmail().setProvider("mock");
-		when(mockSender.send(any())).thenReturn("mock-1");
+		Fixture fixture = fixture();
+		fixture.appProperties().getVerificationEmail().setProvider("mock");
+		when(fixture.mockSender().send(any())).thenReturn("mock-1");
 
-		String providerMessageId = router.send(new VerificationEmail("client@example.com", "subject", "body"));
+		String providerMessageId = fixture.router().send(new VerificationEmail("client@example.com", "subject", "body"));
 
 		assertThat(providerMessageId).isEqualTo("mock-1");
-		verify(mockSender).send(any());
+		verify(fixture.mockSender()).send(any());
 	}
 
 	@Test
 	void send_providerSes_usesSesSenderWhenAvailable() {
-		appProperties.getVerificationEmail().setProvider("ses");
+		Fixture fixture = fixture();
+		fixture.appProperties().getVerificationEmail().setProvider("ses");
 		SesVerificationEmailSender sesSender = mock(SesVerificationEmailSender.class);
-		when(sesSenderProvider.getIfAvailable()).thenReturn(sesSender);
+		when(fixture.sesSenderProvider().getIfAvailable()).thenReturn(sesSender);
 		when(sesSender.send(any())).thenReturn("ses-1");
 
-		String providerMessageId = router.send(new VerificationEmail("client@example.com", "subject", "body"));
+		String providerMessageId = fixture.router().send(new VerificationEmail("client@example.com", "subject", "body"));
 
 		assertThat(providerMessageId).isEqualTo("ses-1");
 		verify(sesSender).send(any());
@@ -60,12 +63,13 @@ class VerificationEmailSenderRouterTest {
 
 	@Test
 	void send_providerSes_failurePropagates() {
-		appProperties.getVerificationEmail().setProvider("ses");
+		Fixture fixture = fixture();
+		fixture.appProperties().getVerificationEmail().setProvider("ses");
 		SesVerificationEmailSender sesSender = mock(SesVerificationEmailSender.class);
-		when(sesSenderProvider.getIfAvailable()).thenReturn(sesSender);
+		when(fixture.sesSenderProvider().getIfAvailable()).thenReturn(sesSender);
 		when(sesSender.send(any())).thenThrow(new RuntimeException("ses down"));
 
-		assertThatThrownBy(() -> router.send(new VerificationEmail("client@example.com", "subject", "body")))
+		assertThatThrownBy(() -> fixture.router().send(new VerificationEmail("client@example.com", "subject", "body")))
 			.isInstanceOf(RuntimeException.class)
 			.hasMessageContaining("ses down");
 		verify(sesSender).send(any());
