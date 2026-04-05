@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Component;
  * Keeps processing in small batches so live traffic is not blocked.
  */
 @Component
+@ConditionalOnProperty(prefix = "app.pii.migration", name = "enabled", havingValue = "true")
 public class PiiReencryptionMigrationWorker {
 
 	private static final Logger LOG = LoggerFactory.getLogger(PiiReencryptionMigrationWorker.class);
