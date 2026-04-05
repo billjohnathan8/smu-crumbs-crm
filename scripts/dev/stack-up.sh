@@ -15,6 +15,16 @@
 
 set -euo pipefail
 
+on_error() {
+  local exit_code="$?"
+  local line_no="${BASH_LINENO[0]:-unknown}"
+  local cmd="${BASH_COMMAND:-unknown}"
+  echo "[FAIL] stack-up.sh failed at line ${line_no}: ${cmd}" >&2
+  exit "${exit_code}"
+}
+
+trap on_error ERR
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck disable=SC1091
 source "${ROOT_DIR}/scripts/dev/load-repo-env.sh"
@@ -98,6 +108,33 @@ wait_for_http() {
   done
   echo "[FAIL] ${name} not ready: ${url}" >&2
   exit 1
+}
+
+wait_job_or_fail() {
+  local pid="$1"
+  local name="$2"
+  local log_file="${3:-}"
+  if wait "${pid}"; then
+    return 0
+  fi
+
+  echo "[FAIL] ${name} failed" >&2
+  if [[ -n "${log_file}" && -f "${log_file}" ]]; then
+    echo "  [INFO] Last 120 lines from ${log_file}:" >&2
+    tail -n 120 "${log_file}" >&2 || true
+  fi
+  exit 1
+}
+
+print_log_api_url() {
+  local log_service_url="$1"
+  local api_id
+  api_id="$(echo "${log_service_url}" | sed -n 's#.*execute-api/\([^/]*\)/.*#\1#p')"
+  if [[ -n "${api_id}" ]]; then
+    echo "[OK] Log API: ${LOCALSTACK_ENDPOINT}/_aws/execute-api/${api_id}/${LOG_HTTP_API_STAGE}"
+  else
+    echo "[OK] Log API: ${log_service_url}"
+  fi
 }
 
 build_jar() {
@@ -445,14 +482,19 @@ echo "[OK] All JARs built"
 
 echo ""
 echo "=== Phase 2: Starting infra + packaging Lambdas + building Docker images ==="
+PHASE2_INFRA_LOG="${LOG_DIR}/phase2-infra.log"
+PHASE2_LOGPKG_LOG="${LOG_DIR}/phase2-package-log-lambda.log"
+PHASE2_VERIFPKG_LOG="${LOG_DIR}/phase2-package-verification-lambda.log"
+PHASE2_TXNPKG_LOG="${LOG_DIR}/phase2-package-sftp-transaction-collector.log"
 CLIENT_LOG_SERVICE_URL=placeholder LOG_API_UPSTREAM=placeholder VERIFICATION_SNS_TOPIC_ARN=placeholder VERIFICATION_DOCUMENTS_BUCKET=placeholder \
-  docker compose "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT}" up -d postgres localstack &
+  docker compose "${COMPOSE_ENV_ARGS[@]}" -f "${COMPOSE_FILE}" -p "${COMPOSE_PROJECT}" up -d postgres localstack \
+  > "${PHASE2_INFRA_LOG}" 2>&1 &
 INFRA_PID=$!
-package_log_lambda > /dev/null &
+package_log_lambda > "${PHASE2_LOGPKG_LOG}" 2>&1 &
 PKGLOG_PID=$!
-package_verification_lambda &
+package_verification_lambda > "${PHASE2_VERIFPKG_LOG}" 2>&1 &
 PKGV_PID=$!
-package_sftp_transaction_collector &
+package_sftp_transaction_collector > "${PHASE2_TXNPKG_LOG}" 2>&1 &
 PKGTXN_PID=$!
 
 # Build service images in background while LocalStack inits and lambdas deploy.
@@ -465,7 +507,10 @@ CLIENT_LOG_SERVICE_URL=placeholder LOG_API_UPSTREAM=placeholder VERIFICATION_SNS
 DOCKER_BUILD_PID=$!
 
 # Wait for infra + lambda packaging; Docker build keeps running in background.
-wait $INFRA_PID $PKGLOG_PID $PKGV_PID $PKGTXN_PID
+wait_job_or_fail "${INFRA_PID}" "Phase 2 infra startup" "${PHASE2_INFRA_LOG}"
+wait_job_or_fail "${PKGLOG_PID}" "Phase 2 log lambda packaging" "${PHASE2_LOGPKG_LOG}"
+wait_job_or_fail "${PKGV_PID}" "Phase 2 verification lambda packaging" "${PHASE2_VERIFPKG_LOG}"
+wait_job_or_fail "${PKGTXN_PID}" "Phase 2 transaction collector packaging" "${PHASE2_TXNPKG_LOG}"
 echo "[OK] Infra started, all Lambdas packaged (Docker build running in background)"
 
 # ---------------------------------------------------------------------------
@@ -498,15 +543,20 @@ echo "  [OK] Migrations complete"
 
 echo ""
 echo "=== Phase 4: Deploying Lambdas + API Gateway ==="
-deploy_log_lambda
-LOG_SERVICE_URL="$(provision_log_api)"
-echo "[OK] Log API: ${LOCALSTACK_ENDPOINT}/_aws/execute-api/$(echo "${LOG_SERVICE_URL}" | grep -o 'execute-api/[^/]*/[^/]*' | cut -d/ -f2)/${LOG_HTTP_API_STAGE}"
+PHASE4_DEPLOY_LOG_LOG="${LOG_DIR}/phase4-deploy-log-lambda.log"
+PHASE4_PROVISION_API_LOG="${LOG_DIR}/phase4-provision-log-api.log"
+PHASE4_VERIFICATION_DEPLOY_LOG="${LOG_DIR}/phase4-deploy-verification.log"
+PHASE4_TXN_DEPLOY_LOG="${LOG_DIR}/phase4-deploy-transaction-collector.log"
+deploy_log_lambda > "${PHASE4_DEPLOY_LOG_LOG}" 2>&1
+LOG_SERVICE_URL="$(provision_log_api 2> "${PHASE4_PROVISION_API_LOG}")"
+print_log_api_url "${LOG_SERVICE_URL}"
 # Verification and sftp-transaction-collector lambdas are independent — deploy in parallel
-deploy_verification_lambda "${LOG_SERVICE_URL}" &
+deploy_verification_lambda "${LOG_SERVICE_URL}" > "${PHASE4_VERIFICATION_DEPLOY_LOG}" 2>&1 &
 VERIF_DEPLOY_PID=$!
-deploy_sftp_transaction_collector &
+deploy_sftp_transaction_collector > "${PHASE4_TXN_DEPLOY_LOG}" 2>&1 &
 TXN_DEPLOY_PID=$!
-wait $VERIF_DEPLOY_PID $TXN_DEPLOY_PID
+wait_job_or_fail "${VERIF_DEPLOY_PID}" "Phase 4 verification lambda deployment" "${PHASE4_VERIFICATION_DEPLOY_LOG}"
+wait_job_or_fail "${TXN_DEPLOY_PID}" "Phase 4 transaction ingestion lambda deployment" "${PHASE4_TXN_DEPLOY_LOG}"
 echo "[OK] Verification Lambda deployed + SNS subscribed"
 echo "[OK] Transaction ingestion Lambda deployed"
 
