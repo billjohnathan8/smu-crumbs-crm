@@ -182,6 +182,7 @@ def test_update_audit_log_updates_only_non_null_fields(
     assert "attribute_name = %(attributeName)s" in sql
     assert "after_value = %(afterValue)s" in sql
     assert "before_value" not in sql
+    assert "WHERE id = %(id)s AND deleted = false" in sql
     assert params["id"] == 10
     assert params["attributeName"] == "status"
     assert params["afterValue"] == "approved"
@@ -210,7 +211,28 @@ def test_list_audit_logs_without_filters_handles_missing_total_row(
 
     assert total == 0
     assert rows == [{"id": 1}]
-    assert "WHERE" not in cursor.executed[0][0]
+    count_sql = cursor.executed[0][0]
+    list_sql = cursor.executed[1][0]
+    assert "WHERE deleted = false" in count_sql
+    assert "WHERE deleted = false" in list_sql
+
+
+def test_update_audit_log_does_not_modify_soft_deleted_rows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cursor = FakeCursor(fetchone_values=[None])
+
+    def fake_connect(*_args, **_kwargs):
+        return FakeConnection(cursor)
+
+    _patch_connect(monkeypatch, fake_connect)
+    repo = LogRepository(Settings())
+
+    row = repo.update_audit_log(10, {"afterValue": "approved"})
+
+    assert row is None
+    sql, _params = cursor.executed[0]
+    assert "WHERE id = %(id)s AND deleted = false" in sql
 
 
 def test_insert_log_event_success_and_failure(monkeypatch: pytest.MonkeyPatch) -> None:

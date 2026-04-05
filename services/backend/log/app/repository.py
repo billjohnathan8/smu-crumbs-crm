@@ -154,7 +154,7 @@ class LogRepository:
         return deleted > 0
 
     def update_audit_log(self, log_id: int, patch: dict) -> dict | None:
-        """Update a subset of audit log fields and return the new row."""
+        """Update a subset of audit log fields and return the new row (excluding soft-deleted)."""
         fields = []
         params: dict[str, object] = {"id": log_id}
 
@@ -174,7 +174,7 @@ class LogRepository:
         sql = (
             "UPDATE audit_logs SET "
             + ", ".join(fields)
-            + ", updated_at = NOW() WHERE id = %(id)s RETURNING *"
+            + ", updated_at = NOW() WHERE id = %(id)s AND deleted = false RETURNING *"
         )
         with psycopg.connect(self._settings.dsn, row_factory=dict_row) as conn:
             with conn.cursor() as cur:
