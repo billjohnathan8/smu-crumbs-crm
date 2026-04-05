@@ -1,5 +1,8 @@
 package com.scroogebank.crm.client_service.crypto;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
@@ -9,13 +12,12 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.core.NestedExceptionUtils;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.scroogebank.crm.client_service.TestSecretFixtures;
-
 /**
  * Startup-safety tests for release-1 compatibility mode and release-2 strict mode.
  */
 class PiiEncryptionStartupValidatorTest {
-	private static final String VALID_PII_KEY = TestSecretFixtures.piiEncryptionKey();
+	private static final String VALID_PII_KEY = Base64.getEncoder()
+		.encodeToString("0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.UTF_8));
 
 	private static void resetCryptoState() {
 		System.clearProperty("PII_ENCRYPTION_KEY");

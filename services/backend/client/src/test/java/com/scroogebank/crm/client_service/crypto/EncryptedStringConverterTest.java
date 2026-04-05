@@ -19,8 +19,10 @@ import com.scroogebank.crm.client_service.TestSecretFixtures;
  * Unit tests for {@link EncryptedStringConverter}.
  */
 class EncryptedStringConverterTest {
-	private static final String MODERN_KEY = TestSecretFixtures.piiEncryptionKey();
+	private static final String MODERN_KEY = Base64.getEncoder()
+		.encodeToString("0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.UTF_8));
 	private static final String LEGACY_RAW_KEY = TestSecretFixtures.legacyPiiEncryptionKey();
+	private static final String LEGACY_COMPAT_RAW_KEY = "dev-only-insecure-pii-key-do-not-use-in-production";
 
 	private static void resetCryptoState() {
 		System.clearProperty("PII_ENCRYPTION_KEY");
@@ -48,9 +50,10 @@ class EncryptedStringConverterTest {
 	void compatibilityMode_decryptsLegacyCiphertext() throws Exception {
 		resetCryptoState();
 		try {
+			System.setProperty("PII_STRICT_MODE", "false");
 			System.setProperty("PII_ENCRYPTION_KEY", MODERN_KEY);
 			EncryptedStringConverter converter = new EncryptedStringConverter();
-			String legacyCiphertext = legacyEncrypt("legacy-value", LEGACY_RAW_KEY);
+			String legacyCiphertext = legacyEncrypt("legacy-value", LEGACY_COMPAT_RAW_KEY);
 
 			assertThat(converter.convertToEntityAttribute(legacyCiphertext)).isEqualTo("legacy-value");
 		}
@@ -63,6 +66,7 @@ class EncryptedStringConverterTest {
 	void compatibilityMode_returnsOriginalWhenCiphertextUnreadable() {
 		resetCryptoState();
 		try {
+			System.setProperty("PII_STRICT_MODE", "false");
 			System.setProperty("PII_ENCRYPTION_KEY", MODERN_KEY);
 			EncryptedStringConverter converter = new EncryptedStringConverter();
 			String unknownCiphertext = legacyEncryptUnchecked("legacy-value", "some-other-legacy-key");
@@ -113,8 +117,9 @@ class EncryptedStringConverterTest {
 	void migrationPlan_rewritesLegacyCiphertextToModern() throws Exception {
 		resetCryptoState();
 		try {
+			System.setProperty("PII_STRICT_MODE", "false");
 			System.setProperty("PII_ENCRYPTION_KEY", MODERN_KEY);
-			String legacyCiphertext = legacyEncrypt("legacy-value", LEGACY_RAW_KEY);
+			String legacyCiphertext = legacyEncrypt("legacy-value", LEGACY_COMPAT_RAW_KEY);
 
 			EncryptedStringConverter.ReencryptionPlan plan = EncryptedStringConverter.planModernReencryption(legacyCiphertext);
 			assertThat(plan.rewrite()).isTrue();

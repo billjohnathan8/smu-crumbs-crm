@@ -27,12 +27,25 @@ class VerificationEmailConfigTest {
 
 	@Test
 	void sesV2Client_withBlankRegionAndEndpoint_buildsClient() {
-		VerificationEmailConfig config = new VerificationEmailConfig();
-		AppProperties appProperties = new AppProperties();
-		appProperties.getVerificationEmail().setAwsRegion(" ");
-		appProperties.getVerificationEmail().setAwsEndpointUrl(" ");
+		String previousAwsRegion = System.getProperty("aws.region");
+		try {
+			System.setProperty("aws.region", "ap-southeast-1");
 
-		assertClientCreatedAndClosable(config.sesV2Client(appProperties));
+			VerificationEmailConfig config = new VerificationEmailConfig();
+			AppProperties appProperties = new AppProperties();
+			appProperties.getVerificationEmail().setAwsRegion(" ");
+			appProperties.getVerificationEmail().setAwsEndpointUrl(" ");
+
+			assertClientCreatedAndClosable(config.sesV2Client(appProperties));
+		}
+		finally {
+			if (previousAwsRegion == null) {
+				System.clearProperty("aws.region");
+			}
+			else {
+				System.setProperty("aws.region", previousAwsRegion);
+			}
+		}
 	}
 
 	@Test

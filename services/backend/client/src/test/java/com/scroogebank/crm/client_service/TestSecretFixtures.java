@@ -12,7 +12,8 @@ public final class TestSecretFixtures {
 	}
 
 	public static String piiEncryptionKey() {
-		return base64("client-pii-fixture-key-v1");
+		// 32-byte material so strict mode accepts it as an AES-256 key after Base64 decoding.
+		return base64("0123456789abcdef0123456789abcdef");
 	}
 
 	public static String legacyPiiEncryptionKey() {
