@@ -222,7 +222,9 @@ export function NewClientsChart({ data, isLoading = false }: NewClientsChartProp
           />
           <Legend
             wrapperStyle={{ fontSize: '12px' }}
-            formatter={value => <span style={{ color: 'var(--text)' }}>{value}</span>}
+            formatter={(value: string | number) => (
+              <span style={{ color: 'var(--text)' }}>{value}</span>
+            )}
           />
           <Line
             type="monotone"

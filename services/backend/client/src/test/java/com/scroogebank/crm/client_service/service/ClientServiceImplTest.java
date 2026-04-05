@@ -121,6 +121,23 @@ class ClientServiceImplTest {
 		);
 	}
 
+	private static ClientRepository.PendingSubmissionBreakdownProjection pendingSubmissionBreakdown(
+		String assignedUserId,
+		long pendingSubmissionCount
+	) {
+		return new ClientRepository.PendingSubmissionBreakdownProjection() {
+			@Override
+			public String getAssignedUserId() {
+				return assignedUserId;
+			}
+
+			@Override
+			public long getPendingSubmissionCount() {
+				return pendingSubmissionCount;
+			}
+		};
+	}
+
 	/** Verifies that listClients() returns all entities from the repository mapped to DTOs. */
 	@Test
 	void listClients_returnsAllAsDtos() {
@@ -173,6 +190,48 @@ class ClientServiceImplTest {
 		assertThat(response.data().get(0).identityVerificationStatus()).isEqualTo(IdentityVerificationStatus.verified);
 		assertThat(response.data().get(0).assignedUserId()).isEqualTo("usr_2");
 		verify(clientRepository).searchAllWithFilters("john", IdentityVerificationStatus.verified, "usr_2");
+	}
+
+	@Test
+	void getVerificationSubmissionSummary_limitedAdminIncludesAgentBreakdown() {
+		AuthenticatedUser admin = new AuthenticatedUser("adm_1", "admin");
+
+		when(clientRepository.countByDeletedFalseAndIdentityVerificationStatus(IdentityVerificationStatus.pending))
+			.thenReturn(5L);
+		when(clientRepository.countPendingSubmissionsGroupedByAssignedUserId(IdentityVerificationStatus.pending))
+			.thenReturn(
+				List.of(
+					pendingSubmissionBreakdown("user-123", 3L),
+					pendingSubmissionBreakdown("user-456", 2L)
+				)
+			);
+
+		var response = clientService.getVerificationSubmissionSummary(admin);
+
+		assertThat(response.pendingSubmissionCount()).isEqualTo(5L);
+		assertThat(response.pendingSubmissionsByAgent()).hasSize(2);
+		assertThat(response.pendingSubmissionsByAgent().get(0).assignedUserId()).isEqualTo("user-123");
+		assertThat(response.pendingSubmissionsByAgent().get(0).pendingSubmissionCount()).isEqualTo(3L);
+		assertThat(response.pendingSubmissionsByAgent().get(1).assignedUserId()).isEqualTo("user-456");
+		assertThat(response.pendingSubmissionsByAgent().get(1).pendingSubmissionCount()).isEqualTo(2L);
+	}
+
+	@Test
+	void getVerificationSubmissionSummary_agentReturnsOwnTotalOnly() {
+		AuthenticatedUser agent = new AuthenticatedUser("usr_1", "user");
+
+		when(
+			clientRepository.countByAssignedUserIdAndDeletedFalseAndIdentityVerificationStatus(
+				agent.userId(),
+				IdentityVerificationStatus.pending
+			)
+		).thenReturn(2L);
+
+		var response = clientService.getVerificationSubmissionSummary(agent);
+
+		assertThat(response.pendingSubmissionCount()).isEqualTo(2L);
+		assertThat(response.pendingSubmissionsByAgent()).isEmpty();
+		verify(clientRepository, never()).countPendingSubmissionsGroupedByAssignedUserId(any());
 	}
 
 	/** Verifies that getClient(id) returns the client DTO when the repository finds the entity. */

@@ -179,7 +179,17 @@ public class ClientServiceImpl implements ClientService {
 		if (user.isLimitedAdmin() || user.isRootAdmin()) {
 			long pendingCount =
 				clientRepository.countByDeletedFalseAndIdentityVerificationStatus(IdentityVerificationStatus.pending);
-			return new VerificationSubmissionSummaryResponse(pendingCount);
+			var pendingSubmissionsByAgent = clientRepository
+				.countPendingSubmissionsGroupedByAssignedUserId(IdentityVerificationStatus.pending)
+				.stream()
+				.map(item ->
+					new VerificationSubmissionSummaryResponse.PendingSubmissionBreakdown(
+						item.getAssignedUserId(),
+						item.getPendingSubmissionCount()
+					)
+				)
+				.toList();
+			return new VerificationSubmissionSummaryResponse(pendingCount, pendingSubmissionsByAgent);
 		}
 		if (user.isUser()) {
 			long pendingCount =

@@ -175,7 +175,7 @@ export function App() {
                 }
               >
                 <Route path="/admin/clients" element={<ClientListPage />} />
-                <Route path="/admin/client-archives" element={<ClientArchivesPage />} />
+                <Route path="/admin/archives/clients" element={<ClientArchivesPage />} />
                 <Route path="/admin/clients/new" element={<CreateClientPage />} />
                 <Route path="/admin/clients/:clientId" element={<ClientDetailPage />} />
                 <Route path="/admin/clients/:clientId/edit" element={<EditClientPage />} />

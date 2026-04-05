@@ -69,7 +69,7 @@ Protected routes (core evaluator paths first):
 | `/admin/logs` | Admin + Root Admin | F4 |
 | `/admin/settings` | Admin + Root Admin | F1 support |
 | `/admin/clients` | Root Admin only | F3 |
-| `/admin/client-archives` | Root Admin only | F3 |
+| `/admin/archives/clients` | Root Admin only | F3 |
 | `/admin/clients/new` | Root Admin only | F3 |
 | `/admin/clients/:clientId` | Root Admin only | F3 |
 | `/admin/clients/:clientId/edit` | Root Admin only | F3 |

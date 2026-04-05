@@ -47,7 +47,7 @@ const renderAdminUserManagementPage = (user: User = mockAdminUser, useStrictRout
   localStorage.setItem('currentUser', JSON.stringify(user))
   const summaryMock = vi.mocked(clientsApi.getVerificationSubmissionSummary)
   if (!summaryMock.getMockImplementation()) {
-    summaryMock.mockResolvedValue({ pendingSubmissionCount: 0 })
+    summaryMock.mockResolvedValue({ pendingSubmissionCount: 0, pendingSubmissionsByAgent: [] })
   }
   const countMock = vi.mocked(clientsApi.countClientsByAgent)
   if (!countMock.getMockImplementation()) {
@@ -149,6 +149,91 @@ describe('AdminUserManagementPage', () => {
       expect(screen.getByRole('heading', { name: 'User Management', level: 1 })).toBeInTheDocument()
     })
     expect(await screen.findByText('My Users')).toBeInTheDocument()
+  })
+
+  it('should show pending verification breakdown for admin users', async () => {
+    const secondAgent: User = {
+      id: 'user-456',
+      firstName: 'Second',
+      lastName: 'Agent',
+      email: 'second@example.com',
+      role: 'user',
+      status: 'active',
+    }
+
+    vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
+      data: [mockAgentUser, secondAgent],
+      pagination: { total: 2, limit: 10, offset: 0 },
+    })
+    vi.mocked(clientsApi.getVerificationSubmissionSummary).mockResolvedValue({
+      pendingSubmissionCount: 5,
+      pendingSubmissionsByAgent: [
+        { assignedUserId: 'user-123', pendingSubmissionCount: 3 },
+        { assignedUserId: 'user-456', pendingSubmissionCount: 2 },
+      ],
+    })
+
+    renderAdminUserManagementPage()
+
+    await waitFor(() => {
+      expect(screen.getByText(/Pending verification submissions: 5\./)).toBeInTheDocument()
+    })
+
+    expect(
+      screen.getByText(content => content.includes('Notify related agent to review documents.'))
+    ).toBeInTheDocument()
+    expect(screen.getByText('View details')).toBeInTheDocument()
+    expect(screen.queryByText('User ID')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /View details/i }))
+
+    expect(screen.getByRole('columnheader', { name: 'User ID' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Agent' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Pending' })).toBeInTheDocument()
+    expect(screen.getByText('user-123')).toBeInTheDocument()
+    expect(screen.getByText('User User')).toBeInTheDocument()
+    expect(screen.getByText('user-456')).toBeInTheDocument()
+    expect(screen.getByText('Second Agent')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element?.tagName.toLowerCase() === 'tr' && element.textContent === 'user-123User User3'
+      )
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element?.tagName.toLowerCase() === 'tr' && element.textContent === 'user-456Second Agent2'
+      )
+    ).toBeInTheDocument()
+  })
+
+  it('should show pending verification breakdown for root admin users', async () => {
+    vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
+      data: [mockAdminUser, mockAgentUser],
+      pagination: { total: 2, limit: 10, offset: 0 },
+    })
+    vi.mocked(clientsApi.getVerificationSubmissionSummary).mockResolvedValue({
+      pendingSubmissionCount: 2,
+      pendingSubmissionsByAgent: [{ assignedUserId: 'user-123', pendingSubmissionCount: 2 }],
+    })
+    vi.mocked(clientsApi.countClientsByAgent).mockResolvedValue(0)
+
+    renderAdminUserManagementPage(mockSuperAdminUser)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Pending verification submissions: 2\./)).toBeInTheDocument()
+    })
+
+    expect(
+      screen.getByText(content => content.includes('Notify related agent to review documents.'))
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /View details/i }))
+
+    expect(screen.getByText('user-123')).toBeInTheDocument()
+    expect(screen.getByText('User User')).toBeInTheDocument()
+    expect(screen.getByText('2')).toBeInTheDocument()
   })
 })
 

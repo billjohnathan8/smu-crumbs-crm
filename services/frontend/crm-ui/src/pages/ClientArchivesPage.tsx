@@ -101,7 +101,7 @@ export function ClientArchivesPage() {
   return (
     <SidebarLayout items={getSidebarNavForUser(user)}>
       <div className="flex h-16 items-center justify-between">
-        <h1 className="text-2xl font-normal text-text">Client Archives</h1>
+        <h1 className="text-2xl font-normal text-text">Archived Clients</h1>
       </div>
 
       <main className="mt-6 space-y-6">

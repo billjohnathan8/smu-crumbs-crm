@@ -49,6 +49,7 @@ describe('AdminDashboard', () => {
     vi.mocked(authApi.getCurrentUser).mockResolvedValue(mockUser)
     vi.mocked(clientsApi.getVerificationSubmissionSummary).mockResolvedValue({
       pendingSubmissionCount: 0,
+      pendingSubmissionsByAgent: [],
     })
   })
 

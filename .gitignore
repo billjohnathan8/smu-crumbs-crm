@@ -147,6 +147,10 @@ aws/*
 # Ignore Test Directories
 node_modules/
 
+# ZAP generated reports can include usernames/endpoints from scans
+zap/outputs/*.html
+zap/outputs/*.json
+
 # Hypothesis (property-based testing) local cache
 .hypothesis/
 
