@@ -54,6 +54,32 @@ regexes = [
 ]
 
 [[allowlists]]
+description = "Historical client-service fixture commit false-positives"
+commits = [
+  '''63ad883e751d4002553365ffddf00f4f12da307a''',
+  '''121756c5433326291eb6333fc831d2645d1fd96d''',
+]
+paths = [
+  '''services/backend/client/src/test/java/com/scroogebank/crm/client_service/ClientsServiceApplicationTests\.java''',
+  '''services/backend/client/src/test/java/com/scroogebank/crm/client_service/ClientsServiceIT\.java''',
+  '''services/backend/client/src/test/java/com/scroogebank/crm/client_service/crypto/EncryptedStringConverterTest\.java''',
+  '''services/backend/client/src/test/java/com/scroogebank/crm/client_service/crypto/PiiEncryptionStartupValidatorTest\.java''',
+]
+
+[[allowlists]]
+description = "Historical doc and helper fixture false-positives"
+commits = [
+  '''7994a00e992ab695642d907ec3cd717ac15b6ddf''',
+  '''9e9fea7978ccd8ce16b23df20cd668ac1b3f7cad''',
+  '''30ff07328b02af80ca77c9da478479420f6f6be5''',
+]
+paths = [
+  '''HOTFIX_DEPLOYMENT_PLAN\.md''',
+  '''run-sftp-seed\.ps1''',
+  '''services/backend/aml/tests/test_auth_and_clients\.py''',
+]
+
+[[allowlists]]
 description = "Historical example JWT key fixture false-positive"
 # Suppress one known, non-production sample key that exists only in git history.
 # Scope is intentionally narrow: exact commit + exact historical file path.

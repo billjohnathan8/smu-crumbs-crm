@@ -13,12 +13,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.Test;
 
+import com.scroogebank.crm.client_service.TestSecretFixtures;
+
 /**
  * Unit tests for {@link EncryptedStringConverter}.
  */
 class EncryptedStringConverterTest {
-	private static final String MODERN_KEY = "MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY=";
-	private static final String LEGACY_RAW_KEY = "dev-only-insecure-pii-key-do-not-use-in-production";
+	private static final String MODERN_KEY = TestSecretFixtures.piiEncryptionKey();
+	private static final String LEGACY_RAW_KEY = TestSecretFixtures.legacyPiiEncryptionKey();
 
 	private static void resetCryptoState() {
 		System.clearProperty("PII_ENCRYPTION_KEY");

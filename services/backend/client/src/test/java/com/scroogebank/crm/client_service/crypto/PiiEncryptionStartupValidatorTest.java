@@ -9,11 +9,13 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.core.NestedExceptionUtils;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.scroogebank.crm.client_service.TestSecretFixtures;
+
 /**
  * Startup-safety tests for release-1 compatibility mode and release-2 strict mode.
  */
 class PiiEncryptionStartupValidatorTest {
-	private static final String VALID_PII_KEY = "MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY=";
+	private static final String VALID_PII_KEY = TestSecretFixtures.piiEncryptionKey();
 
 	private static void resetCryptoState() {
 		System.clearProperty("PII_ENCRYPTION_KEY");

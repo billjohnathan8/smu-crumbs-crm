@@ -5,7 +5,6 @@ import com.scroogebank.crm.client_service.repository.ClientRepository;
 import com.scroogebank.crm.client_service.service.DocumentStorageService;
 import com.scroogebank.crm.client_service.service.SnsEmailPublisherService;
 import com.scroogebank.crm.client_service.service.VerificationTokenService;
-import tools.jackson.databind.json.JsonMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
@@ -19,23 +18,25 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 /**
  * Spring context smoke tests for the client service.
  */
-@SpringBootTest(properties = {
-	"PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY="
-})
+@SpringBootTest
 @ImportAutoConfiguration(exclude = {
 	DataSourceAutoConfiguration.class,
 	HibernateJpaAutoConfiguration.class,
 	FlywayAutoConfiguration.class
 })
 class ClientsServiceApplicationTests {
+	static {
+		System.setProperty(
+			"PII_ENCRYPTION_KEY",
+			com.scroogebank.crm.client_service.TestSecretFixtures.piiEncryptionKey()
+		);
+	}
+
 	@MockitoBean
 	private ClientRepository clientRepository;
 
 	@MockitoBean
 	private AccountRepository accountRepository;
-
-	@MockitoBean
-	private JsonMapper objectMapper;
 
 	@MockitoBean
 	private DocumentStorageService documentStorageService;
@@ -50,7 +51,6 @@ class ClientsServiceApplicationTests {
 	void contextLoads() {
 		assertThat(clientRepository).isNotNull();
 		assertThat(accountRepository).isNotNull();
-		assertThat(objectMapper).isNotNull();
 		assertThat(documentStorageService).isNotNull();
 		assertThat(verificationTokenService).isNotNull();
 		assertThat(snsEmailPublisherService).isNotNull();

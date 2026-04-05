@@ -67,13 +67,15 @@ import tools.jackson.databind.ObjectMapper;
 @SpringBootTest(
 	webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
 	properties = {
-		"app.jwt.hmac-secret=dev-only-insecure-secret",
 		"app.verification.sns-topic-arn=arn:aws:sns:ap-southeast-1:000000000000:verification-it",
-		"app.verification.documents-bucket=verification-it-bucket",
-		"PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY="
+		"app.verification.documents-bucket=verification-it-bucket"
 	}
 )
 class ClientsServiceIT {
+	static {
+		System.setProperty("app.jwt.hmac-secret", com.scroogebank.crm.client_service.TestSecretFixtures.serviceJwtSecret());
+		System.setProperty("PII_ENCRYPTION_KEY", com.scroogebank.crm.client_service.TestSecretFixtures.piiEncryptionKey());
+	}
 
 	@LocalServerPort
 	int port;
@@ -109,7 +111,7 @@ class ClientsServiceIT {
 	}
 
 	private static String mintToken(String sub, String role) throws Exception {
-		String secret = "dev-only-insecure-secret";
+		String secret = com.scroogebank.crm.client_service.TestSecretFixtures.serviceJwtSecret();
 		String headerJson = new ObjectMapper().writeValueAsString(Map.of("alg", "HS256", "typ", "JWT"));
 		String header = Base64.getUrlEncoder().withoutPadding().encodeToString(headerJson.getBytes(StandardCharsets.UTF_8));
 		String payloadJson = new ObjectMapper().writeValueAsString(

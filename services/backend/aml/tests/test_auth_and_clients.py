@@ -463,18 +463,18 @@ class TestSFTPClient:
             "SecretString": json.dumps(
                 {
                     "private_key": (
-                        "-----BEGIN OPENSSH PRIVATE KEY-----\\n"
-                        "AAAATESTKEYMATERIAL\\n"
-                        "-----END OPENSSH PRIVATE KEY-----"
+                        "MOCK_PRIVATE_KEY_LINE_1\\n"
+                        "MOCK_PRIVATE_KEY_LINE_2\\n"
+                        "MOCK_PRIVATE_KEY_LINE_3"
                     )
                 }
             )
         }
         with patch.dict("sys.modules", {"boto3": mock_boto3}):
             key = client._fetch_key()
-        assert "BEGIN OPENSSH PRIVATE KEY" in key
+        assert "MOCK_PRIVATE_KEY_LINE_1" in key
+        assert "\n" in key
         assert "\\n" not in key
-        assert "AAAATESTKEYMATERIAL" in key
 
     def test_parse_private_key_falls_back_to_ed25519(self):
         mock_rsa = MagicMock()
@@ -493,7 +493,7 @@ class TestSFTPClient:
 
         parsed = SFTPClient._parse_private_key(
             mock_paramiko,
-            "-----BEGIN OPENSSH PRIVATE KEY-----\nX\n-----END OPENSSH PRIVATE KEY-----",
+            "MOCK_PRIVATE_KEY_BLOCK\nX\nMOCK_PRIVATE_KEY_BLOCK_END",
         )
         assert parsed == "parsed-ed25519-key"
         assert mock_rsa.from_private_key.call_count == 1
