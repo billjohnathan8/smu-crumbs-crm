@@ -7,6 +7,11 @@ on:
         description: Lambda service folder name under services/backend
         required: true
         type: string
+      source_sha:
+        description: Optional commit SHA to checkout, package, and record in deploy artifacts
+        required: false
+        type: string
+        default: ''
       python_version:
         description: Python version used to build the Lambda artifact
         required: false
@@ -34,11 +39,14 @@ jobs:
       LAMBDA_WORKING_DIRECTORY: services/backend/${{ inputs.service }}
       PROJECT_NAME: ${{ vars.TF_PROJECT_NAME || 'scroogebank-crm' }}
       DEPLOY_ENV: ${{ vars.DEPLOY_ENV || 'prod' }}
+      SOURCE_SHA: ${{ inputs.source_sha != '' && inputs.source_sha || github.sha }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         timeout-minutes: 2
+        with:
+          ref: ${{ env.SOURCE_SHA }}
 
       - name: Validate required secrets
         run: |
@@ -85,7 +93,7 @@ jobs:
             --exclude pyproject.toml \
             --exclude README.md
 
-          artifact_name="${GITHUB_SHA}.zip"
+          artifact_name="${SOURCE_SHA}.zip"
           artifact_path="build/${artifact_name}"
           s3_key="services/lambda/${LAMBDA_SERVICE_NAME}/${artifact_name}"
 
@@ -202,7 +210,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          REPO_SHA="${GITHUB_SHA}"
+          REPO_SHA="${SOURCE_SHA}"
           FUNCTION_NAME="${{ steps.resolve_function.outputs.function_name }}"
           S3_KEY="${{ steps.package.outputs.s3_key }}"
           PUBLISHED_VERSION="${{ steps.publish.outputs.published_version }}"

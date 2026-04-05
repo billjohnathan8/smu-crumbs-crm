@@ -1,18 +1,14 @@
-# ============================================================================
-# THIS WORKFLOW IS DISABLED
-#
-# Performance tests are kept in the repo but NOT executed in GitHub Actions.
-# They consume significant resources (30-40 min runtime, 100+ threads) and
-# should be run manually in local/staging environments.
-#
-# To run locally:
-#   Backend (JMeter):  bash scripts/performance/run-100-threads.sh
-#   Frontend:          cd services/frontend/crm-ui && npm run test:e2e:latency
-#
-# To re-enable this workflow: rename this file back to ci-performance.yml
-# ============================================================================
+# ┌──────────────────────────────────────────────────────────────────┐
+# │  DEPRECATED / DISABLED                                          │
+# │  This workflow is archived and will not execute in GitHub       │
+# │  Actions while it remains named ci-performance.yml.disabled.    │
+# │                                                                  │
+# │  Performance checks remain available locally and in ad-hoc      │
+# │  staging runs, but this workflow file is kept only as a         │
+# │  reference template.                                            │
+# └──────────────────────────────────────────────────────────────────┘
 
-name: CI - Performance Testing (DISABLED)
+name: "[DEPRECATED] CI - Performance Testing (DISABLED)"
 
 # CRITICAL EXECUTION CONTROL:
 # Performance tests ONLY run when:

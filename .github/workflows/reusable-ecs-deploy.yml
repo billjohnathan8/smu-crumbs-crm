@@ -7,6 +7,11 @@ on:
         description: ECS service folder name under services/backend (user, client, transaction)
         required: true
         type: string
+      source_sha:
+        description: Optional commit SHA to checkout, tag, and record in deploy artifacts
+        required: false
+        type: string
+        default: ''
     secrets:
       AWS_ROLE_ARN:
         required: true
@@ -39,11 +44,14 @@ jobs:
 
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
+      SOURCE_SHA: ${{ inputs.source_sha != '' && inputs.source_sha || github.sha }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         timeout-minutes: 2
+        with:
+          ref: ${{ env.SOURCE_SHA }}
 
       - name: Validate required secrets
         run: |
@@ -73,7 +81,7 @@ jobs:
             exit 1
           fi
 
-          SHA_TAG="${GITHUB_SHA}"
+          SHA_TAG="${SOURCE_SHA}"
           LATEST_TAG="latest"
           ECR_REPOSITORY_NAME="scroogebank-crm-prod-${SERVICE}"
           ECS_SERVICE_NAME="scroogebank-crm-prod-${SERVICE}"
@@ -124,7 +132,7 @@ jobs:
         id: local_image
         working-directory: ${{ steps.meta.outputs.working_directory }}
         run: |
-          LOCAL_IMAGE="local/${{ inputs.service }}:${{ github.sha }}"
+          LOCAL_IMAGE="local/${{ inputs.service }}:${SOURCE_SHA}"
           docker build \
             -t "${LOCAL_IMAGE}" \
             .
@@ -235,7 +243,7 @@ jobs:
 
           SERVICE="${{ inputs.service }}"
           CLUSTER="${{ steps.meta.outputs.ecs_cluster_name }}"
-          REPO_SHA="${GITHUB_SHA}"
+          REPO_SHA="${SOURCE_SHA}"
           IMAGE_REPO="${{ steps.registry.outputs.image_uri }}"
           IMAGE_TAG="${{ steps.meta.outputs.sha_tag }}"
           NOW_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
