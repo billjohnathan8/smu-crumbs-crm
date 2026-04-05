@@ -130,7 +130,7 @@ Current region profiles in repo:
 - Infracost (cost estimation in CI when configured)
 
 ## System Architecture
-![Architecture Diagram](docs\main-diagrams\main-aws-architecture-diagram.png)
+![Architecture Diagram](docs\main-diagrams\main-aws-architecture-diagram-dark-mode.png)
 
 ## Key Components
 **Frontend:** React SPA deployed to S3 with Cloudfront CDN
