@@ -388,9 +388,30 @@ Artificial Intelligence (in the form of consultation, auditing, and coding agent
 
 ## 7. Links To Detailed Docs
 
+For evaluators who want deeper implementation detail and deployment evidence, use the grouped links below.
+
+### Core Setup and Operations Docs
+
 - Testing guide: [docs/testing/TESTING-GUIDE.md](docs/testing/TESTING-GUIDE.md)
 - LocalStack setup: [docs/infrastructure/localstack-setup.md](docs/infrastructure/localstack-setup.md)
 - Terraform workflow: [docs/infrastructure/terraform-infra-workflow.md](docs/infrastructure/terraform-infra-workflow.md)
 - Terraform remote state: [docs/infrastructure/terraform-remote-state.md](docs/infrastructure/terraform-remote-state.md)
 - DB/env config: [docs/database_configuration.md](docs/database_configuration.md)
+- Troubleshooting guide: [docs/troubleshooting.md](docs/troubleshooting.md)
 - Docs index: [docs/README.md](docs/README.md)
+- Coding standards: [docs/coding-standards/coding-standards.md](docs/coding-standards/coding-standards.md)
+- Frontend documentation: [docs/frontend/README.md](docs/frontend/README.md)
+
+### Evidence Artifacts (Generated Reports and Logs)
+
+- AWS infrastructure map: [docs/artifacts/aws-infrastructure-map.md](docs/artifacts/aws-infrastructure-map.md)
+- Terraform inventory snapshot: [docs/artifacts/terraform-inventory.md](docs/artifacts/terraform-inventory.md)
+- Cost estimate artifact: [docs/artifacts/cost-estimate.md](docs/artifacts/cost-estimate.md)
+- Production bug diagnosis report: [build-logs/PRODUCTION-BUG-DIAGNOSIS.md](build-logs/PRODUCTION-BUG-DIAGNOSIS.md)
+- Latest local test-result marker: [test-results/.last-run.json](test-results/.last-run.json)
+
+### Test Implementation References
+
+- Integration test suite notes: [tests/integration/README.md](tests/integration/README.md)
+- Performance test suite notes: [tests/performance/README.md](tests/performance/README.md)
+- Local CI orchestration script: [scripts/pipelines/test_all.py](scripts/pipelines/test_all.py)
