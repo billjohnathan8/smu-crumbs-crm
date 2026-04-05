@@ -14,6 +14,12 @@ This note defines the contract aligned across backend behavior, OpenAPI, fronten
 - Runtime bootstrap is the source of truth for root-admin creation (`PersistentUserStore.seedRootAdminIfMissing`).
 - Legacy SQL bootstrap row (`user_id = 0`, `superAdmin@crm.com`, `super_admin`) is removed by migration `V2__remove_legacy_super_admin_seed.sql`.
 
+## Root Admin Claim (Frontend Contract)
+
+- `GET /api/users/me` returns an explicit boolean field: `isRootAdmin`.
+- Frontend authorization must treat `isRootAdmin` as the primary source of truth for root-admin gating.
+- Frontend fallback derivation (if needed during mixed-version rollout) is compatibility-only and must not rely on email matching.
+
 ## Root Admin Protection Rules
 
 - Root admin (`usr_1`) cannot be updated, disabled, deleted, or admin-reset via `/api/users/{userId}/reset-password`.

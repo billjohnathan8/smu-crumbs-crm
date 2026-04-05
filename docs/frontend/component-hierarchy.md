@@ -9,10 +9,11 @@
   - Active app is [services/frontend/crm-ui](services/frontend/crm-ui)
   - Entry point is [services/frontend/crm-ui/src/main.tsx](services/frontend/crm-ui/src/main.tsx), which renders [services/frontend/crm-ui/src/app/App.tsx](services/frontend/crm-ui/src/app/App.tsx)
 - Legacy/unused frontend candidates:
-  - [services/frontend/crm-ui/src/App.tsx](services/frontend/crm-ui/src/App.tsx): Vite starter-style component, not used by the app entrypoint
-  - [services/frontend/crm-ui/src/pages/AdminUserArchivesPage.tsx](services/frontend/crm-ui/src/pages/AdminUserArchivesPage.tsx): page exists but no route in [services/frontend/crm-ui/src/app/App.tsx](services/frontend/crm-ui/src/app/App.tsx)
-  - [services/frontend/crm-ui/src/pages/CognitoCallback.tsx](services/frontend/crm-ui/src/pages/CognitoCallback.tsx): callback page exists and is unit-tested, but route is not registered in [services/frontend/crm-ui/src/app/App.tsx](services/frontend/crm-ui/src/app/App.tsx)
+  - [services/frontend/crm-ui/src/pages/RouteAliasPage.tsx](services/frontend/crm-ui/src/pages/RouteAliasPage.tsx): transition page used to make legacy admin aliases explicit during evaluator walkthroughs
   - [services/frontend/crm-ui/src/components/VerificationForm.tsx](services/frontend/crm-ui/src/components/VerificationForm.tsx): deprecated component retained mainly for tests/compatibility; public flow uses [services/frontend/crm-ui/src/pages/ClientVerifyPage.tsx](services/frontend/crm-ui/src/pages/ClientVerifyPage.tsx)
+  - Removed during remediation:
+    - `services/frontend/crm-ui/src/App.tsx` (unused Vite scaffold artifact)
+    - `services/frontend/crm-ui/src/pages/AdminUserArchivesPage.tsx` (unrouted dormant page)
 - Evidence used:
   - Routing and guards: [services/frontend/crm-ui/src/app/App.tsx](services/frontend/crm-ui/src/app/App.tsx), [services/frontend/crm-ui/src/app/ProtectedRoute.tsx](services/frontend/crm-ui/src/app/ProtectedRoute.tsx)
   - Auth/session: [services/frontend/crm-ui/src/features/auth/AuthContext.tsx](services/frontend/crm-ui/src/features/auth/AuthContext.tsx), [services/frontend/crm-ui/src/api/auth.ts](services/frontend/crm-ui/src/api/auth.ts), [services/frontend/crm-ui/src/api/client.ts](services/frontend/crm-ui/src/api/client.ts), [services/frontend/crm-ui/src/api/cognito.ts](services/frontend/crm-ui/src/api/cognito.ts)
@@ -62,8 +63,10 @@
         - Route public pages
           - LoginPage
           - ClientVerifyPage
+          - CognitoCallback
           - ForgotPasswordPage
           - ResetPasswordPage
+          - UnauthorizedPage
         - Route group: ProtectedRoute allowedRoles admin/super_admin
           - AdminHomeRedirect
             - AdminDashboard (root admin only via redirect logic)
@@ -71,7 +74,7 @@
           - CreateNewUserPage
           - ActivityLogsPage
           - SettingsPage
-          - Redirect aliases (/admin/accounts, /admin/users/archives)
+          - RouteAliasPage transition routes (/admin/accounts, /admin/users/archives)
         - Route group: ProtectedRoute allowedRoles admin/super_admin + requireRootAdmin
           - ClientListPage
           - ClientArchivesPage
@@ -79,11 +82,11 @@
           - ClientDetailPage
           - EditClientPage
           - ClientAccountsPage
-          - AdminCommunications
-          - ViewTransactionsPage
-          - AmlAlertsPage
-          - RootArchivedAdminsPage
-          - RootArchivedAgentsPage
+          - Optional/X-factor: AdminCommunications
+          - Optional/X-factor: ViewTransactionsPage
+          - Optional/X-factor: AmlAlertsPage
+          - Optional/X-factor: RootArchivedAdminsPage
+          - Optional/X-factor: RootArchivedAgentsPage
         - Route group: ProtectedRoute allowedRoles user
           - UserDashboard
           - ClientListPage
@@ -168,9 +171,9 @@
 - Purpose: request reset link
 - Main child components: inline email form
 - Key actions: send reset email, return to login
-- Data/API dependencies: direct fetch to /api/auth/forgot-password
+- Data/API dependencies: requestPasswordResetLink in [services/frontend/crm-ui/src/api/auth.ts](services/frontend/crm-ui/src/api/auth.ts)
 - Relevant feature mapping: F1
-- Notes / gaps: bypasses shared API client wrapper (separate error handling path)
+- Notes / gaps: aligned with shared API module conventions
 
 ### ResetPasswordPage
 - File/path: [services/frontend/crm-ui/src/pages/ResetPasswordPage.tsx](services/frontend/crm-ui/src/pages/ResetPasswordPage.tsx)
@@ -179,9 +182,31 @@
 - Purpose: reset password via token; fallback to request link if token missing
 - Main child components: password form, strength rules UI
 - Key actions: reset password, request link, return to login
-- Data/API dependencies: direct fetch to /api/auth/reset-password and /api/auth/forgot-password, password policy helper
+- Data/API dependencies: resetPassword and requestPasswordResetLink in [services/frontend/crm-ui/src/api/auth.ts](services/frontend/crm-ui/src/api/auth.ts), password policy helper
 - Relevant feature mapping: F1
 - Notes / gaps: confirm password blocks paste by design
+
+### UnauthorizedPage
+- File/path: [services/frontend/crm-ui/src/pages/UnauthorizedPage.tsx](services/frontend/crm-ui/src/pages/UnauthorizedPage.tsx)
+- Route: /unauthorized
+- Role(s): public
+- Purpose: deterministic target for denied route access
+- Main child components: inline action buttons
+- Key actions: navigate back to dashboard or login
+- Data/API dependencies: none
+- Relevant feature mapping: access control consistency
+- Notes / gaps: used by route guard and page-level authorization fallbacks
+
+### RouteAliasPage
+- File/path: [services/frontend/crm-ui/src/pages/RouteAliasPage.tsx](services/frontend/crm-ui/src/pages/RouteAliasPage.tsx)
+- Route: /admin/accounts and /admin/users/archives (as transition aliases)
+- Role(s): admin and root admin
+- Purpose: explicit user-visible transition from legacy aliases to canonical routes
+- Main child components: informational route transition panel
+- Key actions: auto-redirect to destination route
+- Data/API dependencies: none
+- Relevant feature mapping: evaluator walkthrough clarity
+- Notes / gaps: replaces silent redirects for discoverability
 
 ### ClientVerifyPage
 - File/path: [services/frontend/crm-ui/src/pages/ClientVerifyPage.tsx](services/frontend/crm-ui/src/pages/ClientVerifyPage.tsx)
@@ -225,7 +250,7 @@
 - Key actions: filter users, disable user, archive user, transfer clients
 - Data/API dependencies: listUsers, disableUser, deleteUser, reassignClients, countClientsByAgent, getVerificationSubmissionSummary
 - Relevant feature mapping: F2
-- Notes / gaps: page redirects to /unauthorized in some branches but no explicit /unauthorized route exists in app router
+- Notes / gaps: unauthorized redirects resolve to explicit /unauthorized route
 
 ### CreateNewUserPage
 - File/path: [services/frontend/crm-ui/src/pages/CreateNewUserPage.tsx](services/frontend/crm-ui/src/pages/CreateNewUserPage.tsx)
@@ -258,7 +283,7 @@
 - Key actions: reinstate agent
 - Data/API dependencies: listArchivedUsers, reinstateUser
 - Relevant feature mapping: F2
-- Notes / gaps: same /unauthorized redirect caveat as other pages
+- Notes / gaps: root admin only, matched by requireRootAdmin route group
 
 ### ClientListPage
 - File/path: [services/frontend/crm-ui/src/pages/ClientListPage.tsx](services/frontend/crm-ui/src/pages/ClientListPage.tsx)
@@ -331,11 +356,11 @@
 - Route: /admin/transactions and /user/transactions
 - Role(s): root admin and agent
 - Purpose: transaction browsing/filtering; import batch controls/history for management user
-- Main child components: inline tables and optional edit modal
+- Main child components: inline tables, filter controls, import status/actions
 - Key actions: filter transactions, trigger import, view import history
 - Data/API dependencies: listTransactions, listClientTransactions, getTransactionById, startTransactionImport, getTransactionImportBatch, listClients
 - Relevant feature mapping: F4
-- Notes / gaps: canEditTransactions is hardcoded false, so edit UI path exists but is disabled
+- Notes / gaps: edit modal dead-path removed; access-denied messaging is explicit for non-owned client queries
 
 ### ActivityLogsPage
 - File/path: [services/frontend/crm-ui/src/pages/ActivityLogsPage.tsx](services/frontend/crm-ui/src/pages/ActivityLogsPage.tsx)
@@ -362,13 +387,13 @@
 ### AdminCommunications
 - File/path: [services/frontend/crm-ui/src/pages/AdminCommunications.tsx](services/frontend/crm-ui/src/pages/AdminCommunications.tsx)
 - Route: /admin/communications
-- Role(s): admin and super_admin (route group currently root-admin-gated)
+- Role(s): root admin only
 - Purpose: communication audit/lookup/filter page with optional status edits
 - Main child components: CommunicationsPanel
 - Key actions: lookup by communication ID/client name, filter list, paginate, refresh
 - Data/API dependencies: listCommunications, listQueuedCommunications, getCommunicationById, listClientCommunications, listClients
 - Relevant feature mapping: X-factor
-- Notes / gaps: page-level role check permits admin/super_admin, but route registration requires root admin group, so standard admin cannot actually reach it
+- Notes / gaps: page-level authorization is now aligned with route-level root-admin policy
 
 ### SettingsPage
 - File/path: [services/frontend/crm-ui/src/pages/SettingsPage.tsx](services/frontend/crm-ui/src/pages/SettingsPage.tsx)
@@ -381,24 +406,13 @@
 - Relevant feature mapping: F1 supporting page
 - Notes / gaps: reset button navigates to public reset page with prefilled email state
 
-### AdminUserArchivesPage (unrouted candidate)
-- File/path: [services/frontend/crm-ui/src/pages/AdminUserArchivesPage.tsx](services/frontend/crm-ui/src/pages/AdminUserArchivesPage.tsx)
-- Route: none in active router
-- Role(s): admin if directly mounted
-- Purpose: archived user list (agent role)
-- Main child components: archive table
-- Key actions: view archives
-- Data/API dependencies: listArchivedUsers
-- Relevant feature mapping: F2 (inactive candidate)
-- Notes / gaps: no route wired in active app
-
-### CognitoCallback (unrouted candidate)
+### CognitoCallback
 - File/path: [services/frontend/crm-ui/src/pages/CognitoCallback.tsx](services/frontend/crm-ui/src/pages/CognitoCallback.tsx)
-- Route: none in active router (expected path appears to be /auth/callback in tests)
+- Route: /auth/callback
 - Role(s): public callback receiver
 - Purpose: exchange Cognito auth code and redirect by role
 - Main child components: callback status/error view
 - Key actions: consume OAuth state, exchange code, navigate to role home
 - Data/API dependencies: AuthContext loginWithCognitoCode, consumeExpectedOauthState
 - Relevant feature mapping: X-factor (SSO)
-- Notes / gaps: implementation exists but no live route registration
+- Notes / gaps: routed and reachable from Cognito login flow
