@@ -220,32 +220,6 @@ jobs:
       artifact-paths: |
         services/backend/log/build/reports/**
         services/backend/log/build/coverage.xml
-    branches:
-      - main
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-  workflow_dispatch:
-
-concurrency:
-  group: ci-main-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
-permissions:
-  contents: read
-  id-token: write
-  pull-requests: read
-
-jobs:
-  # ==========================================================================
-  # Layer 0: Detect which components changed
-  # ============================================================================
-  # Layer 4: Deploy  (not yet implemented — placeholder)
-      timeout-minutes: 8
-      artifact-paths: |
-        services/backend/log/build/reports/**
-        services/backend/log/build/coverage.xml
-
   test-log-db:
     needs: [changes, lint]
     if: >-
