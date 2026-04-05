@@ -2471,14 +2471,14 @@ print("  [OK] AML lambda persisted alert via LocalStack-backed path")
 PY
 
 echo "  Smoke: AML alerts -> log-service-lambda (CREATE + REVIEW)"
-ALERT_ID="aml-smoke-$(date +%s)"
+ALERT_REQUEST_ID="aml_$(date +%s)"
 AML_CREATE_RESPONSE="$(
   curl --silent --show-error --fail \
     --request POST "${PLAYWRIGHT_BASE_URL}/api/aml/alerts" \
     --header "Authorization: Bearer ${ADMIN_TOKEN}" \
     --header "Content-Type: application/json" \
     --data "{
-      \"alertId\": \"${ALERT_ID}\",
+      \"alertId\": \"${ALERT_REQUEST_ID}\",
       \"clientId\": \"${CLIENT_ID}\",
       \"transactionId\": null,
       \"alertType\": \"STRUCTURING\",
@@ -2487,15 +2487,26 @@ AML_CREATE_RESPONSE="$(
       \"reviewStatus\": \"Pending\"
     }"
 )"
-AML_CREATE_RESPONSE_JSON="${AML_CREATE_RESPONSE}" ${PYTHON_CMD} - "${ALERT_ID}" <<'PY'
-import json, os, sys
+ALERT_ID="$(
+  AML_CREATE_RESPONSE_JSON="${AML_CREATE_RESPONSE}" ${PYTHON_CMD} - <<'PY'
+import json
+import os
+import re
+
 payload = json.loads(os.environ["AML_CREATE_RESPONSE_JSON"])
-if payload.get("alertId") != sys.argv[1]:
-    raise SystemExit("AML create response alertId mismatch")
+alert_id = payload.get("alertId")
+if not isinstance(alert_id, str) or not re.fullmatch(r"aml_[0-9]+", alert_id):
+    raise SystemExit("AML create response alertId format mismatch")
 if payload.get("reviewStatus") != "Pending":
     raise SystemExit("AML create response reviewStatus mismatch")
-print("  [OK] AML alert created")
+print(alert_id)
 PY
+ )"
+[[ -n "${ALERT_ID}" ]] || {
+  echo "  [FAIL] AML create response did not include a valid alertId" >&2
+  exit 1
+}
+echo "  [OK] AML alert created"
 
 AML_REVIEW_RESPONSE=""
 AML_REVIEW_LAST_STATUS=""
