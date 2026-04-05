@@ -761,8 +761,8 @@ class ClientServiceImplTest {
 	}
 
 	@Test
-	void reassignClients_adminLogsAuditAsUpdate() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
+	void reassignClients_nonRootAdminLogsAuditAsUpdate() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_9", "admin");
 		ClientEntity c1 = entityFromPayload(7L, "usr_from", samplePayload());
 		ClientEntity c2 = entityFromPayload(8L, "usr_from", samplePayload());
 		when(clientRepository.findByAssignedAgentId("usr_from")).thenReturn(List.of(c1, c2));
@@ -781,7 +781,7 @@ class ClientServiceImplTest {
 			eq("assignedUserId"),
 			eq("usr_from"),
 			eq("usr_to"),
-			eq("usr_1"),
+			eq("usr_9"),
 			eq("clt_7"),
 			eq("req-1"),
 			eq("Bearer x")
@@ -791,11 +791,43 @@ class ClientServiceImplTest {
 			eq("assignedUserId"),
 			eq("usr_from"),
 			eq("usr_to"),
-			eq("usr_1"),
+			eq("usr_9"),
 			eq("clt_8"),
 			eq("req-1"),
 			eq("Bearer x")
 		);
+	}
+
+	@Test
+	void reassignClients_nonAdminForbidden() {
+		AuthenticatedUser user = new AuthenticatedUser("usr_2", "user");
+
+		assertThatThrownBy(() ->
+			clientService.reassignClients(user, new ReassignRequest("usr_from", "usr_to"), "Bearer x", "req-1")
+		)
+			.isInstanceOf(AccessDeniedException.class)
+			.hasMessageContaining("Admin role required");
+		verify(clientRepository, never()).reassignClients(any(), any());
+	}
+
+	@Test
+	void countClientsByAgent_adminAllowed() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_9", "admin");
+		when(clientRepository.countByAssignedUserIdAndDeletedFalse("usr_2")).thenReturn(3L);
+
+		long count = clientService.countClientsByAgent(admin, "usr_2");
+
+		assertThat(count).isEqualTo(3L);
+	}
+
+	@Test
+	void countClientsByAgent_nonAdminForbidden() {
+		AuthenticatedUser user = new AuthenticatedUser("usr_2", "user");
+
+		assertThatThrownBy(() -> clientService.countClientsByAgent(user, "usr_2"))
+			.isInstanceOf(AccessDeniedException.class)
+			.hasMessageContaining("Admin role required");
+		verify(clientRepository, never()).countByAssignedUserIdAndDeletedFalse(any());
 	}
 
 	@Test

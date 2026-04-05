@@ -732,29 +732,53 @@ class UserAccountServiceTest {
 	}
 
 	@Test
-	void deleteUser_nonRootAdminCannotArchiveAgent() {
+	void deleteUser_adminMustTransferAssignedClientsBeforeArchive() {
 		UserDto userDto = new UserDto(
 			"usr_3",
 			"Ava",
 			"Stone",
 			"ava@example.com",
 			UserRole.user,
-			UserStatus.active,
+			UserStatus.disabled,
+			Instant.parse("2026-02-05T00:00:00Z"),
+			Instant.parse("2026-02-05T00:00:00Z")
+		);
+		when(store.getUser(eq("usr_3"))).thenReturn(userDto);
+		when(assignedClientCounter.countAssignedClients(eq("usr_3"), eq(AUTH_HEADER), eq(CORRELATION_ID)))
+			.thenReturn(1L);
+
+		AuthenticatedUser admin = new AuthenticatedUser("usr_9", "admin");
+
+		ArchivePreconditionFailedException denied = assertThrows(
+			ArchivePreconditionFailedException.class,
+			() -> service.deleteUser("usr_3", admin, AUTH_HEADER, CORRELATION_ID, null)
+		);
+		assertEquals("Transfer assigned clients before archiving.", denied.getMessage());
+		verify(store, never()).archiveUser(any(), any(), any());
+	}
+
+	@Test
+	void deleteUser_adminCanArchiveDisabledAgent() {
+		UserDto userDto = new UserDto(
+			"usr_3",
+			"Ava",
+			"Stone",
+			"ava@example.com",
+			UserRole.user,
+			UserStatus.disabled,
 			Instant.parse("2026-02-05T00:00:00Z"),
 			Instant.parse("2026-02-05T00:00:00Z")
 		);
 		when(store.getUser(eq("usr_3"))).thenReturn(userDto);
 
 		AuthenticatedUser admin = new AuthenticatedUser("usr_9", "admin");
+		when(assignedClientCounter.countAssignedClients(eq("usr_3"), eq(AUTH_HEADER), eq(CORRELATION_ID)))
+			.thenReturn(0L);
 
-		AccessDeniedException denied = assertThrows(
-			AccessDeniedException.class,
-			() -> service.deleteUser("usr_3", admin, AUTH_HEADER, CORRELATION_ID, null)
-		);
-		assertNotNull(denied);
+		service.deleteUser("usr_3", admin, AUTH_HEADER, CORRELATION_ID, null);
 
 		verify(store).getUser(eq("usr_3"));
-		verify(store, never()).archiveUser(any(), any(), any());
+		verify(store).archiveUser(eq("usr_3"), eq("usr_9"), eq(null));
 	}
 
 	@Test

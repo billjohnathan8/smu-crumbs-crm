@@ -460,7 +460,7 @@ public class ClientServiceImpl implements ClientService {
 		String authorizationHeader,
 		String requestId
 	) {
-		requireRootAdmin(user);
+		requireAdmin(user);
 		String fromUserId = request.fromUserId().trim();
 		String toUserId = request.toUserId().trim();
 		if (fromUserId.equals(toUserId)) {
@@ -736,7 +736,7 @@ public class ClientServiceImpl implements ClientService {
 	 */
 	@Override
 	public long countClientsByAgent(AuthenticatedUser user, String assignedUserId) {
-		requireRootAdmin(user);
+		requireAdmin(user);
 		return clientRepository.countByAssignedUserIdAndDeletedFalse(assignedUserId);
 	}
 
@@ -920,6 +920,12 @@ public class ClientServiceImpl implements ClientService {
 	private static void requireRootAdmin(AuthenticatedUser user) {
 		if (!user.isRootAdmin()) {
 			throw new AccessDeniedException("Root admin role required");
+		}
+	}
+
+	private static void requireAdmin(AuthenticatedUser user) {
+		if (!user.isAdmin()) {
+			throw new AccessDeniedException("Admin role required");
 		}
 	}
 

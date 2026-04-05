@@ -100,7 +100,7 @@ export function AdminUserManagementPage() {
   }, [isRootAdmin, logout])
 
   useEffect(() => {
-    if (!isRootAdmin) {
+    if (!canManageUsers) {
       return
     }
     const disabledAgents = users.filter(u => u.role === 'user' && u.status === 'disabled')
@@ -119,7 +119,7 @@ export function AdminUserManagementPage() {
       setAgentClientCounts(prev => ({ ...prev, ...counts }))
     }
     fetchCounts()
-  }, [isRootAdmin, users])
+  }, [canManageUsers, users])
 
   useEffect(() => {
     if (!canManageUsers) {
@@ -251,8 +251,8 @@ export function AdminUserManagementPage() {
   }
 
   const handleTransferConfirm = async () => {
-    if (!isRootAdmin) {
-      setError('Only root admin can transfer clients between agents')
+    if (!canManageUsers) {
+      setError('Only admins can transfer clients between agents')
       return
     }
     if (!transferFromUser) return
@@ -544,7 +544,7 @@ export function AdminUserManagementPage() {
                                 </>
                               ) : (
                                 <>
-                                  {isRootAdmin && (agentClientCounts[u.id] ?? -1) > 0 && (
+                                  {(agentClientCounts[u.id] ?? -1) > 0 && (
                                     <button
                                       onClick={() => openTransferModal(u)}
                                       title="Transfer assigned clients; archive is automatic."
@@ -557,7 +557,7 @@ export function AdminUserManagementPage() {
                                         : ''}
                                     </button>
                                   )}
-                                  {isRootAdmin && (agentClientCounts[u.id] ?? -1) === 0 && (
+                                  {(agentClientCounts[u.id] ?? -1) === 0 && (
                                     <button
                                       onClick={() => handleDeleteUser(u.id, u.role)}
                                       disabled={deletingUserId === u.id}
