@@ -119,7 +119,9 @@ export function RootArchivedAdminsPage() {
                         {u.firstName} {u.lastName}
                       </td>
                       <td className="px-6 py-4 text-sm text-text">{u.email}</td>
-                      <td className="px-6 py-4 text-sm text-text">{formatDateTime(u.archivedAt)}</td>
+                      <td className="px-6 py-4 text-sm text-text">
+                        {formatDateTime(u.archivedAt)}
+                      </td>
                       <td className="px-6 py-4 text-sm text-text">{u.archivedBy || '-'}</td>
                       <td className="px-6 py-4 text-sm text-text">
                         <button
