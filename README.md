@@ -241,6 +241,9 @@ bash scripts/dev/stack-down.sh
 
 # full local test pipeline
 python scripts/pipelines/test_all.py
+
+# full local CI Pipeline (to substitute GitHub Actions)
+$env:INFRACOST_API_KEY=<insert-infracost-api-key-here>; $env:TERRAFORM_ENV="prod"; python scripts/pipelines/test_all.py --suite all --fullstack-mode full --performance-mode full-with-recovery --performance-repeats 3 --performance-max-error-rate-pct 1.0 --performance-max-p95-ms 5000 --fail-fast;
 ```
 
 ## 4. Deployment / Recreation In Another Region (Instruction Set B)
