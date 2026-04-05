@@ -27,6 +27,11 @@ output "jwt_hmac_secret_arn" {
   value       = aws_secretsmanager_secret.jwt_hmac.arn
 }
 
+output "pii_encryption_key_secret_arn" {
+  description = "Client PII encryption key secret ARN."
+  value       = aws_secretsmanager_secret.pii_encryption_key.arn
+}
+
 output "jwt_hmac_secret_version_id" {
   description = "Current JWT HMAC secret version ID."
   value       = aws_secretsmanager_secret_version.jwt_hmac.version_id

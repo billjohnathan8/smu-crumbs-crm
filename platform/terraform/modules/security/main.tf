@@ -244,6 +244,7 @@ data "aws_iam_policy_document" "ecs_task_execution_extra" {
     actions = ["secretsmanager:GetSecretValue"]
     resources = [
       aws_secretsmanager_secret.jwt_hmac.arn,
+      aws_secretsmanager_secret.pii_encryption_key.arn,
       aws_secretsmanager_secret.root_admin_password.arn,
       aws_secretsmanager_secret.db_username.arn,
       aws_secretsmanager_secret.db_password.arn,

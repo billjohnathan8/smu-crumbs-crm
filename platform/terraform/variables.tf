@@ -289,6 +289,13 @@ variable "jwt_hmac_secret" {
   sensitive   = true
 }
 
+variable "pii_encryption_key" {
+  description = "Base64-encoded 32-byte AES key for client-service PII encryption. Leave empty to auto-generate in Secrets Manager."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "root_admin_email" {
   description = "Initial root admin email for the user service."
   type        = string

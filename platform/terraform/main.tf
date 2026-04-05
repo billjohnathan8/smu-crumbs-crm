@@ -44,6 +44,7 @@ module "security" {
   db_port                            = var.db_port
   db_username                        = var.db_username
   jwt_hmac_secret                    = var.jwt_hmac_secret
+  pii_encryption_key                 = var.pii_encryption_key
   root_admin_password                = var.root_admin_password
   aml_sftp_key_secret_arn            = var.aml_sftp_key_secret_arn
   enable_ec2_sftp_server             = var.enable_ec2_sftp_server
@@ -328,6 +329,7 @@ module "ecs" {
   client_account_opening_require_verified_client  = var.client_account_opening_require_verified_client
   root_admin_password_secret_arn                  = module.security.root_admin_password_secret_arn
   jwt_hmac_secret_arn                             = module.security.jwt_hmac_secret_arn
+  pii_encryption_key_secret_arn                   = module.security.pii_encryption_key_secret_arn
   jwt_hmac_secret_version_id                      = module.security.jwt_hmac_secret_version_id
   db_username_secret_arn                          = module.security.db_username_secret_arn
   db_password_secret_arn                          = module.security.db_password_secret_arn

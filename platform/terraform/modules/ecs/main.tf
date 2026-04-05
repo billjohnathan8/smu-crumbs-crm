@@ -272,6 +272,10 @@ locals {
           valueFrom = var.db_password_secret_arn
         },
         {
+          name      = "PII_ENCRYPTION_KEY"
+          valueFrom = var.pii_encryption_key_secret_arn
+        },
+        {
           name      = "JWT_HMAC_SECRET"
           valueFrom = var.jwt_hmac_secret_arn
         }

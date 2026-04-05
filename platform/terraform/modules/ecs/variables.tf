@@ -310,6 +310,11 @@ variable "jwt_hmac_secret_arn" {
   type        = string
 }
 
+variable "pii_encryption_key_secret_arn" {
+  description = "Secret ARN for client-service PII_ENCRYPTION_KEY."
+  type        = string
+}
+
 variable "jwt_hmac_secret_version_id" {
   description = "Current JWT_HMAC_SECRET version ID propagated to ECS task definitions to force synchronized rollouts on secret rotation."
   type        = string

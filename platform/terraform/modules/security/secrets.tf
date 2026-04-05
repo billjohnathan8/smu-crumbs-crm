@@ -8,6 +8,7 @@
 # Allows passing pre-existing secrets or generating new ones
 locals {
   jwt_hmac_secret_value     = var.jwt_hmac_secret != "" ? var.jwt_hmac_secret : random_password.jwt_hmac_secret.result
+  pii_encryption_key_value  = var.pii_encryption_key != "" ? var.pii_encryption_key : random_id.pii_encryption_key.b64_std
   root_admin_password_value = var.root_admin_password != "" ? var.root_admin_password : random_password.root_admin_password.result
   db_password_value         = random_password.db_password.result
 }
@@ -19,6 +20,10 @@ resource "random_password" "jwt_hmac_secret" {
   length           = 48
   special          = true
   override_special = "!@#$%*-_=+?"
+}
+
+resource "random_id" "pii_encryption_key" {
+  byte_length = 32
 }
 
 resource "random_password" "root_admin_password" {
@@ -51,6 +56,23 @@ resource "aws_secretsmanager_secret" "jwt_hmac" {
 resource "aws_secretsmanager_secret_version" "jwt_hmac" {
   secret_id     = aws_secretsmanager_secret.jwt_hmac.id
   secret_string = local.jwt_hmac_secret_value
+}
+
+resource "aws_secretsmanager_secret" "pii_encryption_key" {
+  name                    = "/${var.project_name}/${var.environment}/client/pii_encryption_key"
+  description             = "Base64-encoded AES-256 key used by client-service PII encryption."
+  recovery_window_in_days = 7
+
+  tags = {
+    Name        = "${var.project_name}-${var.environment}-client-pii-encryption-key"
+    Environment = var.environment
+    ManagedBy   = "terraform"
+  }
+}
+
+resource "aws_secretsmanager_secret_version" "pii_encryption_key" {
+  secret_id     = aws_secretsmanager_secret.pii_encryption_key.id
+  secret_string = local.pii_encryption_key_value
 }
 
 resource "aws_secretsmanager_secret" "root_admin_password" {

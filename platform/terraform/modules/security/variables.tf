@@ -68,6 +68,13 @@ variable "jwt_hmac_secret" {
   sensitive   = true
 }
 
+variable "pii_encryption_key" {
+  description = "Base64-encoded 32-byte AES key used by client-service PII encryption."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "root_admin_password" {
   description = "Root admin password override."
   type        = string
