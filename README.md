@@ -385,6 +385,11 @@ Artificial Intelligence (in the form of consultation, auditing, and coding agent
 - Correcting Linting & Styling Errors on service code
 - Generating & Running Local Scripts and Tooling (notably the Local CI Pipeline `test_all.py`)
 
+Core Models Used:
+- ChatGPT 5.0
+- OpenAI Codex
+- Claude Code
+- GitHub Copilot
 
 ## 7. Links To Detailed Docs
 
