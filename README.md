@@ -1,5 +1,15 @@
-# CS301 ITSA Scroogebank Enterprise CRM
+[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/ojTTbieH)
 
+# CS301 ITSA Scroogebank Enterprise CRM
+![AWS](https://img.shields.io/badge/AWS-Cloud%20Native-orange)
+![Microservices](https://img.shields.io/badge/Architecture-Microservices-yellow)
+![React](https://img.shields.io/badge/Frontend-React-63e5ff)
+![Java](https://img.shields.io/badge/Backend-Springboot-green)
+![Python](https://img.shields.io/badge/Backend-Python%20Lambda-006666)
+![Terraform](https://img.shields.io/badge/IaC-Terraform-purple)
+> A cloud-native, microservices-based, and enterprise Customer Relationship Management (CRM) system for Scrooge Global Bank – developed as the flagship project for CS301 IT Solution Architecture (ITSA).
+
+# Evaluation Guide
 Submission-oriented quick guide for evaluators and deployers.
 
 This README contains the two required instruction sets from the CS301 rubric:
