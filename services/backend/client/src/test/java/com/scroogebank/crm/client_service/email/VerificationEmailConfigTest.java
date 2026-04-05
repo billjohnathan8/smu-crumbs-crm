@@ -9,6 +9,12 @@ import software.amazon.awssdk.services.sesv2.SesV2Client;
 
 class VerificationEmailConfigTest {
 
+	private static void assertClientCreatedAndClosable(SesV2Client client) {
+		try (client) {
+			assertThat(client).isNotNull();
+		}
+	}
+
 	@Test
 	void sesV2Client_withRegionAndEndpoint_buildsClient() {
 		VerificationEmailConfig config = new VerificationEmailConfig();
@@ -16,10 +22,7 @@ class VerificationEmailConfigTest {
 		appProperties.getVerificationEmail().setAwsRegion("ap-southeast-1");
 		appProperties.getVerificationEmail().setAwsEndpointUrl("http://localhost:4566");
 
-		SesV2Client client = config.sesV2Client(appProperties);
-
-		assertThat(client).isNotNull();
-		client.close();
+		assertClientCreatedAndClosable(config.sesV2Client(appProperties));
 	}
 
 	@Test
@@ -29,10 +32,7 @@ class VerificationEmailConfigTest {
 		appProperties.getVerificationEmail().setAwsRegion(" ");
 		appProperties.getVerificationEmail().setAwsEndpointUrl(" ");
 
-		SesV2Client client = config.sesV2Client(appProperties);
-
-		assertThat(client).isNotNull();
-		client.close();
+		assertClientCreatedAndClosable(config.sesV2Client(appProperties));
 	}
 
 	@Test
