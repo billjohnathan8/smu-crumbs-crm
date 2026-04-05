@@ -415,3 +415,4 @@ For evaluators who want deeper implementation detail and deployment evidence, us
 - Integration test suite notes: [tests/integration/README.md](tests/integration/README.md)
 - Performance test suite notes: [tests/performance/README.md](tests/performance/README.md)
 - Local CI orchestration script: [scripts/pipelines/test_all.py](scripts/pipelines/test_all.py)
+- To generate a map of our infrastructure, refer to cs301-brainboard-test submodule.
