@@ -6,31 +6,9 @@ import { listAmlAlerts, updateAmlAlertReview, triggerAmlScan } from '@/api/aml'
 import type { AmlAlert, AmlAlertType, AmlReviewStatus } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
+import { getSidebarNavForUser } from '@/navigation/sidebarNav'
 
 const ITEMS_PER_PAGE = 20
-
-const rootAdminNav: NavItem[] = [
-  { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients', end: true },
-  { label: 'Client Archives', to: '/admin/client-archives', end: true },
-  { label: 'Create Client', to: '/admin/clients/new' },
-  { label: 'Communications', to: '/admin/communications' },
-  { label: 'Transactions', to: '/admin/transactions' },
-  { label: 'AML Alerts', to: '/admin/aml-alerts' },
-  { label: 'Activity Logs', to: '/admin/logs' },
-  { label: 'User Management', to: '/admin/users' },
-  { label: 'Settings', to: '/admin/settings' },
-]
-
-const userNav: NavItem[] = [
-  { label: 'Home', to: '/user', end: true },
-  { label: 'My Clients', to: '/user/clients' },
-  { label: 'Create Client', to: '/user/clients/new' },
-  { label: 'Transactions', to: '/user/transactions' },
-  { label: 'AML Alerts', to: '/user/aml-alerts' },
-  { label: 'Activity Logs', to: '/user/logs' },
-  { label: 'Settings', to: '/user/settings' },
-]
 
 export function AmlAlertsPage() {
   const { user, logout } = useAuth()
@@ -57,7 +35,7 @@ export function AmlAlertsPage() {
   })
 
   const isRootAdmin = isRootAdminUser(user)
-  const navItems = useMemo<NavItem[]>(() => (user?.role === 'user' ? userNav : rootAdminNav), [user?.role])
+  const navItems = useMemo<NavItem[]>(() => getSidebarNavForUser(user), [user])
   const homePath = user?.role === 'user' ? '/user' : '/admin'
   const canTriggerAml = user?.role === 'user' || isRootAdmin
 

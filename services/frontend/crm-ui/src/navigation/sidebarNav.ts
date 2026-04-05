@@ -28,7 +28,7 @@ export const rootAdminSidebarNav: NavItem[] = [
   { label: 'Transactions', to: '/admin/transactions' },
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
   { label: 'Activity Logs', to: '/admin/logs' },
-  { label: 'User Management', to: '/admin/users' },
+  { label: 'User Management', to: '/admin/users', end: true },
   { label: 'Archived Admins', to: '/admin/users/archives/admins' },
   { label: 'Archived Agents', to: '/admin/users/archives/agents' },
   { label: 'Settings', to: '/admin/settings' },

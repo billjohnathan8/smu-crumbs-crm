@@ -5,22 +5,8 @@ import { ApiError } from '@/api/client'
 import type { User } from '@/api/types'
 import { useAuth } from '@/features/auth/AuthContext'
 import { isRootAdminUser } from '@/features/auth/authorization'
-import { SidebarLayout, type NavItem } from '@/components/SidebarDrawer'
-
-const rootAdminNav: NavItem[] = [
-  { label: 'Home', to: '/admin', end: true },
-  { label: 'All Clients', to: '/admin/clients', end: true },
-  { label: 'Client Archives', to: '/admin/client-archives', end: true },
-  { label: 'Create Client', to: '/admin/clients/new' },
-  { label: 'Communications', to: '/admin/communications' },
-  { label: 'Transactions', to: '/admin/transactions' },
-  { label: 'AML Alerts', to: '/admin/aml-alerts' },
-  { label: 'Activity Logs', to: '/admin/logs' },
-  { label: 'User Management', to: '/admin/users' },
-  { label: 'Archived Admins', to: '/admin/users/archives/admins' },
-  { label: 'Archived Agents', to: '/admin/users/archives/agents' },
-  { label: 'Settings', to: '/admin/settings' },
-]
+import { SidebarLayout } from '@/components/SidebarDrawer'
+import { getSidebarNavForUser } from '@/navigation/sidebarNav'
 
 const formatDateTime = (value?: string | null) => {
   if (!value) return '-'
@@ -80,7 +66,7 @@ export function RootArchivedAdminsPage() {
   if (!isRootAdminUser(user)) return <Navigate to="/unauthorized" replace />
 
   return (
-    <SidebarLayout items={rootAdminNav}>
+    <SidebarLayout items={getSidebarNavForUser(user)}>
       <h1 className="text-2xl font-normal text-text py-4">Archived Admins</h1>
       <main className="max-w-6xl mx-auto py-4">
         {error && (
