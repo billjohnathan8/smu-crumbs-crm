@@ -1,0 +1,249 @@
+env:
+  contexts:
+    - name: itsag2t3-auth
+      urls:
+        - "https://itsag2t3.com"
+      includePaths:
+        - "https://itsag2t3\\.com(/.*)?"
+      excludePaths:
+        - "https://fonts\\.googleapis\\.com/.*"
+        - "https://fonts\\.gstatic\\.com/.*"
+        - "https://itsag2t3\\.com/assets/.*"
+        - "https://itsag2t3\\.com/.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2)$"
+      authentication:
+        method: json
+        parameters:
+          loginPageUrl: "https://itsag2t3.com/login"
+          loginRequestUrl: "https://itsag2t3.com/api/auth/login"
+          loginRequestBody: "{\"email\":\"{%username%}\",\"password\":\"{%password%}\"}"
+        verification:
+          method: poll
+          loggedInRegex: "(?i)\"role\"\\s*:\\s*\"(admin|user|super_admin)\""
+          loggedOutRegex: "(?i)(unauthorized|forbidden|invalid token|invalid email or password|login)"
+          pollFrequency: 5
+          pollUnits: requests
+          pollUrl: "https://itsag2t3.com/api/users/me"
+      sessionManagement:
+        method: cookie
+      users:
+        - name: admin-test
+          credentials:
+            username: "CHANGE_ME_ADMIN_EMAIL"
+            password: "CHANGE_ME_ADMIN_PASSWORD"
+        - name: agent-test
+          credentials:
+            username: "CHANGE_ME_AGENT_EMAIL"
+            password: "CHANGE_ME_AGENT_PASSWORD"
+        - name: root-test
+          credentials:
+            username: "CHANGE_ME_ROOT_EMAIL"
+            password: "CHANGE_ME_ROOT_PASSWORD"
+
+    - name: itsag2t3-public
+      urls:
+        - "https://itsag2t3.com"
+      includePaths:
+        - "https://itsag2t3\\.com(/.*)?"
+      excludePaths:
+        - "https://fonts\\.googleapis\\.com/.*"
+        - "https://fonts\\.gstatic\\.com/.*"
+        - "https://itsag2t3\\.com/assets/.*"
+        - "https://itsag2t3\\.com/.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2)$"
+
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+  # ------------------------
+  # 1) Public/Unauth pass
+  # ------------------------
+  - type: spider
+    parameters:
+      context: itsag2t3-public
+      url: "https://itsag2t3.com/login"
+      maxDuration: 4
+      maxDepth: 8
+      parseRobotsTxt: true
+      parseSitemapXml: true
+
+  - type: spiderAjax
+    parameters:
+      context: itsag2t3-public
+      url: "https://itsag2t3.com/login"
+      maxDuration: 6
+      browserId: firefox-headless
+      inScopeOnly: true
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 120
+
+  - type: activeScan
+    parameters:
+      context: itsag2t3-public
+      url: "https://itsag2t3.com/login"
+      maxRuleDurationInMins: 3
+      maxScanDurationInMins: 15
+      maxAlertsPerRule: 10
+
+  - type: activeScan
+    parameters:
+      context: itsag2t3-public
+      url: "https://itsag2t3.com/api"
+      maxRuleDurationInMins: 2
+      maxScanDurationInMins: 10
+      maxAlertsPerRule: 10
+
+  # ------------------------
+  # 2) Admin pass
+  # ------------------------
+  - type: spider
+    parameters:
+      context: itsag2t3-auth
+      user: admin-test
+      url: "https://itsag2t3.com/admin"
+      maxDuration: 8
+      maxDepth: 10
+      parseRobotsTxt: true
+      parseSitemapXml: true
+
+  - type: spiderAjax
+    parameters:
+      context: itsag2t3-auth
+      user: admin-test
+      url: "https://itsag2t3.com/admin"
+      maxDuration: 10
+      maxCrawlDepth: 12
+      browserId: firefox-headless
+      inScopeOnly: true
+      clickDefaultElems: true
+      randomInputs: true
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 120
+
+  - type: activeScan
+    parameters:
+      context: itsag2t3-auth
+      user: admin-test
+      url: "https://itsag2t3.com/admin"
+      maxRuleDurationInMins: 3
+      maxScanDurationInMins: 25
+      maxAlertsPerRule: 20
+      handleAntiCSRFTokens: true
+
+  - type: activeScan
+    parameters:
+      context: itsag2t3-auth
+      user: admin-test
+      url: "https://itsag2t3.com/api"
+      maxRuleDurationInMins: 2
+      maxScanDurationInMins: 20
+      maxAlertsPerRule: 20
+      handleAntiCSRFTokens: true
+
+  # ------------------------
+  # 3) Agent pass
+  # ------------------------
+  - type: spider
+    parameters:
+      context: itsag2t3-auth
+      user: agent-test
+      url: "https://itsag2t3.com/user"
+      maxDuration: 6
+      maxDepth: 10
+      parseRobotsTxt: true
+      parseSitemapXml: true
+
+  - type: spiderAjax
+    parameters:
+      context: itsag2t3-auth
+      user: agent-test
+      url: "https://itsag2t3.com/user"
+      maxDuration: 8
+      maxCrawlDepth: 12
+      browserId: firefox-headless
+      inScopeOnly: true
+      clickDefaultElems: true
+      randomInputs: true
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 120
+
+  - type: activeScan
+    parameters:
+      context: itsag2t3-auth
+      user: agent-test
+      url: "https://itsag2t3.com/user"
+      maxRuleDurationInMins: 3
+      maxScanDurationInMins: 20
+      maxAlertsPerRule: 20
+      handleAntiCSRFTokens: true
+
+  - type: activeScan
+    parameters:
+      context: itsag2t3-auth
+      user: agent-test
+      url: "https://itsag2t3.com/api"
+      maxRuleDurationInMins: 2
+      maxScanDurationInMins: 15
+      maxAlertsPerRule: 20
+      handleAntiCSRFTokens: true
+
+  # ------------------------
+  # 4) Optional root pass
+  # Set enabled: true after filling root credentials.
+  # ------------------------
+  - type: spider
+    enabled: false
+    parameters:
+      context: itsag2t3-auth
+      user: root-test
+      url: "https://itsag2t3.com/admin"
+      maxDuration: 6
+      maxDepth: 10
+
+  - type: spiderAjax
+    enabled: false
+    parameters:
+      context: itsag2t3-auth
+      user: root-test
+      url: "https://itsag2t3.com/admin"
+      maxDuration: 8
+      browserId: firefox-headless
+      inScopeOnly: true
+
+  - type: activeScan
+    enabled: false
+    parameters:
+      context: itsag2t3-auth
+      user: root-test
+      url: "https://itsag2t3.com/admin"
+      maxRuleDurationInMins: 3
+      maxScanDurationInMins: 20
+      maxAlertsPerRule: 20
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 180
+
+  # ------------------------
+  # 5) Reports
+  # ------------------------
+  - type: report
+    parameters:
+      template: traditional-html
+      reportDir: /zap/wrk/zap/outputs
+      reportFile: itsag2t3-zap-comprehensive.html
+      reportTitle: itsag2t3 Comprehensive ZAP Report
+
+  - type: report
+    parameters:
+      template: traditional-json
+      reportDir: /zap/wrk/zap/outputs
+      reportFile: itsag2t3-zap-comprehensive.json
+      reportTitle: itsag2t3 Comprehensive ZAP Report JSON

@@ -1,0 +1,116 @@
+env:
+  contexts:
+    - name: itsag2t3-prod
+      urls:
+        - "https://itsag2t3.com"
+      includePaths:
+        - "https://itsag2t3\\.com(/.*)?"
+      excludePaths:
+        - "https://fonts\\.googleapis\\.com/.*"
+        - "https://fonts\\.gstatic\\.com/.*"
+        - "https://itsag2t3\\.com/assets/.*"
+      authentication:
+        method: json
+        parameters:
+          loginPageUrl: "https://itsag2t3.com/login"
+          loginRequestUrl: "https://itsag2t3.com/api/auth/login"
+          loginRequestBody: "{\"email\":\"{%username%}\",\"password\":\"{%password%}\"}"
+        verification:
+          method: poll
+          loggedInRegex: "(?i)\"role\"\\s*:\\s*\"(admin|user|super_admin)\""
+          loggedOutRegex: "(?i)(unauthorized|forbidden|invalid token|invalid email or password|login)"
+          pollFrequency: 5
+          pollUnits: requests
+          pollUrl: "https://itsag2t3.com/api/users/me"
+      sessionManagement:
+        method: cookie
+      users:
+        - name: admin-test
+          credentials:
+            username: "CHANGE_ME_ADMIN_EMAIL"
+            password: "CHANGE_ME_ADMIN_PASSWORD"
+        - name: agent-test
+          credentials:
+            username: "CHANGE_ME_AGENT_EMAIL"
+            password: "CHANGE_ME_AGENT_PASSWORD"
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+  - type: spider
+    parameters:
+      context: itsag2t3-prod
+      user: admin-test
+      url: "https://itsag2t3.com/admin"
+      maxDuration: 5
+
+  - type: spiderAjax
+    parameters:
+      context: itsag2t3-prod
+      user: admin-test
+      url: "https://itsag2t3.com/admin"
+      maxDuration: 8
+      browserId: firefox-headless
+      inScopeOnly: true
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 60
+
+  - type: activeScan
+    parameters:
+      context: itsag2t3-prod
+      user: admin-test
+      url: "https://itsag2t3.com/admin"
+      maxRuleDurationInMins: 2
+      maxScanDurationInMins: 20
+      maxAlertsPerRule: 10
+
+  - type: spider
+    parameters:
+      context: itsag2t3-prod
+      user: agent-test
+      url: "https://itsag2t3.com/user"
+      maxDuration: 4
+
+  - type: spiderAjax
+    parameters:
+      context: itsag2t3-prod
+      user: agent-test
+      url: "https://itsag2t3.com/user"
+      maxDuration: 6
+      browserId: firefox-headless
+      inScopeOnly: true
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 60
+
+  - type: activeScan
+    parameters:
+      context: itsag2t3-prod
+      user: agent-test
+      url: "https://itsag2t3.com/user"
+      maxRuleDurationInMins: 2
+      maxScanDurationInMins: 15
+      maxAlertsPerRule: 10
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 60
+
+  - type: report
+    parameters:
+      template: traditional-html
+      reportDir: /zap/wrk/zap/outputs
+      reportFile: itsag2t3-zap-report.html
+      reportTitle: itsag2t3 ZAP Authenticated Scan Report
+
+  - type: report
+    parameters:
+      template: traditional-json
+      reportDir: /zap/wrk/zap/outputs
+      reportFile: itsag2t3-zap-report.json
+      reportTitle: itsag2t3 ZAP Authenticated Scan Report JSON
