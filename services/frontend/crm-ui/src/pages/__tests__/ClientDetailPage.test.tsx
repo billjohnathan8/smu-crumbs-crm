@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { ClientDetailPage } from '../ClientDetailPage'
@@ -224,7 +224,7 @@ describe('ClientDetailPage', () => {
       expect(screen.getByTestId('delete-client-modal')).toBeInTheDocument()
     })
 
-    await user.click(screen.getByRole('button', { name: 'Delete Account' }))
+    await user.click(within(screen.getByTestId('delete-client-modal')).getByRole('button', { name: 'Delete Client' }))
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith(
@@ -250,7 +250,7 @@ describe('ClientDetailPage', () => {
       expect(screen.getByTestId('delete-client-modal')).toBeInTheDocument()
     })
 
-    await user.click(screen.getByRole('button', { name: 'Delete Account' }))
+    await user.click(within(screen.getByTestId('delete-client-modal')).getByRole('button', { name: 'Delete Client' }))
 
     await waitFor(() => {
       expect(screen.getByText('You are not allowed to delete this client.')).toBeInTheDocument()
@@ -293,7 +293,7 @@ describe('ClientDetailPage', () => {
       expect(screen.getByTestId('delete-client-modal')).toBeInTheDocument()
     })
 
-    await user.click(screen.getByRole('button', { name: 'Delete Account' }))
+    await user.click(within(screen.getByTestId('delete-client-modal')).getByRole('button', { name: 'Delete Client' }))
 
     await waitFor(() => {
       expect(mockLogout).toHaveBeenCalled()
