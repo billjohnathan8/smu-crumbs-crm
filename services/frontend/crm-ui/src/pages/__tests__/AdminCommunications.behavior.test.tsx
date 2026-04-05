@@ -50,6 +50,7 @@ const matchedClient: Client = {
   country: 'Singapore',
   postalCode: '123456',
   identityVerificationStatus: 'verified',
+  clientStatus: 'active',
   createdAt: '2026-03-21T10:00:00Z',
 }
 

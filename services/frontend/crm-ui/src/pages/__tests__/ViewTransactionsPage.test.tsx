@@ -70,6 +70,7 @@ const makeClient = (clientId: string) => ({
   country: 'Singapore',
   postalCode: '123456',
   identityVerificationStatus: 'verified' as const,
+  clientStatus: 'active' as const,
 })
 
 describe('ViewTransactionsPage', () => {
@@ -576,6 +577,7 @@ describe('ViewTransactionsPage', () => {
           country: 'Singapore',
           postalCode: '123456',
           identityVerificationStatus: 'verified',
+          clientStatus: 'active',
         },
       ],
       pagination: { limit: 100, offset: 0, total: 1 },
@@ -630,6 +632,7 @@ describe('ViewTransactionsPage', () => {
           country: 'Singapore',
           postalCode: '123456',
           identityVerificationStatus: 'verified',
+          clientStatus: 'active',
         },
       ],
       pagination: { limit: 100, offset: 0, total: 1 },

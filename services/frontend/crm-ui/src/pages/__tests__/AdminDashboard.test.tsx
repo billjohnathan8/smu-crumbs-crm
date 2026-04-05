@@ -430,6 +430,7 @@ describe('AdminDashboard', () => {
       state: 'Central',
       country: 'Singapore',
       postalCode: '123456',
+      clientStatus: 'active' as const,
       createdAt: '2024-01-01T00:00:00Z',
     }
 
@@ -476,6 +477,7 @@ describe('AdminDashboard', () => {
       state: 'Central',
       country: 'Singapore',
       postalCode: '123456',
+      clientStatus: 'active' as const,
       createdAt: '2024-01-01T00:00:00Z',
     }
 

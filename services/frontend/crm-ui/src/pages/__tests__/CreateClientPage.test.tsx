@@ -273,6 +273,7 @@ describe('CreateClientPage', () => {
       country: 'Singapore',
       postalCode: '123456',
       identityVerificationStatus: 'unverified' as const,
+      clientStatus: 'active' as const,
       createdAt: '2024-01-01T00:00:00Z',
     }
 
@@ -441,6 +442,7 @@ describe('CreateClientPage', () => {
       country: 'Singapore',
       postalCode: '123456',
       identityVerificationStatus: 'unverified' as const,
+      clientStatus: 'active' as const,
       createdAt: '2024-01-01T00:00:00Z',
     })
 

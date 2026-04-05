@@ -50,6 +50,7 @@ const mockClient: Client = {
   country: 'Singapore',
   postalCode: '123456',
   identityVerificationStatus: 'verified',
+  clientStatus: 'active',
   assignedUserId: 'agent-1',
   createdAt: '2024-01-01T00:00:00Z',
 }

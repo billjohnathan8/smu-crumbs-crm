@@ -63,6 +63,7 @@ const mockClient: Client = {
   country: 'Singapore',
   postalCode: '123456',
   identityVerificationStatus: 'unverified',
+  clientStatus: 'active',
   createdAt: '2024-01-01T00:00:00Z',
 }
 
