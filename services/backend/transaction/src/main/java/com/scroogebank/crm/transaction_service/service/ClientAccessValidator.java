@@ -41,7 +41,6 @@ public class ClientAccessValidator {
 				.header(HttpHeaders.AUTHORIZATION, authorizationHeader)
 				.retrieve()
 				.toBodilessEntity();
-			return;
 		}
 		catch (RestClientResponseException ex) {
 			int statusCode = ex.getStatusCode().value();

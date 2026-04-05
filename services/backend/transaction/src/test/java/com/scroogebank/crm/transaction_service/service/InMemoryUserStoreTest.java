@@ -20,7 +20,6 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -30,19 +29,19 @@ class InMemoryUserStoreTest {
 	private TestClock clock;
 	private InMemoryUserStore store;
 
-	@BeforeEach
-	void setUp() {
+	private void initStore() {
 		clock = new TestClock(Instant.parse("2026-02-05T00:00:00Z"));
 		store = new InMemoryUserStore(clock, new PasswordHasher(), "root@example.com", "RootPass!123");
 	}
 
 	@Test
-	void createUser_normalizesEmailAndDefaultsRole() {
+	void createUser_normalizesEmailAndPersistsRole() {
+		initStore();
 		UserDto created = store.createUser(new CreateUserRequest(
 			"Alice",
 			"Ng",
 			"  ALICE@Example.com ",
-			null,
+			UserRole.user,
 			false,
 			"temp12345"
 		));
@@ -58,15 +57,18 @@ class InMemoryUserStoreTest {
 
 	@Test
 	void createUser_duplicateEmail_throwsConflict() {
+		initStore();
 		store.createUser(new CreateUserRequest("A", "B", "ava@example.com", UserRole.user, false, "pw"));
 
-		assertThrows(DuplicateUserException.class, () -> store.createUser(
+		DuplicateUserException thrown = assertThrows(DuplicateUserException.class, () -> store.createUser(
 			new CreateUserRequest("C", "D", "AVA@example.com", UserRole.admin, false, "pw")
 		));
+		assertNotNull(thrown);
 	}
 
 	@Test
 	void updateUser_replacesEmailIndexAndRejectsDuplicate() {
+		initStore();
 		UserDto first = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "pw"));
 		UserDto second = store.createUser(new CreateUserRequest("Ben", "Tan", "ben@example.com", UserRole.user, false, "pw"));
 
@@ -75,14 +77,16 @@ class InMemoryUserStoreTest {
 		assertNull(store.findByEmail("ava@example.com"));
 		assertNotNull(store.findByEmail("ava.new@example.com"));
 
-		assertThrows(DuplicateUserException.class, () -> store.updateUser(
+		DuplicateUserException thrown = assertThrows(DuplicateUserException.class, () -> store.updateUser(
 			second.id(),
 			new UpdateUserRequest(null, null, "ava.new@example.com", null)
 		));
+		assertNotNull(thrown);
 	}
 
 	@Test
 	void updateUser_withoutEmailChange_preservesEmailIndex() {
+		initStore();
 		UserDto created = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "pw"));
 
 		UserDto updated = store.updateUser(created.id(), new UpdateUserRequest("Ava", "Stone", null, null));
@@ -93,11 +97,14 @@ class InMemoryUserStoreTest {
 
 	@Test
 	void deleteUser_rootAdminIsForbidden() {
-		assertThrows(ForbiddenException.class, () -> store.deleteUser("usr_1"));
+		initStore();
+		ForbiddenException thrown = assertThrows(ForbiddenException.class, () -> store.deleteUser("usr_1"));
+		assertNotNull(thrown);
 	}
 
 	@Test
 	void deleteUser_removesRefreshTokensForUser() {
+		initStore();
 		UserDto created = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "pw"));
 		String token = store.issueRefreshToken(created.id());
 		assertTrue(store.isRefreshTokenValid(token));
@@ -110,6 +117,7 @@ class InMemoryUserStoreTest {
 
 	@Test
 	void listAndCountUsers_applyRoleFilterAndPaging() {
+		initStore();
 		store.createUser(new CreateUserRequest("A", "A", "a@example.com", UserRole.user, false, "pw"));
 		store.createUser(new CreateUserRequest("B", "B", "b@example.com", UserRole.admin, false, "pw"));
 		store.createUser(new CreateUserRequest("C", "C", "c@example.com", UserRole.user, false, "pw"));
@@ -124,6 +132,7 @@ class InMemoryUserStoreTest {
 
 	@Test
 	void refreshTokenLifecycle_handlesRotationAndExpiry() {
+		initStore();
 		String token = store.issueRefreshToken("usr_1");
 
 		assertTrue(store.isRefreshTokenValid(token));
@@ -142,6 +151,7 @@ class InMemoryUserStoreTest {
 
 	@Test
 	void resetPassword_invalidatesRefreshTokens() {
+		initStore();
 		UserDto created = store.createUser(new CreateUserRequest("Ava", "Stone", "ava@example.com", UserRole.user, false, "temp123"));
 		String token = store.issueRefreshToken(created.id());
 		assertTrue(store.isRefreshTokenValid(token));

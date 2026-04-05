@@ -50,6 +50,13 @@ server:
 
 app:
   production-mode: ${APP_PRODUCTION_MODE:false}
+  pii:
+    strict-mode: ${APP_PII_STRICT_MODE:false}
+    migration:
+      enabled: ${APP_PII_MIGRATION_ENABLED:false}
+      batch-size: ${APP_PII_MIGRATION_BATCH_SIZE:200}
+      initial-delay-ms: ${APP_PII_MIGRATION_INITIAL_DELAY_MS:20000}
+      poll-interval-ms: ${APP_PII_MIGRATION_POLL_INTERVAL_MS:60000}
   log-service-url: ${CLIENT_LOG_SERVICE_URL:${LOG_SERVICE_URL:http://localhost:4566/_aws/execute-api/local/local}}
   verification:
     sns-topic-arn: ${VERIFICATION_SNS_TOPIC_ARN:}

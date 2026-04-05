@@ -1,7 +1,6 @@
 package com.scroogebank.crm.client_service.email;
 
 import com.scroogebank.crm.client_service.config.AppProperties;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import software.amazon.awssdk.services.sesv2.SesV2Client;
@@ -18,28 +17,29 @@ import static org.mockito.Mockito.when;
  * Unit tests for {@link SesVerificationEmailSender}.
  */
 class SesVerificationEmailSenderTest {
-	private SesV2Client sesV2Client;
-	private AppProperties appProperties;
-	private SesVerificationEmailSender sender;
+	private record Fixture(SesV2Client sesV2Client, AppProperties appProperties, SesVerificationEmailSender sender) {}
 
-	@BeforeEach
-	void setUp() {
-		sesV2Client = mock(SesV2Client.class);
-		appProperties = new AppProperties();
-		sender = new SesVerificationEmailSender(sesV2Client, appProperties);
+	private static Fixture fixture() {
+		SesV2Client sesV2Client = mock(SesV2Client.class);
+		AppProperties appProperties = new AppProperties();
+		SesVerificationEmailSender sender = new SesVerificationEmailSender(sesV2Client, appProperties);
+		return new Fixture(sesV2Client, appProperties, sender);
 	}
 
 	@Test
 	void send_buildsAndSendsSesRequest() {
-		appProperties.getVerificationEmail().setSenderEmail("sender@scroogebank.com");
-		when(sesV2Client.sendEmail(org.mockito.ArgumentMatchers.any(SendEmailRequest.class)))
+		Fixture fixture = fixture();
+		fixture.appProperties().getVerificationEmail().setSenderEmail("sender@scroogebank.com");
+		when(fixture.sesV2Client().sendEmail(org.mockito.ArgumentMatchers.any(SendEmailRequest.class)))
 			.thenReturn(SendEmailResponse.builder().messageId("ses-message-1").build());
 
-		String providerMessageId = sender.send(new VerificationEmail("client@example.com", "Subject", "Body text"));
+		String providerMessageId = fixture.sender().send(
+			new VerificationEmail("client@example.com", "Subject", "Body text")
+		);
 
 		assertThat(providerMessageId).isEqualTo("ses-message-1");
 		ArgumentCaptor<SendEmailRequest> captor = ArgumentCaptor.forClass(SendEmailRequest.class);
-		verify(sesV2Client).sendEmail(captor.capture());
+		verify(fixture.sesV2Client()).sendEmail(captor.capture());
 		SendEmailRequest request = captor.getValue();
 		assertThat(request.fromEmailAddress()).isEqualTo("sender@scroogebank.com");
 		assertThat(request.destination().toAddresses()).containsExactly("client@example.com");
@@ -49,9 +49,10 @@ class SesVerificationEmailSenderTest {
 
 	@Test
 	void send_missingSenderEmail_throws() {
-		appProperties.getVerificationEmail().setSenderEmail(" ");
+		Fixture fixture = fixture();
+		fixture.appProperties().getVerificationEmail().setSenderEmail(" ");
 
-		assertThatThrownBy(() -> sender.send(new VerificationEmail("client@example.com", "Subject", "Body")))
+		assertThatThrownBy(() -> fixture.sender().send(new VerificationEmail("client@example.com", "Subject", "Body")))
 			.isInstanceOf(IllegalStateException.class)
 			.hasMessageContaining("sender email");
 	}

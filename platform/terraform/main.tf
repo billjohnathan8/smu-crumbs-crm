@@ -327,6 +327,11 @@ module "ecs" {
   verification_sns_topic_arn                      = module.sns.verification_topic_arn
   verification_documents_bucket                   = module.s3.verification_bucket_id
   client_account_opening_require_verified_client  = var.client_account_opening_require_verified_client
+  client_pii_strict_mode                          = var.client_pii_strict_mode
+  client_pii_migration_enabled                    = var.client_pii_migration_enabled
+  client_pii_migration_batch_size                 = var.client_pii_migration_batch_size
+  client_pii_migration_poll_interval_ms           = var.client_pii_migration_poll_interval_ms
+  client_pii_migration_initial_delay_ms           = var.client_pii_migration_initial_delay_ms
   root_admin_password_secret_arn                  = module.security.root_admin_password_secret_arn
   jwt_hmac_secret_arn                             = module.security.jwt_hmac_secret_arn
   pii_encryption_key_secret_arn                   = module.security.pii_encryption_key_secret_arn

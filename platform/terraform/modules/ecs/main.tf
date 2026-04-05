@@ -260,6 +260,26 @@ locals {
         {
           name  = "APP_ACCOUNT_OPENING_REQUIRE_VERIFIED_CLIENT"
           value = tostring(var.client_account_opening_require_verified_client)
+        },
+        {
+          name  = "APP_PII_STRICT_MODE"
+          value = tostring(var.client_pii_strict_mode)
+        },
+        {
+          name  = "APP_PII_MIGRATION_ENABLED"
+          value = tostring(var.client_pii_migration_enabled)
+        },
+        {
+          name  = "APP_PII_MIGRATION_BATCH_SIZE"
+          value = tostring(var.client_pii_migration_batch_size)
+        },
+        {
+          name  = "APP_PII_MIGRATION_POLL_INTERVAL_MS"
+          value = tostring(var.client_pii_migration_poll_interval_ms)
+        },
+        {
+          name  = "APP_PII_MIGRATION_INITIAL_DELAY_MS"
+          value = tostring(var.client_pii_migration_initial_delay_ms)
         }
       ]
       secrets = [

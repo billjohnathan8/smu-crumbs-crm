@@ -574,6 +574,13 @@ run_gradle_db_test() {
     --no-daemon
     --console=plain
   )
+  local gradle_test_only_args=(
+    test
+    --tests "${test_selector}"
+    --no-daemon
+    --console=plain
+    --rerun-tasks
+  )
   local base_env=(
     APP_ENV=test
     AUTH_MODE=local
@@ -606,9 +613,11 @@ run_gradle_db_test() {
   )
   local simple_selector="${test_selector##*.}"
   local db_error_pattern='Unable to obtain connection from database|Connection to 127\.0\.0\.1:[0-9]+ refused|Connection refused|database ".*" does not exist|the database system is starting up'
+  local gradle_test_results_race_pattern='NoSuchFileException: .*build[\\/]test-results[\\/]test[\\/]binary[\\/].*in-progress-results.*\.bin'
 
   if [[ "${include_integration}" == "true" ]]; then
     gradle_args+=(-PincludeIntegration=true)
+    gradle_test_only_args+=(-PincludeIntegration=true)
   fi
 
   wait_for_postgres_host_ready
@@ -621,6 +630,18 @@ run_gradle_db_test() {
     ./gradlew "${gradle_args[@]}" > "${gradle_log}" 2>&1; then
     popd >/dev/null
     return 0
+  fi
+
+  # Guard against intermittent Gradle test-results binary race conditions.
+  # When this specific file write race occurs, retry once without cleanTest.
+  if grep -Eiq "${gradle_test_results_race_pattern}" "${gradle_log}"; then
+    mkdir -p "${service_dir}/build/test-results/test/binary"
+    if env "${base_env[@]}" \
+      GRADLE_USER_HOME="${gradle_user_home}" \
+      ./gradlew "${gradle_test_only_args[@]}" > "${gradle_log}" 2>&1; then
+      popd >/dev/null
+      return 0
+    fi
   fi
 
   # Local Docker Desktop networking on Windows can intermittently flap right
@@ -1240,7 +1261,7 @@ deploy_verification_feedback_lambda() {
 deploy_sftp_transaction_collector() {
   local zip_path="${LOG_DIR}/sftp-transaction-collector.zip"
   local zip_arg="fileb://${zip_path}"
-  local env_vars="Variables={TRANSACTION_SFTP_BUCKET=scroogebank-crm-dev-transaction-sftp,TRANSACTION_SFTP_PREFIX=incoming/,TRANSACTION_IMPORT_URL=http://transaction-service:8080/api/transactions/import,TRANSACTION_IMPORT_JWT_HMAC_SECRET=${JWT_HMAC_SECRET},TRANSACTION_IMPORT_JWT_SUB=SYSTEM_TRANSACTION_INGESTION,TRANSACTION_IMPORT_JWT_ROLE=admin,TRANSACTION_IMPORT_JWT_TTL_SECONDS=300}"
+  local env_vars="Variables={TRANSACTION_SFTP_BUCKET=scroogebank-crm-dev-transaction-sftp,TRANSACTION_SFTP_PREFIX=incoming/,TRANSACTION_IMPORT_URL=http://transaction-service:8080/api/transactions/import,TRANSACTION_IMPORT_JWT_HMAC_SECRET=${JWT_HMAC_SECRET},TRANSACTION_IMPORT_JWT_SUB=SYSTEM_TRANSACTION_INGESTION,TRANSACTION_IMPORT_JWT_ROLE=super_admin,TRANSACTION_IMPORT_JWT_TTL_SECONDS=300}"
 
   if [[ "${AWS_IS_WINDOWS}" == "true" ]]; then
     zip_arg="fileb://$(to_windows_path "${zip_path}")"
@@ -1303,7 +1324,7 @@ deploy_aml_lambda() {
     zip_arg="fileb://$(to_windows_path "${zip_path}")"
   fi
 
-  aml_bearer_token="$(mint_jwt "system_aml_localstack" "admin")"
+  aml_bearer_token="$(mint_jwt "system_aml_localstack" "super_admin")"
   env_vars="Variables={AML_SFTP_MODE=mock,CRM_API_BASE_URL=${aml_api_base_url},CRM_WRITE_API_BASE_URL=${aml_api_base_url},CRM_API_BEARER_TOKEN=${aml_bearer_token}}"
 
   if aws_local lambda get-function --function-name "${AML_LAMBDA_FUNCTION_NAME}" >/dev/null 2>&1; then
@@ -2350,6 +2371,8 @@ TX_INGESTION_LAMBDA_INVOKE_JSON="$(cat "${TX_INGESTION_LAMBDA_INVOKE_OUTPUT}")"
 TX_INGESTION_LAMBDA_INVOKE_JSON="${TX_INGESTION_LAMBDA_INVOKE_JSON}" ${PYTHON_CMD} - <<'PY'
 import json, os
 payload = json.loads(os.environ["TX_INGESTION_LAMBDA_INVOKE_JSON"])
+if payload.get("errorMessage"):
+  raise SystemExit(f"sftp-transaction-collector lambda failed: {payload.get('errorType','Error')} {payload.get('errorMessage')}")
 status_code = int(payload.get("statusCode", 0))
 if status_code not in (200, 202):
     raise SystemExit(f"sftp-transaction-collector lambda returned unexpected statusCode={status_code}")
@@ -2406,7 +2429,8 @@ import os
 payload = json.loads(os.environ["AML_LAMBDA_INVOKE_JSON"])
 status_code = int(payload.get("statusCode", 0))
 if status_code != 200:
-    raise SystemExit(f"AML lambda returned unexpected statusCode={status_code}")
+  body = payload.get("body")
+  raise SystemExit(f"AML lambda returned unexpected statusCode={status_code}; body={body}")
 
 body = payload.get("body", {})
 if isinstance(body, str):

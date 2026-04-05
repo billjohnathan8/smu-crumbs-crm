@@ -327,7 +327,21 @@ public class ClientServiceImpl implements ClientService {
 		String effectivePostalCode = request.postalCode() != null ? request.postalCode() : entity.getPostalCode();
 		validatePostalCode(effectiveCountry, effectivePostalCode);
 		Long id = entity.getId();
-		checkUpdateConflicts(id, request.emailAddress(), request.phoneNumber());
+		String requestedEmail = request.emailAddress();
+		if (
+			requestedEmail != null
+			&& requestedEmail.trim().equalsIgnoreCase(entity.getEmailAddress())
+		) {
+			requestedEmail = null;
+		}
+		String requestedPhone = request.phoneNumber();
+		if (
+			requestedPhone != null
+			&& requestedPhone.trim().equals(entity.getPhoneNumber())
+		) {
+			requestedPhone = null;
+		}
+		checkUpdateConflicts(id, requestedEmail, requestedPhone);
 
 		StringJoiner attrs = new StringJoiner("|");
 		StringJoiner befores = new StringJoiner("|");
@@ -470,7 +484,7 @@ public class ClientServiceImpl implements ClientService {
 		String authorizationHeader,
 		String requestId
 	) {
-		requireRootAdmin(user);
+		requireAdmin(user);
 		String fromUserId = request.fromUserId().trim();
 		String toUserId = request.toUserId().trim();
 		if (fromUserId.equals(toUserId)) {
@@ -746,7 +760,7 @@ public class ClientServiceImpl implements ClientService {
 	 */
 	@Override
 	public long countClientsByAgent(AuthenticatedUser user, String assignedUserId) {
-		requireRootAdmin(user);
+		requireAdmin(user);
 		return clientRepository.countByAssignedUserIdAndDeletedFalse(assignedUserId);
 	}
 
@@ -930,6 +944,12 @@ public class ClientServiceImpl implements ClientService {
 	private static void requireRootAdmin(AuthenticatedUser user) {
 		if (!user.isRootAdmin()) {
 			throw new AccessDeniedException("Root admin role required");
+		}
+	}
+
+	private static void requireAdmin(AuthenticatedUser user) {
+		if (!user.isAdmin()) {
+			throw new AccessDeniedException("Admin role required");
 		}
 	}
 

@@ -152,6 +152,23 @@ describe('apiRequest', () => {
     expect(result).toBeUndefined()
   })
 
+  it('should handle 200 response with empty body', async () => {
+    const jsonSpy = vi.fn().mockRejectedValue(new SyntaxError('Unexpected end of JSON input'))
+    ;(globalThis.fetch as any).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: {
+        get: (header: string) => (header.toLowerCase() === 'content-length' ? '0' : null),
+      },
+      json: jsonSpy,
+    })
+
+    const result = await apiRequest('/test')
+
+    expect(result).toBeUndefined()
+    expect(jsonSpy).not.toHaveBeenCalled()
+  })
+
   it('should throw ApiError on 400 error with JSON response', async () => {
     ;(globalThis.fetch as any).mockResolvedValueOnce({
       ok: false,

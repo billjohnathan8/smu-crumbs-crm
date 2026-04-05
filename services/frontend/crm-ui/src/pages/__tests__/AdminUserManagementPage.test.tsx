@@ -264,6 +264,8 @@ it('should display users in table', async () => {
     expect(screen.getAllByText('User').length).toBeGreaterThanOrEqual(2)
     expect(screen.getByText('user@example.com')).toBeInTheDocument()
     expect(screen.getAllByText('Agent').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByRole('columnheader', { name: 'usr_id' })).toBeInTheDocument()
+    expect(screen.getByText('user-123')).toBeInTheDocument()
   })
 })
 
@@ -279,6 +281,9 @@ it('should display admins in table for super admin', async () => {
     expect(screen.getAllByText('Admin').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('admin@example.com')).toBeInTheDocument()
     expect(screen.getAllByText('Agent').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByRole('columnheader', { name: 'usr_id' }).length).toBeGreaterThanOrEqual(2)
+    expect(screen.getByText('admin-123')).toBeInTheDocument()
+    expect(screen.getByText('user-123')).toBeInTheDocument()
   })
 })
 
@@ -327,6 +332,51 @@ it('should show transfer guidance as tooltip for disabled agents with clients', 
     'title',
     'Transfer assigned clients; archive is automatic.'
   )
+})
+
+it('should show transfer action for disabled agents with clients for admin', async () => {
+  const disabledAgent: User = {
+    ...mockAgentUser,
+    status: 'disabled',
+  }
+
+  vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
+    data: [disabledAgent],
+    pagination: { total: 1, limit: 10, offset: 0 },
+  })
+  vi.spyOn(clientsApi, 'countClientsByAgent').mockResolvedValue(2)
+
+  renderAdminUserManagementPage(mockAdminUser)
+
+  const transferButton = await screen.findByRole('button', { name: 'Transfer (2)' })
+  expect(transferButton).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Archive' })).not.toBeInTheDocument()
+})
+
+it('should allow admin to archive disabled agent when no clients remain', async () => {
+  const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+  const disabledAgent: User = {
+    ...mockAgentUser,
+    status: 'disabled',
+  }
+
+  vi.spyOn(usersApi, 'listUsers').mockResolvedValue({
+    data: [disabledAgent],
+    pagination: { total: 1, limit: 10, offset: 0 },
+  })
+  vi.spyOn(clientsApi, 'countClientsByAgent').mockResolvedValue(0)
+  vi.spyOn(usersApi, 'deleteUser').mockResolvedValue()
+
+  renderAdminUserManagementPage(mockAdminUser)
+
+  const archiveButton = await screen.findByRole('button', { name: 'Archive' })
+  fireEvent.click(archiveButton)
+
+  await waitFor(() => {
+    expect(usersApi.deleteUser).toHaveBeenCalledWith('user-123')
+  })
+
+  confirmSpy.mockRestore()
 })
 
 it('should handle delete admin for super admin', async () => {

@@ -114,7 +114,7 @@ export function AdminUserManagementPage() {
   }, [isRootAdmin, logout])
 
   useEffect(() => {
-    if (!isRootAdmin) {
+    if (!canManageUsers) {
       return
     }
     const disabledAgents = users.filter(u => u.role === 'user' && u.status === 'disabled')
@@ -133,7 +133,7 @@ export function AdminUserManagementPage() {
       setAgentClientCounts(prev => ({ ...prev, ...counts }))
     }
     fetchCounts()
-  }, [isRootAdmin, users])
+  }, [canManageUsers, users])
 
   useEffect(() => {
     if (!canManageUsers) {
@@ -265,8 +265,8 @@ export function AdminUserManagementPage() {
   }
 
   const handleTransferConfirm = async () => {
-    if (!isRootAdmin) {
-      setError('Only root admin can transfer clients between agents')
+    if (!canManageUsers) {
+      setError('Only admins can transfer clients between agents')
       return
     }
     if (!transferFromUser) return
@@ -493,6 +493,7 @@ export function AdminUserManagementPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-border">
+                        <th className="text-left py-2 px-4 font-medium text-text">usr_id</th>
                         <th className="text-left py-2 px-4 font-medium text-text">First Name</th>
                         <th className="text-left py-2 px-4 font-medium text-text">Last Name</th>
                         <th className="text-left py-2 px-4 font-medium text-text">Email</th>
@@ -504,6 +505,7 @@ export function AdminUserManagementPage() {
                     <tbody>
                       {admins.map(admin => (
                         <tr key={admin.id} className="border-b border-border/50">
+                          <td className="py-3 px-4 text-text font-mono">{admin.id || '-'}</td>
                           <td className="py-3 px-4 text-text">{admin.firstName}</td>
                           <td className="py-3 px-4 text-text">{admin.lastName}</td>
                           <td className="py-3 px-4 text-text">{admin.email}</td>
@@ -566,6 +568,7 @@ export function AdminUserManagementPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-border">
+                        <th className="text-left py-2 px-4 font-medium text-text">usr_id</th>
                         <th className="text-left py-2 px-4 font-medium text-text">First Name</th>
                         <th className="text-left py-2 px-4 font-medium text-text">Last Name</th>
                         <th className="text-left py-2 px-4 font-medium text-text">Email</th>
@@ -577,6 +580,7 @@ export function AdminUserManagementPage() {
                     <tbody>
                       {regularUsers.map(u => (
                         <tr key={u.id} className="border-b border-border/50">
+                          <td className="py-3 px-4 text-text font-mono">{u.id || '-'}</td>
                           <td className="py-3 px-4 text-text">{u.firstName}</td>
                           <td className="py-3 px-4 text-text">{u.lastName}</td>
                           <td className="py-3 px-4 text-text">{u.email}</td>
@@ -606,7 +610,7 @@ export function AdminUserManagementPage() {
                                 </>
                               ) : (
                                 <>
-                                  {isRootAdmin && (agentClientCounts[u.id] ?? -1) > 0 && (
+                                  {(agentClientCounts[u.id] ?? -1) > 0 && (
                                     <button
                                       onClick={() => openTransferModal(u)}
                                       title="Transfer assigned clients; archive is automatic."
@@ -619,7 +623,7 @@ export function AdminUserManagementPage() {
                                         : ''}
                                     </button>
                                   )}
-                                  {isRootAdmin && (agentClientCounts[u.id] ?? -1) === 0 && (
+                                  {(agentClientCounts[u.id] ?? -1) === 0 && (
                                     <button
                                       onClick={() => handleDeleteUser(u.id, u.role)}
                                       disabled={deletingUserId === u.id}

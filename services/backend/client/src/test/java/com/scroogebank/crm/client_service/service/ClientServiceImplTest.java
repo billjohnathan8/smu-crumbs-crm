@@ -471,8 +471,8 @@ class ClientServiceImplTest {
 			payload.lastName(),
 			payload.dateOfBirth(),
 			payload.gender(),
-			payload.emailAddress(),
-			payload.phoneNumber(),
+			null,
+			null,
 			payload.address(),
 			payload.city(),
 			payload.state(),
@@ -483,8 +483,6 @@ class ClientServiceImplTest {
 		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
 		existing.setFirstName("OldFirst");
 		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
-		when(clientRepository.existsByEmailAddressIgnoreCaseAndIdNot(payload.emailAddress(), 12L)).thenReturn(false);
-		when(clientRepository.existsByPhoneNumberAndIdNot(payload.phoneNumber(), 12L)).thenReturn(false);
 		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
 		var result = clientService.updateClient(user, "clt_12", request, "Bearer x", "req-1");
@@ -569,10 +567,11 @@ class ClientServiceImplTest {
 	void updateClient_whenEmailExistsForOtherId_throwsDuplicateClientException() {
 		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
-		ClientUpdateRequest request = new ClientUpdateRequest(null, null, null, null, payload.emailAddress(), null, null, null, null, null, null, null);
+		String conflictingEmail = "existing.other@example.com";
+		ClientUpdateRequest request = new ClientUpdateRequest(null, null, null, null, conflictingEmail, null, null, null, null, null, null, null);
 		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
 		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
-		when(clientRepository.existsByEmailAddressIgnoreCaseAndIdNot(payload.emailAddress(), 12L)).thenReturn(true);
+		when(clientRepository.existsByEmailAddressIgnoreCaseAndIdNot(conflictingEmail, 12L)).thenReturn(true);
 
 		assertThatThrownBy(() -> clientService.updateClient(user, "clt_12", request, "Bearer x", "req-1"))
 			.isInstanceOf(DuplicateClientException.class)
@@ -586,10 +585,11 @@ class ClientServiceImplTest {
 	void updateClient_whenPhoneExistsForOtherId_throwsDuplicateClientException() {
 		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
-		ClientUpdateRequest request = new ClientUpdateRequest(null, null, null, null, null, payload.phoneNumber(), null, null, null, null, null, null);
+		String conflictingPhone = "+15557654321";
+		ClientUpdateRequest request = new ClientUpdateRequest(null, null, null, null, null, conflictingPhone, null, null, null, null, null, null);
 		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
 		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
-		when(clientRepository.existsByPhoneNumberAndIdNot(payload.phoneNumber(), 12L)).thenReturn(true);
+		when(clientRepository.existsByPhoneNumberAndIdNot(conflictingPhone, 12L)).thenReturn(true);
 
 		assertThatThrownBy(() -> clientService.updateClient(user, "clt_12", request, "Bearer x", "req-1"))
 			.isInstanceOf(DuplicateClientException.class)
@@ -776,6 +776,24 @@ class ClientServiceImplTest {
 	}
 
 	@Test
+	void updateClient_sameEmailAndPhoneAsExisting_ignoresArchivedDuplicateConflicts() {
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
+		ClientPayload payload = samplePayload();
+		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
+		ClientUpdateRequest request = new ClientUpdateRequest(
+			"Renamed", null, null, null, payload.emailAddress(), payload.phoneNumber(), null, null, null, null, null, null
+		);
+		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
+		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		var updated = clientService.updateClient(user, "clt_12", request, "Bearer x", "req-1");
+
+		assertThat(updated.firstName()).isEqualTo("Renamed");
+		verify(clientRepository, never()).existsByEmailAddressIgnoreCaseAndIdNot(any(), anyLong());
+		verify(clientRepository, never()).existsByPhoneNumberAndIdNot(any(), anyLong());
+	}
+
+	@Test
 	void reviewVerification_nonAdminOrAgent_throwsAccessDenied() {
 		AuthenticatedUser user = new AuthenticatedUser("usr_1", "auditor");
 
@@ -820,8 +838,8 @@ class ClientServiceImplTest {
 	}
 
 	@Test
-	void reassignClients_adminLogsAuditAsUpdate() {
-		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
+	void reassignClients_nonRootAdminLogsAuditAsUpdate() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_9", "admin");
 		ClientEntity c1 = entityFromPayload(7L, "usr_from", samplePayload());
 		ClientEntity c2 = entityFromPayload(8L, "usr_from", samplePayload());
 		when(clientRepository.findByAssignedAgentId("usr_from")).thenReturn(List.of(c1, c2));
@@ -840,7 +858,7 @@ class ClientServiceImplTest {
 			eq("assignedUserId"),
 			eq("usr_from"),
 			eq("usr_to"),
-			eq("usr_1"),
+			eq("usr_9"),
 			eq("clt_7"),
 			eq("req-1"),
 			eq("Bearer x")
@@ -850,11 +868,43 @@ class ClientServiceImplTest {
 			eq("assignedUserId"),
 			eq("usr_from"),
 			eq("usr_to"),
-			eq("usr_1"),
+			eq("usr_9"),
 			eq("clt_8"),
 			eq("req-1"),
 			eq("Bearer x")
 		);
+	}
+
+	@Test
+	void reassignClients_nonAdminForbidden() {
+		AuthenticatedUser user = new AuthenticatedUser("usr_2", "user");
+
+		assertThatThrownBy(() ->
+			clientService.reassignClients(user, new ReassignRequest("usr_from", "usr_to"), "Bearer x", "req-1")
+		)
+			.isInstanceOf(AccessDeniedException.class)
+			.hasMessageContaining("Admin role required");
+		verify(clientRepository, never()).reassignClients(any(), any());
+	}
+
+	@Test
+	void countClientsByAgent_adminAllowed() {
+		AuthenticatedUser admin = new AuthenticatedUser("usr_9", "admin");
+		when(clientRepository.countByAssignedUserIdAndDeletedFalse("usr_2")).thenReturn(3L);
+
+		long count = clientService.countClientsByAgent(admin, "usr_2");
+
+		assertThat(count).isEqualTo(3L);
+	}
+
+	@Test
+	void countClientsByAgent_nonAdminForbidden() {
+		AuthenticatedUser user = new AuthenticatedUser("usr_2", "user");
+
+		assertThatThrownBy(() -> clientService.countClientsByAgent(user, "usr_2"))
+			.isInstanceOf(AccessDeniedException.class)
+			.hasMessageContaining("Admin role required");
+		verify(clientRepository, never()).countByAssignedUserIdAndDeletedFalse(any());
 	}
 
 	@Test

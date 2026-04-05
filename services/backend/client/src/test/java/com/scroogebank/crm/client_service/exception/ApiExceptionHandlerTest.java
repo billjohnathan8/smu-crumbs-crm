@@ -214,6 +214,23 @@ class ApiExceptionHandlerTest {
 	}
 
 	@Test
+	void handleDataIntegrityViolation_duplicatePhone_withLegacyConstraintName_returnsPhoneMessage() {
+		ApiExceptionHandler handler = new ApiExceptionHandler(false);
+		MockHttpServletRequest request = new MockHttpServletRequest();
+
+		DataIntegrityViolationException ex = new DataIntegrityViolationException(
+			"ERROR: duplicate key value violates unique constraint \"clients_phone_number_key\""
+		);
+
+		var response = handler.handleDataIntegrityViolation(request, ex);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+		assertThat(response.getBody()).isNotNull();
+		assertThat(response.getBody().error()).isEqualTo("conflict");
+		assertThat(response.getBody().message()).isEqualTo("Phone number already exists.");
+	}
+
+	@Test
 	void handleInternal_whenDuplicateEmailSignaturePresent_returnsConflictInsteadOfInternalError() {
 		ApiExceptionHandler handler = new ApiExceptionHandler(false);
 		MockHttpServletRequest request = new MockHttpServletRequest();

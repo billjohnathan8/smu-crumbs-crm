@@ -257,9 +257,6 @@ public class UserAccountService {
 		if (isRootAdminUserId(target.id())) {
 			throw new AccessDeniedException("Root admin accounts cannot be archived via the API");
 		}
-		if (!isSeededRootAdmin(user)) {
-			throw new AccessDeniedException("Only root admins can archive users.");
-		}
 
 		validateHierarchyPermissions(user, target.role(), "archive");
 		if (target.status() != UserStatus.disabled) {
