@@ -83,7 +83,7 @@ export function RootArchivedAdminsPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left py-2 px-4 font-medium text-text">User ID</th>
+                  <th className="text-left py-2 px-4 font-medium text-text">usr_id</th>
                   <th className="text-left py-2 px-4 font-medium text-text">Name</th>
                   <th className="text-left py-2 px-4 font-medium text-text">Email</th>
                   <th className="text-left py-2 px-4 font-medium text-text">Archived At</th>
@@ -94,7 +94,7 @@ export function RootArchivedAdminsPage() {
               <tbody>
                 {users.map(u => (
                   <tr key={u.id} className="border-b border-border/50">
-                    <td className="py-3 px-4 text-text">{u.id}</td>
+                    <td className="py-3 px-4 text-text font-mono">{u.id || '-'}</td>
                     <td className="py-3 px-4 text-text">
                       {u.firstName} {u.lastName}
                     </td>
