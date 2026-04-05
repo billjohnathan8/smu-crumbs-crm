@@ -124,14 +124,25 @@ jobs:
           aws s3 sync \
             "${{ inputs.working_directory }}/${{ inputs.build_output_dir }}/" \
             "s3://${{ vars.FRONTEND_BUCKET }}/${RELEASE_PREFIX}/" \
-            --delete
+            --delete \
+            --cache-control "public,max-age=31536000,immutable"
 
-      - name: Upload live static assets to S3
+      - name: Upload live static assets to S3 (immutable)
         run: |
           aws s3 sync \
             "${{ inputs.working_directory }}/${{ inputs.build_output_dir }}/" \
             "s3://${{ vars.FRONTEND_BUCKET }}/live/" \
-            --delete
+            --delete \
+            --exclude "index.html" \
+            --cache-control "public,max-age=31536000,immutable"
+
+      - name: Upload live index.html to S3 (no-store)
+        run: |
+          aws s3 cp \
+            "${{ inputs.working_directory }}/${{ inputs.build_output_dir }}/index.html" \
+            "s3://${{ vars.FRONTEND_BUCKET }}/live/index.html" \
+            --cache-control "no-store,no-cache,must-revalidate,max-age=0" \
+            --content-type "text/html"
 
       - name: Invalidate CloudFront cache
         run: |

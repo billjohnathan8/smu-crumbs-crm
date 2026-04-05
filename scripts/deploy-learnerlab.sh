@@ -451,16 +451,23 @@ if [[ "$SKIP_FRONTEND" == "false" ]]; then
     pushd "$TF_DIR" > /dev/null
     ALB=$(terraform output -raw alb_dns_name)
     BUCKET=$(terraform output -raw frontend_bucket_name)
+    CLOUDFRONT_DISTRIBUTION_ID="$(terraform output -raw cloudfront_distribution_id 2>/dev/null || true)"
     popd > /dev/null
 
     # Create .env.production
-    printf "VITE_API_BASE_URL=http://%s" "$ALB" > "$FRONTEND_DIR/.env.production"
-    ok ".env.production -> VITE_API_BASE_URL=http://$ALB"
+    printf "VITE_API_BASE_URL=" > "$FRONTEND_DIR/.env.production"
+    ok ".env.production -> VITE_API_BASE_URL=(empty; relative /api routes)"
 
     pushd "$FRONTEND_DIR" > /dev/null
     run_checked "npm install" npm install
     run_checked "npm run build" npm run build
-    run_checked "S3 sync frontend to s3://$BUCKET/live/" aws s3 sync dist/ "s3://$BUCKET/live/" --delete
+    run_checked "S3 sync live immutable assets to s3://$BUCKET/live/" aws s3 sync dist/ "s3://$BUCKET/live/" --delete --exclude "index.html" --cache-control "public,max-age=31536000,immutable"
+    run_checked "Upload live index.html (no-store) to s3://$BUCKET/live/index.html" aws s3 cp dist/index.html "s3://$BUCKET/live/index.html" --cache-control "no-store,no-cache,must-revalidate,max-age=0" --content-type "text/html"
+    if [[ -n "${CLOUDFRONT_DISTRIBUTION_ID:-}" ]]; then
+        run_checked "Create CloudFront invalidation for frontend hotfix" aws cloudfront create-invalidation --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" --paths "/*"
+    else
+        echo "Skipping CloudFront invalidation (no distribution output available)."
+    fi
     popd > /dev/null
 else
     echo "Skipping frontend (--skip-frontend flag)."

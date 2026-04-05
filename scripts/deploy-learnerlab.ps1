@@ -496,16 +496,19 @@ if (-not $SkipFrontend) {
     }
 
     # Create .env.production
-    $envContent = "VITE_API_BASE_URL=http://$ALB"
+    $envContent = "VITE_API_BASE_URL="
     [System.IO.File]::WriteAllText((Join-Path $FRONTEND_DIR ".env.production"), $envContent)
-    Write-OK ".env.production -> VITE_API_BASE_URL=http://$ALB"
+    Write-OK ".env.production -> VITE_API_BASE_URL=(empty; relative /api routes)"
 
     Push-Location $FRONTEND_DIR
     try {
         Invoke-Checked "npm install" { npm install }
         Invoke-Checked "npm run build" { npm run build }
-        Invoke-Checked "S3 sync frontend to s3://$BUCKET/live/" {
-            aws s3 sync dist/ "s3://$BUCKET/live/" --delete
+        Invoke-Checked "S3 sync live immutable assets to s3://$BUCKET/live/" {
+            aws s3 sync dist/ "s3://$BUCKET/live/" --delete --exclude "index.html" --cache-control "public,max-age=31536000,immutable"
+        }
+        Invoke-Checked "Upload live index.html (no-store) to s3://$BUCKET/live/index.html" {
+            aws s3 cp dist/index.html "s3://$BUCKET/live/index.html" --cache-control "no-store,no-cache,must-revalidate,max-age=0" --content-type "text/html"
         }
 
         if (-not [string]::IsNullOrWhiteSpace($CLOUDFRONT_DISTRIBUTION_ID)) {
