@@ -349,69 +349,69 @@ jobs:
       artifact-paths: services/frontend/crm-ui/coverage/**
 
   # ==========================================================================
-  # Layer 3: Frontend Latency Tests — DISABLED
-  # Performance tests are kept in the repo but NOT run in CI
+  # Layer 3: Frontend Latency Tests — CPM22: Re-enabled for CI enforcement
+  # Performance tests validate CS301 requirement: all operations < 5 seconds
   # To run locally: cd services/frontend/crm-ui && npm run test:e2e:latency
   # ==========================================================================
-  # frontend-latency-tests:
-  #   name: Frontend Latency Tests (CS301 <5s)
-  #   if: ${{ !failure() && !cancelled() }}
-  #   needs:
-  #     - changes
-  #     - lint
-  #     - test-user
-  #     - test-user-db
-  #     - test-client
-  #     - test-client-db
-  #     - test-transaction
-  #     - test-transaction-db
-  #     - test-log
-  #     - test-log-db
-  #     - test-verification
-  #     - test-sftp-transaction-collector
-  #     - test-audit-consumer
-  #     - test-aml-consumer
-  #     - test-frontend
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 15
-  #   defaults:
-  #     run:
-  #       working-directory: services/frontend/crm-ui
-  #
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-  #       timeout-minutes: 2
-  #
-  #     - name: Set up Node.js 20
-  #       uses: actions/setup-node@v4
-  #       timeout-minutes: 2
-  #       with:
-  #         node-version: '20'
-  #         cache: 'npm'
-  #         cache-dependency-path: services/frontend/crm-ui/package-lock.json
-  #
-  #     - name: Install dependencies
-  #       timeout-minutes: 3
-  #       run: npm ci
-  #
-  #     - name: Install Playwright browsers
-  #       timeout-minutes: 5
-  #       run: npx playwright install --with-deps chromium
-  #
-  #     - name: Run frontend latency tests
-  #       timeout-minutes: 10
-  #       run: npm run test:e2e:latency
-  #
-  #     - name: Upload test results on failure
-  #       if: failure()
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: playwright-results-latency-main
-  #         path: |
-  #           services/frontend/crm-ui/test-results/
-  #           services/frontend/crm-ui/playwright-report/
-  #         retention-days: 7
+  frontend-latency-tests:
+    name: Frontend Latency Tests (CS301 <5s)
+    if: ${{ !failure() && !cancelled() }}
+    needs:
+      - changes
+      - lint
+      - test-user
+      - test-user-db
+      - test-client
+      - test-client-db
+      - test-transaction
+      - test-transaction-db
+      - test-log
+      - test-log-db
+      - test-verification
+      - test-sftp-transaction-collector
+      - test-audit-consumer
+      - test-aml-consumer
+      - test-frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: services/frontend/crm-ui
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        timeout-minutes: 2
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        timeout-minutes: 2
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: services/frontend/crm-ui/package-lock.json
+
+      - name: Install dependencies
+        timeout-minutes: 3
+        run: npm ci
+
+      - name: Install Playwright browsers
+        timeout-minutes: 5
+        run: npx playwright install --with-deps chromium
+
+      - name: Run frontend latency tests
+        timeout-minutes: 10
+        run: npm run test:e2e:latency
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results-latency-main
+          path: |
+            services/frontend/crm-ui/test-results/
+            services/frontend/crm-ui/playwright-report/
+          retention-days: 7
 
   # ==========================================================================
   # Layer 4: Fullstack integration — real containers + LocalStack
@@ -430,7 +430,7 @@ jobs:
            needs.changes.outputs.ci-config == 'true') }}
     needs:
       - changes
-      # - frontend-latency-tests  # DISABLED: performance tests not run in CI
+      - frontend-latency-tests  # CPM22: Re-enabled for performance enforcement
     uses: ./.github/workflows/reusable-fullstack-integration.yml
     with:
       fullstack-mode: ${{ github.event_name == 'pull_request' && 'pr' || 'full' }}
