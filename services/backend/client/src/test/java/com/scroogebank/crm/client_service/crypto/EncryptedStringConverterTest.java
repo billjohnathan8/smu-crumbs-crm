@@ -3,7 +3,6 @@ package com.scroogebank.crm.client_service.crypto;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -12,23 +11,22 @@ import org.junit.jupiter.api.Test;
 class EncryptedStringConverterTest {
 	private static final String VALID_PII_KEY = "MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY=";
 
-	private EncryptedStringConverter converter;
-
-	@BeforeEach
-	void setUp() {
+	private static EncryptedStringConverter newConverterWithValidKey() {
 		System.setProperty("PII_ENCRYPTION_KEY", VALID_PII_KEY);
 		EncryptedStringConverter.resetForTests();
-		converter = new EncryptedStringConverter();
+		return new EncryptedStringConverter();
 	}
 
 	@Test
 	void nullValue_returnsNullForBothDirections() {
+		EncryptedStringConverter converter = newConverterWithValidKey();
 		assertThat(converter.convertToDatabaseColumn(null)).isNull();
 		assertThat(converter.convertToEntityAttribute(null)).isNull();
 	}
 
 	@Test
 	void encryptThenDecrypt_returnsOriginalValue() {
+		EncryptedStringConverter converter = newConverterWithValidKey();
 		String plaintext = "123 Main Street, Springfield";
 		String encrypted = converter.convertToDatabaseColumn(plaintext);
 
@@ -40,6 +38,7 @@ class EncryptedStringConverterTest {
 
 	@Test
 	void emptyString_encryptsAndDecryptsBack() {
+		EncryptedStringConverter converter = newConverterWithValidKey();
 		String encrypted = converter.convertToDatabaseColumn("");
 		assertThat(encrypted).isNotNull().isNotEmpty();
 
@@ -49,6 +48,7 @@ class EncryptedStringConverterTest {
 
 	@Test
 	void longString_encryptsAndDecryptsBack() {
+		EncryptedStringConverter converter = newConverterWithValidKey();
 		String longAddress = "A".repeat(500);
 		String encrypted = converter.convertToDatabaseColumn(longAddress);
 		String decrypted = converter.convertToEntityAttribute(encrypted);
@@ -57,6 +57,7 @@ class EncryptedStringConverterTest {
 
 	@Test
 	void unicodeCharacters_encryptAndDecryptCorrectly() {
+		EncryptedStringConverter converter = newConverterWithValidKey();
 		String unicode = "123 大街, 新加坡 シンガポール";
 		String encrypted = converter.convertToDatabaseColumn(unicode);
 		String decrypted = converter.convertToEntityAttribute(encrypted);
@@ -65,6 +66,7 @@ class EncryptedStringConverterTest {
 
 	@Test
 	void sameValueEncryptedTwice_producesDifferentCiphertext() {
+		EncryptedStringConverter converter = newConverterWithValidKey();
 		String plaintext = "Some PII data";
 		String encrypted1 = converter.convertToDatabaseColumn(plaintext);
 		String encrypted2 = converter.convertToDatabaseColumn(plaintext);
@@ -73,6 +75,7 @@ class EncryptedStringConverterTest {
 
 	@Test
 	void missingKey_failsClosed() {
+		EncryptedStringConverter converter = new EncryptedStringConverter();
 		System.clearProperty("PII_ENCRYPTION_KEY");
 		EncryptedStringConverter.resetForTests();
 
@@ -83,6 +86,7 @@ class EncryptedStringConverterTest {
 
 	@Test
 	void invalidKey_failsClosed() {
+		EncryptedStringConverter converter = new EncryptedStringConverter();
 		System.setProperty("PII_ENCRYPTION_KEY", "not-base64");
 		EncryptedStringConverter.resetForTests();
 
@@ -93,6 +97,7 @@ class EncryptedStringConverterTest {
 
 	@Test
 	void tooShortBase64Ciphertext_failsClosed() {
+		EncryptedStringConverter converter = newConverterWithValidKey();
 		String tooShort = "AQID";
 		assertThatThrownBy(() -> converter.convertToEntityAttribute(tooShort))
 			.isInstanceOf(IllegalStateException.class)
@@ -101,6 +106,7 @@ class EncryptedStringConverterTest {
 
 	@Test
 	void invalidBase64Ciphertext_failsClosed() {
+		EncryptedStringConverter converter = newConverterWithValidKey();
 		String invalid = "not!!valid@@base64##";
 		assertThatThrownBy(() -> converter.convertToEntityAttribute(invalid))
 			.isInstanceOf(IllegalStateException.class)

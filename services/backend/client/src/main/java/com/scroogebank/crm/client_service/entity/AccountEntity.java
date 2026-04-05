@@ -2,6 +2,8 @@ package com.scroogebank.crm.client_service.entity;
 
 import com.scroogebank.crm.client_service.dto.AccountStatus;
 import com.scroogebank.crm.client_service.dto.AccountType;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -11,8 +13,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -53,32 +53,16 @@ public class AccountEntity {
 	@Column(name = "branch_id", nullable = false, length = 40)
 	private String branchId;
 
-	@Column(name = "created_at", nullable = false)
+	@CreationTimestamp
+	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
 
+	@UpdateTimestamp
 	@Column(name = "updated_at", nullable = false)
 	private Instant updatedAt;
 
 	@Column(name = "deleted", nullable = false)
 	private boolean deleted = false;
-
-	/**
-	 * Initializes timestamps before persistence.
-	 */
-	@PrePersist
-	void prePersist() {
-		Instant now = Instant.now();
-		createdAt = now;
-		updatedAt = now;
-	}
-
-	/**
-	 * Updates the modification timestamp before update.
-	 */
-	@PreUpdate
-	void preUpdate() {
-		updatedAt = Instant.now();
-	}
 
 	public Long getId() {
 		return id;
