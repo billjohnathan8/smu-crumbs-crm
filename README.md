@@ -29,11 +29,12 @@ Current region profiles in repo:
 - Learner Lab profile: `us-east-1` in `platform/terraform/env/lab.tfvars`
 
 ## Tech Stack
+This section contains our tech stack and prerequisites you will require before starting.
 
 ### Programming Languages
 
 - Java 21
-- Python (3.13 in CI workflows; 3.12+ in local prerequisites)
+- Python (3.12+ in CI workflows; 3.12+ in local prerequisites)
 - TypeScript 5.x
 - JavaScript (Node.js 20 in CI workflows)
 - SQL (schema and migration scripts)
@@ -85,6 +86,7 @@ Current region profiles in repo:
 - Amazon VPC (subnets, route tables, NACLs, Internet Gateway, NAT Gateway, flow logs)
 - Amazon ECS on Fargate
 - AWS Lambda
+- AWS S3
 - Amazon ECR
 - Application Load Balancer (ALB)
 - Amazon CloudFront
@@ -96,7 +98,7 @@ Current region profiles in repo:
 - AWS CodeDeploy
 - LocalStack for local AWS service emulation
 
-### DevOps, CI/CD, and Build Tooling
+#### DevOps, CI/CD, and Build Tooling
 
 - GitHub Actions
 - Gradle
@@ -106,7 +108,7 @@ Current region profiles in repo:
 - Make
 - jq (deployment and output parsing scripts)
 
-### Testing, Quality, and Security Tooling
+#### Testing, Quality, and Security Tooling
 
 - JUnit + Mockito + Testcontainers (Java)
 - pytest + pytest-cov (Python)
@@ -121,7 +123,7 @@ Current region profiles in repo:
 - Spectral (OpenAPI linting)
 - JaCoCo and V8-based coverage reports
 
-### Observability and Operations
+#### Observability and Operations
 
 - Amazon CloudWatch (logs, metrics, alarms, dashboards)
 - AWS CloudTrail
@@ -219,7 +221,12 @@ curl http://127.0.0.1:18088/api/transactions/health
 - Java 21
 - Node.js 22+
 - Python 3.12+
-- Terraform (needed for infra workflows)
+- Terraform (needed for infra workflows)  
+
+> NOTE:
+> - Windows PowerShell: use `python`
+> - Linux/macOS/WSL: use `python3`
+> - `scripts/pipelines/setup_dev_env.py` does not install Python
 
 ### Required Local Config
 
@@ -404,7 +411,12 @@ terraform -chdir=platform/terraform destroy -var-file=env/hk.tfvars
 - Stack startup failure: `bash scripts/dev/stack-down.sh` then `bash scripts/dev/stack-up.sh`.
 - Missing env values: verify `.env.local` contains all keys from `.env.example`.
 - Terraform backend init errors: verify bucket/table/region values in `env/*.backend.hcl` and ensure backend resources exist.
-- App deployment issues after apply: confirm `terraform output -json` includes `ecr_repository_urls` and `frontend_bucket_name`.
+- App deployment issues after apply: confirm `terraform output -json` includes `ecr_repository_urls` and `frontend_bucket_name`. 
+
+> For specialized cases, use:
+> - [infrastructure/localstack-setup.md](infrastructure/localstack-setup.md)
+> - [infrastructure/terraform-infra-workflow.md](infrastructure/terraform-infra-workflow.md)
+> - [testing/TESTING-GUIDE.md](testing/TESTING-GUIDE.md)
 
 ## 6. Attribution of AI
 Artificial Intelligence (in the form of consultation, auditing, and coding agents were used in this project). The core responsibilities and domains of AI usage for this project are:
@@ -419,6 +431,7 @@ Core Models Used:
 - OpenAI Codex
 - Claude Code
 - GitHub Copilot
+- Gemini Code Assist
 
 ## 7. Links To Detailed Docs
 
@@ -431,7 +444,6 @@ For evaluators who want deeper implementation detail and deployment evidence, us
 - Terraform workflow: [docs/infrastructure/terraform-infra-workflow.md](docs/infrastructure/terraform-infra-workflow.md)
 - Terraform remote state: [docs/infrastructure/terraform-remote-state.md](docs/infrastructure/terraform-remote-state.md)
 - DB/env config: [docs/database_configuration.md](docs/database_configuration.md)
-- Troubleshooting guide: [docs/troubleshooting.md](docs/troubleshooting.md)
 - Docs index: [docs/README.md](docs/README.md)
 - Coding standards: [docs/coding-standards/coding-standards.md](docs/coding-standards/coding-standards.md)
 - Frontend documentation: [docs/frontend/README.md](docs/frontend/README.md)
@@ -453,13 +465,13 @@ For evaluators who want deeper implementation detail and deployment evidence, us
 
 # Team
 CS301 G2T3 - CRUMBS:
-BILL JOHNATHAN
-DENISE LIE
-TOH DE XUE
-BERNARDINUS MATTEO WOENARDI
-PEH SIEW YU
-TANIA LEE GUNAWAN
-VERDIO WONG
+- BILL JOHNATHAN
+- DENISE LIE 
+- TOH DE XUE 
+- BERNARDINUS MATTEO WOENARDI 
+- PEH SIEW YU 
+- TANIA LEE GUNAWAN 
+- VERDIO WONG 
 
 ---
 This project was completed as part of CS301 IT Systems Architecture at Singapore Management University. The implementation reflects real-world enterprise architecture principles and modern cloud development practices.
