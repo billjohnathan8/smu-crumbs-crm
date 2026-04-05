@@ -130,17 +130,22 @@ public class ClientServiceImpl implements ClientService {
 		IdentityVerificationStatus kycStatus,
 		String assignedUserId
 	) {
-		requireRootAdmin(user);
+		// CPM24-E: Allow agents to see their own archived clients for follow-up
+		requireClientDataAccess(user);
 		int normalizedLimit = Math.max(1, Math.min(200, limit));
 		int normalizedOffset = Math.max(0, offset);
 		String query = q == null ? null : q.trim();
 		String normalizedAssignedUserId = assignedUserId == null ? null : assignedUserId.trim();
 
-		List<ClientEntity> archived = clientRepository.searchDeletedWithFilters(
-			query,
-			kycStatus,
-			normalizedAssignedUserId
-		);
+		List<ClientEntity> archived;
+		if (user.isRootAdmin()) {
+			// Root admin can filter by any agent or see all
+			archived = clientRepository.searchDeletedWithFilters(query, kycStatus, normalizedAssignedUserId);
+		} else {
+			// Agents only see their own archived clients
+			archived = clientRepository.searchDeletedWithFilters(query, kycStatus, user.userId());
+		}
+
 		long total = archived.size();
 		int fromIndex = Math.min(normalizedOffset, archived.size());
 		int toIndex = Math.min(fromIndex + normalizedLimit, archived.size());
@@ -492,6 +497,12 @@ public class ClientServiceImpl implements ClientService {
 			entity.setIdentityVerificationStatus(IdentityVerificationStatus.rejected);
 			entity.setVerificationVerifiedAt(null);
 		}
+
+		// CPM14: Capture reviewer notes and reviewer identity
+		if (request.reviewerNotes() != null && !request.reviewerNotes().isBlank()) {
+			entity.setVerificationReviewerNotes(request.reviewerNotes().trim());
+		}
+		entity.setVerificationReviewedBy(user.userId());
 
 		ClientEntity saved = clientRepository.save(entity);
 
@@ -849,11 +860,14 @@ public class ClientServiceImpl implements ClientService {
 			entity.getPostalCode(),
 			entity.getAssignedAgentId(),
 			entity.getIdentityVerificationStatus(),
+			entity.getClientStatus(),
 			entity.getPrimaryDocumentType(),
 			entity.getPrimaryDocumentRef(),
 			entity.getAddressDocumentType(),
 			entity.getAddressDocumentRef(),
 			entity.getVerificationVerifiedAt(),
+			entity.getVerificationReviewerNotes(),
+			entity.getVerificationReviewedBy(),
 			entity.getCreatedAt(),
 			entity.getUpdatedAt()
 		);
