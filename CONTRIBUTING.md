@@ -22,6 +22,7 @@ Thank you for contributing to the project! This guide will help you understand o
 - [Testing Requirements](#testing-requirements)
 - [Pull Request Process](#pull-request-process)
 - [Branch Strategy](#branch-strategy)
+- [Branch Promotion](#branch-promotion)
 - [Git Hooks Setup](#git-hooks-setup)
 - [Code Review Guidelines](#code-review-guidelines)
 - [Documentation Standards](#documentation-standards)
@@ -360,6 +361,12 @@ We use a **component trunk** strategy with branch policies:
 | `transaction-backend` | Transaction service | Backend team | Feature branches |
 | `log-backend` | Log service | Backend team | Feature branches |
 | `feature/*` | Individual features | Creator | N/A (merge into component trunks) |
+
+### Branch Promotion
+
+- `dev/` - is used for any feature and service logic change
+- `integration/` - is used to test feature against integration and regression tests
+- `main/` - is used to run the CI Pipeline and fully deploy pure service changes
 
 ### Merge Direction (Enforced by CI)
 
