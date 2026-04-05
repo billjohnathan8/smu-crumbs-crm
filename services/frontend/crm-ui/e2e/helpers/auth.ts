@@ -98,12 +98,12 @@ export async function loginAsAgent(page: Page) {
  * Set up localStorage with auth state without going through login flow
  * Useful for tests that need to start already authenticated
  */
-export async function setAuthState(page: Page, role: "admin" | "user") {
+export async function setAuthState(page: Page, role: "admin" | "user" | "super_admin") {
   const user = {
-    id: role === "admin" ? "admin-1" : "user-1",
-    firstName: role === "admin" ? "Admin" : "User",
+    id: role === "super_admin" ? "usr_1" : role === "admin" ? "admin-1" : "user-1",
+    firstName: role === "super_admin" ? "Root" : role === "admin" ? "Admin" : "User",
     lastName: "User",
-    email: `${role}@example.com`,
+    email: role === "super_admin" ? "admin@crm.com" : `${role}@example.com`,
     role,
     status: "active",
   };

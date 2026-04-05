@@ -3,11 +3,11 @@ import { gotoWithNetworkRetry, setAuthState } from "../helpers/auth";
 import { measureLatency } from "../utils/performance";
 
 const adminUser = {
-  id: "admin-1",
-  firstName: "Admin",
+  id: "usr_1",
+  firstName: "Root",
   lastName: "User",
-  email: "admin@example.com",
-  role: "admin",
+  email: "admin@crm.com",
+  role: "super_admin",
   status: "active",
 };
 
@@ -328,7 +328,7 @@ test.describe("Admin Client Management (Mocked)", () => {
   test("navigates from client list to client detail to account management", async ({ page }) => {
     await setupAdminClientRoutes(page);
     await gotoWithNetworkRetry(page, "/login");
-    await setAuthState(page, "admin");
+    await setAuthState(page, "super_admin");
 
     await measureLatency(async () => {
       await gotoWithNetworkRetry(page, "/admin/clients");
@@ -355,7 +355,7 @@ test.describe("Admin Client Management (Mocked)", () => {
   }) => {
     await setupAdminClientRoutes(page);
     await gotoWithNetworkRetry(page, "/login");
-    await setAuthState(page, "admin");
+    await setAuthState(page, "super_admin");
 
     await gotoWithNetworkRetry(page, "/admin/clients/clt_001/accounts");
     await expect(page.getByRole("heading", { name: "Bank Accounts" })).toBeVisible();
@@ -394,7 +394,7 @@ test.describe("Admin Client Management (Mocked)", () => {
   test("opens create client page from admin client list", async ({ page }) => {
     await setupAdminClientRoutes(page);
     await gotoWithNetworkRetry(page, "/login");
-    await setAuthState(page, "admin");
+    await setAuthState(page, "super_admin");
 
     await gotoWithNetworkRetry(page, "/admin/clients");
     await measureLatency(async () => {
@@ -407,7 +407,7 @@ test.describe("Admin Client Management (Mocked)", () => {
   test("opens edit client page from client detail", async ({ page }) => {
     await setupAdminClientRoutes(page);
     await gotoWithNetworkRetry(page, "/login");
-    await setAuthState(page, "admin");
+    await setAuthState(page, "super_admin");
 
     await gotoWithNetworkRetry(page, "/admin/clients/clt_001");
     await page.getByRole("button", { name: "Edit Client" }).click();
