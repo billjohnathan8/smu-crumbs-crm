@@ -119,6 +119,10 @@ resource "aws_ecs_service" "service_strict" {
       registry_arn = aws_service_discovery_service.service[each.key].arn
     }
   }
+
+  lifecycle {
+    ignore_changes = [task_definition]
+  }
 }
 
 # ECS Services - mutable ownership path for non-production environments

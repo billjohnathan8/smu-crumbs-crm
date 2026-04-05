@@ -40,6 +40,12 @@ get_tfvar_value() {
   ' "${VAR_FILE}"
 }
 
+AWS_REGION="${AWS_REGION:-$(get_tfvar_value "aws_region")}"
+if [[ -z "${AWS_REGION}" ]]; then
+  echo "Unable to resolve AWS region. Set AWS_REGION or define aws_region in ${VAR_FILE}."
+  exit 1
+fi
+
 state_has() {
   local address="$1"
   terraform state show "${address}" >/dev/null 2>&1
@@ -129,6 +135,8 @@ move_legacy_ecs_service_addresses_if_needed() {
 reconcile_sftp_server_if_needed() {
   local enable_ec2_sftp_server
   enable_ec2_sftp_server="$(tr '[:upper:]' '[:lower:]' <<< "$(get_tfvar_value "enable_ec2_sftp_server")")"
+  local enable_aml_lambda
+  enable_aml_lambda="$(tr '[:upper:]' '[:lower:]' <<< "$(get_tfvar_value "enable_aml_lambda")")"
 
   if [[ "${enable_ec2_sftp_server}" != "true" ]]; then
     return 0
@@ -136,8 +144,7 @@ reconcile_sftp_server_if_needed() {
 
   local module_prefix='module\.sftp_server'
   if state_has_prefix "${module_prefix}"; then
-    echo "SFTP module resources already tracked in state under module.sftp_server."
-    return 0
+    echo "SFTP module resources already present in state; checking for any missing tracked instances."
   fi
 
   local name_prefix="${PROJECT_NAME}-${ENVIRONMENT}"
@@ -160,6 +167,37 @@ reconcile_sftp_server_if_needed() {
   fi
   if [[ -n "${sg_id}" && "${sg_id}" != "None" ]]; then
     import_if_missing "module.sftp_server.aws_security_group.sftp_ec2[0]" "${sg_id}" "SFTP security group ${sg_name}"
+  fi
+
+  if [[ "${enable_aml_lambda}" == "true" && -n "${sg_id}" && "${sg_id}" != "None" ]]; then
+    local lambda_sg_name="${name_prefix}-lambda-sg"
+    local lambda_sg_id=""
+    local sftp_ingress_rule_id=""
+
+    if [[ -n "${vpc_id}" ]]; then
+      lambda_sg_id="$(aws ec2 describe-security-groups \
+        --region "${AWS_REGION}" \
+        --filters "Name=group-name,Values=${lambda_sg_name}" "Name=vpc-id,Values=${vpc_id}" \
+        --query 'SecurityGroups[0].GroupId' \
+        --output text 2>/dev/null || true)"
+    fi
+
+    if [[ -n "${lambda_sg_id}" && "${lambda_sg_id}" != "None" ]]; then
+      sftp_ingress_rule_id="$(aws ec2 describe-security-groups \
+        --region "${AWS_REGION}" \
+        --group-ids "${sg_id}" \
+        --query "SecurityGroups[0].IpPermissions[?FromPort==\`22\` && ToPort==\`22\` && IpProtocol=='tcp' && length(UserIdGroupPairs[?GroupId=='${lambda_sg_id}']) > \`0\`].UserIdGroupPairs[?GroupId=='${lambda_sg_id}'][0].SecurityGroupRuleId | [0]" \
+        --output text 2>/dev/null || true)"
+    fi
+
+    if [[ -n "${sftp_ingress_rule_id}" && "${sftp_ingress_rule_id}" != "None" ]]; then
+      import_if_missing \
+        "module.sftp_server.aws_security_group_rule.sftp_ec2_ingress_from_security_groups[\"0\"]" \
+        "${sg_id}_ingress_tcp_22_22_${lambda_sg_id}" \
+        "SFTP ingress 22 from Lambda security group"
+    else
+      echo "SFTP ingress 22 from Lambda security group does not exist in AWS yet; Terraform apply must create it."
+    fi
   fi
 
   if aws iam get-role --role-name "${role_name}" >/dev/null 2>&1; then
