@@ -59,6 +59,187 @@ jobs:
   # ==========================================================================
   # Layer 0: Detect which components changed
   # ============================================================================
+  changes:
+    uses: ./.github/workflows/reusable-changes.yml
+
+  # ========================================================================== 
+  # Layer 1: Lint / Format / Typecheck  (gates everything downstream)
+  # ============================================================================
+  lint:
+    needs: changes
+    uses: ./.github/workflows/reusable-lint.yml
+    secrets: inherit
+    with:
+      run-secrets: true
+      run-openapi: true
+      run-backend-java: >-
+        ${{ needs.changes.outputs.any-backend == 'true'
+            || needs.changes.outputs.ci-config == 'true' }}
+      run-backend-python: >-
+        ${{ needs.changes.outputs.backend-log == 'true'
+            || needs.changes.outputs.backend-verification == 'true'
+            || needs.changes.outputs.backend-sftp-transaction-collector == 'true'
+            || needs.changes.outputs.backend-audit-consumer == 'true'
+            || needs.changes.outputs.backend-aml-consumer == 'true'
+            || needs.changes.outputs.ci-config == 'true' }}
+      run-frontend: >-
+        ${{ needs.changes.outputs.frontend == 'true'
+            || needs.changes.outputs.ci-config == 'true' }}
+      run-terraform: >-
+        ${{ needs.changes.outputs.platform == 'true'
+            || needs.changes.outputs.ci-config == 'true' }}
+
+  # ========================================================================== 
+  # Layer 2: Component tests  (parallel, each gated by its scope)
+  # Includes fast unit tests and separate DB-backed Postgres gates for
+  # stateful services.
+  # ============================================================================
+  test-user:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-user == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component.yml
+    with:
+      component: user
+      runtime: java
+      working-directory: services/backend/user
+      test-command: |
+        chmod +x gradlew
+        ./gradlew test jacocoTestReport jacocoTestCoverageVerification --no-daemon --console=plain
+      timeout-minutes: 10
+      artifact-paths: services/backend/user/build/reports/**
+
+  test-user-db:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-user == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component-db.yml
+    with:
+      component: user
+      runtime: java
+      working-directory: services/backend/user
+      test-command: |
+        chmod +x gradlew
+        ./gradlew test \
+          --tests "com.scroogebank.crm.user_service.service.PersistentUserStoreTest" \
+          --no-daemon --console=plain
+      timeout-minutes: 12
+      artifact-paths: services/backend/user/build/reports/**
+
+  test-client:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-client == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component.yml
+    with:
+      component: client
+      runtime: java
+      working-directory: services/backend/client
+      test-command: |
+        chmod +x gradlew
+        ./gradlew test jacocoTestReport jacocoTestCoverageVerification --no-daemon --console=plain
+      timeout-minutes: 12
+      artifact-paths: services/backend/client/build/reports/**
+
+  test-client-db:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-client == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component-db.yml
+    with:
+      component: client
+      runtime: java
+      working-directory: services/backend/client
+      test-command: |
+        chmod +x gradlew
+        ./gradlew test \
+          --tests "com.scroogebank.crm.client_service.ClientsServiceIT" \
+          -PincludeIntegration=true \
+          --no-daemon --console=plain
+      timeout-minutes: 15
+      artifact-paths: services/backend/client/build/reports/**
+
+  test-transaction:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-transaction == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component.yml
+    with:
+      component: transaction
+      runtime: java
+      working-directory: services/backend/transaction
+      test-command: |
+        chmod +x gradlew
+        ./gradlew test jacocoTestReport jacocoTestCoverageVerification --no-daemon --console=plain
+      timeout-minutes: 10
+      artifact-paths: services/backend/transaction/build/reports/**
+
+  test-transaction-db:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-transaction == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component-db.yml
+    with:
+      component: transaction
+      runtime: java
+      working-directory: services/backend/transaction
+      test-command: |
+        chmod +x gradlew
+        ./gradlew test \
+          --tests "com.scroogebank.crm.transaction_service.service.PersistentTransactionsStoreTest" \
+          --no-daemon --console=plain
+      timeout-minutes: 12
+      artifact-paths: services/backend/transaction/build/reports/**
+
+  test-log:
+    needs: [changes, lint]
+    if: >-
+      ${{ needs.changes.outputs.backend-log == 'true'
+          || needs.changes.outputs.ci-config == 'true' }}
+    uses: ./.github/workflows/reusable-test-component.yml
+    with:
+      component: log
+      runtime: python
+      working-directory: services/backend/log
+      test-command: |
+        python -m pytest tests \
+          --junitxml=build/reports/tests/junit.xml \
+          --cov=app \
+          --cov-branch \
+          --cov-fail-under=80 \
+          --cov-report=term-missing \
+          --cov-report=xml:build/reports/coverage/coverage.xml \
+          --cov-report=html:build/reports/coverage/html
+      timeout-minutes: 8
+      artifact-paths: |
+        services/backend/log/build/reports/**
+        services/backend/log/build/coverage.xml
+    branches:
+      - main
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-main-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: read
+
+jobs:
+  # ==========================================================================
+  # Layer 0: Detect which components changed
+  # ============================================================================
   # Layer 4: Deploy  (not yet implemented — placeholder)
       timeout-minutes: 8
       artifact-paths: |
