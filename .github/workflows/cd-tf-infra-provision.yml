@@ -1,4 +1,4 @@
-name: CD - Terraform Infra Provision
+name: CD - Terraform Infra Provision & Deploy
 # Apply a reviewed Terraform plan by commit SHA, then deploy all services.
 # Idempotent: works whether infra is fully up, partially up, or down.
 #
