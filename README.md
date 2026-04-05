@@ -1,219 +1,276 @@
-
-[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/ojTTbieH)
-
 # CS301 ITSA Scroogebank Enterprise CRM
-![AWS](https://img.shields.io/badge/AWS-Cloud%20Native-orange)
-![Microservices](https://img.shields.io/badge/Architecture-Microservices-yellow)
-![React](https://img.shields.io/badge/Frontend-React-63e5ff)
-![Java](https://img.shields.io/badge/Backend-Springboot-green)
-![Python](https://img.shields.io/badge/Backend-Python%20Lambda-006666)
-![Terraform](https://img.shields.io/badge/IaC-Terraform-purple)
----
-> A cloud-native, microservices-based, and enterprise Customer Relationship Management (CRM) system for Scrooge Global Bank - developed as the flagship project for CS301 IT Solution Architecture (ITSA).
 
-# Tech Stack (Simplified)
-- Terraform (IaC)
-- React (frontend) + TypeScript + TailwindCSS
-- Spring Boot (Java 21) + Python Lambda services (Python 3.12+)
-- PostgreSQL, Docker
+Submission-oriented quick guide for evaluators and deployers.
 
-# Getting Started
+This README contains the two required instruction sets from the CS301 rubric:
+1. Testing the current setup.
+2. Recreating/deploying the solution in another region.
 
-## 1. Prerequisites
+## 1. Project Overview
+
+Scroogebank CRM is a cloud-native system with:
+- Frontend: React/TypeScript (`services/frontend/crm-ui`)
+- Backend: Spring Boot services (`services/backend/user`, `services/backend/client`, `services/backend/transaction`)
+- Supporting Lambdas and pipelines (Python)
+- Infrastructure as code: Terraform (`platform/terraform`)
+
+Current region profiles in repo:
+- Shared integration/prod profiles: Singapore (`ap-southeast-1`) in `platform/terraform/env/integration.tfvars` and `platform/terraform/env/prod.tfvars`
+- Learner Lab profile: `us-east-1` in `platform/terraform/env/lab.tfvars`
+
+## 2. Evaluator Quick Start - Current Setup (Instruction Set A)
+
+### What To Test
+
+Use the local stack for deterministic evaluation (no cloud dependency required).
+
+### Current Testable Environments and URLs
+
+| Environment | Purpose | URL / How to get URL |
+|---|---|---|
+| Local stack | Primary evaluator flow | `http://127.0.0.1:18088` |
+| Local health checks | API readiness | `http://127.0.0.1:18088/api/user/health`, `http://127.0.0.1:18088/api/clients/health`, `http://127.0.0.1:18088/api/transactions/health` |
+| Terraform-managed AWS env (if already deployed) | Cloud smoke check | `terraform -chdir=platform/terraform output -raw app_url` |
+
+Project-specific deployed domain: fill from actual Terraform output (`app_url`); do not invent.
+
+### Required Usernames
+
+- `admin@crm.com`
+- `agent1@crm.com`
+
+Passwords are documented only in the project report and must not appear in this README.
+
+### Minimal Evaluator Checklist (Safe Sample Values)
+
+1. Prepare local env and start stack.
+```bash
+cp .env.example .env.local
+bash scripts/dev/stack-up.sh
+```
+2. Open `http://127.0.0.1:18088` and sign in as `admin@crm.com`.
+3. Sign in as `agent1@crm.com` in a separate session.
+4. Create a client using safe sample values (aligned with integration test fixtures):
+   - First name: `Client`
+   - Last name: `Record`
+   - Date of birth: `1990-01-01`
+   - Email: `eval.client.001@example.test`
+   - Phone: `+6591234567`
+   - Address: `100 Integration Street`, `Singapore`, `Singapore`, `123456`
+5. Create an account for that client:
+   - Account type: `Savings`
+   - Status: `Active`
+   - Initial deposit: `1000`
+   - Currency: `SGD`
+   - Branch ID: `SG-001`
+6. Verify health endpoints return `200`.
+```bash
+curl http://127.0.0.1:18088/api/user/health
+curl http://127.0.0.1:18088/api/clients/health
+curl http://127.0.0.1:18088/api/transactions/health
+```
+
+## 3. Local Developer Setup
+
+### Prerequisites
 
 - Git
-- Docker Desktop (or Docker Engine)
+- Docker Desktop / Docker Engine
 - Java 21
 - Node.js 22+
 - Python 3.12+
-- Make
+- Terraform (needed for infra workflows)
 
-Python command mapping:
-- Windows PowerShell: `python`
-- Linux/macOS/WSL: `python3`
+### Required Local Config
 
-Quick checks:
+Create `.env.local` from `.env.example` and set:
+- `LOCAL_DB_PASSWORD`
+- `JWT_HMAC_SECRET`
+- `E2E_ADMIN_PASSWORD`
+- `E2E_USER_PASSWORD`
 
-```powershell
-python --version
-python -m pip --version
-```
-
-```bash
-python3 --version
-python3 -m pip --version
-```
-
-## 2. Run setup
-
-Windows (recommended):
-
-```powershell
-.\scripts\setup\setup-dev.ps1
-```
-
-Cross-platform:
+### Core Commands
 
 ```bash
+# setup helpers
 python scripts/pipelines/setup_dev_env.py
-```
 
-`setup_dev_env.py` can install portable CLI tools (for example `inframap`, `trivy`) into `.devtools/bin`. It does not install Python.
-
-## 3. Create `.env.local`
-
-Copy `.env.example` to `.env.local` at repo root (gitignored) and set all required keys:
-
-| Variable | Purpose |
-|----------|---------|
-| `LOCAL_DB_PASSWORD` | Postgres (`crm_app`) password |
-| `JWT_HMAC_SECRET` | Shared HS256 secret for Java services and local Lambdas |
-| `E2E_ADMIN_PASSWORD` | Root admin login + user-service seed |
-| `E2E_USER_PASSWORD` | Seeded agent user (e.g. `agent1@crm.com`) |
-
-```bash
-cp .env.example .env.local
-```
-
-`scripts/dev/stack-up.sh`, `scripts/ci/run-fullstack-integration-e2e.sh`, and `scripts/pipelines/test_all.py` auto-load `.env.local` for local runs.
-
-## 4. Start local stack
-
-```bash
+# local stack
 bash scripts/dev/stack-up.sh
-```
-
-```bash
 bash scripts/dev/stack-down.sh
-```
 
-Services after startup:
-
-| Service | URL |
-|---|---|
-| Gateway (UI entry point) | http://127.0.0.1:18088 |
-| User service | http://127.0.0.1:18081 |
-| Client service | http://127.0.0.1:18082 |
-| Transaction service | http://127.0.0.1:18083 |
-| Frontend container | http://127.0.0.1:18085 |
-| LocalStack | http://127.0.0.1:14566 |
-
-## 5. Validate locally
-
-```bash
+# full local test pipeline
 python scripts/pipelines/test_all.py
 ```
 
-Useful flags:
+## 4. Deployment / Recreation In Another Region (Instruction Set B)
+
+Example target: Hong Kong (`ap-east-1`).
+
+### Prerequisites
+
+- AWS CLI authenticated to target account
+- Terraform CLI
+- Docker
+- Java 21
+- Node.js 22+
+- `jq`
+
+### Required Configuration Inputs
+
+1. Create region-specific backend and tfvars files.
+```bash
+cp platform/terraform/env/integration.backend.hcl platform/terraform/env/hk.backend.hcl
+cp platform/terraform/env/integration.tfvars platform/terraform/env/hk.tfvars
+```
+2. Edit `platform/terraform/env/hk.backend.hcl`:
+   - `region`
+   - `bucket`
+   - `dynamodb_table`
+   - `key` path (environment segment)
+3. Edit `platform/terraform/env/hk.tfvars`:
+   - `environment`
+   - `aws_region`
+   - `user_image_tag`, `client_image_tag`, `transaction_image_tag`
+   - any owned domain/email/certificate settings used by your target environment
+4. Export required sensitive vars (do not commit):
+```bash
+export TF_VAR_jwt_hmac_secret="<secure-random-32+-char-secret>"
+export TF_VAR_root_admin_password="<strong-password>"
+```
+5. If verification pipeline is enabled and no domain is set, provide `verification_frontend_base_url` (as noted in `integration.tfvars` / `prod.tfvars`).
+
+### Infra Provision Steps (Exact Commands)
+
+Create remote state resources once (adjust names/region):
 
 ```bash
-python scripts/pipelines/test_all.py --skip-fullstack
-python scripts/pipelines/test_all.py --fullstack-mode smoke
-python scripts/pipelines/test_all.py --dry-run
+aws s3api create-bucket --bucket <your-tf-state-bucket> --region <target-region> --create-bucket-configuration LocationConstraint=<target-region>
+aws s3api put-bucket-versioning --bucket <your-tf-state-bucket> --versioning-configuration Status=Enabled
+aws dynamodb create-table --table-name <your-tf-lock-table> --attribute-definitions AttributeName=LockID,AttributeType=S --key-schema AttributeName=LockID,KeyType=HASH --billing-mode PAY_PER_REQUEST --region <target-region>
 ```
 
-## 6. Quick troubleshooting
-
-- Python not found: use `python` on Windows and `python3` on Linux/macOS/WSL.
-- Setup fails on missing tools: run `python scripts/pipelines/setup_dev_env.py --doctor`.
-- Stack startup issues: run `bash scripts/dev/stack-down.sh`, then retry `bash scripts/dev/stack-up.sh`.
-- Fullstack startup issues: rerun `bash scripts/ci/run-fullstack-integration-e2e.sh` and inspect `build-logs/fullstack-integration/`.
-
-Related docs:
-- [docs/database_configuration.md](docs/database_configuration.md)
-- [docs/testing/TESTING-GUIDE.md](docs/testing/TESTING-GUIDE.md)
-- [docs/infrastructure/localstack-setup.md](docs/infrastructure/localstack-setup.md)
-
-Root admin email (seeded by stack-up): `admin@crm.com`. Use `.env.local` for known local passwords.
-
-# OWASP ZAP Baseline Scan
-
-For a quick security pass against the local gateway, run the Dockerized ZAP baseline scan from Windows PowerShell:
-
-```powershell
-powershell -File .\scripts\security\run-zap-baseline.ps1 -StartDevStack -OpenReport
-```
-
-That command starts the local dev stack, waits for the gateway at `http://127.0.0.1:18088`, then writes HTML and JSON reports under `build-logs/zap/`.
-
-If you want to scan a staging clone instead of the local stack, pass `-TargetUrl` to the same script and keep it outside production.
-
-To scan an authenticated staging environment, run:
-
-```powershell
-powershell -File .\scripts\security\run-zap-baseline.ps1 -TargetUrl https://staging.example.com -Authenticated -LoginEmail admin@example.com -LoginPassword $env:E2E_ADMIN_PASSWORD -OpenReport
-```
-
-That mode logs in through `/api/auth/login`, adds the bearer token to ZAP requests, and then scans authenticated pages as well.
-
-# Infrastructure Visualization
-Use these commands from repo root to visualize Terraform infrastructure:
+Initialize and create ECR repos first (same sequence used in deploy scripts):
 
 ```bash
-make inframap
-make inframap-full
-make terraform-graph
+terraform -chdir=platform/terraform init -reconfigure -backend-config=env/hk.backend.hcl
+terraform -chdir=platform/terraform apply -target=module.ecr -var-file=env/hk.tfvars -auto-approve
 ```
 
-Alternatively, use Brainboard.
+### App Deployment Steps (Exact Commands)
 
-# Local/CI Runtime Snapshot (2026-03-30)
-Measured on this repository's latest local run. Use as planning guidance, not an SLA.
+Resolve Terraform outputs:
 
-| Command | Observed runtime | Source log |
-|---|---:|---|
-| `python scripts/pipelines/test_all.py` | `3410.1s` (~56m 50s) | `build-logs/test-all/last-run-summary.md` |
-| `test_all.py` Layer 6 (`Fullstack integration (full)`) | `962.7s` (~16m 03s) | `build-logs/test-all/last-run-summary.md` |
-| `test_all.py` Layer 5 (`Frontend Latency Tests`) | `131.1s` (~2m 11s) | `build-logs/test-all/last-run-summary.md` |
-| `test_all.py` Layer 7 (`Performance test (stress)`) | `879.3s` (~14m 39s) | `build-logs/test-all/last-run-summary.md` |
+```bash
+TF_JSON="$(terraform -chdir=platform/terraform output -json)"
+USER_REPO="$(jq -r '.ecr_repository_urls.value.user' <<<"$TF_JSON")"
+CLIENT_REPO="$(jq -r '.ecr_repository_urls.value.client' <<<"$TF_JSON")"
+TX_REPO="$(jq -r '.ecr_repository_urls.value.transaction' <<<"$TF_JSON")"
+FRONTEND_BUCKET="$(jq -r '.frontend_bucket_name.value' <<<"$TF_JSON")"
+CLOUDFRONT_ID="$(jq -r '.cloudfront_distribution_id.value // empty' <<<"$TF_JSON")"
+ECR_REGISTRY="${USER_REPO%%/*}"
+```
 
-Notes:
-- Latest `test_all.py` run passed all recorded steps.
-- Latest fullstack integration run passed: `[PASS] Fullstack integration (full) (962.7s)`.
-- Full per-step timings for all layers are in `build-logs/test-all/last-run-summary.md` (total: `3410.1s`).
-- Runtime varies with Docker cache, dependency cache, and LocalStack/container startup conditions.
+Build and push backend images (tags must match `hk.tfvars`):
 
-# Transaction Ingestion
+```bash
+# user
+(cd services/backend/user && ./gradlew clean bootJar -x test --no-daemon --console=plain)
+docker build -t "$USER_REPO:<user-image-tag>" services/backend/user
 
-Transaction CSV files can be ingested via three supported methods:
+# client
+(cd services/backend/client && ./gradlew clean bootJar -x test --no-daemon --console=plain)
+docker build -t "$CLIENT_REPO:<client-image-tag>" services/backend/client
 
-1. **SFTP Endpoint** (EC2 self-hosted)
-   - Real SFTP protocol with SSH key-based authentication
-   - Prod default uses EC2 OpenSSH SFTP with S3-backed upload path
-   - Files land in S3 bucket -> Lambda collector -> Transaction import API
-   - See [docs/infrastructure/sftp-setup.md](docs/infrastructure/sftp-setup.md)
+# transaction
+(cd services/backend/transaction && ./gradlew clean bootJar -x test --no-daemon --console=plain)
+docker build -t "$TX_REPO:<transaction-image-tag>" services/backend/transaction
 
-2. **Direct S3 Upload** (all environments)
-   - AWS CLI or SDK upload to S3 bucket
-   - Lambda collector picks up files on schedule
-   - Script: `scripts/ci/seed-transaction-fixture.sh`
+aws ecr get-login-password --region <target-region> | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+docker push "$USER_REPO:<user-image-tag>"
+docker push "$CLIENT_REPO:<client-image-tag>"
+docker push "$TX_REPO:<transaction-image-tag>"
+```
 
-3. **Filesystem Mock** (local dev only)
-   - Transaction service reads directly from `MOCK_SFTP_ROOT`
-   - No S3 upload required
+Apply full infra (now that images exist in ECR):
 
-**Contract**: [docs/api-contracts/sftp-transaction-ingestion-contract.md](docs/api-contracts/sftp-transaction-ingestion-contract.md)
+```bash
+terraform -chdir=platform/terraform plan -var-file=env/hk.tfvars -out=tfplan-hk
+terraform -chdir=platform/terraform apply tfplan-hk
+```
 
-# Database (Local Postgres)
-- Host: `localhost` (or `postgres` inside Docker Compose network)
-- Port: `5432`
-- Database: `crm`
-- User: `crm_app`
-- Password: use `LOCAL_DB_PASSWORD` / `DB_PASSWORD` (see [docs/database_configuration.md](docs/database_configuration.md) for local defaults)
-- Runtime override vars (optional): `LOCAL_DB_NAME`, `LOCAL_DB_USER`, `LOCAL_DB_PASSWORD`
-- Full environment matrix and variable contract: [docs/database_configuration.md](docs/database_configuration.md)
+Deploy frontend assets:
 
-# Testing Credentials
-Local development/testing only. Do not use committed defaults for production.
+```bash
+cd services/frontend/crm-ui
+npm ci
+npm run build
+aws s3 sync dist/ "s3://$FRONTEND_BUCKET/live/" --exclude "index.html" --cache-control "public,max-age=31536000,immutable"
+aws s3 cp dist/index.html "s3://$FRONTEND_BUCKET/live/index.html" --cache-control "no-store,no-cache,must-revalidate,max-age=0" --content-type "text/html"
+if [ -n "$CLOUDFRONT_ID" ]; then aws cloudfront create-invalidation --distribution-id "$CLOUDFRONT_ID" --paths "/*"; fi
+```
 
-## Frontend
-- Root admin: `admin@crm.com` — set `E2E_ADMIN_PASSWORD` (or rely on dev defaults from `scripts/dev/stack-up.sh` when unset).
-- Sample user: `agent1@crm.com` — set `E2E_USER_PASSWORD` the same way.
+### Region-Specific Changes (Singapore -> Another Region)
 
-## Database (Project-wide)
-Shared Postgres (`crm` / `crm_app`): configure via `LOCAL_DB_PASSWORD` and related vars; see [docs/database_configuration.md](docs/database_configuration.md).
+- Update `aws_region` in your tfvars file.
+- Update backend `region` and backend resource names in your backend HCL file.
+- Recreate regional resources (ECR/ECS/RDS/Lambda/etc.) in target region.
+- Use target-region-owned sender/domain/cert settings (for example SES sender identity, Route53/ACM records).
 
-## Configuration Reference
-- Central config contract: [docs/database_configuration.md](docs/database_configuration.md)
-- LocalStack + local DB flow: [docs/infrastructure/localstack-setup.md](docs/infrastructure/localstack-setup.md)
-- Setup and troubleshooting quickstart: [#getting-started](#getting-started)
+### Manual Steps If Automation Is Incomplete
+
+- `scripts/deploy/deploy-aws.ps1` only supports `lab`, `integration`, `prod`. For custom env names (for example `hk`), use Terraform CLI commands directly.
+- Post-apply seeding (`scripts/ci/bootstrap-post-apply.sh`) requires manual secrets at runtime:
+  - `ROOT_ADMIN_PASSWORD`
+  - `SEED_USER_TEMP_PASSWORD` (if user seeding is enabled)
+- For SFTP verification, provide a real SSH private key and explicit runtime args to `scripts/ci/verify-prod-sftp-transaction-flow.ps1`.
+
+### Post-Deploy Validation Checks
+
+```bash
+terraform -chdir=platform/terraform output -raw app_url
+terraform -chdir=platform/terraform output -raw alb_dns_name
+```
+
+Health checks (replace with your ALB DNS output):
+
+```bash
+curl "http://<alb-dns-name>/api/user/health"
+curl "http://<alb-dns-name>/api/clients/health"
+curl "http://<alb-dns-name>/api/transactions/health"
+```
+
+Optional seed/bootstrap command:
+
+```bash
+API_BASE_URL="<terraform-output-app-url>" ROOT_ADMIN_PASSWORD="<root-admin-password>" SEED_USER_TEMP_PASSWORD="<temp-user-password>" bash scripts/ci/bootstrap-post-apply.sh
+```
+
+### Teardown / Cost Note
+
+Supported env names via script:
+- `./scripts/deploy/deploy-aws.ps1 -Env lab -Destroy`
+- `./scripts/deploy/deploy-aws.ps1 -Env integration -Destroy`
+- `./scripts/deploy/deploy-aws.ps1 -Env prod -Destroy`
+
+Custom env names (example `hk`):
+
+```bash
+terraform -chdir=platform/terraform destroy -var-file=env/hk.tfvars
+```
+
+## 5. Troubleshooting
+
+- Stack startup failure: `bash scripts/dev/stack-down.sh` then `bash scripts/dev/stack-up.sh`.
+- Missing env values: verify `.env.local` contains all keys from `.env.example`.
+- Terraform backend init errors: verify bucket/table/region values in `env/*.backend.hcl` and ensure backend resources exist.
+- App deployment issues after apply: confirm `terraform output -json` includes `ecr_repository_urls` and `frontend_bucket_name`.
+
+## 6. Links To Detailed Docs
+
+- Testing guide: [docs/testing/TESTING-GUIDE.md](docs/testing/TESTING-GUIDE.md)
+- LocalStack setup: [docs/infrastructure/localstack-setup.md](docs/infrastructure/localstack-setup.md)
+- Terraform workflow: [docs/infrastructure/terraform-infra-workflow.md](docs/infrastructure/terraform-infra-workflow.md)
+- Terraform remote state: [docs/infrastructure/terraform-remote-state.md](docs/infrastructure/terraform-remote-state.md)
+- DB/env config: [docs/database_configuration.md](docs/database_configuration.md)
+- Docs index: [docs/README.md](docs/README.md)
