@@ -14,6 +14,7 @@ START_TRANSACTION_ID=1000
 START_DATE="2026-01-01"
 END_DATE="2026-03-31"
 CLIENT_IDS=""
+CLIENT_IDS_FILE=""
 CLIENT_ID_MODE="pool"
 CLIENT_ID_COUNT=20
 REGION="ap-southeast-1"
@@ -39,6 +40,7 @@ Options:
   --start-date <YYYY-MM-DD>                Inclusive start date
   --end-date <YYYY-MM-DD>                  Inclusive end date
   --client-ids <csv>                       Comma-separated client IDs
+  --client-ids-file <path>                 File with client IDs (newline or comma separated)
   --client-id-mode <pool|sequential>       Client assignment mode
   --client-id-count <n>                    Auto client pool size when --client-ids not provided
   --region <aws-region>                    AWS region (default: ap-southeast-1)
@@ -63,6 +65,7 @@ while [[ $# -gt 0 ]]; do
     --start-date) START_DATE="$2"; shift 2 ;;
     --end-date) END_DATE="$2"; shift 2 ;;
     --client-ids) CLIENT_IDS="$2"; shift 2 ;;
+    --client-ids-file) CLIENT_IDS_FILE="$2"; shift 2 ;;
     --client-id-mode) CLIENT_ID_MODE="$2"; shift 2 ;;
     --client-id-count) CLIENT_ID_COUNT="$2"; shift 2 ;;
     --region) REGION="$2"; shift 2 ;;
@@ -121,6 +124,9 @@ GEN_ARGS=(
 )
 if [[ -n "${CLIENT_IDS}" ]]; then
   GEN_ARGS+=(--client-ids "${CLIENT_IDS}")
+fi
+if [[ -n "${CLIENT_IDS_FILE}" ]]; then
+  GEN_ARGS+=(--client-ids-file "${CLIENT_IDS_FILE}")
 fi
 
 "${PYTHON_CMD}" "${GENERATOR_SCRIPT}" "${GEN_ARGS[@]}"

@@ -106,6 +106,12 @@ def parse_args() -> argparse.Namespace:
         help="Comma-separated client IDs for pool mode (example: clt_1,clt_2).",
     )
     parser.add_argument(
+        "--client-ids-file",
+        type=Path,
+        default=None,
+        help="Path to file containing client IDs (newline or comma separated).",
+    )
+    parser.add_argument(
         "--client-id-count",
         type=int,
         default=20,
@@ -135,6 +141,16 @@ def parse_args() -> argparse.Namespace:
 
 
 def build_client_pool(args: argparse.Namespace) -> list[str]:
+    if args.client_ids_file is not None:
+        if not args.client_ids_file.exists():
+            raise ValueError(f"Client IDs file not found: {args.client_ids_file}")
+        file_text = args.client_ids_file.read_text(encoding="utf-8")
+        normalized = file_text.replace("\n", ",")
+        pool = [value.strip() for value in normalized.split(",") if value.strip()]
+        if not pool:
+            raise ValueError("No valid IDs found in --client-ids-file")
+        return pool
+
     if args.client_ids.strip():
         pool = [value.strip() for value in args.client_ids.split(",") if value.strip()]
         if not pool:
