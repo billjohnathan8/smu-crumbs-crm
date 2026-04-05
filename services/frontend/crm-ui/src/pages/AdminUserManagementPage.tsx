@@ -8,7 +8,7 @@ import {
   countClientsByAgent,
   getVerificationSubmissionSummary,
 } from '@/api/clients'
-import type { User, UserRole } from '@/api/types'
+import type { User, UserRole, VerificationSubmissionSummary } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout } from '@/components/SidebarDrawer'
 import { getSidebarNavForUser } from '@/navigation/sidebarNav'
@@ -36,6 +36,18 @@ const statusLabel = (status: User['status']) => {
   return 'ACTIVE'
 }
 
+const pendingSubmissionOwnerLabel = (assignedUserId: string | null, users: User[]) => {
+  if (!assignedUserId) return 'Unassigned clients'
+  const owner = users.find(candidate => candidate.id === assignedUserId)
+  if (!owner) return assignedUserId
+  return `${owner.firstName} ${owner.lastName}`
+}
+
+const pendingSubmissionOwnerId = (assignedUserId: string | null) => {
+  if (!assignedUserId) return 'unassigned'
+  return assignedUserId
+}
+
 export function AdminUserManagementPage() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
@@ -50,8 +62,10 @@ export function AdminUserManagementPage() {
   const [transferFromUser, setTransferFromUser] = useState<User | null>(null)
   const [transferToUserId, setTransferToUserId] = useState('')
   const [isTransferring, setIsTransferring] = useState(false)
+  const [isVerificationBreakdownOpen, setIsVerificationBreakdownOpen] = useState(false)
   const [agentClientCounts, setAgentClientCounts] = useState<Record<string, number>>({})
-  const [pendingSubmissionCount, setPendingSubmissionCount] = useState<number | null>(null)
+  const [verificationSummary, setVerificationSummary] =
+    useState<VerificationSubmissionSummary | null>(null)
   const [listFilters, setListFilters] = useState<{
     search: string
     role: UserRole | ''
@@ -126,8 +140,8 @@ export function AdminUserManagementPage() {
       return
     }
     getVerificationSubmissionSummary()
-      .then(summary => setPendingSubmissionCount(summary.pendingSubmissionCount))
-      .catch(() => setPendingSubmissionCount(null))
+      .then(summary => setVerificationSummary(summary))
+      .catch(() => setVerificationSummary(null))
   }, [canManageUsers])
 
   const handleDeleteUser = async (userId: string, userRole: UserRole) => {
@@ -322,6 +336,9 @@ export function AdminUserManagementPage() {
   const transferTargets = allRegularUsers.filter(
     u => u.status === 'active' && u.id !== transferFromUser?.id
   )
+  const pendingSubmissionsByAgent = (verificationSummary?.pendingSubmissionsByAgent ?? []).filter(
+    item => item.pendingSubmissionCount > 0
+  )
 
   return (
     <SidebarLayout items={getSidebarNavForUser(user)}>
@@ -358,14 +375,59 @@ export function AdminUserManagementPage() {
             <p className="text-success text-sm">{successMessage}</p>
           </div>
         )}
-        {pendingSubmissionCount !== null && (
-          <div className="bg-warning/10 border border-warning rounded-lg p-4 mb-6">
-            <p className="text-warning text-sm">
-              Pending verification submissions: {pendingSubmissionCount}.{' '}
-              {isRootAdmin
-                ? 'Review from root-admin client pages.'
-                : 'Notify root admin for review decisions.'}
+        {verificationSummary !== null && (
+          <div className="bg-background-lighter border border-warning rounded-lg p-4 mb-6 shadow-[0_0_0_1px_rgba(196,153,0,0.12)] dark:bg-card">
+            <p className="text-text text-sm dark:text-text-muted">
+              Pending verification submissions: {verificationSummary.pendingSubmissionCount}. Notify
+              related agent to review documents.
             </p>
+            {pendingSubmissionsByAgent.length > 0 && (
+              <div className="mt-3 rounded-lg border border-warning/40 bg-white px-3 py-2 dark:bg-card">
+                <button
+                  type="button"
+                  onClick={() => setIsVerificationBreakdownOpen(open => !open)}
+                  aria-expanded={isVerificationBreakdownOpen}
+                  className="flex w-full items-center justify-between gap-3 text-left text-sm font-medium text-text dark:text-text-muted"
+                >
+                  <span>View details</span>
+                  <span
+                    className={`text-xs text-text-muted transition-transform ${
+                      isVerificationBreakdownOpen ? 'rotate-180' : ''
+                    } dark:text-text-subtle`}
+                  >
+                    v
+                  </span>
+                </button>
+                {isVerificationBreakdownOpen && (
+                  <div className="mt-3 overflow-x-auto">
+                    <table className="min-w-full text-sm text-text dark:text-text-subtle">
+                      <thead>
+                        <tr className="text-left text-xs uppercase tracking-wide text-text-muted dark:text-text-subtle">
+                          <th className="pb-2 pr-4 font-medium">User ID</th>
+                          <th className="pb-2 pr-4 font-medium">Agent</th>
+                          <th className="pb-2 font-medium text-right">Pending</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pendingSubmissionsByAgent.map(item => (
+                          <tr key={item.assignedUserId ?? 'unassigned'}>
+                            <td className="py-1 pr-4 font-medium whitespace-nowrap text-text dark:text-text-subtle">
+                              {pendingSubmissionOwnerId(item.assignedUserId)}
+                            </td>
+                            <td className="py-1 pr-4 whitespace-nowrap text-text dark:text-text-subtle">
+                              {pendingSubmissionOwnerLabel(item.assignedUserId, users)}
+                            </td>
+                            <td className="py-1 font-medium text-right whitespace-nowrap text-text dark:text-text-subtle">
+                              {item.pendingSubmissionCount}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

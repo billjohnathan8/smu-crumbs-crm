@@ -80,12 +80,18 @@ describe('clients API', () => {
 
   describe('getVerificationSubmissionSummary', () => {
     it('should fetch pending verification submission summary', async () => {
-      vi.spyOn(client, 'apiGet').mockResolvedValue({ pendingSubmissionCount: 9 })
+      vi.spyOn(client, 'apiGet').mockResolvedValue({
+        pendingSubmissionCount: 9,
+        pendingSubmissionsByAgent: [{ assignedUserId: 'user-1', pendingSubmissionCount: 4 }],
+      })
 
       const result = await getVerificationSubmissionSummary()
 
       expect(client.apiGet).toHaveBeenCalledWith('/api/clients/verification/submissions/summary')
       expect(result.pendingSubmissionCount).toBe(9)
+      expect(result.pendingSubmissionsByAgent).toEqual([
+        { assignedUserId: 'user-1', pendingSubmissionCount: 4 },
+      ])
     })
   })
 

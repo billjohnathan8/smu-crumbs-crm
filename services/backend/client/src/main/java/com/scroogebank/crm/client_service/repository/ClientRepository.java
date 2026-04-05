@@ -12,6 +12,12 @@ import org.springframework.data.repository.query.Param;
  * Persistence operations for client entities with search helpers.
  */
 public interface ClientRepository extends JpaRepository<ClientEntity, Long> {
+	interface PendingSubmissionBreakdownProjection {
+		String getAssignedUserId();
+
+		long getPendingSubmissionCount();
+	}
+
 	@Query("SELECT COUNT(c) > 0 FROM ClientEntity c WHERE c.deleted = false AND LOWER(c.emailAddress) = LOWER(:email)")
 	boolean existsByEmailAddressIgnoreCase(@Param("email") String emailAddress);
 
@@ -178,6 +184,17 @@ public interface ClientRepository extends JpaRepository<ClientEntity, Long> {
 
 	long countByDeletedFalseAndIdentityVerificationStatus(
 		com.scroogebank.crm.client_service.dto.IdentityVerificationStatus status
+	);
+
+	@Query("""
+		SELECT c.assignedUserId AS assignedUserId, COUNT(c) AS pendingSubmissionCount
+		FROM ClientEntity c
+		WHERE c.deleted = false AND c.identityVerificationStatus = :status
+		GROUP BY c.assignedUserId
+		ORDER BY COUNT(c) DESC, c.assignedUserId ASC
+		""")
+	List<PendingSubmissionBreakdownProjection> countPendingSubmissionsGroupedByAssignedUserId(
+		@Param("status") com.scroogebank.crm.client_service.dto.IdentityVerificationStatus status
 	);
 
 	long countByAssignedUserIdAndDeletedFalseAndIdentityVerificationStatus(

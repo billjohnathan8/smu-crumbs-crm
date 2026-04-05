@@ -165,8 +165,14 @@ export interface VerifyClientResponse {
   identityVerificationStatus: IdentityVerificationStatus
 }
 
+export interface PendingSubmissionBreakdown {
+  assignedUserId: string | null
+  pendingSubmissionCount: number
+}
+
 export interface VerificationSubmissionSummary {
   pendingSubmissionCount: number
+  pendingSubmissionsByAgent: PendingSubmissionBreakdown[]
 }
 
 export type ReviewAction = 'approve' | 'reject'
