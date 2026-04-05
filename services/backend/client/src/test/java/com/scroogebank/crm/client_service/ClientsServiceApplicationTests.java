@@ -1,5 +1,6 @@
 package com.scroogebank.crm.client_service;
 
+import com.scroogebank.crm.client_service.crypto.PiiEncryptionStartupValidator;
 import com.scroogebank.crm.client_service.repository.AccountRepository;
 import com.scroogebank.crm.client_service.repository.ClientRepository;
 import com.scroogebank.crm.client_service.service.DocumentStorageService;
@@ -45,6 +46,9 @@ class ClientsServiceApplicationTests {
 
 	@MockitoBean
 	private SnsEmailPublisherService snsEmailPublisherService;
+
+	@MockitoBean
+	private PiiEncryptionStartupValidator piiEncryptionStartupValidator;
 
 	@Test
 	void contextLoads() {

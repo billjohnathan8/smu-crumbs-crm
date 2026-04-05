@@ -317,7 +317,21 @@ public class ClientServiceImpl implements ClientService {
 		String effectivePostalCode = request.postalCode() != null ? request.postalCode() : entity.getPostalCode();
 		validatePostalCode(effectiveCountry, effectivePostalCode);
 		Long id = entity.getId();
-		checkUpdateConflicts(id, request.emailAddress(), request.phoneNumber());
+		String requestedEmail = request.emailAddress();
+		if (
+			requestedEmail != null
+			&& requestedEmail.trim().equalsIgnoreCase(entity.getEmailAddress())
+		) {
+			requestedEmail = null;
+		}
+		String requestedPhone = request.phoneNumber();
+		if (
+			requestedPhone != null
+			&& requestedPhone.trim().equals(entity.getPhoneNumber())
+		) {
+			requestedPhone = null;
+		}
+		checkUpdateConflicts(id, requestedEmail, requestedPhone);
 
 		StringJoiner attrs = new StringJoiner("|");
 		StringJoiner befores = new StringJoiner("|");

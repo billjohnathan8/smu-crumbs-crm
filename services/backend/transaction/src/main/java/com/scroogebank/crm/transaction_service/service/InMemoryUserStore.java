@@ -65,7 +65,7 @@ public class InMemoryUserStore {
 		String password = (request.temporaryPassword() == null || request.temporaryPassword().isBlank())
 			? UUID.randomUUID().toString()
 			: request.temporaryPassword();
-		UserRole role = request.role();
+		UserRole role = request.role() != null ? request.role() : UserRole.user;
 
 		UserRecord record = new UserRecord(
 			id,

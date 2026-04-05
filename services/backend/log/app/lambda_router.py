@@ -833,7 +833,7 @@ class LambdaRouter:
 
     def _list_aml_alerts(self, request: NormalizedRequest) -> RoutedResponse:
         user = self._require_user(request)
-        if not self._is_root_admin(user) and user.role != "user":
+        if not self._is_root_admin(user) and user.role not in ["user", "admin"]:
             raise ForbiddenError()
 
         query = self._parse_query(_ListAmlAlertsQuery, request)
@@ -912,7 +912,7 @@ class LambdaRouter:
         self, request: NormalizedRequest, alert_id: str
     ) -> RoutedResponse:
         user = self._require_user(request)
-        if not self._is_root_admin(user) and user.role != "user":
+        if not self._is_root_admin(user) and user.role not in ["user", "admin"]:
             raise ForbiddenError()
 
         row = self._service.get_aml_alert(alert_id)
@@ -930,7 +930,7 @@ class LambdaRouter:
         alert_id: str,
     ) -> RoutedResponse:
         user = self._require_user(request)
-        if not self._is_root_admin(user) and user.role != "user":
+        if not self._is_root_admin(user) and user.role not in ["user", "admin"]:
             raise ForbiddenError()
 
         existing = self._service.get_aml_alert(alert_id)
@@ -948,9 +948,9 @@ class LambdaRouter:
         return RoutedResponse(200, self._to_aml_alert(row))
 
     def _trigger_aml_scan(self, request: NormalizedRequest) -> RoutedResponse:
-        """Manually trigger AML scan (agent or root admin only)."""
+        """Manually trigger AML scan (root admin, admin, or agent/user only)."""
         user = self._require_user(request)
-        if not self._is_root_admin(user) and user.role != "user":
+        if not self._is_root_admin(user) and user.role not in ["user", "admin"]:
             raise ForbiddenError()
 
         if boto3 is None:

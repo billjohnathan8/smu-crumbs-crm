@@ -412,8 +412,8 @@ class ClientServiceImplTest {
 			payload.lastName(),
 			payload.dateOfBirth(),
 			payload.gender(),
-			payload.emailAddress(),
-			payload.phoneNumber(),
+			null,
+			null,
 			payload.address(),
 			payload.city(),
 			payload.state(),
@@ -424,8 +424,6 @@ class ClientServiceImplTest {
 		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
 		existing.setFirstName("OldFirst");
 		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
-		when(clientRepository.existsByEmailAddressIgnoreCaseAndIdNot(payload.emailAddress(), 12L)).thenReturn(false);
-		when(clientRepository.existsByPhoneNumberAndIdNot(payload.phoneNumber(), 12L)).thenReturn(false);
 		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
 		var result = clientService.updateClient(user, "clt_12", request, "Bearer x", "req-1");
@@ -510,10 +508,11 @@ class ClientServiceImplTest {
 	void updateClient_whenEmailExistsForOtherId_throwsDuplicateClientException() {
 		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
-		ClientUpdateRequest request = new ClientUpdateRequest(null, null, null, null, payload.emailAddress(), null, null, null, null, null, null, null);
+		String conflictingEmail = "existing.other@example.com";
+		ClientUpdateRequest request = new ClientUpdateRequest(null, null, null, null, conflictingEmail, null, null, null, null, null, null, null);
 		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
 		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
-		when(clientRepository.existsByEmailAddressIgnoreCaseAndIdNot(payload.emailAddress(), 12L)).thenReturn(true);
+		when(clientRepository.existsByEmailAddressIgnoreCaseAndIdNot(conflictingEmail, 12L)).thenReturn(true);
 
 		assertThatThrownBy(() -> clientService.updateClient(user, "clt_12", request, "Bearer x", "req-1"))
 			.isInstanceOf(DuplicateClientException.class)
@@ -527,10 +526,11 @@ class ClientServiceImplTest {
 	void updateClient_whenPhoneExistsForOtherId_throwsDuplicateClientException() {
 		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		ClientPayload payload = samplePayload();
-		ClientUpdateRequest request = new ClientUpdateRequest(null, null, null, null, null, payload.phoneNumber(), null, null, null, null, null, null);
+		String conflictingPhone = "+15557654321";
+		ClientUpdateRequest request = new ClientUpdateRequest(null, null, null, null, null, conflictingPhone, null, null, null, null, null, null);
 		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
 		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
-		when(clientRepository.existsByPhoneNumberAndIdNot(payload.phoneNumber(), 12L)).thenReturn(true);
+		when(clientRepository.existsByPhoneNumberAndIdNot(conflictingPhone, 12L)).thenReturn(true);
 
 		assertThatThrownBy(() -> clientService.updateClient(user, "clt_12", request, "Bearer x", "req-1"))
 			.isInstanceOf(DuplicateClientException.class)
@@ -714,6 +714,24 @@ class ClientServiceImplTest {
 		clientService.updateClient(user, "clt_12", request, "Bearer x", "req-1");
 
 		verify(clientAuditLogger, never()).logAuditEvent(any(), any(), any(), any(), any(), any(), any(), any());
+	}
+
+	@Test
+	void updateClient_sameEmailAndPhoneAsExisting_ignoresArchivedDuplicateConflicts() {
+		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
+		ClientPayload payload = samplePayload();
+		ClientEntity existing = entityFromPayload(12L, "usr_1", payload);
+		ClientUpdateRequest request = new ClientUpdateRequest(
+			"Renamed", null, null, null, payload.emailAddress(), payload.phoneNumber(), null, null, null, null, null, null
+		);
+		when(clientRepository.findById(12L)).thenReturn(Optional.of(existing));
+		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		var updated = clientService.updateClient(user, "clt_12", request, "Bearer x", "req-1");
+
+		assertThat(updated.firstName()).isEqualTo("Renamed");
+		verify(clientRepository, never()).existsByEmailAddressIgnoreCaseAndIdNot(any(), anyLong());
+		verify(clientRepository, never()).existsByPhoneNumberAndIdNot(any(), anyLong());
 	}
 
 	@Test

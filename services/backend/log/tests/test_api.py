@@ -1528,7 +1528,39 @@ def test_aml_alert_non_admin_access_is_client_scoped() -> None:
     assert review_allowed_body["reviewStatus"] == "Confirmed"
 
 
-def test_aml_alert_list_denies_non_root_admin() -> None:
+def test_aml_alert_list_denies_service_role() -> None:
+    secret = "test-secret"
+    service = FakeLogService()
+    router = _make_router(service, secret=secret)
+    service_token = mint_token("svc_worker", "service", secret)
+
+    service.create_aml_alert(
+        CreateAmlAlertRequest(
+            alertId="aml_1",
+            clientId="clt_1",
+            transactionId="txn_1",
+            alertType="STRUCTURING",
+            description="Structuring detected",
+            detectedAt=datetime.now(timezone.utc),
+            reviewStatus="Pending",
+        )
+    )
+
+    response, body = _invoke(
+        router,
+        _http_api_v2_event(
+            "GET",
+            "/api/aml/alerts",
+            headers={"Authorization": f"Bearer {service_token}"},
+        ),
+    )
+
+    assert response["statusCode"] == 403
+    assert body is not None
+    assert body["error"] == "forbidden"
+
+
+def test_aml_alert_list_allows_admin_role() -> None:
     secret = "test-secret"
     service = FakeLogService()
     router = _make_router(service, secret=secret)
@@ -1555,9 +1587,10 @@ def test_aml_alert_list_denies_non_root_admin() -> None:
         ),
     )
 
-    assert response["statusCode"] == 403
+    assert response["statusCode"] == 200
     assert body is not None
-    assert body["error"] == "forbidden"
+    assert len(body["data"]) == 1
+    assert body["data"][0]["alertId"] == "aml_1"
 
 
 def test_aml_alert_create_requires_admin_and_auth() -> None:
@@ -1639,12 +1672,26 @@ def test_rest_proxy_event_shapes_are_supported() -> None:
 
 
 def test_aml_trigger_requires_agent_or_root_admin() -> None:
-    """POST /api/aml/trigger denies regular admins."""
+    """POST /api/aml/trigger allows root_admin, admin, and user/agent roles."""
     secret = "test-secret"
     router = _make_router(FakeLogService(), secret=secret)
     admin_token = mint_token("usr_admin", "admin", secret)
+    service_token = mint_token("svc_worker", "service", secret)
 
-    # Non-root admin should be forbidden.
+    # Service role should be forbidden.
+    service_response, service_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "POST",
+            "/api/aml/trigger",
+            headers={"authorization": f"Bearer {service_token}"},
+        ),
+    )
+    assert service_response["statusCode"] == 403
+    assert service_body is not None
+    assert service_body["error"] == "forbidden"
+
+    # Admin role gets past authorization (will fail with 503 due to lambda config)
     admin_response, admin_body = _invoke(
         router,
         _http_api_v2_event(
@@ -1653,9 +1700,9 @@ def test_aml_trigger_requires_agent_or_root_admin() -> None:
             headers={"authorization": f"Bearer {admin_token}"},
         ),
     )
-    assert admin_response["statusCode"] == 403
+    assert admin_response["statusCode"] == 503  # Lambda not configured in test
     assert admin_body is not None
-    assert admin_body["error"] == "forbidden"
+    assert admin_body["error"] == "service_unavailable"
 
     # Unauthorized should return 401
     unauth_response, unauth_body = _invoke(
