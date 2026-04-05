@@ -1000,6 +1000,104 @@ def test_communications_endpoints_enforce_role_scope_and_updates() -> None:
     assert by_provider_service_body["status"] == "failed"
 
 
+def test_communication_status_updates_are_service_only() -> None:
+    secret = "test-secret"
+    service = FakeLogService()
+    router = _make_router(service, secret=secret)
+
+    user_token = mint_token("usr_1", "user", secret)
+    admin_token = mint_token("usr_admin", "admin", secret)
+    service_token = mint_token("svc_worker", "service", secret)
+
+    create_response, create_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "POST",
+            "/api/communications",
+            headers={"Authorization": f"Bearer {user_token}"},
+            body={
+                "clientId": "clt_1",
+                "userId": "usr_1",
+                "toEmail": "to@example.com",
+                "subject": "Status auth test",
+                "body": "Body",
+            },
+        ),
+    )
+    assert create_response["statusCode"] == 202
+    assert create_body is not None
+
+    communication_id = create_body["communicationId"]
+
+    user_by_id, _ = _invoke(
+        router,
+        _http_api_v2_event(
+            "PATCH",
+            f"/api/communications/{communication_id}/status",
+            headers={"Authorization": f"Bearer {user_token}"},
+            body={"status": "sent", "providerMessageId": "ses-authz-1"},
+        ),
+    )
+    admin_by_id, _ = _invoke(
+        router,
+        _http_api_v2_event(
+            "PATCH",
+            f"/api/communications/{communication_id}/status",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            body={"status": "sent", "providerMessageId": "ses-authz-1"},
+        ),
+    )
+    service_by_id, service_by_id_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "PATCH",
+            f"/api/communications/{communication_id}/status",
+            headers={"Authorization": f"Bearer {service_token}"},
+            body={"status": "sent", "providerMessageId": "ses-authz-1"},
+        ),
+    )
+
+    user_by_provider, _ = _invoke(
+        router,
+        _http_api_v2_event(
+            "PATCH",
+            "/api/communications/provider/ses-authz-1/status",
+            headers={"Authorization": f"Bearer {user_token}"},
+            body={"status": "failed", "errorMessage": "mailbox full"},
+        ),
+    )
+    admin_by_provider, _ = _invoke(
+        router,
+        _http_api_v2_event(
+            "PATCH",
+            "/api/communications/provider/ses-authz-1/status",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            body={"status": "failed", "errorMessage": "mailbox full"},
+        ),
+    )
+    service_by_provider, service_by_provider_body = _invoke(
+        router,
+        _http_api_v2_event(
+            "PATCH",
+            "/api/communications/provider/ses-authz-1/status",
+            headers={"Authorization": f"Bearer {service_token}"},
+            body={"status": "failed", "errorMessage": "mailbox full"},
+        ),
+    )
+
+    assert user_by_id["statusCode"] == 403
+    assert admin_by_id["statusCode"] == 403
+    assert service_by_id["statusCode"] == 200
+    assert service_by_id_body is not None
+    assert service_by_id_body["status"] == "sent"
+
+    assert user_by_provider["statusCode"] == 403
+    assert admin_by_provider["statusCode"] == 403
+    assert service_by_provider["statusCode"] == 200
+    assert service_by_provider_body is not None
+    assert service_by_provider_body["status"] == "failed"
+
+
 def test_queued_communications_supports_admin_filters() -> None:
     secret = "test-secret"
     service = FakeLogService()

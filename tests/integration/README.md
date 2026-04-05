@@ -64,7 +64,7 @@ Services/APIs: Auth, User, Client, Communication (`/api/auth/login`, `/api/users
 2. `should retrieve a communication by ID`: create then fetch `/api/communications/{communicationId}`.
 3. `should list communications for a specific client`: validates client-scoped communications listing endpoint.
 4. `should list queued communications`: admin queries queued communication workload endpoint.
-5. `should update communication status`: create communication then admin PATCHes status to `sent`.
+5. `should enforce service-only communication status updates`: create communication, verify admin PATCH is forbidden, then service PATCH sets status to `sent`.
 
 ## forgot-password.spec.ts (2)
 Services/APIs: Auth + test helper (`/api/auth/forgot-password`, `/api/auth/reset-password`, `/api/test/password-reset/latest-token`).

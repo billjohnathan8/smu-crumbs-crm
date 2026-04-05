@@ -130,7 +130,7 @@ export async function listCommunications(
 }
 
 /**
- * Update a communication's status by communication ID (admin only).
+ * Update a communication's status by communication ID (service role only).
  */
 export async function updateCommunicationStatus(
   communicationId: string,
@@ -143,7 +143,7 @@ export async function updateCommunicationStatus(
 }
 
 /**
- * Update a communication's status by provider message ID (admin only).
+ * Update a communication's status by provider message ID (service role only).
  */
 export async function updateCommunicationStatusByProviderMessageId(
   providerMessageId: string,

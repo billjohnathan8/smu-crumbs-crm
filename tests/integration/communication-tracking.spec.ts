@@ -18,11 +18,28 @@ import {
   type APIRequestContext,
   type APIResponse,
 } from "@playwright/test";
-import { requireE2eEnv } from "./helpers/e2eEnv.js";
+import { createHmac } from "node:crypto";
+import { requireE2eEnv, requireJwtVerificationSecret } from "./helpers/e2eEnv.js";
 
 const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.com").trim();
 const ADMIN_PASSWORD = requireE2eEnv("E2E_ADMIN_PASSWORD");
 const USER_PASSWORD = requireE2eEnv("E2E_USER_PASSWORD");
+const JWT_HMAC_SECRET = requireJwtVerificationSecret();
+
+function base64UrlJson(payload: object): string {
+  return Buffer.from(JSON.stringify(payload)).toString("base64url");
+}
+
+function mintServiceToken(sub = "svc_worker"): string {
+  const header = base64UrlJson({ alg: "HS256", typ: "JWT" });
+  const now = Math.floor(Date.now() / 1000);
+  const body = base64UrlJson({ sub, role: "service", iat: now, exp: now + 3600 });
+  const signingInput = `${header}.${body}`;
+  const signature = createHmac("sha256", JWT_HMAC_SECRET)
+    .update(signingInput)
+    .digest("base64url");
+  return `${signingInput}.${signature}`;
+}
 
 function uniqueSuffix(): string {
   return `${Date.now()}-${Math.floor(Math.random() * 100_000)}`;
@@ -200,7 +217,7 @@ test.describe("Communication Tracking (Feature 3)", () => {
     expectUnder(Date.now() - startTime, 10000, "List queued communications");
   });
 
-  test("should update communication status", async ({ request }) => {
+  test("should enforce service-only communication status updates", async ({ request }) => {
     const startTime = Date.now();
 
     const createRes = await request.post(`${baseURL}/api/communications`, {
@@ -216,13 +233,26 @@ test.describe("Communication Tracking (Feature 3)", () => {
     });
     const created = (await expectOkJson(createRes, "create comm for status update")) as { communicationId: string };
 
-    const updateRes = await request.patch(`${baseURL}/api/communications/${created.communicationId}/status`, {
+    const adminUpdateRes = await request.patch(`${baseURL}/api/communications/${created.communicationId}/status`, {
       headers: { Authorization: `Bearer ${adminToken}` },
       data: {
         status: "sent",
       },
     });
-    const updated = (await expectOkJson(updateRes, "update communication status")) as {
+
+    expect(adminUpdateRes.status()).toBe(403);
+
+    const serviceToken = mintServiceToken();
+    const serviceUpdateRes = await request.patch(
+      `${baseURL}/api/communications/${created.communicationId}/status`,
+      {
+        headers: { Authorization: `Bearer ${serviceToken}` },
+        data: {
+          status: "sent",
+        },
+      },
+    );
+    const updated = (await expectOkJson(serviceUpdateRes, "update communication status as service")) as {
       communicationId: string;
       status: string;
     };
