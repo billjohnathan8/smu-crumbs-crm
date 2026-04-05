@@ -557,8 +557,24 @@ jobs:
         timeout-minutes: 20
         env:
           SKIP_RESTART_PROMPT: '1'
+          E2E_ADMIN_PASSWORD: ${{ env.E2E_ADMIN_PASSWORD }}
         run: |
           echo "[INFO] Starting post-merge JMeter performance test with 100 threads..."
+
+          if [ -z "${E2E_ADMIN_PASSWORD:-}" ]; then
+            echo "[FAIL] Missing E2E_ADMIN_PASSWORD in job environment"
+            exit 1
+          fi
+
+          LOGIN_STATUS="$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"admin@crm.com\",\"password\":\"${E2E_ADMIN_PASSWORD}\"}" \
+            http://127.0.0.1:18088/api/auth/login)"
+          if [ "${LOGIN_STATUS}" != "200" ]; then
+            echo "[FAIL] Login preflight failed before JMeter (status=${LOGIN_STATUS})"
+            exit 1
+          fi
+
           bash scripts/performance/run-100-threads.sh
 
       - name: Upload JMeter artifacts

@@ -32,6 +32,12 @@ LOOPS="10"
 # during the 60 s ramp-up, achieving true concurrent load instead of 2-3 threads.
 # 1000 ms → each thread runs ~51 s → ~85 threads active at peak.
 THINKTIME="1000"
+ADMIN_EMAIL="${E2E_ADMIN_EMAIL:-admin@crm.com}"
+if [[ -z "${E2E_ADMIN_PASSWORD:-}" ]]; then
+  echo "[ERROR] Missing E2E_ADMIN_PASSWORD for JMeter login" >&2
+  echo "Set E2E_ADMIN_PASSWORD in your shell or repo root .env.local" >&2
+  exit 1
+fi
 
 to_windows_path() {
   local input_path="$1"
@@ -162,6 +168,8 @@ if [ "$USE_CMD_WRAPPER" -eq 1 ]; then
     -t "${WIN_TEST_PLAN}" \
     -Jhost="${HOST}" \
     -Jport="${PORT}" \
+    -JadminEmail="${ADMIN_EMAIL}" \
+    -JadminPassword="${E2E_ADMIN_PASSWORD}" \
     -Jthreads="${THREADS}" \
     -Jrampup="${RAMPUP}" \
     -Jloops="${LOOPS}" \
@@ -174,6 +182,8 @@ else
     -t "${TEST_PLAN}" \
     -Jhost="${HOST}" \
     -Jport="${PORT}" \
+    -JadminEmail="${ADMIN_EMAIL}" \
+    -JadminPassword="${E2E_ADMIN_PASSWORD}" \
     -Jthreads="${THREADS}" \
     -Jrampup="${RAMPUP}" \
     -Jloops="${LOOPS}" \

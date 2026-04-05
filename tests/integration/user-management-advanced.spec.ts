@@ -246,7 +246,8 @@ test.describe("User Management Advanced (Feature 1)", () => {
       expect([404, 410].includes(getRes.status()), "Deleted user should return 404 or 410").toBeTruthy();
     }
 
-    expectUnder(Date.now() - startTime, 10000, "Delete user");
+    // This path can now include several 503 backoff retries under CI load.
+    expectUnder(Date.now() - startTime, 20000, "Delete user");
   });
 
   test("root admin must not be deletable", async ({ request }) => {

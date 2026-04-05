@@ -40,6 +40,7 @@ from typing import Any, Dict, List, Optional, Tuple
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 PERF_LOG_ROOT = REPO_ROOT / "build-logs" / "performance"
 TEST_PLAN = REPO_ROOT / "tests" / "performance" / "agent-crud-workflow.jmx"
+REPO_ENV_LOCAL = REPO_ROOT / ".env.local"
 
 # Test mode configurations
 # - thinktime_ms keeps virtual users alive long enough to overlap during ramp-up.
@@ -87,6 +88,37 @@ TEST_MODES: Dict[str, Dict[str, Any]] = {
         "description": "Stress test (200 threads)",
     },
 }
+
+
+def load_env_from_file_if_missing(env_file: Path, required_keys: List[str]) -> List[str]:
+    """Load missing env vars from a simple KEY=VALUE env file."""
+    loaded_keys: List[str] = []
+    if not env_file.exists():
+        return loaded_keys
+
+    try:
+        with env_file.open("r", encoding="utf-8") as handle:
+            for raw_line in handle:
+                line = raw_line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+
+                key, value = line.split("=", 1)
+                key = key.strip()
+                if key.startswith("export "):
+                    key = key[len("export "):].strip()
+                value = value.strip()
+
+                if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+                    value = value[1:-1]
+
+                if key in required_keys and not os.environ.get(key):
+                    os.environ[key] = value
+                    loaded_keys.append(key)
+    except OSError as exc:
+        print(f"[WARN] Could not read env file {env_file}: {exc}")
+
+    return loaded_keys
 
 
 def is_windows() -> bool:
@@ -170,6 +202,8 @@ def run_jmeter_test(
     output_dir: Path,
     host: str,
     port: str,
+    admin_email: str,
+    admin_password: str,
     threads: str,
     rampup: str,
     loops: str,
@@ -188,6 +222,8 @@ def run_jmeter_test(
         "-t", str(test_plan),
         "-Jhost=" + host,
         "-Jport=" + port,
+        "-JadminEmail=" + admin_email,
+        "-JadminPassword=" + admin_password,
         "-Jthreads=" + threads,
         "-Jrampup=" + rampup,
         "-Jloops=" + loops,
@@ -211,6 +247,8 @@ def run_jmeter_test(
             "-t", win_test_plan,
             "-Jhost=" + host,
             "-Jport=" + port,
+            "-JadminEmail=" + admin_email,
+            "-JadminPassword=" + admin_password,
             "-Jthreads=" + threads,
             "-Jrampup=" + rampup,
             "-Jloops=" + loops,
@@ -230,8 +268,13 @@ def run_jmeter_test(
     else:
         cmd = [jmeter_cmd] + jmeter_args
 
+    redacted_cmd = [
+        "-JadminPassword=***REDACTED***" if token.startswith("-JadminPassword=") else token
+        for token in cmd
+    ]
+
     print(f"[INFO] Running JMeter test...")
-    print(f"  Command: {' '.join(cmd)}")
+    print(f"  Command: {' '.join(redacted_cmd)}")
     print(f"  Output: {output_dir}")
     print()
 
@@ -537,6 +580,24 @@ def main() -> int:
         print("[ERROR] --repeats must be >= 1")
         return 1
 
+    loaded_keys = load_env_from_file_if_missing(
+        env_file=REPO_ENV_LOCAL,
+        required_keys=["E2E_ADMIN_PASSWORD"],
+    )
+    if loaded_keys:
+        print(
+            "[INFO] Loaded missing environment variable(s) from "
+            f"{REPO_ENV_LOCAL}: {', '.join(sorted(loaded_keys))}"
+        )
+
+    if not os.environ.get("E2E_ADMIN_PASSWORD"):
+        print("[ERROR] Missing E2E_ADMIN_PASSWORD for JMeter login")
+        print("Set E2E_ADMIN_PASSWORD in your shell, or define it in repo root .env.local.")
+        return 1
+
+    admin_email = (os.environ.get("E2E_ADMIN_EMAIL") or "admin@crm.com").strip()
+    admin_password = os.environ.get("E2E_ADMIN_PASSWORD", "")
+
     # Get test configuration
     test_config = TEST_MODES[args.test_mode]
 
@@ -671,6 +732,8 @@ def main() -> int:
             output_dir=run_output_dir,
             host=args.host,
             port=args.port,
+            admin_email=admin_email,
+            admin_password=admin_password,
             threads=test_config["threads"],
             rampup=test_config["rampup"],
             loops=test_config["loops"],
