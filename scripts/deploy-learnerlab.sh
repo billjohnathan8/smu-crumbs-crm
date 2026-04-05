@@ -461,7 +461,7 @@ if [[ "$SKIP_FRONTEND" == "false" ]]; then
     pushd "$FRONTEND_DIR" > /dev/null
     run_checked "npm install" npm install
     run_checked "npm run build" npm run build
-    run_checked "S3 sync live immutable assets to s3://$BUCKET/live/" aws s3 sync dist/ "s3://$BUCKET/live/" --delete --exclude "index.html" --cache-control "public,max-age=31536000,immutable"
+    run_checked "S3 sync live immutable assets to s3://$BUCKET/live/" aws s3 sync dist/ "s3://$BUCKET/live/" --exclude "index.html" --cache-control "public,max-age=31536000,immutable"
     run_checked "Upload live index.html (no-store) to s3://$BUCKET/live/index.html" aws s3 cp dist/index.html "s3://$BUCKET/live/index.html" --cache-control "no-store,no-cache,must-revalidate,max-age=0" --content-type "text/html"
     if [[ -n "${CLOUDFRONT_DISTRIBUTION_ID:-}" ]]; then
         run_checked "Create CloudFront invalidation for frontend hotfix" aws cloudfront create-invalidation --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" --paths "/*"
