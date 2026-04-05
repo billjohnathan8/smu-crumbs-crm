@@ -6,11 +6,10 @@
 *.yml text eol=lf
 *.yaml text eol=lf
 gradlew text eol=lf
-
 # Keep Windows-native scripts in CRLF.
 *.bat text eol=crlf
 *.cmd text eol=crlf
 *.ps1 text eol=crlf
-
 # Treat archives as binary (no EOL normalization).
 *.zip -text
+platform/k8s/k8s-infrastructure-snapshot-feb.zip filter=lfs diff=lfs merge=lfs -text
