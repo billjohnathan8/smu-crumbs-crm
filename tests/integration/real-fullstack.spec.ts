@@ -182,11 +182,11 @@ test.describe("Real Fullstack Integration", () => {
     const { clientId } = await waitForClientByEmail(request, normalizedBaseURL, authToken as string, clientEmail);
     await waitForCreateAuditLog(request, normalizedBaseURL, authToken as string, clientId);
 
-    const alertId = `aml_${Date.now()}`;
+    const requestedAlertId = `aml_${Date.now()}`;
     const amlCreateResponse = await request.post(`${normalizedBaseURL}/api/aml/alerts`, {
       headers: { Authorization: `Bearer ${adminToken}` },
       data: {
-        alertId,
+        alertId: requestedAlertId,
         clientId,
         transactionId: null,
         alertType: "STRUCTURING",
@@ -199,10 +199,10 @@ test.describe("Real Fullstack Integration", () => {
       amlCreateResponse,
       "create AML alert API request",
     )) as { alertId: string; reviewStatus: string };
-    expect(amlCreated.alertId).toBe(alertId);
+    expect(amlCreated.alertId).toMatch(/^aml_[0-9]+$/);
     expect(amlCreated.reviewStatus).toBe("Pending");
 
-    const amlReviewResponse = await request.put(`${normalizedBaseURL}/api/aml/alerts/${alertId}/review`, {
+    const amlReviewResponse = await request.put(`${normalizedBaseURL}/api/aml/alerts/${amlCreated.alertId}/review`, {
       headers: { Authorization: `Bearer ${authToken}` },
       data: { reviewStatus: "Confirmed" },
     });

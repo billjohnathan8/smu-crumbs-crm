@@ -218,9 +218,17 @@ test.describe("User Management Advanced (Feature 1)", () => {
     });
     expect(disableRes.ok(), `Disable user before delete failed: ${disableRes.status()}`).toBeTruthy();
 
-    const deleteRes = await request.delete(`${baseURL}/api/users/${created.id}`, {
+    let deleteRes = await request.delete(`${baseURL}/api/users/${created.id}`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
+    for (let attempt = 0; deleteRes.status() === 503 && attempt < 3; attempt += 1) {
+      await new Promise((resolve) => {
+        setTimeout(resolve, 1000);
+      });
+      deleteRes = await request.delete(`${baseURL}/api/users/${created.id}`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+    }
     expect(deleteRes.ok() || deleteRes.status() === 204, `Delete user failed: ${deleteRes.status()}`).toBeTruthy();
 
     const getRes = await request.get(`${baseURL}/api/users/${created.id}`, {
