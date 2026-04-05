@@ -1,6 +1,8 @@
 package com.scroogebank.crm.client_service.service;
 
 import java.time.LocalDate;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -37,6 +39,7 @@ import com.scroogebank.crm.client_service.logging.ClientAuditLogger;
 import com.scroogebank.crm.client_service.repository.AccountRepository;
 import com.scroogebank.crm.client_service.repository.ClientRepository;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
+import com.scroogebank.crm.client_service.security.JwtService;
 import com.scroogebank.crm.client_service.security.UnauthorizedException;
 
 /**
@@ -59,6 +62,10 @@ class ClientServiceImplTest {
 	private VerificationTokenService verificationTokenService;
 	@Mock
 	private SnsEmailPublisherService snsEmailPublisherService;
+	@Mock
+	private JwtService jwtService;
+	@Mock
+	private Clock clock;
 	@InjectMocks
 	private ClientServiceImpl clientService;
 
@@ -882,6 +889,8 @@ class ClientServiceImplTest {
 		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
 		when(verificationTokenService.consumeIfValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(clock.instant()).thenReturn(Instant.parse("2026-04-05T10:00:00Z"));
+		when(jwtService.mintForTests(any(), any(), any())).thenReturn("svc-token");
 		when(documentStorageService.upload(eq("clt_7"), eq("primary"), any(), any(), any()))
 			.thenReturn("clients/clt_7/primary/nric_front.jpg");
 		when(documentStorageService.upload(eq("clt_7"), eq("address"), any(), any(), any()))
@@ -903,6 +912,8 @@ class ClientServiceImplTest {
 		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
 		when(verificationTokenService.consumeIfValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(clock.instant()).thenReturn(Instant.parse("2026-04-05T10:00:00Z"));
+		when(jwtService.mintForTests(any(), any(), any())).thenReturn("svc-token");
 		when(documentStorageService.upload(eq("clt_7"), eq("primary"), any(), any(), any()))
 			.thenReturn("clients/clt_7/primary/nric_front.jpg");
 		when(documentStorageService.upload(eq("clt_7"), eq("address"), any(), any(), any()))
@@ -927,6 +938,8 @@ class ClientServiceImplTest {
 		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
 		when(verificationTokenService.consumeIfValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(clock.instant()).thenReturn(Instant.parse("2026-04-05T10:00:00Z"));
+		when(jwtService.mintForTests(any(), any(), any())).thenReturn("svc-token");
 		when(documentStorageService.upload(any(), any(), any(), any(), any())).thenReturn("s3-key");
 		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -942,8 +955,12 @@ class ClientServiceImplTest {
 	void uploadVerificationDocs_pendingStatus_allowsReplacementAndStaysPending() {
 		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
 		entity.setIdentityVerificationStatus(IdentityVerificationStatus.pending);
+		entity.setPrimaryDocumentRef("clients/clt_7/primary/old.jpg");
+		entity.setAddressDocumentRef("clients/clt_7/address/old.pdf");
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
 		when(verificationTokenService.consumeIfValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(clock.instant()).thenReturn(Instant.parse("2026-04-05T10:00:00Z"));
+		when(jwtService.mintForTests(any(), any(), any())).thenReturn("svc-token");
 		when(documentStorageService.upload(eq("clt_7"), eq("primary"), any(), any(), any()))
 			.thenReturn("clients/clt_7/primary/nric_front.jpg");
 		when(documentStorageService.upload(eq("clt_7"), eq("address"), any(), any(), any()))
@@ -960,6 +977,75 @@ class ClientServiceImplTest {
 			"clt_7", "address", "bill.pdf", "base64AddressData==", "application/pdf"
 		);
 		verify(clientRepository).save(any());
+	}
+
+	@Test
+	void uploadVerificationDocs_unverifiedToPending_emitsServiceAuditEvent() {
+		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
+		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
+		when(verificationTokenService.consumeIfValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(clock.instant()).thenReturn(Instant.parse("2026-04-05T10:00:00Z"));
+		when(jwtService.mintForTests(eq("usr_system_verification_upload"), eq("service"), eq(Instant.parse("2026-04-05T10:05:00Z"))))
+			.thenReturn("svc-token");
+		when(documentStorageService.upload(eq("clt_7"), eq("primary"), any(), any(), any()))
+			.thenReturn("clients/clt_7/primary/nric_front.jpg");
+		when(documentStorageService.upload(eq("clt_7"), eq("address"), any(), any(), any()))
+			.thenReturn("clients/clt_7/address/bill.pdf");
+		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		clientService.uploadVerificationDocs("clt_7", validUploadRequest("valid-token-abc"), "req-1");
+
+		verify(clientAuditLogger).logAuditEvent(
+			eq("UPDATE"),
+			eq("identityVerificationStatus"),
+			eq("unverified"),
+			eq("pending"),
+			eq("usr_system_verification_upload"),
+			eq("clt_7"),
+			eq("req-1"),
+			eq("Bearer svc-token")
+		);
+	}
+
+	@Test
+	void uploadVerificationDocs_pendingReplacement_emitsSafeMaterialStateAudit() {
+		ClientEntity entity = entityFromPayload(7L, "usr_1", samplePayload());
+		entity.setIdentityVerificationStatus(IdentityVerificationStatus.pending);
+		entity.setPrimaryDocumentRef("clients/clt_7/primary/old.jpg");
+		entity.setAddressDocumentRef("clients/clt_7/address/old.pdf");
+		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
+		when(verificationTokenService.consumeIfValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(clock.instant()).thenReturn(Instant.parse("2026-04-05T10:00:00Z"));
+		when(jwtService.mintForTests(any(), any(), any())).thenReturn("svc-token");
+		when(documentStorageService.upload(eq("clt_7"), eq("primary"), any(), any(), any()))
+			.thenReturn("clients/clt_7/primary/new.jpg");
+		when(documentStorageService.upload(eq("clt_7"), eq("address"), any(), any(), any()))
+			.thenReturn("clients/clt_7/address/new.pdf");
+		when(clientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		clientService.uploadVerificationDocs("clt_7", validUploadRequest("valid-token-abc"), "req-1");
+
+		ArgumentCaptor<String> beforeCaptor = ArgumentCaptor.forClass(String.class);
+		ArgumentCaptor<String> afterCaptor = ArgumentCaptor.forClass(String.class);
+		verify(clientAuditLogger).logAuditEvent(
+			eq("UPDATE"),
+			eq("verificationSubmissionState"),
+			beforeCaptor.capture(),
+			afterCaptor.capture(),
+			eq("usr_system_verification_upload"),
+			eq("clt_7"),
+			eq("req-1"),
+			eq("Bearer svc-token")
+		);
+
+		assertThat(beforeCaptor.getValue()).contains("status=pending");
+		assertThat(beforeCaptor.getValue()).contains("primaryDocumentUpdated=false");
+		assertThat(beforeCaptor.getValue()).contains("addressDocumentUpdated=false");
+		assertThat(afterCaptor.getValue()).contains("status=pending");
+		assertThat(afterCaptor.getValue()).contains("primaryDocumentUpdated=true");
+		assertThat(afterCaptor.getValue()).contains("addressDocumentUpdated=true");
+		assertThat(beforeCaptor.getValue()).doesNotContain("clients/");
+		assertThat(afterCaptor.getValue()).doesNotContain("clients/");
 	}
 
 	@Test
@@ -984,6 +1070,8 @@ class ClientServiceImplTest {
 		entity.setIdentityVerificationStatus(IdentityVerificationStatus.rejected);
 		when(clientRepository.findById(7L)).thenReturn(Optional.of(entity));
 		when(verificationTokenService.consumeIfValid("clt_7", "valid-token-abc")).thenReturn(true);
+		when(clock.instant()).thenReturn(Instant.parse("2026-04-05T10:00:00Z"));
+		when(jwtService.mintForTests(any(), any(), any())).thenReturn("svc-token");
 		when(documentStorageService.upload(eq("clt_7"), eq("primary"), any(), any(), any()))
 			.thenReturn("clients/clt_7/primary/nric_front.jpg");
 		when(documentStorageService.upload(eq("clt_7"), eq("address"), any(), any(), any()))

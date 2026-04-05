@@ -1,5 +1,7 @@
 package com.scroogebank.crm.client_service.logging;
 
+import static org.hamcrest.Matchers.containsString;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -23,6 +25,7 @@ class HttpClientAuditLoggerTest {
 		server.expect(requestTo("http://localstack:4566/_aws/execute-api/test-api/local/api/logs"))
 			.andExpect(method(HttpMethod.POST))
 			.andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer x"))
+			.andExpect(content().string(containsString("\"dateTime\":")))
 			.andExpect(content().json("""
 				{
 				  "action": "CREATE",

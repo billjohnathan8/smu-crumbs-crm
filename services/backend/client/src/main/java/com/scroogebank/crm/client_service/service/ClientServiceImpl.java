@@ -1,6 +1,7 @@
 package com.scroogebank.crm.client_service.service;
 
 import java.time.Instant;
+import java.time.Clock;
 import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
@@ -36,6 +37,7 @@ import com.scroogebank.crm.client_service.logging.PiiMasker;
 import com.scroogebank.crm.client_service.repository.AccountRepository;
 import com.scroogebank.crm.client_service.repository.ClientRepository;
 import com.scroogebank.crm.client_service.security.AuthenticatedUser;
+import com.scroogebank.crm.client_service.security.JwtService;
 import com.scroogebank.crm.client_service.security.UnauthorizedException;
 import com.scroogebank.crm.client_service.util.IdCodec;
 import com.scroogebank.crm.client_service.validation.PostalCodeRules;
@@ -54,7 +56,11 @@ public class ClientServiceImpl implements ClientService {
 	private final DocumentStorageService documentStorageService;
 	private final VerificationTokenService verificationTokenService;
 	private final SnsEmailPublisherService snsEmailPublisherService;
+	private final JwtService jwtService;
+	private final Clock clock;
 	private final long verificationLinkTokenTtlSeconds;
+	private final long verificationAuditServiceTokenTtlSeconds;
+	private final String verificationAuditServiceUserId;
 
 	public ClientServiceImpl(
 		ClientRepository clientRepository,
@@ -63,7 +69,11 @@ public class ClientServiceImpl implements ClientService {
 		DocumentStorageService documentStorageService,
 		VerificationTokenService verificationTokenService,
 		SnsEmailPublisherService snsEmailPublisherService,
-		@Value("${app.verification.link-token-ttl-seconds:7200}") Long verificationLinkTokenTtlSeconds
+		JwtService jwtService,
+		Clock clock,
+		@Value("${app.verification.link-token-ttl-seconds:7200}") Long verificationLinkTokenTtlSeconds,
+		@Value("${app.verification.audit.service-token-ttl-seconds:300}") Long verificationAuditServiceTokenTtlSeconds,
+		@Value("${app.verification.audit.service-user-id:usr_system_verification_upload}") String verificationAuditServiceUserId
 	) {
 		this.clientRepository = clientRepository;
 		this.accountRepository = accountRepository;
@@ -71,10 +81,20 @@ public class ClientServiceImpl implements ClientService {
 		this.documentStorageService = documentStorageService;
 		this.verificationTokenService = verificationTokenService;
 		this.snsEmailPublisherService = snsEmailPublisherService;
+		this.jwtService = jwtService;
+		this.clock = clock;
 		this.verificationLinkTokenTtlSeconds =
 			verificationLinkTokenTtlSeconds != null && verificationLinkTokenTtlSeconds > 0
 				? Math.min(verificationLinkTokenTtlSeconds, 1800)
 				: 900;
+		this.verificationAuditServiceTokenTtlSeconds =
+			verificationAuditServiceTokenTtlSeconds != null && verificationAuditServiceTokenTtlSeconds > 0
+				? Math.min(verificationAuditServiceTokenTtlSeconds, 1800)
+				: 300;
+		this.verificationAuditServiceUserId =
+			verificationAuditServiceUserId == null || verificationAuditServiceUserId.isBlank()
+				? "usr_system_verification_upload"
+				: verificationAuditServiceUserId;
 	}
 
 	/**
@@ -636,6 +656,13 @@ public class ClientServiceImpl implements ClientService {
 			request.addressDocumentMimeType()
 		);
 
+		boolean primaryDocumentChanged =
+			!Objects.equals(entity.getPrimaryDocumentType(), request.primaryDocumentType())
+				|| !Objects.equals(entity.getPrimaryDocumentRef(), primaryKey);
+		boolean addressDocumentChanged =
+			!Objects.equals(entity.getAddressDocumentType(), request.addressDocumentType())
+				|| !Objects.equals(entity.getAddressDocumentRef(), addressKey);
+
 		// Persist document metadata and set status to pending
 		entity.setPrimaryDocumentType(request.primaryDocumentType());
 		entity.setPrimaryDocumentRef(primaryKey);   // store S3 key, not raw filename
@@ -647,19 +674,13 @@ public class ClientServiceImpl implements ClientService {
 		entity.setVerificationVerifiedAt(null);
 
 		ClientEntity saved = clientRepository.save(entity);
-
-		/// NO AUTHORIZATION HEADER and AGENT_ID
-		// Publish audit event (for logging)
-		// publishAuditSafe(
-		// 	"UPDATE",
-		// 	"identityVerificationStatus",
-		// 	before == null ? null : before.name(),
-		// 	saved.getIdentityVerificationStatus().name(),
-		// 	null,
-		// 	clientId(saved.getId()),
-		// 	requestId,
-		// 	null
-		// );
+		publishVerificationUploadAuditSafe(
+			before,
+			saved,
+			requestId,
+			primaryDocumentChanged,
+			addressDocumentChanged
+		);
 
 		return new VerifyClientResponse(clientId(saved.getId()), saved.getIdentityVerificationStatus());
 	}
@@ -969,4 +990,66 @@ public class ClientServiceImpl implements ClientService {
 			LOGGER.warn("Client operation completed but audit logging failed. action={} clientId={}", action, clientId, ex);
 		}
 	}
+
+	private void publishVerificationUploadAuditSafe(
+		IdentityVerificationStatus beforeStatus,
+		ClientEntity saved,
+		String requestId,
+		boolean primaryDocumentChanged,
+		boolean addressDocumentChanged
+	) {
+		String afterStatus = saved.getIdentityVerificationStatus() == null
+			? "unknown"
+			: saved.getIdentityVerificationStatus().name();
+		String attributeName;
+		String beforeValue;
+		String afterValue;
+
+		if (beforeStatus == null || beforeStatus != saved.getIdentityVerificationStatus()) {
+			attributeName = "identityVerificationStatus";
+			beforeValue = beforeStatus == null ? "unknown" : beforeStatus.name();
+			afterValue = afterStatus;
+		}
+		else {
+			if (!primaryDocumentChanged && !addressDocumentChanged) {
+				return;
+			}
+			attributeName = "verificationSubmissionState";
+			beforeValue = "status=" + afterStatus + ";primaryDocumentUpdated=false;addressDocumentUpdated=false";
+			afterValue = "status=" + afterStatus
+				+ ";primaryDocumentUpdated=" + primaryDocumentChanged
+				+ ";addressDocumentUpdated=" + addressDocumentChanged;
+		}
+
+		try {
+			clientAuditLogger.logAuditEvent(
+				"UPDATE",
+				attributeName,
+				beforeValue,
+				afterValue,
+				verificationAuditServiceUserId,
+				clientId(saved.getId()),
+				requestId,
+				buildVerificationUploadAuditAuthorizationHeader()
+			);
+		}
+		catch (Exception ex) {
+			LOGGER.warn(
+				"Verification upload completed but audit logging failed. clientId={} requestId={}",
+				clientId(saved.getId()),
+				requestId,
+				ex
+			);
+		}
+	}
+
+	private String buildVerificationUploadAuditAuthorizationHeader() {
+		String token = jwtService.mintForTests(
+			verificationAuditServiceUserId,
+			"service",
+			clock.instant().plusSeconds(verificationAuditServiceTokenTtlSeconds)
+		);
+		return "Bearer " + token;
+	}
+
 }

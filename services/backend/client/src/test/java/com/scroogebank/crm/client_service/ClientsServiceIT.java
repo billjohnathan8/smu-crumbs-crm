@@ -42,6 +42,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import com.scroogebank.crm.client_service.service.VerificationTokenService;
+import com.scroogebank.crm.client_service.logging.ClientAuditLogger;
 
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -91,6 +92,9 @@ class ClientsServiceIT {
 	@MockitoBean
 	private S3Client s3Client;
 
+	@MockitoBean
+	private ClientAuditLogger clientAuditLogger;
+
 	@Container
 	@ServiceConnection
 	@SuppressWarnings("resource")
@@ -123,7 +127,7 @@ class ClientsServiceIT {
 	 */
 	void setUpAwsClientStubs() {
 		assertThat(postgres.isRunning()).isTrue();
-		reset(snsClient, s3Client);
+		reset(snsClient, s3Client, clientAuditLogger);
 		when(snsClient.publish(any(PublishRequest.class)))
 			.thenReturn(PublishResponse.builder().messageId("msg-it-1").build());
 		when(s3Client.putObject(any(PutObjectRequest.class), any(RequestBody.class)))
@@ -343,6 +347,35 @@ class ClientsServiceIT {
 		assertThat(requiredText(persisted, "identityVerificationStatus")).isEqualTo("pending");
 		assertThat(requiredText(persisted, "primaryDocumentRef")).contains("clients/" + clientId + "/primary");
 		assertThat(requiredText(persisted, "addressDocumentRef")).contains("clients/" + clientId + "/address");
+
+		ArgumentCaptor<String> actionCaptor = ArgumentCaptor.forClass(String.class);
+		ArgumentCaptor<String> attributeCaptor = ArgumentCaptor.forClass(String.class);
+		ArgumentCaptor<String> beforeCaptor = ArgumentCaptor.forClass(String.class);
+		ArgumentCaptor<String> afterCaptor = ArgumentCaptor.forClass(String.class);
+		ArgumentCaptor<String> actorCaptor = ArgumentCaptor.forClass(String.class);
+		ArgumentCaptor<String> loggedClientCaptor = ArgumentCaptor.forClass(String.class);
+		ArgumentCaptor<String> requestIdCaptor = ArgumentCaptor.forClass(String.class);
+		ArgumentCaptor<String> authHeaderCaptor = ArgumentCaptor.forClass(String.class);
+		verify(clientAuditLogger, times(1)).logAuditEvent(
+			actionCaptor.capture(),
+			attributeCaptor.capture(),
+			beforeCaptor.capture(),
+			afterCaptor.capture(),
+			actorCaptor.capture(),
+			loggedClientCaptor.capture(),
+			requestIdCaptor.capture(),
+			authHeaderCaptor.capture()
+		);
+		assertThat(actionCaptor.getValue()).isEqualTo("UPDATE");
+		assertThat(attributeCaptor.getValue()).isEqualTo("identityVerificationStatus");
+		assertThat(beforeCaptor.getValue()).isEqualTo("unverified");
+		assertThat(afterCaptor.getValue()).isEqualTo("pending");
+		assertThat(actorCaptor.getValue()).isEqualTo("usr_system_verification_upload");
+		assertThat(loggedClientCaptor.getValue()).isEqualTo(clientId);
+		assertThat(requestIdCaptor.getValue()).isNotBlank();
+		assertThat(authHeaderCaptor.getValue()).startsWith("Bearer ");
+		assertThat(beforeCaptor.getValue()).doesNotContain("base64");
+		assertThat(afterCaptor.getValue()).doesNotContain("base64");
 	}
 
 	@Test
