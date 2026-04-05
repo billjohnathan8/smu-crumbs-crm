@@ -23,11 +23,14 @@ public record ClientDto(
 	String postalCode,
 	String assignedUserId,
 	IdentityVerificationStatus identityVerificationStatus,
+	ClientStatus clientStatus,
 	String primaryDocumentType,
 	String primaryDocumentRef,
 	String addressDocumentType,
 	String addressDocumentRef,
 	Instant verificationVerifiedAt,
+	String verificationReviewerNotes,
+	String verificationReviewedBy,
 	Instant createdAt,
 	Instant updatedAt
 ) {}

@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 import com.scroogebank.crm.client_service.crypto.EncryptedStringConverter;
+import com.scroogebank.crm.client_service.dto.ClientStatus;
 import com.scroogebank.crm.client_service.dto.IdentityVerificationStatus;
 
 import jakarta.persistence.Column;
@@ -97,6 +98,16 @@ public class ClientEntity {
 
 	@Column(name = "verification_verified_at")
 	private Instant verificationVerifiedAt;
+
+	@Enumerated(EnumType.STRING)
+	@Column(name = "client_status", nullable = false, length = 20)
+	private ClientStatus clientStatus = ClientStatus.active;
+
+	@Column(name = "verification_reviewer_notes", length = 2000)
+	private String verificationReviewerNotes;
+
+	@Column(name = "verification_reviewed_by", length = 64)
+	private String verificationReviewedBy;
 
 	@Column(name = "created_at", nullable = false)
 	private Instant createdAt;
@@ -290,4 +301,13 @@ public class ClientEntity {
 
 	public boolean isDeleted() { return deleted; }
 	public void setDeleted(boolean deleted) { this.deleted = deleted; }
+
+	public ClientStatus getClientStatus() { return clientStatus; }
+	public void setClientStatus(ClientStatus clientStatus) { this.clientStatus = clientStatus; }
+
+	public String getVerificationReviewerNotes() { return verificationReviewerNotes; }
+	public void setVerificationReviewerNotes(String verificationReviewerNotes) { this.verificationReviewerNotes = verificationReviewerNotes; }
+
+	public String getVerificationReviewedBy() { return verificationReviewedBy; }
+	public void setVerificationReviewedBy(String verificationReviewedBy) { this.verificationReviewedBy = verificationReviewedBy; }
 }

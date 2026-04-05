@@ -718,7 +718,7 @@ class ClientServiceImplTest {
 			clientService.reviewVerification(
 				user,
 				"clt_7",
-				new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.approve),
+				new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.approve, null),
 				"Bearer x",
 				"req-1"
 			)
@@ -736,7 +736,7 @@ class ClientServiceImplTest {
 		var response = clientService.reviewVerification(
 			user,
 			"clt_7",
-			new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.approve),
+			new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.approve, null),
 			"Bearer x",
 			"req-1"
 		);
@@ -803,7 +803,7 @@ class ClientServiceImplTest {
 			clientService.reviewVerification(
 				admin,
 				"clt_7",
-				new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.reject),
+				new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.reject, null),
 				"Bearer x",
 				"req-1"
 			)
@@ -821,7 +821,7 @@ class ClientServiceImplTest {
 		var response = clientService.reviewVerification(
 			admin,
 			"clt_7",
-			new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.approve),
+			new ReviewVerificationRequest(ReviewVerificationRequest.ReviewAction.approve, null),
 			"Bearer x",
 			"req-1"
 		);

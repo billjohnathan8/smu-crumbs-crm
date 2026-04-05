@@ -82,6 +82,7 @@ export interface UpdateUserRequest {
 // Client types (client-service)
 export type Gender = 'Male' | 'Female' | 'Non-binary' | 'Prefer not to say'
 export type IdentityVerificationStatus = 'unverified' | 'pending' | 'verified' | 'rejected'
+export type ClientStatus = 'active' | 'inactive' | 'closed'
 export type AccountType = 'Savings' | 'Checking' | 'Business'
 export type AccountStatus = 'Active' | 'Inactive' | 'Pending'
 
@@ -99,11 +100,14 @@ export interface Client {
   country: string
   postalCode: string
   identityVerificationStatus: IdentityVerificationStatus
+  clientStatus: ClientStatus
   primaryDocumentType?: string | null
   primaryDocumentRef?: string | null
   addressDocumentType?: string | null
   addressDocumentRef?: string | null
   verificationVerifiedAt?: string | null
+  verificationReviewerNotes?: string | null
+  verificationReviewedBy?: string | null
   assignedUserId?: string
   createdAt?: string
   updatedAt?: string
@@ -168,6 +172,7 @@ export type ReviewAction = 'approve' | 'reject'
 
 export interface ReviewVerificationRequest {
   action: ReviewAction
+  reviewerNotes?: string
 }
 
 export interface VerificationDocument {
