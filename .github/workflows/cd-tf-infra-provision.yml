@@ -14,6 +14,11 @@ on:
         description: Full 40-char commit SHA from the plan workflow
         required: true
         type: string
+      run_force_deploy:
+        description: "Run force deploy after Terraform apply (set false for scoped infra hotfixes)"
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   actions: write
@@ -57,6 +62,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY_SECRET: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           TF_ROOT_ADMIN_PASSWORD_SECRET: ${{ secrets.TF_ROOT_ADMIN_PASSWORD }}
           TF_JWT_HMAC_SECRET_SECRET: ${{ secrets.TF_JWT_HMAC_SECRET }}
+          TF_PII_ENCRYPTION_KEY_SECRET: ${{ secrets.TF_PII_ENCRYPTION_KEY }}
         shell: bash
         run: |
           set -euo pipefail
@@ -73,6 +79,9 @@ jobs:
           test -n "${AWS_SECRET_ACCESS_KEY_SECRET:-}" || { echo "::error::Missing secret: AWS_SECRET_ACCESS_KEY"; exit 1; }
           test -n "${TF_ROOT_ADMIN_PASSWORD_SECRET:-}" || { echo "::error::Missing secret: TF_ROOT_ADMIN_PASSWORD"; exit 1; }
           test -n "${TF_JWT_HMAC_SECRET_SECRET:-}" || { echo "::error::Missing secret: TF_JWT_HMAC_SECRET"; exit 1; }
+          if [[ -z "${TF_PII_ENCRYPTION_KEY_SECRET:-}" ]]; then
+            echo "::warning::Secret TF_PII_ENCRYPTION_KEY is not set. Terraform may auto-generate a new key."
+          fi
 
       # ── Locate reviewed plan artifacts ──────────────────────────
       - name: Locate reviewed plan run and artifacts
@@ -190,14 +199,19 @@ jobs:
         env:
           ROOT_ADMIN_PASSWORD: ${{ secrets.TF_ROOT_ADMIN_PASSWORD }}
           JWT_HMAC_SECRET: ${{ secrets.TF_JWT_HMAC_SECRET }}
+          PII_ENCRYPTION_KEY: ${{ secrets.TF_PII_ENCRYPTION_KEY }}
         shell: bash
         run: |
           set -euo pipefail
           echo "::add-mask::${ROOT_ADMIN_PASSWORD}"
           echo "::add-mask::${JWT_HMAC_SECRET}"
+          echo "::add-mask::${PII_ENCRYPTION_KEY}"
           {
             echo "root_admin_password = $(jq -Rn --arg v "$ROOT_ADMIN_PASSWORD" '$v')"
             echo "jwt_hmac_secret = $(jq -Rn --arg v "$JWT_HMAC_SECRET" '$v')"
+            if [[ -n "${PII_ENCRYPTION_KEY}" ]]; then
+              echo "pii_encryption_key = $(jq -Rn --arg v "$PII_ENCRYPTION_KEY" '$v')"
+            fi
             if [[ -n "${APP_DOMAIN_NAME}" ]]; then
               echo "app_domain_name = $(jq -Rn --arg v "$APP_DOMAIN_NAME" '$v')"
             fi
@@ -413,7 +427,7 @@ jobs:
     name: Deploy all services
     needs:
       - provision
-    if: ${{ !failure() && !cancelled() }}
+    if: ${{ !failure() && !cancelled() && inputs.run_force_deploy }}
     uses: ./.github/workflows/cd-force-all.yml
     with:
       cloudfront_distribution_id: ${{ needs.provision.outputs.cloudfront_distribution_id }}
