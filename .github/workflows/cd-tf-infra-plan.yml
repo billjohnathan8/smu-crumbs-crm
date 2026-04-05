@@ -3,7 +3,7 @@ name: CD - Terraform Infra Plan
 # Auto-handles pending-deletion secrets and state reconciliation (no manual toggles).
 #
 # After reviewing the plan output, copy the commit SHA and run
-# "CD - Terraform Infra Provision & Seed" with that SHA to apply+deploy+seed.
+# "CD - Terraform Infra Provision" with that SHA to apply+deploy.
 
 on:
   workflow_dispatch:
@@ -292,7 +292,7 @@ jobs:
             echo "---"
             echo
             echo "### Next step"
-            echo "Review the text plan artifact above, then run **CD - Terraform Infra Provision & Seed** with:"
+            echo "Review the text plan artifact above, then run **CD - Terraform Infra Provision** with:"
             echo
             echo "\`\`\`"
             echo "reviewed_commit_sha: ${{ steps.plan_meta.outputs.commit_sha }}"

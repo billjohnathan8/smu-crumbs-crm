@@ -1,13 +1,11 @@
-name: CD - Terraform Infra Provision & Seed
-# Apply a reviewed Terraform plan by commit SHA, then deploy all services and seed prod data.
+name: CD - Terraform Infra Provision
+# Apply a reviewed Terraform plan by commit SHA, then deploy all services.
 # Idempotent: works whether infra is fully up, partially up, or down.
 #
 # Workflow:
 #   1. Run "CD - Terraform Infra Plan" (zero inputs) → get commit SHA
 #   2. Review the plan artifact
-#   3. Run THIS workflow with the reviewed commit SHA → apply + deploy + seed
-#
-# Replaces the old separate apply-and-deploy + post-apply-bootstrap chain.
+#   3. Run THIS workflow with the reviewed commit SHA → apply + deploy
 
 on:
   workflow_dispatch:
@@ -401,7 +399,7 @@ jobs:
             echo "- cloudfront: $(jq -r '.deploy_contract.cloudfront_distribution_id // ""' deploy-contract-snapshot.json)"
             echo "- cognito_user_pool_id: $(jq -r '.deploy_contract.cognito_user_pool_id // ""' deploy-contract-snapshot.json)"
             echo
-            echo "Next: force-deploy → seed-data (automatic)"
+            echo "Next: verify deployment; run CD - Post Apply Bootstrap manually only if seeding is needed."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Cleanup Terraform working files
@@ -419,21 +417,4 @@ jobs:
     uses: ./.github/workflows/cd-force-all.yml
     with:
       cloudfront_distribution_id: ${{ needs.provision.outputs.cloudfront_distribution_id }}
-    secrets: inherit
-
-  # ── Seed production data ─────────────────────────────────────────
-  seed-data:
-    name: Seed production data
-    needs:
-      - provision
-      - force-deploy
-    if: ${{ !failure() && !cancelled() }}
-    uses: ./.github/workflows/cd-post-apply-bootstrap.yml
-    with:
-      reviewed_commit_sha: ${{ inputs.reviewed_commit_sha }}
-      seed_users_count: "3"
-      seed_clients_count: "6"
-      transaction_row_count: "120"
-      run_transaction_seed: true
-      run_sftp_upload: true
     secrets: inherit

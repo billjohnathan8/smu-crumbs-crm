@@ -1,7 +1,6 @@
 name: CD - Post Apply Bootstrap
 # Seed baseline users/clients and transaction fixtures after infra+deploy is stable.
-# NOTE: This workflow is automatically called by cd-tf-infra-provision.yml after apply+deploy.
-# Manual dispatch is still available but typically unnecessary.
+# NOTE: This workflow is manually dispatched when production seeding is needed.
 
 on:
   workflow_dispatch:

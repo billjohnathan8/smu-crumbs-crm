@@ -2,8 +2,8 @@ name: "[DEPRECATED] CD - Terraform Infra Apply & Deploy"
 # ┌──────────────────────────────────────────────────────────────────┐
 # │  DEPRECATED — DO NOT USE                                        │
 # │  Replaced by: cd-tf-infra-provision.yml                         │
-# │  (CD - Terraform Infra Provision & Seed)                        │
-# │  which combines apply + deploy + seed in one workflow.           │
+# │  (CD - Terraform Infra Provision)                               │
+# │  which combines apply + deploy in one workflow.                 │
 # │                                                                  │
 # │  workflow_dispatch removed so this no longer appears in the      │
 # │  Actions sidebar. File kept for git history reference only.      │
