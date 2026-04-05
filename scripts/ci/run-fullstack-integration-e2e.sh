@@ -2621,7 +2621,7 @@ AML_CONSUMER_QUEUE_URL="$(
     --query QueueUrl \
     --output text
 )"
-AML_CONSUMER_ALERT_ID="aml-consumer-fullstack-${RUN_ID}"
+AML_CONSUMER_ALERT_ID="aml_${RUN_ID//[^0-9]/}"
 AML_CONSUMER_DETECTED_AT="2026-03-01T10:30:00Z"
 AML_CONSUMER_VALID_PAYLOAD="$(cat <<JSON
 {"alertId":"${AML_CONSUMER_ALERT_ID}","detectedAt":"${AML_CONSUMER_DETECTED_AT}","clientId":"${CLIENT_ID}","alertType":"LargeCashDeposit","description":"fullstack aml-consumer smoke","reviewStatus":"Pending","entityId":"entity-fullstack","sourceService":"fullstack-smoke","metadata":{"suite":"fullstack-smoke"}}

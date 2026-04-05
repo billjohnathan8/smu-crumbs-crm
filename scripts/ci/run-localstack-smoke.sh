@@ -877,7 +877,7 @@ AML_QUEUE_URL=$(aws_local sqs get-queue-url \
   --query 'QueueUrl' \
   --output text)
 
-AML_ALERT_ID="aml-localstack-${RUN_ID}"
+AML_ALERT_ID="aml_${RUN_ID//[^0-9]/}"
 AML_DETECTED_AT="2026-03-01T10:30:00Z"
 AML_VALID_PAYLOAD="$(cat <<JSON
 {"alertId":"${AML_ALERT_ID}","detectedAt":"${AML_DETECTED_AT}","clientId":"smoke-client","alertType":"LargeCashDeposit","description":"large amount pattern","reviewStatus":"Pending","entityId":"entity-smoke","sourceService":"localstack-smoke","metadata":{"suite":"localstack-smoke"}}
