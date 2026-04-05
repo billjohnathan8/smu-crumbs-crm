@@ -190,10 +190,8 @@ describe('AdminUserManagementPage', () => {
     expect(screen.getByRole('columnheader', { name: 'User ID' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Agent' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Pending' })).toBeInTheDocument()
-    expect(screen.getByText('user-123')).toBeInTheDocument()
-    expect(screen.getByText('User User')).toBeInTheDocument()
-    expect(screen.getByText('user-456')).toBeInTheDocument()
-    expect(screen.getByText('Second Agent')).toBeInTheDocument()
+    expect(screen.getByRole('row', { name: /user-123\s+User User\s+3/i })).toBeInTheDocument()
+    expect(screen.getByRole('row', { name: /user-456\s+Second Agent\s+2/i })).toBeInTheDocument()
     expect(
       screen.getByText(
         (_, element) =>
@@ -231,9 +229,7 @@ describe('AdminUserManagementPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /View details/i }))
 
-    expect(screen.getByText('user-123')).toBeInTheDocument()
-    expect(screen.getByText('User User')).toBeInTheDocument()
-    expect(screen.getByText('2')).toBeInTheDocument()
+    expect(screen.getByRole('row', { name: /user-123\s+User User\s+2/i })).toBeInTheDocument()
   })
 })
 
