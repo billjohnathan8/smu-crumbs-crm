@@ -29,40 +29,19 @@ import com.scroogebank.crm.transaction_service.service.TransactionsService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 class TransactionsControllerTest {
 
-	private TransactionsService transactionsService;
-	private RequestAuth requestAuth;
-	private ClientAccessValidator clientAccessValidator;
-	private TransactionAuditLogger transactionAuditLogger;
-	private AppProperties appProperties;
-	private TransactionsController controller;
-	private HttpServletRequest httpRequest;
+	private final TransactionsService transactionsService = mock(TransactionsService.class);
+	private final RequestAuth requestAuth = mock(RequestAuth.class);
+	private final ClientAccessValidator clientAccessValidator = mock(ClientAccessValidator.class);
+	private final TransactionAuditLogger transactionAuditLogger = mock(TransactionAuditLogger.class);
+	private final AppProperties appProperties = mock(AppProperties.class);
+	private final TransactionsController controller = createController();
+	private final HttpServletRequest httpRequest = createHttpRequest();
 
-	@BeforeEach
-	void setUp() {
-		transactionsService = mock(TransactionsService.class);
-		requestAuth = mock(RequestAuth.class);
-		clientAccessValidator = mock(ClientAccessValidator.class);
-		transactionAuditLogger = mock(TransactionAuditLogger.class);
-		appProperties = mock(AppProperties.class);
-		when(appProperties.isTransactionUpdatesEnabled()).thenReturn(false);
-		controller = new TransactionsController(
-			transactionsService,
-			requestAuth,
-			clientAccessValidator,
-			transactionAuditLogger,
-			appProperties
-		);
-		httpRequest = mock(HttpServletRequest.class);
-		when(httpRequest.getHeader("Authorization")).thenReturn("Bearer token");
-		when(httpRequest.getAttribute("requestId")).thenReturn("req_1");
-	}
-
-	@Test
+	@org.junit.jupiter.api.Test
 	void listTransactions_userWithoutClientId_returnsEmptyPage() {
 		when(requestAuth.requireUser(httpRequest)).thenReturn(new AuthenticatedUser("usr_1", "user"));
 
@@ -74,7 +53,7 @@ class TransactionsControllerTest {
 		assertEquals(0, response.pagination().total());
 	}
 
-	@Test
+	@org.junit.jupiter.api.Test
 	void listTransactions_userWithBlankClientId_returnsEmptyPage() {
 		when(requestAuth.requireUser(httpRequest)).thenReturn(new AuthenticatedUser("usr_1", "user"));
 
@@ -85,7 +64,7 @@ class TransactionsControllerTest {
 		assertTrue(response.data().isEmpty());
 	}
 
-	@Test
+	@org.junit.jupiter.api.Test
 	void listTransactions_adminWithoutClientId_delegatesToService() {
 		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		when(requestAuth.requireUser(httpRequest)).thenReturn(admin);
@@ -99,16 +78,14 @@ class TransactionsControllerTest {
 		assertEquals(0, response.pagination().total());
 	}
 
-	@Test
+	@org.junit.jupiter.api.Test
 	void listTransactions_forbiddenRole_throws() {
 		when(requestAuth.requireUser(httpRequest)).thenReturn(new AuthenticatedUser("usr_1", "auditor"));
 
-		assertThrows(ForbiddenException.class, () ->
-			controller.listTransactions(httpRequest, 50, 0, null, null, null, null, null)
-		);
+		assertForbidden(() -> controller.listTransactions(httpRequest, 50, 0, null, null, null, null, null));
 	}
 
-	@Test
+	@org.junit.jupiter.api.Test
 	void createTransaction_adminAllowed() {
 		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		when(requestAuth.requireUser(httpRequest)).thenReturn(admin);
@@ -133,25 +110,24 @@ class TransactionsControllerTest {
 		);
 	}
 
-	@Test
+	@org.junit.jupiter.api.Test
 	void createTransaction_userForbidden() {
 		when(requestAuth.requireUser(httpRequest)).thenReturn(new AuthenticatedUser("usr_1", "user"));
 
-		assertThrows(ForbiddenException.class, () ->
-			controller.createTransaction(httpRequest, mock(CreateTransactionRequest.class))
-		);
+		assertForbidden(() -> controller.createTransaction(httpRequest, mock(CreateTransactionRequest.class)));
 	}
 
-	@Test
+	@org.junit.jupiter.api.Test
 	void updateTransaction_adminForbiddenWhenDisabled() {
 		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		when(requestAuth.requireUser(httpRequest)).thenReturn(admin);
-		assertThrows(ForbiddenException.class, () ->
-			controller.updateTransaction(httpRequest, "txn_1", mock(UpdateTransactionRequest.class))
+		assertForbiddenMessage(
+			"Transaction editing is disabled.",
+			() -> controller.updateTransaction(httpRequest, "txn_1", mock(UpdateTransactionRequest.class))
 		);
 	}
 
-	@Test
+	@org.junit.jupiter.api.Test
 	void updateTransaction_adminAllowedWhenEnabled() {
 		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		when(requestAuth.requireUser(httpRequest)).thenReturn(admin);
@@ -179,16 +155,14 @@ class TransactionsControllerTest {
 		assertEquals(after, result);
 	}
 
-	@Test
+	@org.junit.jupiter.api.Test
 	void updateTransaction_userForbidden() {
 		when(requestAuth.requireUser(httpRequest)).thenReturn(new AuthenticatedUser("usr_1", "user"));
 
-		assertThrows(ForbiddenException.class, () ->
-			controller.updateTransaction(httpRequest, "txn_1", mock(UpdateTransactionRequest.class))
-		);
+		assertForbidden(() -> controller.updateTransaction(httpRequest, "txn_1", mock(UpdateTransactionRequest.class)));
 	}
 
-	@Test
+	@org.junit.jupiter.api.Test
 	void getTransaction_userForbiddenClient_throwsTransactionNotFound() {
 		AuthenticatedUser user = new AuthenticatedUser("usr_1", "user");
 		when(requestAuth.requireUser(httpRequest)).thenReturn(user);
@@ -199,21 +173,17 @@ class TransactionsControllerTest {
 		doThrow(new ForbiddenException("forbidden"))
 			.when(clientAccessValidator).requireClientAccessible(eq(user), eq("Bearer token"), eq("clt_1"));
 
-		assertThrows(TransactionNotFoundException.class, () ->
-			controller.getTransaction(httpRequest, "txn_1")
-		);
+		assertTransactionNotFound("txn_1", () -> controller.getTransaction(httpRequest, "txn_1"));
 	}
 
-	@Test
+	@org.junit.jupiter.api.Test
 	void deleteTransaction_userForbidden() {
 		when(requestAuth.requireUser(httpRequest)).thenReturn(new AuthenticatedUser("usr_1", "user"));
 
-		assertThrows(ForbiddenException.class, () ->
-			controller.deleteTransaction(httpRequest, "txn_1")
-		);
+		assertForbidden(() -> controller.deleteTransaction(httpRequest, "txn_1"));
 	}
 
-	@Test
+	@org.junit.jupiter.api.Test
 	void listTransactionsForClient_delegatesToService() {
 		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		when(requestAuth.requireUser(httpRequest)).thenReturn(admin);
@@ -226,7 +196,7 @@ class TransactionsControllerTest {
 		assertEquals(0, response.pagination().total());
 	}
 
-	@Test
+	@org.junit.jupiter.api.Test
 	void importTransactions_adminAllowed() {
 		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		when(requestAuth.requireUser(httpRequest)).thenReturn(admin);
@@ -260,7 +230,7 @@ class TransactionsControllerTest {
 		);
 	}
 
-	@Test
+	@org.junit.jupiter.api.Test
 	void importTransactions_adminAllowed_withoutRequestedClient_usesSystemImportClientId() {
 		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		when(requestAuth.requireUser(httpRequest)).thenReturn(admin);
@@ -292,16 +262,14 @@ class TransactionsControllerTest {
 		);
 	}
 
-	@Test
+	@org.junit.jupiter.api.Test
 	void importTransactions_userForbidden() {
 		when(requestAuth.requireUser(httpRequest)).thenReturn(new AuthenticatedUser("usr_1", "user"));
 
-		assertThrows(ForbiddenException.class, () ->
-			controller.importTransactions(httpRequest, null)
-		);
+		assertForbidden(() -> controller.importTransactions(httpRequest, null));
 	}
 
-	@Test
+	@org.junit.jupiter.api.Test
 	void getImportBatch_adminAllowed_logsReadAudit() {
 		AuthenticatedUser admin = new AuthenticatedUser("usr_1", "super_admin");
 		when(requestAuth.requireUser(httpRequest)).thenReturn(admin);
@@ -332,5 +300,38 @@ class TransactionsControllerTest {
 			"req_1",
 			"Bearer token"
 		);
+	}
+
+	private void assertForbidden(Executable executable) {
+		ForbiddenException exception = assertThrows(ForbiddenException.class, executable);
+		assertEquals("forbidden", exception.getMessage());
+	}
+
+	private void assertForbiddenMessage(String expectedMessage, Executable executable) {
+		ForbiddenException exception = assertThrows(ForbiddenException.class, executable);
+		assertEquals(expectedMessage, exception.getMessage());
+	}
+
+	private void assertTransactionNotFound(String transactionId, Executable executable) {
+		TransactionNotFoundException exception = assertThrows(TransactionNotFoundException.class, executable);
+		assertEquals("Transaction not found: " + transactionId, exception.getMessage());
+	}
+
+	private TransactionsController createController() {
+		when(appProperties.isTransactionUpdatesEnabled()).thenReturn(false);
+		return new TransactionsController(
+			transactionsService,
+			requestAuth,
+			clientAccessValidator,
+			transactionAuditLogger,
+			appProperties
+		);
+	}
+
+	private HttpServletRequest createHttpRequest() {
+		HttpServletRequest request = mock(HttpServletRequest.class);
+		when(request.getHeader("Authorization")).thenReturn("Bearer token");
+		when(request.getAttribute("requestId")).thenReturn("req_1");
+		return request;
 	}
 }
