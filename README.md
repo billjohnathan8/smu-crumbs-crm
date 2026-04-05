@@ -86,7 +86,6 @@ This section contains our tech stack and prerequisites you will require before s
 - Amazon VPC (subnets, route tables, NACLs, Internet Gateway, NAT Gateway, flow logs)
 - Amazon ECS on Fargate
 - AWS Lambda
-- AWS S3
 - Amazon ECR
 - Application Load Balancer (ALB)
 - Amazon CloudFront
