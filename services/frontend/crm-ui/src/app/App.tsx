@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext'
 import { ThemeProvider } from '@/features/theme/ThemeContext'
 import { ProtectedRoute } from './ProtectedRoute'
+import { isRootAdminUser } from '@/features/auth/authorization'
 
 const LoginPage = lazy(() =>
   import('@/pages/LoginPage').then(module => ({ default: module.LoginPage }))
@@ -100,6 +101,11 @@ function AdminHomeRedirect() {
   const { user } = useAuth()
   if (!user) {
     return <Navigate to="/login" replace />
+  }
+  // Non-root admins should not access the dashboard (client data)
+  // Redirect them to User Management instead
+  if (!isRootAdminUser(user)) {
+    return <Navigate to="/admin/users" replace />
   }
   return <AdminDashboard />
 }

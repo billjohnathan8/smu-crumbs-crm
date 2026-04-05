@@ -13,7 +13,6 @@ export const agentSidebarNav: NavItem[] = [
 ]
 
 export const adminSidebarNav: NavItem[] = [
-  { label: 'Home', to: '/admin', end: true },
   { label: 'User Management', to: '/admin/users', end: true },
   { label: 'Activity Logs', to: '/admin/logs' },
   { label: 'Settings', to: '/admin/settings' },

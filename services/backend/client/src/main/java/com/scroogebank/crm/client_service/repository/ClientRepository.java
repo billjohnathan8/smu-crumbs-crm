@@ -12,16 +12,16 @@ import org.springframework.data.repository.query.Param;
  * Persistence operations for client entities with search helpers.
  */
 public interface ClientRepository extends JpaRepository<ClientEntity, Long> {
-	@Query("SELECT COUNT(c) > 0 FROM ClientEntity c WHERE LOWER(c.emailAddress) = LOWER(:email)")
+	@Query("SELECT COUNT(c) > 0 FROM ClientEntity c WHERE c.deleted = false AND LOWER(c.emailAddress) = LOWER(:email)")
 	boolean existsByEmailAddressIgnoreCase(@Param("email") String emailAddress);
 
-	@Query("SELECT COUNT(c) > 0 FROM ClientEntity c WHERE c.phoneNumber = :phone")
+	@Query("SELECT COUNT(c) > 0 FROM ClientEntity c WHERE c.deleted = false AND c.phoneNumber = :phone")
 	boolean existsByPhoneNumber(@Param("phone") String phoneNumber);
 
-	@Query("SELECT COUNT(c) > 0 FROM ClientEntity c WHERE LOWER(c.emailAddress) = LOWER(:email) AND c.id <> :id")
+	@Query("SELECT COUNT(c) > 0 FROM ClientEntity c WHERE c.deleted = false AND LOWER(c.emailAddress) = LOWER(:email) AND c.id <> :id")
 	boolean existsByEmailAddressIgnoreCaseAndIdNot(@Param("email") String emailAddress, @Param("id") Long id);
 
-	@Query("SELECT COUNT(c) > 0 FROM ClientEntity c WHERE c.phoneNumber = :phone AND c.id <> :id")
+	@Query("SELECT COUNT(c) > 0 FROM ClientEntity c WHERE c.deleted = false AND c.phoneNumber = :phone AND c.id <> :id")
 	boolean existsByPhoneNumberAndIdNot(@Param("phone") String phoneNumber, @Param("id") Long id);
 
 	@Override
