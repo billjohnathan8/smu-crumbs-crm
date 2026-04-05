@@ -19,7 +19,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 /**
  * Spring context smoke tests for the client service.
  */
-@SpringBootTest
+@SpringBootTest(properties = {
+	"PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY="
+})
 @ImportAutoConfiguration(exclude = {
 	DataSourceAutoConfiguration.class,
 	HibernateJpaAutoConfiguration.class,

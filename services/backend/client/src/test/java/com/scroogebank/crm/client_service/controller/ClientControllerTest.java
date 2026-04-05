@@ -93,6 +93,9 @@ class ClientControllerTest {
             null,
             null,
             null,
+            null,
+            null,
+            null,
             Instant.parse("2026-02-04T12:00:00Z"),
             Instant.parse("2026-02-04T12:00:00Z")
         );

@@ -1,5 +1,6 @@
 package com.scroogebank.crm.client_service.crypto;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -9,11 +10,14 @@ import org.junit.jupiter.api.Test;
  * Unit tests for {@link EncryptedStringConverter}.
  */
 class EncryptedStringConverterTest {
+	private static final String VALID_PII_KEY = "MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY=";
 
 	private EncryptedStringConverter converter;
 
 	@BeforeEach
 	void setUp() {
+		System.setProperty("PII_ENCRYPTION_KEY", VALID_PII_KEY);
+		EncryptedStringConverter.resetForTests();
 		converter = new EncryptedStringConverter();
 	}
 
@@ -68,23 +72,38 @@ class EncryptedStringConverterTest {
 	}
 
 	@Test
-	void unencryptedLegacyData_returnedAsIs() {
-		String plaintext = "123 Main Street";
-		String result = converter.convertToEntityAttribute(plaintext);
-		assertThat(result).isEqualTo(plaintext);
+	void missingKey_failsClosed() {
+		System.clearProperty("PII_ENCRYPTION_KEY");
+		EncryptedStringConverter.resetForTests();
+
+		assertThatThrownBy(() -> converter.convertToDatabaseColumn("123 Main Street"))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessageContaining("PII_ENCRYPTION_KEY must be provided");
 	}
 
 	@Test
-	void invalidBase64_returnedAsIs() {
-		String invalid = "not!!valid@@base64##";
-		String result = converter.convertToEntityAttribute(invalid);
-		assertThat(result).isEqualTo(invalid);
+	void invalidKey_failsClosed() {
+		System.setProperty("PII_ENCRYPTION_KEY", "not-base64");
+		EncryptedStringConverter.resetForTests();
+
+		assertThatThrownBy(() -> converter.convertToDatabaseColumn("123 Main Street"))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessageContaining("PII_ENCRYPTION_KEY must be valid Base64");
 	}
 
 	@Test
-	void tooShortBase64_returnedAsIs() {
+	void tooShortBase64Ciphertext_failsClosed() {
 		String tooShort = "AQID";
-		String result = converter.convertToEntityAttribute(tooShort);
-		assertThat(result).isEqualTo(tooShort);
+		assertThatThrownBy(() -> converter.convertToEntityAttribute(tooShort))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessageContaining("PII ciphertext payload is invalid");
+	}
+
+	@Test
+	void invalidBase64Ciphertext_failsClosed() {
+		String invalid = "not!!valid@@base64##";
+		assertThatThrownBy(() -> converter.convertToEntityAttribute(invalid))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessageContaining("PII ciphertext is not valid Base64");
 	}
 }

@@ -67,7 +67,8 @@ import tools.jackson.databind.ObjectMapper;
 	properties = {
 		"app.jwt.hmac-secret=dev-only-insecure-secret",
 		"app.verification.sns-topic-arn=arn:aws:sns:ap-southeast-1:000000000000:verification-it",
-		"app.verification.documents-bucket=verification-it-bucket"
+		"app.verification.documents-bucket=verification-it-bucket",
+		"PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY="
 	}
 )
 class ClientsServiceIT {
