@@ -9,7 +9,7 @@ test.describe("Admin Transactions Import", () => {
     await page.unrouteAll({ behavior: 'ignoreErrors' });
     await setupAdminRoutes(page);
     await gotoWithNetworkRetry(page, "/login");
-    await setAuthState(page, "admin");
+    await setAuthState(page, "super_admin");
   });
 
   test("should start an import and display batch status history", async ({ page }) => {
@@ -36,11 +36,11 @@ test.describe("Admin Transactions Import", () => {
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              id: "admin-1",
-              firstName: "Admin",
+              id: "usr_1",
+              firstName: "Root",
               lastName: "User",
-              email: "admin@example.com",
-              role: "admin",
+              email: "admin@crm.com",
+              role: "super_admin",
               status: "active",
             }),
           });
@@ -155,11 +155,11 @@ test.describe("Admin Transactions Import", () => {
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              id: "admin-1",
-              firstName: "Admin",
+              id: "usr_1",
+              firstName: "Root",
               lastName: "User",
-              email: "admin@example.com",
-              role: "admin",
+              email: "admin@crm.com",
+              role: "super_admin",
               status: "active",
             }),
           });

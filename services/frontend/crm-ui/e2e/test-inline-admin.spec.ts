@@ -10,6 +10,6 @@ test("inline admin login test", async ({ page }) => {
   await page.fill('input[type="password"]', "password123");
   await page.click('button[type="submit"]');
 
-  await expect(page).toHaveURL("/admin");
-  await expect(page.getByText("Admin Dashboard")).toBeVisible();
+  await expect(page).toHaveURL("/admin/users");
+  await expect(page.getByRole("heading", { name: "User Management" })).toBeVisible();
 });

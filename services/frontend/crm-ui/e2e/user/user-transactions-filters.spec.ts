@@ -37,11 +37,11 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
   });
 
   test("should filter transactions by status", async ({ page }) => {
-    let lastRequestParams: URLSearchParams | null = null;
-
     await test.step("Set up routes to capture filter params", async () => {
       await page.route("**/api/**", (route: Route) => {
         const url = route.request().url();
+        const urlObj = new URL(url);
+        const path = urlObj.pathname;
 
         if (
           url.includes("/@vite") ||
@@ -71,18 +71,29 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
           });
         }
 
-        if (url.includes("/api/transactions")) {
-          const urlObj = new URL(url);
-          lastRequestParams = urlObj.searchParams;
+        if (path === "/api/clients") {
+          const clients = Array.from(new Set(sampleTransactions.map(t => t.clientId))).map(id => ({
+            clientId: id,
+            firstName: "Test",
+            lastName: "Client",
+            emailAddress: `${id}@example.com`,
+            phoneNumber: "+6500000000",
+          }));
 
-          const status = urlObj.searchParams.get("status");
-          let filteredData = sampleTransactions;
+          return route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              data: clients,
+              pagination: { limit: 100, offset: 0, total: clients.length },
+            }),
+          });
+        }
 
-          if (status) {
-            filteredData = sampleTransactions.filter(
-              (t) => t.status === status,
-            );
-          }
+        const clientTransactionsMatch = path.match(/^\/api\/clients\/([^/]+)\/transactions$/);
+        if (clientTransactionsMatch) {
+          const clientId = clientTransactionsMatch[1];
+          const filteredData = sampleTransactions.filter(t => t.clientId === clientId);
 
           return route.fulfill({
             status: 200,
@@ -122,18 +133,17 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
     await test.step("Verify only Completed transactions shown", async () => {
       await expect(page.getByText("txn-001")).toBeVisible();
       await expect(page.getByText("txn-002")).not.toBeVisible();
-      expect(lastRequestParams?.get("status")).toBe("Completed");
     });
   });
 
   test("should filter transactions by type (Deposit/Withdrawal)", async ({
     page,
   }) => {
-    let lastRequestParams: URLSearchParams | null = null;
-
     await test.step("Set up routes", async () => {
       await page.route("**/api/**", (route: Route) => {
         const url = route.request().url();
+        const urlObj = new URL(url);
+        const path = urlObj.pathname;
 
         if (
           url.includes("/@vite") ||
@@ -163,18 +173,29 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
           });
         }
 
-        if (url.includes("/api/transactions")) {
-          const urlObj = new URL(url);
-          lastRequestParams = urlObj.searchParams;
+        if (path === "/api/clients") {
+          const clients = Array.from(new Set(sampleTransactions.map(t => t.clientId))).map(id => ({
+            clientId: id,
+            firstName: "Test",
+            lastName: "Client",
+            emailAddress: `${id}@example.com`,
+            phoneNumber: "+6500000000",
+          }));
 
-          const transactionType = urlObj.searchParams.get("transaction");
-          let filteredData = sampleTransactions;
+          return route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              data: clients,
+              pagination: { limit: 100, offset: 0, total: clients.length },
+            }),
+          });
+        }
 
-          if (transactionType) {
-            filteredData = sampleTransactions.filter(
-              (t) => t.transaction === transactionType,
-            );
-          }
+        const clientTransactionsMatch = path.match(/^\/api\/clients\/([^/]+)\/transactions$/);
+        if (clientTransactionsMatch) {
+          const clientId = clientTransactionsMatch[1];
+          const filteredData = sampleTransactions.filter(t => t.clientId === clientId);
 
           return route.fulfill({
             status: 200,
@@ -209,7 +230,6 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
       await expect(page.getByText("txn-001")).toBeVisible();
       await expect(page.getByText("txn-003")).toBeVisible();
       await expect(page.getByText("txn-002")).not.toBeVisible();
-      expect(lastRequestParams?.get("transaction")).toBe("D");
     });
   });
 
@@ -217,6 +237,8 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
     await test.step("Set up routes", async () => {
       await page.route("**/api/**", (route: Route) => {
         const url = route.request().url();
+        const urlObj = new URL(url);
+        const path = urlObj.pathname;
 
         if (
           url.includes("/@vite") ||
@@ -246,22 +268,29 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
           });
         }
 
-        if (url.includes("/api/transactions")) {
-          const urlObj = new URL(url);
+        if (path === "/api/clients") {
+          const clients = Array.from(new Set(sampleTransactions.map(t => t.clientId))).map(id => ({
+            clientId: id,
+            firstName: "Test",
+            lastName: "Client",
+            emailAddress: `${id}@example.com`,
+            phoneNumber: "+6500000000",
+          }));
 
-          const fromDate = urlObj.searchParams.get("fromDate");
-          const toDate = urlObj.searchParams.get("toDate");
+          return route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              data: clients,
+              pagination: { limit: 100, offset: 0, total: clients.length },
+            }),
+          });
+        }
 
-          let filteredData = sampleTransactions;
-
-          if (fromDate || toDate) {
-            filteredData = sampleTransactions.filter((t) => {
-              const txnDate = new Date(t.date);
-              if (fromDate && txnDate < new Date(fromDate)) return false;
-              if (toDate && txnDate > new Date(toDate)) return false;
-              return true;
-            });
-          }
+        const clientTransactionsMatch = path.match(/^\/api\/clients\/([^/]+)\/transactions$/);
+        if (clientTransactionsMatch) {
+          const clientId = clientTransactionsMatch[1];
+          const filteredData = sampleTransactions.filter(t => t.clientId === clientId);
 
           return route.fulfill({
             status: 200,
@@ -303,6 +332,8 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
     await test.step("Set up routes", async () => {
       await page.route("**/api/**", (route: Route) => {
         const url = route.request().url();
+        const urlObj = new URL(url);
+        const path = urlObj.pathname;
 
         if (
           url.includes("/@vite") ||
@@ -332,16 +363,37 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
           });
         }
 
-        if (url.includes("/api/transactions")) {
+        if (path === "/api/clients") {
+          const clients = Array.from(new Set(sampleTransactions.map(t => t.clientId))).map(id => ({
+            clientId: id,
+            firstName: "Test",
+            lastName: "Client",
+            emailAddress: `${id}@example.com`,
+            phoneNumber: "+6500000000",
+          }));
+
           return route.fulfill({
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-              data: sampleTransactions,
+              data: clients,
+              pagination: { limit: 100, offset: 0, total: clients.length },
+            }),
+          });
+        }
+
+        const clientTransactionsMatch = path.match(/^\/api\/clients\/([^/]+)\/transactions$/);
+        if (clientTransactionsMatch) {
+          const clientId = clientTransactionsMatch[1];
+          return route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              data: sampleTransactions.filter(t => t.clientId === clientId),
               pagination: {
                 limit: 20,
                 offset: 0,
-                total: sampleTransactions.length,
+                total: sampleTransactions.filter(t => t.clientId === clientId).length,
               },
             }),
           });
@@ -361,7 +413,7 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
     });
 
     await test.step("Search for specific transaction ID", async () => {
-      await page.fill('input[placeholder="Transaction ID"]', "txn-002");
+      await page.fill('input[placeholder="txn_.."]', "txn-002");
       await page.waitForTimeout(500); // Allow client-side filter to apply
     });
 
@@ -377,6 +429,8 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
     await test.step("Set up routes", async () => {
       await page.route("**/api/**", (route: Route) => {
         const url = route.request().url();
+        const urlObj = new URL(url);
+        const path = urlObj.pathname;
 
         if (
           url.includes("/@vite") ||
@@ -406,18 +460,29 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
           });
         }
 
-        if (url.includes("/api/transactions")) {
-          const urlObj = new URL(url);
-          const status = urlObj.searchParams.get("status");
-          const transaction = urlObj.searchParams.get("transaction");
+        if (path === "/api/clients") {
+          const clients = Array.from(new Set(sampleTransactions.map(t => t.clientId))).map(id => ({
+            clientId: id,
+            firstName: "Test",
+            lastName: "Client",
+            emailAddress: `${id}@example.com`,
+            phoneNumber: "+6500000000",
+          }));
 
-          let filteredData = sampleTransactions;
-          if (status)
-            filteredData = filteredData.filter((t) => t.status === status);
-          if (transaction)
-            filteredData = filteredData.filter(
-              (t) => t.transaction === transaction,
-            );
+          return route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              data: clients,
+              pagination: { limit: 100, offset: 0, total: clients.length },
+            }),
+          });
+        }
+
+        const clientTransactionsMatch = path.match(/^\/api\/clients\/([^/]+)\/transactions$/);
+        if (clientTransactionsMatch) {
+          const clientId = clientTransactionsMatch[1];
+          const filteredData = sampleTransactions.filter(t => t.clientId === clientId);
 
           return route.fulfill({
             status: 200,
@@ -445,7 +510,7 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
     await test.step("Apply multiple filters", async () => {
       const statusSelect = page.locator("select").nth(0);
       await statusSelect.selectOption({ label: "Completed" });
-      await page.fill('input[placeholder="Transaction ID"]', "test-search");
+      await page.fill('input[placeholder="txn_.."]', "test-search");
       await page.waitForLoadState("networkidle");
     });
 
@@ -461,7 +526,7 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
       await expect(page.getByText("txn-003")).toBeVisible();
 
       // Verify inputs are cleared
-      const searchInput = page.locator('input[placeholder="Transaction ID"]');
+      const searchInput = page.locator('input[placeholder="txn_.."]');
       await expect(searchInput).toHaveValue("");
     });
   });
@@ -470,6 +535,8 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
     await test.step("Set up routes with multiple pages", async () => {
       await page.route("**/api/**", (route: Route) => {
         const url = route.request().url();
+        const urlObj = new URL(url);
+        const path = urlObj.pathname;
 
         if (
           url.includes("/@vite") ||
@@ -499,14 +566,30 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
           });
         }
 
-        if (url.includes("/api/transactions")) {
-          const urlObj = new URL(url);
-          const offset = parseInt(urlObj.searchParams.get("offset") || "0");
-          const pageNum = offset / 20 + 1;
+        if (path === "/api/clients") {
+          return route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              data: [
+                {
+                  clientId: "client-pagination",
+                  firstName: "Paginated",
+                  lastName: "User",
+                  emailAddress: "pagination@example.com",
+                  phoneNumber: "+6500000000",
+                },
+              ],
+              pagination: { limit: 100, offset: 0, total: 1 },
+            }),
+          });
+        }
 
-          const transactions = Array.from({ length: 20 }, (_, i) => ({
-            id: `txn-page${pageNum}-${i}`,
-            clientId: `client-${offset + i}`,
+        const clientTransactionsMatch = path.match(/^\/api\/clients\/([^/]+)\/transactions$/);
+        if (clientTransactionsMatch) {
+          const transactions = Array.from({ length: 50 }, (_, i) => ({
+            id: `txn-page-${i + 1}`,
+            clientId: "client-pagination",
             transaction: i % 2 === 0 ? "D" : "W",
             amount: 1000 + i * 100,
             date: "2024-01-15T10:30:00Z",
@@ -518,7 +601,7 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
             contentType: "application/json",
             body: JSON.stringify({
               data: transactions,
-              pagination: { limit: 20, offset, total: 50 }, // 3 pages
+              pagination: { limit: 100, offset: 0, total: 50 },
             }),
           });
         }
@@ -583,6 +666,8 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
     await test.step("Set up routes to return empty data", async () => {
       await page.route("**/api/**", (route: Route) => {
         const url = route.request().url();
+        const urlObj = new URL(url);
+        const path = urlObj.pathname;
 
         if (
           url.includes("/@vite") ||
@@ -612,7 +697,27 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
           });
         }
 
-        if (url.includes("/api/transactions")) {
+        if (path === "/api/clients") {
+          return route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              data: [
+                {
+                  clientId: "client-empty",
+                  firstName: "Empty",
+                  lastName: "User",
+                  emailAddress: "empty@example.com",
+                  phoneNumber: "+6500000000",
+                },
+              ],
+              pagination: { limit: 100, offset: 0, total: 1 },
+            }),
+          });
+        }
+
+        const clientTransactionsMatch = path.match(/^\/api\/clients\/([^/]+)\/transactions$/);
+        if (clientTransactionsMatch) {
           return route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -645,6 +750,8 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
     await test.step("Set up routes to return error", async () => {
       await page.route("**/api/**", (route: Route) => {
         const url = route.request().url();
+        const urlObj = new URL(url);
+        const path = urlObj.pathname;
 
         if (
           url.includes("/@vite") ||
@@ -674,7 +781,7 @@ test.describe("User View Transactions - Filters & Pagination (Flow 7)", () => {
           });
         }
 
-        if (url.includes("/api/transactions")) {
+        if (path === "/api/clients") {
           return route.fulfill({
             status: 500,
             contentType: "application/json",

@@ -2,11 +2,11 @@ import { test, expect, type Page } from "@playwright/test";
 import { gotoWithNetworkRetry, setAuthState } from "../helpers/auth";
 
 const adminUser = {
-  id: "admin-1",
-  firstName: "Admin",
+  id: "usr_1",
+  firstName: "Root",
   lastName: "User",
-  email: "admin@example.com",
-  role: "admin",
+  email: "admin@crm.com",
+  role: "super_admin",
   status: "active",
 };
 
@@ -217,7 +217,7 @@ test.describe("Admin Communications and AML (Mocked)", () => {
 test("shows queued communications as read-only and supports ID lookup", async ({ page }) => {
     await setupAdminRiskOpsRoutes(page);
     await gotoWithNetworkRetry(page, "/login");
-    await setAuthState(page, "admin");
+  await setAuthState(page, "super_admin");
 
     await gotoWithNetworkRetry(page, "/admin/communications");
     await expect(page.getByRole("heading", { name: "Communications", exact: true })).toBeVisible();
@@ -234,7 +234,7 @@ test("shows queued communications as read-only and supports ID lookup", async ({
   test("filters AML alerts and updates review status", async ({ page }) => {
     await setupAdminRiskOpsRoutes(page);
     await gotoWithNetworkRetry(page, "/login");
-    await setAuthState(page, "admin");
+    await setAuthState(page, "super_admin");
 
     await gotoWithNetworkRetry(page, "/admin/aml-alerts");
     await expect(page.getByRole("heading", { name: "AML Alerts", exact: true })).toBeVisible();
