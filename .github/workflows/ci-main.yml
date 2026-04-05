@@ -1,8 +1,9 @@
 name: CI - Main Pipeline
 
 # Full pipeline for the main branch.
-# Runs: changes -> lint -> component tests (unit + DB-backed) -> fullstack integration -> deploy (TBD).
-# Note: Performance tests (frontend latency + JMeter) are disabled in CI but available locally.
+# Runs: changes -> lint -> component tests (unit + DB-backed) -> frontend latency
+#       -> fullstack integration -> JMeter post-merge performance gate -> deploy (TBD).
+# Note: Frontend latency tests run in CI; JMeter load tests run post-merge on push to main.
 #
 # Job DAG:
 #
@@ -28,6 +29,9 @@ name: CI - Main Pipeline
 #      v
 #   fullstack-integration-e2e  (real Docker containers + LocalStack + HTTP smoke
 #                               + Playwright against live stack, ~30-40 min)
+#      |
+#      v
+#   jmeter-performance-post-merge (100 concurrent-agent load test, push-to-main only)
 #      |
 #      v
 #   [deploy — not yet implemented]
@@ -436,6 +440,138 @@ jobs:
       fullstack-mode: ${{ github.event_name == 'pull_request' && 'pr' || 'full' }}
 
   # ==========================================================================
-  # Layer 5: Deploy  (not yet implemented — placeholder)
-  # fullstack-integration-e2e must pass before this gate can proceed.
+  # Layer 5: JMeter post-merge performance gate (safe mode)
+  # Runs only on push to main after fullstack integration passes.
+  # Keeps PR cycle fast while enforcing concurrent-load checks on merged code.
+  # ==========================================================================
+  jmeter-performance-post-merge:
+    name: JMeter Performance (100 Concurrent Agents, post-merge)
+    if: >-
+      ${{ !failure() && !cancelled() &&
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/main' &&
+          needs.fullstack-integration-e2e.result == 'success' }}
+    needs:
+      - fullstack-integration-e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        timeout-minutes: 2
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        timeout-minutes: 2
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        timeout-minutes: 2
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Apache JMeter 5.6.3
+        timeout-minutes: 3
+        run: |
+          JMETER_VERSION=5.6.3
+          JMETER_URL="https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz"
+
+          echo "[INFO] Downloading JMeter ${JMETER_VERSION}..."
+          curl -fsSL "${JMETER_URL}" -o /tmp/jmeter.tgz
+
+          echo "[INFO] Extracting JMeter..."
+          sudo tar -xzf /tmp/jmeter.tgz -C /opt
+          sudo ln -s /opt/apache-jmeter-${JMETER_VERSION} /opt/jmeter
+
+          echo "/opt/jmeter/bin" >> "$GITHUB_PATH"
+
+          echo "[INFO] JMeter installed successfully"
+          /opt/jmeter/bin/jmeter --version
+
+      - name: Mark scripts executable
+        timeout-minutes: 1
+        run: |
+          chmod +x scripts/dev/stack-up.sh
+          chmod +x scripts/dev/stack-down.sh
+          chmod +x scripts/performance/run-100-threads.sh
+          chmod +x platform/localstack/init/01-setup.sh
+
+      - name: Generate ephemeral local secrets for stack-up
+        run: |
+          echo "LOCAL_DB_PASSWORD=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
+          echo "JWT_HMAC_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "E2E_ADMIN_PASSWORD=$(openssl rand -hex 16)Aa1!Xx" >> "$GITHUB_ENV"
+          echo "E2E_USER_PASSWORD=$(openssl rand -hex 16)Bb2!Yy" >> "$GITHUB_ENV"
+
+      - name: Start local dev stack
+        timeout-minutes: 15
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: ap-southeast-1
+          LOCAL_DB_NAME: crm
+          LOCAL_DB_USER: crm_app
+        run: |
+          echo "[INFO] Starting local dev stack..."
+          bash scripts/dev/stack-up.sh
+
+          echo "[INFO] Stack started successfully"
+          docker ps
+
+      - name: Wait for services to be healthy
+        timeout-minutes: 5
+        run: |
+          echo "[INFO] Waiting for client-service health endpoint..."
+
+          MAX_ATTEMPTS=60
+          ATTEMPT=0
+
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            if curl --silent --fail http://127.0.0.1:18088/actuator/health >/dev/null 2>&1; then
+              echo "[OK] Client-service is healthy"
+              exit 0
+            fi
+
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "[WAIT] Attempt $ATTEMPT/$MAX_ATTEMPTS - waiting for health endpoint..."
+            sleep 5
+          done
+
+          echo "[FAIL] Client-service did not become healthy within timeout"
+          docker ps
+          docker logs crm-client-service || true
+          exit 1
+
+      - name: Run JMeter 100-thread performance test
+        timeout-minutes: 20
+        env:
+          SKIP_RESTART_PROMPT: '1'
+        run: |
+          echo "[INFO] Starting post-merge JMeter performance test with 100 threads..."
+          bash scripts/performance/run-100-threads.sh
+
+      - name: Upload JMeter artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jmeter-performance-post-merge-${{ github.run_id }}
+          path: build-logs/performance/100-threads-local/**
+          retention-days: 14
+
+      - name: Teardown local dev stack
+        if: always()
+        timeout-minutes: 10
+        run: |
+          echo "[INFO] Tearing down local stack..."
+          bash scripts/dev/stack-down.sh || true
+
+  # ==========================================================================
+  # Layer 6: Deploy  (not yet implemented — placeholder)
+  # jmeter-performance-post-merge should pass before this gate can proceed on main.
   # ==========================================================================
