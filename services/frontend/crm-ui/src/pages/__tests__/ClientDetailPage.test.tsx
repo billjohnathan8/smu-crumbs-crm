@@ -224,7 +224,11 @@ describe('ClientDetailPage', () => {
       expect(screen.getByTestId('delete-client-modal')).toBeInTheDocument()
     })
 
-    await user.click(within(screen.getByTestId('delete-client-modal')).getByRole('button', { name: 'Delete Client' }))
+    await user.click(
+      within(screen.getByTestId('delete-client-modal')).getByRole('button', {
+        name: 'Delete Client',
+      })
+    )
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith(
@@ -250,7 +254,11 @@ describe('ClientDetailPage', () => {
       expect(screen.getByTestId('delete-client-modal')).toBeInTheDocument()
     })
 
-    await user.click(within(screen.getByTestId('delete-client-modal')).getByRole('button', { name: 'Delete Client' }))
+    await user.click(
+      within(screen.getByTestId('delete-client-modal')).getByRole('button', {
+        name: 'Delete Client',
+      })
+    )
 
     await waitFor(() => {
       expect(screen.getByText('You are not allowed to delete this client.')).toBeInTheDocument()
@@ -293,7 +301,11 @@ describe('ClientDetailPage', () => {
       expect(screen.getByTestId('delete-client-modal')).toBeInTheDocument()
     })
 
-    await user.click(within(screen.getByTestId('delete-client-modal')).getByRole('button', { name: 'Delete Client' }))
+    await user.click(
+      within(screen.getByTestId('delete-client-modal')).getByRole('button', {
+        name: 'Delete Client',
+      })
+    )
 
     await waitFor(() => {
       expect(mockLogout).toHaveBeenCalled()
