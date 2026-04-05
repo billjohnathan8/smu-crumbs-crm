@@ -17,8 +17,12 @@ export function isRootAdminUser(
   const id = String(user.id ?? '')
     .trim()
     .toLowerCase()
+  const email = String((user as { email?: unknown }).email ?? '')
+    .trim()
+    .toLowerCase()
 
   const hasRootId = id === 'usr_1'
   const hasRootRole = role === 'admin' || role === 'super_admin' || role === 'superadmin'
-  return hasRootId && hasRootRole
+  const hasCanonicalRootEmail = email === 'admin@crm.com'
+  return hasRootRole && (hasRootId || hasCanonicalRootEmail)
 }

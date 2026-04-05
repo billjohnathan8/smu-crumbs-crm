@@ -17,7 +17,13 @@ const mockLogout = vi.fn()
 
 vi.mock('@/features/auth/AuthContext', () => ({
   useAuth: () => ({
-    user: { id: '1', firstName: 'John', lastName: 'Doe', role: mockRole },
+    user: {
+      id: mockRole === 'user' ? 'user-123' : 'usr_1',
+      firstName: 'John',
+      lastName: 'Doe',
+      role: mockRole,
+      isRootAdmin: mockRole !== 'user',
+    },
     logout: mockLogout,
   }),
 }))

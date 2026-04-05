@@ -31,6 +31,12 @@ describe('isRootAdminUser', () => {
     expect(isRootAdminUser({ id: '1', role: 'admin' })).toBe(false)
   })
 
+  it('returns true for canonical root email with a root role', () => {
+    expect(isRootAdminUser({ id: 'custom-root-id', role: 'admin', email: 'admin@crm.com' })).toBe(
+      true
+    )
+  })
+
   it('returns false when role is missing', () => {
     expect(isRootAdminUser({ id: 'usr_1' })).toBe(false)
   })

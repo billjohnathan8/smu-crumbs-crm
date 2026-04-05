@@ -31,6 +31,7 @@ async function importAuthContext(options?: { isCognitoEnabled?: boolean; authMod
     setAuthToken: mockSetAuthToken,
     clearAuthToken: mockClearAuthToken,
     getAuthToken: mockGetAuthToken,
+    setSessionExpiryHandler: vi.fn(),
   }))
 
   vi.doMock('@/api/cognito', () => ({
