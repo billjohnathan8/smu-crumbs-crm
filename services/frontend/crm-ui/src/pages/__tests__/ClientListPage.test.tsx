@@ -80,9 +80,7 @@ describe('ClientListPage', () => {
       pagination: { limit: 20, offset: 0, total: 2 },
     })
     vi.mocked(usersApi.listUsers).mockResolvedValue({ data: [] } as PaginatedResponse<User>)
-    vi.mocked(usersApi.listArchivedUsers).mockResolvedValue(
-      { data: [] } as PaginatedResponse<User>
-    )
+    vi.mocked(usersApi.listArchivedUsers).mockResolvedValue({ data: [] } as PaginatedResponse<User>)
   })
 
   const renderComponent = () => render(<ClientListPage />)
