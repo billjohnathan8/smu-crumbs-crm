@@ -75,7 +75,8 @@ describe('AdminDashboard', () => {
   })
 
   it('should display total users count', async () => {
-    const listUsersSpy = vi.spyOn(usersApi, 'listUsers')
+    const listUsersSpy = vi
+      .spyOn(usersApi, 'listUsers')
       .mockResolvedValueOnce({
         data: [],
         pagination: { total: 25, limit: 1, offset: 0 },

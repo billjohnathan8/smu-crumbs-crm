@@ -6,7 +6,7 @@ import * as clientsApi from '@/api/clients'
 import * as usersApi from '@/api/users'
 import { ApiError } from '@/api/client'
 import { useAuth } from '@/features/auth/AuthContext'
-import type { Client } from '@/api/types'
+import type { Client, PaginatedResponse, User } from '@/api/types'
 
 // 1. Mock React Router
 const mockNavigate = vi.fn()
@@ -79,8 +79,10 @@ describe('ClientListPage', () => {
       data: mockClientsData as unknown as Client[],
       pagination: { limit: 20, offset: 0, total: 2 },
     })
-    vi.mocked(usersApi.listUsers).mockResolvedValue({ data: [] } as any)
-    vi.mocked(usersApi.listArchivedUsers).mockResolvedValue({ data: [] } as any)
+    vi.mocked(usersApi.listUsers).mockResolvedValue({ data: [] } as PaginatedResponse<User>)
+    vi.mocked(usersApi.listArchivedUsers).mockResolvedValue(
+      { data: [] } as PaginatedResponse<User>
+    )
   })
 
   const renderComponent = () => render(<ClientListPage />)

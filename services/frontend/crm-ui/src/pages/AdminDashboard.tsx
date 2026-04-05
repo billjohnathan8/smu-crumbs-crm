@@ -171,7 +171,9 @@ export function AdminDashboard() {
       try {
         const promises = [
           listUsers({ limit: 1, role: 'user' }),
-          ...(isRootAdmin ? [listUsers({ limit: 1, role: 'admin' }), listClients({ limit: 1 })] : []),
+          ...(isRootAdmin
+            ? [listUsers({ limit: 1, role: 'admin' }), listClients({ limit: 1 })]
+            : []),
         ]
         const settled = await Promise.allSettled(promises)
         const agentsResult = settled[0]

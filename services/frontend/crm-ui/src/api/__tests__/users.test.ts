@@ -215,7 +215,10 @@ describe('users API', () => {
 
   describe('listArchivedUsers', () => {
     it('should list archived users by role', async () => {
-      vi.spyOn(client, 'apiGet').mockResolvedValue({ data: [], pagination: { total: 0, limit: 10, offset: 0 } })
+      vi.spyOn(client, 'apiGet').mockResolvedValue({
+        data: [],
+        pagination: { total: 0, limit: 10, offset: 0 },
+      })
 
       await listArchivedUsers({ role: 'user', limit: 20, offset: 40 })
 

@@ -22,10 +22,14 @@ const CreateNewUserPage = lazy(() =>
   import('@/pages/CreateNewUserPage').then(module => ({ default: module.CreateNewUserPage }))
 )
 const RootArchivedAdminsPage = lazy(() =>
-  import('@/pages/RootArchivedAdminsPage').then(module => ({ default: module.RootArchivedAdminsPage }))
+  import('@/pages/RootArchivedAdminsPage').then(module => ({
+    default: module.RootArchivedAdminsPage,
+  }))
 )
 const RootArchivedAgentsPage = lazy(() =>
-  import('@/pages/RootArchivedAgentsPage').then(module => ({ default: module.RootArchivedAgentsPage }))
+  import('@/pages/RootArchivedAgentsPage').then(module => ({
+    default: module.RootArchivedAgentsPage,
+  }))
 )
 const ClientListPage = lazy(() =>
   import('@/pages/ClientListPage').then(module => ({ default: module.ClientListPage }))
@@ -122,7 +126,10 @@ export function App() {
                 <Route path="/admin" element={<AdminHomeRedirect />} />
                 <Route path="/admin/users" element={<AdminUserManagementPage />} />
                 <Route path="/admin/users/new" element={<CreateNewUserPage />} />
-                <Route path="/admin/users/archives" element={<Navigate to="/admin/users" replace />} />
+                <Route
+                  path="/admin/users/archives"
+                  element={<Navigate to="/admin/users" replace />}
+                />
                 <Route path="/admin/logs" element={<ActivityLogsPage />} />
                 <Route path="/admin/settings" element={<SettingsPage />} />
                 <Route path="/admin/accounts" element={<Navigate to="/admin/users" replace />} />

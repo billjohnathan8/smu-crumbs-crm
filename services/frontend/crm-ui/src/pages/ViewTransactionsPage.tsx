@@ -296,8 +296,9 @@ export function ViewTransactionsPage() {
         setError('An unexpected error occurred')
       }
     } finally {
-      if (requestId !== latestFetchRequestIdRef.current) return
-      setIsLoading(false)
+      if (requestId === latestFetchRequestIdRef.current) {
+        setIsLoading(false)
+      }
     }
   }
 

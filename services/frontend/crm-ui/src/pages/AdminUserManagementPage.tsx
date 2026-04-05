@@ -541,9 +541,9 @@ export function AdminUserManagementPage() {
                                   >
                                     {disablingUserId === u.id ? 'Disabling...' : 'Disable'}
                                   </button>
-                              </>
-                            ) : (
-                              <>
+                                </>
+                              ) : (
+                                <>
                                   {isRootAdmin && (agentClientCounts[u.id] ?? -1) > 0 && (
                                     <button
                                       onClick={() => openTransferModal(u)}

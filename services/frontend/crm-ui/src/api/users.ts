@@ -77,7 +77,9 @@ export async function disableUser(userId: string): Promise<User> {
 /**
  * List archived users.
  */
-export async function listArchivedUsers(params?: ListArchivedUsersParams): Promise<PaginatedResponse<User>> {
+export async function listArchivedUsers(
+  params?: ListArchivedUsersParams
+): Promise<PaginatedResponse<User>> {
   const query = new URLSearchParams()
   if (params?.limit) query.append('limit', params.limit.toString())
   if (params?.offset) query.append('offset', params.offset.toString())

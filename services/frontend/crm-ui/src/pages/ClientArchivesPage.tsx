@@ -231,7 +231,9 @@ export function ClientArchivesPage() {
                                 : 'bg-primary text-white hover:brightness-[0.9]'
                             }`}
                           >
-                            {reinstatingClientId === client.clientId ? 'Reinstating...' : 'Reinstate'}
+                            {reinstatingClientId === client.clientId
+                              ? 'Reinstating...'
+                              : 'Reinstate'}
                           </button>
                         </td>
                       </tr>
