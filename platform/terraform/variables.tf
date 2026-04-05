@@ -944,6 +944,36 @@ variable "client_account_opening_require_verified_client" {
   default     = true
 }
 
+variable "client_pii_strict_mode" {
+  description = "Enable strict (modern-only, fail-closed) PII decryption behavior in client-service."
+  type        = bool
+  default     = false
+}
+
+variable "client_pii_migration_enabled" {
+  description = "Enable release-1 background migration that re-encrypts legacy/plaintext client PII with the modern key."
+  type        = bool
+  default     = true
+}
+
+variable "client_pii_migration_batch_size" {
+  description = "Batch size for client-service PII re-encryption migration worker."
+  type        = number
+  default     = 200
+}
+
+variable "client_pii_migration_poll_interval_ms" {
+  description = "Polling interval in milliseconds for client-service PII re-encryption migration worker."
+  type        = number
+  default     = 15000
+}
+
+variable "client_pii_migration_initial_delay_ms" {
+  description = "Initial delay in milliseconds before client-service PII re-encryption migration worker starts."
+  type        = number
+  default     = 10000
+}
+
 variable "audit_consumer_zip_path" {
   description = "Path to audit consumer Lambda zip artifact."
   type        = string
