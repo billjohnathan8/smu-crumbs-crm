@@ -2012,6 +2012,7 @@ start_phase "Phase 4: Cross-service HTTP smoke"
 
 USER_TOKEN="$(mint_jwt "ci_user" "user")"
 ADMIN_TOKEN="$(mint_jwt "ci_admin" "admin")"
+ROOT_ADMIN_TOKEN="$(mint_jwt "ci_root_admin" "super_admin")"
 
 SMOKE_CLIENT_EMAIL="jordan.taylor+${RUN_ID}@example.com"
 SMOKE_CLIENT_PHONE="+1$(printf '%s' "${RUN_ID}" | tr -cd '0-9' | tail -c 11)"
@@ -2118,7 +2119,7 @@ PY
 REVIEW_RESPONSE="$(
   curl --silent --show-error --fail \
     --request PATCH "http://127.0.0.1:18082/api/clients/${CLIENT_ID}/verify/review" \
-    --header "Authorization: Bearer ${ADMIN_TOKEN}" \
+    --header "Authorization: Bearer ${ROOT_ADMIN_TOKEN}" \
     --header "Content-Type: application/json" \
     --header "X-Request-Id: ci-fullstack-smoke-verify-review-001" \
     --data '{"action":"approve"}'
@@ -2260,7 +2261,7 @@ aws_local_s3_put_object "scroogebank-crm-dev-transaction-sftp" "${TX_IMPORT_KEY}
 IMPORT_RESPONSE="$(
   curl --silent --show-error --fail \
     --request POST "http://127.0.0.1:18083/api/transactions/import" \
-    --header "Authorization: Bearer ${ADMIN_TOKEN}" \
+    --header "Authorization: Bearer ${ROOT_ADMIN_TOKEN}" \
     --header "Content-Type: application/json" \
     --data "{\"sourcePath\":\"s3://scroogebank-crm-dev-transaction-sftp/${TX_IMPORT_KEY}\"}"
 )"
@@ -2277,7 +2278,7 @@ PY
 TX_S3_LIST_RESPONSE="$(
   curl --silent --show-error --fail \
     "http://127.0.0.1:18083/api/transactions?clientId=${TX_IMPORT_CLIENT_ID}" \
-    --header "Authorization: Bearer ${ADMIN_TOKEN}"
+    --header "Authorization: Bearer ${ROOT_ADMIN_TOKEN}"
 )"
 TX_S3_LIST_RESPONSE_JSON="${TX_S3_LIST_RESPONSE}" ${PYTHON_CMD} - <<'PY'
 import json, os
@@ -2302,7 +2303,7 @@ for _ in {1..30}; do
   TX_SCHEDULED_LIST_RESPONSE="$(
     curl --silent --show-error --fail \
       "http://127.0.0.1:18083/api/transactions?clientId=${TX_SCHEDULED_CLIENT_ID}" \
-      --header "Authorization: Bearer ${ADMIN_TOKEN}" \
+      --header "Authorization: Bearer ${ROOT_ADMIN_TOKEN}" \
       || true
   )"
   if TX_SCHEDULED_LIST_RESPONSE_JSON="${TX_SCHEDULED_LIST_RESPONSE}" ${PYTHON_CMD} - <<'PY' 2>/dev/null; then
@@ -2360,7 +2361,7 @@ for _ in {1..20}; do
   TX_INGESTION_LIST_RESPONSE="$(
     curl --silent --show-error --fail \
       "http://127.0.0.1:18083/api/transactions?clientId=${TX_INGESTION_LAMBDA_CLIENT_ID}" \
-      --header "Authorization: Bearer ${ADMIN_TOKEN}" \
+      --header "Authorization: Bearer ${ROOT_ADMIN_TOKEN}" \
       || true
   )"
   if TX_INGESTION_LIST_RESPONSE_JSON="${TX_INGESTION_LIST_RESPONSE}" ${PYTHON_CMD} - <<'PY' 2>/dev/null; then
