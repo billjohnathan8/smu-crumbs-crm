@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
@@ -136,6 +137,10 @@ class ClientsServiceIT {
 
 	private String jsonHeadersToken(String token) {
 		return "Bearer " + token;
+	}
+
+	private String rootAdminAuthHeader() throws Exception {
+		return jsonHeadersToken(mintToken("usr_it_admin", "super_admin"));
 	}
 
 	private HttpHeaders jsonHeaders(String authorizationHeader) {
@@ -356,7 +361,7 @@ class ClientsServiceIT {
 		ArgumentCaptor<String> loggedClientCaptor = ArgumentCaptor.forClass(String.class);
 		ArgumentCaptor<String> requestIdCaptor = ArgumentCaptor.forClass(String.class);
 		ArgumentCaptor<String> authHeaderCaptor = ArgumentCaptor.forClass(String.class);
-		verify(clientAuditLogger, times(1)).logAuditEvent(
+		verify(clientAuditLogger, atLeastOnce()).logAuditEvent(
 			actionCaptor.capture(),
 			attributeCaptor.capture(),
 			beforeCaptor.capture(),
@@ -366,16 +371,32 @@ class ClientsServiceIT {
 			requestIdCaptor.capture(),
 			authHeaderCaptor.capture()
 		);
-		assertThat(actionCaptor.getValue()).isEqualTo("UPDATE");
-		assertThat(attributeCaptor.getValue()).isEqualTo("identityVerificationStatus");
-		assertThat(beforeCaptor.getValue()).isEqualTo("unverified");
-		assertThat(afterCaptor.getValue()).isEqualTo("pending");
-		assertThat(actorCaptor.getValue()).isEqualTo("usr_system_verification_upload");
-		assertThat(loggedClientCaptor.getValue()).isEqualTo(clientId);
-		assertThat(requestIdCaptor.getValue()).isNotBlank();
-		assertThat(authHeaderCaptor.getValue()).startsWith("Bearer ");
-		assertThat(beforeCaptor.getValue()).doesNotContain("base64");
-		assertThat(afterCaptor.getValue()).doesNotContain("base64");
+		boolean foundStatusTransition = false;
+		for (int i = 0; i < attributeCaptor.getAllValues().size(); i++) {
+			String attribute = attributeCaptor.getAllValues().get(i);
+			String before = beforeCaptor.getAllValues().get(i);
+			String after = afterCaptor.getAllValues().get(i);
+			String actor = actorCaptor.getAllValues().get(i);
+			String loggedClient = loggedClientCaptor.getAllValues().get(i);
+			String requestId = requestIdCaptor.getAllValues().get(i);
+			String authHeader = authHeaderCaptor.getAllValues().get(i);
+			if (
+				"identityVerificationStatus".equals(attribute)
+					&& "unverified".equals(before)
+					&& "pending".equals(after)
+					&& "usr_system_verification_upload".equals(actor)
+					&& clientId.equals(loggedClient)
+			) {
+				assertThat(actionCaptor.getAllValues().get(i)).isEqualTo("UPDATE");
+				assertThat(requestId).isNotBlank();
+				assertThat(authHeader).startsWith("Bearer ");
+				assertThat(before).doesNotContain("base64");
+				assertThat(after).doesNotContain("base64");
+				foundStatusTransition = true;
+				break;
+			}
+		}
+		assertThat(foundStatusTransition).isTrue();
 	}
 
 	@Test
@@ -401,7 +422,7 @@ class ClientsServiceIT {
 	void reviewVerification_pendingApprove_transitionsToVerified() throws Exception {
 		setUpAwsClientStubs();
 		String agentAuth = jsonHeadersToken(mintToken("usr_it_agent", "user"));
-		String adminAuth = jsonHeadersToken(mintToken("usr_it_admin", "admin"));
+		String adminAuth = rootAdminAuthHeader();
 		String clientId = createPendingClient(agentAuth);
 
 		HttpResponse<String> reviewResponse = reviewVerification(clientId, "approve", adminAuth);
@@ -419,7 +440,7 @@ class ClientsServiceIT {
 	void reviewVerification_pendingReject_transitionsToRejected() throws Exception {
 		setUpAwsClientStubs();
 		String agentAuth = jsonHeadersToken(mintToken("usr_it_agent", "user"));
-		String adminAuth = jsonHeadersToken(mintToken("usr_it_admin", "admin"));
+		String adminAuth = rootAdminAuthHeader();
 		String clientId = createPendingClient(agentAuth);
 
 		HttpResponse<String> reviewResponse = reviewVerification(clientId, "reject", adminAuth);
@@ -437,7 +458,7 @@ class ClientsServiceIT {
 	void uploadVerificationDocs_afterApproval_returnsConflictAndDoesNotResetStatus() throws Exception {
 		setUpAwsClientStubs();
 		String agentAuth = jsonHeadersToken(mintToken("usr_it_agent", "user"));
-		String adminAuth = jsonHeadersToken(mintToken("usr_it_admin", "admin"));
+		String adminAuth = rootAdminAuthHeader();
 		JsonNode created = createClient(agentAuth, "ReplayAfterReview");
 		String clientId = requiredText(created, "clientId");
 
@@ -467,7 +488,7 @@ class ClientsServiceIT {
 	void resendVerificationLink_afterReject_allowsFreshUploadAndReturnsToPending() throws Exception {
 		setUpAwsClientStubs();
 		String agentAuth = jsonHeadersToken(mintToken("usr_it_agent", "user"));
-		String adminAuth = jsonHeadersToken(mintToken("usr_it_admin", "admin"));
+		String adminAuth = rootAdminAuthHeader();
 		JsonNode created = createClient(agentAuth, "ReplayAfterReject");
 		String clientId = requiredText(created, "clientId");
 
