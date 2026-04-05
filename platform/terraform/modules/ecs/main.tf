@@ -8,6 +8,8 @@
 locals {
   production_like_environments = toset(["prod", "production", "integration"])
   is_production_like           = contains(local.production_like_environments, lower(trimspace(var.environment)))
+  strict_runtime_ownership     = contains(toset(["prod", "production"]), lower(trimspace(var.environment)))
+  ecs_services                 = merge(aws_ecs_service.service_strict, aws_ecs_service.service_mutable)
 
   # Customer-facing/core services that require an HA baseline in production-like
   # environments to avoid single-task service outages.

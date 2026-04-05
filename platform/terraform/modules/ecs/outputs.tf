@@ -24,5 +24,5 @@ output "cloudmap_namespace_id" {
 
 output "ecs_service_names" {
   description = "ECS service names keyed by logical service key."
-  value       = { for service, ecs_service in aws_ecs_service.service : service => ecs_service.name }
+  value       = { for service, ecs_service in local.ecs_services : service => ecs_service.name }
 }

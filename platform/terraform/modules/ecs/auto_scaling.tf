@@ -23,7 +23,7 @@ resource "aws_appautoscaling_target" "service" {
     ) ? local.critical_ha_task_floor : (
     local.is_production_like && contains(local.critical_customer_facing_services, each.key)
   ) ? max(var.ecs_min_capacity, local.critical_ha_task_floor) : var.ecs_min_capacity
-  resource_id        = "service/${aws_ecs_cluster.this.name}/${aws_ecs_service.service[each.key].name}"
+  resource_id        = "service/${aws_ecs_cluster.this.name}/${local.ecs_services[each.key].name}"
   scalable_dimension = "ecs:service:DesiredCount"
   service_namespace  = "ecs"
 }

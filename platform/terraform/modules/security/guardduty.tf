@@ -80,20 +80,3 @@ resource "aws_cloudwatch_event_target" "guardduty_high_severity_sns" {
 }
 
 # SNS topic policy to allow EventBridge to publish
-resource "aws_sns_topic_policy" "guardduty_publish" {
-  count = var.enable_guardduty && var.guardduty_notification_enabled ? 1 : 0
-
-  arn = var.guardduty_notification_topic_arn
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Principal = {
-        Service = "events.amazonaws.com"
-      }
-      Action   = "SNS:Publish"
-      Resource = var.guardduty_notification_topic_arn
-    }]
-  })
-}

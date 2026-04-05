@@ -53,9 +53,9 @@ resource "aws_ecs_task_definition" "service" {
   ])
 }
 
-# ECS Services - manage running tasks and integrate with ALB
-resource "aws_ecs_service" "service" {
-  for_each = local.service_configs
+# ECS Services - strict ownership path for production
+resource "aws_ecs_service" "service_strict" {
+  for_each = local.strict_runtime_ownership ? local.service_configs : {}
 
   name        = "${var.name_prefix}-${each.key}"
   cluster     = aws_ecs_cluster.this.id
@@ -118,6 +118,78 @@ resource "aws_ecs_service" "service" {
       # For the current Cloud Map service type, ECS expects only registry_arn.
       registry_arn = aws_service_discovery_service.service[each.key].arn
     }
+  }
+}
+
+# ECS Services - mutable ownership path for non-production environments
+resource "aws_ecs_service" "service_mutable" {
+  for_each = local.strict_runtime_ownership ? {} : local.service_configs
+
+  name        = "${var.name_prefix}-${each.key}"
+  cluster     = aws_ecs_cluster.this.id
+  launch_type = "FARGATE"
+  # desired_count already reflects module HA baseline rules from local.service_configs.
+  desired_count                      = each.value.desired_count
+  task_definition                    = aws_ecs_task_definition.service[each.key].arn
+  health_check_grace_period_seconds  = 180
+  deployment_minimum_healthy_percent = var.use_codedeploy_controller ? null : 50
+  deployment_maximum_percent         = var.use_codedeploy_controller ? null : 200
+
+  # CODE_DEPLOY controller enables CodeDeploy blue/green deployments.
+  # Default ECS controller uses rolling updates.
+  dynamic "deployment_controller" {
+    for_each = var.use_codedeploy_controller ? [1] : []
+    content {
+      type = "CODE_DEPLOY"
+    }
+  }
+
+  # Circuit breaker for automatic rollback on failed deployments.
+  # Only compatible with the default ECS (rolling-update) controller.
+  dynamic "deployment_circuit_breaker" {
+    for_each = var.use_codedeploy_controller ? [] : [1]
+    content {
+      enable   = true
+      rollback = true
+    }
+  }
+
+  # CloudWatch alarm-based deployment monitoring (complements circuit breaker).
+  # Only compatible with the default ECS controller.
+  dynamic "alarms" {
+    for_each = !var.use_codedeploy_controller && var.enable_deployment_alarms && contains(keys(var.deployment_alarm_names), each.key) ? [1] : []
+    content {
+      alarm_names = var.deployment_alarm_names[each.key]
+      enable      = true
+      rollback    = true
+    }
+  }
+
+  # Network configuration for Fargate tasks
+  network_configuration {
+    subnets          = var.service_subnet_ids
+    security_groups  = [var.ecs_service_security_group_id]
+    assign_public_ip = var.assign_public_ip
+  }
+
+  # Load balancer integration
+  load_balancer {
+    target_group_arn = var.target_group_arns[each.key]
+    container_name   = each.key
+    container_port   = 8080
+  }
+
+  # Service discovery registration (disabled when Cloud Map is not available)
+  dynamic "service_registries" {
+    for_each = var.enable_service_discovery ? [1] : []
+    content {
+      # For the current Cloud Map service type, ECS expects only registry_arn.
+      registry_arn = aws_service_discovery_service.service[each.key].arn
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [task_definition]
   }
 }
 
