@@ -15,7 +15,7 @@ export interface ListUsersParams {
   role?: UserRole
 }
 
-export interface ListArchivedUsersParams extends ListUsersParams {}
+export type ListArchivedUsersParams = ListUsersParams
 
 /**
  * List users (admin only)
