@@ -279,6 +279,7 @@ import_secret_if_available "module.security.aws_secretsmanager_secret.jwt_hmac" 
 import_secret_if_available "module.security.aws_secretsmanager_secret.root_admin_password" "/${PROJECT_NAME}/${ENVIRONMENT}/user/root_admin_password"
 import_secret_if_available "module.security.aws_secretsmanager_secret.db_username" "/${PROJECT_NAME}/${ENVIRONMENT}/db/username"
 import_secret_if_available "module.security.aws_secretsmanager_secret.db_password" "/${PROJECT_NAME}/${ENVIRONMENT}/db/password"
+import_secret_if_available "module.security.aws_secretsmanager_secret.pii_encryption_key" "/${PROJECT_NAME}/${ENVIRONMENT}/client/pii_encryption_key"
 
 reconcile_lambda_permission_if_existing() {
   local address="$1"
