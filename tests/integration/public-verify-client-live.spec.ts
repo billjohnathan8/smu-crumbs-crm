@@ -54,8 +54,9 @@ test.describe("Public Verify Client Live Flow", () => {
     await uploadVerificationDocuments(page);
     await page.getByRole("button", { name: "Upload & Verify" }).click();
 
+    await expect(page.getByRole("heading", { name: "Documents Submitted" })).toBeVisible();
     await expect(
-      page.getByText("Documents uploaded and verification requested. Thank you."),
+      page.getByText(/uploaded successfully and are now pending review/i),
     ).toBeVisible();
 
     const clientResponse = await request.get(`${baseURL}/api/clients/${createdClient.clientId}`, {

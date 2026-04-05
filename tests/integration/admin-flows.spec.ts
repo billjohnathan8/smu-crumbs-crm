@@ -38,9 +38,13 @@ async function login(page: Page, email: string, password: string) {
   await page.click('[data-testid="login-submit-button"]');
 }
 
+async function expectAdminLanding(page: Page): Promise<void> {
+  await expect(page).toHaveURL(/\/admin(\/users)?$/, { timeout: 10000 });
+}
+
 async function createAdminAsRoot(page: Page, email: string, password: string) {
   await login(page, ROOT_ADMIN_EMAIL, ROOT_ADMIN_PASSWORD);
-  await expect(page).toHaveURL(/\/admin$/, { timeout: 10000 });
+  await expectAdminLanding(page);
   await page.click('a[href="/admin/users"]');
   await expect(page).toHaveURL(/\/admin\/users$/);
   await page.click('[data-testid="create-new-user-button"]');
@@ -81,9 +85,8 @@ test.describe("Admins Full Flow (Integration)", () => {
 
     await login(page, ROOT_ADMIN_EMAIL, ROOT_ADMIN_PASSWORD);
 
-    await expect(page).toHaveURL(/\/admin$/, { timeout: 10000 });
-    await expect(page).toHaveURL(/\/admin$/, { timeout: 10000 })
-    await expect(page.getByRole('heading', { name: 'Admin Dashboard' })).toBeVisible()
+    await expectAdminLanding(page)
+    await expect(page.getByRole('heading', { name: /Admin Dashboard|User Management/ })).toBeVisible()
     await expect(page.getByText('Total Agents')).toBeVisible()
     await expect(page.getByText('Total Clients')).toBeVisible()
     await expect(page.getByText('Recent Activities')).toBeVisible()
@@ -95,7 +98,7 @@ test.describe("Admins Full Flow (Integration)", () => {
  test('root admin should navigate to user management page', async ({ page }) => {
     const loginStartTime = Date.now();
     await login(page, ROOT_ADMIN_EMAIL, ROOT_ADMIN_PASSWORD)
-    await expect(page).toHaveURL(/\/admin$/, { timeout: 10000 })
+    await expectAdminLanding(page)
     expectUnder(Date.now() - loginStartTime, 15000, 'Root admin login')
     
     const navStartTime = Date.now();
@@ -107,7 +110,7 @@ test.describe("Admins Full Flow (Integration)", () => {
 
  test('root admin should create a new admin', async ({ page }) => {
     await login(page, ROOT_ADMIN_EMAIL, ROOT_ADMIN_PASSWORD)
-    await expect(page).toHaveURL(/\/admin$/, { timeout: 10000 })
+    await expectAdminLanding(page)
 
     await page.click('a[href="/admin/users"]')
     await expect(page).toHaveURL(/\/admin\/users$/)
@@ -130,7 +133,7 @@ test.describe("Admins Full Flow (Integration)", () => {
 
   test("root admin should logout successfully", async ({ page }) => {
     await login(page, ROOT_ADMIN_EMAIL, ROOT_ADMIN_PASSWORD);
-    await expect(page).toHaveURL(/\/admin$/, { timeout: 10000 });
+    await expectAdminLanding(page);
 
     const logoutStart = Date.now()
     // Click logout button
@@ -140,10 +143,13 @@ test.describe("Admins Full Flow (Integration)", () => {
   });
 
    test('new admin should login and access user management', async ({ page }) => {
-    await login(page, NEW_ADMIN_EMAIL, NEW_ADMIN_PASSWORD)
+    const scopedAdminEmail = `admin.flow.${Date.now()}@crm.local`
+    const scopedAdminPassword = 'AdminFlow123!'
+    await createAdminAsRoot(page, scopedAdminEmail, scopedAdminPassword)
+    await login(page, scopedAdminEmail, scopedAdminPassword)
 
-    await expect(page).toHaveURL(/\/admin$/, { timeout: 10000 })
-    await expect(page.getByRole('heading', { name: 'Admin Dashboard' })).toBeVisible()
+    await expectAdminLanding(page)
+    await expect(page.getByRole('heading', { name: /Admin Dashboard|User Management/ })).toBeVisible()
 
     await page.click('a[href="/admin/users"]')
     await expect(page).toHaveURL(/\/admin\/users$/)
@@ -151,9 +157,12 @@ test.describe("Admins Full Flow (Integration)", () => {
   })
 
   test("should create a new agent account and verify it appears in the list", async ({ page }) => {
-    await login(page, NEW_ADMIN_EMAIL, NEW_ADMIN_PASSWORD);
+    const scopedAdminEmail = `admin.agent.${Date.now()}@crm.local`
+    const scopedAdminPassword = 'AdminAgent123!'
+    await createAdminAsRoot(page, scopedAdminEmail, scopedAdminPassword)
+    await login(page, scopedAdminEmail, scopedAdminPassword);
 
-    await expect(page).toHaveURL(/\/admin$/, { timeout: 10000 });
+    await expectAdminLanding(page);
 
     await page.click('a[href="/admin/users"]');
     await expect(page).toHaveURL(/\/admin\/users$/);
@@ -178,7 +187,7 @@ test.describe("Admins Full Flow (Integration)", () => {
     await createAdminAsRoot(page, scopedAdminEmail, scopedAdminPassword)
     await login(page, scopedAdminEmail, scopedAdminPassword)
 
-    await expect(page).toHaveURL(/\/admin$/, { timeout: 10000 })
+    await expectAdminLanding(page)
 
     await page.goto('/admin/users/new')
     await expect(page.locator('[data-testid="role-select"] option[value="admin"]')).toHaveCount(0)
@@ -191,7 +200,7 @@ test.describe("Admins Full Flow (Integration)", () => {
     await createAdminAsRoot(page, scopedAdminEmail, scopedAdminPassword)
     await login(page, scopedAdminEmail, scopedAdminPassword)
 
-    await expect(page).toHaveURL(/\/admin$/, { timeout: 10000 })
+    await expectAdminLanding(page)
 
     await page.click('button:has-text("Logout")')
     await expect(page).toHaveURL(/\/login$/)

@@ -213,6 +213,11 @@ test.describe("User Management Advanced (Feature 1)", () => {
     });
     const created = (await expectOkJson(createRes, "create user for delete")) as { id: string };
 
+    const disableRes = await request.post(`${baseURL}/api/users/${created.id}/disable`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    expect(disableRes.ok(), `Disable user before delete failed: ${disableRes.status()}`).toBeTruthy();
+
     const deleteRes = await request.delete(`${baseURL}/api/users/${created.id}`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });

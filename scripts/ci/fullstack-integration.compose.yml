@@ -58,6 +58,8 @@ services:
       JWT_HMAC_SECRET: ${JWT_HMAC_SECRET}
       ROOT_ADMIN_EMAIL: ${E2E_ADMIN_EMAIL:-admin@crm.com}
       ROOT_ADMIN_PASSWORD: ${E2E_ADMIN_PASSWORD}
+      SEED_AGENT_EMAIL: ${E2E_USER_EMAIL:-agent1@crm.com}
+      SEED_AGENT_PASSWORD: ${E2E_USER_PASSWORD}
       AWS_REGION: ap-southeast-1
       AWS_COGNITO_ENDPOINT_URL: http://localstack:4566
       AWS_ACCESS_KEY_ID: test

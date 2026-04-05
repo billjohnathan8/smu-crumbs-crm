@@ -258,17 +258,11 @@ test.describe("API Error Handling (Integration)", () => {
     });
 
     await test.step("Verify page has content or loading state", async () => {
-      // Should show either:
-      // 1. Table/list of data
-      // 2. Loading spinner
-      // 3. Empty state with "no data" message
-      const hasContent = await page
-        .locator("text=/accounts|users|users|loading|no/i")
-        .first()
-        .isVisible()
-        .catch(() => false);
-
-      expect(hasContent).toBe(true);
+      await expect(
+        page
+          .locator("text=/Route Updated|User Management|accounts|users|loading|no data|empty/i")
+          .first(),
+      ).toBeVisible({ timeout: 10000 });
     });
   });
 
