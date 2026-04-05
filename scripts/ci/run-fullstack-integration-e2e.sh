@@ -574,6 +574,13 @@ run_gradle_db_test() {
     --no-daemon
     --console=plain
   )
+  local gradle_test_only_args=(
+    test
+    --tests "${test_selector}"
+    --no-daemon
+    --console=plain
+    --rerun-tasks
+  )
   local base_env=(
     APP_ENV=test
     AUTH_MODE=local
@@ -606,9 +613,11 @@ run_gradle_db_test() {
   )
   local simple_selector="${test_selector##*.}"
   local db_error_pattern='Unable to obtain connection from database|Connection to 127\.0\.0\.1:[0-9]+ refused|Connection refused|database ".*" does not exist|the database system is starting up'
+  local gradle_test_results_race_pattern='NoSuchFileException: .*build[\\/]test-results[\\/]test[\\/]binary[\\/].*in-progress-results.*\.bin'
 
   if [[ "${include_integration}" == "true" ]]; then
     gradle_args+=(-PincludeIntegration=true)
+    gradle_test_only_args+=(-PincludeIntegration=true)
   fi
 
   wait_for_postgres_host_ready
@@ -621,6 +630,18 @@ run_gradle_db_test() {
     ./gradlew "${gradle_args[@]}" > "${gradle_log}" 2>&1; then
     popd >/dev/null
     return 0
+  fi
+
+  # Guard against intermittent Gradle test-results binary race conditions.
+  # When this specific file write race occurs, retry once without cleanTest.
+  if grep -Eiq "${gradle_test_results_race_pattern}" "${gradle_log}"; then
+    mkdir -p "${service_dir}/build/test-results/test/binary"
+    if env "${base_env[@]}" \
+      GRADLE_USER_HOME="${gradle_user_home}" \
+      ./gradlew "${gradle_test_only_args[@]}" > "${gradle_log}" 2>&1; then
+      popd >/dev/null
+      return 0
+    fi
   fi
 
   # Local Docker Desktop networking on Windows can intermittently flap right
