@@ -31,6 +31,8 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 from statistics import mean
@@ -149,6 +151,38 @@ def check_stack_health(host: str, port: str) -> bool:
         return False
 
 
+def verify_admin_login(
+    host: str,
+    port: str,
+    admin_email: str,
+    admin_password: str,
+    timeout_s: int = 10,
+) -> Tuple[bool, Optional[int], str]:
+    """Verify admin credentials against the auth endpoint before JMeter runs."""
+    url = f"http://{host}:{port}/api/auth/login"
+    payload = json.dumps({"email": admin_email, "password": admin_password}).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=timeout_s) as response:
+            status = getattr(response, "status", response.getcode())
+            body = response.read(1024).decode("utf-8", errors="replace")
+            return status == 200, int(status), body
+    except urllib.error.HTTPError as exc:
+        body = exc.read(1024).decode("utf-8", errors="replace")
+        return False, int(exc.code), body
+    except Exception as exc:
+        return False, None, str(exc)
+
+
 def to_windows_path(unix_path: str) -> str:
     """Convert Unix-style path to Windows path for JMeter on Windows."""
     if not is_windows():
@@ -237,7 +271,8 @@ def run_jmeter_test(
     ]
 
     # On Windows, if using .bat/.cmd, need to invoke via cmd.exe
-    if is_windows() and (jmeter_cmd.endswith(".bat") or jmeter_cmd.endswith(".cmd")):
+    jmeter_cmd_lower = jmeter_cmd.lower()
+    if is_windows() and (jmeter_cmd_lower.endswith(".bat") or jmeter_cmd_lower.endswith(".cmd")):
         # Convert paths to Windows format for JMeter (Windows program)
         win_test_plan = to_windows_path(str(test_plan))
         win_results_csv = to_windows_path(str(results_csv))
@@ -600,6 +635,15 @@ def main() -> int:
 
     admin_email = (os.environ.get("E2E_ADMIN_EMAIL") or "admin@crm.com").strip()
     admin_password = os.environ.get("E2E_ADMIN_PASSWORD", "")
+    if admin_password.strip().lower() in {
+        "your real admin password",
+        "your-prod-admin-password",
+        "your prod admin password",
+    }:
+        print("[ERROR] E2E_ADMIN_PASSWORD appears to be a placeholder value.")
+        print("Set it to the real seeded admin password, or unset it so .env.local is used.")
+        return 1
+
     # Get test configuration
     test_config = TEST_MODES[args.test_mode]
 
@@ -672,6 +716,25 @@ def main() -> int:
             print("    bash scripts/dev/stack-up.sh")
             return 1
         print("[OK] Stack is healthy")
+
+    print(
+        f"[INFO] Verifying admin login for {admin_email} at "
+        f"http://{args.host}:{args.port}/api/auth/login..."
+    )
+    login_ok, login_status, login_detail = verify_admin_login(
+        host=args.host,
+        port=args.port,
+        admin_email=admin_email,
+        admin_password=admin_password,
+    )
+    if not login_ok:
+        status_text = str(login_status) if login_status is not None else "connection_error"
+        print(f"[ERROR] Admin login preflight failed (status={status_text}).")
+        if login_detail:
+            print(f"[ERROR] Auth endpoint response: {login_detail[:240]}")
+        print("Check E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD and retry.")
+        return 1
+    print("[OK] Admin login preflight passed")
 
     # Prepare output directory
     if args.output_dir:

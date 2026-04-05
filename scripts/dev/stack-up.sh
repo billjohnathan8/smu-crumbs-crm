@@ -50,6 +50,7 @@ VERIFICATION_SNS_TOPIC_NAME="scroogebank-crm-dev-verification"
 VERIFICATION_LAMBDA_RUNTIME="python3.12"
 SFTP_TRANSACTION_COLLECTOR_NAME="scroogebank-crm-dev-sftp-transaction-collector"
 SFTP_TRANSACTION_COLLECTOR_RUNTIME="python3.12"
+SKIP_VERIFICATION_LAMBDA_SUBSCRIPTION="${SKIP_VERIFICATION_LAMBDA_SUBSCRIPTION:-false}"
 
 export AWS_ACCESS_KEY_ID=test
 export AWS_SECRET_ACCESS_KEY=test
@@ -405,6 +406,11 @@ deploy_verification_lambda() {
       --timeout 30 --memory-size 256 --environment "${env_vars}" >/dev/null
   fi
   wait_lambda_active "${VERIFICATION_LAMBDA_NAME}"
+
+  if [[ "${SKIP_VERIFICATION_LAMBDA_SUBSCRIPTION,,}" == "true" ]]; then
+    echo "[INFO] Skipping verification Lambda SNS subscription (SKIP_VERIFICATION_LAMBDA_SUBSCRIPTION=true)"
+    return 0
+  fi
 
   # Subscribe to SNS topic so email verification feedback is processed
   local topic_arn

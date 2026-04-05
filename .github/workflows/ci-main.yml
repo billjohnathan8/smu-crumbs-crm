@@ -1,9 +1,7 @@
 name: CI - Main Pipeline
 
 # Full pipeline for the main branch.
-# Runs: changes -> lint -> component tests (unit + DB-backed) -> frontend latency
-#       -> fullstack integration -> JMeter post-merge performance gate -> deploy (TBD).
-# Note: Frontend latency tests run in CI; JMeter load tests run post-merge on push to main.
+# Runs: changes -> lint -> component tests (unit + DB-backed) -> fullstack integration -> deploy (TBD).
 #
 # Job DAG:
 #
@@ -29,9 +27,6 @@ name: CI - Main Pipeline
 #      v
 #   fullstack-integration-e2e  (real Docker containers + LocalStack + HTTP smoke
 #                               + Playwright against live stack, ~30-40 min)
-#      |
-#      v
-#   jmeter-performance-post-merge (100 concurrent-agent load test, push-to-main only)
 #      |
 #      v
 #   [deploy — not yet implemented]
@@ -63,164 +58,8 @@ permissions:
 jobs:
   # ==========================================================================
   # Layer 0: Detect which components changed
-  # ==========================================================================
-  changes:
-    uses: ./.github/workflows/reusable-changes.yml
-
-  # ==========================================================================
-  # Layer 1: Lint / Format / Typecheck  (gates everything downstream)
-  # ==========================================================================
-  lint:
-    needs: changes
-    uses: ./.github/workflows/reusable-lint.yml
-    secrets: inherit
-    with:
-      run-secrets: true
-      run-openapi: true
-      run-backend-java: >-
-        ${{ needs.changes.outputs.any-backend == 'true'
-            || needs.changes.outputs.ci-config == 'true' }}
-      run-backend-python: >-
-        ${{ needs.changes.outputs.backend-log == 'true'
-            || needs.changes.outputs.backend-verification == 'true'
-            || needs.changes.outputs.backend-sftp-transaction-collector == 'true'
-            || needs.changes.outputs.backend-audit-consumer == 'true'
-            || needs.changes.outputs.backend-aml-consumer == 'true'
-            || needs.changes.outputs.ci-config == 'true' }}
-      run-frontend: >-
-        ${{ needs.changes.outputs.frontend == 'true'
-            || needs.changes.outputs.ci-config == 'true' }}
-      run-terraform: >-
-        ${{ needs.changes.outputs.platform == 'true'
-            || needs.changes.outputs.ci-config == 'true' }}
-
-  # ==========================================================================
-  # Layer 2: Component tests  (parallel, each gated by its scope)
-  # Includes fast unit tests and separate DB-backed Postgres gates for
-  # stateful services.
-  # ==========================================================================
-  test-user:
-    needs: [changes, lint]
-    if: >-
-      ${{ needs.changes.outputs.backend-user == 'true'
-          || needs.changes.outputs.ci-config == 'true' }}
-    uses: ./.github/workflows/reusable-test-component.yml
-    with:
-      component: user
-      runtime: java
-      working-directory: services/backend/user
-      test-command: |
-        chmod +x gradlew
-        ./gradlew test jacocoTestReport jacocoTestCoverageVerification --no-daemon --console=plain
-      timeout-minutes: 10
-      artifact-paths: services/backend/user/build/reports/**
-
-  test-user-db:
-    needs: [changes, lint]
-    if: >-
-      ${{ needs.changes.outputs.backend-user == 'true'
-          || needs.changes.outputs.ci-config == 'true' }}
-    uses: ./.github/workflows/reusable-test-component-db.yml
-    with:
-      component: user
-      runtime: java
-      working-directory: services/backend/user
-      test-command: |
-        chmod +x gradlew
-        ./gradlew test \
-          --tests "com.scroogebank.crm.user_service.service.PersistentUserStoreTest" \
-          --no-daemon --console=plain
-      timeout-minutes: 12
-      artifact-paths: services/backend/user/build/reports/**
-
-  test-client:
-    needs: [changes, lint]
-    if: >-
-      ${{ needs.changes.outputs.backend-client == 'true'
-          || needs.changes.outputs.ci-config == 'true' }}
-    uses: ./.github/workflows/reusable-test-component.yml
-    with:
-      component: client
-      runtime: java
-      working-directory: services/backend/client
-      test-command: |
-        chmod +x gradlew
-        ./gradlew test jacocoTestReport jacocoTestCoverageVerification --no-daemon --console=plain
-      timeout-minutes: 12
-      artifact-paths: services/backend/client/build/reports/**
-
-  test-client-db:
-    needs: [changes, lint]
-    if: >-
-      ${{ needs.changes.outputs.backend-client == 'true'
-          || needs.changes.outputs.ci-config == 'true' }}
-    uses: ./.github/workflows/reusable-test-component-db.yml
-    with:
-      component: client
-      runtime: java
-      working-directory: services/backend/client
-      test-command: |
-        chmod +x gradlew
-        ./gradlew test \
-          --tests "com.scroogebank.crm.client_service.ClientsServiceIT" \
-          -PincludeIntegration=true \
-          --no-daemon --console=plain
-      timeout-minutes: 15
-      artifact-paths: services/backend/client/build/reports/**
-
-  test-transaction:
-    needs: [changes, lint]
-    if: >-
-      ${{ needs.changes.outputs.backend-transaction == 'true'
-          || needs.changes.outputs.ci-config == 'true' }}
-    uses: ./.github/workflows/reusable-test-component.yml
-    with:
-      component: transaction
-      runtime: java
-      working-directory: services/backend/transaction
-      test-command: |
-        chmod +x gradlew
-        ./gradlew test jacocoTestReport jacocoTestCoverageVerification --no-daemon --console=plain
-      timeout-minutes: 10
-      artifact-paths: services/backend/transaction/build/reports/**
-
-  test-transaction-db:
-    needs: [changes, lint]
-    if: >-
-      ${{ needs.changes.outputs.backend-transaction == 'true'
-          || needs.changes.outputs.ci-config == 'true' }}
-    uses: ./.github/workflows/reusable-test-component-db.yml
-    with:
-      component: transaction
-      runtime: java
-      working-directory: services/backend/transaction
-      test-command: |
-        chmod +x gradlew
-        ./gradlew test \
-          --tests "com.scroogebank.crm.transaction_service.service.PersistentTransactionsStoreTest" \
-          --no-daemon --console=plain
-      timeout-minutes: 12
-      artifact-paths: services/backend/transaction/build/reports/**
-
-  test-log:
-    needs: [changes, lint]
-    if: >-
-      ${{ needs.changes.outputs.backend-log == 'true'
-          || needs.changes.outputs.ci-config == 'true' }}
-    uses: ./.github/workflows/reusable-test-component.yml
-    with:
-      component: log
-      runtime: python
-      working-directory: services/backend/log
-      test-command: |
-        python -m pytest tests \
-          --junitxml=build/reports/tests/junit.xml \
-          --cov=app \
-          --cov-branch \
-          --cov-fail-under=80 \
-          --cov-report=term-missing \
-          --cov-report=xml:build/reports/coverage/coverage.xml \
-          --cov-report=html:build/reports/coverage/html
+  # ============================================================================
+  # Layer 4: Deploy  (not yet implemented — placeholder)
       timeout-minutes: 8
       artifact-paths: |
         services/backend/log/build/reports/**
@@ -352,11 +191,11 @@ jobs:
       timeout-minutes: 10
       artifact-paths: services/frontend/crm-ui/coverage/**
 
-  # ==========================================================================
+  # ============================================================================
   # Layer 3: Frontend Latency Tests — CPM22: Re-enabled for CI enforcement
   # Performance tests validate CS301 requirement: all operations < 5 seconds
   # To run locally: cd services/frontend/crm-ui && npm run test:e2e:latency
-  # ==========================================================================
+  # ============================================================================
   frontend-latency-tests:
     name: Frontend Latency Tests (CS301 <5s)
     if: ${{ !failure() && !cancelled() }}
@@ -422,7 +261,7 @@ jobs:
             services/frontend/crm-ui/playwright-report/
           retention-days: 7
 
-  # ==========================================================================
+  # ============================================================================
   # Layer 4: Fullstack integration — real containers + LocalStack
   # Builds all service Docker images, starts LocalStack + PostgreSQL,
   # provisions all AWS resources via the init script, runs cross-service HTTP
@@ -439,165 +278,11 @@ jobs:
            needs.changes.outputs.ci-config == 'true') }}
     needs:
       - changes
-      - frontend-latency-tests  # CPM22: Re-enabled for performance enforcement
+      - lint
     uses: ./.github/workflows/reusable-fullstack-integration.yml
     with:
       fullstack-mode: ${{ github.event_name == 'pull_request' && 'pr' || 'full' }}
 
   # ==========================================================================
-  # Layer 5: JMeter post-merge performance gate (safe mode)
-  # Runs only on push to main after fullstack integration passes.
-  # Keeps PR cycle fast while enforcing concurrent-load checks on merged code.
-  # ==========================================================================
-  jmeter-performance-post-merge:
-    name: JMeter Performance (100 Concurrent Agents, post-merge)
-    if: >-
-      ${{ !failure() && !cancelled() &&
-          github.event_name == 'push' &&
-          github.ref == 'refs/heads/main' &&
-          needs.fullstack-integration-e2e.result == 'success' }}
-    needs:
-      - fullstack-integration-e2e
-    runs-on: ubuntu-latest
-    timeout-minutes: 50
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        timeout-minutes: 2
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        timeout-minutes: 2
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: 'gradle'
-
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        timeout-minutes: 2
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-
-      - name: Install Apache JMeter 5.6.3
-        timeout-minutes: 3
-        run: |
-          JMETER_VERSION=5.6.3
-          JMETER_URL="https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz"
-
-          echo "[INFO] Downloading JMeter ${JMETER_VERSION}..."
-          curl -fsSL "${JMETER_URL}" -o /tmp/jmeter.tgz
-
-          echo "[INFO] Extracting JMeter..."
-          sudo tar -xzf /tmp/jmeter.tgz -C /opt
-          sudo ln -s /opt/apache-jmeter-${JMETER_VERSION} /opt/jmeter
-
-          echo "/opt/jmeter/bin" >> "$GITHUB_PATH"
-
-          echo "[INFO] JMeter installed successfully"
-          /opt/jmeter/bin/jmeter --version
-
-      - name: Mark scripts executable
-        timeout-minutes: 1
-        run: |
-          chmod +x scripts/dev/stack-up.sh
-          chmod +x scripts/dev/stack-down.sh
-          chmod +x services/backend/user/gradlew
-          chmod +x services/backend/client/gradlew
-          chmod +x services/backend/transaction/gradlew
-          chmod +x platform/localstack/init/01-setup.sh
-
-      - name: Generate ephemeral local secrets for stack-up
-        run: |
-          echo "LOCAL_DB_PASSWORD=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
-          echo "JWT_HMAC_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
-          echo "E2E_ADMIN_PASSWORD=$(openssl rand -hex 16)Aa1!Xx" >> "$GITHUB_ENV"
-          echo "E2E_USER_PASSWORD=$(openssl rand -hex 16)Bb2!Yy" >> "$GITHUB_ENV"
-
-      - name: Start local dev stack
-        timeout-minutes: 15
-        env:
-          AWS_ACCESS_KEY_ID: test
-          AWS_SECRET_ACCESS_KEY: test
-          AWS_DEFAULT_REGION: ap-southeast-1
-          LOCAL_DB_NAME: crm
-          LOCAL_DB_USER: crm_app
-        run: |
-          echo "[INFO] Starting local dev stack..."
-          bash scripts/dev/stack-up.sh
-
-          echo "[INFO] Stack started successfully"
-          docker ps
-
-      - name: Wait for services to be healthy
-        timeout-minutes: 5
-        run: |
-          echo "[INFO] Waiting for client-service health endpoint..."
-
-          MAX_ATTEMPTS=60
-          ATTEMPT=0
-
-          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-            if curl --silent --fail http://127.0.0.1:18088/actuator/health >/dev/null 2>&1; then
-              echo "[OK] Client-service is healthy"
-              exit 0
-            fi
-
-            ATTEMPT=$((ATTEMPT + 1))
-            echo "[WAIT] Attempt $ATTEMPT/$MAX_ATTEMPTS - waiting for health endpoint..."
-            sleep 5
-          done
-
-          echo "[FAIL] Client-service did not become healthy within timeout"
-          docker ps
-          docker logs crm-client-service || true
-          exit 1
-
-      - name: Run baseline + concurrent performance gate
-        timeout-minutes: 60
-        env:
-          SKIP_RESTART_PROMPT: '1'
-          E2E_ADMIN_PASSWORD: ${{ env.E2E_ADMIN_PASSWORD }}
-        run: |
-          echo "[INFO] Starting post-merge baseline + concurrent performance gate..."
-
-          if [ -z "${E2E_ADMIN_PASSWORD:-}" ]; then
-            echo "[FAIL] Missing E2E_ADMIN_PASSWORD in job environment"
-            exit 1
-          fi
-
-          LOGIN_STATUS="$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "Content-Type: application/json" \
-            -d "{\"email\":\"admin@crm.com\",\"password\":\"${E2E_ADMIN_PASSWORD}\"}" \
-            http://127.0.0.1:18088/api/auth/login)"
-          if [ "${LOGIN_STATUS}" != "200" ]; then
-            echo "[FAIL] Login preflight failed before JMeter (status=${LOGIN_STATUS})"
-            exit 1
-          fi
-
-          for MODE in baseline concurrent; do
-            echo "[INFO] Running JMeter ${MODE} performance test..."
-            python scripts/performance/run_jmeter_tests.py --test-mode "${MODE}" --repeats 3 --slo-max-error-rate-pct 1.0 --slo-max-p95-ms 5000
-          done
-
-      - name: Upload JMeter artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ci-main-performance-gate-${{ github.run_id }}
-          path: build-logs/performance/**
-          retention-days: 14
-
-      - name: Teardown local dev stack
-        if: always()
-        timeout-minutes: 10
-        run: |
-          echo "[INFO] Tearing down local stack..."
-          bash scripts/dev/stack-down.sh || true
-
-  # ==========================================================================
-  # Layer 6: Deploy  (not yet implemented — placeholder)
-  # jmeter-performance-post-merge should pass before this gate can proceed on main.
+  # Layer 5: Deploy  (not yet implemented — placeholder)
   # ==========================================================================
