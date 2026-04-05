@@ -257,7 +257,7 @@ jobs:
           if [[ -n "${TERRAFORM_TARGETS}" ]]; then
             IFS=',' read -ra RAW_TARGETS <<< "${TERRAFORM_TARGETS}"
             for t in "${RAW_TARGETS[@]}"; do
-              target_trimmed="$(echo "$t" | xargs)"
+              target_trimmed="$(printf '%s' "$t" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
               if [[ -n "${target_trimmed}" ]]; then
                 TARGET_ARGS+=("-target=${target_trimmed}")
               fi
