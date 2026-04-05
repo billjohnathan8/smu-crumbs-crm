@@ -434,6 +434,7 @@ jobs:
     needs:
       - changes
       - lint
+      - frontend-latency-tests
     uses: ./.github/workflows/reusable-fullstack-integration.yml
     with:
       fullstack-mode: ${{ github.event_name == 'pull_request' && 'pr' || 'full' }}
