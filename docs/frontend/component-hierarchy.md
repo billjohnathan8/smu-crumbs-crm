@@ -342,7 +342,7 @@
 
 ### ClientArchivesPage
 - File/path: [services/frontend/crm-ui/src/pages/ClientArchivesPage.tsx](services/frontend/crm-ui/src/pages/ClientArchivesPage.tsx)
-- Route: /admin/client-archives
+- Route: /admin/archives/clients
 - Role(s): root admin
 - Purpose: list and reinstate archived clients
 - Main child components: archive table
