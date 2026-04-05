@@ -12,7 +12,7 @@ LocalStack emulates AWS services used by the stack (SQS, DynamoDB, S3, Lambda, S
 
 ## 1. Start LocalStack + Postgres
 
-Export secrets from repo root `.env.local` (see [../onboarding/new-dev-setup.md](../onboarding/new-dev-setup.md) and root `.env.example`). **Required** for this compose file: `LOCAL_DB_PASSWORD`, `JWT_HMAC_SECRET`, and `E2E_ADMIN_PASSWORD` (LocalStack init seeds Secrets Manager and must match Postgres).
+Export secrets from repo root `.env.local` (see [../../README.md#getting-started](../../README.md#getting-started) and root `.env.example`). **Required** for this compose file: `LOCAL_DB_PASSWORD`, `JWT_HMAC_SECRET`, and `E2E_ADMIN_PASSWORD` (LocalStack init seeds Secrets Manager and must match Postgres).
 
 ```bash
 set -a && source .env.local && set +a   # Bash; on PowerShell, set each variable or use a dotenv loader

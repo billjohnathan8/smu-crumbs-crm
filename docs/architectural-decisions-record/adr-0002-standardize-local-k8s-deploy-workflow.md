@@ -61,7 +61,7 @@ consistency.
 - Same deployment stages, new implementation
 - **Deprecated:** `scripts/build-and-deploy-k8s/*.{ps1,sh}` (see Migration Guide)
 
-See `scripts/pipelines/` plus `../onboarding/new-dev-setup.md` and
+See `scripts/pipelines/` plus `../../README.md#getting-started` and
 `../testing/TESTING-GUIDE.md` for current usage.
 
 ## Implementation Notes

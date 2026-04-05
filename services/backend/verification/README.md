@@ -1,115 +1,45 @@
 # Verification Lambda
 
-SNS-triggered Lambda with two responsibilities:
+## Overview
+SNS-triggered Lambda for verification email dispatch and SES feedback processing.
 
-## Flows
+## Responsibilities / Scope
+- Send verification email for `UPLOAD_VERIFICATION_REQUESTED` events.
+- Process SES feedback events (`DELIVERY`, `BOUNCE`, `COMPLAINT`, `REJECT`).
+- Update communication status through log-service provider status endpoint.
 
-### 1. Verification email send (`UPLOAD_VERIFICATION_REQUESTED`)
-Triggered by client-service when a client is created.
+## Key Endpoints or Interfaces
+- Event interfaces:
+  - `SNS -> Lambda` (`UPLOAD_VERIFICATION_REQUESTED`)
+  - `SES -> SNS -> Lambda` (delivery/complaint feedback)
+- Downstream interface:
+  - `PATCH /api/communications/provider/{providerMessageId}/status`
+- Deployment artifact: `verification-lambda.zip`
 
-```
-client-service createClient -> SNS publish -> Lambda -> SES send_email -> user inbox
-                                                |
-                                                -> link: /verify-client?clientId=...&token=...
-```
+Required runtime env by flow:
+- Email send: `SES_SOURCE_EMAIL`, `FRONTEND_BASE_URL`
+- Feedback updates: `LOG_API_BASE_URL` (+ optional auth/jwt vars)
 
-Important:
-- This Lambda does not mint customer verification tokens.
-- Token is generated upstream by client-service and passed in SNS message.
+## Dependencies
+- AWS SES
+- SNS topics/subscriptions
+- Log API availability for feedback updates
 
-### 2. SES feedback processing (`DELIVERY` / `BOUNCE` / `COMPLAINT` / `REJECT`)
-Triggered by SES notifications forwarded through SNS.
+## Local Run / Test
 
-```
-SES event -> SNS -> Lambda -> PATCH /api/communications/provider/{id}/status
-```
+From this directory:
 
----
-
-## Package Artifact
-- Terraform expects: `verification-lambda.zip`
-- Root Terraform default:
-  - `verification_zip_path = ../../services/backend/verification/verification-lambda.zip`
-- Build zip from repo root (PowerShell):
-  - `Compress-Archive -Path services/backend/verification/lambda_function.py -DestinationPath services/backend/verification/verification-lambda.zip -Force`
-
----
-
-## Environment Variables
-
-### Flow 1 (email send)
-| Variable | Required | Description |
-|---|---|---|
-| `SES_SOURCE_EMAIL` | Yes | Verified SES sender address |
-| `FRONTEND_BASE_URL` | Yes | Public frontend base URL (for `/verify-client` link) |
-
-### Flow 2 (feedback updates)
-| Variable | Required | Description |
-|---|---|---|
-| `LOG_API_BASE_URL` | Yes (for feedback path) | Base URL for log API |
-| `VERIFICATION_LOG_AUTH_HEADER` | Optional | Full Authorization header |
-| `VERIFICATION_LOG_BEARER_TOKEN` | Optional | Bearer token fallback |
-| `VERIFICATION_JWT_HMAC_SECRET` | Optional | Inline secret for minting service JWT when no explicit header/token is set |
-| `VERIFICATION_JWT_HMAC_SECRET_ARN` | Optional | Secrets Manager ARN for service JWT secret |
-| `JWT_HMAC_SECRET_ARN` | Optional | Fallback secret ARN |
-| `VERIFICATION_JWT_SUB` | Optional | Service JWT subject (default: `SYSTEM_VERIFICATION_FEEDBACK`) |
-| `VERIFICATION_JWT_ROLE` | Optional | Service JWT role (default: `service`) |
-| `VERIFICATION_JWT_TTL_SECONDS` | Optional | Service JWT TTL seconds (default: `300`) |
-
----
-
-## SNS Message Shape (`UPLOAD_VERIFICATION_REQUESTED`)
-
-Expected JSON payload from client-service publisher:
-
-```json
-{
-  "eventType": "UPLOAD_VERIFICATION_REQUESTED",
-  "clientId": "clt_abc123",
-  "email": "user@example.com",
-  "firstName": "Jane",
-  "token": "<verification-token>",
-  "requestId": "req_xyz",
-  "tokenTtlSeconds": 7200
-}
-```
-
----
-
-## Local Test Pipeline
-
-Run from `services/backend/verification`.
-
-Windows:
-```powershell
+```bash
 python run-local-test-pipeline.py
 ```
 
-macOS/Linux:
-```bash
-python3 run-local-test-pipeline.py
-```
-
-Alternative wrappers:
-- `run-local-test-pipeline.cmd`
-- `run-local-test-pipeline.sh`
-
-Pipeline steps:
-1. `black --check`
-2. `flake8`
-3. `python -m compileall`
-4. `pytest` with coverage
-
-Reports:
-- `build/reports/tests/junit.xml`
-- `build/reports/coverage/coverage.xml`
-- `build/reports/coverage/html/index.html`
-
----
+Pipeline stages:
+- `black --check`
+- `flake8`
+- `python -m compileall`
+- `pytest` with coverage
 
 ## Notes
-- Customer token TTL is supplied by client-service in `tokenTtlSeconds` (default `7200` / 2 hours).
-- Email expiry copy is rendered from `tokenTtlSeconds`, so the message and token validity stay aligned.
-- Unknown/malformed SNS records are skipped and logged.
-- Partial batch failures return `207` with per-record failure details.
-- In root Terraform, `enable_verification_pipeline=true` requires `enable_log_lambda=true` so `LOG_API_BASE_URL` is wired.
+- Verification token is minted upstream by client-service and passed in SNS message.
+- Email expiry copy is derived from message `tokenTtlSeconds`.
+- Root Terraform wiring for this pipeline depends on `enable_verification_pipeline`.

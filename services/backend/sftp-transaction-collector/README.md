@@ -1,51 +1,34 @@
 # SFTP Transaction Collector
 
-Scheduled Lambda that drives the official transaction ingestion path in deployed environments:
+## Overview
+Scheduled Lambda that selects transaction CSV files from S3 and calls the transaction import API.
 
-`EventBridge schedule -> Lambda -> S3 object selection -> POST /api/transactions/import`
+## Responsibilities / Scope
+- Scan configured S3 prefix for transaction CSV files.
+- Select newest CSV object per run.
+- Call `POST /api/transactions/import` with an `s3://` source path.
+- Authenticate request using explicit header/token or minted service JWT.
 
-This Lambda scans an S3 bucket for transaction CSV files. Files can arrive in S3 via:
-- **EC2** (integration/prod) - SFTP endpoint via EC2, files land in S3
-- **Direct S3 upload** (all environments) - AWS CLI or SDK upload to S3
-- The Lambda is transport-agnostic: it processes files regardless of how they arrived in S3
+## Key Endpoints or Interfaces
+- Trigger interface: `EventBridge schedule -> Lambda`
+- Storage interface: `S3 list/get`
+- Downstream API: `POST /api/transactions/import`
+- Ingestion contract: [../../../docs/api-contracts/sftp-transaction-ingestion-contract.md](../../../docs/api-contracts/sftp-transaction-ingestion-contract.md)
 
-## Package Artifact
+## Dependencies
+- `TRANSACTION_SFTP_BUCKET` (required)
+- `TRANSACTION_IMPORT_URL` (required)
+- Optional auth env vars (`TRANSACTION_IMPORT_AUTH_HEADER`, `TRANSACTION_IMPORT_BEARER_TOKEN`, JWT secret settings)
+- Deployment artifact: `sftp-transaction-collector.zip`
 
-- Terraform artifact path:
-  - `sftp-transaction-collector.zip`
-- Root Terraform default:
-  - `sftp_transaction_collector_zip_path = ../../services/backend/sftp-transaction-collector/sftp-transaction-collector.zip`
+## Local Run / Test
 
-## Environment Variables
+From this directory:
 
-Required:
-- `TRANSACTION_SFTP_BUCKET`: S3 bucket name scanned for CSV objects.
-- `TRANSACTION_IMPORT_URL`: Full URL to `POST /api/transactions/import`.
+```bash
+python run-local-test-pipeline.py
+```
 
-Optional:
-- `TRANSACTION_SFTP_PREFIX` (default: `incoming/`)
-- `TRANSACTION_IMPORT_AUTH_HEADER`
-- `TRANSACTION_IMPORT_BEARER_TOKEN`
-- `TRANSACTION_IMPORT_JWT_HMAC_SECRET`
-- `TRANSACTION_IMPORT_JWT_HMAC_SECRET_ARN`
-- `JWT_HMAC_SECRET_ARN` (fallback for JWT minting)
-- `TRANSACTION_IMPORT_JWT_SUB` (default: `SYSTEM_TRANSACTION_INGESTION`)
-- `TRANSACTION_IMPORT_JWT_ROLE` (default: `admin`)
-- `TRANSACTION_IMPORT_JWT_TTL_SECONDS` (default: `300`)
-
-`TRANSACTION_SFTP_*` naming is legacy. The bucket serves as the S3 landing zone for all ingestion methods (SFTP, direct upload, etc.).
-
-## Behavior
-
-- Scans `s3://$TRANSACTION_SFTP_BUCKET/$TRANSACTION_SFTP_PREFIX`.
-- Selects newest `.csv` object.
-- Calls transaction import API with payload:
-  - `{"sourcePath":"s3://<bucket>/<key>"}`
-- Auth precedence:
-  1. `TRANSACTION_IMPORT_AUTH_HEADER`
-  2. `TRANSACTION_IMPORT_BEARER_TOKEN`
-  3. Minted internal JWT from configured secret.
-
-## Current Limitation
-
-- Processes one newest CSV per run (not all new CSV files).
+## Notes
+- `TRANSACTION_SFTP_*` naming is legacy; the source is S3 regardless of upstream transport (SFTP or direct upload).
+- Current behavior processes one newest CSV per run.

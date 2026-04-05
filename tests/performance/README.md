@@ -309,9 +309,9 @@ jobs:
 
 ## References
 
-- **CS301 Requirements:** `docs/diff/features-compliance/prompt_b_infrastructure.md`
-- **Performance Audit:** `docs/audits/performance-testing-readiness-audit.md`
-- **Backlog:** `docs/audits/performance-testing-backlog.md`
+- **Getting started:** `README.md#getting-started`
+- **Testing guide:** `docs/testing/TESTING-GUIDE.md`
+- **Infrastructure workflow:** `docs/infrastructure/terraform-infra-workflow.md`
 - **JMeter Documentation:** https://jmeter.apache.org/usermanual/index.html
 - **API Contracts:** `docs/api-contracts/`
 
@@ -320,6 +320,6 @@ jobs:
 ## Support
 
 **Issues:**
-- Local setup: See `docs/troubleshooting.md`
-- AWS deployment: See `docs/infrastructure/aws-deployment-guide.md`
-- Performance questions: Review audit documents in `docs/audits/`
+- Local setup: See `README.md#getting-started`
+- AWS deployment: See `docs/infrastructure/terraform-infra-workflow.md`
+- Performance questions: See `docs/testing/TESTING-GUIDE.md`

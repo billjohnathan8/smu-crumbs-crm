@@ -4,10 +4,10 @@ This directory keeps only current, high-signal docs.
 
 ## Start Here
 
-- Onboarding: [onboarding/new-dev-setup.md](onboarding/new-dev-setup.md)
+- Getting started: [../README.md#getting-started](../README.md#getting-started)
 - Configuration: [database_configuration.md](database_configuration.md)
 - Testing: [testing/TESTING-GUIDE.md](testing/TESTING-GUIDE.md)
-- Troubleshooting: [troubleshooting.md](troubleshooting.md)
+- Troubleshooting notes: [troubleshooting.md](troubleshooting.md)
 
 ## Development Standards
 
@@ -18,8 +18,7 @@ This directory keeps only current, high-signal docs.
 
 - Learner Lab one-command deploy: `.\scripts\deploy-learnerlab.ps1` (PowerShell) or `./scripts/deploy-learnerlab.sh` (Bash)
 - Terraform plan/apply/destroy: `.\scripts\deploy\deploy-aws.ps1 -Env lab`
-- Learner Lab runbook: [diff/prep-learnerlab/BILL_LEARNERLAB_RUNBOOK.md](diff/prep-learnerlab/BILL_LEARNERLAB_RUNBOOK.md)
-- First AWS deployment (full account): [diff/prep-learnerlab/FIRST_DEPLOYMENT_RUNBOOK.md](diff/prep-learnerlab/FIRST_DEPLOYMENT_RUNBOOK.md)
+- Infrastructure workflow: [infrastructure/terraform-infra-workflow.md](infrastructure/terraform-infra-workflow.md)
 
 ## Architecture and Platform
 

@@ -6,10 +6,10 @@ Thank you for contributing to the project! This guide will help you understand o
 
 ## 🎯 Quick Start for Contributors
 
-1. **Setup your environment:** [New Developer Setup](docs/onboarding/new-dev-setup.md)
-2. **Confirm Python prerequisite:** [Python Requirement Guide](docs/prerequisites/PYTHON-REQUIREMENT.md)
+1. **Setup your environment:** [Getting Started](README.md#getting-started)
+2. **Confirm Python command mapping:** [Getting Started](README.md#getting-started)
 3. **Read the coding standards:** [Coding Standards](docs/coding-standards/coding-standards.md)
-4. **Understand the architecture:** [System Architecture](docs/README.md#architecture-overview)
+4. **Understand project docs:** [Documentation Hub](docs/README.md)
 5. **Run tests locally:** [Testing Guide](docs/testing/TESTING-GUIDE.md)
 6. **Follow the PR process:** [Pull Request Process](#pull-request-process)
 
@@ -380,7 +380,7 @@ We use **soft branch protection** via CI checks (GitHub Classroom doesn't suppor
 - **Required reviews** - 1+ approvals from CODEOWNERS
 - **Status checks** - All tests and validation must pass
 
-**Full details:** [Branch Strategy Guide](docs/testing/ci/branch-strategy.md)
+**Full details:** [Branch Strategy](#branch-strategy)
 
 ---
 
@@ -465,7 +465,7 @@ Update docs when you:
 
 ### Markdown Style
 
-- Use relative links: `[text](../path/to/file.md)`
+- Use relative links (example): ``[text](docs/README.md)``
 - Use code fences with language: ` ```bash `
 - Use tables for structured data
 - Use collapsible sections for long content: `<details><summary>Title</summary>...</details>`
@@ -480,7 +480,7 @@ Brief introduction.
 
 ### Subsection
 
-Content with [link](path/to/doc.md).
+Content with inline reference example: ``[Docs Hub](docs/README.md)``.
 
 ```bash
 code example
@@ -513,9 +513,9 @@ code example
 ## ❓ Questions or Issues?
 
 **Need help with:**
-- **Setup issues:** [New Developer Setup](docs/onboarding/new-dev-setup.md)
+- **Setup issues:** [Getting Started](README.md#getting-started)
 - **Testing failures:** [Testing Guide](docs/testing/TESTING-GUIDE.md)
-- **General issues:** [Troubleshooting Guide](docs/troubleshooting.md)
+- **General issues:** [Getting Started troubleshooting](README.md#getting-started)
 
 **Can't find the answer?**
 - Check [documentation hub](docs/README.md)

@@ -17,51 +17,71 @@
 - Spring Boot (Java 21) + Python Lambda services (Python 3.12+)
 - PostgreSQL, Docker
 
-# Quickstart
+# Getting Started
+
+## 1. Prerequisites
+
+- Git
+- Docker Desktop (or Docker Engine)
+- Java 21
+- Node.js 22+
+- Python 3.12+
+- Make
+
+Python command mapping:
+- Windows PowerShell: `python`
+- Linux/macOS/WSL: `python3`
+
+Quick checks:
+
+```powershell
+python --version
+python -m pip --version
+```
+
+```bash
+python3 --version
+python3 -m pip --version
+```
+
+## 2. Run setup
+
+Windows (recommended):
+
 ```powershell
 .\scripts\setup\setup-dev.ps1
 ```
 
-Alternative:
+Cross-platform:
 
 ```bash
 python scripts/pipelines/setup_dev_env.py
 ```
 
-If Python is not installed yet, start with [docs/onboarding/new-dev-setup.md](docs/onboarding/new-dev-setup.md).
-On Linux/macOS/WSL, use `python3` if `python` is not available.
+`setup_dev_env.py` can install portable CLI tools (for example `inframap`, `trivy`) into `.devtools/bin`. It does not install Python.
 
-Note: `setup_dev_env.py` can install portable CLI tools (including `inframap` and `trivy`) into `.devtools/bin`. Docker Desktop is still required for container-based workflows and Docker fallback paths.
+## 3. Create `.env.local`
 
-## Local environment (`.env.local`)
-
-Copy `/.env.example` to `/.env.local` at the repository root (gitignored). Set **all** variables listed there (no defaults are committed):
+Copy `.env.example` to `.env.local` at repo root (gitignored) and set all required keys:
 
 | Variable | Purpose |
 |----------|---------|
-| `LOCAL_DB_PASSWORD` | Postgres (`crm_app`) password for Docker and Spring services |
+| `LOCAL_DB_PASSWORD` | Postgres (`crm_app`) password |
 | `JWT_HMAC_SECRET` | Shared HS256 secret for Java services and local Lambdas |
 | `E2E_ADMIN_PASSWORD` | Root admin login + user-service seed |
 | `E2E_USER_PASSWORD` | Seeded agent user (e.g. `agent1@crm.com`) |
 
-`scripts/dev/stack-up.sh`, `scripts/ci/run-fullstack-integration-e2e.sh`, and `scripts/pipelines/test_all.py` load repo-root `.env.local` automatically for local runs. `test_all.py` treats `.env.local` values as defaults and preserves variables already set in your shell (for example `INFRACOST_API_KEY`). Integration Playwright tests and `services/frontend/crm-ui` e2e helpers read the same file via `tests/integration/helpers/repoEnv.ts` (and the crm-ui equivalent).
-
 ```bash
 cp .env.example .env.local
-# Edit .env.local — all keys must be non-empty before running the stack
 ```
 
-See [docs/onboarding/new-dev-setup.md](docs/onboarding/new-dev-setup.md) for the full walkthrough.
+`scripts/dev/stack-up.sh`, `scripts/ci/run-fullstack-integration-e2e.sh`, and `scripts/pipelines/test_all.py` auto-load `.env.local` for local runs.
 
-# Local Dev Stack
-
-Spin up the full local stack (LocalStack, Postgres, all three Java backend services, frontend, nginx gateway, and all Lambda functions) and leave it running — no tests:
+## 4. Start local stack
 
 ```bash
 bash scripts/dev/stack-up.sh
 ```
-
-Tear down:
 
 ```bash
 bash scripts/dev/stack-down.sh
@@ -78,7 +98,33 @@ Services after startup:
 | Frontend container | http://127.0.0.1:18085 |
 | LocalStack | http://127.0.0.1:14566 |
 
-Root admin email (seeded by stack-up): `admin@crm.com`. Set `E2E_ADMIN_PASSWORD` for a known password; if unset, local scripts apply dev-only defaults (see `scripts/dev/stack-up.sh`). Do not commit credential reports or real passwords.
+## 5. Validate locally
+
+```bash
+python scripts/pipelines/test_all.py
+```
+
+Useful flags:
+
+```bash
+python scripts/pipelines/test_all.py --skip-fullstack
+python scripts/pipelines/test_all.py --fullstack-mode smoke
+python scripts/pipelines/test_all.py --dry-run
+```
+
+## 6. Quick troubleshooting
+
+- Python not found: use `python` on Windows and `python3` on Linux/macOS/WSL.
+- Setup fails on missing tools: run `python scripts/pipelines/setup_dev_env.py --doctor`.
+- Stack startup issues: run `bash scripts/dev/stack-down.sh`, then retry `bash scripts/dev/stack-up.sh`.
+- Fullstack startup issues: rerun `bash scripts/ci/run-fullstack-integration-e2e.sh` and inspect `build-logs/fullstack-integration/`.
+
+Related docs:
+- [docs/database_configuration.md](docs/database_configuration.md)
+- [docs/testing/TESTING-GUIDE.md](docs/testing/TESTING-GUIDE.md)
+- [docs/infrastructure/localstack-setup.md](docs/infrastructure/localstack-setup.md)
+
+Root admin email (seeded by stack-up): `admin@crm.com`. Use `.env.local` for known local passwords.
 
 # OWASP ZAP Baseline Scan
 
@@ -170,4 +216,4 @@ Shared Postgres (`crm` / `crm_app`): configure via `LOCAL_DB_PASSWORD` and relat
 ## Configuration Reference
 - Central config contract: [docs/database_configuration.md](docs/database_configuration.md)
 - LocalStack + local DB flow: [docs/infrastructure/localstack-setup.md](docs/infrastructure/localstack-setup.md)
-- New developer setup: [docs/onboarding/new-dev-setup.md](docs/onboarding/new-dev-setup.md)
+- Setup and troubleshooting quickstart: [#getting-started](#getting-started)

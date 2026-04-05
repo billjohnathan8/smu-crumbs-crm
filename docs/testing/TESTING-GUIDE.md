@@ -360,8 +360,8 @@ bash scripts/dev/stack-up.sh
 ### Additional Documentation
 
 - **Detailed guide:** `tests/performance/README.md`
-- **CS301 requirements:** `docs/diff/features-compliance/prompt_b_infrastructure.md`
-- **Performance audit:** `docs/audits/performance-testing-readiness-audit.md`
+- **Project onboarding:** `README.md#getting-started`
+- **Infrastructure workflow:** `docs/infrastructure/terraform-infra-workflow.md`
 - **JMeter docs:** https://jmeter.apache.org/usermanual/index.html
 
 ---
@@ -781,14 +781,13 @@ build-logs/
 
 ### Infrastructure
 
-- **Onboarding:** `docs/onboarding/new-dev-setup.md`
+- **Getting started:** `README.md#getting-started`
 - **LocalStack setup:** `docs/infrastructure/localstack-setup.md`
-- **AWS deployment:** `docs/infrastructure/aws-deployment-guide.md`
+- **AWS deployment workflow:** `docs/infrastructure/terraform-infra-workflow.md`
 
 ### Compliance & Audits
 
-- **CS301 requirements:** `docs/diff/features-compliance/prompt_b_infrastructure.md`
-- **Performance audit:** `docs/audits/performance-testing-readiness-audit.md`
+- **Documentation hub:** `docs/README.md`
 - **API contracts:** `docs/api-contracts/`
 
 ### External Resources
