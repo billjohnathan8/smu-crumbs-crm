@@ -134,7 +134,10 @@ class LogRepository:
         """Fetch a single audit log row by id (excluding soft-deleted)."""
         with psycopg.connect(self._settings.dsn, row_factory=dict_row) as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT * FROM audit_logs WHERE id = %s AND deleted = false", (log_id,))
+                cur.execute(
+                    "SELECT * FROM audit_logs WHERE id = %s AND deleted = false",
+                    (log_id,),
+                )
                 row = cur.fetchone()
         return row
 
@@ -144,7 +147,7 @@ class LogRepository:
             with conn.cursor() as cur:
                 cur.execute(
                     "UPDATE audit_logs SET deleted = true, updated_at = NOW() WHERE id = %s AND deleted = false",
-                    (log_id,)
+                    (log_id,),
                 )
                 deleted = cur.rowcount
             conn.commit()
