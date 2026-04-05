@@ -66,7 +66,7 @@ describe('AccountsTable', () => {
       initialDeposit: 300,
       currency: 'USD',
       branchId: 'US-001',
-    } as Account
+    } as unknown as Account
 
     render(
       <AccountsTable
