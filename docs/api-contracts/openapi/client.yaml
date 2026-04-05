@@ -75,6 +75,36 @@ paths:
         '403':
           description: Forbidden
           content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+    post:
+      tags: [clients]
+      summary: Create client profile
+      description: Creates a client profile. A log entry must be recorded (Feature 3).
+      security: [{BearerAuth: []}]
+      x-required-roles: [user, admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ClientCreateRequest'}
+      responses:
+        '201':
+          description: Client created.
+          content: {application/json: {schema: {$ref: '#/components/schemas/Client'}}}
+        '400':
+          description: Validation error.
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+        '409':
+          description: Conflict (e.g., email/phone already exists).
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+        '503':
+          description: Verification email dispatch unavailable; client is not created.
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+        '401':
+          description: Unauthorized
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
+        '403':
+          description: Forbidden
+          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
   /api/clients/archives:
     get:
       tags: [clients]
@@ -123,36 +153,6 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/VerificationSubmissionSummaryResponse'}
-        '401':
-          description: Unauthorized
-          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
-        '403':
-          description: Forbidden
-          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
-    post:
-      tags: [clients]
-      summary: Create client profile
-      description: Creates a client profile. A log entry must be recorded (Feature 3).
-      security: [{BearerAuth: []}]
-      x-required-roles: [user, admin]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: {$ref: '#/components/schemas/ClientCreateRequest'}
-      responses:
-        '201':
-          description: Client created.
-          content: {application/json: {schema: {$ref: '#/components/schemas/Client'}}}
-        '400':
-          description: Validation error.
-          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
-        '409':
-          description: Conflict (e.g., email/phone already exists).
-          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
-        '503':
-          description: Verification email dispatch unavailable; client is not created.
-          content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
         '401':
           description: Unauthorized
           content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}
