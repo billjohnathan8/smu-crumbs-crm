@@ -129,6 +129,35 @@ Current region profiles in repo:
 - ECS Container Insights
 - Infracost (cost estimation in CI when configured)
 
+## System Architecture
+![Architecture Diagram](docs\main-diagrams\main-aws-architecture-diagram.png)
+
+## Key Components
+**Frontend:** React SPA deployed to S3 with Cloudfront CDN
+
+**Authentication:** AWS COgnito wiht OAuth2.0
+
+**Core Services:**
+- AML Reporting (Lambda)
+- Client Management (ECS Fargate)
+- Audit Logging (Lambda + DynamoDB)
+- SFTP Transaction Collector (Lambda + S3)
+- Transaction Management (ECS Fargate)
+- Agent User Management (ECS Fargate)
+
+**Secondary Services:**
+- AML Consumer (Lambda)
+- Audit Consumer (Lambda)
+- Verification (Lambda + Cloudfront + Cognito)
+
+**Data Layer:**
+- PostgreSQL with Amazon RDS for ECS Fargate services 
+- DynamoDB for NoSQL Data used for Audit Logs
+
+**Infrastructure:**
+- Provisioned with Terraform
+- Multi-AZ Deployments with Auto-Scaling Groups & ALB
+
 ## 2. Evaluator Quick Start - Current Setup (Instruction Set A)
 
 ### What To Test
@@ -421,3 +450,16 @@ For evaluators who want deeper implementation detail and deployment evidence, us
 - Performance test suite notes: [tests/performance/README.md](tests/performance/README.md)
 - Local CI orchestration script: [scripts/pipelines/test_all.py](scripts/pipelines/test_all.py)
 - To generate a map of our infrastructure, refer to cs301-brainboard-test submodule.
+
+# Team
+CS301 G2T3 - CRUMBS:
+BILL JOHNATHAN
+DENISE LIE
+TOH DE XUE
+BERNARDINUS MATTEO WOENARDI
+PEH SIEW YU
+TANIA LEE GUNAWAN
+VERDIO WONG
+
+---
+This project was completed as part of CS301 IT Systems Architecture at Singapore Management University. The implementation reflects real-world enterprise architecture principles and modern cloud development practices.
