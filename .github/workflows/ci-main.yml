@@ -504,7 +504,6 @@ jobs:
         run: |
           chmod +x scripts/dev/stack-up.sh
           chmod +x scripts/dev/stack-down.sh
-          chmod +x scripts/performance/run-100-threads.sh
           chmod +x platform/localstack/init/01-setup.sh
 
       - name: Generate ephemeral local secrets for stack-up
@@ -553,13 +552,13 @@ jobs:
           docker logs crm-client-service || true
           exit 1
 
-      - name: Run JMeter 100-thread performance test
-        timeout-minutes: 20
+      - name: Run full pipeline performance suite
+        timeout-minutes: 90
         env:
           SKIP_RESTART_PROMPT: '1'
           E2E_ADMIN_PASSWORD: ${{ env.E2E_ADMIN_PASSWORD }}
         run: |
-          echo "[INFO] Starting post-merge JMeter performance test with 100 threads..."
+          echo "[INFO] Starting post-merge full performance suite..."
 
           if [ -z "${E2E_ADMIN_PASSWORD:-}" ]; then
             echo "[FAIL] Missing E2E_ADMIN_PASSWORD in job environment"
@@ -575,14 +574,16 @@ jobs:
             exit 1
           fi
 
-          bash scripts/performance/run-100-threads.sh
+          python scripts/pipelines/test_all.py --suite all --fullstack-mode full --performance-mode full-with-recovery --performance-repeats 3 --performance-max-error-rate-pct 1.0 --performance-max-p95-ms 5000 --fail-fast
 
       - name: Upload JMeter artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: jmeter-performance-post-merge-${{ github.run_id }}
-          path: build-logs/performance/100-threads-local/**
+          name: ci-main-performance-suite-${{ github.run_id }}
+          path: |
+            build-logs/test-all/**
+            build-logs/performance/**
           retention-days: 14
 
       - name: Teardown local dev stack
