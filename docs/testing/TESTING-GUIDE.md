@@ -388,6 +388,8 @@ PERF_REPEATS=3 PERF_MAX_ERROR_RATE_PCT=1.0 PERF_MAX_P95_MS=5000 \
 
 ### 2) Python JMeter Runner (SLO + Repeats + Concurrency Proof)
 
+Performance tests are expensive, so run the full set locally, only run 100 concurrent users test on GitHub Actions.
+
 ```bash
 # Single mode run
 python scripts/performance/run_jmeter_tests.py --test-mode smoke

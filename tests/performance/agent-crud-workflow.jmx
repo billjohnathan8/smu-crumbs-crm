@@ -134,7 +134,7 @@
   &quot;firstName&quot;: &quot;LoadTest&quot;,&#xd;
   &quot;lastName&quot;: &quot;User&quot;,&#xd;
   &quot;emailAddress&quot;: &quot;loadtest-${__P(runId,0)}-${__UUID()}@test.local&quot;,&#xd;
-  &quot;phoneNumber&quot;: &quot;+65${__groovy((1000000000L + Math.abs(System.nanoTime() % 9000000000L)).toString())}&quot;,&#xd;
+  &quot;phoneNumber&quot;: &quot;+65${__time(HHmmssSSS,)}${__threadNum}&quot;,&#xd;
   &quot;dateOfBirth&quot;: &quot;1990-01-01&quot;,&#xd;
   &quot;gender&quot;: &quot;Male&quot;,&#xd;
   &quot;address&quot;: &quot;${__Random(1,999)} Test Street&quot;,&#xd;

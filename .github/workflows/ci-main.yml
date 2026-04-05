@@ -504,6 +504,9 @@ jobs:
         run: |
           chmod +x scripts/dev/stack-up.sh
           chmod +x scripts/dev/stack-down.sh
+          chmod +x services/backend/user/gradlew
+          chmod +x services/backend/client/gradlew
+          chmod +x services/backend/transaction/gradlew
           chmod +x platform/localstack/init/01-setup.sh
 
       - name: Generate ephemeral local secrets for stack-up
