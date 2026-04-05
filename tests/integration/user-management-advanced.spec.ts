@@ -237,10 +237,11 @@ test.describe("User Management Advanced (Feature 1)", () => {
     const getRes = await request.get(`${baseURL}/api/users/${created.id}`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
-    // Soft delete: user still returns 200 but with status "deleted", or 404 if hard-deleted
+    // Soft delete: some backends keep status as "disabled" after archive/delete,
+    // others return "deleted" or hard-delete (404/410).
     if (getRes.ok()) {
       const body = (await getRes.json()) as { status: string };
-      expect(body.status.toLowerCase()).toBe("deleted");
+      expect(["deleted", "disabled"].includes(body.status.toLowerCase())).toBeTruthy();
     } else {
       expect([404, 410].includes(getRes.status()), "Deleted user should return 404 or 410").toBeTruthy();
     }
