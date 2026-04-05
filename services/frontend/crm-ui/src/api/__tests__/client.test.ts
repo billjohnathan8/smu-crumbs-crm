@@ -219,7 +219,6 @@ describe('apiRequest', () => {
     localStorage.setItem('authToken', 'stale-token')
     const onSessionExpired = vi.fn()
     setSessionExpiryHandler(onSessionExpired)
-
     ;(globalThis.fetch as any).mockResolvedValueOnce({
       ok: false,
       status: 401,
@@ -242,7 +241,6 @@ describe('apiRequest', () => {
     localStorage.setItem('authToken', 'stale-token')
     const onSessionExpired = vi.fn()
     setSessionExpiryHandler(onSessionExpired)
-
     ;(globalThis.fetch as any)
       .mockResolvedValueOnce({
         ok: false,

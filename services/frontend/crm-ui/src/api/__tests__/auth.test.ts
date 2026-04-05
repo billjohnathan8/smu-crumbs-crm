@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { login, refreshToken, getCurrentUser, requestPasswordResetLink, resetPassword } from '../auth'
+import {
+  login,
+  refreshToken,
+  getCurrentUser,
+  requestPasswordResetLink,
+  resetPassword,
+} from '../auth'
 import * as client from '../client'
 import { ApiError } from '../client'
 import type { LoginRequest, TokenResponse, User } from '../types'
