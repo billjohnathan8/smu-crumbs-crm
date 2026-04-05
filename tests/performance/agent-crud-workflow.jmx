@@ -70,16 +70,6 @@
         </ConstantTimer>
         <hashTree/>
 
-        <CounterConfig guiclass="CounterConfigGui" testclass="CounterConfig" testname="Unique Client Counter" enabled="true">
-          <stringProp name="CounterConfig.start">${__intSum(40000000,${__time(HHmmss,)},)}</stringProp>
-          <stringProp name="CounterConfig.end">89999999</stringProp>
-          <stringProp name="CounterConfig.incr">1</stringProp>
-          <stringProp name="CounterConfig.name">uniq_counter</stringProp>
-          <stringProp name="CounterConfig.format"></stringProp>
-          <boolProp name="CounterConfig.per_user">false</boolProp>
-        </CounterConfig>
-        <hashTree/>
-
         <!-- Step 1: Login to get JWT token -->
         <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="POST /api/auth/login" enabled="true">
           <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
@@ -143,8 +133,8 @@
                 <stringProp name="Argument.value">{&#xd;
   &quot;firstName&quot;: &quot;LoadTest&quot;,&#xd;
   &quot;lastName&quot;: &quot;User&quot;,&#xd;
-  &quot;emailAddress&quot;: &quot;loadtest${uniq_counter}@test.local&quot;,&#xd;
-  &quot;phoneNumber&quot;: &quot;+65${uniq_counter}&quot;,&#xd;
+  &quot;emailAddress&quot;: &quot;loadtest-${__UUID()}@test.local&quot;,&#xd;
+  &quot;phoneNumber&quot;: &quot;+65${__Random(100000000,999999999)}${__time(SSS,)}&quot;,&#xd;
   &quot;dateOfBirth&quot;: &quot;1990-01-01&quot;,&#xd;
   &quot;gender&quot;: &quot;Male&quot;,&#xd;
   &quot;address&quot;: &quot;${__Random(1,999)} Test Street&quot;,&#xd;

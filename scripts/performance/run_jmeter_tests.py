@@ -202,6 +202,7 @@ def run_jmeter_test(
     output_dir: Path,
     host: str,
     port: str,
+    run_id: str,
     admin_email: str,
     admin_password: str,
     threads: str,
@@ -222,6 +223,7 @@ def run_jmeter_test(
         "-t", str(test_plan),
         "-Jhost=" + host,
         "-Jport=" + port,
+        "-JrunId=" + run_id,
         "-JadminEmail=" + admin_email,
         "-JadminPassword=" + admin_password,
         "-Jthreads=" + threads,
@@ -247,6 +249,7 @@ def run_jmeter_test(
             "-t", win_test_plan,
             "-Jhost=" + host,
             "-Jport=" + port,
+            "-JrunId=" + run_id,
             "-JadminEmail=" + admin_email,
             "-JadminPassword=" + admin_password,
             "-Jthreads=" + threads,
@@ -597,7 +600,6 @@ def main() -> int:
 
     admin_email = (os.environ.get("E2E_ADMIN_EMAIL") or "admin@crm.com").strip()
     admin_password = os.environ.get("E2E_ADMIN_PASSWORD", "")
-
     # Get test configuration
     test_config = TEST_MODES[args.test_mode]
 
@@ -724,6 +726,7 @@ def main() -> int:
         run_index = i + 1
         run_output_dir = output_dir if args.repeats == 1 else output_dir / f"repeat-{run_index:02d}"
         run_output_dir.mkdir(parents=True, exist_ok=True)
+        run_id = f"{int(time.time() * 1000)}{run_index:02d}"
         print(f"[INFO] Starting repeat {run_index}/{args.repeats}")
         run_started = time.monotonic()
         exit_code = run_jmeter_test(
@@ -732,6 +735,7 @@ def main() -> int:
             output_dir=run_output_dir,
             host=args.host,
             port=args.port,
+            run_id=run_id,
             admin_email=admin_email,
             admin_password=admin_password,
             threads=test_config["threads"],
