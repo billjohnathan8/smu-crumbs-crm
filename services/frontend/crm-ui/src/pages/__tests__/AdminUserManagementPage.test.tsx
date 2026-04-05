@@ -179,6 +179,8 @@ it('should display users in table', async () => {
     expect(screen.getAllByText('User').length).toBeGreaterThanOrEqual(2)
     expect(screen.getByText('user@example.com')).toBeInTheDocument()
     expect(screen.getAllByText('Agent').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByRole('columnheader', { name: 'usr_id' })).toBeInTheDocument()
+    expect(screen.getByText('user-123')).toBeInTheDocument()
   })
 })
 
@@ -194,6 +196,9 @@ it('should display admins in table for super admin', async () => {
     expect(screen.getAllByText('Admin').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('admin@example.com')).toBeInTheDocument()
     expect(screen.getAllByText('Agent').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByRole('columnheader', { name: 'usr_id' }).length).toBeGreaterThanOrEqual(2)
+    expect(screen.getByText('admin-123')).toBeInTheDocument()
+    expect(screen.getByText('user-123')).toBeInTheDocument()
   })
 })
 

@@ -431,6 +431,7 @@ export function AdminUserManagementPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-border">
+                        <th className="text-left py-2 px-4 font-medium text-text">usr_id</th>
                         <th className="text-left py-2 px-4 font-medium text-text">First Name</th>
                         <th className="text-left py-2 px-4 font-medium text-text">Last Name</th>
                         <th className="text-left py-2 px-4 font-medium text-text">Email</th>
@@ -442,6 +443,7 @@ export function AdminUserManagementPage() {
                     <tbody>
                       {admins.map(admin => (
                         <tr key={admin.id} className="border-b border-border/50">
+                          <td className="py-3 px-4 text-text font-mono">{admin.id || '-'}</td>
                           <td className="py-3 px-4 text-text">{admin.firstName}</td>
                           <td className="py-3 px-4 text-text">{admin.lastName}</td>
                           <td className="py-3 px-4 text-text">{admin.email}</td>
@@ -504,6 +506,7 @@ export function AdminUserManagementPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-border">
+                        <th className="text-left py-2 px-4 font-medium text-text">usr_id</th>
                         <th className="text-left py-2 px-4 font-medium text-text">First Name</th>
                         <th className="text-left py-2 px-4 font-medium text-text">Last Name</th>
                         <th className="text-left py-2 px-4 font-medium text-text">Email</th>
@@ -515,6 +518,7 @@ export function AdminUserManagementPage() {
                     <tbody>
                       {regularUsers.map(u => (
                         <tr key={u.id} className="border-b border-border/50">
+                          <td className="py-3 px-4 text-text font-mono">{u.id || '-'}</td>
                           <td className="py-3 px-4 text-text">{u.firstName}</td>
                           <td className="py-3 px-4 text-text">{u.lastName}</td>
                           <td className="py-3 px-4 text-text">{u.email}</td>
