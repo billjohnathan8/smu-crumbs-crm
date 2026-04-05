@@ -12,7 +12,6 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -22,8 +21,7 @@ class EncryptedStringConverterTest {
 	private static final String MODERN_KEY = "MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY=";
 	private static final String LEGACY_RAW_KEY = "dev-only-insecure-pii-key-do-not-use-in-production";
 
-	@AfterEach
-	void tearDown() {
+	private static void resetCryptoState() {
 		System.clearProperty("PII_ENCRYPTION_KEY");
 		System.clearProperty("PII_STRICT_MODE");
 		EncryptedStringConverter.resetForTests();
@@ -31,66 +29,102 @@ class EncryptedStringConverterTest {
 
 	@Test
 	void modernMode_encryptThenDecrypt_returnsOriginalValue() {
-		System.setProperty("PII_ENCRYPTION_KEY", MODERN_KEY);
-		EncryptedStringConverter converter = new EncryptedStringConverter();
+		resetCryptoState();
+		try {
+			System.setProperty("PII_ENCRYPTION_KEY", MODERN_KEY);
+			EncryptedStringConverter converter = new EncryptedStringConverter();
 
-		String encrypted = converter.convertToDatabaseColumn("123 Main Street");
-		assertThat(encrypted).isNotBlank().isNotEqualTo("123 Main Street");
-		assertThat(converter.convertToEntityAttribute(encrypted)).isEqualTo("123 Main Street");
+			String encrypted = converter.convertToDatabaseColumn("123 Main Street");
+			assertThat(encrypted).isNotBlank().isNotEqualTo("123 Main Street");
+			assertThat(converter.convertToEntityAttribute(encrypted)).isEqualTo("123 Main Street");
+		}
+		finally {
+			resetCryptoState();
+		}
 	}
 
 	@Test
 	void compatibilityMode_decryptsLegacyCiphertext() throws Exception {
-		System.setProperty("PII_ENCRYPTION_KEY", MODERN_KEY);
-		EncryptedStringConverter converter = new EncryptedStringConverter();
-		String legacyCiphertext = legacyEncrypt("legacy-value", LEGACY_RAW_KEY);
+		resetCryptoState();
+		try {
+			System.setProperty("PII_ENCRYPTION_KEY", MODERN_KEY);
+			EncryptedStringConverter converter = new EncryptedStringConverter();
+			String legacyCiphertext = legacyEncrypt("legacy-value", LEGACY_RAW_KEY);
 
-		assertThat(converter.convertToEntityAttribute(legacyCiphertext)).isEqualTo("legacy-value");
+			assertThat(converter.convertToEntityAttribute(legacyCiphertext)).isEqualTo("legacy-value");
+		}
+		finally {
+			resetCryptoState();
+		}
 	}
 
 	@Test
 	void compatibilityMode_returnsOriginalWhenCiphertextUnreadable() {
-		System.setProperty("PII_ENCRYPTION_KEY", MODERN_KEY);
-		EncryptedStringConverter converter = new EncryptedStringConverter();
-		String unknownCiphertext = legacyEncryptUnchecked("legacy-value", "some-other-legacy-key");
+		resetCryptoState();
+		try {
+			System.setProperty("PII_ENCRYPTION_KEY", MODERN_KEY);
+			EncryptedStringConverter converter = new EncryptedStringConverter();
+			String unknownCiphertext = legacyEncryptUnchecked("legacy-value", "some-other-legacy-key");
 
-		assertThat(converter.convertToEntityAttribute(unknownCiphertext)).isEqualTo(unknownCiphertext);
+			assertThat(converter.convertToEntityAttribute(unknownCiphertext)).isEqualTo(unknownCiphertext);
+		}
+		finally {
+			resetCryptoState();
+		}
 	}
 
 	@Test
 	void strictMode_rejectsInvalidCiphertext() {
-		System.setProperty("PII_ENCRYPTION_KEY", MODERN_KEY);
-		System.setProperty("PII_STRICT_MODE", "true");
-		EncryptedStringConverter converter = new EncryptedStringConverter();
+		resetCryptoState();
+		try {
+			System.setProperty("PII_ENCRYPTION_KEY", MODERN_KEY);
+			System.setProperty("PII_STRICT_MODE", "true");
+			EncryptedStringConverter converter = new EncryptedStringConverter();
 
-		assertThatThrownBy(() -> converter.convertToEntityAttribute("not-base64"))
-			.isInstanceOf(IllegalStateException.class)
-			.hasMessageContaining("not valid Base64");
+			assertThatThrownBy(() -> converter.convertToEntityAttribute("not-base64"))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessageContaining("not valid Base64");
+		}
+		finally {
+			resetCryptoState();
+		}
 	}
 
 	@Test
 	void strictMode_requiresModernBase64Key() {
-		System.setProperty("PII_ENCRYPTION_KEY", LEGACY_RAW_KEY);
-		System.setProperty("PII_STRICT_MODE", "true");
-		EncryptedStringConverter converter = new EncryptedStringConverter();
-		EncryptedStringConverter.resetForTests();
+		resetCryptoState();
+		try {
+			System.setProperty("PII_ENCRYPTION_KEY", LEGACY_RAW_KEY);
+			System.setProperty("PII_STRICT_MODE", "true");
+			EncryptedStringConverter converter = new EncryptedStringConverter();
+			EncryptedStringConverter.resetForTests();
 
-		assertThatThrownBy(() -> converter.convertToDatabaseColumn("value"))
-			.isInstanceOf(IllegalStateException.class)
-			.hasMessageContaining("must be valid Base64");
+			assertThatThrownBy(() -> converter.convertToDatabaseColumn("value"))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessageContaining("must be valid Base64");
+		}
+		finally {
+			resetCryptoState();
+		}
 	}
 
 	@Test
 	void migrationPlan_rewritesLegacyCiphertextToModern() throws Exception {
-		System.setProperty("PII_ENCRYPTION_KEY", MODERN_KEY);
-		String legacyCiphertext = legacyEncrypt("legacy-value", LEGACY_RAW_KEY);
+		resetCryptoState();
+		try {
+			System.setProperty("PII_ENCRYPTION_KEY", MODERN_KEY);
+			String legacyCiphertext = legacyEncrypt("legacy-value", LEGACY_RAW_KEY);
 
-		EncryptedStringConverter.ReencryptionPlan plan = EncryptedStringConverter.planModernReencryption(legacyCiphertext);
-		assertThat(plan.rewrite()).isTrue();
-		assertThat(plan.unreadable()).isFalse();
+			EncryptedStringConverter.ReencryptionPlan plan = EncryptedStringConverter.planModernReencryption(legacyCiphertext);
+			assertThat(plan.rewrite()).isTrue();
+			assertThat(plan.unreadable()).isFalse();
 
-		EncryptedStringConverter converter = new EncryptedStringConverter();
-		assertThat(converter.convertToEntityAttribute(plan.value())).isEqualTo("legacy-value");
+			EncryptedStringConverter converter = new EncryptedStringConverter();
+			assertThat(converter.convertToEntityAttribute(plan.value())).isEqualTo("legacy-value");
+		}
+		finally {
+			resetCryptoState();
+		}
 	}
 
 	private static String legacyEncryptUnchecked(String plaintext, String rawKey) {
