@@ -377,7 +377,16 @@ terraform -chdir=platform/terraform destroy -var-file=env/hk.tfvars
 - Terraform backend init errors: verify bucket/table/region values in `env/*.backend.hcl` and ensure backend resources exist.
 - App deployment issues after apply: confirm `terraform output -json` includes `ecr_repository_urls` and `frontend_bucket_name`.
 
-## 6. Links To Detailed Docs
+## 6. Attribution of AI
+Artificial Intelligence (in the form of consultation, auditing, and coding agents were used in this project). The core responsibilities and domains of AI usage for this project are:
+- Generating Documentation & Artifacts
+- Generating some amount of Unit Test Cases
+- Auditing the Repository
+- Correcting Linting & Styling Errors on service code
+- Generating & Running Local Scripts and Tooling (notably the Local CI Pipeline `test_all.py`)
+
+
+## 7. Links To Detailed Docs
 
 - Testing guide: [docs/testing/TESTING-GUIDE.md](docs/testing/TESTING-GUIDE.md)
 - LocalStack setup: [docs/infrastructure/localstack-setup.md](docs/infrastructure/localstack-setup.md)
