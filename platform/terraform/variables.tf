@@ -396,7 +396,7 @@ variable "log_run_migrations_on_start" {
 variable "enable_aml_lambda" {
   description = "Create the scheduled AML ingestion Lambda and EventBridge schedule."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "enable_sftp_transaction_collector" {

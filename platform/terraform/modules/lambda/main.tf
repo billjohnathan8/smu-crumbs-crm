@@ -51,6 +51,13 @@ resource "aws_lambda_function" "log" {
   timeout          = var.log_lambda_timeout_seconds
   publish          = true
 
+  lifecycle {
+    ignore_changes = [
+      filename,
+      source_code_hash,
+    ]
+  }
+
   vpc_config {
     subnet_ids         = var.private_subnet_ids
     security_group_ids = [var.lambda_security_group_id]
@@ -148,6 +155,13 @@ resource "aws_lambda_function" "aml" {
   memory_size      = var.aml_lambda_memory_size
   timeout          = var.aml_lambda_timeout_seconds
   publish          = true
+
+  lifecycle {
+    ignore_changes = [
+      filename,
+      source_code_hash,
+    ]
+  }
 
   vpc_config {
     subnet_ids         = var.private_subnet_ids
@@ -267,6 +281,13 @@ resource "aws_lambda_function" "sftp_transaction_collector" {
   timeout          = var.sftp_transaction_collector_timeout_seconds
   publish          = true
 
+  lifecycle {
+    ignore_changes = [
+      filename,
+      source_code_hash,
+    ]
+  }
+
   environment {
     variables = {
       # Legacy naming retained for compatibility; bucket/prefix are S3-backed mock ingestion inputs.
@@ -364,6 +385,13 @@ resource "aws_lambda_function" "audit_consumer" {
   memory_size      = var.audit_consumer_memory_size
   timeout          = var.audit_consumer_timeout_seconds
 
+  lifecycle {
+    ignore_changes = [
+      filename,
+      source_code_hash,
+    ]
+  }
+
   environment {
     variables = {
       DYNAMODB_TABLE_NAME = var.audit_dynamodb_table_name
@@ -431,6 +459,13 @@ resource "aws_lambda_function" "aml_consumer" {
   runtime          = "python3.13"
   memory_size      = var.aml_consumer_memory_size
   timeout          = var.aml_consumer_timeout_seconds
+
+  lifecycle {
+    ignore_changes = [
+      filename,
+      source_code_hash,
+    ]
+  }
 
   environment {
     variables = {
@@ -500,6 +535,13 @@ resource "aws_lambda_function" "verification" {
   memory_size      = var.verification_memory_size
   timeout          = var.verification_timeout_seconds
   publish          = true
+
+  lifecycle {
+    ignore_changes = [
+      filename,
+      source_code_hash,
+    ]
+  }
 
   environment {
     variables = {
