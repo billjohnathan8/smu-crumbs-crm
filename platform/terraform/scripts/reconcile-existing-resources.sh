@@ -90,6 +90,42 @@ move_legacy_sftp_module_address_if_needed() {
   fi
 }
 
+move_legacy_ecs_service_addresses_if_needed() {
+  local strict_env=0
+  case "$(tr '[:upper:]' '[:lower:]' <<< "${ENVIRONMENT}")" in
+    prod | production)
+      strict_env=1
+      ;;
+  esac
+
+  local target_resource="service_mutable"
+  if [[ "${strict_env}" == "1" ]]; then
+    target_resource="service_strict"
+  fi
+
+  local legacy_addresses
+  legacy_addresses="$(terraform state list 2>/dev/null | grep '^module\.ecs\.aws_ecs_service\.service\[' || true)"
+  [[ -n "${legacy_addresses}" ]] || return 0
+
+  echo "Migrating legacy ECS service state addresses to module.ecs.aws_ecs_service.${target_resource}[*]"
+
+  while IFS= read -r from_address; do
+    [[ -n "${from_address}" ]] || continue
+
+    local service_name
+    service_name="$(sed -n 's/^module\.ecs\.aws_ecs_service\.service\["\([^"]\+\)"\]$/\1/p' <<< "${from_address}")"
+    [[ -n "${service_name}" ]] || continue
+
+    local to_address="module.ecs.aws_ecs_service.${target_resource}[\"${service_name}\"]"
+    if state_has "${to_address}"; then
+      echo "Target ECS state address already exists, skipping move: ${to_address}"
+      continue
+    fi
+
+    terraform state mv "${from_address}" "${to_address}"
+  done <<< "${legacy_addresses}"
+}
+
 reconcile_sftp_server_if_needed() {
   local enable_ec2_sftp_server
   enable_ec2_sftp_server="$(tr '[:upper:]' '[:lower:]' <<< "$(get_tfvar_value "enable_ec2_sftp_server")")"
@@ -160,6 +196,7 @@ reconcile_sftp_server_if_needed() {
 }
 
 move_legacy_sftp_module_address_if_needed
+move_legacy_ecs_service_addresses_if_needed
 reconcile_sftp_server_if_needed
 
 manage_route53_records="$(tr '[:upper:]' '[:lower:]' <<< "$(get_tfvar_value "manage_route53_records")")"
