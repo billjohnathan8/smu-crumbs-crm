@@ -131,18 +131,21 @@ class LogRepository:
         return int(row["id"])
 
     def get_audit_log(self, log_id: int) -> dict | None:
-        """Fetch a single audit log row by id."""
+        """Fetch a single audit log row by id (excluding soft-deleted)."""
         with psycopg.connect(self._settings.dsn, row_factory=dict_row) as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT * FROM audit_logs WHERE id = %s", (log_id,))
+                cur.execute("SELECT * FROM audit_logs WHERE id = %s AND deleted = false", (log_id,))
                 row = cur.fetchone()
         return row
 
     def delete_audit_log(self, log_id: int) -> bool:
-        """Delete a single audit log row by id."""
+        """Soft-delete a single audit log row by id (AUDIT/CPM25: append-only compliance)."""
         with psycopg.connect(self._settings.dsn) as conn:
             with conn.cursor() as cur:
-                cur.execute("DELETE FROM audit_logs WHERE id = %s", (log_id,))
+                cur.execute(
+                    "UPDATE audit_logs SET deleted = true, updated_at = NOW() WHERE id = %s AND deleted = false",
+                    (log_id,)
+                )
                 deleted = cur.rowcount
             conn.commit()
         return deleted > 0
@@ -187,8 +190,8 @@ class LogRepository:
         from_dt,
         to_dt,
     ) -> tuple[list[dict], int]:
-        """List audit logs with optional filters and return rows plus total."""
-        where = []
+        """List audit logs with optional filters and return rows plus total (excludes soft-deleted)."""
+        where = ["deleted = false"]
         params: dict[str, object] = {"limit": limit, "offset": offset}
         if client_id:
             where.append("client_id = %(clientId)s")
@@ -206,7 +209,7 @@ class LogRepository:
             where.append("date_time < %(to)s")
             params["to"] = to_dt
 
-        where_sql = (" WHERE " + " AND ".join(where)) if where else ""
+        where_sql = " WHERE " + " AND ".join(where)
         count_sql = "SELECT COUNT(*) AS total FROM audit_logs" + where_sql
         list_sql = (
             "SELECT * FROM audit_logs"
