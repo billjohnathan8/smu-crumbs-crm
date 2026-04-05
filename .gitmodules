@@ -1,0 +1,3 @@
+[submodule "cs301-brainboard-test"]
+	path = cs301-brainboard-test
+	url = https://github.com/billjohnathan8/cs301-brainboard-test.git
