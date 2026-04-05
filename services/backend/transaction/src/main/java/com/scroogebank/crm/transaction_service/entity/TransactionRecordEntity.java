@@ -55,6 +55,9 @@ public class TransactionRecordEntity {
 	@Column(name = "import_dedupe_key", length = 64)
 	private String importDedupeKey;
 
+	@Column(name = "deleted", nullable = false)
+	private boolean deleted = false;
+
 	public Long getId() {
 		return id;
 	}
@@ -125,5 +128,13 @@ public class TransactionRecordEntity {
 
 	public void setImportDedupeKey(String importDedupeKey) {
 		this.importDedupeKey = importDedupeKey;
+	}
+
+	public boolean isDeleted() {
+		return deleted;
+	}
+
+	public void setDeleted(boolean deleted) {
+		this.deleted = deleted;
 	}
 }

@@ -1017,6 +1017,10 @@ class LambdaRouter:
         if user.role == "user" and effective_user_id != user.user_id:
             raise ForbiddenError()
 
+        # OWNERSHIP/D2: Enforce client ownership for non-admin users
+        if user.role != "admin" and not self._can_user_access_client(request, body.clientId):
+            raise ForbiddenError()
+
         communication_id = self._service.create_communication(
             body.model_copy(update={"userId": effective_user_id})
         )

@@ -122,11 +122,14 @@ public class PersistentTransactionsStore implements TransactionsStore {
 	@Transactional
 	@Override
 	public void delete(String transactionId) {
+		// CPM21-B: Use soft-delete to preserve audit trail
 		long dbId = decodeTxnId(transactionId);
-		if (!transactionRepository.existsById(dbId)) {
+		TransactionRecordEntity record = transactionRepository.findById(dbId).orElse(null);
+		if (record == null || record.isDeleted()) {
 			throw new TransactionNotFoundException(transactionId);
 		}
-		transactionRepository.deleteById(dbId);
+		record.setDeleted(true);
+		transactionRepository.save(record);
 	}
 
 	@Transactional

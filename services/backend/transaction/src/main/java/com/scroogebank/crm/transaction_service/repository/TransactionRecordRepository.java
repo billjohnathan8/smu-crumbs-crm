@@ -20,7 +20,8 @@ public interface TransactionRecordRepository extends JpaRepository<TransactionRe
 		"""
 		SELECT t
 		FROM TransactionRecordEntity t
-		WHERE (:clientId IS NULL OR t.clientId = :clientId)
+		WHERE t.deleted = false
+		  AND (:clientId IS NULL OR t.clientId = :clientId)
 		  AND (:status IS NULL OR t.status = :status)
 		  AND (:kind IS NULL OR t.kind = :kind)
 		  AND (:fromDate IS NULL OR t.date >= :fromDate)
@@ -41,7 +42,8 @@ public interface TransactionRecordRepository extends JpaRepository<TransactionRe
 		"""
 		SELECT COUNT(t)
 		FROM TransactionRecordEntity t
-		WHERE (:clientId IS NULL OR t.clientId = :clientId)
+		WHERE t.deleted = false
+		  AND (:clientId IS NULL OR t.clientId = :clientId)
 		  AND (:status IS NULL OR t.status = :status)
 		  AND (:kind IS NULL OR t.kind = :kind)
 		  AND (:fromDate IS NULL OR t.date >= :fromDate)
