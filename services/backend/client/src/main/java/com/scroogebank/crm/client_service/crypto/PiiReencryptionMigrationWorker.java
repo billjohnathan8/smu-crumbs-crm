@@ -56,14 +56,14 @@ public class PiiReencryptionMigrationWorker {
 
 	@Scheduled(initialDelayString = "${app.pii.migration.initial-delay-ms:20000}",
 		fixedDelayString = "${app.pii.migration.poll-interval-ms:60000}")
-	void migrateBatch() {
+	public void migrateBatch() {
 		if (!enabled || completed || !running.compareAndSet(false, true)) {
 			return;
 		}
 		try {
 			List<ClientPiiRow> rows = jdbcTemplate.query(
 				SELECT_BATCH_SQL,
-				this::mapRow,
+				(rs, ignoredRowNum) -> mapRow(rs),
 				lastProcessedId,
 				batchSize
 			);
@@ -129,7 +129,7 @@ public class PiiReencryptionMigrationWorker {
 		}
 	}
 
-	private ClientPiiRow mapRow(ResultSet rs, int rowNum) throws SQLException {
+	private ClientPiiRow mapRow(ResultSet rs) throws SQLException {
 		return new ClientPiiRow(
 			rs.getLong("client_id"),
 			rs.getString("address"),
