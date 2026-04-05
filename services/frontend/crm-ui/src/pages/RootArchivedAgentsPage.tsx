@@ -67,11 +67,14 @@ export function RootArchivedAgentsPage() {
 
   return (
     <SidebarLayout items={getSidebarNavForUser(user)}>
-      <h1 className="text-2xl font-normal text-text py-4">Archived Agents</h1>
-      <main className="max-w-6xl mx-auto py-4">
+      <div className="flex h-16 items-center justify-between">
+        <h1 className="text-2xl font-normal text-text">Archived Agents</h1>
+      </div>
+
+      <main className="mt-6 space-y-6">
         {error && (
-          <div className="bg-danger/10 border border-danger rounded-lg p-4 mb-6">
-            <p className="text-danger text-sm">{error}</p>
+          <div className="rounded-lg border border-danger bg-danger/10 p-4">
+            <p className="text-sm text-danger">{error}</p>
           </div>
         )}
         {loading ? (
@@ -79,41 +82,59 @@ export function RootArchivedAgentsPage() {
         ) : users.length === 0 ? (
           <p className="text-text-subtle">No archived agents found.</p>
         ) : (
-          <div className="bg-card rounded-lg p-6 overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-2 px-4 font-medium text-text">usr_id</th>
-                  <th className="text-left py-2 px-4 font-medium text-text">Name</th>
-                  <th className="text-left py-2 px-4 font-medium text-text">Email</th>
-                  <th className="text-left py-2 px-4 font-medium text-text">Archived At</th>
-                  <th className="text-left py-2 px-4 font-medium text-text">Archived By</th>
-                  <th className="text-left py-2 px-4 font-medium text-text">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map(u => (
-                  <tr key={u.id} className="border-b border-border/50">
-                    <td className="py-3 px-4 text-text font-mono">{u.id || '-'}</td>
-                    <td className="py-3 px-4 text-text">
-                      {u.firstName} {u.lastName}
-                    </td>
-                    <td className="py-3 px-4 text-text">{u.email}</td>
-                    <td className="py-3 px-4 text-text">{formatDateTime(u.archivedAt)}</td>
-                    <td className="py-3 px-4 text-text">{u.archivedBy || '-'}</td>
-                    <td className="py-3 px-4">
-                      <button
-                        onClick={() => handleReinstate(u)}
-                        disabled={reinstatingId === u.id}
-                        className="px-3 py-1 rounded bg-success text-white hover:opacity-85 disabled:opacity-60"
-                      >
-                        {reinstatingId === u.id ? 'Reinstating...' : 'Reinstate'}
-                      </button>
-                    </td>
+          <div className="rounded-lg bg-card">
+            <div className="flex items-center justify-between border-b border-border px-6 py-4">
+              <h2 className="text-xl font-normal text-text">Archived Agents</h2>
+              <span className="text-sm text-text-muted">{users.length} archived</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-background-light">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-normal uppercase tracking-wider text-text-muted">
+                      usr_id
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-normal uppercase tracking-wider text-text-muted">
+                      Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-normal uppercase tracking-wider text-text-muted">
+                      Email
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-normal uppercase tracking-wider text-text-muted">
+                      Archived At
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-normal uppercase tracking-wider text-text-muted">
+                      Archived By
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-normal uppercase tracking-wider text-text-muted">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {users.map(u => (
+                    <tr key={u.id} className="hover:bg-background-light">
+                      <td className="px-6 py-4 text-sm font-mono text-text">{u.id || '-'}</td>
+                      <td className="px-6 py-4 text-sm text-text">
+                        {u.firstName} {u.lastName}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-text">{u.email}</td>
+                      <td className="px-6 py-4 text-sm text-text">{formatDateTime(u.archivedAt)}</td>
+                      <td className="px-6 py-4 text-sm text-text">{u.archivedBy || '-'}</td>
+                      <td className="px-6 py-4 text-sm text-text">
+                        <button
+                          onClick={() => handleReinstate(u)}
+                          disabled={reinstatingId === u.id}
+                          className="rounded bg-success px-3 py-1 text-xs font-medium text-white hover:opacity-85 disabled:opacity-60"
+                        >
+                          {reinstatingId === u.id ? 'Reinstating...' : 'Reinstate'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </main>
