@@ -13,7 +13,7 @@ import { getSidebarNavForUser } from '@/navigation/sidebarNav'
 const ITEMS_PER_PAGE = 20
 
 export function ClientListPage() {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
   const navigate = useNavigate()
 
   const isUser = user?.role === 'user'
@@ -65,7 +65,7 @@ export function ClientListPage() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
-          logout()
+          return
         } else if (err.status === 403) {
           setError(
             isUser

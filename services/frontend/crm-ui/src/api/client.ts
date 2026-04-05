@@ -39,6 +39,12 @@ type PendingEntry = {
 
 const getCache = new Map<string, CacheEntry>()
 const pendingGetRequests = new Map<string, PendingEntry>()
+let sessionExpiryHandler: (() => void) | undefined
+let sessionExpiryNotified = false
+
+export function setSessionExpiryHandler(handler?: () => void): void {
+  sessionExpiryHandler = handler
+}
 
 /**
  * Get the stored auth token from localStorage
@@ -52,6 +58,7 @@ export function getAuthToken(): string | null {
  */
 export function setAuthToken(token: string): void {
   localStorage.setItem('authToken', token)
+  sessionExpiryNotified = false
 }
 
 /**
@@ -114,6 +121,18 @@ export async function apiRequest<T>(endpoint: string, options: RequestOptions = 
         errorData.message
           ? errorData.message
           : getUserFriendlyErrorMessage(errorData.error)
+
+      if (response.status === 401 && !skipAuth) {
+        clearAuthToken()
+        if (!sessionExpiryNotified) {
+          sessionExpiryNotified = true
+          try {
+            sessionExpiryHandler?.()
+          } catch {
+            // Keep API failures deterministic even when app-level handlers fail.
+          }
+        }
+      }
 
       throw new ApiError(response.status, errorData.error, friendlyMessage, errorData.requestId)
     }
@@ -263,4 +282,6 @@ export async function apiDelete<T>(endpoint: string, options?: RequestOptions): 
 
 export function __resetApiGetCacheForTests(): void {
   invalidateGetCache()
+  sessionExpiryHandler = undefined
+  sessionExpiryNotified = false
 }

@@ -117,6 +117,21 @@ class UserControllerTest {
 	}
 
 	@Test
+	void listTransactions_agentWithClientIdWithoutAccess_returnsForbidden() throws Exception {
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "user"));
+		doThrow(new ForbiddenException("forbidden")).when(clientAccessValidator).requireClientAccessible(
+			new AuthenticatedUser("usr_1", "user"),
+			"Bearer x",
+			"clt_private"
+		);
+
+		mockMvc.perform(get("/api/transactions")
+				.header("Authorization", "Bearer x")
+				.queryParam("clientId", "clt_private"))
+			.andExpect(status().isForbidden());
+	}
+
+	@Test
 	void listTransactions_forbiddenRole_returnsForbidden() throws Exception {
 		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "viewer"));
 		mockMvc.perform(get("/api/transactions").header("Authorization", "Bearer x"))
@@ -314,5 +329,18 @@ class UserControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.pagination.limit").value(1))
 			.andExpect(jsonPath("$.pagination.offset").value(0));
+	}
+
+	@Test
+	void listTransactionsForClient_agentWithoutAccess_returnsForbidden() throws Exception {
+		when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "user"));
+		doThrow(new ForbiddenException("forbidden")).when(clientAccessValidator).requireClientAccessible(
+			new AuthenticatedUser("usr_1", "user"),
+			"Bearer x",
+			"clt_private"
+		);
+
+		mockMvc.perform(get("/api/clients/clt_private/transactions").header("Authorization", "Bearer x"))
+			.andExpect(status().isForbidden());
 	}
 }

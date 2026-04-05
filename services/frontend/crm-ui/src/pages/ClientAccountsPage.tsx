@@ -382,6 +382,7 @@ export function ClientAccountsPage() {
             message="Are you sure you want to delete this account? This action cannot be undone."
             error={deleteError}
             isLoading={isDeleting}
+            confirmLabel="Delete Account"
             onCancel={() => {
               setDeletingAccountId(null)
               setDeleteError('')

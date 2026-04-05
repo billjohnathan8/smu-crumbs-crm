@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { requestPasswordResetLink } from '@/api/auth'
+import { ApiError } from '@/api/client'
 import type { ForgotPasswordRequest } from '@/api/types'
 
 export function ForgotPasswordPage() {
@@ -38,19 +40,12 @@ export function ForgotPasswordPage() {
     setIsLoading(true)
 
     try {
-      const response = await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: formData.email }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to send reset link.')
-      }
-
+      await requestPasswordResetLink({ email: formData.email.trim() })
       setIsSuccess(true)
     } catch (err) {
-      if (err instanceof Error) {
+      if (err instanceof ApiError) {
+        setGeneralError(err.message || 'Failed to send reset email. Please try again.')
+      } else if (err instanceof Error) {
         setGeneralError(err.message || 'Failed to send reset email. Please try again.')
       } else {
         setGeneralError('An unexpected error occurred. Please try again.')

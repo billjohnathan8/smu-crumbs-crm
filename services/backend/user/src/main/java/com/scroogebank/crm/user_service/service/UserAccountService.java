@@ -373,8 +373,10 @@ public class UserAccountService {
 		if (normalizedRole != null && normalizedRole.isBlank()) {
 			normalizedRole = null;
 		}
-		UserRole roleFilter = normalizedRole == null ? null : UserRole.fromWireValue(normalizedRole);
-		validateArchivedListPermissions(requester, roleFilter);
+		if (normalizedRole != null) {
+			UserRole.fromWireValue(normalizedRole);
+		}
+		validateArchivedListPermissions(requester);
 		String archivedByFilter = requester.role() == UserRole.admin && !isSeededRootAdmin(requester)
 			? requester.userId()
 			: null;
@@ -404,7 +406,7 @@ public class UserAccountService {
 		validateHierarchyPermissions(requester, roleFilter, "list");
 	}
 
-	private void validateArchivedListPermissions(AuthenticatedUser requester, UserRole roleFilter) {
+	private void validateArchivedListPermissions(AuthenticatedUser requester) {
 		if (isSeededRootAdmin(requester) || requester.role() == UserRole.super_admin) {
 			return;
 		}

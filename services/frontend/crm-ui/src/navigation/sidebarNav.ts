@@ -14,6 +14,7 @@ export const agentSidebarNav: NavItem[] = [
 
 export const adminSidebarNav: NavItem[] = [
   { label: 'User Management', to: '/admin/users', end: true },
+  { label: 'Create User', to: '/admin/users/new' },
   { label: 'Activity Logs', to: '/admin/logs' },
   { label: 'Settings', to: '/admin/settings' },
 ]
@@ -28,6 +29,7 @@ export const rootAdminSidebarNav: NavItem[] = [
   { label: 'AML Alerts', to: '/admin/aml-alerts' },
   { label: 'Activity Logs', to: '/admin/logs' },
   { label: 'User Management', to: '/admin/users', end: true },
+  { label: 'Create User', to: '/admin/users/new' },
   { label: 'Archived Admins', to: '/admin/users/archives/admins' },
   { label: 'Archived Agents', to: '/admin/users/archives/agents' },
   { label: 'Settings', to: '/admin/settings' },

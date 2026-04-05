@@ -28,10 +28,10 @@ vi.mock('@/features/auth/AuthContext', () => ({
 }))
 
 const adminUser: User = {
-  id: 'admin-123',
+  id: 'usr_1',
   firstName: 'Admin',
   lastName: 'User',
-  email: 'admin@example.com',
+  email: 'admin@crm.com',
   role: 'admin',
   status: 'active',
 }
@@ -92,9 +92,9 @@ describe('AdminCommunications behavior', () => {
     })
   })
 
-  it('does not fetch communications when user is not admin/super_admin', async () => {
+  it('does not fetch communications when user is not root admin', async () => {
     mockUseAuth.mockReturnValue({
-      user: { ...adminUser, role: 'user' },
+      user: { ...adminUser, id: 'admin-123', email: 'admin@example.com' },
       logout: mockLogout,
     })
 
@@ -151,7 +151,7 @@ describe('AdminCommunications behavior', () => {
     })
   })
 
-  it('logs out when initial list returns 401', async () => {
+  it('suppresses error banner when initial list returns 401', async () => {
     vi.mocked(communicationsApi.listCommunications).mockRejectedValue(
       new ApiError(401, 'unauthorized', 'Unauthorized')
     )
@@ -159,7 +159,7 @@ describe('AdminCommunications behavior', () => {
     renderPage()
 
     await waitFor(() => {
-      expect(mockLogout).toHaveBeenCalled()
+      expect(screen.queryByText('Unauthorized')).not.toBeInTheDocument()
     })
   })
 
@@ -232,7 +232,7 @@ describe('AdminCommunications behavior', () => {
     })
   })
 
-  it('logs out when communication-id lookup returns 401', async () => {
+  it('suppresses lookup error when communication-id lookup returns 401', async () => {
     const user = userEvent.setup()
     vi.mocked(communicationsApi.getCommunicationById).mockRejectedValue(
       new ApiError(401, 'unauthorized', 'Unauthorized')
@@ -245,7 +245,7 @@ describe('AdminCommunications behavior', () => {
     await user.click(screen.getAllByRole('button', { name: 'Lookup' })[0])
 
     await waitFor(() => {
-      expect(mockLogout).toHaveBeenCalled()
+      expect(screen.queryByText('Communication not found')).not.toBeInTheDocument()
     })
   })
 
@@ -325,7 +325,7 @@ describe('AdminCommunications behavior', () => {
     })
   })
 
-  it('logs out when client-name lookup returns 401', async () => {
+  it('suppresses lookup error when client-name lookup returns 401', async () => {
     const user = userEvent.setup()
     vi.mocked(clientsApi.listClients).mockRejectedValue(
       new ApiError(401, 'unauthorized', 'Unauthorized')
@@ -338,7 +338,7 @@ describe('AdminCommunications behavior', () => {
     await user.click(screen.getAllByRole('button', { name: 'Lookup' })[1])
 
     await waitFor(() => {
-      expect(mockLogout).toHaveBeenCalled()
+      expect(screen.queryByText('Failed to look up by client name')).not.toBeInTheDocument()
     })
   })
 

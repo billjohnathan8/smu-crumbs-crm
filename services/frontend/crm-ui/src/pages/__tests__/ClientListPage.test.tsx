@@ -256,7 +256,7 @@ describe('ClientListPage', () => {
     })
   })
 
-  it('should log user out on 401 Unauthorized API error', async () => {
+  it('should not show an error banner on 401 Unauthorized API error', async () => {
     vi.mocked(clientsApi.listClients).mockRejectedValue(
       new ApiError(401, 'unauthorized', 'Unauthorized')
     )
@@ -264,7 +264,8 @@ describe('ClientListPage', () => {
     renderComponent()
 
     await waitFor(() => {
-      expect(mockLogout).toHaveBeenCalled()
+      expect(screen.queryByText('An unexpected error occurred')).not.toBeInTheDocument()
+      expect(screen.queryByText('Unauthorized')).not.toBeInTheDocument()
     })
   })
 

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { login as apiLogin, getCurrentUser } from '@/api/auth'
-import { setAuthToken, clearAuthToken, getAuthToken } from '@/api/client'
+import { setAuthToken, clearAuthToken, getAuthToken, setSessionExpiryHandler } from '@/api/client'
 import {
   isCognitoEnabled,
   AUTH_MODE,
@@ -53,6 +53,19 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    setSessionExpiryHandler(() => {
+      clearAuthToken()
+      localStorage.removeItem('idToken')
+      setUser(null)
+      setIsLoading(false)
+    })
+
+    return () => {
+      setSessionExpiryHandler(undefined)
+    }
+  }, [])
 
   // Initialize auth state from localStorage
   useEffect(() => {

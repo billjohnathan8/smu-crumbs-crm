@@ -31,7 +31,6 @@ import com.scroogebank.crm.user_service.security.RequestAuth;
 import com.scroogebank.crm.user_service.service.UserAccountService;
 import java.time.Instant;
 import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -51,22 +50,12 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
  * translated to the correct HTTP status codes.
  */
 class UserControllerTest {
-    private MockMvc mockMvc;
-    private UserAccountService userAccountService;
-    private RequestAuth requestAuth;
-    private ObjectMapper objectMapper;
-
-    /** Builds MockMvc with mocked service and auth; controller advice handles 4xx mapping. */
-    @BeforeEach
-    void setUp() {
-        userAccountService = mock(UserAccountService.class);
-        requestAuth = mock(RequestAuth.class);
-        objectMapper = new ObjectMapper();
-
-        mockMvc = MockMvcBuilders.standaloneSetup(new UserController(userAccountService, requestAuth))
-            .setControllerAdvice(new ApiExceptionHandler(false))
-            .build();
-    }
+    private final UserAccountService userAccountService = mock(UserAccountService.class);
+    private final RequestAuth requestAuth = mock(RequestAuth.class);
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new UserController(userAccountService, requestAuth))
+        .setControllerAdvice(new ApiExceptionHandler(false))
+        .build();
 
     /** Users are not allowed to list users; controller returns 403 Forbidden. */
     @Test
@@ -147,9 +136,34 @@ class UserControllerTest {
         when(userAccountService.getUser(eq("usr_2"), any())).thenReturn(dto);
 
         mockMvc.perform(get("/api/users/me").header("Authorization", "Bearer x"))
-            .andExpect(status().isOk());
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value("usr_2"))
+            .andExpect(jsonPath("$.isRootAdmin").value(false));
 
         verify(userAccountService).getUser(eq("usr_2"), any());
+    }
+
+    @Test
+    void me_rootAdminIncludesIsRootAdminTrue() throws Exception {
+        when(requestAuth.requireUser(any())).thenReturn(new AuthenticatedUser("usr_1", "admin"));
+        UserDto dto = new UserDto(
+            "usr_1",
+            "Root",
+            "Admin",
+            "admin@crm.com",
+            UserRole.admin,
+            UserStatus.active,
+            Instant.parse("2026-02-05T00:00:00Z"),
+            Instant.parse("2026-02-05T00:00:00Z")
+        );
+        when(userAccountService.getUser(eq("usr_1"), any())).thenReturn(dto);
+
+        mockMvc.perform(get("/api/users/me").header("Authorization", "Bearer x"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value("usr_1"))
+            .andExpect(jsonPath("$.isRootAdmin").value(true));
+
+        verify(userAccountService).getUser(eq("usr_1"), any());
     }
 
     /** Admin can fetch another user by ID; controller returns 200 with user DTO. */

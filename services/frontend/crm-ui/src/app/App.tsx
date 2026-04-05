@@ -71,6 +71,15 @@ const ForgotPasswordPage = lazy(() =>
 const ResetPasswordPage = lazy(() =>
   import('@/pages/ResetPasswordPage').then(module => ({ default: module.ResetPasswordPage }))
 )
+const CognitoCallback = lazy(() =>
+  import('@/pages/CognitoCallback').then(module => ({ default: module.CognitoCallback }))
+)
+const UnauthorizedPage = lazy(() =>
+  import('@/pages/UnauthorizedPage').then(module => ({ default: module.UnauthorizedPage }))
+)
+const RouteAliasPage = lazy(() =>
+  import('@/pages/RouteAliasPage').then(module => ({ default: module.RouteAliasPage }))
+)
 const ActivityLogsPage = lazy(() =>
   import('@/pages/ActivityLogsPage').then(module => ({ default: module.ActivityLogsPage }))
 )
@@ -125,22 +134,41 @@ export function App() {
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/verify-client" element={<ClientVerifyPage />} />
+              <Route path="/auth/callback" element={<CognitoCallback />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
+              {/* Core F1/F2 user-management routes shared across admin identities. */}
               <Route element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} />}>
                 <Route path="/admin" element={<AdminHomeRedirect />} />
                 <Route path="/admin/users" element={<AdminUserManagementPage />} />
                 <Route path="/admin/users/new" element={<CreateNewUserPage />} />
                 <Route
                   path="/admin/users/archives"
-                  element={<Navigate to="/admin/users" replace />}
+                  element={
+                    <RouteAliasPage
+                      fromPath="/admin/users/archives"
+                      toPath="/admin/users"
+                      destinationLabel="User Management"
+                    />
+                  }
                 />
                 <Route path="/admin/logs" element={<ActivityLogsPage />} />
                 <Route path="/admin/settings" element={<SettingsPage />} />
-                <Route path="/admin/accounts" element={<Navigate to="/admin/users" replace />} />
+                <Route
+                  path="/admin/accounts"
+                  element={
+                    <RouteAliasPage
+                      fromPath="/admin/accounts"
+                      toPath="/admin/users"
+                      destinationLabel="User Management"
+                    />
+                  }
+                />
               </Route>
 
+              {/* Core F3/F4 evaluator paths for root admin only. */}
               <Route
                 element={
                   <ProtectedRoute allowedRoles={['admin', 'super_admin']} requireRootAdmin />
@@ -152,6 +180,7 @@ export function App() {
                 <Route path="/admin/clients/:clientId" element={<ClientDetailPage />} />
                 <Route path="/admin/clients/:clientId/edit" element={<EditClientPage />} />
                 <Route path="/admin/clients/:clientId/accounts" element={<ClientAccountsPage />} />
+                {/* Optional / X-factor routes. */}
                 <Route path="/admin/communications" element={<AdminCommunications />} />
                 <Route path="/admin/transactions" element={<ViewTransactionsPage />} />
                 <Route path="/admin/aml-alerts" element={<AmlAlertsPage />} />

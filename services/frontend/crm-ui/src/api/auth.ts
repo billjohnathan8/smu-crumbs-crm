@@ -1,5 +1,12 @@
 import { apiPost, apiGet } from './client'
-import type { LoginRequest, TokenResponse, RefreshRequest, User } from './types'
+import type {
+  LoginRequest,
+  TokenResponse,
+  RefreshRequest,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
+  User,
+} from './types'
 
 const AUTH_BASE = '/api/auth'
 const USERS_BASE = '/api/users'
@@ -33,4 +40,22 @@ export async function refreshToken(refreshToken: string): Promise<TokenResponse>
  */
 export async function getCurrentUser(): Promise<User> {
   return apiGet<User>(`${USERS_BASE}/me`)
+}
+
+/**
+ * Request a password reset link for the provided email.
+ */
+export async function requestPasswordResetLink(payload: ForgotPasswordRequest): Promise<void> {
+  return apiPost<void, ForgotPasswordRequest>(`${AUTH_BASE}/forgot-password`, payload, {
+    skipAuth: true,
+  })
+}
+
+/**
+ * Reset password with token and replacement credentials.
+ */
+export async function resetPassword(payload: ResetPasswordRequest): Promise<void> {
+  return apiPost<void, ResetPasswordRequest>(`${AUTH_BASE}/reset-password`, payload, {
+    skipAuth: true,
+  })
 }

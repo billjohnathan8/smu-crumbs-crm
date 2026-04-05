@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { ProtectedRoute } from '../ProtectedRoute'
 import type { User, UserRole } from '@/api/types'
@@ -19,12 +18,17 @@ vi.mock('@/features/auth/AuthContext', async () => {
 })
 
 describe('ProtectedRoute', () => {
-  const renderProtectedRoute = (allowedRoles?: UserRole[]) => {
+  const renderProtectedRoute = (allowedRoles?: UserRole[], requireRootAdmin = false) => {
     return render(
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<div>Login Page</div>} />
-          <Route element={<ProtectedRoute allowedRoles={allowedRoles} />}>
+          <Route path="/unauthorized" element={<div>Unauthorized Page</div>} />
+          <Route
+            element={
+              <ProtectedRoute allowedRoles={allowedRoles} requireRootAdmin={requireRootAdmin} />
+            }
+          >
             <Route path="/protected" element={<div>Protected Content</div>} />
           </Route>
         </Routes>
@@ -84,7 +88,7 @@ describe('ProtectedRoute', () => {
     expect(screen.getByText('Protected Content')).toBeInTheDocument()
   })
 
-  it('should show access denied when user has wrong role', () => {
+  it('should redirect to unauthorized route when user has wrong role', () => {
     const mockUser: User = {
       id: '1',
       firstName: 'John',
@@ -105,35 +109,7 @@ describe('ProtectedRoute', () => {
     window.history.pushState({}, '', '/protected')
     renderProtectedRoute(['admin'])
 
-    expect(screen.getByText('Access Denied')).toBeInTheDocument()
-    expect(screen.getByText("You don't have permission to access this page.")).toBeInTheDocument()
-  })
-
-  it('should call history.back when clicking Go Back on access denied page', async () => {
-    const user = userEvent.setup()
-    const mockUser: User = {
-      id: '1',
-      firstName: 'John',
-      lastName: 'Doe',
-      email: 'john@example.com',
-      role: 'user',
-      status: 'active',
-    }
-    const backSpy = vi.spyOn(window.history, 'back').mockImplementation(() => {})
-
-    mockUseAuth.mockReturnValue({
-      user: mockUser,
-      isAuthenticated: true,
-      isLoading: false,
-      login: vi.fn(),
-      logout: vi.fn(),
-    })
-
-    window.history.pushState({}, '', '/protected')
-    renderProtectedRoute(['admin'])
-    await user.click(screen.getByRole('button', { name: 'Go Back' }))
-
-    expect(backSpy).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('Unauthorized Page')).toBeInTheDocument()
   })
 
   it('should allow access when no role restrictions are specified', () => {
@@ -184,8 +160,7 @@ describe('ProtectedRoute', () => {
     expect(screen.getByText('Protected Content')).toBeInTheDocument()
   })
 
-  it('should show root-admin access denied when requireRootAdmin is true for non-root user', async () => {
-    const user = userEvent.setup()
+  it('should redirect to unauthorized route when requireRootAdmin is true for non-root user', () => {
     const mockUser: User = {
       id: '2',
       firstName: 'John',
@@ -194,8 +169,6 @@ describe('ProtectedRoute', () => {
       role: 'admin',
       status: 'active',
     }
-    const backSpy = vi.spyOn(window.history, 'back').mockImplementation(() => {})
-
     mockUseAuth.mockReturnValue({
       user: mockUser,
       isAuthenticated: true,
@@ -205,23 +178,9 @@ describe('ProtectedRoute', () => {
     })
 
     window.history.pushState({}, '', '/protected')
+    renderProtectedRoute(undefined, true)
 
-    render(
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<div>Login Page</div>} />
-          <Route element={<ProtectedRoute requireRootAdmin={true} />}>
-            <Route path="/protected" element={<div>Protected Content</div>} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    )
-
-    expect(screen.getByText('Access Denied')).toBeInTheDocument()
-    expect(screen.getByText('Root admin access is required for this page.')).toBeInTheDocument()
-    const callsBeforeClick = backSpy.mock.calls.length
-    await user.click(screen.getByRole('button', { name: 'Go Back' }))
-    expect(backSpy.mock.calls.length).toBe(callsBeforeClick + 1)
+    expect(screen.getByText('Unauthorized Page')).toBeInTheDocument()
   })
 
   it('should allow access when requireRootAdmin is true for root admin identity', () => {
@@ -244,16 +203,7 @@ describe('ProtectedRoute', () => {
 
     window.history.pushState({}, '', '/protected')
 
-    render(
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<div>Login Page</div>} />
-          <Route element={<ProtectedRoute requireRootAdmin={true} />}>
-            <Route path="/protected" element={<div>Protected Content</div>} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    )
+    renderProtectedRoute(undefined, true)
 
     expect(screen.getByText('Protected Content')).toBeInTheDocument()
   })

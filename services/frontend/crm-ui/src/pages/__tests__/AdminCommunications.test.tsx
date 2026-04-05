@@ -13,10 +13,10 @@ vi.mock('@/api/communications')
 vi.mock('@/api/auth')
 
 const mockUser: User = {
-  id: 'admin-123',
+  id: 'usr_1',
   firstName: 'Admin',
   lastName: 'User',
-  email: 'admin@example.com',
+  email: 'admin@crm.com',
   role: 'admin',
   status: 'active',
 }
@@ -138,7 +138,7 @@ describe('AdminCommunications', () => {
     })
   })
 
-  it('should render sidebar with activity logs and without communications nav item for admin', async () => {
+  it('should render sidebar with activity logs and communications nav item for root admin', async () => {
     const mockResponse: PaginatedResponse<Communication> = {
       data: [],
       pagination: { limit: 200, offset: 0, total: 0 },
@@ -151,7 +151,8 @@ describe('AdminCommunications', () => {
     await waitFor(() => {
       const logsLink = screen.getByRole('link', { name: 'Activity Logs' })
       expect(logsLink).toHaveAttribute('href', '/admin/logs')
-      expect(screen.queryByRole('link', { name: 'Communications' })).not.toBeInTheDocument()
+      const communicationsLink = screen.getByRole('link', { name: 'Communications' })
+      expect(communicationsLink).toHaveAttribute('href', '/admin/communications')
     })
   })
 

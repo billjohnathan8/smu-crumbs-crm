@@ -427,6 +427,7 @@ export function ClientDetailPage() {
             message={`Are you sure you want to delete ${client.firstName} ${client.lastName}? This action cannot be undone.`}
             error={deleteError}
             isLoading={isDeleting}
+            confirmLabel="Delete Client"
             onCancel={() => {
               setShowDeleteConfirm(false)
               setDeleteError('')

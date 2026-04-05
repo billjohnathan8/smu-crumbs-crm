@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -43,18 +42,14 @@ class UserAccountServiceTest {
 	private static final String AUTH_HEADER = "Bearer test-token";
 	private static final String CORRELATION_ID = "test-correlation-id";
 
-	private PersistentUserStore store;
-	private UserAuditLogger auditLogger;
-	private AssignedClientCounter assignedClientCounter;
-	private UserAccountService service;
+	private final PersistentUserStore store = mock(PersistentUserStore.class);
+	private final UserAuditLogger auditLogger = mock(UserAuditLogger.class);
+	private final AssignedClientCounter assignedClientCounter = mock(AssignedClientCounter.class);
+	private UserAccountService service = createService();
 
-	@BeforeEach
-	void setUp() {
-		store = mock(PersistentUserStore.class);
-		auditLogger = mock(UserAuditLogger.class);
-		assignedClientCounter = mock(AssignedClientCounter.class);
+	private UserAccountService createService() {
 		when(assignedClientCounter.countAssignedClients(any(), any(), any())).thenReturn(0L);
-		service = new UserAccountService(store, auditLogger, null, "local", assignedClientCounter);
+		return new UserAccountService(store, auditLogger, null, "local", assignedClientCounter);
 	}
 
 	@Test
@@ -803,10 +798,11 @@ class UserAccountServiceTest {
 		);
 		when(store.getUser("usr_1")).thenReturn(rootAdmin);
 
-		assertThrows(
+		AccessDeniedException denied = assertThrows(
 			AccessDeniedException.class,
 			() -> service.deleteUser("usr_1", requester, AUTH_HEADER, CORRELATION_ID, null)
 		);
+		assertNotNull(denied);
 		verify(store, never()).archiveUser(any(), any(), any());
 	}
 
@@ -814,10 +810,11 @@ class UserAccountServiceTest {
 	void reinstateUser_nonRootAdminForbidden() {
 		AuthenticatedUser requester = new AuthenticatedUser("usr_9", "admin");
 
-		assertThrows(
+		AccessDeniedException denied = assertThrows(
 			AccessDeniedException.class,
 			() -> service.reinstateUser("usr_3", requester, AUTH_HEADER, CORRELATION_ID)
 		);
+		assertNotNull(denied);
 		verify(store, never()).reinstateUser(any(), any());
 	}
 
@@ -878,10 +875,11 @@ class UserAccountServiceTest {
 	@Test
 	void listArchivedUsers_nonRootAdminForbidden() {
 		AuthenticatedUser requester = new AuthenticatedUser("usr_9", "admin");
-		assertThrows(
+		AccessDeniedException denied = assertThrows(
 			AccessDeniedException.class,
 			() -> service.listArchivedUsers(50, 0, "user", requester)
 		);
+		assertNotNull(denied);
 		verify(store, never()).countArchivedUsers(any(), any());
 		verify(store, never()).listArchivedUsers(anyInt(), anyInt(), any(), any());
 	}

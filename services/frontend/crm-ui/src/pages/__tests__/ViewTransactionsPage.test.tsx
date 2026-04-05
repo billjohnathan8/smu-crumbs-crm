@@ -138,7 +138,7 @@ describe('ViewTransactionsPage', () => {
     })
   })
 
-  it('logs out on unauthorized transaction listing response', async () => {
+  it('does not render an error banner for unauthorized transaction listing response', async () => {
     mockRole = 'admin'
     vi.spyOn(transactionsApi, 'listTransactions').mockRejectedValue(
       new ApiError(401, 'unauthorized', 'Unauthorized')
@@ -147,7 +147,8 @@ describe('ViewTransactionsPage', () => {
     renderComponent()
 
     await waitFor(() => {
-      expect(mockLogout).toHaveBeenCalled()
+      expect(screen.queryByText('Unauthorized')).not.toBeInTheDocument()
+      expect(screen.queryByText('An unexpected error occurred')).not.toBeInTheDocument()
     })
   })
 
@@ -465,7 +466,7 @@ describe('ViewTransactionsPage', () => {
     })
   })
 
-  it('clears stale rows and suppresses error banner when clientId filter is inaccessible', async () => {
+  it('clears stale rows and shows ownership guidance when clientId filter is inaccessible', async () => {
     mockRole = 'admin'
     const user = userEvent.setup()
     const listSpy = vi
@@ -495,8 +496,10 @@ describe('ViewTransactionsPage', () => {
       expect(screen.queryByText('txn-1')).not.toBeInTheDocument()
       expect(screen.getByText('No transactions found')).toBeInTheDocument()
       expect(
-        screen.queryByText("You don't have permission to perform this action.")
-      ).not.toBeInTheDocument()
+        screen.getByText(
+          'Access denied for selected client. You can only view transactions for your assigned clients.'
+        )
+      ).toBeInTheDocument()
     })
   })
 
@@ -798,7 +801,7 @@ describe('ViewTransactionsPage', () => {
     })
   })
 
-  it('logs out when transaction import start request returns 401', async () => {
+  it('does not render import error banner when transaction import start request returns 401', async () => {
     mockRole = 'admin'
     const user = userEvent.setup()
 
@@ -817,7 +820,8 @@ describe('ViewTransactionsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Start Import' }))
 
     await waitFor(() => {
-      expect(mockLogout).toHaveBeenCalled()
+      expect(screen.queryByText('Unauthorized')).not.toBeInTheDocument()
+      expect(screen.queryByText('Failed to start transaction import')).not.toBeInTheDocument()
     })
   })
 
@@ -865,7 +869,7 @@ describe('ViewTransactionsPage', () => {
     })
   })
 
-  it('logs out when tracked import batch refresh returns unauthorized', async () => {
+  it('does not show refresh error banner when tracked import batch refresh returns unauthorized', async () => {
     mockRole = 'admin'
     localStorage.setItem(importHistoryStorageKey, JSON.stringify(['imp_saved']))
 
@@ -880,7 +884,9 @@ describe('ViewTransactionsPage', () => {
     renderComponent()
 
     await waitFor(() => {
-      expect(mockLogout).toHaveBeenCalled()
+      expect(
+        screen.queryByText('Some import batches could not be refreshed. Please try again.')
+      ).not.toBeInTheDocument()
     })
   })
 

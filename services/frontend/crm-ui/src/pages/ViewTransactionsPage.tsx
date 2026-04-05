@@ -6,7 +6,6 @@ import {
   listTransactions,
   listClientTransactions,
   getTransactionById,
-  updateTransaction,
   startTransactionImport,
   getTransactionImportBatch,
   type ListTransactionsParams,
@@ -19,7 +18,6 @@ import type {
   ImportBatch,
   ImportBatchStatus,
   ImportTransactionsRequest,
-  UpdateTransactionRequest,
 } from '@/api/types'
 import { ApiError } from '@/api/client'
 import { SidebarLayout } from '@/components/SidebarDrawer'
@@ -30,6 +28,8 @@ const FALLBACK_CLIENT_FETCH_LIMIT = 100
 const FALLBACK_TRANSACTION_FETCH_LIMIT = 100
 const IMPORT_HISTORY_STORAGE_KEY = 'crm-ui:transaction-import-batches'
 const MAX_TRACKED_IMPORT_BATCHES = 20
+const AGENT_OWNERSHIP_DENIED_MESSAGE =
+  'Access denied for selected client. You can only view transactions for your assigned clients.'
 
 const activeImportStatuses: ImportBatchStatus[] = ['queued', 'running']
 
@@ -63,12 +63,11 @@ function sortImportBatches(batches: ImportBatch[]): ImportBatch[] {
 }
 
 export function ViewTransactionsPage() {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
   const isManagementUser = isRootAdminUser(user)
-  const canEditTransactions = false
 
   const basePath = isManagementUser ? '/admin' : '/user'
 
@@ -97,17 +96,6 @@ export function ViewTransactionsPage() {
   const [importBatches, setImportBatches] = useState<ImportBatch[]>([])
   const [isRefreshingImportHistory, setIsRefreshingImportHistory] = useState(false)
   const [importHistoryError, setImportHistoryError] = useState('')
-  const [editTransaction, setEditTransaction] = useState<Transaction | null>(null)
-  const [editForm, setEditForm] = useState<UpdateTransactionRequest>({
-    clientId: '',
-    transaction: 'D',
-    amount: 0,
-    date: '',
-    status: 'Pending',
-  })
-  const [isUpdating, setIsUpdating] = useState(false)
-  const [updateNotice, setUpdateNotice] = useState('')
-  const [updateNoticeIsError, setUpdateNoticeIsError] = useState(false)
   const latestFetchRequestIdRef = useRef(0)
 
   const mergeTrackedImportBatchIds = (batchIds: string[]) => {
@@ -161,6 +149,7 @@ export function ViewTransactionsPage() {
         if (trimmedClientId && !allowedClientIds.has(trimmedClientId)) {
           setTransactions([])
           setTotal(0)
+          setError(AGENT_OWNERSHIP_DENIED_MESSAGE)
           return
         }
 
@@ -278,13 +267,13 @@ export function ViewTransactionsPage() {
       if (requestId !== latestFetchRequestIdRef.current) return
       if (err instanceof ApiError) {
         if (err.status === 401) {
-          logout()
+          return
         } else if (filters.clientId.trim() && [400, 403, 404].includes(err.status)) {
           // For client-id filter misses/access denials, show an empty result set instead
           // of leaving stale rows rendered from the previous successful fetch.
           setTransactions([])
           setTotal(0)
-          setError('')
+          setError(err.status === 403 ? AGENT_OWNERSHIP_DENIED_MESSAGE : '')
         } else {
           setTransactions([])
           setTotal(0)
@@ -338,7 +327,6 @@ export function ViewTransactionsPage() {
         const reason = result.reason
         if (reason instanceof ApiError) {
           if (reason.status === 401) {
-            logout()
             return
           }
           if (reason.status === 404) {
@@ -467,7 +455,6 @@ export function ViewTransactionsPage() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
-          logout()
           return
         }
         setImportNotice(err.message || 'Failed to start transaction import')
@@ -477,80 +464,6 @@ export function ViewTransactionsPage() {
       setImportNoticeIsError(true)
     } finally {
       setIsImporting(false)
-    }
-  }
-
-  const openEditModal = (transaction: Transaction) => {
-    setEditTransaction(transaction)
-    setEditForm({
-      clientId: transaction.clientId,
-      transaction: transaction.transaction,
-      amount: transaction.amount,
-      date: (transaction.date || '').split('T')[0],
-      status: transaction.status,
-    })
-    setUpdateNotice('')
-    setUpdateNoticeIsError(false)
-  }
-
-  const closeEditModal = () => {
-    if (isUpdating) return
-    setEditTransaction(null)
-  }
-
-  const handleUpdateTransaction = async () => {
-    if (!editTransaction) return
-
-    if (!editForm.clientId?.trim()) {
-      setUpdateNotice('Client ID is required.')
-      setUpdateNoticeIsError(true)
-      return
-    }
-    if (editForm.amount === undefined || editForm.amount < 0) {
-      setUpdateNotice('Amount must be zero or greater.')
-      setUpdateNoticeIsError(true)
-      return
-    }
-    if (!editForm.date) {
-      setUpdateNotice('Date is required.')
-      setUpdateNoticeIsError(true)
-      return
-    }
-    if (!editForm.status || !editForm.transaction) {
-      setUpdateNotice('Transaction type and status are required.')
-      setUpdateNoticeIsError(true)
-      return
-    }
-
-    setIsUpdating(true)
-    setUpdateNotice('')
-    setUpdateNoticeIsError(false)
-
-    try {
-      await updateTransaction(editTransaction.id, {
-        clientId: editForm.clientId.trim(),
-        transaction: editForm.transaction,
-        amount: editForm.amount,
-        date: editForm.date,
-        status: editForm.status,
-      })
-      setUpdateNotice('Transaction updated successfully.')
-      setUpdateNoticeIsError(false)
-      await fetchTransactions(currentPage)
-      setEditTransaction(null)
-    } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 401) {
-          logout()
-          return
-        }
-        setUpdateNotice(err.message || 'Failed to update transaction')
-      } else {
-        setUpdateNotice('An unexpected error occurred while updating the transaction')
-      }
-      setUpdateNoticeIsError(true)
-    } finally {
-      setIsUpdating(false)
     }
   }
 
@@ -595,18 +508,6 @@ export function ViewTransactionsPage() {
         {error && (
           <div className="bg-danger/10 border border-danger rounded-lg p-4 mb-6">
             <p className="text-danger text-sm">{error}</p>
-          </div>
-        )}
-
-        {updateNotice && !editTransaction && (
-          <div
-            className={`rounded-lg border p-3 mb-6 ${
-              updateNoticeIsError
-                ? 'bg-danger/10 border-danger text-danger'
-                : 'bg-success/10 border-success text-success'
-            }`}
-          >
-            <p className="text-sm">{updateNotice}</p>
           </div>
         )}
 
@@ -888,11 +789,6 @@ export function ViewTransactionsPage() {
                       <th className="px-6 py-3 text-left text-xs font-normal text-text-muted uppercase tracking-wider">
                         Status
                       </th>
-                      {canEditTransactions && (
-                        <th className="px-6 py-3 text-right text-xs font-normal text-text-muted uppercase tracking-wider">
-                          Actions
-                        </th>
-                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -934,16 +830,6 @@ export function ViewTransactionsPage() {
                             {transaction.status.toUpperCase()}
                           </span>
                         </td>
-                        {canEditTransactions && (
-                          <td className="px-6 py-4 whitespace-nowrap text-right">
-                            <button
-                              onClick={() => openEditModal(transaction)}
-                              className="px-3 py-1 rounded bg-primary hover:bg-primary-hover text-white text-xs"
-                            >
-                              Edit
-                            </button>
-                          </td>
-                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -986,136 +872,6 @@ export function ViewTransactionsPage() {
             </div>
           )}
         </div>
-
-        {canEditTransactions && editTransaction && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="w-full max-w-xl rounded-lg bg-card border border-border shadow-lg">
-              <div className="px-5 py-4 border-b border-border">
-                <h3 className="text-lg font-normal text-text">Edit Transaction</h3>
-                <p className="text-xs text-text-muted mt-1 font-mono">{editTransaction.id}</p>
-              </div>
-
-              <div className="p-5 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs text-text-muted mb-1">Client ID</label>
-                    <input
-                      aria-label="Edit Transaction Client ID"
-                      type="text"
-                      value={editForm.clientId ?? ''}
-                      onChange={event =>
-                        setEditForm(prev => ({ ...prev, clientId: event.target.value }))
-                      }
-                      className="w-full px-3 py-2 bg-background-light rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                      disabled={isUpdating}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-text-muted mb-1">Type</label>
-                    <select
-                      aria-label="Edit Transaction Type"
-                      value={editForm.transaction ?? 'D'}
-                      onChange={event =>
-                        setEditForm(prev => ({
-                          ...prev,
-                          transaction: event.target.value as TransactionKind,
-                        }))
-                      }
-                      className="w-full px-3 py-2 bg-background-light rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                      disabled={isUpdating}
-                    >
-                      <option value="D">Deposit</option>
-                      <option value="W">Withdrawal</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-text-muted mb-1">Amount</label>
-                    <input
-                      aria-label="Edit Transaction Amount"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={editForm.amount ?? 0}
-                      onChange={event =>
-                        setEditForm(prev => ({
-                          ...prev,
-                          amount: Number(event.target.value),
-                        }))
-                      }
-                      className="w-full px-3 py-2 bg-background-light rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                      disabled={isUpdating}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-text-muted mb-1">Date</label>
-                    <input
-                      aria-label="Edit Transaction Date"
-                      type="date"
-                      value={editForm.date ?? ''}
-                      onChange={event =>
-                        setEditForm(prev => ({ ...prev, date: event.target.value }))
-                      }
-                      className="w-full px-3 py-2 bg-background-light rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                      disabled={isUpdating}
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-xs text-text-muted mb-1">Status</label>
-                    <select
-                      aria-label="Edit Transaction Status"
-                      value={editForm.status ?? 'Pending'}
-                      onChange={event =>
-                        setEditForm(prev => ({
-                          ...prev,
-                          status: event.target.value as TransactionStatus,
-                        }))
-                      }
-                      className="w-full px-3 py-2 bg-background-light rounded text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                      disabled={isUpdating}
-                    >
-                      <option value="Completed">Completed</option>
-                      <option value="Pending">Pending</option>
-                      <option value="Failed">Failed</option>
-                    </select>
-                  </div>
-                </div>
-
-                {updateNotice && (
-                  <div
-                    className={`rounded-lg border p-3 ${
-                      updateNoticeIsError
-                        ? 'bg-danger/10 border-danger text-danger'
-                        : 'bg-success/10 border-success text-success'
-                    }`}
-                  >
-                    <p className="text-sm">{updateNotice}</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="px-5 py-4 border-t border-border flex justify-end gap-2">
-                <button
-                  onClick={closeEditModal}
-                  disabled={isUpdating}
-                  className="px-4 py-2 rounded bg-background-lighter border border-border text-text hover:brightness-[0.9] text-sm disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => void handleUpdateTransaction()}
-                  disabled={isUpdating}
-                  className="px-4 py-2 rounded bg-primary hover:bg-primary-hover text-white text-sm disabled:opacity-50"
-                >
-                  {isUpdating ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </main>
     </SidebarLayout>
   )

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthContext'
+import { isRootAdminUser } from '@/features/auth/authorization'
 import {
   listCommunications,
   listQueuedCommunications,
@@ -47,12 +48,10 @@ const DEFAULT_FILTERS: CommunicationFilters = {
 }
 
 export function AdminCommunications() {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
   const navigate = useNavigate()
 
-  const isAdmin = user?.role === 'admin'
-  const isSuperAdmin = user?.role === 'super_admin'
-  const canAccessCommunications = isAdmin || isSuperAdmin
+  const canAccessCommunications = isRootAdminUser(user)
 
   const [communications, setCommunications] = useState<Communication[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -131,7 +130,6 @@ export function AdminCommunications() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
-          logout()
           return
         }
         setError(
@@ -197,10 +195,10 @@ export function AdminCommunications() {
       })
       setCommLookupResult(result)
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        logout()
-      } else if (err instanceof ApiError && err.status === 400) {
+      if (err instanceof ApiError && err.status === 400) {
         setCommLookupError('Invalid id.')
+      } else if (err instanceof ApiError && err.status === 401) {
+        return
       } else if (err instanceof ApiError && err.status === 403) {
         setCommLookupError('You are not authorized to view this communication.')
       } else {
@@ -245,10 +243,10 @@ export function AdminCommunications() {
         clientId: `${primaryClient.firstName} ${primaryClient.lastName} (${primaryClient.clientId})`,
       })
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        logout()
-      } else if (err instanceof ApiError && err.status === 400) {
+      if (err instanceof ApiError && err.status === 400) {
         setClientLookupError('Invalid client name.')
+      } else if (err instanceof ApiError && err.status === 401) {
+        return
       } else if (err instanceof ApiError && err.status === 403) {
         setClientLookupError('You are not authorized to view this communication.')
       } else {

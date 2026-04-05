@@ -2,17 +2,22 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ForgotPasswordPage } from '../ForgotPasswordPage' // Adjust path if necessary
+import * as authApi from '@/api/auth'
+import { ApiError } from '@/api/client'
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
 }))
 
-describe('ForgotPasswordPage', () => {
-  const fetchSpy = vi.spyOn(globalThis, 'fetch')
+vi.mock('@/api/auth', () => ({
+  requestPasswordResetLink: vi.fn(),
+}))
 
+describe('ForgotPasswordPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(authApi.requestPasswordResetLink).mockResolvedValue(undefined)
   })
 
   const renderComponent = () => render(<ForgotPasswordPage />)
@@ -37,8 +42,7 @@ describe('ForgotPasswordPage', () => {
       expect(screen.getByText('Email is required')).toBeInTheDocument()
     })
 
-    // Ensure native fetch was not called
-    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(authApi.requestPasswordResetLink).not.toHaveBeenCalled()
   })
 
   it('should show validation error for invalid email format', async () => {
@@ -79,9 +83,6 @@ describe('ForgotPasswordPage', () => {
   it('should successfully submit and show success screen', async () => {
     const user = userEvent.setup()
 
-    // Mock successful native fetch resolution
-    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 200 }))
-
     renderComponent()
 
     const emailInput = screen.getByTestId('email-input')
@@ -90,32 +91,27 @@ describe('ForgotPasswordPage', () => {
     await user.type(emailInput, 'test@example.com')
     await user.click(submitButton)
 
-    // 1. Verify global fetch was called with the correct URL and payload
     await waitFor(() => {
-      expect(fetchSpy).toHaveBeenCalledWith('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'test@example.com' }),
+      expect(authApi.requestPasswordResetLink).toHaveBeenCalledWith({
+        email: 'test@example.com',
       })
     })
 
-    // 2. Verify UI changes to success state
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Check Your Email' })).toBeInTheDocument()
       expect(screen.queryByTestId('email-input')).not.toBeInTheDocument()
     })
 
-    // 3. Verify the "Back to Login" button on the success screen navigates properly
     const backButton = screen.getByRole('button', { name: 'Back to Login' })
     await user.click(backButton)
     expect(mockNavigate).toHaveBeenCalledWith('/login')
   })
 
-  it('should show error message when fetch response is not ok (e.g., 400)', async () => {
+  it('should show error message when API rejects with ApiError', async () => {
     const user = userEvent.setup()
-
-    // Simulate a 400 Bad Request. In your component, !response.ok throws an Error.
-    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 400 }))
+    vi.mocked(authApi.requestPasswordResetLink).mockRejectedValueOnce(
+      new ApiError(400, 'validation_error', 'Failed to send reset link.')
+    )
 
     renderComponent()
 
@@ -130,11 +126,9 @@ describe('ForgotPasswordPage', () => {
     })
   })
 
-  it('should show fallback error message on severe network failure', async () => {
+  it('should show error message on non-ApiError failure', async () => {
     const user = userEvent.setup()
-
-    // Simulate a hard network crash where fetch itself rejects
-    fetchSpy.mockRejectedValueOnce(new Error('Network Down'))
+    vi.mocked(authApi.requestPasswordResetLink).mockRejectedValueOnce(new Error('Network Down'))
 
     renderComponent()
 
@@ -145,8 +139,6 @@ describe('ForgotPasswordPage', () => {
     await user.click(submitButton)
 
     await waitFor(() => {
-      // Because your component catch block does `setGeneralError(err.message || ...)`,
-      // it should display the error's message.
       expect(screen.getByText('Network Down')).toBeInTheDocument()
     })
   })

@@ -27,6 +27,7 @@ export interface User {
   lastName: string
   email: string
   role: UserRole
+  isRootAdmin?: boolean
   status: UserStatus
   createdAt?: string
   updatedAt?: string

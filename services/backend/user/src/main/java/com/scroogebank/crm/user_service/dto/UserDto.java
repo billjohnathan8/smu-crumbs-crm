@@ -1,5 +1,6 @@
 package com.scroogebank.crm.user_service.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
 
 /**
@@ -29,6 +30,8 @@ public record UserDto(
 	Instant reinstatedAt,
 	String reinstatedBy
 ) {
+	private static final String ROOT_ADMIN_USER_ID = "usr_1";
+
 	public UserDto(
 		String id,
 		String firstName,
@@ -40,5 +43,13 @@ public record UserDto(
 		Instant updatedAt
 	) {
 		this(id, firstName, lastName, email, role, status, createdAt, updatedAt, null, null, null, null, null);
+	}
+
+	/**
+	 * Explicit backend-owned root-admin claim for frontend authorization.
+	 */
+	@JsonProperty("isRootAdmin")
+	public boolean isRootAdmin() {
+		return ROOT_ADMIN_USER_ID.equals(id);
 	}
 }

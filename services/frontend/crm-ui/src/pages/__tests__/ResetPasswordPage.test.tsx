@@ -3,6 +3,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '@/features/theme/ThemeContext'
 import { ResetPasswordPage } from '../ResetPasswordPage'
+import * as authApi from '@/api/auth'
+import { ApiError } from '@/api/client'
 
 const mockNavigate = vi.fn()
 let mockSearchParams = new URLSearchParams('?token=valid-test-token')
@@ -14,13 +16,18 @@ vi.mock('react-router-dom', () => ({
   useLocation: () => ({ state: mockLocationState }),
 }))
 
-describe('ResetPasswordPage', () => {
-  const fetchSpy = vi.spyOn(globalThis, 'fetch')
+vi.mock('@/api/auth', () => ({
+  requestPasswordResetLink: vi.fn(),
+  resetPassword: vi.fn(),
+}))
 
+describe('ResetPasswordPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockSearchParams = new URLSearchParams('?token=valid-test-token')
     mockLocationState = {}
+    vi.mocked(authApi.requestPasswordResetLink).mockResolvedValue(undefined)
+    vi.mocked(authApi.resetPassword).mockResolvedValue(undefined)
   })
 
   const renderComponent = () =>
@@ -65,7 +72,7 @@ describe('ResetPasswordPage', () => {
     await waitFor(() => {
       expect(screen.getByText(/Password does not meet requirements/i)).toBeInTheDocument()
     })
-    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(authApi.resetPassword).not.toHaveBeenCalled()
   })
 
   it('requires uppercase and lowercase letters in reset password', async () => {
@@ -79,12 +86,11 @@ describe('ResetPasswordPage', () => {
     await waitFor(() => {
       expect(screen.getByText(/Password does not meet requirements/i)).toBeInTheDocument()
     })
-    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(authApi.resetPassword).not.toHaveBeenCalled()
   })
 
   it('submits reset-password with token and shows success', async () => {
     const user = userEvent.setup()
-    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 200 }))
     renderComponent()
 
     await user.type(screen.getByTestId('new-password-input'), 'Validpass123!')
@@ -92,10 +98,11 @@ describe('ResetPasswordPage', () => {
     await user.click(screen.getByTestId('reset-password-submit-button'))
 
     await waitFor(() => {
-      expect(fetchSpy).toHaveBeenCalledWith(
-        '/api/auth/reset-password',
-        expect.objectContaining({ method: 'POST' })
-      )
+      expect(authApi.resetPassword).toHaveBeenCalledWith({
+        token: 'valid-test-token',
+        newPassword: 'Validpass123!',
+        confirmPassword: 'Validpass123!',
+      })
     })
     expect(screen.getByRole('heading', { name: 'Password Reset Successful' })).toBeInTheDocument()
   })
@@ -112,23 +119,19 @@ describe('ResetPasswordPage', () => {
     expect(
       screen.getByText('Please type your confirm password manually. Pasting is not allowed.')
     ).toBeInTheDocument()
-    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(authApi.resetPassword).not.toHaveBeenCalled()
   })
 
   it('submits forgot-password request when token is missing', async () => {
     const user = userEvent.setup()
     mockSearchParams = new URLSearchParams('')
-    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 200 }))
     renderComponent()
 
     await user.type(screen.getByTestId('reset-email-input'), 'test@example.com')
     await user.click(screen.getByTestId('request-reset-link-submit-button'))
 
     await waitFor(() => {
-      expect(fetchSpy).toHaveBeenCalledWith(
-        '/api/auth/forgot-password',
-        expect.objectContaining({ method: 'POST' })
-      )
+      expect(authApi.requestPasswordResetLink).toHaveBeenCalledWith({ email: 'test@example.com' })
     })
     expect(screen.getByRole('heading', { name: 'Check Your Email' })).toBeInTheDocument()
   })
@@ -142,7 +145,7 @@ describe('ResetPasswordPage', () => {
     await user.click(screen.getByTestId('request-reset-link-submit-button'))
 
     expect(screen.getByText('Email is required to request a reset link')).toBeInTheDocument()
-    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(authApi.requestPasswordResetLink).not.toHaveBeenCalled()
   })
 
   it('shows validation error when request-link email format is invalid', async () => {
@@ -154,7 +157,7 @@ describe('ResetPasswordPage', () => {
     await user.click(screen.getByTestId('request-reset-link-submit-button'))
 
     expect(screen.getByText('Invalid email format')).toBeInTheDocument()
-    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(authApi.requestPasswordResetLink).not.toHaveBeenCalled()
   })
 
   it('blocks drop into confirm password and requires manual typing', async () => {
@@ -187,12 +190,14 @@ describe('ResetPasswordPage', () => {
     await user.click(screen.getByTestId('reset-password-submit-button'))
 
     expect(screen.getByText('Passwords do not match')).toBeInTheDocument()
-    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(authApi.resetPassword).not.toHaveBeenCalled()
   })
 
-  it('shows reset error when reset-password API returns non-OK', async () => {
+  it('shows reset error when reset-password API rejects', async () => {
     const user = userEvent.setup()
-    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 500 }))
+    vi.mocked(authApi.resetPassword).mockRejectedValueOnce(
+      new ApiError(500, 'server_error', 'Failed to reset password. Please try again.')
+    )
     renderComponent()
 
     await user.type(screen.getByTestId('new-password-input'), 'Validpass123!')
@@ -207,7 +212,7 @@ describe('ResetPasswordPage', () => {
   it('shows fallback error when forgot-password throws non-Error value', async () => {
     const user = userEvent.setup()
     mockSearchParams = new URLSearchParams('')
-    fetchSpy.mockRejectedValueOnce('network-failure')
+    vi.mocked(authApi.requestPasswordResetLink).mockRejectedValueOnce('network-failure')
     renderComponent()
 
     await user.type(screen.getByTestId('reset-email-input'), 'test@example.com')
@@ -220,7 +225,6 @@ describe('ResetPasswordPage', () => {
 
   it('navigates to login from success confirmation screen', async () => {
     const user = userEvent.setup()
-    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 200 }))
     renderComponent()
 
     await user.type(screen.getByTestId('new-password-input'), 'Validpass123!')
@@ -236,7 +240,6 @@ describe('ResetPasswordPage', () => {
   it('navigates to login from check-email confirmation screen', async () => {
     const user = userEvent.setup()
     mockSearchParams = new URLSearchParams('')
-    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 200 }))
     renderComponent()
 
     await user.type(screen.getByTestId('reset-email-input'), 'test@example.com')

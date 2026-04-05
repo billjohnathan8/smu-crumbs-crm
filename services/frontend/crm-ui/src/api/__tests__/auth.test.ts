@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { login, refreshToken, getCurrentUser } from '../auth'
+import { login, refreshToken, getCurrentUser, requestPasswordResetLink, resetPassword } from '../auth'
 import * as client from '../client'
 import { ApiError } from '../client'
 import type { LoginRequest, TokenResponse, User } from '../types'
@@ -172,6 +172,42 @@ describe('auth API', () => {
 
       await expect(getCurrentUser()).rejects.toThrow(ApiError)
       await expect(getCurrentUser()).rejects.toThrow('Network error occurred')
+    })
+  })
+
+  describe('requestPasswordResetLink', () => {
+    it('should call forgot-password endpoint with skipAuth enabled', async () => {
+      vi.spyOn(client, 'apiPost').mockResolvedValue(undefined)
+
+      await requestPasswordResetLink({ email: 'user@example.com' })
+
+      expect(client.apiPost).toHaveBeenCalledWith(
+        '/api/auth/forgot-password',
+        { email: 'user@example.com' },
+        { skipAuth: true }
+      )
+    })
+  })
+
+  describe('resetPassword', () => {
+    it('should call reset-password endpoint with skipAuth enabled', async () => {
+      vi.spyOn(client, 'apiPost').mockResolvedValue(undefined)
+
+      await resetPassword({
+        token: 'token-123',
+        newPassword: 'Validpass123!',
+        confirmPassword: 'Validpass123!',
+      })
+
+      expect(client.apiPost).toHaveBeenCalledWith(
+        '/api/auth/reset-password',
+        {
+          token: 'token-123',
+          newPassword: 'Validpass123!',
+          confirmPassword: 'Validpass123!',
+        },
+        { skipAuth: true }
+      )
     })
   })
 })

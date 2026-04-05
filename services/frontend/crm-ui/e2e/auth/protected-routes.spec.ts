@@ -125,22 +125,24 @@ test.describe("Protected Routes (Mocked)", () => {
     await expect(page).toHaveURL(/\/login$/);
   });
 
-  test("shows Access Denied when admin visits /user route", async ({ page }) => {
+  test("redirects to /unauthorized when admin visits /user route", async ({ page }) => {
     await setupRoleApiMocks(page, "admin");
     await gotoWithNetworkRetry(page, "/login");
     await setAuthState(page, "admin");
 
     await gotoWithNetworkRetry(page, "/user");
+    await expect(page).toHaveURL(/\/unauthorized$/);
     await expect(page.getByText("Access Denied")).toBeVisible();
-    await expect(page.getByText("You don't have permission to access this page.")).toBeVisible();
+    await expect(page.getByText("You do not have permission to access this page.")).toBeVisible();
   });
 
-  test("shows Access Denied when user visits /admin/users", async ({ page }) => {
+  test("redirects to /unauthorized when user visits /admin/users", async ({ page }) => {
     await setupRoleApiMocks(page, "user");
     await gotoWithNetworkRetry(page, "/login");
     await setAuthState(page, "user");
 
     await gotoWithNetworkRetry(page, "/admin/users");
+    await expect(page).toHaveURL(/\/unauthorized$/);
     await expect(page.getByText("Access Denied")).toBeVisible();
   });
 

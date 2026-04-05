@@ -3,6 +3,7 @@ type DeleteConfirmModalProps = {
   message: string
   error?: string
   isLoading?: boolean
+  confirmLabel?: string
   onCancel: () => void
   onConfirm: () => void
   testId?: string
@@ -13,6 +14,7 @@ export function DeleteConfirmModal({
   message,
   error,
   isLoading = false,
+  confirmLabel = 'Delete',
   onCancel,
   onConfirm,
   testId,
@@ -45,7 +47,7 @@ export function DeleteConfirmModal({
             disabled={isLoading}
             className="px-4 py-2 gradient-dark-red hover:opacity-80 text-white rounded-lg text-sm font-normal disabled:opacity-50 transition-opacity"
           >
-            {isLoading ? 'Deleting...' : 'Delete Account'}
+            {isLoading ? 'Deleting...' : confirmLabel}
           </button>
         </div>
       </div>

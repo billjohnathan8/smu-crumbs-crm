@@ -5,6 +5,7 @@ import {
   getAuthToken,
   setAuthToken,
   clearAuthToken,
+  setSessionExpiryHandler,
   apiRequest,
   apiGet,
   apiPost,
@@ -215,6 +216,10 @@ describe('apiRequest', () => {
   })
 
   it('should throw ApiError on 401 Unauthorized', async () => {
+    localStorage.setItem('authToken', 'stale-token')
+    const onSessionExpired = vi.fn()
+    setSessionExpiryHandler(onSessionExpired)
+
     ;(globalThis.fetch as any).mockResolvedValueOnce({
       ok: false,
       status: 401,
@@ -228,6 +233,32 @@ describe('apiRequest', () => {
       status: 401,
       error: 'unauthorized',
     })
+
+    expect(localStorage.getItem('authToken')).toBeNull()
+    expect(onSessionExpired).toHaveBeenCalledTimes(1)
+  })
+
+  it('should notify session expiry handler only once for repeated 401 responses', async () => {
+    localStorage.setItem('authToken', 'stale-token')
+    const onSessionExpired = vi.fn()
+    setSessionExpiryHandler(onSessionExpired)
+
+    ;(globalThis.fetch as any)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: 'unauthorized', message: 'Authentication required' }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: 'unauthorized', message: 'Authentication required' }),
+      })
+
+    await expect(apiRequest('/test-one')).rejects.toMatchObject({ status: 401 })
+    await expect(apiRequest('/test-two')).rejects.toMatchObject({ status: 401 })
+
+    expect(onSessionExpired).toHaveBeenCalledTimes(1)
   })
 
   it('should throw ApiError on 404 Not Found', async () => {

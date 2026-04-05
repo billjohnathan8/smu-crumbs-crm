@@ -1,5 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { requestPasswordResetLink, resetPassword } from '@/api/auth'
+import { ApiError } from '@/api/client'
 import type { ForgotPasswordRequest, ResetPasswordRequest } from '@/api/types'
 import { useTheme } from '@/features/theme/useTheme'
 import {
@@ -82,21 +84,16 @@ export function ResetPasswordPage() {
     setIsLoading(true)
 
     try {
-      const response = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token,
-          newPassword: formData.newPassword,
-          confirmPassword: formData.confirmPassword,
-        }),
+      await resetPassword({
+        token,
+        newPassword: formData.newPassword,
+        confirmPassword: formData.confirmPassword,
       })
-      if (!response.ok) {
-        throw new Error('Failed to reset password. Please try again.')
-      }
       setIsSuccess(true)
     } catch (err) {
-      if (err instanceof Error) {
+      if (err instanceof ApiError) {
+        setGeneralError(err.message || 'Failed to reset password. Please try again.')
+      } else if (err instanceof Error) {
         setGeneralError(err.message || 'Failed to reset password. Please try again.')
       } else {
         setGeneralError('An unexpected error occurred. Please try again.')
@@ -124,19 +121,16 @@ export function ResetPasswordPage() {
     setIsLoading(true)
     try {
       const payload: ForgotPasswordRequest = { email: normalizedEmail }
-      const response = await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      if (!response.ok) {
-        throw new Error('Failed to send reset link. Please try again.')
-      }
+      await requestPasswordResetLink(payload)
       setLinkRequested(true)
     } catch (err) {
-      setGeneralError(
-        err instanceof Error ? err.message : 'Failed to send reset link. Please try again.'
-      )
+      if (err instanceof ApiError) {
+        setGeneralError(err.message || 'Failed to send reset link. Please try again.')
+      } else {
+        setGeneralError(
+          err instanceof Error ? err.message : 'Failed to send reset link. Please try again.'
+        )
+      }
     } finally {
       setIsLoading(false)
     }
