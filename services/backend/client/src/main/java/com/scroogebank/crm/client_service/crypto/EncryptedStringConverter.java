@@ -70,7 +70,7 @@ public class EncryptedStringConverter implements AttributeConverter<String, Stri
 		}
 		boolean strictMode = isStrictModeEnabled();
 
-		SecretKey modernKey = null;
+		SecretKey modernKey;
 		Map<String, SecretKey> decryptionKeyMap = new LinkedHashMap<>();
 
 		if (strictMode) {
@@ -83,7 +83,7 @@ public class EncryptedStringConverter implements AttributeConverter<String, Stri
 			}
 			putKeyIfAbsent(decryptionKeyMap, modernKey);
 			return new KeyContext(modernKey, modernKey, fingerprint(modernKey),
-				decryptionKeyMap.values().toArray(new SecretKey[0]), true);
+				decryptionKeyMap.values().toArray(SecretKey[]::new), true);
 		}
 
 		if (rawKey == null || rawKey.isBlank()) {
@@ -99,7 +99,7 @@ public class EncryptedStringConverter implements AttributeConverter<String, Stri
 		putKeyIfAbsent(decryptionKeyMap, deriveLegacyKey(LEGACY_DEFAULT_RAW_KEY));
 
 		return new KeyContext(encryptionKey, modernKey, fingerprint(modernKey),
-			decryptionKeyMap.values().toArray(new SecretKey[0]), false);
+			decryptionKeyMap.values().toArray(SecretKey[]::new), false);
 	}
 
 	private static boolean isStrictModeEnabled() {
