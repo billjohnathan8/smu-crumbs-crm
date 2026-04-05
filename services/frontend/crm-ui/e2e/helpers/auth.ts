@@ -2,9 +2,15 @@ import { Page } from "@playwright/test";
 import { requireE2eEnv } from "./e2eEnv.js";
 
 const ADMIN_EMAIL = (process.env.E2E_ADMIN_EMAIL ?? "admin@crm.com").trim();
-const ADMIN_PASSWORD = requireE2eEnv("E2E_ADMIN_PASSWORD");
 const AGENT_EMAIL = (process.env.E2E_USER_EMAIL ?? "agent1@crm.com").trim();
-const AGENT_PASSWORD = requireE2eEnv("E2E_USER_PASSWORD");
+
+function getAdminPassword(): string {
+  return requireE2eEnv("E2E_ADMIN_PASSWORD");
+}
+
+function getAgentPassword(): string {
+  return requireE2eEnv("E2E_USER_PASSWORD");
+}
 
 async function clearBrowserStorage(page: Page) {
   const clear = async () => {
@@ -58,6 +64,8 @@ export async function gotoWithNetworkRetry(
  * Login as admin user and wait for dashboard
  */
 export async function loginAsAdmin(page: Page) {
+  const adminPassword = getAdminPassword();
+
   await gotoWithNetworkRetry(page, "/login");
 
   // Clear storage to ensure clean state
@@ -66,7 +74,7 @@ export async function loginAsAdmin(page: Page) {
   await page.waitForLoadState("domcontentloaded");
 
   await page.fill('[data-testid="email-input"]', ADMIN_EMAIL);
-  await page.fill('[data-testid="password-input"]', ADMIN_PASSWORD);
+  await page.fill('[data-testid="password-input"]', adminPassword);
   await page.click('[data-testid="login-submit-button"]');
 
   // Wait for redirect to admin dashboard
@@ -78,6 +86,8 @@ export async function loginAsAdmin(page: Page) {
  * Login as user and wait for dashboard
  */
 export async function loginAsAgent(page: Page) {
+  const agentPassword = getAgentPassword();
+
   await gotoWithNetworkRetry(page, "/login");
 
   // Clear storage to ensure clean state
@@ -86,7 +96,7 @@ export async function loginAsAgent(page: Page) {
   await page.waitForLoadState("domcontentloaded");
 
   await page.fill('[data-testid="email-input"]', AGENT_EMAIL);
-  await page.fill('[data-testid="password-input"]', AGENT_PASSWORD);
+  await page.fill('[data-testid="password-input"]', agentPassword);
   await page.click('[data-testid="login-submit-button"]');
 
   // Wait for redirect to user dashboard
