@@ -137,8 +137,8 @@ export async function apiRequest<T>(endpoint: string, options: RequestOptions = 
       throw new ApiError(response.status, errorData.error, friendlyMessage, errorData.requestId)
     }
 
-    // Handle 204 No Content
-    if (response.status === 204) {
+    // Handle explicit no-content success responses.
+    if (response.status === 204 || response.headers?.get?.('content-length') === '0') {
       return undefined as T
     }
 
