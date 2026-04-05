@@ -1118,51 +1118,80 @@ deploy_log_lambda() {
       >/dev/null
   fi
 
-  for i in $(seq 1 40); do
+  local last_error=""
+  for i in $(seq 1 120); do
+    local state
+    local update_status
+    local state_reason
+    local update_reason
+
     state="$(
       aws_local lambda get-function-configuration \
         --function-name "${LOG_LAMBDA_FUNCTION_NAME}" \
         --query "State" \
-        --output text 2>/dev/null || true
+        --output text 2>&1
     )"
+    if [[ $? -ne 0 ]]; then
+      last_error="${state}"
+      sleep 1
+      continue
+    fi
+
+    update_status="$(
+      aws_local lambda get-function-configuration \
+        --function-name "${LOG_LAMBDA_FUNCTION_NAME}" \
+        --query "LastUpdateStatus" \
+        --output text 2>&1
+    )"
+    if [[ $? -ne 0 ]]; then
+      last_error="${update_status}"
+      sleep 1
+      continue
+    fi
+
     state="$(echo "${state}" | tr -d '\r')"
-    if [[ "${state}" == "Active" ]]; then
+    update_status="$(echo "${update_status}" | tr -d '\r')"
+
+    if [[ "${state}" == "Active" || "${update_status}" == "Successful" ]]; then
       return 0
     fi
-    if [[ "${state}" == "Failed" ]]; then
-      local reason
-      reason="$(
-        aws_local lambda get-function-configuration \
-          --function-name "${LOG_LAMBDA_FUNCTION_NAME}" \
-          --query "StateReason" \
-          --output text 2>/dev/null || true
-      )"
-      reason="$(echo "${reason}" | tr -d '\r')"
-      echo "[FAIL] Log Lambda entered Failed state: ${reason}" >&2
-      exit 1
-    fi
-    [[ ${i} -eq 40 ]] && {
-      local state_reason
-      local update_reason
+
+    if [[ "${state}" == "Failed" || "${update_status}" == "Failed" ]]; then
       state_reason="$(
         aws_local lambda get-function-configuration \
           --function-name "${LOG_LAMBDA_FUNCTION_NAME}" \
           --query "StateReason" \
-          --output text 2>/dev/null || true
+          --output text 2>&1 || true
       )"
-      state_reason="$(echo "${state_reason}" | tr -d '\r')"
       update_reason="$(
         aws_local lambda get-function-configuration \
           --function-name "${LOG_LAMBDA_FUNCTION_NAME}" \
           --query "LastUpdateStatusReason" \
-          --output text 2>/dev/null || true
+          --output text 2>&1 || true
       )"
+      state_reason="$(echo "${state_reason}" | tr -d '\r')"
       update_reason="$(echo "${update_reason}" | tr -d '\r')"
-      echo "[FAIL] Log Lambda did not become Active in time (state=${state}, stateReason=${state_reason}, lastUpdateReason=${update_reason})" >&2
+      echo "[FAIL] Log Lambda entered failed state (state=${state}, update=${update_status}, stateReason=${state_reason}, updateReason=${update_reason})" >&2
       exit 1
-    }
+    fi
+
     sleep 1
   done
+
+  local final_state
+  local final_update
+  local final_state_reason
+  local final_update_reason
+  final_state="$(aws_local lambda get-function-configuration --function-name "${LOG_LAMBDA_FUNCTION_NAME}" --query "State" --output text 2>&1 || true)"
+  final_update="$(aws_local lambda get-function-configuration --function-name "${LOG_LAMBDA_FUNCTION_NAME}" --query "LastUpdateStatus" --output text 2>&1 || true)"
+  final_state_reason="$(aws_local lambda get-function-configuration --function-name "${LOG_LAMBDA_FUNCTION_NAME}" --query "StateReason" --output text 2>&1 || true)"
+  final_update_reason="$(aws_local lambda get-function-configuration --function-name "${LOG_LAMBDA_FUNCTION_NAME}" --query "LastUpdateStatusReason" --output text 2>&1 || true)"
+  final_state="$(echo "${final_state}" | tr -d '\r')"
+  final_update="$(echo "${final_update}" | tr -d '\r')"
+  final_state_reason="$(echo "${final_state_reason}" | tr -d '\r')"
+  final_update_reason="$(echo "${final_update_reason}" | tr -d '\r')"
+  echo "[FAIL] Log Lambda did not become ready in time (state=${final_state}, update=${final_update}, stateReason=${final_state_reason}, updateReason=${final_update_reason}, lastError=${last_error})" >&2
+  exit 1
 }
 
 deploy_verification_feedback_lambda() {
