@@ -3,7 +3,7 @@
  * Fallback logic is kept narrow for compatibility during mixed deployments.
  */
 export function isRootAdminUser(
-  user: { id?: unknown; role?: unknown; isRootAdmin?: unknown } | null | undefined
+  user: { id?: unknown; role?: unknown; isRootAdmin?: unknown; email?: unknown } | null | undefined
 ): boolean {
   if (!user) return false
 
