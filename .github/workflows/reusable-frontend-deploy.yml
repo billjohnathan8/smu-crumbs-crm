@@ -3,6 +3,11 @@ name: Reusable - Frontend CloudFront Deploy
 on:
   workflow_call:
     inputs:
+      source_sha:
+        description: Optional commit SHA to checkout and record in deploy artifacts
+        required: false
+        type: string
+        default: ''
       working_directory:
         description: Frontend project directory
         required: false
@@ -45,11 +50,14 @@ jobs:
 
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
+      SOURCE_SHA: ${{ inputs.source_sha != '' && inputs.source_sha || github.sha }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         timeout-minutes: 2
+        with:
+          ref: ${{ env.SOURCE_SHA }}
 
       - name: Validate required secrets
         run: |
@@ -120,7 +128,7 @@ jobs:
 
       - name: Upload SHA-versioned static assets to S3
         run: |
-          RELEASE_PREFIX="git/${GITHUB_SHA}"
+          RELEASE_PREFIX="git/${SOURCE_SHA}"
           aws s3 sync \
             "${{ inputs.working_directory }}/${{ inputs.build_output_dir }}/" \
             "s3://${{ vars.FRONTEND_BUCKET }}/${RELEASE_PREFIX}/" \
@@ -155,7 +163,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          REPO_SHA="${GITHUB_SHA}"
+          REPO_SHA="${SOURCE_SHA}"
           NOW_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           RELEASE_PREFIX="git/${REPO_SHA}"
           SITE_NAME="$(basename "${{ inputs.working_directory }}")"
@@ -202,7 +210,7 @@ jobs:
         run: |
           echo "Frontend directory: ${{ inputs.working_directory }}"
           echo "Build output: ${{ inputs.build_output_dir }}"
-          echo "SHA release: s3://${{ vars.FRONTEND_BUCKET }}/git/${{ github.sha }}/"
+          echo "SHA release: s3://${{ vars.FRONTEND_BUCKET }}/git/${SOURCE_SHA}/"
           echo "Synced to: s3://${{ vars.FRONTEND_BUCKET }}/live/"
           echo "CloudFront distribution: ${{ steps.distribution.outputs.cloudfront_distribution_id }}"
           echo "CloudFront invalidation paths: ${{ inputs.cloudfront_invalidation_paths }}"

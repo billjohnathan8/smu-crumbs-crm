@@ -2,14 +2,19 @@ name: CD - Main Deployment
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows:
+      - CI - Main Pipeline
+    types:
+      - completed
 
 # Ensure that only one deployment runs at a time to the main environment.
 concurrency:
   group: cd-main
   cancel-in-progress: false
+
+env:
+  SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
 permissions:
   actions: write
@@ -18,8 +23,39 @@ permissions:
   pull-requests: read
 
 jobs:
+  precheck:
+    name: Validate CD trigger
+    runs-on: ubuntu-latest
+    outputs:
+      should-run: ${{ steps.decision.outputs.should-run }}
+    steps:
+      - name: Decide whether deployment should run
+        id: decision
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_CONCLUSION: ${{ github.event.workflow_run.conclusion || '' }}
+          WORKFLOW_EVENT: ${{ github.event.workflow_run.event || '' }}
+          WORKFLOW_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch || '' }}
+        run: |
+          set -euo pipefail
+
+          SHOULD_RUN="false"
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            SHOULD_RUN="true"
+          elif [[ "${WORKFLOW_CONCLUSION}" == "success" && "${WORKFLOW_EVENT}" == "push" && "${WORKFLOW_HEAD_BRANCH}" == "main" ]]; then
+            SHOULD_RUN="true"
+          fi
+
+          echo "should-run=${SHOULD_RUN}" >> "$GITHUB_OUTPUT"
+
   changes:
+    needs:
+      - precheck
+    if: ${{ needs.precheck.outputs.should-run == 'true' }}
     uses: ./.github/workflows/reusable-changes.yml
+    with:
+      ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
   deploy-user:
     if: >-
@@ -30,6 +66,7 @@ jobs:
     uses: ./.github/workflows/reusable-ecs-deploy.yml
     with:
       service: user
+      source_sha: ${{ github.event.workflow_run.head_sha || github.sha }}
     secrets: inherit
 
   deploy-client:
@@ -41,6 +78,7 @@ jobs:
     uses: ./.github/workflows/reusable-ecs-deploy.yml
     with:
       service: client
+      source_sha: ${{ github.event.workflow_run.head_sha || github.sha }}
     secrets: inherit
 
   deploy-transaction:
@@ -52,6 +90,7 @@ jobs:
     uses: ./.github/workflows/reusable-ecs-deploy.yml
     with:
       service: transaction
+      source_sha: ${{ github.event.workflow_run.head_sha || github.sha }}
     secrets: inherit
 
   deploy-aml:
@@ -63,6 +102,7 @@ jobs:
     uses: ./.github/workflows/reusable-lambda-deploy.yml
     with:
       service: aml
+      source_sha: ${{ github.event.workflow_run.head_sha || github.sha }}
     secrets: inherit
 
   deploy-verification:
@@ -74,6 +114,7 @@ jobs:
     uses: ./.github/workflows/reusable-lambda-deploy.yml
     with:
       service: verification
+      source_sha: ${{ github.event.workflow_run.head_sha || github.sha }}
     secrets: inherit
 
   deploy-sftp-transaction-collector:
@@ -85,6 +126,7 @@ jobs:
     uses: ./.github/workflows/reusable-lambda-deploy.yml
     with:
       service: sftp-transaction-collector
+      source_sha: ${{ github.event.workflow_run.head_sha || github.sha }}
     secrets: inherit
 
   deploy-aml-consumer:
@@ -96,6 +138,7 @@ jobs:
     uses: ./.github/workflows/reusable-lambda-deploy.yml
     with:
       service: aml-consumer
+      source_sha: ${{ github.event.workflow_run.head_sha || github.sha }}
     secrets: inherit
 
   deploy-audit-consumer:
@@ -107,6 +150,7 @@ jobs:
     uses: ./.github/workflows/reusable-lambda-deploy.yml
     with:
       service: audit-consumer
+      source_sha: ${{ github.event.workflow_run.head_sha || github.sha }}
     secrets: inherit
 
   deploy-log:
@@ -118,6 +162,7 @@ jobs:
     uses: ./.github/workflows/reusable-lambda-deploy.yml
     with:
       service: log
+      source_sha: ${{ github.event.workflow_run.head_sha || github.sha }}
     secrets: inherit
 
   deploy-frontend:
@@ -127,6 +172,8 @@ jobs:
     needs:
       - changes
     uses: ./.github/workflows/reusable-frontend-deploy.yml
+    with:
+      source_sha: ${{ github.event.workflow_run.head_sha || github.sha }}
     secrets: inherit
 
   merge-ecs-intents:
@@ -154,7 +201,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          REPO_SHA="${GITHUB_SHA}"
+          REPO_SHA="${SOURCE_SHA}"
           NOW_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
           jq -n --arg repo_sha "${REPO_SHA}" --arg created_at "${NOW_UTC}" '{repo_sha:$repo_sha, created_at:$created_at, ecs:{}}' > manifest-ecs.json
@@ -219,7 +266,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          REPO_SHA="${GITHUB_SHA}"
+          REPO_SHA="${SOURCE_SHA}"
           NOW_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
           jq -n --arg repo_sha "${REPO_SHA}" --arg created_at "${NOW_UTC}" '{repo_sha:$repo_sha, created_at:$created_at, lambda:{}}' > manifest-lambda.json
@@ -274,7 +321,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          REPO_SHA="${GITHUB_SHA}"
+          REPO_SHA="${SOURCE_SHA}"
           NOW_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
           jq -n --arg repo_sha "${REPO_SHA}" --arg created_at "${NOW_UTC}" '{repo_sha:$repo_sha, created_at:$created_at, frontend:{}}' > manifest-frontend.json
@@ -367,7 +414,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          REPO_SHA="${GITHUB_SHA}"
+          REPO_SHA="${SOURCE_SHA}"
           NOW_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           CURRENT_KEY="manifests/prod/current.json"
 
@@ -424,7 +471,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          REPO_SHA="${GITHUB_SHA}"
+          REPO_SHA="${SOURCE_SHA}"
           aws s3 cp manifest.json "s3://${MANIFEST_BUCKET}/manifests/prod/current.json"
           aws s3 cp manifest.json "s3://${MANIFEST_BUCKET}/manifests/prod/git/${REPO_SHA}.json"
 
