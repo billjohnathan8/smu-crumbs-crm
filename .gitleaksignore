@@ -12,3 +12,11 @@ cbc713a52411fb3be57d4a052c02699cd68ac6a3:platform/k8s/infra/jwt-keys.example.yam
 9e9fea7978ccd8ce16b23df20cd668ac1b3f7cad:run-sftp-seed.ps1:generic-api-key:5
 9e9fea7978ccd8ce16b23df20cd668ac1b3f7cad:run-sftp-seed.ps1:jwt:19
 30ff07328b02af80ca77c9da478479420f6f6be5:services/backend/aml/tests/test_auth_and_clients.py:private-key:430
+71ed16f44b554fec158a43f75f3a21b29a98babb:services/backend/client/src/test/java/com/scroogebank/crm/client_service/crypto/EncryptedStringConverterTest.java:generic-api-key:22
+b445e9289ff5f302588046af12a56bc3849e72d0:services/backend/client/src/test/java/com/scroogebank/crm/client_service/ClientsServiceApplicationTests.java:generic-api-key:23
+b445e9289ff5f302588046af12a56bc3849e72d0:services/backend/client/src/test/java/com/scroogebank/crm/client_service/crypto/EncryptedStringConverterTest.java:generic-api-key:13
+b445e9289ff5f302588046af12a56bc3849e72d0:services/backend/client/src/test/java/com/scroogebank/crm/client_service/crypto/PiiEncryptionStartupValidatorTest.java:generic-api-key:18
+b445e9289ff5f302588046af12a56bc3849e72d0:services/backend/client/src/test/java/com/scroogebank/crm/client_service/ClientsServiceIT.java:generic-api-key:71
+c77a881c32b371881be40863073b5c875fc0858d:HOTFIX_DEPLOYMENT_PLAN.md:infracost-api-token:88
+44791231c7fff299870e8201c9e6ad5ca10c7af3:services/backend/aml/tests/test_auth_and_clients.py:private-key:430
+c220ed137dce18c1328626183cac499c570f49e8:services/backend/aml/tests/test_auth_and_clients.py:private-key:413
