@@ -2,7 +2,7 @@
 #
 # Production runtime (AWS Lambda layer)
 paramiko==3.5.0          # SFTP client (swap MockSFTPClient for real implementation)
-cryptography==46.0.6     # Dependency of paramiko for SSH key handling
+cryptography==46.0.7     # Dependency of paramiko for SSH key handling (CVE-2026-39892 fix)
 
 # Testing
 pytest==8.3.5

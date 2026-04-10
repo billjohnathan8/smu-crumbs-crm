@@ -1,7 +1,7 @@
 ﻿# Core dependencies
 psycopg[binary]==3.2.13
 pydantic==2.12.5
-cryptography>=46.0.6,<47
+cryptography>=46.0.7,<47
 boto3>=1.28.0
 
 # Testing
