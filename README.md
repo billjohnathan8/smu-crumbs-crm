@@ -60,6 +60,30 @@ This system supports secure banking operations across user administration, clien
 - **Transactions and Compliance:** transaction retrieval/import workflows, audit logging, and AML alert pipelines.
 - **Cloud Operations:** Terraform-based provisioning, environment profiles, local AWS emulation, and deployment scripts.
 
+## 📱 User Interface Preview
+### Login
+![Login](docs/screens/login.png)
+
+### Dashboard & Administration
+![Admin Dashboard](docs/screens/dashboard-pt1.png)
+![Admin Dashboard Pt2](docs/screens/dashboard-pt2.png)
+
+### User Management
+![User Management](docs/screens/admin-mgmt.png)
+
+### Client Lifecycle
+![Clients](docs/screens/clients.png)
+![Client Profile](docs/screens/client-1.png)
+![Client Profile](docs/screens/client-2.png)
+![Client Profile](docs/screens/client-3.png)
+
+### Transactions & Monitoring
+![Transactions](docs/screens/transactions.png)
+![Logs](docs/screens/logs.png)
+
+### Compliance & Alerts
+![AML Alerts](docs/screens/aml.png)
+
 # 🧭 Getting Started
 
 ## 🧩 1. Prerequisites
