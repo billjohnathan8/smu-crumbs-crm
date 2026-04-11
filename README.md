@@ -28,7 +28,16 @@
 
 A **cloud-native enterprise CRM platform** built for Scrooge Global Bank as the flagship project for **SMU CS301** (IT Solution Architecture) in collaboration with **UBS Singapore**.
 
+![Dashboard](docs/screens/dashboard-pt1.png)
+
+
+
 This system supports secure banking operations across user administration, client onboarding, account management, transaction workflows, auditability, and verification pipelines.
+
+**Check out our project demo video below!**
+[![Project Demo Video](https://img.youtube.com/vi/rY69Sh_sGok/0.jpg)](https://www.youtube.com/watch?v=rY69Sh_sGok)
+*https://www.youtube.com/watch?v=rY69Sh_sGok*
+
 
 ## 🏆 Key Technical Achievements
 - **Performance:** Load-tested at **100 concurrent users** with target gates of **P95 < 5s** and **<1% error rate**, plus **200-thread stress** scenarios.
